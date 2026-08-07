@@ -41,6 +41,8 @@ class Migration(migrations.Migration):
                             ("synced", "Synced"),
                             ("failed", "Failed"),
                             ("withdrawn", "Withdrawn"),
+                            ("suppressed", "Suppressed"),
+                            ("orphaned", "Orphaned — accepted without an id"),
                         ],
                         db_index=True,
                         default="pending",

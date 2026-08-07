@@ -33,6 +33,7 @@ from decimal import Decimal
 
 import requests
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,10 @@ logger = logging.getLogger(__name__)
 # unambiguously "try again" — a 4xx other than 429 means the payload is wrong
 # and replaying it just burns the same rejection three times.
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+# What a create may retry on. 429 is the only answer that proves echo.lu did
+# not process the request; a 5xx or a lost socket may mean the listing exists
+# already, and replaying that is how you get two. See create_experience.
+CREATE_RETRY_STATUSES = frozenset({429})
 MAX_RETRIES = 3
 DEFAULT_RETRY_AFTER = 2.0
 # Ceiling on total sleep across retries. The sync can run from a request-thread
@@ -86,6 +91,16 @@ class EchoLuNotConfigured(EchoLuError):
     answers with a bare 401 that looks exactly like a revoked key."""
 
 
+class EchoLuOrphanedCreate(EchoLuError):
+    """echo.lu accepted a create but did not return an id.
+
+    Its own class because it is the one failure that must not be retried: the
+    listing exists, we hold no handle on it, and another create only adds a
+    second one. :func:`sync_event` reads the type to park the row in
+    ``ORPHANED`` rather than the ordinary retryable ``FAILED``.
+    """
+
+
 def is_sync_enabled():
     """True when this environment is allowed to write to echo.lu."""
     return bool(
@@ -103,13 +118,17 @@ def _setting_list(name, default=""):
 class EchoLuClient:
     """Thin wrapper over the echo.lu experiences API."""
 
-    def __init__(self, api_key=None, base_url=None, timeout=None):
+    def __init__(self, api_key=None, base_url=None, timeout=None, max_retries=None):
         self.api_key = (api_key or getattr(settings, "ECHO_LU_API_KEY", "")).strip()
         base = base_url or getattr(
             settings, "ECHO_LU_API_BASE_URL", "https://api.echo.lu/v1"
         )
         self.base_url = base.strip().rstrip("/")
         self.timeout = timeout or getattr(settings, "ECHO_LU_TIMEOUT_SECONDS", 20)
+        # Callers running inside an HTTP request pass 0: retries are what turn
+        # one slow call into a minute of held request, and the hourly sweep is
+        # already the retry for anything the fast path drops.
+        self.max_retries = MAX_RETRIES if max_retries is None else max_retries
 
     def _headers(self):
         if not self.api_key:
@@ -123,18 +142,30 @@ class EchoLuClient:
             "Accept": "application/json",
         }
 
-    def _request(self, method, path, json_body=None, params=None):
+    def _request(self, method, path, json_body=None, params=None, retry_statuses=None):
         """Send one API call, retrying only transient failures.
 
         Returns the decoded JSON body (or ``{}`` for an empty 204), and raises
         ``EchoLuError`` for anything that is not a 2xx.
+
+        ``retry_statuses`` narrows what counts as retryable, and passing a set
+        that excludes the 5xx family also switches off transport-level retries
+        — see :meth:`create_experience` for why that pairing is the point.
         """
+        if retry_statuses is None:
+            retry_statuses = RETRY_STATUSES
+        # A dropped socket and a 502 are indistinguishable from here: either
+        # can mean "echo.lu never saw it" or "echo.lu committed it and we lost
+        # the answer". A caller that has narrowed the status set to the
+        # unambiguous ones is telling us replays are unsafe, so a lost socket
+        # must not be replayed either.
+        retry_transport = bool(retry_statuses & {500, 502, 503, 504})
         url = f"{self.base_url}/{path.lstrip('/')}"
         headers = self._headers()
         slept = 0.0
         last_response = None
 
-        for attempt in range(MAX_RETRIES + 1):
+        for attempt in range(self.max_retries + 1):
             try:
                 response = requests.request(
                     method,
@@ -148,14 +179,18 @@ class EchoLuClient:
                 # A connection error is transient in the same way a 503 is, so
                 # it gets the same budget rather than failing the whole sync on
                 # one dropped socket.
-                if attempt >= MAX_RETRIES or slept + DEFAULT_RETRY_AFTER > RETRY_BUDGET_SECONDS:
+                if (
+                    not retry_transport
+                    or attempt >= self.max_retries
+                    or slept + DEFAULT_RETRY_AFTER > RETRY_BUDGET_SECONDS
+                ):
                     raise EchoLuError(f"echo.lu {method} {path} failed: {exc}") from exc
                 time.sleep(DEFAULT_RETRY_AFTER)
                 slept += DEFAULT_RETRY_AFTER
                 continue
 
             last_response = response
-            if response.status_code not in RETRY_STATUSES:
+            if response.status_code not in retry_statuses:
                 break
 
             retry_after = DEFAULT_RETRY_AFTER
@@ -166,7 +201,10 @@ class EchoLuClient:
                 except (TypeError, ValueError):
                     pass
 
-            if attempt >= MAX_RETRIES or slept + retry_after > RETRY_BUDGET_SECONDS:
+            if (
+                attempt >= self.max_retries
+                or slept + retry_after > RETRY_BUDGET_SECONDS
+            ):
                 break
 
             logger.warning(
@@ -175,7 +213,7 @@ class EchoLuClient:
                 path,
                 response.status_code,
                 attempt + 1,
-                MAX_RETRIES,
+                self.max_retries,
                 retry_after,
             )
             time.sleep(retry_after)
@@ -204,12 +242,24 @@ class EchoLuClient:
     # --- experiences -----------------------------------------------------
 
     def create_experience(self, payload):
-        return self._request("POST", "/experiences", json_body=payload)
+        """Create a listing. The one call here that must never be replayed.
+
+        Every other endpoint is idempotent — the same PUT, PATCH or DELETE
+        twice leaves echo.lu in the state one of them would have. A create is
+        not: there is no idempotency key and no external-reference field, so a
+        replay after a timeout echo.lu had already committed produces a second
+        listing whose id we never learn. Retrying is therefore restricted to
+        429, the one answer that says outright the request was not processed.
+        """
+        return self._request(
+            "POST",
+            "/experiences",
+            json_body=payload,
+            retry_statuses=CREATE_RETRY_STATUSES,
+        )
 
     def update_experience(self, experience_id, payload):
-        return self._request(
-            "PUT", f"/experiences/{experience_id}", json_body=payload
-        )
+        return self._request("PUT", f"/experiences/{experience_id}", json_body=payload)
 
     def get_experience(self, experience_id):
         return self._request("GET", f"/experiences/{experience_id}")
@@ -361,19 +411,26 @@ def parse_address(address, canton=""):
         if not match:
             continue
         postcode = match.group(1)
-        town = line[: match.start()].strip(" ,-") + " " + line[match.end():].strip(" ,-")
-        town = town.strip(" ,-")
         if index == 0:
-            # Single-line address: everything before the postcode is the street.
+            # Single-line address: everything before the postcode is the
+            # street, everything after it is the town.
             street_line = line[: match.start()].strip(" ,-")
-            town = line[match.end():].strip(" ,-")
+            town = line[match.end() :].strip(" ,-")
+        else:
+            # A line of its own: the town is whatever sits either side of the
+            # postcode, and line 0 stays the street.
+            town = (
+                line[: match.start()].strip(" ,-")
+                + " "
+                + line[match.end() :].strip(" ,-")
+            ).strip(" ,-")
         break
 
     number = ""
     leading = _LEADING_NUMBER_RE.match(street_line)
     if leading:
         number = leading.group(1).strip()
-        street_line = street_line[leading.end():].strip(" ,")
+        street_line = street_line[leading.end() :].strip(" ,")
     else:
         trailing = _TRAILING_NUMBER_RE.search(street_line)
         if trailing:
@@ -532,6 +589,38 @@ def payload_fingerprint(payload):
 # ---------------------------------------------------------------------------
 
 
+def _write_experience(sync, payload, fingerprint, client):
+    """Send one write for `sync` and record the id it settles on.
+
+    Raises :class:`EchoLuError` *without* recording the failure: on the create
+    path this runs inside a transaction, and the raise would roll back the very
+    row that says what went wrong. :func:`sync_event` records it after the
+    transaction has unwound.
+    """
+    if sync.experience_id:
+        response = client.update_experience(sync.experience_id, payload)
+        outcome = "updated"
+    else:
+        response = client.create_experience(payload)
+        outcome = "created"
+
+    experience_id = extract_experience_id(response) or sync.experience_id
+    if not experience_id:
+        # A create that returns 2xx with no id leaves an orphan listing we can
+        # never update or delete. Storing a blank id would make every later
+        # sync create another one beside it, so the row goes to a state that
+        # blocks automatic creates outright until somebody resolves it.
+        raise EchoLuOrphanedCreate(
+            "echo.lu accepted the experience but returned no id; the listing "
+            "exists and is now untracked — run `sync_events_to_echo --audit` "
+            "to find it, then adopt its id or delete it in the organiser back "
+            "office. No further create will be attempted for this event."
+        )
+
+    sync.mark_success(experience_id, fingerprint)
+    return outcome
+
+
 def sync_event(event, client=None, force=False, dry_run=False):
     """Bring echo.lu in line with one event.
 
@@ -564,6 +653,23 @@ def sync_event(event, client=None, force=False, dry_run=False):
     if sync is None:
         sync, _created = EchoExperienceSync.objects.get_or_create(event=event)
 
+    if sync.status == EchoExperienceSync.Status.ORPHANED:
+        # A listing exists that we hold no id for. Every route out of here is
+        # manual, and `force` deliberately does not override it: the one thing
+        # this state exists to prevent is a second create, and that is exactly
+        # what forcing would do.
+        return "blocked"
+
+    if (
+        not force
+        and sync.status == EchoExperienceSync.Status.SUPPRESSED
+        and sync.experience_id
+    ):
+        # Taken down by hand while still eligible. The event's own fields say
+        # "publish me", so without this the next pass would put it straight
+        # back and the removal would look like it never happened.
+        return "suppressed"
+
     if (
         not force
         and sync.status == EchoExperienceSync.Status.SYNCED
@@ -575,36 +681,54 @@ def sync_event(event, client=None, force=False, dry_run=False):
     client = client or EchoLuClient()
     try:
         if sync.experience_id:
-            response = client.update_experience(sync.experience_id, payload)
-            outcome = "updated"
+            # A PUT is idempotent: two of them for the same event settle on the
+            # same listing, so the steady state takes no lock.
+            outcome = _write_experience(sync, payload, fingerprint, client)
         else:
-            response = client.create_experience(payload)
-            outcome = "created"
+            # The POST is the one non-idempotent call in this module, and
+            # echo.lu's create payload carries no external-reference field, so
+            # a second POST for the same event yields a duplicate listing whose
+            # id we never learn — the exact failure this module is built
+            # around. Three entry points reach here (the save-signal task, the
+            # hourly sweep, the admin action) and nothing stops two of them
+            # landing on the same event at once, so the "no id yet" decision is
+            # re-made against a locked row rather than trusted from the read
+            # above, and the id is written back before the lock drops. A caller
+            # that loses the race wakes up, sees the id, and updates instead.
+            #
+            # This holds the row lock across the HTTP call, which is the only
+            # way check-then-POST is atomic. It is bounded by the client's
+            # retry budget, and it is scoped to the create alone: every later
+            # sync of this event takes the unlocked path above.
+            with transaction.atomic():
+                sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+                # Re-point the caller's event at the row we actually wrote.
+                # The locked read replaced the instance `event.echo_sync` still
+                # holds, and that stale copy has no experience_id — so a caller
+                # that syncs and then withdraws in the same breath would look
+                # at it, conclude nothing was ever published, and skip.
+                event.echo_sync = sync
+                outcome = _write_experience(sync, payload, fingerprint, client)
+    except EchoLuOrphanedCreate as exc:
+        # Terminal, not retryable — park it where the create branch is closed.
+        sync.mark_orphaned(exc)
+        raise
     except EchoLuError as exc:
+        # Out here rather than at the raise site: inside the atomic block the
+        # rollback would discard the failure row along with the failed write.
         sync.mark_failure(exc)
         raise
 
-    experience_id = extract_experience_id(response) or sync.experience_id
-    if not experience_id:
-        # A create that returns 2xx with no id leaves an orphan listing we can
-        # never update or delete. Record it loudly instead of storing a blank
-        # id and creating a fresh duplicate on every subsequent sync.
-        error = EchoLuError(
-            "echo.lu accepted the experience but returned no id; the listing "
-            "exists and is now untracked — find it in the organiser back "
-            "office before re-running the sync"
-        )
-        sync.mark_failure(error)
-        raise error
-
-    sync.mark_success(experience_id, fingerprint)
     logger.info(
-        "echo.lu experience %s for event %s (%s)", experience_id, event.pk, outcome
+        "echo.lu experience %s for event %s (%s)",
+        sync.experience_id,
+        event.pk,
+        outcome,
     )
     return outcome
 
 
-def withdraw_event(event, client=None, dry_run=False):
+def withdraw_event(event, client=None, dry_run=False, explicit=False):
     """Take an event's listing down from echo.lu.
 
     Cancelled events are *cancelled* on echo.lu rather than deleted: the portal
@@ -612,6 +736,15 @@ def withdraw_event(event, client=None, dry_run=False):
     listing needs to see. Everything else (unpublished, gone private, past its
     end) is unpublished, which removes it from the public site while leaving
     the experience addressable so re-publishing reuses the same listing.
+
+    Cancelling only applies while the event is otherwise still public, because
+    a cancellation notice is a *published* thing — it keeps the title, venue
+    and date on a national portal. An event that was cancelled and also pulled
+    from public view has to come down properly: privacy is the stronger
+    instruction, so it is unpublished instead and nobody is told why.
+
+    `explicit` marks a take-down somebody asked for by hand, as opposed to one
+    the event's own state implied — see ``EchoExperienceSync.mark_withdrawn``.
     """
     from ..models.echo_lu import EchoExperienceSync
 
@@ -623,9 +756,10 @@ def withdraw_event(event, client=None, dry_run=False):
     if not is_sync_enabled():
         return "disabled"
 
+    still_public = event.is_published and not event.is_private_invitation
     client = client or EchoLuClient()
     try:
-        if event.is_cancelled:
+        if event.is_cancelled and still_public:
             client.cancel_experience(sync.experience_id)
         else:
             client.unpublish_experience(sync.experience_id)
@@ -633,7 +767,7 @@ def withdraw_event(event, client=None, dry_run=False):
         sync.mark_failure(exc)
         raise
 
-    sync.mark_withdrawn()
+    sync.mark_withdrawn(explicit=explicit)
     logger.info(
         "echo.lu experience %s withdrawn for event %s", sync.experience_id, event.pk
     )
@@ -699,10 +833,27 @@ def events_needing_sync(queryset=None):
         is_cancelled=False,
         is_private_invitation=False,
         date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+    ).exclude(
+        # Both states describe a listing that must not be (re)created from the
+        # event's fields alone: one was taken down by hand while the event
+        # still qualified, the other has an untracked listing already live.
+        # Everything else here keys off the event, which still says "publish
+        # me", so only the sync row can rule them out.
+        echo_sync__status__in=[
+            EchoExperienceSync.Status.SUPPRESSED,
+            EchoExperienceSync.Status.ORPHANED,
+        ]
     )
     withdrawable = (
         queryset.filter(echo_sync__isnull=False)
         .exclude(echo_sync__experience_id="")
-        .exclude(echo_sync__status=EchoExperienceSync.Status.WITHDRAWN)
+        .exclude(
+            # Already down, by either route — taking it down again is a wasted
+            # API call whose only effect is to reset the timestamps.
+            echo_sync__status__in=[
+                EchoExperienceSync.Status.WITHDRAWN,
+                EchoExperienceSync.Status.SUPPRESSED,
+            ]
+        )
     )
     return (publishable | withdrawable).distinct().select_related("echo_sync")

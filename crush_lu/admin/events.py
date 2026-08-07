@@ -684,7 +684,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         ]
         if sync.last_synced_at:
             rows.append(
-                format_html("Last synced: {}", sync.last_synced_at.strftime("%Y-%m-%d %H:%M"))
+                format_html(
+                    "Last synced: {}", sync.last_synced_at.strftime("%Y-%m-%d %H:%M")
+                )
             )
         if sync.last_error:
             rows.append(
@@ -750,7 +752,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         withdrawn = 0
         for event in queryset.select_related("echo_sync"):
             try:
-                if echo_lu.withdraw_event(event, client=client) == "withdrawn":
+                # explicit: the coach is removing a listing whose event may
+                # still qualify, so the row has to hold the removal against
+                # the next sweep rather than be re-published within the hour.
+                if (
+                    echo_lu.withdraw_event(event, client=client, explicit=True)
+                    == "withdrawn"
+                ):
                     withdrawn += 1
             except echo_lu.EchoLuError as exc:
                 django_messages.error(request, f"[{event.pk}] {event.title}: {exc}")

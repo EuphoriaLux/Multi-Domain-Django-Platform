@@ -36,6 +36,11 @@ invitation-only by design, and echo.lu is a public, indexed, national listing.
    ECHO_LU_CONTACT_PHONE=+352...
    ```
 
+   Two more have sensible defaults and only need setting if echo.lu turns out
+   to be slower than expected: `ECHO_LU_SIGNAL_TIMEOUT_SECONDS` (5) caps what
+   an event save spends on the sync, and `ECHO_LU_SWEEP_BUDGET_SECONDS` (90)
+   caps one hourly pass. See *How it stays in sync* for why both exist.
+
    `ECHO_LU_SYNC_ENABLED` defaults to **false** everywhere. Nothing is written
    to echo.lu until it is explicitly turned on, so a restored production
    database on staging cannot mutate live listings just by inheriting the key.
@@ -96,6 +101,24 @@ Three paths, each covering what the others cannot:
 
 Everything is idempotent. In the steady state the sweep makes zero API calls.
 
+**"Background" is optimistic on the save path.** `DJANGO_TASKS_BACKEND` is
+unset in production, so `TASKS` falls back to `ImmediateBackend` and `.enqueue()`
+runs the sync inline in the request that saved the event. That path therefore
+uses a deliberately impatient client — `ECHO_LU_SIGNAL_TIMEOUT_SECONDS`
+(default 5) with retries off — so an unreachable echo.lu costs an admin save a
+few seconds rather than a minute. Anything it drops is picked up by the sweep.
+
+**The sweep bounds itself.** The Function allows 110s and one event can spend
+most of a minute against a struggling echo.lu, so a pass stops at
+`ECHO_LU_SWEEP_BUDGET_SECONDS` (default 90) and reports what it left. The next
+hour resumes with the remainder — the selection is by state, not by cursor, so
+nothing is skipped. Override per-run with `--max-seconds`.
+
+**Failures reach the timer.** If any event fails, the command exits non-zero
+and the endpoint answers 500, so the Function's failure count moves. A revoked
+key or a long outage shows up there instead of staying green on a job that
+quietly synced nothing.
+
 To check the two sides agree — including listings echo.lu holds that we have no
 id for, which are invisible from our side by definition:
 
@@ -112,6 +135,12 @@ python manage.py sync_events_to_echo --audit
 - Everything else (unpublished, gone private, finished) is *unpublished*: it
   leaves the public site but the experience stays addressable, so re-publishing
   updates the same listing instead of creating a second one.
+
+Cancelling only applies while the event is *otherwise still public*. A
+cancellation notice is a published thing — it keeps the title, venue and date
+on a national portal — so an event that was cancelled **and** unpublished or
+made invitation-only is unpublished instead. Privacy is the stronger
+instruction; nobody is told why.
 
 The experience id is kept in both cases. `delete_event_listing()` exists for
 genuine mistakes — an event that should never have been published at all.
@@ -139,9 +168,34 @@ python manage.py sync_events_to_echo --withdraw --all-listed   # everything
 
 Or the **🚫 Remove selected events from echo.lu** admin action.
 
+Both of those are *explicit* take-downs: they can hit an event that still
+qualifies for a listing, so the sync row is parked in **Suppressed** rather
+than Withdrawn. The difference is what the hourly sweep does next — a
+Withdrawn event re-publishes by itself once it qualifies again, a Suppressed
+one stays down, because the event's own fields still say "publish me" and
+nothing else would stop the next pass putting it straight back. To undo one,
+use the **🌍 Sync selected events to echo.lu** admin action or
+`--event-id N --force`.
+
 **Deleting a MeetupEvent row deletes its sync record too** (cascade), which
 loses the experience id and orphans the listing on echo.lu. Withdraw first,
 then delete.
+
+### Orphaned listings
+
+If echo.lu answers a create with 2xx but no id, a listing now exists that we
+hold no handle on. The row goes to **Orphaned**, which blocks every automatic
+create for that event — including `--force`, because a second create is the
+one thing this state exists to prevent. It is the only status that needs a
+human:
+
+```bash
+python manage.py sync_events_to_echo --audit    # find the listing
+```
+
+Then either adopt it — set `experience_id` on the event's `EchoExperienceSync`
+row in the admin and change the status back to Pending — or delete it in the
+organiser back office and clear the row.
 
 ## Field mapping
 

@@ -117,9 +117,18 @@ class Command(BaseCommand):
                 configured["categories"].extend(values or [])
 
         problems = 0
+        unchecked = []
         self.stdout.write(self.style.SUCCESS("\nConfigured slug check:"))
         for kind, values in configured.items():
             if kind not in available:
+                # Either the fetch failed or this run never asked for it
+                # (--kind narrows the set, --json skips parsing). Passing over
+                # it silently is how "all configured slugs exist" ends up
+                # printed for a facet nobody looked at — and one bad slug
+                # rejects the whole experience, so a check that cannot see a
+                # facet has not passed, it has not run.
+                if values:
+                    unchecked.append(kind)
                 continue
             for value in dict.fromkeys(values):
                 if value in available[kind]:
@@ -130,6 +139,16 @@ class Command(BaseCommand):
                         self.style.ERROR(f"  ✗ {kind}: {value} — not in echo.lu")
                     )
 
+        if unchecked:
+            self.stdout.write(
+                self.style.ERROR(
+                    f"\nNot checked: {', '.join(sorted(unchecked))}. These have "
+                    "configured slugs but echo.lu's vocabulary was not read — "
+                    "the request failed, or --kind/--json skipped it. Re-run "
+                    "`echo_taxonomy --check` on its own before enabling sync."
+                )
+            )
+
         if problems:
             self.stdout.write(
                 self.style.ERROR(
@@ -138,8 +157,17 @@ class Command(BaseCommand):
                     "until these are corrected or removed."
                 )
             )
-        else:
-            self.stdout.write(self.style.SUCCESS("  all configured slugs exist"))
+
+        if problems or unchecked:
+            # Non-zero exit: this command's whole job is to be the gate before
+            # ECHO_LU_SYNC_ENABLED goes true, and a gate that exits 0 on an
+            # incomplete check is one an operator reads as a green light.
+            raise CommandError(
+                f"Slug check did not pass: {problems} unknown, "
+                f"{len(unchecked)} facet(s) unverified."
+            )
+
+        self.stdout.write(self.style.SUCCESS("  all configured slugs exist"))
 
 
 def _split(raw):

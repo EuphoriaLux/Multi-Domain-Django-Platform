@@ -34,11 +34,23 @@ class EchoExperienceSync(models.Model):
         SYNCED = "synced", _("Synced")
         # The last call failed; `last_error` says how. Retried on next sweep.
         FAILED = "failed", _("Failed")
-        # Deliberately taken down (unpublished, cancelled, went private).
-        # `experience_id` is kept: echo.lu keeps cancelled experiences
-        # addressable, so re-publishing updates the same listing instead of
-        # creating a second one.
+        # Taken down because the event stopped qualifying (unpublished,
+        # cancelled, went private, finished). `experience_id` is kept: echo.lu
+        # keeps cancelled experiences addressable, so re-publishing updates the
+        # same listing instead of creating a second one. The sweep is free to
+        # re-publish one of these the moment the event qualifies again.
         WITHDRAWN = "withdrawn", _("Withdrawn")
+        # Taken down *by hand* — the admin's remove action or `--withdraw` —
+        # while the event still qualifies for a listing. Distinct from
+        # WITHDRAWN because the sweep must not undo it: the event's own fields
+        # still say "publish me", so nothing else would stop the next pass
+        # putting it straight back. Cleared only by an intentional re-sync.
+        SUPPRESSED = "suppressed", _("Suppressed")
+        # echo.lu accepted a create but returned no id, so a listing exists
+        # that we cannot address. Creating again would add a second one, so
+        # this state blocks automatic creates until somebody finds the listing
+        # (`--audit`) and either adopts its id or deletes it.
+        ORPHANED = "orphaned", _("Orphaned — accepted without an id")
 
     event = models.OneToOneField(
         "crush_lu.MeetupEvent",
@@ -158,8 +170,35 @@ class EchoExperienceSync(models.Model):
             ]
         )
 
-    def mark_withdrawn(self):
+    def mark_orphaned(self, error):
+        """Record a create that was accepted without giving us an id.
+
+        A listing now exists on echo.lu that we hold no handle on. Anything
+        that would issue another create has to stop here — a retry does not
+        recover the lost id, it just adds a second listing beside it. Recovery
+        is manual and starts with `sync_events_to_echo --audit`.
+        """
+        now = timezone.now()
+        self.status = self.Status.ORPHANED
+        self.last_attempted_at = now
+        self.last_error = str(error)[:2000]
+        self.save(
+            update_fields=[
+                "status",
+                "last_attempted_at",
+                "last_error",
+                "updated_at",
+            ]
+        )
+
+    def mark_withdrawn(self, explicit=False):
         """Record that the listing was taken down on purpose.
+
+        `explicit` separates the two ways that happens. Left False, the event
+        itself stopped qualifying, and the sweep should put the listing back as
+        soon as it qualifies again. Set True, somebody removed a still-eligible
+        event by hand — and because the event's own fields still say "publish
+        me", only a status the sweep respects keeps it down.
 
         The fingerprint is cleared so that re-publishing later always sends a
         full update: while withdrawn, edits to the event go unsynced, and a
@@ -167,7 +206,7 @@ class EchoExperienceSync(models.Model):
         without echo.lu ever being told it is live again.
         """
         now = timezone.now()
-        self.status = self.Status.WITHDRAWN
+        self.status = self.Status.SUPPRESSED if explicit else self.Status.WITHDRAWN
         self.payload_hash = ""
         self.last_attempted_at = now
         self.last_synced_at = now

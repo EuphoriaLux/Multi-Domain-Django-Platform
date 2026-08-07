@@ -840,6 +840,22 @@ ECHO_LU_API_BASE_URL = os.environ.get(
 # staging, a local shell) cannot mutate live echo.lu listings by accident.
 ECHO_LU_SYNC_ENABLED = _env_bool("ECHO_LU_SYNC_ENABLED", False)
 ECHO_LU_TIMEOUT_SECONDS = int(os.environ.get("ECHO_LU_TIMEOUT_SECONDS", "20"))
+# What the save-signal path is allowed to spend. DJANGO_TASKS_BACKEND is unset
+# in production, so TASKS uses ImmediateBackend and .enqueue() runs the sync
+# inside the request that saved the event — the same trap
+# PASSKIT_BULK_PUSH_BUDGET_SECONDS exists for. This timeout, with retries off,
+# is what stops an unreachable echo.lu from holding an admin save open; the
+# hourly sweep picks up whatever the fast path drops.
+ECHO_LU_SIGNAL_TIMEOUT_SECONDS = float(
+    os.environ.get("ECHO_LU_SIGNAL_TIMEOUT_SECONDS", "5")
+)
+# Wall-clock ceiling on one reconciliation pass. The EchoLuSync Function gives
+# the endpoint 110s, and an unbounded sweep can exceed that on a handful of
+# slow events — so the pass stops here and the next hour resumes where it left
+# off, rather than being killed mid-event.
+ECHO_LU_SWEEP_BUDGET_SECONDS = float(
+    os.environ.get("ECHO_LU_SWEEP_BUDGET_SECONDS", "90")
+)
 
 # Public organiser contact echoed onto every experience. echo.lu shows these on
 # the listing page, so they must be addresses we actually monitor — not the

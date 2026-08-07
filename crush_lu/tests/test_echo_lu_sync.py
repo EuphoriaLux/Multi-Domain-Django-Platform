@@ -18,15 +18,16 @@ Run with: pytest crush_lu/tests/test_echo_lu_sync.py -v
 
 from datetime import timedelta
 from decimal import Decimal
+from io import StringIO
 from unittest import mock
 
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.models import MeetupEvent
 from crush_lu.models.echo_lu import EchoExperienceSync
 from crush_lu.services import echo_lu
-
 
 ENABLED = {"ECHO_LU_SYNC_ENABLED": True, "ECHO_LU_API_KEY": "test-key"}
 
@@ -187,7 +188,9 @@ class PayloadTests(TestCase):
     def test_free_event_gets_an_explicit_zero_price_ticket(self):
         # No tickets at all reads as "price unknown", which costs signups.
         tickets = echo_lu.build_experience_payload(make_event())["tickets"]
-        self.assertEqual(tickets, [{"title": "Free entry", "price": 0, "currency": "EUR"}])
+        self.assertEqual(
+            tickets, [{"title": "Free entry", "price": 0, "currency": "EUR"}]
+        )
 
     def test_paid_event_sends_the_fee(self):
         event = make_event(registration_fee=Decimal("15.50"))
@@ -201,9 +204,7 @@ class PayloadTests(TestCase):
         self.assertNotIn("longitude", address)
 
     def test_coordinates_are_strings_when_known(self):
-        event = make_event(
-            latitude=Decimal("49.611622"), longitude=Decimal("6.131935")
-        )
+        event = make_event(latitude=Decimal("49.611622"), longitude=Decimal("6.131935"))
         address = echo_lu.build_experience_payload(event)["location"]["address"]
         self.assertEqual(address["latitude"], "49.611622")
         self.assertEqual(address["longitude"], "6.131935")
@@ -296,14 +297,10 @@ class ExtractExperienceIdTests(TestCase):
         self.assertEqual(echo_lu.extract_experience_id({"id": "abc"}), "abc")
 
     def test_camel_case_id(self):
-        self.assertEqual(
-            echo_lu.extract_experience_id({"experienceId": "abc"}), "abc"
-        )
+        self.assertEqual(echo_lu.extract_experience_id({"experienceId": "abc"}), "abc")
 
     def test_nested_in_data(self):
-        self.assertEqual(
-            echo_lu.extract_experience_id({"data": {"_id": "abc"}}), "abc"
-        )
+        self.assertEqual(echo_lu.extract_experience_id({"data": {"_id": "abc"}}), "abc")
 
     def test_absent_id_returns_empty(self):
         self.assertEqual(echo_lu.extract_experience_id({"ok": True}), "")
@@ -337,6 +334,43 @@ class SyncEventTests(TestCase):
 
         self.assertEqual([call[0] for call in client.calls], ["create", "update"])
         self.assertEqual(EchoExperienceSync.objects.filter(event=event).count(), 1)
+
+    def test_a_concurrent_create_is_not_repeated(self):
+        # Two of the three entry points (save-signal task, hourly sweep, admin
+        # action) can reach an event's first sync at once. The loser holds an
+        # instance that still says "no experience_id" — if that stale read
+        # decided the call, it would POST a second time and echo.lu would show
+        # the event twice under an id we never learn about. The decision is
+        # re-made against the locked row, so it must come out as an update.
+        event = make_event()
+        sync = EchoExperienceSync.objects.create(event=event)
+        event.echo_sync = sync  # the stale, pre-race instance
+
+        # Stand in for the winner: the id lands in the database behind the
+        # instance's back, exactly as a parallel process would leave it.
+        EchoExperienceSync.objects.filter(pk=sync.pk).update(experience_id="exp-123")
+        self.assertEqual(sync.experience_id, "")
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "updated")
+
+        self.assertEqual([call[0] for call in client.calls], ["update"])
+        self.assertEqual(client.calls[0][1], "exp-123")
+        self.assertEqual(EchoExperienceSync.objects.filter(event=event).count(), 1)
+
+    def test_a_rejected_create_is_still_recorded(self):
+        # The create runs inside a transaction so the id cannot be written
+        # after the lock drops. That transaction must not swallow the failure
+        # row with it: a rejection the admin cannot see is a silent outage.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuError("422 unknown category slug"))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertIn("unknown category slug", sync.last_error)
 
     def test_unchanged_payload_costs_no_api_call(self):
         event = make_event()
@@ -401,12 +435,37 @@ class SyncEventTests(TestCase):
         event = make_event()
         client = FakeClient(create_response={"ok": True})
 
-        with self.assertRaises(echo_lu.EchoLuError):
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
             echo_lu.sync_event(event, client=client)
 
         sync = EchoExperienceSync.objects.get(event=event)
-        self.assertEqual(sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.ORPHANED)
         self.assertEqual(sync.experience_id, "")
+
+    def test_an_orphaned_create_is_never_repeated(self):
+        # The listing from the id-less create is already live and unreachable.
+        # Creating again would put a second one beside it, so this state has to
+        # stop the sweep, the signal and --force alike; recovery is --audit.
+        event = make_event()
+        client = FakeClient(create_response={"ok": True})
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(event, client=client)
+        self.assertEqual([call[0] for call in client.calls], ["create"])
+
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "blocked")
+        self.assertEqual(
+            echo_lu.sync_event(event, client=client, force=True), "blocked"
+        )
+        self.assertEqual([call[0] for call in client.calls], ["create"])
+
+    def test_an_orphaned_event_is_left_out_of_the_sweep(self):
+        event = make_event()
+        client = FakeClient(create_response={"ok": True})
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
 
     def test_unpublishing_withdraws_the_listing(self):
         event = make_event()
@@ -423,6 +482,81 @@ class SyncEventTests(TestCase):
         self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
         # The id survives so re-publishing reuses the same listing.
         self.assertEqual(sync.experience_id, "exp-123")
+
+    def test_privacy_beats_a_cancellation_notice(self):
+        # A cancellation notice is a published thing: it keeps the title,
+        # venue and date on a national portal. An event that was cancelled AND
+        # pulled from public view must come down properly instead — the
+        # organiser asked for privacy, and that outranks telling people why.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        event.is_cancelled = True
+        event.is_private_invitation = True
+        event.save()
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=client)
+
+        self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+
+    def test_an_explicit_withdrawal_survives_the_sweep(self):
+        # --withdraw and the admin's remove action take down a listing whose
+        # event still qualifies. Nothing in the event's own fields records
+        # that, so without a status the sweep respects, the next hourly pass
+        # would put it straight back and the removal would look accidental.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        echo_lu.withdraw_event(event, client=client, explicit=True)
+        event.refresh_from_db()
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.SUPPRESSED)
+        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+        self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+
+    def test_an_explicit_withdrawal_can_be_deliberately_undone(self):
+        # The suppression holds against the sweep, not against a coach who
+        # asks for the listing back through the admin's sync action.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        echo_lu.withdraw_event(event, client=client, explicit=True)
+        event.refresh_from_db()
+
+        self.assertEqual(
+            echo_lu.sync_event(event, client=client, force=True), "updated"
+        )
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.SYNCED,
+        )
+
+    def test_an_automatic_withdrawal_still_comes_back(self):
+        # The other half of the distinction: an event withdrawn because it
+        # stopped qualifying must re-publish by itself once it qualifies
+        # again, with no manual step.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        event.is_published = False
+        event.save()
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=client)
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.WITHDRAWN,
+        )
+
+        event.is_published = True
+        event.save()
+        event.refresh_from_db()
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
+        self.assertEqual(echo_lu.sync_event(event, client=client), "updated")
 
     def test_cancelling_cancels_rather_than_unpublishes(self):
         # Somebody who already saw the listing needs to see a cancellation,
@@ -586,17 +720,73 @@ class ClientTransportTests(TestCase):
         self.assertEqual(caught.exception.status_code, 422)
 
     def test_server_error_is_retried_then_raised(self):
-        with mock.patch("crush_lu.services.echo_lu.requests.request") as request, \
-                mock.patch("crush_lu.services.echo_lu.time.sleep"):
+        # An update is idempotent, so replaying it costs nothing but time.
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
+            request.return_value = self._response(status=503)
+            with self.assertRaises(echo_lu.EchoLuError):
+                echo_lu.EchoLuClient().update_experience("exp-1", {})
+
+        self.assertGreater(request.call_count, 1)
+
+    def test_a_create_is_not_retried_after_a_server_error(self):
+        # A 503 does not say whether echo.lu committed the experience before
+        # it fell over. There is no idempotency key and no external reference,
+        # so a replay that guesses wrong publishes the event twice under an id
+        # we never see — worse than the failure we are retrying.
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
             request.return_value = self._response(status=503)
             with self.assertRaises(echo_lu.EchoLuError):
                 echo_lu.EchoLuClient().create_experience({})
 
-        self.assertGreater(request.call_count, 1)
+        self.assertEqual(request.call_count, 1)
+
+    def test_a_create_is_not_retried_after_a_dropped_connection(self):
+        # Same reasoning as the 503: a read timeout is the case where echo.lu
+        # is most likely to have committed the write we did not hear about.
+        import requests as requests_lib
+
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
+            request.side_effect = requests_lib.ConnectionError("reset")
+            with self.assertRaises(echo_lu.EchoLuError):
+                echo_lu.EchoLuClient().create_experience({})
+
+        self.assertEqual(request.call_count, 1)
+
+    def test_a_rate_limited_create_is_retried(self):
+        # 429 is the one answer that says outright it was not processed.
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
+            request.side_effect = [
+                self._response(status=429, headers={"Retry-After": "1"}),
+                self._response(json_body={"id": "exp-9"}),
+            ]
+            self.assertEqual(
+                echo_lu.EchoLuClient().create_experience({}), {"id": "exp-9"}
+            )
+
+    def test_a_no_retry_client_gives_up_immediately(self):
+        # What the save-signal path uses, so an unreachable echo.lu cannot
+        # hold an admin save open for a minute of retries.
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
+            request.return_value = self._response(status=503)
+            with self.assertRaises(echo_lu.EchoLuError):
+                echo_lu.EchoLuClient(max_retries=0).update_experience("exp-1", {})
+
+        self.assertEqual(request.call_count, 1)
 
     def test_retry_succeeds_on_the_second_attempt(self):
-        with mock.patch("crush_lu.services.echo_lu.requests.request") as request, \
-                mock.patch("crush_lu.services.echo_lu.time.sleep"):
+        with mock.patch(
+            "crush_lu.services.echo_lu.requests.request"
+        ) as request, mock.patch("crush_lu.services.echo_lu.time.sleep"):
             request.side_effect = [
                 self._response(status=429, headers={"Retry-After": "1"}),
                 self._response(json_body={"id": "exp-9"}),
@@ -627,10 +817,6 @@ class SyncCommandTests(TestCase):
     """The command is the scheduled entry point, so its guards matter."""
 
     def _run(self, *args, **kwargs):
-        from io import StringIO
-
-        from django.core.management import call_command
-
         out = StringIO()
         call_command("sync_events_to_echo", *args, stdout=out, stderr=out, **kwargs)
         return out.getvalue()
@@ -659,6 +845,12 @@ class SyncCommandTests(TestCase):
 
     @override_settings(**ENABLED)
     def test_one_rejection_does_not_stop_the_rest(self):
+        # Both halves matter: every other event is still attempted, and the
+        # command still exits non-zero. The Function counts a clean return as
+        # a successful invocation, so a swallowed failure leaves a revoked key
+        # showing green on the only monitoring anybody watches.
+        from django.core.management.base import CommandError
+
         good = make_event(title="Good")
         bad = make_event(title="Bad")
 
@@ -667,12 +859,40 @@ class SyncCommandTests(TestCase):
                 raise echo_lu.EchoLuError("rejected", status_code=422)
             return "created"
 
-        with mock.patch.object(echo_lu, "sync_event", side_effect=fake_sync), \
-                mock.patch.object(echo_lu, "EchoLuClient"):
-            output = self._run()
+        out = StringIO()
+        with mock.patch.object(
+            echo_lu, "sync_event", side_effect=fake_sync
+        ), mock.patch.object(echo_lu, "EchoLuClient"):
+            with self.assertRaises(CommandError):
+                call_command("sync_events_to_echo", stdout=out, stderr=out)
 
+        output = out.getvalue()
         self.assertIn("Good", output)
         self.assertIn("rejected", output)
+
+    @override_settings(**ENABLED)
+    def test_the_sweep_stops_on_its_time_budget(self):
+        # The EchoLuSync Function allows 110s. Running past it means being
+        # killed part-way through an event rather than stopping cleanly, so
+        # the pass bounds itself and lets the next hour take the remainder.
+        make_event(title="First")
+        make_event(title="Second")
+
+        def slow_sync(event, client=None, force=False, dry_run=False):
+            ticker[0] += 1000
+            return "created"
+
+        ticker = [0]
+        out = StringIO()
+        with mock.patch.object(
+            echo_lu, "sync_event", side_effect=slow_sync
+        ), mock.patch.object(echo_lu, "EchoLuClient"), mock.patch(
+            "crush_lu.management.commands.sync_events_to_echo." "time.monotonic",
+            side_effect=lambda: ticker[0],
+        ):
+            call_command("sync_events_to_echo", "--max-seconds", "1", stdout=out)
+
+        self.assertIn("1 event(s) left", out.getvalue())
 
     @override_settings(**ENABLED)
     def test_unknown_event_id_is_an_error(self):
@@ -680,6 +900,86 @@ class SyncCommandTests(TestCase):
 
         with self.assertRaises(CommandError):
             self._run("--event-id", "999999")
+
+
+@override_settings(
+    ECHO_LU_API_KEY="test-key",
+    ECHO_LU_DEFAULT_CATEGORIES="dating",
+    ECHO_LU_DEFAULT_AUDIENCES="adults",
+    ECHO_LU_DEFAULT_FORMATS="",
+    ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    ECHO_LU_DEFAULT_TAGS="",
+    ECHO_LU_CATEGORY_MAP="",
+)
+class TaxonomyCheckTests(TestCase):
+    """`echo_taxonomy --check` is the gate before the sync switch goes on.
+
+    One unknown slug makes echo.lu reject the whole experience, so a check
+    that exits 0 is read as permission to enable syncing. It has to be honest
+    about what it did not manage to look at.
+    """
+
+    def _run_check(self, responses, *args):
+        from django.core.management.base import CommandError
+
+        client = mock.Mock()
+        client.TAXONOMIES = ("categories", "audiences")
+
+        def list_taxonomy(kind):
+            value = responses[kind]
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        client.list_taxonomy.side_effect = list_taxonomy
+        out = StringIO()
+        with mock.patch.object(echo_lu, "EchoLuClient") as client_class:
+            # --kind's argparse choices read the attribute off the class, so
+            # the stand-in has to carry it as well as the instance does.
+            client_class.TAXONOMIES = client.TAXONOMIES
+            client_class.return_value = client
+            try:
+                call_command("echo_taxonomy", "--check", *args, stdout=out, stderr=out)
+            except CommandError as exc:
+                return out.getvalue(), exc
+        return out.getvalue(), None
+
+    def test_configured_slugs_that_all_exist_pass(self):
+        output, error = self._run_check(
+            {"categories": ["dating"], "audiences": ["adults"]}
+        )
+        self.assertIsNone(error)
+        self.assertIn("all configured slugs exist", output)
+
+    def test_an_unknown_slug_fails_the_check(self):
+        output, error = self._run_check(
+            {"categories": ["music"], "audiences": ["adults"]}
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("not in echo.lu", output)
+
+    def test_a_taxonomy_that_could_not_be_read_fails_the_check(self):
+        # The dangerous case: nothing mismatched, because one facet was never
+        # compared at all. Reporting that as success invites an operator to
+        # turn sync on with slugs echo.lu has never confirmed.
+        output, error = self._run_check(
+            {
+                "categories": echo_lu.EchoLuError("503 upstream"),
+                "audiences": ["adults"],
+            }
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("Not checked: categories", output)
+        self.assertNotIn("all configured slugs exist", output)
+
+    def test_narrowing_to_one_kind_does_not_claim_the_others_passed(self):
+        output, error = self._run_check(
+            {"categories": ["dating"], "audiences": ["adults"]},
+            "--kind",
+            "categories",
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("Not checked: audiences", output)
 
 
 class TaxonomySlugExtractionTests(TestCase):
@@ -706,7 +1006,9 @@ class TaxonomySlugExtractionTests(TestCase):
 
     def test_translated_labels(self):
         self.assertEqual(
-            self._extract([{"slug": "music", "name": {"fr": "Musique", "en": "Music"}}]),
+            self._extract(
+                [{"slug": "music", "name": {"fr": "Musique", "en": "Music"}}]
+            ),
             {"music": "Music"},
         )
 

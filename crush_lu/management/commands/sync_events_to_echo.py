@@ -27,6 +27,9 @@ Requires ECHO_LU_API_KEY and ECHO_LU_SYNC_ENABLED=true. Without them the
 command reports what it would do and exits without touching echo.lu.
 """
 
+import time
+
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from crush_lu.models import MeetupEvent
@@ -69,6 +72,16 @@ class Command(BaseCommand):
             "--limit",
             type=int,
             help="Stop after this many events (useful for a first cautious run)",
+        )
+        parser.add_argument(
+            "--max-seconds",
+            type=float,
+            default=None,
+            help=(
+                "Wall-clock ceiling for the pass; whatever is left over is "
+                "picked up by the next run (default: "
+                "ECHO_LU_SWEEP_BUDGET_SECONDS)"
+            ),
         )
         parser.add_argument(
             "--show-payload",
@@ -121,7 +134,23 @@ class Command(BaseCommand):
         counts = {}
         failures = []
 
-        for event in events:
+        # The EchoLuSync Function gives this endpoint 110s. One event can burn
+        # most of a minute on its own against a struggling echo.lu (timeout
+        # plus retry sleeps), so an unbounded loop over the calendar is a
+        # gamble on being killed part-way rather than stopping cleanly. Stop on
+        # our own terms instead: the sweep is idempotent and selects by state,
+        # so the next hour resumes with exactly what is left.
+        budget = options["max_seconds"]
+        if budget is None:
+            budget = getattr(settings, "ECHO_LU_SWEEP_BUDGET_SECONDS", 90)
+        deadline = time.monotonic() + budget if budget and not dry_run else None
+        deferred = 0
+
+        for index, event in enumerate(events):
+            if deadline is not None and time.monotonic() >= deadline:
+                deferred = len(events) - index
+                break
+
             if show_payload and echo_lu.should_publish(event):
                 import json
 
@@ -136,8 +165,11 @@ class Command(BaseCommand):
 
             try:
                 if withdraw:
+                    # An operator asking for this by name outranks the event's
+                    # own state: --withdraw on a still-published event must
+                    # survive the next sweep, not be undone by it.
                     outcome = echo_lu.withdraw_event(
-                        event, client=client, dry_run=dry_run
+                        event, client=client, dry_run=dry_run, explicit=True
                     )
                 else:
                     outcome = echo_lu.sync_event(
@@ -160,7 +192,17 @@ class Command(BaseCommand):
                 self.style.SUCCESS(f"  ✓ [{event.pk}] {event.title}: {outcome}")
             )
 
-        self._report(counts, failures, dry_run)
+        self._report(counts, failures, dry_run, deferred)
+
+        if failures:
+            # The Function turns a clean return into a successful invocation,
+            # so swallowing this would leave a revoked key or a day-long
+            # outage showing green on the timer's failure count — the one
+            # signal anybody is watching. Every event was still attempted.
+            raise CommandError(
+                f"{len(failures)} event(s) failed to sync to echo.lu; "
+                f"see the errors above and the sync row on each event"
+            )
 
     def _audit(self):
         """Compare what echo.lu holds against what we think we published.
@@ -241,11 +283,31 @@ class Command(BaseCommand):
 
         return list(echo_lu.events_needing_sync())
 
-    def _report(self, counts, failures, dry_run):
+    def _report(self, counts, failures, dry_run, deferred=0):
         prefix = "Would sync" if dry_run else "Synced"
         summary = ", ".join(f"{count} {name}" for name, count in sorted(counts.items()))
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS(f"{prefix}: {summary or 'nothing'}"))
+
+        if deferred:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Stopped on the time budget with {deferred} event(s) left; "
+                    f"the next run continues from there. Raise "
+                    f"ECHO_LU_SWEEP_BUDGET_SECONDS (or --max-seconds) if this "
+                    f"keeps happening — it usually means echo.lu is slow."
+                )
+            )
+
+        if counts.get("blocked"):
+            self.stdout.write(
+                self.style.ERROR(
+                    f"{counts['blocked']} event(s) blocked: echo.lu accepted a "
+                    f"create without returning an id, so a listing exists that "
+                    f"we cannot address. Run --audit to find it, then adopt its "
+                    f"id on the sync row or delete it in the back office."
+                )
+            )
 
         if counts.get("disabled"):
             self.stdout.write(
