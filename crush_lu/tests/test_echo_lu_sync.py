@@ -732,6 +732,75 @@ class SyncEventTests(TestCase):
         event.refresh_from_db()
         self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
 
+    def test_a_cancellation_notice_comes_down_when_privacy_tightens_later(self):
+        # A cancellation notice is not a take-down: title, venue and date stay
+        # on the portal. Recording it as WITHDRAWN said the work was done, so
+        # when the coach unpublished the event a save later, nothing came down
+        # and the notice stayed public indefinitely.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        event.is_cancelled = True
+        event.save()
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=client)
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.CANCELLED,
+        )
+        self.assertEqual([call[0] for call in client.calls], ["create", "cancel"])
+
+        # Still cancelled and still public: nothing more to do.
+        self.assertEqual(echo_lu.sync_event(event, client=client), "skipped")
+
+        # Now the coach pulls it from public view — the notice must go.
+        event.is_published = False
+        event.save()
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "withdrawn")
+        self.assertEqual(
+            [call[0] for call in client.calls], ["create", "cancel", "unpublish"]
+        )
+
+    def test_a_cancelled_listing_stays_visible_to_the_sweep(self):
+        # It has to: the sweep is what notices privacy tightening later.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.is_cancelled = True
+        event.save()
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=client)
+
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
+
+    def test_a_forced_republish_clears_a_pending_removal(self):
+        # --force and the admin sync action are the documented way to put a
+        # removed listing back. Leaving the request set would have the next
+        # sweep take it down again, so the override would last one hour.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        failing = FakeClient(error=echo_lu.EchoLuError("boom", status_code=503))
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.withdraw_event(event, client=failing, explicit=True)
+
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=FakeClient(), force=True)
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertFalse(sync.removal_requested)
+
+        # The event is still in the sweep — it is published and upcoming, so it
+        # should be. What matters is that the next pass leaves it alone rather
+        # than taking it down again an hour after the override.
+        event.refresh_from_db()
+        after = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=after), "unchanged")
+        self.assertEqual(after.calls, [])
+
     def test_an_explicit_withdrawal_can_be_deliberately_undone(self):
         # The suppression holds against the sweep, not against a coach who
         # asks for the listing back through the admin's sync action.
@@ -1241,6 +1310,34 @@ class TaxonomyCheckTests(TestCase):
         )
         self.assertIsNotNone(error)
         self.assertIn("Not checked: categories", output)
+        self.assertNotIn("all configured slugs exist", output)
+
+    @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": 123}')
+    def test_a_scalar_map_value_is_reported_not_raised(self):
+        # The runtime drops this shape; the check is the thing that is supposed
+        # to *tell* somebody about it, so crashing here is the worst outcome —
+        # the gate fails in a way that looks like a broken command rather than
+        # broken configuration.
+        output, error = self._run_check(
+            {"categories": ["dating"], "audiences": ["adults"]}
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("expected a string or a list", output)
+
+    @override_settings(ECHO_LU_CATEGORY_MAP='["dating"]')
+    def test_a_top_level_array_map_is_reported_not_raised(self):
+        output, error = self._run_check(
+            {"categories": ["dating"], "audiences": ["adults"]}
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("expected an object", output)
+
+    @override_settings(ECHO_LU_CATEGORY_MAP="not json")
+    def test_unparseable_map_fails_the_check(self):
+        output, error = self._run_check(
+            {"categories": ["dating"], "audiences": ["adults"]}
+        )
+        self.assertIsNotNone(error)
         self.assertNotIn("all configured slugs exist", output)
 
     def test_narrowing_to_one_kind_does_not_claim_the_others_passed(self):

@@ -116,9 +116,37 @@ class Command(BaseCommand):
                     )
                 )
                 mapping = {}
-            for values in (mapping or {}).values():
+
+            if mapping and not isinstance(mapping, dict):
+                # Valid JSON, wrong shape — a top-level array reaches .values()
+                # and raises. This command is the gate that is supposed to
+                # *report* bad configuration, so it is the last place that
+                # should crash on it.
+                malformed_map = True
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"\nECHO_LU_CATEGORY_MAP is a {type(mapping).__name__}, "
+                        f"expected an object mapping event types to slugs — it "
+                        f"is being ignored at runtime."
+                    )
+                )
+                mapping = {}
+
+            for event_type, values in (mapping or {}).items():
                 if isinstance(values, str):
                     values = [values]
+                elif not isinstance(values, (list, tuple)):
+                    # Matches what _categories_for does at runtime: drop it.
+                    # Reporting it is the whole point of the check.
+                    malformed_map = True
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f"  ✗ ECHO_LU_CATEGORY_MAP[{event_type!r}] is a "
+                            f"{type(values).__name__}, expected a string or a "
+                            f"list of slugs — ignored at runtime."
+                        )
+                    )
+                    continue
                 configured["categories"].extend(values or [])
 
         problems = 0

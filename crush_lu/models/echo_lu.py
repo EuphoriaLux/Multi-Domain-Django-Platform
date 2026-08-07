@@ -40,6 +40,12 @@ class EchoExperienceSync(models.Model):
         # same listing instead of creating a second one. The sweep is free to
         # re-publish one of these the moment the event qualifies again.
         WITHDRAWN = "withdrawn", _("Withdrawn")
+        # Cancelled on echo.lu, which is NOT the same as down: the portal
+        # keeps showing the listing with a cancellation notice, so the title,
+        # venue and date are still public. Its own state because that
+        # distinction decides what has to happen if the event later goes
+        # private — a WITHDRAWN listing is already gone, this one is not.
+        CANCELLED = "cancelled", _("Cancelled — notice still public")
         # Taken down *by hand* — the admin's remove action or `--withdraw` —
         # while the event still qualifies for a listing. Distinct from
         # WITHDRAWN because the sweep must not undo it: the event's own fields
@@ -147,6 +153,11 @@ class EchoExperienceSync(models.Model):
             self.experience_id = str(experience_id)
         self.payload_hash = payload_hash
         self.status = self.Status.SYNCED
+        # The listing is live, so any outstanding request to take it down has
+        # been overruled — only a forced sync gets here while one is pending.
+        # Leaving the flag set would have the next sweep withdraw the listing
+        # again, making the deliberate override last exactly one hour.
+        self.removal_requested = False
         self.last_synced_at = now
         self.last_attempted_at = now
         self.last_error = ""
@@ -155,6 +166,7 @@ class EchoExperienceSync(models.Model):
                 "experience_id",
                 "payload_hash",
                 "status",
+                "removal_requested",
                 "last_synced_at",
                 "last_attempted_at",
                 "last_error",
@@ -178,6 +190,34 @@ class EchoExperienceSync(models.Model):
             update_fields=[
                 "status",
                 "last_attempted_at",
+                "last_error",
+                "updated_at",
+            ]
+        )
+
+    def mark_cancelled(self):
+        """Record a cancellation notice — public, not withdrawn.
+
+        Kept apart from :meth:`mark_withdrawn` because the listing is still
+        showing. If the event later goes unpublished or invitation-only, this
+        state is what tells the sync there is still something to take down;
+        WITHDRAWN would say the work was already done and leave the title,
+        venue and date on a national portal indefinitely.
+        """
+        now = timezone.now()
+        self.status = self.Status.CANCELLED
+        self.removal_requested = False
+        self.payload_hash = ""
+        self.last_attempted_at = now
+        self.last_synced_at = now
+        self.last_error = ""
+        self.save(
+            update_fields=[
+                "status",
+                "removal_requested",
+                "payload_hash",
+                "last_attempted_at",
+                "last_synced_at",
                 "last_error",
                 "updated_at",
             ]

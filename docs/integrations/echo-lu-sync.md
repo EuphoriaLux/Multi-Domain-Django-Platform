@@ -156,6 +156,13 @@ on a national portal — so an event that was cancelled **and** unpublished or
 made invitation-only is unpublished instead. Privacy is the stronger
 instruction; nobody is told why.
 
+That holds whichever order the two changes arrive in. A cancelled listing is
+recorded as **Cancelled**, not Withdrawn, precisely because it is still
+showing: if the event is unpublished or made invitation-only in a *later*
+save, the sweep sees a listing that is still public and takes it down. Marking
+it Withdrawn would have claimed the work was already done and left the notice
+up indefinitely.
+
 The experience id is kept in both cases. `delete_event_listing()` exists for
 genuine mistakes — an event that should never have been published at all.
 

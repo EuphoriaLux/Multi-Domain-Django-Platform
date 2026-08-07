@@ -703,6 +703,14 @@ def sync_event(event, client=None, force=False, dry_run=False):
             # those as soon as the event qualifies again — quietly undoing a
             # removal somebody asked for, one eligibility change later.
             return "suppressed"
+        if sync.status == EchoExperienceSync.Status.CANCELLED and (
+            event.is_published and not event.is_private_invitation
+        ):
+            # Cancelled and still public: the notice is the intended state, so
+            # there is nothing left to do. If privacy had tightened since, the
+            # notice — title, venue, date, all still on the portal — would fall
+            # through to the take-down below instead.
+            return "skipped"
         return withdraw_event(event, client=client, dry_run=dry_run)
 
     payload = build_experience_payload(event)
@@ -743,65 +751,76 @@ def sync_event(event, client=None, force=False, dry_run=False):
         return settled
 
     client = client or EchoLuClient()
-    try:
-        # Every write to a listing is serialised on its own row, create and
-        # update alike. The create has to be, because echo.lu's payload has no
-        # external reference and a second POST means a duplicate listing whose
-        # id we never learn — and three entry points (the save-signal task, the
-        # hourly sweep, the admin action) can land on one event at once.
-        #
-        # An update looked exempt, since two PUTs settle on the same listing.
-        # They do; the problem is not another PUT but a concurrent *lifecycle*
-        # change. An update that passed the suppression check, then overtook a
-        # coach's take-down, would republish the listing and write SYNCED over
-        # the SUPPRESSED the take-down had just recorded — the removal undone,
-        # and no state left saying it was ever asked for.
-        #
-        # So the lock is held across the HTTP call, and the state is re-read
-        # inside it. That is the only way check-then-write is atomic. It blocks
-        # only other writers of the same event, and the sweep client's timeout
-        # bounds how long.
-        with transaction.atomic():
-            sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
-            # Re-point the caller's event at the row we actually wrote. The
-            # locked read replaced the instance `event.echo_sync` still holds,
-            # and that stale copy may have no experience_id — so a caller that
-            # syncs and then withdraws in the same breath would look at it,
-            # conclude nothing was ever published, and skip.
-            event.echo_sync = sync
+    failure = None
+    # Every write to a listing is serialised on its own row, create and update
+    # alike. The create has to be, because echo.lu's payload has no external
+    # reference and a second POST means a duplicate listing whose id we never
+    # learn — and three entry points (the save-signal task, the hourly sweep,
+    # the admin action) can land on one event at once.
+    #
+    # An update looked exempt, since two PUTs settle on the same listing. They
+    # do; the problem is not another PUT but a concurrent *lifecycle* change.
+    # An update that passed the suppression check, then overtook a coach's
+    # take-down, would republish the listing and write SYNCED over the
+    # SUPPRESSED the take-down had just recorded — the removal undone, and no
+    # state left saying it was ever asked for.
+    #
+    # So the lock is held across the HTTP call, and the state is both re-read
+    # and written back inside it. It blocks only other writers of the same
+    # event, and the client's timeout bounds how long.
+    with transaction.atomic():
+        sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        # Re-point the caller's event at the row we actually wrote. The locked
+        # read replaced the instance `event.echo_sync` still holds, and that
+        # stale copy may have no experience_id — so a caller that syncs and
+        # then withdraws in the same breath would look at it, conclude nothing
+        # was ever published, and skip.
+        event.echo_sync = sync
 
-            # Decided again under the lock: whoever we were queued behind may
-            # have suppressed the listing, or synced this very payload, while
-            # we waited on the read above.
-            settled = _no_op_outcome(sync)
-            if settled:
-                return settled
+        # Decided again under the lock: whoever we were queued behind may have
+        # suppressed the listing, orphaned it, or synced this very payload,
+        # while we waited on the read above. The orphan check especially — a
+        # caller queued behind a create that came back ambiguous would
+        # otherwise take the empty experience_id at face value and POST again,
+        # which is the duplicate this whole lock exists to prevent.
+        if sync.status == EchoExperienceSync.Status.ORPHANED:
+            return "blocked"
+        settled = _no_op_outcome(sync)
+        if settled:
+            return settled
 
+        try:
             outcome = _write_experience(sync, payload, fingerprint, client)
-    except EchoLuOrphanedCreate as exc:
-        # Terminal, not retryable — park it where the create branch is closed.
-        sync.mark_orphaned(exc)
-        raise
-    except EchoLuError as exc:
-        # Out here rather than at the raise site: inside the atomic block the
-        # rollback would discard the failure row along with the failed write.
-        #
-        # A failed create needs the same question asked of it that the
-        # transport asks before replaying one: does this error prove nothing
-        # was created? Not retrying inside the call is only half the fix — the
-        # sweep would come back an hour later, find no id, and POST again.
-        # Only a rejection is safe to leave retryable; anything ambiguous
-        # parks the row where no further create can happen.
-        if not sync.experience_id and not _proves_nothing_was_created(exc):
-            sync.mark_orphaned(
-                f"{exc} — the create may have been committed before this "
-                f"failed, so no further create will be attempted. Run "
-                f"`sync_events_to_echo --audit` to see whether a listing "
-                f"exists, then adopt or delete it."
-            )
-            raise
-        sync.mark_failure(exc)
-        raise
+        except EchoLuOrphanedCreate as exc:
+            # Recorded here, inside the lock, and deliberately NOT re-raised
+            # here: raising would roll the block back and discard the very row
+            # that says not to try again. Leaving the block normally commits
+            # the state before the lock drops, so a caller waiting on it wakes
+            # to a row that already reads ORPHANED. The error is re-raised
+            # below, once that is durable.
+            sync.mark_orphaned(exc)
+            failure = exc
+        except EchoLuError as exc:
+            # A failed create needs the same question asked of it that the
+            # transport asks before replaying one: does this error prove
+            # nothing was created? Not retrying inside the call is only half
+            # the fix — the sweep would come back an hour later, find no id,
+            # and POST again. Only a rejection is safe to leave retryable;
+            # anything ambiguous parks the row where no further create can
+            # happen.
+            if not sync.experience_id and not _proves_nothing_was_created(exc):
+                sync.mark_orphaned(
+                    f"{exc} — the create may have been committed before this "
+                    f"failed, so no further create will be attempted. Run "
+                    f"`sync_events_to_echo --audit` to see whether a listing "
+                    f"exists, then adopt or delete it."
+                )
+            else:
+                sync.mark_failure(exc)
+            failure = exc
+
+    if failure is not None:
+        raise failure
 
     logger.info(
         "echo.lu experience %s for event %s (%s)",
@@ -856,24 +875,31 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # SUPPRESSED state recorded below then stops the sweep ever correcting it.
     still_public = event.is_published and not event.is_private_invitation
     client = client or EchoLuClient()
-    try:
-        # Same row lock as the publish path, for the same reason in reverse: a
-        # take-down that overtakes a concurrent update would be undone by that
-        # update's mark_success writing SYNCED over the withdrawal.
-        with transaction.atomic():
-            sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
-            event.echo_sync = sync
+    failure = None
+    # Same row lock as the publish path, for the same reason in reverse: a
+    # take-down that overtakes a concurrent update would be undone by that
+    # update's mark_success writing SYNCED over the withdrawal. The failure is
+    # recorded inside the lock too — released early, it would land on top of
+    # whatever the next writer had already decided.
+    with transaction.atomic():
+        sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        event.echo_sync = sync
+        try:
             if event.is_cancelled and still_public and not explicit:
                 client.cancel_experience(sync.experience_id)
+                sync.mark_cancelled()
             else:
                 client.unpublish_experience(sync.experience_id)
-            sync.mark_withdrawn(explicit=explicit)
-    except EchoLuError as exc:
-        # Outside the block: the raise rolls it back, taking the failure row
-        # with it. `removal_requested` was committed before the call, so it
-        # survives this and the sweep keeps retrying the removal.
-        sync.mark_failure(exc)
-        raise
+                sync.mark_withdrawn(explicit=explicit)
+        except EchoLuError as exc:
+            # Not re-raised here — see sync_event. `removal_requested` was
+            # committed before the call, so it survives regardless and the
+            # sweep keeps retrying the removal.
+            sync.mark_failure(exc)
+            failure = exc
+
+    if failure is not None:
+        raise failure
     logger.info(
         "echo.lu experience %s withdrawn for event %s", sync.experience_id, event.pk
     )
