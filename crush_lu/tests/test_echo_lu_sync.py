@@ -459,6 +459,18 @@ class SyncEventTests(TestCase):
         )
         self.assertEqual([call[0] for call in client.calls], ["create"])
 
+    def test_a_dry_run_does_not_promise_to_create_an_orphaned_event(self):
+        # --dry-run is the diagnostic somebody reaches for once a sweep starts
+        # complaining. Answering "would create" for the one event that must
+        # never be created again is the wrong answer to exactly that question.
+        event = make_event()
+        client = FakeClient(create_response={"ok": True})
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(event, client=client)
+
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, dry_run=True), "blocked")
+
     def test_an_orphaned_event_is_left_out_of_the_sweep(self):
         event = make_event()
         client = FakeClient(create_response={"ok": True})
@@ -869,6 +881,26 @@ class SyncCommandTests(TestCase):
         output = out.getvalue()
         self.assertIn("Good", output)
         self.assertIn("rejected", output)
+
+    @override_settings(**ENABLED)
+    def test_a_blocked_event_fails_the_sweep(self):
+        # An orphaned listing is the one state that never recovers on its own,
+        # so a sweep that returned 0 over it would report green to the Azure
+        # timer forever about a listing nobody can reach — worse than the
+        # transient rejection the non-zero exit was added for.
+        from django.core.management.base import CommandError
+
+        make_event(title="Orphaned")
+
+        out = StringIO()
+        with mock.patch.object(
+            echo_lu, "sync_event", return_value="blocked"
+        ), mock.patch.object(echo_lu, "EchoLuClient"):
+            with self.assertRaises(CommandError) as caught:
+                call_command("sync_events_to_echo", stdout=out, stderr=out)
+
+        self.assertIn("blocked", str(caught.exception))
+        self.assertIn("--audit", str(caught.exception))
 
     @override_settings(**ENABLED)
     def test_the_sweep_stops_on_its_time_budget(self):

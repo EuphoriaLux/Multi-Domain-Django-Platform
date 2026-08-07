@@ -716,17 +716,35 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # size, so the request stays short enough.
         client = echo_lu.EchoLuClient()
         succeeded, failed = 0, 0
+        inert = []
         for event in queryset.select_related("echo_sync"):
             try:
-                echo_lu.sync_event(event, client=client, force=True)
-                succeeded += 1
+                outcome = echo_lu.sync_event(event, client=client, force=True)
             except echo_lu.EchoLuError as exc:
                 failed += 1
                 django_messages.error(request, f"[{event.pk}] {event.title}: {exc}")
+                continue
+
+            # Not every non-exception outcome reached echo.lu. "blocked" is an
+            # orphaned listing that force cannot override, "skipped" an event
+            # that does not qualify — counting either as a success tells a
+            # coach the listing is live when nothing happened at all.
+            if outcome in ("blocked", "skipped", "suppressed", "disabled"):
+                inert.append((event, outcome))
+            else:
+                succeeded += 1
 
         if succeeded:
             django_messages.success(
                 request, _("Synced {count} event(s) to echo.lu").format(count=succeeded)
+            )
+        for event, outcome in inert:
+            django_messages.warning(
+                request,
+                _(
+                    "[{pk}] {title}: not sent ({outcome}) — see the echo.lu "
+                    "section on the event for why."
+                ).format(pk=event.pk, title=event.title, outcome=outcome),
             )
         if failed:
             django_messages.warning(

@@ -194,14 +194,25 @@ class Command(BaseCommand):
 
         self._report(counts, failures, dry_run, deferred)
 
-        if failures:
+        blocked = counts.get("blocked", 0)
+        if failures or blocked:
             # The Function turns a clean return into a successful invocation,
             # so swallowing this would leave a revoked key or a day-long
             # outage showing green on the timer's failure count — the one
             # signal anybody is watching. Every event was still attempted.
+            #
+            # `blocked` counts too, and it is the more important half: an
+            # orphaned listing does not recover on the next pass the way a
+            # rejection might, so a sweep that returned 0 for one would report
+            # green forever over a listing nobody can reach.
+            parts = []
+            if failures:
+                parts.append(f"{len(failures)} event(s) rejected by echo.lu")
+            if blocked:
+                parts.append(f"{blocked} event(s) blocked on an untracked listing")
             raise CommandError(
-                f"{len(failures)} event(s) failed to sync to echo.lu; "
-                f"see the errors above and the sync row on each event"
+                f"{'; '.join(parts)}. See the errors above and the sync row on "
+                f"each event; --audit resolves the blocked ones."
             )
 
     def _audit(self):

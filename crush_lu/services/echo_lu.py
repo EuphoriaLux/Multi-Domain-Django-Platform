@@ -625,9 +625,13 @@ def sync_event(event, client=None, force=False, dry_run=False):
     """Bring echo.lu in line with one event.
 
     Returns one of ``"created"``, ``"updated"``, ``"unchanged"``,
-    ``"withdrawn"``, ``"skipped"`` or ``"disabled"``. Raises ``EchoLuError``
-    when the API rejects the write — callers decide whether that is fatal (the
-    management command reports it) or merely logged (the signal path).
+    ``"withdrawn"``, ``"suppressed"``, ``"blocked"``, ``"skipped"`` or
+    ``"disabled"``. Raises ``EchoLuError`` when the API rejects the write —
+    callers decide whether that is fatal (the management command reports it)
+    or merely logged (the signal path).
+
+    ``"blocked"`` is the one outcome that never resolves on its own; callers
+    that report health should treat it like a failure, not like a no-op.
     """
     from ..models.echo_lu import EchoExperienceSync
 
@@ -635,6 +639,14 @@ def sync_event(event, client=None, force=False, dry_run=False):
         return "disabled"
 
     sync = getattr(event, "echo_sync", None)
+
+    if sync is not None and sync.status == EchoExperienceSync.Status.ORPHANED:
+        # Checked before anything else, including the dry-run branch: a
+        # listing exists that we hold no id for, so every automatic path is
+        # closed until a human resolves it, and a dry run that answered "would
+        # create" would be describing the very thing that must not happen.
+        # `force` deliberately does not override this either.
+        return "blocked"
 
     if not should_publish(event):
         # Nothing was ever published, so there is nothing to take down.
@@ -652,13 +664,6 @@ def sync_event(event, client=None, force=False, dry_run=False):
 
     if sync is None:
         sync, _created = EchoExperienceSync.objects.get_or_create(event=event)
-
-    if sync.status == EchoExperienceSync.Status.ORPHANED:
-        # A listing exists that we hold no id for. Every route out of here is
-        # manual, and `force` deliberately does not override it: the one thing
-        # this state exists to prevent is a second create, and that is exactly
-        # what forcing would do.
-        return "blocked"
 
     if (
         not force
