@@ -39482,3 +39482,11 @@ msgstr ""
 #, python-format
 msgid "Recap closes in %(remaining)s"
 msgstr "Le récap se termine dans %(remaining)s"
+
+#: crush_lu/views_payments.py:449
+msgid "Please complete your profile before contributing."
+msgstr "Veuillez compléter votre profil avant de contribuer."
+
+#: crush_lu/templates/crush_lu/components/support_card.html:70
+msgid "Complete your profile to support the project."
+msgstr "Complétez votre profil pour soutenir le projet."

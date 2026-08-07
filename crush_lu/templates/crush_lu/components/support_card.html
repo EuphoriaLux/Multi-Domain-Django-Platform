@@ -52,6 +52,23 @@
         <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
             {% trans "Available outside the mobile app" %}
         </p>
+        {% elif not profile %}
+        {% comment %}
+        The badge this card sells lives on CrushProfile, so without one there is
+        nothing a payment could grant. my_events renders this card and only
+        requires a login, so a coach or a half-onboarded member reaches it --
+        dashboard cannot, it redirects to create_profile first.
+
+        Same shape as the gate above: the header stays, the paying half is
+        replaced by the reason. views_payments refuses this case with a 400 for
+        the same reason, because a hidden button is not a closed endpoint.
+        {% endcomment %}
+        <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
+            {# One string, not a sentence split around the link: a two-part      #}
+            {# msgid pins English word order onto DE and FR, where the verb does #}
+            {# not land in the same place.                                       #}
+            <a href="{% url 'crush_lu:create_profile' %}" class="text-pink-600 dark:text-pink-300 font-semibold underline">{% trans "Complete your profile to support the project." %}</a>
+        </p>
         {% else %}
         {% comment %}
         Behaviour lives in the named `donationCard` component in
