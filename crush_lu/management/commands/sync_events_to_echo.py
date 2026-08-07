@@ -299,7 +299,25 @@ class Command(BaseCommand):
 
         previous = sync.get_status_display()
         if adopt:
-            sync.experience_id = str(adopt).strip()
+            adopt = str(adopt).strip()
+            clash = (
+                EchoExperienceSync.objects.filter(experience_id=adopt)
+                .exclude(pk=sync.pk)
+                .first()
+            )
+            if clash is not None:
+                # Two events pointing at one listing is not a smaller problem
+                # than the orphan: each sweep would PUT a different payload to
+                # the same id, so the listing flips between two events and one
+                # of them is never really published. A mistyped id is all it
+                # takes, so it is worth the query.
+                raise CommandError(
+                    f"Experience {adopt} is already tracked by event "
+                    f"{clash.event_id}. Adopting it here would point two "
+                    f"events at one listing and they would overwrite each "
+                    f"other every sweep. Check the id against --audit."
+                )
+            sync.experience_id = adopt
         else:
             sync.experience_id = ""
         # PENDING, not SYNCED: no payload has been confirmed against this

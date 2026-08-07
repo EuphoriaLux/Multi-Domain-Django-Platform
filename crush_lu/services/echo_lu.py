@@ -347,6 +347,20 @@ def should_publish(event):
     return event.end_time > timezone.now()
 
 
+def _cancellation_notice_wanted(event):
+    """Whether a cancellation notice still belongs on echo.lu.
+
+    Everything :func:`should_publish` asks except the cancellation itself. A
+    notice is a *published* thing — title, venue and date, with "cancelled" on
+    it — so it belongs there exactly as long as the listing would have, had the
+    event not been cancelled. Once the event is unpublished, made private, or
+    simply finishes, the notice comes down like any other listing.
+    """
+    if not event.is_published or event.is_private_invitation:
+        return False
+    return event.end_time > timezone.now()
+
+
 def _translated(event, field):
     """Read the English column of a modeltranslation field with fallback.
 
@@ -568,7 +582,12 @@ def _categories_for(event, defaults):
 
     seen = []
     for value in list(defaults) + list(mapped):
-        if value and value not in seen:
+        # Only strings. A list element that is an object or a number would go
+        # out as a category — echo.lu rejects the whole experience on one bad
+        # facet — and an unhashable one crashes the taxonomy check downstream.
+        if not isinstance(value, str) or not value:
+            continue
+        if value not in seen:
             seen.append(value)
     return seen
 
@@ -704,12 +723,12 @@ def sync_event(event, client=None, force=False, dry_run=False):
             # removal somebody asked for, one eligibility change later.
             return "suppressed"
         if sync.status == EchoExperienceSync.Status.CANCELLED and (
-            event.is_published and not event.is_private_invitation
+            _cancellation_notice_wanted(event)
         ):
-            # Cancelled and still public: the notice is the intended state, so
-            # there is nothing left to do. If privacy had tightened since, the
-            # notice — title, venue, date, all still on the portal — would fall
-            # through to the take-down below instead.
+            # Cancelled and the notice is still wanted, so there is nothing
+            # left to do. Anything that would have ended an ordinary listing —
+            # privacy tightening, or just the event's end time passing — ends
+            # the notice too, and falls through to the take-down below.
             return "skipped"
         return withdraw_event(event, client=client, dry_run=dry_run)
 
@@ -770,6 +789,13 @@ def sync_event(event, client=None, force=False, dry_run=False):
     # event, and the client's timeout bounds how long.
     with transaction.atomic():
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        # The *event* is re-read too, not just its sync row. Eligibility, the
+        # payload and the fingerprint were all decided before the wait on this
+        # lock, and the writer we were queued behind may well have been a save
+        # that made the event private and took the listing down. Resuming on
+        # that stale read would PUT the old public payload back onto a national
+        # portal — the one outcome this module exists to prevent.
+        event.refresh_from_db()
         # Re-point the caller's event at the row we actually wrote. The locked
         # read replaced the instance `event.echo_sync` still holds, and that
         # stale copy may have no experience_id — so a caller that syncs and
@@ -785,6 +811,16 @@ def sync_event(event, client=None, force=False, dry_run=False):
         # which is the duplicate this whole lock exists to prevent.
         if sync.status == EchoExperienceSync.Status.ORPHANED:
             return "blocked"
+        if not should_publish(event) or (sync.removal_requested and not force):
+            # No longer ours to publish. Whoever changed it ran their own sync
+            # for the new state, and the next sweep reconciles anything they
+            # missed; what must not happen is this call publishing over it.
+            return "skipped"
+
+        # Recomputed from the event as it is now, for the same reason.
+        payload = build_experience_payload(event)
+        fingerprint = payload_fingerprint(payload)
+
         settled = _no_op_outcome(sync)
         if settled:
             return settled
@@ -852,10 +888,30 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     from ..models.echo_lu import EchoExperienceSync
 
     sync = getattr(event, "echo_sync", None)
+    if dry_run:
+        return "withdrawn" if sync is not None and sync.experience_id else "skipped"
+
+    if explicit and not is_sync_enabled():
+        # Checked before the intent is recorded so a disabled environment
+        # cannot leave a removal pending that nothing will ever act on.
+        return "disabled"
+
+    if explicit:
+        # Recorded even when there is nothing to take down yet. An event whose
+        # first sync is still pending, or whose last create was refused, has no
+        # experience_id — but the coach has said it must not be on echo.lu, and
+        # without a row saying so the next sync would cheerfully create the
+        # listing they just removed. `sync_event` honours this ahead of the
+        # create path.
+        if sync is None:
+            sync, _created = EchoExperienceSync.objects.get_or_create(event=event)
+            event.echo_sync = sync
+        if not sync.removal_requested:
+            sync.removal_requested = True
+            sync.save(update_fields=["removal_requested", "updated_at"])
+
     if sync is None or not sync.experience_id:
         return "skipped"
-    if dry_run:
-        return "withdrawn"
     if not is_sync_enabled():
         return "disabled"
 
@@ -873,7 +929,11 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # remove a listing means remove it — leaving a public notice up because the
     # event also happens to be cancelled ignores the instruction, and the
     # SUPPRESSED state recorded below then stops the sweep ever correcting it.
-    still_public = event.is_published and not event.is_private_invitation
+    # Not just "still public" — a notice for an event that has already
+    # happened is as stale as any finished listing, and re-cancelling it does
+    # nothing. The same test that decides whether a notice is still wanted
+    # decides whether to leave one.
+    notice_wanted = _cancellation_notice_wanted(event)
     client = client or EchoLuClient()
     failure = None
     # Same row lock as the publish path, for the same reason in reverse: a
@@ -885,7 +945,7 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
         event.echo_sync = sync
         try:
-            if event.is_cancelled and still_public and not explicit:
+            if event.is_cancelled and notice_wanted and not explicit:
                 client.cancel_experience(sync.experience_id)
                 sync.mark_cancelled()
             else:

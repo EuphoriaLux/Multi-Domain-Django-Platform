@@ -1697,3 +1697,130 @@ class OrphanRecoveryGuardTests(TestCase):
                 "exp-other",
                 stdout=StringIO(),
             )
+
+
+@override_settings(**ENABLED)
+class LockedStateRereadTests(TestCase):
+    """What the lock protects is the *decision*, not just the row."""
+
+    def test_a_publish_that_lost_the_race_does_not_undo_the_winner(self):
+        # Eligibility, payload and fingerprint are all computed before the wait
+        # on the row lock. If the writer we were queued behind was a save that
+        # made the event private and took the listing down, resuming on that
+        # stale read would PUT the old public payload back onto a national
+        # portal — with the title, venue and date the coach just hid.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+
+        # Stand in for the winner: the event goes private in the database while
+        # this caller holds a pre-wait copy that still says "publish me". The
+        # stale copy also carries an edit, so the fingerprint differs and the
+        # call actually reaches the write path rather than short-circuiting.
+        event.title = "Renamed while we waited"
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            is_published=False, is_private_invitation=True
+        )
+        self.assertTrue(event.is_published)  # the stale copy, as the sweep had it
+
+        after = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=after), "skipped")
+        self.assertEqual(after.calls, [])
+
+    def test_a_cancellation_notice_comes_down_once_the_event_ends(self):
+        # The notice is a published thing, so everything that ends an ordinary
+        # listing ends it too — including the event simply happening. Checking
+        # only publication and privacy left it up forever, and the sweep
+        # repeated the no-op every hour without noticing.
+        start = timezone.now() + timedelta(hours=1)
+        event = make_event(date_time=start, registration_deadline=timezone.now())
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        event.is_cancelled = True
+        event.save()
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=client)
+        self.assertEqual([call[0] for call in client.calls], ["create", "cancel"])
+
+        # Still upcoming: the notice is wanted.
+        self.assertEqual(echo_lu.sync_event(event, client=client), "skipped")
+
+        # Now it has been and gone.
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(days=2)
+        )
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "withdrawn")
+        self.assertEqual(
+            [call[0] for call in client.calls], ["create", "cancel", "unpublish"]
+        )
+
+
+@override_settings(**ENABLED)
+class RemovalBeforeAnyListingTests(TestCase):
+    """Removing an event that was never listed still has to mean something."""
+
+    def test_removing_an_unlisted_event_stops_it_being_created(self):
+        # No experience_id yet — the first sync is pending, or its create was
+        # refused. Returning "skipped" recorded nothing, so the next sweep
+        # created the listing the coach had just removed.
+        event = make_event()
+        client = FakeClient()
+
+        self.assertEqual(
+            echo_lu.withdraw_event(event, client=client, explicit=True), "skipped"
+        )
+        self.assertEqual(client.calls, [])
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertTrue(sync.removal_requested)
+
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+        self.assertEqual(client.calls, [])
+
+    def test_it_can_still_be_published_deliberately(self):
+        event = make_event()
+        echo_lu.withdraw_event(event, client=FakeClient(), explicit=True)
+        event.refresh_from_db()
+
+        client = FakeClient()
+        self.assertEqual(
+            echo_lu.sync_event(event, client=client, force=True), "created"
+        )
+
+
+@override_settings(**ENABLED)
+class AdoptionClashTests(TestCase):
+    """Adopting is manual and untyped, so it has to refuse the obvious slip."""
+
+    def test_adopting_an_id_another_event_already_holds_is_refused(self):
+        # Two events on one listing is not a smaller problem than the orphan:
+        # each sweep PUTs a different payload to the same id, so the listing
+        # flips and one event is never really published.
+        from django.core.management.base import CommandError
+
+        healthy = make_event(title="Healthy")
+        echo_lu.sync_event(healthy, client=FakeClient())
+
+        orphan = make_event(title="Orphan")
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(orphan, client=FakeClient(create_response={"ok": 1}))
+
+        with self.assertRaises(CommandError) as caught:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(orphan.pk),
+                "--adopt",
+                "exp-123",
+                stdout=StringIO(),
+            )
+
+        self.assertIn("already tracked", str(caught.exception))
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=orphan).status,
+            EchoExperienceSync.Status.ORPHANED,
+        )

@@ -680,6 +680,11 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             "pending": "⏳",
             "failed": "⚠️",
             "withdrawn": "🚫",
+            "suppressed": "🔕",
+            "cancelled": "📢",
+            # The one state that needs a human. It should not read as just
+            # another row while a coach scans the changelist.
+            "orphaned": "🛑",
         }
         return f"{icons.get(sync.status, '')} {sync.get_status_display()}".strip()
 

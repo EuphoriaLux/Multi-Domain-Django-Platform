@@ -147,7 +147,23 @@ class Command(BaseCommand):
                         )
                     )
                     continue
-                configured["categories"].extend(values or [])
+
+                for value in values or []:
+                    if isinstance(value, str):
+                        configured["categories"].append(value)
+                        continue
+                    # An object or number inside the list. dict.fromkeys()
+                    # below would raise on an unhashable one, and the runtime
+                    # drops it — so name it and fail, which is this command's
+                    # entire job.
+                    malformed_map = True
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f"  ✗ ECHO_LU_CATEGORY_MAP[{event_type!r}] contains "
+                            f"a {type(value).__name__}, expected slug strings — "
+                            f"ignored at runtime."
+                        )
+                    )
 
         problems = 0
         unchecked = []
