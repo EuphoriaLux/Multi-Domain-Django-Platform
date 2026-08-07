@@ -300,6 +300,16 @@ class Command(BaseCommand):
         previous = sync.get_status_display()
         if adopt:
             adopt = str(adopt).strip()
+            if not adopt:
+                # `--adopt ""` would otherwise clear the id and drop the row to
+                # PENDING, which is --forget's behaviour under --adopt's name:
+                # the next sync creates a listing while the untracked one this
+                # command was called to recover may still be live.
+                raise CommandError(
+                    "--adopt needs an experience id. To clear the id instead "
+                    "— only when the listing really is gone from echo.lu — "
+                    "use --forget."
+                )
             clash = (
                 EchoExperienceSync.objects.filter(experience_id=adopt)
                 .exclude(pk=sync.pk)

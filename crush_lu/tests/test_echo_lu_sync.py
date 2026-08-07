@@ -1879,3 +1879,62 @@ class RemoveActionDeferralTests(TestCase):
         self._run_remove([event], budget=0)
 
         self.assertTrue(EchoExperienceSync.objects.get(event=event).removal_requested)
+
+
+@override_settings(**ENABLED)
+class WithdrawLockRereadTests(TestCase):
+    """The take-down path decides from the event too, so it re-reads it."""
+
+    def test_a_cancellation_that_lost_the_race_does_not_republish(self):
+        # An automatic cancellation queues behind a privacy change. That change
+        # unpublishes the listing; this caller then wakes holding a pre-lock
+        # copy that still says "public", sends `cancel`, and puts the title,
+        # venue and date of a now-private event back on public display.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+
+        # The stale copy says cancelled-but-public, as the caller had it.
+        event.is_cancelled = True
+        # The database says private, as the winner left it.
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            is_cancelled=True, is_published=False, is_private_invitation=True
+        )
+
+        after = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(event, client=after), "withdrawn")
+        self.assertEqual([call[0] for call in after.calls], ["unpublish"])
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.WITHDRAWN,
+        )
+
+
+@override_settings(**ENABLED)
+class AdoptBlankIdTests(TestCase):
+    """--adopt with no id is --forget wearing the wrong name."""
+
+    def test_a_blank_id_is_refused(self):
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(event, client=FakeClient(create_response={"ok": 1}))
+
+        with self.assertRaises(CommandError) as caught:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--adopt",
+                "   ",
+                stdout=StringIO(),
+            )
+
+        self.assertIn("--forget", str(caught.exception))
+        # And the orphan is untouched, so the block still holds.
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.ORPHANED,
+        )

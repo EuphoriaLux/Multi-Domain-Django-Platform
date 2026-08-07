@@ -925,15 +925,6 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
         sync.removal_requested = True
         sync.save(update_fields=["removal_requested", "updated_at"])
 
-    # `explicit` overrides the cancellation notice as well. Somebody asking to
-    # remove a listing means remove it — leaving a public notice up because the
-    # event also happens to be cancelled ignores the instruction, and the
-    # SUPPRESSED state recorded below then stops the sweep ever correcting it.
-    # Not just "still public" — a notice for an event that has already
-    # happened is as stale as any finished listing, and re-cancelling it does
-    # nothing. The same test that decides whether a notice is still wanted
-    # decides whether to leave one.
-    notice_wanted = _cancellation_notice_wanted(event)
     client = client or EchoLuClient()
     failure = None
     # Same row lock as the publish path, for the same reason in reverse: a
@@ -943,7 +934,28 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # whatever the next writer had already decided.
     with transaction.atomic():
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        # And the event is re-read, exactly as on the publish path. Which
+        # action this sends is decided from the event's own fields, so
+        # deciding it before the wait means deciding it from state somebody
+        # else has since replaced. The case that matters: an automatic
+        # cancellation queues behind a privacy change, that change unpublishes
+        # the listing, and this caller then wakes and sends `cancel` — putting
+        # the title, venue and date of a now-private event back on public
+        # display, and recording CANCELLED as though that were intended.
+        event.refresh_from_db()
         event.echo_sync = sync
+
+        # `explicit` overrides the cancellation notice as well. Somebody asking
+        # to remove a listing means remove it — leaving a public notice up
+        # because the event also happens to be cancelled ignores the
+        # instruction, and the SUPPRESSED state recorded below then stops the
+        # sweep ever correcting it.
+        #
+        # Not just "still public" either: a notice for an event that has
+        # already happened is as stale as any finished listing, and
+        # re-cancelling it does nothing. One predicate decides both whether a
+        # notice is still wanted and whether to leave one.
+        notice_wanted = _cancellation_notice_wanted(event)
         try:
             if event.is_cancelled and notice_wanted and not explicit:
                 client.cancel_experience(sync.experience_id)
