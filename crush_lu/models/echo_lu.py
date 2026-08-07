@@ -46,11 +46,13 @@ class EchoExperienceSync(models.Model):
         # still say "publish me", so nothing else would stop the next pass
         # putting it straight back. Cleared only by an intentional re-sync.
         SUPPRESSED = "suppressed", _("Suppressed")
-        # echo.lu accepted a create but returned no id, so a listing exists
-        # that we cannot address. Creating again would add a second one, so
-        # this state blocks automatic creates until somebody finds the listing
-        # (`--audit`) and either adopts its id or deletes it.
-        ORPHANED = "orphaned", _("Orphaned — accepted without an id")
+        # A create that may have left a listing we cannot address: echo.lu
+        # either accepted it and returned no id, or failed in a way that does
+        # not say whether it committed first (a 5xx, a timeout, a dropped
+        # socket). Creating again would risk a second listing, so this state
+        # blocks automatic creates until somebody finds out which happened
+        # (`--audit`) and either adopts the id or deletes the listing.
+        ORPHANED = "orphaned", _("Orphaned — may hold an untracked listing")
 
     event = models.OneToOneField(
         "crush_lu.MeetupEvent",

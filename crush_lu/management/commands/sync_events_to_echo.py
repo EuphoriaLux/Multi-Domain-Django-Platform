@@ -23,8 +23,16 @@ Usage:
     # Compare echo.lu's listings against the ones we track (read-only)
     python manage.py sync_events_to_echo --audit
 
+    # Resolve a blocked event after --audit says what happened to its listing
+    python manage.py sync_events_to_echo --event-id 42 --adopt exp_abc123
+    python manage.py sync_events_to_echo --event-id 42 --forget
+
 Requires ECHO_LU_API_KEY and ECHO_LU_SYNC_ENABLED=true. Without them the
 command reports what it would do and exits without touching echo.lu.
+
+Exits non-zero when any event failed or is blocked, because the Azure Function
+timer reads a clean exit as a healthy invocation — a sweep that syncs nothing
+for a week must not look the same as one with nothing to do.
 """
 
 import time
@@ -96,6 +104,25 @@ class Command(BaseCommand):
                 "do not track; syncs nothing"
             ),
         )
+        parser.add_argument(
+            "--adopt",
+            metavar="EXPERIENCE_ID",
+            help=(
+                "Attach an existing echo.lu experience id to --event-id and "
+                "clear the blocked state, so syncing resumes against that "
+                "listing instead of creating a second one. This is how an "
+                "orphan found by --audit is recovered."
+            ),
+        )
+        parser.add_argument(
+            "--forget",
+            action="store_true",
+            help=(
+                "Clear --event-id's blocked state without adopting an id, for "
+                "when the untracked listing was deleted in the back office. "
+                "The next sync creates a fresh listing."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
@@ -111,6 +138,9 @@ class Command(BaseCommand):
                 "--withdraw needs --event-id or --all-listed so it cannot take "
                 "the whole calendar down by accident"
             )
+
+        if options["adopt"] or options["forget"]:
+            return self._resolve_orphan(event_id, options["adopt"], options["forget"])
 
         if options["audit"]:
             return self._audit()
@@ -130,7 +160,12 @@ class Command(BaseCommand):
         if limit:
             events = events[:limit]
 
-        client = None if dry_run else echo_lu.EchoLuClient()
+        # No in-call retries on the sweep: the sweep *is* the retry, and it
+        # runs again in an hour. Keeping them would make one event's worst
+        # case ~95s (four attempts plus retry sleeps), which no budget below
+        # the Function's 110s can accommodate even once.
+        timeout = getattr(settings, "ECHO_LU_TIMEOUT_SECONDS", 20)
+        client = None if dry_run else echo_lu.EchoLuClient(max_retries=0)
         counts = {}
         failures = []
 
@@ -143,7 +178,13 @@ class Command(BaseCommand):
         budget = options["max_seconds"]
         if budget is None:
             budget = getattr(settings, "ECHO_LU_SWEEP_BUDGET_SECONDS", 90)
-        deadline = time.monotonic() + budget if budget and not dry_run else None
+        # Reserve one worst-case call. Checking only that the budget has not
+        # already run out lets an event start at 89s of 90 and then spend a
+        # whole timeout more, which is how a bounded sweep still overruns the
+        # Function. With retries off that worst case is one timeout.
+        deadline = (
+            time.monotonic() + budget - timeout if budget and not dry_run else None
+        )
         deferred = 0
 
         for index, event in enumerate(events):
@@ -213,6 +254,72 @@ class Command(BaseCommand):
             raise CommandError(
                 f"{'; '.join(parts)}. See the errors above and the sync row on "
                 f"each event; --audit resolves the blocked ones."
+            )
+
+    def _resolve_orphan(self, event_id, adopt, forget):
+        """Take an event out of the blocked state, the one way out of it.
+
+        The blocked state is deliberately immovable from code — nothing
+        automatic can clear it, because the whole point is that only a person
+        who has looked at echo.lu knows whether a listing is there. This is
+        that person's tool: `--adopt` when `--audit` found the listing and its
+        id should be reattached, `--forget` when it was deleted in the back
+        office and a fresh one should be created next sync.
+
+        Writes nothing to echo.lu, so it needs neither the key nor the switch.
+        """
+        from crush_lu.models.echo_lu import EchoExperienceSync
+
+        if not event_id:
+            raise CommandError("--adopt and --forget need --event-id")
+        if adopt and forget:
+            raise CommandError(
+                "--adopt and --forget do opposite things; pass one of them"
+            )
+
+        try:
+            sync = EchoExperienceSync.objects.get(event_id=event_id)
+        except EchoExperienceSync.DoesNotExist:
+            raise CommandError(
+                f"Event {event_id} has no echo.lu sync row, so there is "
+                f"nothing blocked to resolve."
+            )
+
+        previous = sync.get_status_display()
+        if adopt:
+            sync.experience_id = str(adopt).strip()
+        else:
+            sync.experience_id = ""
+        # PENDING, not SYNCED: no payload has been confirmed against this
+        # listing, so the next sync must send a full update rather than
+        # trusting a fingerprint nobody has verified.
+        sync.status = EchoExperienceSync.Status.PENDING
+        sync.payload_hash = ""
+        sync.last_error = ""
+        sync.save(
+            update_fields=[
+                "experience_id",
+                "status",
+                "payload_hash",
+                "last_error",
+                "updated_at",
+            ]
+        )
+
+        if adopt:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Event {event_id}: adopted experience {sync.experience_id} "
+                    f"(was {previous}). The next sync updates that listing."
+                )
+            )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Event {event_id}: cleared the experience id (was "
+                    f"{previous}). The next sync creates a new listing — make "
+                    f"sure the old one is really gone from echo.lu first."
+                )
             )
 
     def _audit(self):

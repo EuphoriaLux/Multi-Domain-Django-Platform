@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                             ("failed", "Failed"),
                             ("withdrawn", "Withdrawn"),
                             ("suppressed", "Suppressed"),
-                            ("orphaned", "Orphaned — accepted without an id"),
+                            ("orphaned", "Orphaned — may hold an untracked listing"),
                         ],
                         db_index=True,
                         default="pending",

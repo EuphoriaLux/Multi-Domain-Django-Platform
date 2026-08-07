@@ -856,6 +856,14 @@ ECHO_LU_SIGNAL_TIMEOUT_SECONDS = float(
 ECHO_LU_SWEEP_BUDGET_SECONDS = float(
     os.environ.get("ECHO_LU_SWEEP_BUDGET_SECONDS", "90")
 )
+# Wall-clock ceiling on echo.lu work done inside an admin request — the bulk
+# publish/unpublish/cancel actions and the manual sync action. Both run inline
+# (ImmediateBackend again), and the admin page size is not a bound: a slow
+# echo.lu turns a two-dozen-event bulk publish into a lost response for work
+# the database already committed. Whatever does not fit is left to the sweep.
+ECHO_LU_ADMIN_BUDGET_SECONDS = float(
+    os.environ.get("ECHO_LU_ADMIN_BUDGET_SECONDS", "30")
+)
 
 # Public organiser contact echoed onto every experience. echo.lu shows these on
 # the listing page, so they must be addresses we actually monitor — not the

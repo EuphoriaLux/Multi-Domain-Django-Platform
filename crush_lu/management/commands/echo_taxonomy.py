@@ -99,10 +99,15 @@ class Command(BaseCommand):
         # The per-event-type map contributes category slugs too, and those are
         # the ones most likely to be typo'd because they are edited least.
         raw_map = getattr(settings, "ECHO_LU_CATEGORY_MAP", "") or ""
+        malformed_map = False
         if raw_map:
             try:
                 mapping = json.loads(raw_map)
             except ValueError:
+                # Counts as a failure, not a note. Runtime discards the whole
+                # map silently, so every per-event-type category is missing —
+                # and a check that still exits 0 says that is fine.
+                malformed_map = True
                 self.stdout.write(
                     self.style.ERROR(
                         "\nECHO_LU_CATEGORY_MAP is not valid JSON — it is being "
@@ -158,14 +163,14 @@ class Command(BaseCommand):
                 )
             )
 
-        if problems or unchecked:
+        if problems or unchecked or malformed_map:
             # Non-zero exit: this command's whole job is to be the gate before
             # ECHO_LU_SYNC_ENABLED goes true, and a gate that exits 0 on an
             # incomplete check is one an operator reads as a green light.
-            raise CommandError(
-                f"Slug check did not pass: {problems} unknown, "
-                f"{len(unchecked)} facet(s) unverified."
-            )
+            detail = [f"{problems} unknown", f"{len(unchecked)} facet(s) unverified"]
+            if malformed_map:
+                detail.append("ECHO_LU_CATEGORY_MAP unparseable")
+            raise CommandError(f"Slug check did not pass: {', '.join(detail)}.")
 
         self.stdout.write(self.style.SUCCESS("  all configured slugs exist"))
 

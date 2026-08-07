@@ -11,6 +11,7 @@ Includes:
 import logging
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.db import transaction
@@ -54,9 +55,35 @@ def _enqueue_echo_sync(event_ids):
     from crush_lu.tasks import sync_event_to_echo_task
 
     ids = list(event_ids)
-    transaction.on_commit(
-        lambda: [sync_event_to_echo_task.enqueue(event_id=pk) for pk in ids]
-    )
+
+    def _run():
+        # on_commit runs inside the admin request, and production's
+        # ImmediateBackend executes each enqueue synchronously — so this list
+        # is a serial chain of HTTP calls, not a fan-out to a worker. Each is
+        # individually short, but a bulk publish of two dozen events still
+        # adds up past gunicorn's limit, and the database update has already
+        # committed by then: the coach would see a failed request for work
+        # that actually succeeded.
+        #
+        # So the batch gets a wall-clock budget of its own. Whatever it does
+        # not reach is left to the hourly sweep, which selects by state and
+        # will find those events unchanged and waiting.
+        import time as _time
+
+        budget = getattr(settings, "ECHO_LU_ADMIN_BUDGET_SECONDS", 30)
+        deadline = _time.monotonic() + budget
+        for index, pk in enumerate(ids):
+            if _time.monotonic() >= deadline:
+                logger.info(
+                    "[ECHO] Bulk action budget spent after %s/%s events; "
+                    "the rest are left to the hourly sweep",
+                    index,
+                    len(ids),
+                )
+                return
+            sync_event_to_echo_task.enqueue(event_id=pk)
+
+    transaction.on_commit(_run)
 
 
 class RegistrationAudienceWidget(forms.RadioSelect):
@@ -711,13 +738,29 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return
 
         # Run inline rather than enqueued so the coach sees the outcome — this
-        # action exists precisely to retry after a rejection and read the error,
-        # which an enqueued task cannot report back. Bounded by the admin page
-        # size, so the request stays short enough.
-        client = echo_lu.EchoLuClient()
+        # action exists precisely to retry after a rejection and read the
+        # error, which an enqueued task cannot report back.
+        #
+        # The admin page size does not bound this: at the default timeout with
+        # retries, two slow events are enough to pass gunicorn's 120s and lose
+        # the whole response. So the client is the impatient one, and a shared
+        # wall-clock budget stops the loop while there is still a page to
+        # render — the rest is named, and the hourly sweep takes it.
+        import time as _time
+
+        timeout = getattr(settings, "ECHO_LU_SIGNAL_TIMEOUT_SECONDS", 5)
+        budget = getattr(settings, "ECHO_LU_ADMIN_BUDGET_SECONDS", 30)
+        deadline = _time.monotonic() + budget - timeout
+
+        client = echo_lu.EchoLuClient(timeout=timeout, max_retries=0)
         succeeded, failed = 0, 0
         inert = []
-        for event in queryset.select_related("echo_sync"):
+        events = list(queryset.select_related("echo_sync"))
+        deferred = []
+        for index, event in enumerate(events):
+            if _time.monotonic() >= deadline:
+                deferred = events[index:]
+                break
             try:
                 outcome = echo_lu.sync_event(event, client=client, force=True)
             except echo_lu.EchoLuError as exc:
@@ -753,6 +796,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     "{count} event(s) were rejected — the reason is saved on each "
                     "event and shown on its change form."
                 ).format(count=failed),
+            )
+        if deferred:
+            django_messages.warning(
+                request,
+                _(
+                    "{count} event(s) were not attempted — echo.lu was too slow "
+                    "to get through the selection in one request. They stay "
+                    "queued for the hourly sync, or select fewer and retry."
+                ).format(count=len(deferred)),
             )
 
     @admin.action(description=_("🚫 Remove selected events from echo.lu"))

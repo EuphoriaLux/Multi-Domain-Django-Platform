@@ -363,7 +363,9 @@ class SyncEventTests(TestCase):
         # after the lock drops. That transaction must not swallow the failure
         # row with it: a rejection the admin cannot see is a silent outage.
         event = make_event()
-        client = FakeClient(error=echo_lu.EchoLuError("422 unknown category slug"))
+        client = FakeClient(
+            error=echo_lu.EchoLuError("unknown category slug", status_code=422)
+        )
 
         with self.assertRaises(echo_lu.EchoLuError):
             echo_lu.sync_event(event, client=client)
@@ -471,13 +473,85 @@ class SyncEventTests(TestCase):
         event.refresh_from_db()
         self.assertEqual(echo_lu.sync_event(event, dry_run=True), "blocked")
 
-    def test_an_orphaned_event_is_left_out_of_the_sweep(self):
+    def test_an_orphaned_event_stays_visible_to_the_sweep(self):
+        # Tempting to filter these out — no write may be made for one — but
+        # `sync_event` already refuses the write, and "blocked" is the only
+        # way the sweep ever reports the orphan. Dropped from the queryset,
+        # an untracked public listing becomes invisible to the hourly job and
+        # the timer reports green over it forever.
         event = make_event()
         client = FakeClient(create_response={"ok": True})
         with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
             echo_lu.sync_event(event, client=client)
 
-        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
+
+        selected = echo_lu.events_needing_sync().get(pk=event.pk)
+        self.assertEqual(echo_lu.sync_event(selected, client=client), "blocked")
+        self.assertEqual([call[0] for call in client.calls], ["create"])
+
+    def test_an_ambiguous_create_failure_is_terminal(self):
+        # Not retrying inside the call was only half of it: a 5xx does not say
+        # whether echo.lu committed the experience, so a sweep coming back an
+        # hour later to a row with no id would POST again and publish the
+        # event twice — the duplicate the no-retry rule was meant to prevent,
+        # just an hour later.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuError("boom", status_code=503))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.ORPHANED)
+
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "blocked")
+        self.assertEqual([call[0] for call in client.calls], ["create"])
+
+    def test_a_transport_failure_on_create_is_terminal(self):
+        # A dropped socket is the most ambiguous case of all — the request was
+        # sent and the answer never arrived.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuError("connection reset"))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.ORPHANED,
+        )
+
+    def test_a_rejected_create_stays_retryable(self):
+        # The other side of the rule: a 422 means echo.lu read the payload and
+        # refused it, so nothing exists and the fix-and-retry loop this whole
+        # integration depends on has to keep working.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuError("bad slug", status_code=422))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.FAILED,
+        )
+
+    def test_a_missing_key_does_not_block_the_event_forever(self):
+        # EchoLuNotConfigured is raised before anything is sent, so it proves
+        # nothing was created. Treating it as ambiguous would let a
+        # misconfigured environment permanently block every event it touched.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuNotConfigured("no key"))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.FAILED,
+        )
 
     def test_unpublishing_withdraws_the_listing(self):
         event = make_event()
@@ -529,6 +603,46 @@ class SyncEventTests(TestCase):
         self.assertNotIn(event, list(echo_lu.events_needing_sync()))
         self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
         self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+
+    def test_an_explicit_withdrawal_takes_a_cancelled_event_down_properly(self):
+        # A cancelled-but-still-published event withdrawn by hand was being
+        # *cancelled* on echo.lu, leaving the notice publicly visible — and
+        # the SUPPRESSED state it then recorded stopped the sweep ever
+        # correcting it. Asking for removal means removal.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        event.is_cancelled = True
+        event.save()
+        event.refresh_from_db()
+        echo_lu.withdraw_event(event, client=client, explicit=True)
+
+        self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+
+    def test_suppression_survives_the_event_becoming_ineligible(self):
+        # Withdrawing again would rewrite SUPPRESSED to WITHDRAWN, and the
+        # sweep re-publishes one of those as soon as the event qualifies
+        # again — so an unrelated unpublish/republish cycle would quietly undo
+        # a removal somebody asked for.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        echo_lu.withdraw_event(event, client=client, explicit=True)
+
+        event.is_published = False
+        event.save()
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.SUPPRESSED)
+        self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+
+        event.is_published = True
+        event.save()
+        event.refresh_from_db()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
 
     def test_an_explicit_withdrawal_can_be_deliberately_undone(self):
         # The suppression holds against the sweep, not against a coach who
@@ -621,6 +735,26 @@ class SyncEventTests(TestCase):
         event.refresh_from_db()
         self.assertEqual(echo_lu.sync_event(event, client=client), "skipped")
         self.assertEqual(len(client.calls), 2)
+
+    def test_a_dry_run_reports_the_no_op_the_real_run_would_make(self):
+        # The preview used to answer "would update" for every synced event,
+        # while the real sweep makes no call at all — so it described a sweep
+        # nobody runs, and the fingerprint shortcut looked broken.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+
+        self.assertEqual(echo_lu.sync_event(event, dry_run=True), "unchanged")
+
+    def test_a_dry_run_reports_a_suppressed_event_as_suppressed(self):
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        echo_lu.withdraw_event(event, client=client, explicit=True)
+        event.refresh_from_db()
+
+        self.assertEqual(echo_lu.sync_event(event, dry_run=True), "suppressed")
 
     def test_dry_run_touches_neither_the_api_nor_the_database(self):
         event = make_event()
@@ -922,8 +1056,25 @@ class SyncCommandTests(TestCase):
             "crush_lu.management.commands.sync_events_to_echo." "time.monotonic",
             side_effect=lambda: ticker[0],
         ):
-            call_command("sync_events_to_echo", "--max-seconds", "1", stdout=out)
+            call_command("sync_events_to_echo", "--max-seconds", "25", stdout=out)
 
+        self.assertIn("1 event(s) left", out.getvalue())
+
+    @override_settings(**ENABLED)
+    def test_the_sweep_leaves_room_for_the_call_it_starts(self):
+        # Checking only "has the budget run out" lets an event start at 89s of
+        # 90 and then spend a whole timeout more — which is how a bounded
+        # sweep still overruns the Function it was bounded for. The budget has
+        # to reserve one worst-case call, so a budget under that starts none.
+        make_event(title="First")
+
+        out = StringIO()
+        with mock.patch.object(echo_lu, "sync_event") as sync_event, mock.patch.object(
+            echo_lu, "EchoLuClient"
+        ):
+            call_command("sync_events_to_echo", "--max-seconds", "5", stdout=out)
+
+        sync_event.assert_not_called()
         self.assertIn("1 event(s) left", out.getvalue())
 
     @override_settings(**ENABLED)
@@ -1122,3 +1273,133 @@ class AuditTests(TestCase):
             call_command("sync_events_to_echo", "--audit", stdout=out)
 
         self.assertIn("tracked but not", out.getvalue())
+
+
+@override_settings(**ENABLED)
+class AdminSyncActionTests(TestCase):
+    """The bulk action is what a coach uses to retry and read the outcome.
+
+    Its message is the only feedback that action gives, so it has to describe
+    what actually reached echo.lu — the change form is where the detail lives,
+    but nobody opens it after being told the sync succeeded.
+    """
+
+    def _run_action(self, events, outcome):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/crush-admin/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        model_admin = MeetupEventAdmin(MeetupEvent, AdminSite())
+        queryset = MeetupEvent.objects.filter(pk__in=[e.pk for e in events])
+        with mock.patch.object(
+            echo_lu, "sync_event", return_value=outcome
+        ), mock.patch.object(echo_lu, "EchoLuClient"):
+            model_admin.sync_to_echo_lu(request, queryset)
+
+        return [str(message) for message in request._messages]
+
+    def test_a_blocked_event_is_not_reported_as_synced(self):
+        # The bug this closes: an orphaned listing answered "Synced 1
+        # event(s)", so the one state that needs a human looked done.
+        messages = self._run_action([make_event()], "blocked")
+
+        self.assertFalse(any("Synced" in message for message in messages))
+        self.assertTrue(any("not sent (blocked)" in message for message in messages))
+
+    def test_a_skipped_event_is_not_reported_as_synced(self):
+        messages = self._run_action([make_event()], "skipped")
+
+        self.assertFalse(any("Synced" in message for message in messages))
+        self.assertTrue(any("not sent (skipped)" in message for message in messages))
+
+    def test_a_real_sync_still_reports_success(self):
+        messages = self._run_action([make_event()], "created")
+
+        self.assertTrue(any("Synced 1 event(s)" in message for message in messages))
+        self.assertFalse(any("not sent" in message for message in messages))
+
+
+@override_settings(**ENABLED)
+class OrphanRecoveryTests(TestCase):
+    """The blocked state is immovable from code, so a person needs a lever.
+
+    The doc used to point at editing the sync row in the admin, which was not
+    registered anywhere — the documented recovery could not actually be done.
+    """
+
+    def _orphan(self):
+        event = make_event()
+        with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+            echo_lu.sync_event(event, client=FakeClient(create_response={"ok": True}))
+        event.refresh_from_db()
+        return event
+
+    def test_adopting_an_id_resumes_syncing_that_listing(self):
+        event = self._orphan()
+
+        out = StringIO()
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--adopt",
+            "exp-found",
+            stdout=out,
+        )
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.experience_id, "exp-found")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.PENDING)
+
+        # And the next sync updates that listing rather than creating one.
+        event.refresh_from_db()
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "updated")
+        self.assertEqual(client.calls[0][1], "exp-found")
+
+    def test_adopting_does_not_trust_an_unverified_fingerprint(self):
+        # PENDING with no payload_hash, so the next sync sends a full update.
+        # Marking it SYNCED would let the fingerprint shortcut skip the very
+        # first write to a listing nobody has confirmed the content of.
+        event = self._orphan()
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--adopt",
+            "exp-found",
+            stdout=StringIO(),
+        )
+
+        self.assertEqual(EchoExperienceSync.objects.get(event=event).payload_hash, "")
+
+    def test_forgetting_clears_the_block_for_a_deleted_listing(self):
+        event = self._orphan()
+
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--forget",
+            stdout=StringIO(),
+        )
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.experience_id, "")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.PENDING)
+
+        event.refresh_from_db()
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "created")
+
+    def test_resolving_needs_an_event(self):
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command("sync_events_to_echo", "--adopt", "exp-1", stdout=StringIO())

@@ -108,11 +108,25 @@ uses a deliberately impatient client — `ECHO_LU_SIGNAL_TIMEOUT_SECONDS`
 (default 5) with retries off — so an unreachable echo.lu costs an admin save a
 few seconds rather than a minute. Anything it drops is picked up by the sweep.
 
-**The sweep bounds itself.** The Function allows 110s and one event can spend
-most of a minute against a struggling echo.lu, so a pass stops at
+**The sweep bounds itself.** The Function allows 110s, so a pass stops at
 `ECHO_LU_SWEEP_BUDGET_SECONDS` (default 90) and reports what it left. The next
 hour resumes with the remainder — the selection is by state, not by cursor, so
 nothing is skipped. Override per-run with `--max-seconds`.
+
+The budget reserves one call's worth of headroom rather than just checking
+whether it has run out: an event started a second before the deadline still
+gets a full timeout to finish, and that overshoot is exactly what the budget
+exists to prevent. The sweep client also runs with retries off — the sweep
+*is* the retry, an hour later — which keeps a single event's worst case to one
+timeout instead of four attempts plus backoff.
+
+**Admin actions are bounded too**, by `ECHO_LU_ADMIN_BUDGET_SECONDS` (30).
+Both the bulk publish/unpublish/cancel actions and the manual sync action run
+inline in the request for the same `ImmediateBackend` reason, and the admin
+page size is not a bound — a slow echo.lu across two dozen selected events
+would otherwise lose the response to gunicorn's timeout for work the database
+had already committed. Anything not reached is named in a message and left to
+the sweep.
 
 **Failures reach the timer.** If any event fails, the command exits non-zero
 and the endpoint answers 500, so the Function's failure count moves. A revoked
@@ -177,25 +191,57 @@ nothing else would stop the next pass putting it straight back. To undo one,
 use the **🌍 Sync selected events to echo.lu** admin action or
 `--event-id N --force`.
 
+An explicit take-down always *unpublishes*, even for a cancelled event — the
+cancellation notice is skipped here on purpose. Somebody asking to remove a
+listing means remove it, and leaving a public notice up would then be frozen
+in place by the Suppressed state, with no sweep to correct it.
+
+Suppression also survives the event later becoming ineligible. Withdrawing
+again would rewrite the row to Withdrawn, and a Withdrawn event re-publishes
+itself once it qualifies — so an unrelated unpublish/republish cycle would
+quietly undo a removal somebody asked for.
+
 **Deleting a MeetupEvent row deletes its sync record too** (cascade), which
 loses the experience id and orphans the listing on echo.lu. Withdraw first,
 then delete.
 
 ### Orphaned listings
 
-If echo.lu answers a create with 2xx but no id, a listing now exists that we
-hold no handle on. The row goes to **Orphaned**, which blocks every automatic
-create for that event — including `--force`, because a second create is the
-one thing this state exists to prevent. It is the only status that needs a
-human:
+A create can leave a listing we hold no handle on, in two ways:
+
+- echo.lu answers 2xx but returns no id;
+- the create fails in a way that does not say whether it committed first — a
+  5xx, a timeout, a dropped socket. A rejection (4xx) is different: echo.lu
+  read the payload and refused it, so nothing exists and the sync retries
+  normally.
+
+Either way the row goes to **Orphaned**, which blocks every automatic create
+for that event — including `--force`, because a second create is the one thing
+this state exists to prevent. It is the only status that needs a human, and
+the hourly sweep reports it as `blocked` and exits non-zero until it is
+resolved, so it will not sit unnoticed.
+
+Find out which happened:
 
 ```bash
-python manage.py sync_events_to_echo --audit    # find the listing
+python manage.py sync_events_to_echo --audit
 ```
 
-Then either adopt it — set `experience_id` on the event's `EchoExperienceSync`
-row in the admin and change the status back to Pending — or delete it in the
-organiser back office and clear the row.
+Then resolve it. Neither of these writes to echo.lu, so both work with the
+sync switch off:
+
+```bash
+# The listing is there — reattach its id and resume syncing against it.
+python manage.py sync_events_to_echo --event-id 42 --adopt exp_abc123
+
+# The listing was deleted in the back office — clear the block so the next
+# sync creates a fresh one.
+python manage.py sync_events_to_echo --event-id 42 --forget
+```
+
+Adopting sets the row to **Pending** with no payload fingerprint, so the next
+sync sends a full update rather than trusting a hash against a listing whose
+content nobody has confirmed.
 
 ## Field mapping
 

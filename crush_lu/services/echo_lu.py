@@ -589,6 +589,22 @@ def payload_fingerprint(payload):
 # ---------------------------------------------------------------------------
 
 
+def _proves_nothing_was_created(error):
+    """True when `error` rules out echo.lu having created the experience.
+
+    A 4xx other than 429 is a considered rejection: echo.lu read the payload
+    and refused it, so nothing exists and retrying costs only the same
+    rejection. A missing key never reached the network at all. Everything else
+    — a 5xx, a timeout, a socket closed mid-response — leaves it genuinely
+    unknown whether the listing was committed before the answer was lost, and
+    unknown has to be treated as "it exists".
+    """
+    if isinstance(error, EchoLuNotConfigured):
+        return True
+    status = getattr(error, "status_code", None)
+    return status is not None and 400 <= status < 500 and status != 429
+
+
 def _write_experience(sync, payload, fingerprint, client):
     """Send one write for `sync` and record the id it settles on.
 
@@ -654,34 +670,50 @@ def sync_event(event, client=None, force=False, dry_run=False):
             return "skipped"
         if sync.status == EchoExperienceSync.Status.WITHDRAWN:
             return "skipped"
+        if sync.status == EchoExperienceSync.Status.SUPPRESSED:
+            # Already down, and the state has to survive: withdrawing again
+            # would rewrite it to WITHDRAWN, and the sweep re-publishes one of
+            # those as soon as the event qualifies again — quietly undoing a
+            # removal somebody asked for, one eligibility change later.
+            return "suppressed"
         return withdraw_event(event, client=client, dry_run=dry_run)
 
     payload = build_experience_payload(event)
     fingerprint = payload_fingerprint(payload)
 
+    def _no_op_outcome(row):
+        """The outcome for a row that needs no API call, or None if it does.
+
+        Shared by the dry run and the real one on purpose. A preview that
+        answered "would update" for every already-synced event would be
+        describing a sweep nobody runs — the real one makes no call at all.
+        """
+        if row is None or not row.experience_id or force:
+            return None
+        if row.status == EchoExperienceSync.Status.SUPPRESSED:
+            # Taken down by hand while still eligible. The event's own fields
+            # say "publish me", so without this the next pass would put it
+            # straight back and the removal would look like it never happened.
+            return "suppressed"
+        if (
+            row.status == EchoExperienceSync.Status.SYNCED
+            and row.payload_hash == fingerprint
+        ):
+            return "unchanged"
+        return None
+
     if dry_run:
-        return "created" if sync is None or not sync.experience_id else "updated"
+        # No get_or_create here: a preview must not leave rows behind.
+        return _no_op_outcome(sync) or (
+            "created" if sync is None or not sync.experience_id else "updated"
+        )
 
     if sync is None:
         sync, _created = EchoExperienceSync.objects.get_or_create(event=event)
 
-    if (
-        not force
-        and sync.status == EchoExperienceSync.Status.SUPPRESSED
-        and sync.experience_id
-    ):
-        # Taken down by hand while still eligible. The event's own fields say
-        # "publish me", so without this the next pass would put it straight
-        # back and the removal would look like it never happened.
-        return "suppressed"
-
-    if (
-        not force
-        and sync.status == EchoExperienceSync.Status.SYNCED
-        and sync.payload_hash == fingerprint
-        and sync.experience_id
-    ):
-        return "unchanged"
+    settled = _no_op_outcome(sync)
+    if settled:
+        return settled
 
     client = client or EchoLuClient()
     try:
@@ -721,6 +753,21 @@ def sync_event(event, client=None, force=False, dry_run=False):
     except EchoLuError as exc:
         # Out here rather than at the raise site: inside the atomic block the
         # rollback would discard the failure row along with the failed write.
+        #
+        # A failed create needs the same question asked of it that the
+        # transport asks before replaying one: does this error prove nothing
+        # was created? Not retrying inside the call is only half the fix — the
+        # sweep would come back an hour later, find no id, and POST again.
+        # Only a rejection is safe to leave retryable; anything ambiguous
+        # parks the row where no further create can happen.
+        if not sync.experience_id and not _proves_nothing_was_created(exc):
+            sync.mark_orphaned(
+                f"{exc} — the create may have been committed before this "
+                f"failed, so no further create will be attempted. Run "
+                f"`sync_events_to_echo --audit` to see whether a listing "
+                f"exists, then adopt or delete it."
+            )
+            raise
         sync.mark_failure(exc)
         raise
 
@@ -761,10 +808,14 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     if not is_sync_enabled():
         return "disabled"
 
+    # `explicit` overrides the cancellation notice as well. Somebody asking to
+    # remove a listing means remove it — leaving a public notice up because the
+    # event also happens to be cancelled ignores the instruction, and the
+    # SUPPRESSED state recorded below then stops the sweep ever correcting it.
     still_public = event.is_published and not event.is_private_invitation
     client = client or EchoLuClient()
     try:
-        if event.is_cancelled and still_public:
+        if event.is_cancelled and still_public and not explicit:
             client.cancel_experience(sync.experience_id)
         else:
             client.unpublish_experience(sync.experience_id)
@@ -839,15 +890,16 @@ def events_needing_sync(queryset=None):
         is_private_invitation=False,
         date_time__gte=MeetupEvent.live_lookback_cutoff(now),
     ).exclude(
-        # Both states describe a listing that must not be (re)created from the
-        # event's fields alone: one was taken down by hand while the event
-        # still qualified, the other has an untracked listing already live.
-        # Everything else here keys off the event, which still says "publish
-        # me", so only the sync row can rule them out.
-        echo_sync__status__in=[
-            EchoExperienceSync.Status.SUPPRESSED,
-            EchoExperienceSync.Status.ORPHANED,
-        ]
+        # Taken down by hand while the event still qualified. Everything else
+        # in this filter keys off the event, which still says "publish me", so
+        # only the sync row can rule it out.
+        #
+        # ORPHANED is deliberately NOT excluded. It is tempting to — nothing
+        # may be written for one — but `sync_event` already refuses the write
+        # and answers "blocked", and that answer is the only way the sweep
+        # reports the orphan at all. Filtering these out here would leave an
+        # untracked public listing invisible to the one job that runs hourly.
+        echo_sync__status=EchoExperienceSync.Status.SUPPRESSED
     )
     withdrawable = (
         queryset.filter(echo_sync__isnull=False)
