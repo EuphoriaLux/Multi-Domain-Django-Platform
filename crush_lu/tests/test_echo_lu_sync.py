@@ -22,6 +22,7 @@ from io import StringIO
 from unittest import mock
 
 from django.core.management import call_command
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -1944,26 +1945,91 @@ class AdoptBlankIdTests(TestCase):
 class DeleteEventTests(TestCase):
     """Deleting the event destroys the only record of the listing's id."""
 
-    def test_deleting_an_event_takes_its_listing_down_first(self):
+    def _delete(self, *events):
+        """Delete and run the on-commit hook, as a real transaction would."""
+        with self.captureOnCommitCallbacks(execute=True):
+            for event in events:
+                event.delete()
+
+    def test_deleting_an_event_takes_its_listing_down(self):
         # EchoExperienceSync cascades with the event, and the experience id is
         # the only handle we have. Once the row is gone the listing is still
-        # public and nothing left in the database can name it — no sweep, no
-        # admin action, no retry.
+        # public and nothing left in the database can name it.
         event = make_event()
         client = FakeClient()
         echo_lu.sync_event(event, client=client)
         event.refresh_from_db()
 
         with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
-            event.delete()
+            self._delete(event)
 
         self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
         self.assertFalse(MeetupEvent.objects.filter(pk=event.pk).exists())
 
+    def test_a_rolled_back_delete_withdraws_nothing(self):
+        # Doing the take-down at pre_delete meant an aborted delete still
+        # pulled the listing, leaving an event that exists and a listing that
+        # does not — and no row saying so, since the rollback restored it.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+
+        class Rollback(Exception):
+            pass
+
+        # Model.delete() blanks the instance pk, so hold on to it.
+        event_pk = event.pk
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            with self.assertRaises(Rollback):
+                with transaction.atomic():
+                    event.delete()
+                    raise Rollback()
+
+        self.assertEqual([call[0] for call in client.calls], ["create"])
+        self.assertTrue(MeetupEvent.objects.filter(pk=event_pk).exists())
+
+    def test_a_bulk_delete_is_bounded_and_names_what_it_could_not_reach(self):
+        # A bulk delete arrives as N take-downs, back to back. A per-call
+        # timeout alone would multiply by N, so they share a wall-clock budget.
+        # The events are gone by then, so anything the budget misses has
+        # nowhere left to be retried from — the log is the last copy of the id.
+        #
+        # Budget 30s, per-call timeout 5s, so the cut-off is 25s in. At 13s a
+        # call, the third one finds it spent.
+        events = []
+        for index in range(3):
+            event = make_event(title=f"Event {index}")
+            echo_lu.sync_event(
+                event, client=FakeClient(create_response={"id": f"exp-{index}"})
+            )
+            event.refresh_from_db()
+            events.append(event)
+
+        clock = [0]
+        sent = []
+
+        slow = FakeClient()
+        slow.unpublish_experience = lambda experience_id: (
+            clock.__setitem__(0, clock[0] + 13),
+            sent.append(experience_id),
+            {},
+        )[-1]
+
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=slow), mock.patch(
+            "crush_lu.signals.time.monotonic", side_effect=lambda: clock[0]
+        ), self.assertLogs("crush_lu.signals", level="ERROR") as logs:
+            self._delete(*events)
+
+        self.assertEqual(sent, ["exp-0", "exp-1"])
+        self.assertTrue(any("exp-2" in line for line in logs.output))
+        self.assertFalse(
+            MeetupEvent.objects.filter(pk__in=[e.pk for e in events]).exists()
+        )
+
     def test_a_failed_take_down_still_lets_the_delete_through(self):
         # Refusing the delete would be the worse failure — a coach unable to
-        # remove an event they need gone. It has to be loud instead: the id
-        # goes to the log, because the row that holds it is about to vanish.
+        # remove an event they need gone. It has to be loud instead.
         event = make_event()
         echo_lu.sync_event(event, client=FakeClient())
         event.refresh_from_db()
@@ -1972,7 +2038,7 @@ class DeleteEventTests(TestCase):
         with mock.patch.object(
             echo_lu, "EchoLuClient", return_value=failing
         ), self.assertLogs("crush_lu.signals", level="ERROR") as logs:
-            event.delete()
+            self._delete(event)
 
         self.assertFalse(MeetupEvent.objects.filter(pk=event.pk).exists())
         self.assertTrue(any("exp-123" in line for line in logs.output))
@@ -1981,7 +2047,7 @@ class DeleteEventTests(TestCase):
         event = make_event()
         client = FakeClient()
         with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
-            event.delete()
+            self._delete(event)
         self.assertEqual(client.calls, [])
 
     @override_settings(ECHO_LU_SYNC_ENABLED=False)
@@ -1994,6 +2060,6 @@ class DeleteEventTests(TestCase):
         event.refresh_from_db()
 
         with self.assertLogs("crush_lu.signals", level="WARNING") as logs:
-            event.delete()
+            self._delete(event)
 
         self.assertTrue(any("exp-123" in line for line in logs.output))

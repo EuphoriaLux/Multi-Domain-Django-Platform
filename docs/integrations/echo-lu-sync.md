@@ -208,18 +208,28 @@ again would rewrite the row to Withdrawn, and a Withdrawn event re-publishes
 itself once it qualifies — so an unrelated unpublish/republish cycle would
 quietly undo a removal somebody asked for.
 
-**Deleting a MeetupEvent takes its listing down first.** The sync record
-cascades with the event, and the experience id is the only handle we have —
-once the row is gone the listing is still public and nothing left in the
-database can name it. A `pre_delete` receiver therefore withdraws the listing
-while the id is still readable.
+**Deleting a MeetupEvent takes its listing down.** The sync record cascades
+with the event, and the experience id is the only handle we have — once the
+row is gone the listing is still public and nothing left in the database can
+name it. A `pre_delete` receiver captures the id while it is still readable,
+and the take-down runs on commit.
 
-That take-down is best-effort by necessity: the delete proceeds either way,
+*On commit*, for two reasons. A delete that rolls back withdraws nothing —
+doing the call at `pre_delete` meant an aborted delete still pulled the
+listing, leaving an event that exists and a listing that does not. And no HTTP
+happens inside the delete's transaction, which Django's collector wraps around
+the whole cascade.
+
+A bulk delete arrives as N take-downs back to back, so they share
+`ECHO_LU_ADMIN_BUDGET_SECONDS` rather than multiplying one timeout by N.
+
+The take-down is best-effort by necessity: the delete proceeds either way,
 because refusing it would be the worse failure (a coach unable to remove an
-event they need gone). If echo.lu is unreachable — or the sync switch is off —
-the experience id is written to the log at ERROR/WARNING precisely because the
-row holding it is about to vanish. Recover from the log, or find the listing
-with `--audit`, which still reports it as untracked.
+event they need gone). If echo.lu is unreachable, the budget runs out, or the
+sync switch is off, the experience id is written to the log at ERROR/WARNING —
+the event is gone, so nothing can retry from the database and that log line is
+the last copy. Recover from it, or find the listing with `--audit`, which
+still reports it as untracked.
 
 ### Orphaned listings
 
