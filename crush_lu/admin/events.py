@@ -818,9 +818,23 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             )
             return
 
-        client = echo_lu.EchoLuClient()
+        # Bounded exactly like the sync action next door — same request, same
+        # gunicorn limit, and the default retrying client would let two
+        # unreachable listings hold it for most of three minutes.
+        import time as _time
+
+        timeout = getattr(settings, "ECHO_LU_SIGNAL_TIMEOUT_SECONDS", 5)
+        budget = getattr(settings, "ECHO_LU_ADMIN_BUDGET_SECONDS", 30)
+        deadline = _time.monotonic() + budget - timeout
+
+        client = echo_lu.EchoLuClient(timeout=timeout, max_retries=0)
         withdrawn = 0
-        for event in queryset.select_related("echo_sync"):
+        events = list(queryset.select_related("echo_sync"))
+        deferred = []
+        for index, event in enumerate(events):
+            if _time.monotonic() >= deadline:
+                deferred = events[index:]
+                break
             try:
                 # explicit: the coach is removing a listing whose event may
                 # still qualify, so the row has to hold the removal against
@@ -837,6 +851,24 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             request,
             _("Removed {count} listing(s) from echo.lu").format(count=withdrawn),
         )
+        if deferred:
+            # Record the intent for the ones we ran out of time for, so the
+            # message below is true. The coach asked for all of these to come
+            # down; without this the sweep would find their events still
+            # eligible and republish instead.
+            from crush_lu.models.echo_lu import EchoExperienceSync
+
+            EchoExperienceSync.objects.filter(
+                event__in=deferred
+            ).exclude(experience_id="").update(removal_requested=True)
+            django_messages.warning(
+                request,
+                _(
+                    "{count} listing(s) were not attempted here — echo.lu was "
+                    "too slow to get through the selection in one request. The "
+                    "removal is recorded and the hourly sync keeps retrying it."
+                ).format(count=len(deferred)),
+            )
 
     @staticmethod
     def _google_holders_for_cancellation(events):

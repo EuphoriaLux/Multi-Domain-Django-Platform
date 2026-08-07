@@ -106,6 +106,17 @@ class EchoExperienceSync(models.Model):
             "an unknown category/audience slug."
         ),
     )
+    removal_requested = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=_(
+            "Somebody asked for this listing to come down and echo.lu has not "
+            "confirmed it yet. Survives a failed take-down on purpose: the "
+            "event itself still says 'publish me', so without this a failed "
+            "removal would look like an ordinary failure and the next sweep "
+            "would republish the listing instead of retrying the removal."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -208,6 +219,12 @@ class EchoExperienceSync(models.Model):
         without echo.lu ever being told it is live again.
         """
         now = timezone.now()
+        # A pending removal request outranks the caller: whoever asked is
+        # still waiting for this listing to come down, and recording plain
+        # WITHDRAWN would let the sweep republish it on the next eligibility
+        # change. Satisfying the request also clears it.
+        explicit = explicit or self.removal_requested
+        self.removal_requested = False
         self.status = self.Status.SUPPRESSED if explicit else self.Status.WITHDRAWN
         self.payload_hash = ""
         self.last_attempted_at = now
@@ -216,6 +233,7 @@ class EchoExperienceSync(models.Model):
         self.save(
             update_fields=[
                 "status",
+                "removal_requested",
                 "payload_hash",
                 "last_attempted_at",
                 "last_synced_at",

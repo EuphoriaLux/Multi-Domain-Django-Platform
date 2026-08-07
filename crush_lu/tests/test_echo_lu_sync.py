@@ -490,6 +490,37 @@ class SyncEventTests(TestCase):
         self.assertEqual(echo_lu.sync_event(selected, client=client), "blocked")
         self.assertEqual([call[0] for call in client.calls], ["create"])
 
+    def test_an_orphan_stays_visible_after_its_event_stops_qualifying(self):
+        # Selecting orphans through the eligibility filters is not enough:
+        # every event eventually fails them, if only by happening. An orphan
+        # that ages out takes the alerting with it and the hourly job goes
+        # green over a live listing nobody can reach — so the row has to be
+        # selected on its own status, not on what the event says.
+        for change in (
+            {"is_published": False},
+            {"is_private_invitation": True, "invitation_code": "secret-1"},
+            {"is_cancelled": True},
+            {
+                "date_time": timezone.now() - timedelta(days=30),
+                "registration_deadline": timezone.now() - timedelta(days=31),
+            },
+        ):
+            with self.subTest(change=change):
+                event = make_event()
+                client = FakeClient(create_response={"ok": True})
+                with self.assertRaises(echo_lu.EchoLuOrphanedCreate):
+                    echo_lu.sync_event(event, client=client)
+
+                for field, value in change.items():
+                    setattr(event, field, value)
+                event.save()
+                event.refresh_from_db()
+
+                self.assertIn(event, list(echo_lu.events_needing_sync()))
+                self.assertEqual(echo_lu.sync_event(event, client=client), "blocked")
+                # Still no second call, whatever the event now says.
+                self.assertEqual([call[0] for call in client.calls], ["create"])
+
     def test_an_ambiguous_create_failure_is_terminal(self):
         # Not retrying inside the call was only half of it: a 5xx does not say
         # whether echo.lu committed the experience, so a sweep coming back an
@@ -536,6 +567,63 @@ class SyncEventTests(TestCase):
         self.assertEqual(
             EchoExperienceSync.objects.get(event=event).status,
             EchoExperienceSync.Status.FAILED,
+        )
+
+    def test_a_rate_limited_create_stays_retryable(self):
+        # The transport retries a create on 429 precisely because that status
+        # proves the request was not processed. The same fact has to hold when
+        # the retries run out, or a busy hour parks the event as an orphan and
+        # sends somebody to audit a listing that was never created.
+        event = make_event()
+        client = FakeClient(error=echo_lu.EchoLuError("slow down", status_code=429))
+
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.FAILED,
+        )
+
+    def test_a_failed_removal_is_retried_rather_than_republished(self):
+        # The nastiest inversion in the module: the event still says "publish
+        # me", so a take-down that failed and recorded only FAILED reads to
+        # the next sweep as a failed *publish* — and it answers with a PUT,
+        # putting back the listing somebody just asked to remove.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        failing = FakeClient(error=echo_lu.EchoLuError("boom", status_code=503))
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.withdraw_event(event, client=failing, explicit=True)
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertTrue(sync.removal_requested)
+
+        # The sweep still selects it, and what it does is retry the removal.
+        event.refresh_from_db()
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
+        retry = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=retry), "withdrawn")
+        self.assertEqual([call[0] for call in retry.calls], ["unpublish"])
+
+        sync.refresh_from_db()
+        self.assertEqual(sync.status, EchoExperienceSync.Status.SUPPRESSED)
+        self.assertFalse(sync.removal_requested)
+
+    def test_a_pending_removal_can_still_be_overridden_deliberately(self):
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+
+        failing = FakeClient(error=echo_lu.EchoLuError("boom", status_code=503))
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.withdraw_event(event, client=failing, explicit=True)
+
+        event.refresh_from_db()
+        self.assertEqual(
+            echo_lu.sync_event(event, client=FakeClient(), force=True), "updated"
         )
 
     def test_a_missing_key_does_not_block_the_event_forever(self):
@@ -1403,3 +1491,112 @@ class OrphanRecoveryTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command("sync_events_to_echo", "--adopt", "exp-1", stdout=StringIO())
+
+
+@override_settings(**ENABLED)
+class SweepFairnessTests(TestCase):
+    """A bounded sweep with a fixed order starves whatever sits at the back."""
+
+    def test_least_recently_attempted_events_come_first(self):
+        # MeetupEvent orders by date. Combined with a wall-clock budget that
+        # is what starvation looks like: the same early events consume every
+        # hourly invocation and the tail is deferred forever — including
+        # take-downs of events that have gone private, which would stay public
+        # for as long as the queue is busy.
+        now = timezone.now()
+        first = make_event(
+            title="Earliest",
+            date_time=now + timedelta(days=1),
+            registration_deadline=now,
+        )
+        second = make_event(
+            title="Middle", date_time=now + timedelta(days=2), registration_deadline=now
+        )
+        third = make_event(
+            title="Latest", date_time=now + timedelta(days=3), registration_deadline=now
+        )
+
+        # The two earliest by date were just attempted; the latest never was.
+        EchoExperienceSync.objects.create(event=first, last_attempted_at=now)
+        EchoExperienceSync.objects.create(
+            event=second, last_attempted_at=now - timedelta(hours=2)
+        )
+
+        order = [event.pk for event in echo_lu.events_needing_sync()]
+        self.assertEqual(order, [third.pk, second.pk, first.pk])
+
+
+@override_settings(**ENABLED)
+class CategoryMapSafetyTests(TestCase):
+    """Bad config must not raise out of a save that already committed."""
+
+    @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": 123}')
+    def test_a_scalar_map_value_is_ignored_rather_than_raising(self):
+        # list(123) is a TypeError, not an EchoLuError — so the save-signal
+        # task would not swallow it, and an ordinary event save would surface
+        # an error after its transaction had committed. Every sweep would die
+        # here too, before reaching echo.lu at all.
+        # An unconfigured facet is omitted entirely rather than sent empty, so
+        # the assertion is that the payload builds at all — the bug was a
+        # TypeError escaping into an already-committed save.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertNotIn("categories", payload)
+
+    @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": ["dating"]}')
+    def test_a_list_map_value_is_used(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["categories"], ["dating"])
+
+    @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": "dating"}')
+    def test_a_string_map_value_is_wrapped(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["categories"], ["dating"])
+
+    @override_settings(ECHO_LU_CATEGORY_MAP="not json at all")
+    def test_unparseable_map_does_not_raise(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertNotIn("categories", payload)
+
+
+@override_settings(**ENABLED)
+class OrphanRecoveryGuardTests(TestCase):
+    """--adopt/--forget are sharp: pointed at a healthy row they strand it."""
+
+    def test_forget_refuses_a_healthy_row(self):
+        # A mistyped event id is all it takes: clearing a valid experience_id
+        # leaves the listing live and unreachable, and the next sync posts a
+        # second one beside it — the duplicate this command exists to clean up.
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+
+        with self.assertRaises(CommandError) as caught:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--forget",
+                stdout=StringIO(),
+            )
+
+        self.assertIn("not blocked", str(caught.exception))
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).experience_id, "exp-123"
+        )
+
+    def test_adopt_refuses_a_healthy_row(self):
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+
+        with self.assertRaises(CommandError):
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--adopt",
+                "exp-other",
+                stdout=StringIO(),
+            )

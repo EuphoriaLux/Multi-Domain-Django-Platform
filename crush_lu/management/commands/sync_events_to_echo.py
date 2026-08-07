@@ -285,6 +285,18 @@ class Command(BaseCommand):
                 f"nothing blocked to resolve."
             )
 
+        if sync.status != EchoExperienceSync.Status.ORPHANED:
+            # Pointed at a healthy row, --forget would clear a perfectly good
+            # experience id and the next sync would POST a second listing
+            # beside the live one — the exact duplicate this command exists to
+            # clean up. A mistyped event id is all it would take.
+            raise CommandError(
+                f"Event {event_id} is {sync.get_status_display()}, not "
+                f"blocked. --adopt and --forget only apply to a blocked row; "
+                f"on a healthy one they would strand its listing. Use "
+                f"--event-id {event_id} --force to resync it instead."
+            )
+
         previous = sync.get_status_display()
         if adopt:
             sync.experience_id = str(adopt).strip()
