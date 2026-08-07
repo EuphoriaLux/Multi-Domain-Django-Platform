@@ -208,9 +208,18 @@ again would rewrite the row to Withdrawn, and a Withdrawn event re-publishes
 itself once it qualifies — so an unrelated unpublish/republish cycle would
 quietly undo a removal somebody asked for.
 
-**Deleting a MeetupEvent row deletes its sync record too** (cascade), which
-loses the experience id and orphans the listing on echo.lu. Withdraw first,
-then delete.
+**Deleting a MeetupEvent takes its listing down first.** The sync record
+cascades with the event, and the experience id is the only handle we have —
+once the row is gone the listing is still public and nothing left in the
+database can name it. A `pre_delete` receiver therefore withdraws the listing
+while the id is still readable.
+
+That take-down is best-effort by necessity: the delete proceeds either way,
+because refusing it would be the worse failure (a coach unable to remove an
+event they need gone). If echo.lu is unreachable — or the sync switch is off —
+the experience id is written to the log at ERROR/WARNING precisely because the
+row holding it is about to vanish. Recover from the log, or find the listing
+with `--audit`, which still reports it as untracked.
 
 ### Orphaned listings
 

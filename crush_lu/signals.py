@@ -954,6 +954,61 @@ def sync_event_to_echo_lu(sender, instance, created, **kwargs):
     )
 
 
+@receiver(pre_delete, sender=MeetupEvent)
+def withdraw_from_echo_lu_before_delete(sender, instance, **kwargs):
+    """Take the listing down before the row that knows its id disappears.
+
+    `EchoExperienceSync` cascades with the event, and the experience id is the
+    only handle we have. Once the row is gone the listing is still public and
+    nothing left in the database can name it — no sweep, no admin action, no
+    retry. `--audit` can still spot it as untracked, but that is a person
+    noticing later, not a mechanism.
+
+    So this runs at pre_delete, while the id is still readable, and it is
+    best-effort by necessity: the delete is going to proceed either way, and
+    refusing it would be a worse failure than an orphan (a coach unable to
+    remove an event they need gone). What it must not do is fail silently, so
+    the id goes into the log where somebody can find it in the back office.
+
+    Bounded like every other in-request echo.lu call — a delete must not hang
+    on an unreachable portal.
+    """
+    from .services import echo_lu
+
+    sync = getattr(instance, "echo_sync", None)
+    if sync is None or not sync.experience_id:
+        return
+    if not echo_lu.is_sync_enabled():
+        logger.warning(
+            "[ECHO] Event %s is being deleted while echo.lu sync is off; "
+            "experience %s stays live and untracked — remove it in the "
+            "organiser back office",
+            instance.pk,
+            sync.experience_id,
+        )
+        return
+
+    experience_id = sync.experience_id
+    client = echo_lu.EchoLuClient(
+        timeout=getattr(settings, "ECHO_LU_SIGNAL_TIMEOUT_SECONDS", 5),
+        max_retries=0,
+    )
+    try:
+        echo_lu.withdraw_event(instance, client=client, explicit=True)
+    except echo_lu.EchoLuError as exc:
+        # Never blocks the delete. Logged with the id precisely because the
+        # row about to vanish is the only other place it exists.
+        logger.error(
+            "[ECHO] Could not withdraw experience %s before deleting event "
+            "%s (%s); the listing is live and now untracked — remove it in "
+            "the organiser back office, or find it with "
+            "`sync_events_to_echo --audit`",
+            experience_id,
+            instance.pk,
+            exc,
+        )
+
+
 @receiver(post_save, sender=MeetupEvent)
 def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     """

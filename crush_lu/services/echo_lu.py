@@ -994,27 +994,46 @@ def delete_event_listing(event, client=None):
         return "disabled"
 
     client = client or EchoLuClient()
-    try:
-        client.delete_experience(sync.experience_id)
-    except EchoLuError as exc:
-        sync.mark_failure(exc)
-        raise
+    failure = None
+    # The same row lock the publish and take-down paths take, for the same
+    # reason: this is a third writer to the listing, and unserialised it can
+    # interleave badly in both directions — a concurrent PUT finishing after
+    # this DELETE re-creates the listing while we clear the id, or a
+    # mark_success landing after it writes SYNCED over a listing that is gone.
+    # Either way the row stops describing echo.lu.
+    with transaction.atomic():
+        sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        event.echo_sync = sync
+        if not sync.experience_id:
+            # Somebody else got here first while we waited.
+            return "skipped"
+        try:
+            client.delete_experience(sync.experience_id)
+        except EchoLuError as exc:
+            # Recorded inside the lock and re-raised after, as elsewhere.
+            sync.mark_failure(exc)
+            failure = exc
+        else:
+            sync.experience_id = ""
+            sync.payload_hash = ""
+            sync.status = EchoExperienceSync.Status.PENDING
+            sync.removal_requested = False
+            sync.last_error = ""
+            sync.last_attempted_at = timezone.now()
+            sync.save(
+                update_fields=[
+                    "experience_id",
+                    "payload_hash",
+                    "status",
+                    "removal_requested",
+                    "last_error",
+                    "last_attempted_at",
+                    "updated_at",
+                ]
+            )
 
-    sync.experience_id = ""
-    sync.payload_hash = ""
-    sync.status = EchoExperienceSync.Status.PENDING
-    sync.last_error = ""
-    sync.last_attempted_at = timezone.now()
-    sync.save(
-        update_fields=[
-            "experience_id",
-            "payload_hash",
-            "status",
-            "last_error",
-            "last_attempted_at",
-            "updated_at",
-        ]
-    )
+    if failure is not None:
+        raise failure
     return "deleted"
 
 

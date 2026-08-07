@@ -1938,3 +1938,62 @@ class AdoptBlankIdTests(TestCase):
             EchoExperienceSync.objects.get(event=event).status,
             EchoExperienceSync.Status.ORPHANED,
         )
+
+
+@override_settings(**ENABLED)
+class DeleteEventTests(TestCase):
+    """Deleting the event destroys the only record of the listing's id."""
+
+    def test_deleting_an_event_takes_its_listing_down_first(self):
+        # EchoExperienceSync cascades with the event, and the experience id is
+        # the only handle we have. Once the row is gone the listing is still
+        # public and nothing left in the database can name it — no sweep, no
+        # admin action, no retry.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            event.delete()
+
+        self.assertEqual([call[0] for call in client.calls], ["create", "unpublish"])
+        self.assertFalse(MeetupEvent.objects.filter(pk=event.pk).exists())
+
+    def test_a_failed_take_down_still_lets_the_delete_through(self):
+        # Refusing the delete would be the worse failure — a coach unable to
+        # remove an event they need gone. It has to be loud instead: the id
+        # goes to the log, because the row that holds it is about to vanish.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        failing = FakeClient(error=echo_lu.EchoLuError("down", status_code=503))
+        with mock.patch.object(
+            echo_lu, "EchoLuClient", return_value=failing
+        ), self.assertLogs("crush_lu.signals", level="ERROR") as logs:
+            event.delete()
+
+        self.assertFalse(MeetupEvent.objects.filter(pk=event.pk).exists())
+        self.assertTrue(any("exp-123" in line for line in logs.output))
+
+    def test_an_unlisted_event_deletes_without_calling_echo(self):
+        event = make_event()
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            event.delete()
+        self.assertEqual(client.calls, [])
+
+    @override_settings(ECHO_LU_SYNC_ENABLED=False)
+    def test_a_disabled_environment_still_names_the_stranded_listing(self):
+        # Nothing can be taken down with the switch off, so the id has to reach
+        # the log or it is lost with the row.
+        event = make_event()
+        with override_settings(**ENABLED):
+            echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        with self.assertLogs("crush_lu.signals", level="WARNING") as logs:
+            event.delete()
+
+        self.assertTrue(any("exp-123" in line for line in logs.output))
