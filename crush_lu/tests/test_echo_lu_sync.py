@@ -373,6 +373,52 @@ class PayloadTests(TestCase):
         payload = echo_lu.build_experience_payload(make_event(languages=["de"]))
         self.assertEqual(payload["languages"], ["de"])
 
+    def test_luxembourgish_is_translated_to_echo_lu_s_code(self):
+        # We spell it "lu" (which is really the ISO country code); echo.lu
+        # wants the ISO 639-1 language code "lb", and rejects the whole
+        # experience on anything else: "Nonexisting value was found: lu".
+        payload = echo_lu.build_experience_payload(make_event(languages=["en", "lu"]))
+        self.assertEqual(payload["languages"], ["en", "lb"])
+
+    def test_unknown_language_codes_are_passed_through(self):
+        # There is no vocabulary endpoint for languages, so we cannot validate
+        # them. Dropping one silently would publish an event as English-only
+        # and tell nobody; echo.lu rejecting it says exactly what is wrong.
+        payload = echo_lu.build_experience_payload(make_event(languages=["xx"]))
+        self.assertEqual(payload["languages"], ["xx"])
+
+    @override_settings(ECHO_LU_MAX_PICTURE_BYTES=1000)
+    def test_an_oversized_banner_falls_back_instead_of_failing(self):
+        # echo.lu rejects the whole experience over a heavy image, so a big
+        # banner costs the listing rather than the banner.
+        event = make_event()
+
+        class BigImage:
+            size = 5000
+            url = "https://cdn.crush.lu/huge.png"
+
+            def __bool__(self):
+                return True
+
+        event.image = BigImage()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(payload["pictures"][0]["url"], echo_lu.fallback_picture_url())
+
+    @override_settings(ECHO_LU_MAX_PICTURE_BYTES=10000)
+    def test_a_banner_within_the_limit_is_used(self):
+        event = make_event()
+
+        class SmallImage:
+            size = 5000
+            url = "https://cdn.crush.lu/fine.png"
+
+            def __bool__(self):
+                return True
+
+        event.image = SmallImage()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(payload["pictures"][0]["url"], "https://cdn.crush.lu/fine.png")
+
     def test_status_is_not_part_of_the_payload(self):
         # It is a create-time instruction, not content. In the payload it would
         # join the fingerprint and ride every PUT.

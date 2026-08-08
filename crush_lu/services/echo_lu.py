@@ -62,6 +62,18 @@ CREATE_RETRY_STATUSES = frozenset({429})
 # future reader raising it "for venues" would silently repage the experience
 # sweep too.
 LIST_PAGE_SIZE = 100
+# Crush.lu spells Luxembourgish "lu"; echo.lu wants "lb", and rejects the whole
+# experience on anything it does not know ("Nonexisting value was found: lu").
+# "lb" is the ISO 639-1 language code — "lu" is the ISO 3166 code for the
+# *country*, which is a very easy thing to have picked years ago and never
+# noticed, because nothing outside the platform ever read it.
+#
+# Only aliases go here. Codes echo.lu already accepts pass through untouched:
+# there is no vocabulary endpoint for languages, so we cannot validate them,
+# and silently dropping an unrecognised one would publish an event as
+# English-only rather than telling anybody.
+ECHO_LANGUAGE_CODES = {"lu": "lb"}
+
 MAX_RETRIES = 3
 DEFAULT_RETRY_AFTER = 2.0
 # Ceiling on total sleep across retries. The sync can run from a request-thread
@@ -650,6 +662,35 @@ def cached_venue_ids(event):
     return [row.venue_id] if row else []
 
 
+def _picture_too_big(event):
+    """True when the event's own banner exceeds echo.lu's image limit.
+
+    echo.lu rejects the **whole experience** over an oversized picture — "The
+    max image size (2048Kb) is exceeded: 2317Kb" — so a heavy banner does not
+    cost a banner, it costs the listing. Checked here so an event with a big
+    image still publishes, with the fallback standing in.
+
+    Reads `.size`, which is a storage metadata call rather than a download.
+    Any failure answers False: sending it and letting echo.lu decide is better
+    than dropping a good banner because a HEAD request was unlucky.
+    """
+    limit = int(getattr(settings, "ECHO_LU_MAX_PICTURE_BYTES", 2048 * 1024))
+    try:
+        size = event.image.size
+    except Exception:  # noqa: BLE001 - storage errors must not fail the sync
+        return False
+    if size and size > limit:
+        logger.info(
+            "[ECHO] event %s banner is %sKB, over echo.lu's %sKB limit; "
+            "sending the fallback image instead",
+            event.pk,
+            size // 1024,
+            limit // 1024,
+        )
+        return True
+    return False
+
+
 def fallback_picture_url():
     """The picture to send for an event that has no image of its own.
 
@@ -977,7 +1018,7 @@ def build_experience_payload(event, venue_ids=None):
     # go out incomplete, and `missing_required_fields` names it before it costs
     # a round trip.
     picture_url = ""
-    if event.image:
+    if event.image and not _picture_too_big(event):
         try:
             picture_url = _absolute_media_url(event.image.url)
         except ValueError:
@@ -989,9 +1030,15 @@ def build_experience_payload(event, venue_ids=None):
         payload["pictures"] = [{"url": picture_url, "copy": "Crush.lu", "alt": title}]
 
     # `languages` is required too, so an event with none configured falls back
-    # rather than omitting the key.
-    languages = [code for code in (event.languages or []) if code]
-    payload["languages"] = languages or _setting_list("ECHO_LU_DEFAULT_LANGUAGES", "en")
+    # rather than omitting the key. Codes are translated on the way out — see
+    # ECHO_LANGUAGE_CODES.
+    languages = [
+        ECHO_LANGUAGE_CODES.get(code, code) for code in (event.languages or []) if code
+    ]
+    payload["languages"] = languages or [
+        ECHO_LANGUAGE_CODES.get(code, code)
+        for code in _setting_list("ECHO_LU_DEFAULT_LANGUAGES", "en")
+    ]
 
     for facet, setting_name in (
         ("categories", "ECHO_LU_DEFAULT_CATEGORIES"),

@@ -906,6 +906,12 @@ ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "i
 # Required too, and an event with no languages set cannot simply omit them.
 ECHO_LU_DEFAULT_LANGUAGES = os.environ.get("ECHO_LU_DEFAULT_LANGUAGES", "en,fr")
 ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
+# echo.lu rejects the whole experience over an oversized banner, not just the
+# banner — "The max image size (2048Kb) is exceeded: 2317Kb" — so an event
+# whose own image is over this sends the fallback instead of failing.
+ECHO_LU_MAX_PICTURE_BYTES = int(
+    os.environ.get("ECHO_LU_MAX_PICTURE_BYTES", str(2048 * 1024))
+)
 # How many 100-row pages of echo.lu's venue registry to read before giving up
 # and registering a new venue. The registry is 5,000+ rows with no text search
 # and **each page measures 3-4 seconds**, so do the arithmetic before raising
