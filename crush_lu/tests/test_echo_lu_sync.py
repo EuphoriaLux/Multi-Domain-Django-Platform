@@ -2060,6 +2060,64 @@ class WithdrawnThenCancelledTests(TestCase):
 
 
 @override_settings(**ENABLED)
+class StaleWithdrawalTests(TestCase):
+    """The withdraw path lacked the publish path's own "never mind" check."""
+
+    def test_an_automatic_withdrawal_aborts_if_the_event_became_eligible(self):
+        # An automatic take-down decided from an older save can queue behind a
+        # sync that republished the listing and left it correct. Going ahead
+        # unpublishes what that newer save just put up and writes WITHDRAWN
+        # over its SYNCED, so the listing stays missing for up to an hour.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        # Stand in for the caller that decided to withdraw: its copy says
+        # unpublished, while the winner has since republished the event.
+        stale = MeetupEvent.objects.get(pk=event.pk)
+        stale.is_published = False
+        self.assertTrue(MeetupEvent.objects.get(pk=event.pk).is_published)
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(stale, client=client), "skipped")
+        self.assertEqual(client.calls, [])
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SYNCED)
+
+    def test_an_explicit_withdrawal_is_not_talked_out_of_it(self):
+        # The whole point of an explicit take-down is that it removes a
+        # listing whose event still qualifies, so eligibility must not abort
+        # it — otherwise the coach's Remove action would become a no-op on
+        # exactly the events they use it for.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        client = FakeClient()
+        self.assertEqual(
+            echo_lu.withdraw_event(event, client=client, explicit=True),
+            "withdrawn",
+        )
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SUPPRESSED)
+
+    def test_a_pending_removal_still_goes_through(self):
+        # `removal_requested` is an explicit instruction that survived a failed
+        # attempt. The retry arrives with the event still saying "publish me" —
+        # that is the state the flag exists for — so it must not abort either.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        EchoExperienceSync.objects.filter(event=event).update(removal_requested=True)
+        event = MeetupEvent.objects.select_related("echo_sync").get(pk=event.pk)
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(event, client=client), "withdrawn")
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+
+
+@override_settings(**ENABLED)
 class DeleteEventTests(TestCase):
     """Deleting the event destroys the only record of the listing's id."""
 
@@ -2213,6 +2271,67 @@ class DeleteEventTests(TestCase):
         with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
             self._delete(event)
         self.assertEqual(client.calls, [])
+
+    def test_an_already_withdrawn_listing_is_not_taken_down_again(self):
+        # The id is kept on a withdrawn row on purpose, so "has an id" is not
+        # "is up". Dialling anyway spends the batch's shared budget on a no-op,
+        # and in a bulk delete enough of them push a live listing's callback
+        # past the budget — after its row is gone.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        event.is_published = False
+        event.save()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.WITHDRAWN)
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+        self.assertEqual(client.calls, [])
+
+    def test_a_cancelled_notice_is_still_taken_down_on_delete(self):
+        # The counter-case, and the reason the skip above is a two-item list
+        # rather than "anything not synced": a cancelled listing is still on
+        # public display, and the delete is the last moment anything can reach
+        # it. Miss this and the country keeps a cancellation notice for an
+        # event that no longer exists.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        MeetupEvent.objects.filter(pk=event.pk).update(is_cancelled=True)
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.CANCELLED)
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+
+    def test_an_id_written_since_the_event_was_loaded_is_still_found(self):
+        # The receiver used to read `instance.echo_sync`, which can be a copy
+        # cached when the event was loaded. A first publish that lands after
+        # that — it holds the row locked across its POST, so a racing delete
+        # reads the pre-create blank id — left the receiver concluding there
+        # was no listing, and the cascade then deleted the row the winner had
+        # just written the id into. Reading the row fresh, under its lock, is
+        # what makes the answer current.
+        event = make_event()
+        stale = EchoExperienceSync.objects.create(event=event)
+        event.echo_sync = stale  # the copy from before the create landed
+        EchoExperienceSync.objects.filter(pk=stale.pk).update(
+            experience_id="exp-late", status=EchoExperienceSync.Status.SYNCED
+        )
+        self.assertEqual(event.echo_sync.experience_id, "")
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+
+        self.assertEqual(client.calls, [("unpublish", "exp-late")])
 
     @override_settings(ECHO_LU_SYNC_ENABLED=False)
     def test_a_disabled_environment_still_names_the_stranded_listing(self):
