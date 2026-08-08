@@ -1055,15 +1055,45 @@ def withdraw_from_echo_lu_before_delete(sender, instance, **kwargs):
 
     So the id is captured here, where it is readable, and the take-down itself
     happens after the delete commits — see
-    :func:`_withdraw_deleted_echo_listing`. Nothing here touches the network
-    or the database: this fires once per instance for *any* delete reaching
-    this model, including Django's stock bulk action and any cascade from
-    somewhere else, so it has to stay cheap.
+    :func:`_withdraw_deleted_echo_listing`. No network here; this fires once
+    per instance for *any* delete reaching this model, including Django's
+    stock bulk action and any cascade from somewhere else.
+
+    The row is read **under its own lock**, not off the instance. Two things
+    went wrong with the plain attribute read:
+
+    * ``instance.echo_sync`` can be a cached copy from whenever the event was
+      loaded, and an id written since would not be on it.
+    * Even a fresh unlocked read sees only committed state. A first publish
+      holds this row locked across its POST, so a delete racing it reads the
+      pre-create blank id, concludes there is no listing, and schedules
+      nothing — then the cascade waits for that lock, deletes the row the
+      winner just wrote the id into, and the new listing is public with
+      nothing left that can name it. The lock is not an extra cost: the
+      cascade's own DELETE takes it moments later regardless, so this only
+      moves the wait earlier, to where the answer still matters.
     """
+    from .models.echo_lu import EchoExperienceSync
     from .services import echo_lu
 
-    sync = getattr(instance, "echo_sync", None)
+    sync = EchoExperienceSync.objects.select_for_update().filter(event=instance).first()
     if sync is None or not sync.experience_id:
+        return
+    # Already confirmed down, and the id is kept on purpose so a republish
+    # reuses the listing — so there is nothing to take down and dialling anyway
+    # spends the batch's shared budget on a no-op. That is not merely wasteful:
+    # enough already-down events ahead of a live one in a bulk delete push its
+    # callback past the budget, and its row is gone by then.
+    #
+    # CANCELLED is deliberately NOT in this set. That listing is still on
+    # display — a public notice with title, venue and date — and the delete is
+    # the last moment anything can take it down. FAILED is not either: the last
+    # attempt failed, so whether the listing is up is exactly what we do not
+    # know, and a failed take-down means it certainly is.
+    if sync.status in (
+        EchoExperienceSync.Status.WITHDRAWN,
+        EchoExperienceSync.Status.SUPPRESSED,
+    ):
         return
     if not echo_lu.is_sync_enabled():
         logger.warning(

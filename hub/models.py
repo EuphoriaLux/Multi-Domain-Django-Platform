@@ -213,6 +213,14 @@ class SocialPost(models.Model):
         blank=True,
         null=True,
     )
+    source_event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        on_delete=models.SET_NULL,
+        related_name="social_promotion_posts",
+        blank=True,
+        null=True,
+        help_text="Published Crush event whose existing copy was reused for this post.",
+    )
     pillar = models.CharField(
         max_length=32, choices=Pillar.choices, default=Pillar.EVENT_RECAP
     )
@@ -221,6 +229,8 @@ class SocialPost(models.Model):
     )
     platforms = models.JSONField(default=list, blank=True)
     buffer_profile_ids = models.JSONField(default=list, blank=True)
+    buffer_profile_platforms = models.JSONField(default=dict, blank=True)
+    dispatched_platforms = models.JSONField(default=list, blank=True)
     hook = models.CharField(max_length=255, blank=True, default="")
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)
