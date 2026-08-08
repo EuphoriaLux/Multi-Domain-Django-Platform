@@ -83,6 +83,8 @@ class SocialPostSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     created_by = serializers.SerializerMethodField()
     featured_profile_id = serializers.CharField(read_only=True)
+    source_event_id = serializers.CharField(read_only=True)
+    source_event_title = serializers.SerializerMethodField()
 
     class Meta:
         model = SocialPost
@@ -90,10 +92,14 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "id",
             "created_by",
             "featured_profile_id",
+            "source_event_id",
+            "source_event_title",
             "pillar",
             "language",
             "platforms",
             "buffer_profile_ids",
+            "buffer_profile_platforms",
+            "dispatched_platforms",
             "hook",
             "content",
             "media_url",
@@ -109,7 +115,10 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "id",
             "created_by",
             "featured_profile_id",
+            "source_event_id",
+            "source_event_title",
             "buffer_id",
+            "dispatched_platforms",
             "article_id",
             "status_history",
             "created_at",
@@ -118,6 +127,9 @@ class SocialPostSerializer(serializers.ModelSerializer):
 
     def get_created_by(self, obj):
         return obj.user.get_username() if obj.user else "system"
+
+    def get_source_event_title(self, obj):
+        return obj.source_event.title if obj.source_event_id else None
 
     def validate_platforms(self, value):
         allowed = {"instagram", "facebook", "linkedin"}
@@ -138,6 +150,28 @@ class SocialPostSerializer(serializers.ModelSerializer):
                 "Buffer channel IDs must be a list of non-empty strings."
             )
         return list(dict.fromkeys(value))
+
+    def validate_buffer_profile_platforms(self, value):
+        allowed = {"instagram", "facebook", "linkedin"}
+        if not isinstance(value, dict) or any(
+            not isinstance(profile_id, str)
+            or not profile_id.strip()
+            or len(profile_id) > 255
+            or not isinstance(platform, str)
+            or platform not in allowed
+            for profile_id, platform in value.items()
+        ):
+            raise serializers.ValidationError(
+                "Buffer channel platforms must map channel IDs to supported platforms."
+            )
+        return value
+
+    def validate_content(self, value):
+        if len(value) > 1500:
+            raise serializers.ValidationError(
+                "Social post content cannot exceed 1500 characters."
+            )
+        return value
 
 
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):

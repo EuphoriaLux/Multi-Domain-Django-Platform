@@ -22,9 +22,14 @@ class BufferServiceError(RuntimeError):
 class BufferPartialFailure(BufferServiceError):
     """Raised when Buffer created some channel posts before a later failure."""
 
-    def __init__(self, created_post_ids: list[str]):
+    def __init__(
+        self,
+        created_post_ids: list[str],
+        created_profile_ids: list[str] | None = None,
+    ):
         super().__init__("Buffer created only some requested channel posts")
         self.created_post_ids = created_post_ids
+        self.created_profile_ids = created_profile_ids or []
 
 
 def _is_public_media_url(url: str) -> bool:
@@ -173,6 +178,7 @@ def create_buffer_update(
         raise BufferServiceError("Select at least one Buffer channel")
 
     post_ids = []
+    created_profile_ids = []
     for channel_id in profile_ids:
         try:
             post_ids.append(
@@ -183,8 +189,14 @@ def create_buffer_update(
                     media_url=media_url,
                 )
             )
+            created_profile_ids.append(channel_id)
         except BufferServiceError as exc:
             if post_ids:
-                raise BufferPartialFailure(post_ids) from exc
+                raise BufferPartialFailure(post_ids, created_profile_ids) from exc
             raise
-    return {"success": True, "buffer_ids": post_ids, "buffer_id": ",".join(post_ids)}
+    return {
+        "success": True,
+        "buffer_ids": post_ids,
+        "buffer_id": ",".join(post_ids),
+        "created_profile_ids": created_profile_ids,
+    }
