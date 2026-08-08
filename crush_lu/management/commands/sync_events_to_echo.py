@@ -208,14 +208,33 @@ class Command(BaseCommand):
             if show_payload and echo_lu.should_publish(event):
                 import json
 
-                self.stdout.write(
-                    json.dumps(
-                        echo_lu.build_experience_payload(event),
-                        indent=2,
-                        ensure_ascii=False,
-                        default=str,
-                    )
+                # Cached venue ids, so the preview shows the `venues` the real
+                # run would send. Without them it printed `[]` every time — and
+                # `venues` is both the field this integration is least sure of
+                # and the one the setup guide tells operators to read before
+                # turning the switch on, so a preview that cannot show it is a
+                # preview that cannot be trusted for the thing it exists for.
+                # Cached only: a preview must never resolve, because resolving
+                # can register a venue.
+                preview = echo_lu.build_experience_payload(
+                    event, venue_ids=echo_lu.cached_venue_ids(event)
                 )
+                missing = echo_lu.missing_required_fields(preview)
+                self.stdout.write(
+                    json.dumps(preview, indent=2, ensure_ascii=False, default=str)
+                )
+                if missing:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            "  ↑ echo.lu would reject this: missing "
+                            + ", ".join(missing)
+                            + (
+                                " (venues resolves on the real run)"
+                                if missing == ["venues"]
+                                else ""
+                            )
+                        )
+                    )
 
             try:
                 if withdraw:
@@ -388,11 +407,15 @@ class Command(BaseCommand):
 
         client = echo_lu.EchoLuClient()
         try:
-            response = client.list_experiences()
+            # Paged, because echo.lu pages. A single unpaged call used to be
+            # taken for the whole portal, which made this command report live
+            # listings as "deleted there?" — and `--forget` on that advice is
+            # exactly how a duplicate gets created. If any page fails the whole
+            # audit fails: a partial answer is worse than none, because it
+            # reads as a complete one.
+            remote = _experience_entries(client.iter_experiences())
         except echo_lu.EchoLuError as exc:
             raise CommandError(str(exc))
-
-        remote = _experience_entries(response)
         tracked = dict(
             EchoExperienceSync.objects.exclude(experience_id="").values_list(
                 "experience_id", "event_id"
@@ -500,24 +523,20 @@ class Command(BaseCommand):
             )
 
 
-def _experience_entries(response):
-    """Normalise a ListExperience response into [(id, title), ...].
+def _experience_entries(records):
+    """Normalise experience records into [(id, title), ...].
 
-    The list response is not documented in the same detail as /experiences and
-    differs between the sandbox and production versions, so accept a bare list
-    or any of the usual envelopes rather than assuming one and reporting an
-    empty portal when it is the other.
+    Takes an iterable of records — `client.iter_experiences()` yields them
+    across pages — but still accepts a raw response body so a caller holding
+    one page does not have to unwrap it first. The envelope key is ``records``;
+    it was absent from the original list and every audit therefore parsed as an
+    empty portal.
     """
-    if isinstance(response, dict):
-        for key in ("data", "items", "results", "experiences"):
-            if isinstance(response.get(key), list):
-                response = response[key]
-                break
-        else:
-            response = []
+    if isinstance(records, dict):
+        records = echo_lu.response_records(records)
 
     entries = []
-    for entry in response or []:
+    for entry in records or []:
         if not isinstance(entry, dict):
             continue
         experience_id = echo_lu.extract_experience_id(entry)
