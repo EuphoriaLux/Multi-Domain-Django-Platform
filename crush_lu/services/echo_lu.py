@@ -644,6 +644,26 @@ def cached_venue_ids(event):
     return [row.venue_id] if row else []
 
 
+def fallback_picture_url():
+    """The picture to send for an event that has no image of its own.
+
+    ``pictures`` is required, and echo.lu fetches them **server-side**, so a URL
+    that 404s is a rejected experience rather than a listing without a banner.
+    The default is therefore the same file the ``og:image`` tag serves.
+
+    Resolved **here, at call time**, not bound to a settings constant. Binding
+    it in ``settings.py`` snapshots whatever ``SOCIAL_PREVIEW_IMAGE_URL`` is at
+    that line — and it is reassigned twice afterwards, once for Azure blob
+    storage and again in ``production.py`` for the CDN domain. So the snapshot
+    silently kept the wrong URL on every real deployment, which is exactly the
+    drift this fallback was introduced to stop. Reading both settings when the
+    payload is built means whichever settings module won has the final say.
+    """
+    return getattr(settings, "ECHO_LU_FALLBACK_IMAGE", "") or getattr(
+        settings, "SOCIAL_PREVIEW_IMAGE_URL", ""
+    )
+
+
 def _venue_payload(event, address):
     """A CreateVenue body for this event's location."""
     return {
@@ -903,7 +923,7 @@ def build_experience_payload(event, venue_ids=None):
             # An ImageField whose storage cannot build a URL (a missing file in
             # local dev) falls through to the same fallback.
             picture_url = ""
-    picture_url = picture_url or getattr(settings, "ECHO_LU_FALLBACK_IMAGE", "")
+    picture_url = picture_url or fallback_picture_url()
     if picture_url:
         payload["pictures"] = [{"url": picture_url, "copy": "Crush.lu", "alt": title}]
 
@@ -1249,8 +1269,10 @@ def sync_event(event, client=None, force=False, dry_run=False):
                     "not sent — echo.lu requires "
                     + ", ".join(missing)
                     + ". Set the matching ECHO_LU_DEFAULT_* values (run "
-                    "`manage.py echo_taxonomy` for the accepted ids); an event "
-                    "with no image needs ECHO_LU_FALLBACK_IMAGE."
+                    "`manage.py echo_taxonomy` for the accepted ids). A "
+                    "missing picture means SOCIAL_PREVIEW_IMAGE_URL resolved "
+                    "empty — that is the one to set, or ECHO_LU_FALLBACK_IMAGE "
+                    "to override it just for echo.lu."
                 )
 
             outcome = _write_experience(sync, payload, fingerprint, client)

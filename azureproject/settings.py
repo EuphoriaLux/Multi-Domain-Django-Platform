@@ -906,11 +906,14 @@ ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "i
 # Required too, and an event with no languages set cannot simply omit them.
 ECHO_LU_DEFAULT_LANGUAGES = os.environ.get("ECHO_LU_DEFAULT_LANGUAGES", "en,fr")
 ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
-# `pictures` is required, so an event with no image is rejected outright rather
-# than listed without a banner. This stands in for it.
-ECHO_LU_FALLBACK_IMAGE = os.environ.get(
-    "ECHO_LU_FALLBACK_IMAGE", "https://crush.lu/static/crush_lu/images/og-image.jpg"
-)
+# Optional override for the picture sent when an event has no image of its own.
+# Left EMPTY on purpose: the fallback is resolved at call time in
+# services.echo_lu, from SOCIAL_PREVIEW_IMAGE_URL. Binding it to that value
+# *here* would snapshot whatever the URL happens to be at this line, and it is
+# reassigned twice afterwards — once below for Azure blob storage, and again in
+# production.py for the CDN domain — so the two would silently diverge on every
+# real deployment. That is the exact drift this setting was added to prevent.
+ECHO_LU_FALLBACK_IMAGE = os.environ.get("ECHO_LU_FALLBACK_IMAGE", "")
 # Optional JSON object mapping MeetupEvent.event_type -> list of category
 # slugs, layered on top of ECHO_LU_DEFAULT_CATEGORIES. Example:
 #   {"speed_dating": ["rencontres"], "quiz_night": ["jeux"]}

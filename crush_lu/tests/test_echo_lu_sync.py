@@ -21,6 +21,7 @@ from decimal import Decimal
 from io import StringIO
 from unittest import mock
 
+from django.conf import settings
 from django.core.management import call_command
 from django.db import transaction
 from django.test import TestCase, override_settings
@@ -332,10 +333,37 @@ class PayloadTests(TestCase):
     def test_an_event_without_an_image_still_gets_a_picture(self):
         # `pictures` is required, so "no image" is a rejection rather than a
         # listing without a banner.
+        # Asserted against the settings chain, not against the helper that
+        # produced it — comparing the function under test to itself passes even
+        # if both sides are wrong together.
         payload = echo_lu.build_experience_payload(make_event())
         self.assertEqual(
-            payload["pictures"][0]["url"],
-            "https://crush.lu/static/crush_lu/images/og-image.jpg",
+            payload["pictures"][0]["url"], settings.SOCIAL_PREVIEW_IMAGE_URL
+        )
+        self.assertTrue(payload["pictures"][0]["url"])
+
+    def test_the_fallback_image_is_the_og_image(self):
+        # Not a second hand-written branding URL. The first attempt at this
+        # setting invented a path that 404s, and echo.lu fetches pictures
+        # server-side — so a 404 is a rejected experience, not a missing
+        # banner. Tying it to the og:image means one URL to keep true.
+        #
+        # Asserted through the payload, against whatever SOCIAL_PREVIEW_IMAGE_URL
+        # resolves to in THIS environment. Comparing two settings constants
+        # instead is what let the first version of this fix pass locally and
+        # fail in CI: the URL is reassigned after the constant was bound (blob
+        # storage here, the CDN domain in production.py), so the snapshot and
+        # the live value were already different everywhere that matters.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], settings.SOCIAL_PREVIEW_IMAGE_URL
+        )
+
+    @override_settings(ECHO_LU_FALLBACK_IMAGE="https://example.test/banner.jpg")
+    def test_an_explicit_override_wins(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], "https://example.test/banner.jpg"
         )
 
     @override_settings(ECHO_LU_DEFAULT_LANGUAGES="en,fr")
