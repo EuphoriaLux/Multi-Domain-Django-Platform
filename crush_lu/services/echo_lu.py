@@ -720,7 +720,17 @@ def resolve_venue_ids(event, client, address=None):
     except EchoLuError as exc:
         # A registry we could not read is not a reason to register a duplicate
         # into it. Fail the sync instead; the sweep retries in an hour.
-        raise EchoLuError(
+        #
+        # EchoLuNotSent, emphatically, and not a bare EchoLuError. Everything
+        # here happens *before* the experience create is attempted, so nothing
+        # can possibly have been created — but a locally raised error carries no
+        # status code, and `_proves_nothing_was_created` reads a missing status
+        # as "the answer was lost, assume a listing exists". A bare raise here
+        # therefore parked the event in ORPHANED: blocked from syncing forever
+        # and pointing its operator at an `--audit` that cannot find anything,
+        # because there is nothing to find. That is exactly what happened on the
+        # first production sync.
+        raise EchoLuNotSent(
             f"could not search echo.lu venues for {event.location!r}: {exc}"
         ) from exc
 

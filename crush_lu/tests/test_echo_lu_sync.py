@@ -383,6 +383,28 @@ class PayloadTests(TestCase):
 class UnsendablePayloadTests(TestCase):
     """Refusing to send is not the same as a create whose answer was lost."""
 
+    def test_an_unreadable_venue_registry_leaves_the_row_retryable(self):
+        # This one bit on the very first production sync. The venue search
+        # happens BEFORE the experience create, so a registry we cannot read
+        # proves nothing was created — but a locally raised error carries no
+        # status code, and a missing status otherwise reads as "the answer was
+        # lost". The event was parked in ORPHANED: blocked from syncing, and
+        # sent to an --audit with nothing to find.
+        event = make_event()
+
+        class BrokenRegistryClient(FakeClient):
+            def list_venues(self, **params):
+                raise echo_lu.EchoLuError("nope", status_code=400)
+
+        client = BrokenRegistryClient(venues=[])
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])  # no venue and no experience created
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertNotEqual(event.echo_sync.status, EchoExperienceSync.Status.ORPHANED)
+
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="",
         ECHO_LU_DEFAULT_AUDIENCES="",
