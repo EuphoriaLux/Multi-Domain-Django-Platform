@@ -36,6 +36,12 @@ DOMAINS = {
         'app': 'hub',
         'aliases': ['test.api.crush.lu'],
     },
+    'game.crush.lu': {
+        'urlconf': 'azureproject.urls_game',
+        'name': 'Crush Empire',
+        'app': 'crush_empire',
+        'aliases': ['test.game.crush.lu'],
+    },
     'vinsdelux.com': {
         'urlconf': 'azureproject.urls_vinsdelux',
         'name': 'VinsDelux',
@@ -85,6 +91,7 @@ DEV_DOMAIN_MAPPINGS = {
     'delegation.localhost': 'delegations.lu',
     'portal.localhost': 'portal.powerup.lu',
     'api.localhost': 'api.crush.lu',
+    'game.localhost': 'game.crush.lu',
 }
 
 # Production fallback (used for unknown domains and Azure hostnames)

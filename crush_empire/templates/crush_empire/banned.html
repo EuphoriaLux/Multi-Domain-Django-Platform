@@ -1,0 +1,16 @@
+{% extends "crush_empire/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Account suspended" %}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-md rounded-2xl border border-empire-line bg-empire-panel p-6 text-center">
+    <h2 class="text-xl font-bold">{% trans "Your account is suspended" %}</h2>
+    <p class="mt-2 text-sm text-empire-muted">
+        {% trans "Crush Empire uses your Crush.lu account, and that account is currently suspended." %}
+    </p>
+    <a href="https://crush.lu/account/banned/" class="mt-4 inline-block text-sm text-empire-pink underline">
+        {% trans "More information" %}
+    </a>
+</div>
+{% endblock %}
