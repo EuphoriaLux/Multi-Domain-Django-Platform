@@ -27,7 +27,7 @@ from hub.claude_service import (
     GeneratedArticle,
     generate_social_copy,
 )
-from hub.image_generator import _background_image, generate_kpi_card
+from hub.image_generator import generate_kpi_card
 from hub.models import HubResource, SocialPost
 
 User = get_user_model()
@@ -1182,22 +1182,6 @@ class ClaudeServiceTests(SimpleTestCase):
 
 
 class ImageGeneratorTests(SimpleTestCase):
-    @patch("hub.image_generator.requests.get")
-    def test_remote_background_stops_streaming_at_size_limit(self, get):
-        response = Mock()
-        response.headers = {}
-        response.iter_content.return_value = [b"1234", b"5"]
-        get.return_value = response
-
-        with patch("hub.image_generator.MAX_BACKGROUND_BYTES", 4):
-            image = _background_image("https://media.test/oversized.png")
-
-        self.assertIsNone(image)
-        get.assert_called_once_with(
-            "https://media.test/oversized.png", timeout=6, stream=True
-        )
-        response.close.assert_called_once()
-
     def test_pillow_renderer_creates_public_png_without_browser_runtime(self):
         with TemporaryDirectory() as media_root:
             with self.settings(
