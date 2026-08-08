@@ -1269,8 +1269,10 @@ def sync_event(event, client=None, force=False, dry_run=False):
                     "not sent — echo.lu requires "
                     + ", ".join(missing)
                     + ". Set the matching ECHO_LU_DEFAULT_* values (run "
-                    "`manage.py echo_taxonomy` for the accepted ids); an event "
-                    "with no image needs ECHO_LU_FALLBACK_IMAGE."
+                    "`manage.py echo_taxonomy` for the accepted ids). A "
+                    "missing picture means SOCIAL_PREVIEW_IMAGE_URL resolved "
+                    "empty — that is the one to set, or ECHO_LU_FALLBACK_IMAGE "
+                    "to override it just for echo.lu."
                 )
 
             outcome = _write_experience(sync, payload, fingerprint, client)
