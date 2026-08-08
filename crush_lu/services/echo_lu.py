@@ -650,6 +650,25 @@ def cached_venue_ids(event):
     return [row.venue_id] if row else []
 
 
+def _echo_languages(codes):
+    """Our language codes in echo.lu's spelling.
+
+    One helper rather than the mapping written out at each call site: the two
+    would drift the moment the aliasing grows, and it already has to be more
+    than a dict lookup — matching is case-insensitive, because a stray "LU"
+    from an import or a fixture would otherwise sail past `{"lu": "lb"}` and be
+    rejected by echo.lu with the same opaque message as before.
+    """
+    result = []
+    for code in codes or []:
+        if not code:
+            continue
+        cleaned = str(code).strip().lower()
+        if cleaned:
+            result.append(ECHO_LANGUAGE_CODES.get(cleaned, cleaned))
+    return result
+
+
 def _picture_too_big(event):
     """True when the event's own banner exceeds echo.lu's image limit.
 
@@ -658,15 +677,34 @@ def _picture_too_big(event):
     cost a banner, it costs the listing. Checked here so an event with a big
     image still publishes, with the fallback standing in.
 
-    Reads `.size`, which is a storage metadata call rather than a download.
+    **Cached, because `.size` is a network call.** On Azure Blob it is a
+    blob-properties request, and `FieldFile.size` caches nothing — so a naive
+    read here would cost a round trip for every event with a banner on every
+    sweep, including the events that turn out to be no-ops. That would quietly
+    undo the "an unchanged event costs no API call" property this module is
+    built around, and the sweep's time budget reserves nothing for it. Worse,
+    it is invisible in dev and CI, where storage is the local filesystem.
+
+    Keyed on the stored file name, which for uploaded banners is a content
+    hash — so a re-upload is a new key and the cache never goes stale.
+
     Any failure answers False: sending it and letting echo.lu decide is better
-    than dropping a good banner because a HEAD request was unlucky.
+    than dropping a good banner because one metadata call was unlucky.
     """
+    from django.core.cache import cache
+
     limit = int(getattr(settings, "ECHO_LU_MAX_PICTURE_BYTES", 2048 * 1024))
-    try:
-        size = event.image.size
-    except Exception:  # noqa: BLE001 - storage errors must not fail the sync
-        return False
+    name = getattr(event.image, "name", "") or ""
+    cache_key = f"echo_lu:picture_size:{name}" if name else ""
+
+    size = cache.get(cache_key) if cache_key else None
+    if size is None:
+        try:
+            size = event.image.size
+        except Exception:  # noqa: BLE001 - storage errors must not fail the sync
+            return False
+        if cache_key and size:
+            cache.set(cache_key, size, 7 * 24 * 3600)
     if size and size > limit:
         logger.info(
             "[ECHO] event %s banner is %sKB, over echo.lu's %sKB limit; "
@@ -967,13 +1005,9 @@ def build_experience_payload(event, venue_ids=None):
     # `languages` is required too, so an event with none configured falls back
     # rather than omitting the key. Codes are translated on the way out — see
     # ECHO_LANGUAGE_CODES.
-    languages = [
-        ECHO_LANGUAGE_CODES.get(code, code) for code in (event.languages or []) if code
-    ]
-    payload["languages"] = languages or [
-        ECHO_LANGUAGE_CODES.get(code, code)
-        for code in _setting_list("ECHO_LU_DEFAULT_LANGUAGES", "en")
-    ]
+    payload["languages"] = _echo_languages(event.languages) or _echo_languages(
+        _setting_list("ECHO_LU_DEFAULT_LANGUAGES", "en")
+    )
 
     for facet, setting_name in (
         ("categories", "ECHO_LU_DEFAULT_CATEGORIES"),
