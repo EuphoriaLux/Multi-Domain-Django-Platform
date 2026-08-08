@@ -182,6 +182,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "azureproject.middleware.HealthCheckMiddleware",  # MUST be first - bypasses all other middleware for /healthz/
+    # Runtime logging probe. Deliberately AFTER HealthCheckMiddleware: that one
+    # short-circuits /healthz/ and /readyz/, so the canary fires on a real
+    # request rather than on an Azure liveness ping.
+    "azureproject.middleware.RuntimeLoggingCanaryMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # MUST be before CommonMiddleware; adds CORS headers for api.crush.lu
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.0 native CSP
