@@ -157,6 +157,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
             not isinstance(profile_id, str)
             or not profile_id.strip()
             or len(profile_id) > 255
+            or not isinstance(platform, str)
             or platform not in allowed
             for profile_id, platform in value.items()
         ):

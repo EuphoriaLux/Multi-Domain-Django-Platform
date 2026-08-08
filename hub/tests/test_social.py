@@ -142,6 +142,21 @@ class SocialMediaTests(TestCase):
         self.assertEqual(bad_platform.status_code, 400)
         self.assertEqual(bad_channels.status_code, 400)
 
+    def test_manual_creation_rejects_nested_buffer_platform_values(self):
+        # A list is unhashable, so testing it for set membership without a type
+        # guard first raises TypeError and turns a bad payload into a 500.
+        response = self.client.post(
+            "/hub/social/posts",
+            {
+                "content": "Post",
+                "buffer_profile_platforms": {"channel_1": ["facebook"]},
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("buffer_profile_platforms", response.data)
+
     @patch("hub.views_social.generate_social_copy")
     def test_batch_generation_uses_claude_copy(self, generate_copy):
         generate_copy.return_value = {
@@ -887,6 +902,91 @@ class SocialMediaTests(TestCase):
 
         self.assertEqual(missing_platform.status_code, 201)
         self.assertEqual(missing_platform.data["posts"][0]["platforms"], ["linkedin"])
+
+    @patch(
+        "hub.views_social.create_buffer_update",
+        side_effect=BufferPartialFailure(["buffer_post_1"], ["facebook_channel"]),
+    )
+    def test_partial_facebook_delivery_still_reports_the_event_as_promoted(
+        self, _dispatch
+    ):
+        event = self._event(
+            title_fr="Événement multicanal",
+            description_fr="Description multicanale",
+        )
+        post = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            content="Publication prête",
+            language="fr",
+            platforms=["facebook", "linkedin"],
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["facebook_channel", "linkedin_channel"],
+                "buffer_profile_platforms": {
+                    "facebook_channel": "facebook",
+                    "linkedin_channel": "linkedin",
+                },
+            },
+            format="json",
+        )
+        # FAILED ranks below DRAFT, so the later draft wins the status ranking
+        # even though the Facebook publication lives on the failed post.
+        SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            content="Brouillon plus récent",
+            language="fr",
+            platforms=["facebook"],
+            status=SocialPost.Status.DRAFT,
+        )
+
+        item = self.client.get("/hub/social/upcoming-events").data["items"][0]
+
+        self.assertTrue(item["is_promoted"])
+        self.assertEqual(item["promotion_post_id"], str(post.pk))
+        self.assertEqual(item["promotion_status"], SocialPost.Status.FAILED)
+
+    @patch(
+        "hub.views_social.create_buffer_update",
+        return_value={
+            "buffer_id": "buffer_post_1",
+            "created_profile_ids": ["facebook_channel"],
+        },
+    )
+    def test_scheduling_rejects_channels_mapped_outside_the_post_platforms(
+        self, dispatch
+    ):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            language="fr",
+            platforms=["facebook"],
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["facebook_channel"],
+                "buffer_profile_platforms": {"facebook_channel": "linkedin"},
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("buffer_profile_platforms", response.data)
+        dispatch.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)
+        self.assertEqual(post.dispatched_platforms, [])
 
     @patch(
         "hub.views_social.create_buffer_update",

@@ -52,6 +52,9 @@ PROFILE_INELIGIBLE_ERROR = (
 )
 EVENT_INELIGIBLE_ERROR = "The linked event is no longer public, published, or upcoming."
 EVENT_SCHEDULE_ERROR = "Publication time must be before the linked event starts."
+BUFFER_PLATFORM_SCOPE_ERROR = (
+    "Every selected Buffer channel must be mapped to one of this post's platforms."
+)
 SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
@@ -197,8 +200,17 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         for post in event.social_promotion_posts.all()
         if "facebook" in (post.platforms or [])
     ]
+    # A partial Buffer failure leaves the post FAILED even though Facebook is
+    # already live, and FAILED ranks below DRAFT — so a newer draft would win
+    # max() and report the event as unpromoted while the publication exists.
+    # Read the delivery that actually happened, not the overall status.
+    dispatched_posts = [
+        post
+        for post in facebook_posts
+        if "facebook" in _event_post_dispatched_platforms(post)
+    ]
     promotion_post = max(
-        facebook_posts,
+        dispatched_posts or facebook_posts,
         key=lambda post: (PROMOTION_STATUS_RANK.get(post.status, 0), post.created_at),
         default=None,
     )
@@ -220,9 +232,7 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         "available_languages": available_languages,
         "promotion_post_id": str(promotion_post.pk) if promotion_post else None,
         "promotion_status": promotion_post.status if promotion_post else "not_started",
-        "is_promoted": bool(
-            promotion_post and promotion_post.status in PROMOTED_STATUSES
-        ),
+        "is_promoted": bool(dispatched_posts),
     }
 
 
@@ -543,7 +553,17 @@ class SocialPostDetailView(APIView):
             elif all(
                 profile_id in profile_platforms for profile_id in selected_profile_ids
             ):
-                pass
+                # The mapping is what dispatched_platforms is recorded from, so
+                # a channel mapped outside this post's own platforms would book
+                # coverage the publication never had — and leave the platform it
+                # really went to looking unpromoted, i.e. duplicable.
+                mapped_platforms = {
+                    profile_platforms[profile_id] for profile_id in selected_profile_ids
+                }
+                if not mapped_platforms.issubset(set(effective_platforms or [])):
+                    scheduling_errors["buffer_profile_platforms"] = (
+                        BUFFER_PLATFORM_SCOPE_ERROR
+                    )
             elif len(effective_platforms or []) == 1:
                 serializer.validated_data["buffer_profile_platforms"] = {
                     profile_id: effective_platforms[0]
