@@ -2,10 +2,13 @@
 List echo.lu's category / audience / format / environment vocabularies.
 
 echo.lu validates these facets against its own controlled vocabularies and
-rejects the *entire* experience when a value is unknown, so the slugs cannot
-be guessed — they have to be read off the API for our organisation's key. That
-is why ECHO_LU_DEFAULT_* ship empty: an empty facet is accepted, an invented
-one is not.
+rejects the *entire* experience when a value is unknown, so the ids cannot be
+guessed — they have to be read off the API for our organisation's key.
+
+All four facets are **required**, so leaving one empty is not the safe option
+an earlier version of this note claimed: an experience without them is rejected
+with "Missing categories" and so on. The shipped defaults are real ids read off
+the live API; this command is how you check them and pick better ones.
 
 Usage:
     # Print every vocabulary
@@ -224,19 +227,28 @@ def _split(raw):
 
 
 def _extract_slugs(response):
-    """Normalise a vocabulary response into {slug: label}.
+    """Normalise a vocabulary response into {id: label}.
 
-    The vocabulary endpoints are not documented in the same detail as
-    /experiences, and the sandbox and production versions differ, so accept the
-    shapes that actually turn up — a bare list of strings, a list of objects, or
-    either of those wrapped in a `data`/`items` envelope — rather than assuming
-    one and printing nothing useful when it is the other.
+    The live shape is ``{"stats": {…}, "records": [{"id": …, "titles": …}]}``.
+    Both keys were missing from the original reconstruction, and each broke it
+    on its own: without ``records`` this fell through to the "plain mapping"
+    branch and returned ``{"stats": …, "records": …}`` *as the vocabulary*, so
+    `--check` rejected every genuinely valid id; without ``titles`` the ids
+    printed bare, and the label is what an operator picks from.
+
+    Looser shapes stay as fallbacks — the docs still warn that data models are
+    subject to change.
     """
+    from crush_lu.services.echo_lu import response_records
+
     if isinstance(response, dict):
-        for key in ("data", "items", "results"):
-            if isinstance(response.get(key), list):
-                response = response[key]
-                break
+        records = response_records(response)
+        if records:
+            response = records
+        elif any(key in response for key in ("records", "data", "items", "results")):
+            # A recognised envelope that is simply empty — not a slug mapping,
+            # and reading it as one is how "stats" became a valid category.
+            return {}
         else:
             # A plain {slug: label} mapping.
             return {str(k): str(v) for k, v in response.items()}
@@ -248,8 +260,14 @@ def _extract_slugs(response):
             continue
         if not isinstance(entry, dict):
             continue
-        slug = entry.get("slug") or entry.get("id") or entry.get("code") or ""
-        label = entry.get("name") or entry.get("label") or entry.get("title") or ""
+        slug = entry.get("id") or entry.get("slug") or entry.get("code") or ""
+        label = (
+            entry.get("titles")
+            or entry.get("name")
+            or entry.get("label")
+            or entry.get("title")
+            or ""
+        )
         if isinstance(label, dict):
             # Vocabulary labels are translated; show whichever we can read.
             label = label.get("en") or next(iter(label.values()), "")

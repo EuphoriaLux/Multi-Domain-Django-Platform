@@ -1,7 +1,8 @@
 """echo.lu partner API client — publishes Crush.lu events to Luxembourg's
 national events portal.
 
-API reference: https://api.echo.lu/ (sandbox: https://test-api.echo.lu/).
+API reference: https://api.echo.lu/ (Echo API v1.1.0). There is no sandbox —
+every call here reaches the live national portal.
 
 Shape of the remote API, because it drives most of the decisions below:
 
@@ -15,12 +16,21 @@ Shape of the remote API, because it drives most of the decisions below:
 * Ids are server-assigned and the create payload carries no external-reference
   field, so the returned id is the only link back to a MeetupEvent. It lives in
   ``EchoExperienceSync`` — see that model for why losing it is expensive.
+* Responses are enveloped: ``{"stats": {...}, "record": {...}}`` for a single
+  object and ``{"stats": {...}, "records": [...]}`` for a list. Lists page with
+  ``pagination[page]`` / ``pagination[perPage]``.
 * Dates are RFC 3339; echo.lu renders them in Europe/Luxembourg regardless of
   the offset sent, so we send UTC.
+* ``venues`` is a list of ids from echo.lu's own venue registry, not names.
+* ``title``, ``description``, ``pictures``, ``dates``, ``venues``,
+  ``categories``, ``audiences``, ``languages``, ``environments`` and
+  ``formats`` are all required — see ``REQUIRED_EXPERIENCE_FIELDS``.
+* Listings are **moderated**. A create carries ``status``: ``draft`` parks it in
+  the organiser back office, ``pending`` submits it for validation.
 
 Everything here is gated on ``settings.ECHO_LU_SYNC_ENABLED``, which defaults
-to False. A restored production database on staging therefore cannot mutate
-live listings just by having inherited the key.
+to False. That switch is the only thing standing between a shell and the live
+portal, because there is no second environment to practise on.
 """
 
 import hashlib
@@ -265,7 +275,54 @@ class EchoLuClient:
         return self._request("GET", f"/experiences/{experience_id}")
 
     def list_experiences(self, **params):
-        return self._request("GET", "/experiences", params=params or None)
+        """One page of the organisation's experiences.
+
+        A 404 here means "none", not "broken": echo.lu documents
+        ListExperienceNotFoundResponse and answers it for an organisation with
+        no experiences yet — which is exactly the state `--audit` is most
+        likely to be run in. Swallowing it only for the *list* call is
+        deliberate; a 404 from GetExperience means the listing is gone and must
+        stay an error.
+        """
+        try:
+            return self._request("GET", "/experiences", params=params or None)
+        except EchoLuError as exc:
+            if exc.status_code == 404:
+                return {"records": []}
+            raise
+
+    def iter_experiences(self, per_page=100):
+        """Every experience, page by page.
+
+        echo.lu pages with ``pagination[page]`` / ``pagination[perPage]`` and
+        documents that a page past the end "returns nothing". The audit used to
+        make one unpaged call and treat the answer as the whole portal, which
+        is how it could report a listing as deleted upstream while it was live
+        — and `--forget` on that advice creates the duplicate the whole design
+        is built to avoid.
+        """
+        page = 0
+        seen = 0
+        while True:
+            response = self.list_experiences(
+                **{"pagination[page]": page, "pagination[perPage]": per_page}
+            )
+            records = response_records(response)
+            if not records:
+                return
+            for record in records:
+                yield record
+            seen += len(records)
+            if len(records) < per_page:
+                return
+            page += 1
+            if page > 1000:  # pragma: no cover - runaway guard
+                logger.error(
+                    "[ECHO] Stopping experience paging at %s records; the API "
+                    "kept returning full pages",
+                    seen,
+                )
+                return
 
     def delete_experience(self, experience_id):
         return self._request("DELETE", f"/experiences/{experience_id}")
@@ -276,17 +333,42 @@ class EchoLuClient:
     def unpublish_experience(self, experience_id):
         return self._request("PATCH", f"/experiences/{experience_id}/unpublish")
 
+    # --- venues ----------------------------------------------------------
+
+    def list_venues(self, **params):
+        return self._request("GET", "/venues", params=params or None)
+
+    def create_venue(self, payload):
+        """Register a venue and get its id back.
+
+        Not retried on anything but 429, for the same reason creating an
+        experience is not: venues are a shared national registry with
+        server-assigned ids, so a replay after a lost response leaves a
+        duplicate venue nobody can tell from the original.
+        """
+        return self._request(
+            "POST", "/venues", json_body=payload, retry_statuses=CREATE_RETRY_STATUSES
+        )
+
     # --- vocabularies ----------------------------------------------------
 
     #: The facets echo.lu validates against its own vocabularies. An unknown
-    #: value in any of them rejects the whole experience, which is why the
-    #: defaults in settings ship empty and `manage.py echo_taxonomy` exists.
+    #: value in any of them rejects the whole experience, which is why
+    #: `manage.py echo_taxonomy` exists.
     TAXONOMIES = ("categories", "audiences", "formats", "environments")
 
     def list_taxonomy(self, kind):
+        """One vocabulary.
+
+        ``/categories`` alone is a 400 — it requires ``?type=`` and takes
+        ``experience`` or ``venue``. The original client omitted it, so the one
+        facet with 190 values and the highest chance of a typo was also the one
+        the taxonomy command could never read.
+        """
         if kind not in self.TAXONOMIES:
             raise ValueError(f"Unknown echo.lu taxonomy: {kind}")
-        return self._request("GET", f"/{kind}")
+        params = {"type": "experience"} if kind == "categories" else None
+        return self._request("GET", f"/{kind}", params=params)
 
 
 def _safe_body(response):
@@ -300,11 +382,16 @@ def _safe_body(response):
 def extract_experience_id(payload):
     """Pull the experience id out of a create/update response.
 
-    The API is not consistent about where the id lands across versions
-    (v1.0.4 vs the v1.1.0 sandbox) and the response schema is not published in
-    full, so every plausible spelling is tried rather than hard-coding one and
-    silently storing ``None`` — which would make the next sync create a
-    duplicate listing.
+    The documented v1.1.0 shape is ``{"stats": {...}, "record": {"id": ...}}``
+    — the id is inside ``record``, which is why that container comes first.
+    This was the single defect that would have broken every first publish: the
+    original spelling list was reconstructed without access to the API and did
+    not include ``record``, so `_write_experience` saw no id, raised
+    :class:`EchoLuOrphanedCreate`, and parked every newly created listing in a
+    state that blocks all further creates until somebody resolves it by hand.
+
+    The other spellings are kept as fallbacks — they cost nothing and the docs
+    still carry a "data models subject to change" warning.
     """
     if not isinstance(payload, dict):
         return ""
@@ -312,13 +399,33 @@ def extract_experience_id(payload):
         value = payload.get(key)
         if value:
             return str(value)
-    for container in ("data", "experience", "result"):
+    for container in ("record", "data", "experience", "result"):
         nested = payload.get(container)
         if isinstance(nested, dict):
             found = extract_experience_id(nested)
             if found:
                 return found
     return ""
+
+
+def response_records(payload):
+    """The list of records out of a list response.
+
+    Documented shape is ``{"stats": {...}, "records": [...]}``. ``records`` was
+    missing from the original reconstruction, so every list call parsed as
+    empty — which made `--audit` report an empty portal and label every tracked
+    listing as deleted upstream. Returns ``[]`` for anything unrecognisable
+    rather than guessing.
+    """
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+    for key in ("records", "data", "items", "results", "experiences"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -418,27 +525,51 @@ def parse_address(address, canton=""):
     town = ""
     street_line = lines[0] if lines else ""
 
-    # The postcode line is whichever line contains a four-digit group; the town
-    # is the rest of that line once the postcode is removed.
+    # Which line holds the postcode, and where in it. An "L-" prefixed match
+    # wins outright, and otherwise the LAST four-digit group does — because a
+    # venue whose name begins with digits ("1535 Creative Hub, 45 rue Emile
+    # Mark, L-4620 Differdange") otherwise donates its name to the postcode
+    # field and leaves the street empty.
+    best = None
     for index, line in enumerate(lines):
-        match = _POSTCODE_RE.search(line)
-        if not match:
-            continue
+        for match in _POSTCODE_RE.finditer(line):
+            prefixed = match.group(0).strip().lower().startswith("l")
+            if best is None or prefixed or not best[2]:
+                best = (index, match, prefixed)
+            if prefixed:
+                break
+        if best is not None and best[2]:
+            break
+
+    if best is not None:
+        index, match, _prefixed = best
         postcode = match.group(1)
         if index == 0:
             # Single-line address: everything before the postcode is the
             # street, everything after it is the town.
-            street_line = line[: match.start()].strip(" ,-")
-            town = line[match.end() :].strip(" ,-")
+            street_line = lines[0][: match.start()].strip(" ,-")
+            town = lines[0][match.end() :].strip(" ,-")
         else:
             # A line of its own: the town is whatever sits either side of the
-            # postcode, and line 0 stays the street.
+            # postcode.
             town = (
-                line[: match.start()].strip(" ,-")
+                lines[index][: match.start()].strip(" ,-")
                 + " "
-                + line[match.end() :].strip(" ,-")
+                + lines[index][match.end() :].strip(" ,-")
             ).strip(" ,-")
-        break
+            # The street is chosen from the lines ABOVE the postcode, not
+            # blindly from line 0. Staff routinely put the venue name first
+            # ("Café Konrad" / "7, rue du Nord" / "L-2229 Luxembourg"), and
+            # taking line 0 then dropped the actual street from a national
+            # listing entirely. Prefer the last line that carries a house
+            # number; failing that, the line nearest the postcode.
+            above = lines[:index]
+            numbered = [
+                line
+                for line in above
+                if _LEADING_NUMBER_RE.match(line) or _TRAILING_NUMBER_RE.search(line)
+            ]
+            street_line = (numbered or above)[-1] if above else ""
 
     number = ""
     leading = _LEADING_NUMBER_RE.match(street_line)
@@ -450,6 +581,15 @@ def parse_address(address, canton=""):
         if trailing:
             number = trailing.group(1).strip()
             street_line = street_line[: trailing.start()].strip(" ,")
+
+    # The promise this function makes: the listing is never LESS informative
+    # than what we hold. Splitting can empty the street — an address that is
+    # only a house number, or a first line the postcode logic consumed — and a
+    # blank street on a national listing is worse than an unsplit one, so put
+    # the original back and let it travel whole.
+    if not street_line:
+        street_line = (lines[0] if lines else "").strip(" ,-")
+        number = number if street_line != (lines[0] if lines else "") else ""
 
     return {
         "street": street_line,
@@ -463,13 +603,210 @@ def parse_address(address, canton=""):
     }
 
 
-def build_experience_payload(event):
+def venue_key(name, postcode=""):
+    """Cache key for a venue: lowercased name plus postcode.
+
+    Casing and spacing drift in a hand-typed `location` must not register a
+    second venue for the same place, and the postcode keeps two venues that
+    share a common name ("Brasserie du Centre") apart.
+    """
+    cleaned = re.sub(r"\s+", " ", (name or "").strip().lower())
+    return f"{cleaned}|{postcode}".strip("|")
+
+
+def cached_venue_ids(event):
+    """Venue ids already known locally — no API calls, no writes.
+
+    The read-only half of :func:`resolve_venue_ids`, for the paths that must
+    not touch echo.lu: the dry run, and the pre-lock fingerprint that decides
+    whether an unchanged event needs a write at all.
+    """
+    from ..models.echo_lu import EchoVenue
+
+    if not event.location:
+        return []
+    address = parse_address(event.address, event.canton)
+    key = venue_key(event.location, address.get("postcode", ""))
+    row = EchoVenue.objects.filter(key=key).first()
+    return [row.venue_id] if row else []
+
+
+def _venue_payload(event, address):
+    """A CreateVenue body for this event's location."""
+    return {
+        "title": event.location,
+        "location": {"address": address},
+    }
+
+
+def resolve_venue_ids(event, client, address=None):
+    """The echo.lu venue ids for this event, registering one if needed.
+
+    Returns a list because the field is a list; in practice it is one venue.
+
+    Three steps, cheapest first: the local cache, then echo.lu's registry, then
+    registering a new venue. The middle step matters because that registry is
+    shared with every other organiser in the country — a venue we create beside
+    an identical one that already exists is litter in a public dataset, not
+    just a wasted call.
+
+    Matching is deliberately strict: normalised equality on the venue name, not
+    a fuzzy or substring match. Attaching our event to somebody else's venue
+    because the names looked similar is a worse failure than registering a
+    duplicate, and it is the kind that is invisible from our side.
+    """
+    from ..models.echo_lu import EchoVenue
+
+    if not event.location:
+        return []
+
+    address = (
+        address if address is not None else parse_address(event.address, event.canton)
+    )
+    key = venue_key(event.location, address.get("postcode", ""))
+
+    cached = EchoVenue.objects.filter(key=key).first()
+    if cached is not None:
+        return [cached.venue_id]
+
+    target = venue_key(event.location)
+    match_id, match_title = "", ""
+    try:
+        for record in _iter_venue_records(client, address):
+            title = record.get("title") or ""
+            if isinstance(title, dict):
+                title = title.get("en") or next(iter(title.values()), "")
+            if venue_key(str(title)) == target:
+                match_id = extract_experience_id(record)
+                match_title = str(title)
+                if match_id:
+                    break
+    except EchoLuError as exc:
+        # A registry we could not read is not a reason to register a duplicate
+        # into it. Fail the sync instead; the sweep retries in an hour.
+        raise EchoLuError(
+            f"could not search echo.lu venues for {event.location!r}: {exc}"
+        ) from exc
+
+    created_by_us = False
+    if not match_id:
+        response = client.create_venue(_venue_payload(event, address))
+        match_id = extract_experience_id(response)
+        match_title = event.location
+        created_by_us = True
+        if not match_id:
+            # Same shape of problem as an experience create with no id back,
+            # and the same answer: do not try again automatically. Without the
+            # id we cannot reference the venue, and a second attempt registers
+            # a second one into a shared national table.
+            raise EchoLuOrphanedCreate(
+                f"echo.lu accepted a venue for {event.location!r} but returned "
+                f"no id; it is now registered and untracked. Find it in the "
+                f"organiser back office and record its id on an EchoVenue row "
+                f"before syncing this event again."
+            )
+
+    EchoVenue.objects.update_or_create(
+        key=key,
+        defaults={
+            "venue_id": match_id,
+            "title": match_title,
+            "created_by_us": created_by_us,
+        },
+    )
+    logger.info(
+        "echo.lu venue %s for %r (%s)",
+        match_id,
+        event.location,
+        "registered" if created_by_us else "matched",
+    )
+    return [match_id]
+
+
+def _iter_venue_records(client, address):
+    """Pages of the venue registry, narrowed by commune when we can.
+
+    The registry is thousands of rows and ListVenues offers no text search, so
+    the commune filter is the only way to keep this from being a full scan on
+    every miss. It is a filter, not a requirement: an unmatched commune just
+    means reading more pages.
+    """
+    per_page = 200
+    base = {}
+    commune = (address or {}).get("commune") or ""
+    if commune:
+        base["communes[]"] = commune
+    for attempt_params in ({**base}, {}) if base else ({},):
+        page = 0
+        found_any = False
+        while True:
+            params = dict(attempt_params)
+            params["pagination[page]"] = page
+            params["pagination[perPage]"] = per_page
+            records = response_records(client.list_venues(**params))
+            if not records:
+                break
+            found_any = True
+            for record in records:
+                yield record
+            if len(records) < per_page:
+                break
+            page += 1
+            if page > 200:  # pragma: no cover - runaway guard
+                return
+        if found_any:
+            # The narrowed pass returned rows; no need for the wide one.
+            return
+
+
+# Exactly what a create must carry, read off the API rather than the schema
+# table: POSTing `{}` to /experiences answers 400 with one entry per missing
+# field, and this is that list. Worth stating as a constant because the
+# original mapping was reconstructed without API access and shipped SEVEN of
+# these either empty or absent — echo.lu would have rejected every event.
+#
+# `tags` is NOT here. The published property table marks it required; the API
+# does not ask for it. Empirical wins.
+REQUIRED_EXPERIENCE_FIELDS = (
+    "title",
+    "description",
+    "pictures",
+    "dates",
+    "venues",
+    "categories",
+    "audiences",
+    "languages",
+    "environments",
+    "formats",
+)
+
+
+def missing_required_fields(payload):
+    """Which required keys this payload would be rejected for.
+
+    Lets the sync fail with an actionable local message instead of spending a
+    round trip to be told the same thing, and gives `--dry-run` something real
+    to report.
+    """
+    return [field for field in REQUIRED_EXPERIENCE_FIELDS if not payload.get(field)]
+
+
+def build_experience_payload(event, venue_ids=None):
     """Map a MeetupEvent onto the echo.lu experience schema.
 
-    Only fields we can fill *correctly* are sent. In particular ``duration`` is
-    omitted from the date entry even though the schema accepts it: its unit is
-    not documented, ``from``/``to`` already pin the span exactly, and a
-    duration in the wrong unit would contradict them on the public listing.
+    ``duration`` is omitted from the date entry even though the schema accepts
+    it: its unit is not documented, ``from``/``to`` already pin the span
+    exactly, and a duration in the wrong unit would contradict them publicly.
+
+    ``status`` is deliberately NOT built here. It is a create-time instruction
+    ("save as draft" vs "submit for validation"), not content, so putting it in
+    the payload would fold it into the fingerprint and send it on every PUT —
+    and what a status field does to an already-validated experience is
+    undocumented. :func:`_write_experience` adds it to the create call only.
+
+    ``venue_ids`` are resolved by the caller (see :func:`resolve_venue_ids`),
+    because resolving them costs API calls and this function must stay pure —
+    the fingerprint is computed from what it returns.
     """
     from ..utils.i18n import build_absolute_url
 
@@ -490,23 +827,37 @@ def build_experience_payload(event):
                 "purchaseLink": event_url,
             }
         ],
-        "venues": [event.location] if event.location else [],
+        # Venue IDs from echo.lu's own registry, never names. `venues` is a
+        # first-class resource there (5k+ rows shared across all organisers)
+        # and ListExperience documents this parameter as "Venue IDs", so the
+        # original `[event.location]` sent a display name into an id field.
+        "venues": list(venue_ids or []),
         "location": {"address": parse_address(event.address, event.canton)},
-        "contact": {
-            "name": getattr(settings, "ECHO_LU_CONTACT_NAME", "Crush.lu"),
-            "company": getattr(settings, "ECHO_LU_CONTACT_COMPANY", "Crush.lu"),
-            "email": getattr(settings, "ECHO_LU_CONTACT_EMAIL", ""),
-            "phone": getattr(settings, "ECHO_LU_CONTACT_PHONE", ""),
-            # The organiser's site, which is what this field means alongside
-            # name/email/phone/company. The event-specific link is already
-            # `purchaseLink`. Falls back to the event page rather than sending
-            # nothing, so an unconfigured deployment still gives readers
-            # somewhere useful to go.
-            "website": getattr(settings, "ECHO_LU_CONTACT_WEBSITE", "") or event_url,
-        },
         "tickets": _build_tickets(event),
-        "tags": _setting_list("ECHO_LU_DEFAULT_TAGS"),
     }
+
+    tags = _setting_list("ECHO_LU_DEFAULT_TAGS")
+    if tags:
+        payload["tags"] = tags
+
+    # All three of name/email/phone are required *within* contact, while
+    # contact itself is optional — so a partial one is worse than none at all:
+    # it turns an optional block into a guaranteed 400. All or nothing.
+    contact = {
+        "name": getattr(settings, "ECHO_LU_CONTACT_NAME", ""),
+        "email": getattr(settings, "ECHO_LU_CONTACT_EMAIL", ""),
+        "phone": getattr(settings, "ECHO_LU_CONTACT_PHONE", ""),
+    }
+    if all(contact.values()):
+        company = getattr(settings, "ECHO_LU_CONTACT_COMPANY", "")
+        # The organiser's site, which is what this field means alongside
+        # name/email/phone/company. The event-specific link is already
+        # `purchaseLink`.
+        website = getattr(settings, "ECHO_LU_CONTACT_WEBSITE", "") or event_url
+        if company:
+            contact["company"] = company
+        contact["website"] = website
+        payload["contact"] = contact
 
     # Coordinates are strings in the echo.lu schema, and only sent when we have
     # them — "None" as a string would be worse than an absent key.
@@ -514,22 +865,27 @@ def build_experience_payload(event):
         payload["location"]["address"]["latitude"] = str(event.latitude)
         payload["location"]["address"]["longitude"] = str(event.longitude)
 
+    # `pictures` is required, so an event without an image cannot simply omit
+    # it — that is a rejection, not a listing without a banner. The configured
+    # fallback stands in; only if there is no fallback either does the payload
+    # go out incomplete, and `missing_required_fields` names it before it costs
+    # a round trip.
+    picture_url = ""
     if event.image:
         try:
             picture_url = _absolute_media_url(event.image.url)
         except ValueError:
-            # An ImageField whose storage cannot build a URL (missing file in
-            # local dev) must not fail the whole sync — the listing is still
-            # worth publishing without a banner.
+            # An ImageField whose storage cannot build a URL (a missing file in
+            # local dev) falls through to the same fallback.
             picture_url = ""
-        if picture_url:
-            payload["pictures"] = [
-                {"url": picture_url, "copy": "Crush.lu", "alt": title}
-            ]
+    picture_url = picture_url or getattr(settings, "ECHO_LU_FALLBACK_IMAGE", "")
+    if picture_url:
+        payload["pictures"] = [{"url": picture_url, "copy": "Crush.lu", "alt": title}]
 
+    # `languages` is required too, so an event with none configured falls back
+    # rather than omitting the key.
     languages = [code for code in (event.languages or []) if code]
-    if languages:
-        payload["languages"] = languages
+    payload["languages"] = languages or _setting_list("ECHO_LU_DEFAULT_LANGUAGES", "en")
 
     for facet, setting_name in (
         ("categories", "ECHO_LU_DEFAULT_CATEGORIES"),
@@ -540,12 +896,10 @@ def build_experience_payload(event):
         values = _setting_list(setting_name)
         if facet == "categories":
             values = _categories_for(event, values)
-        if values:
-            payload[facet] = values
+        # Set unconditionally: all four are required, so an empty list has to
+        # travel and be reported as missing rather than silently vanish.
+        payload[facet] = values
 
-    # Drop empty scalars rather than sending "" — echo.lu treats an empty
-    # string as a supplied value and will render a blank contact line for it.
-    payload["contact"] = {k: v for k, v in payload["contact"].items() if v}
     return payload
 
 
@@ -654,7 +1008,15 @@ def _write_experience(sync, payload, fingerprint, client):
         response = client.update_experience(sync.experience_id, payload)
         outcome = "updated"
     else:
-        response = client.create_experience(payload)
+        # `status` rides the create call, never the payload the fingerprint is
+        # taken from. It is an instruction rather than content — "park this as
+        # a draft" vs "submit it for validation" — so folding it in would make
+        # every unchanged event look changed, and would send a status on every
+        # PUT. The docs only say what a PUT status does to a *draft*; what it
+        # does to an already-validated listing is unspecified, and a national
+        # portal is the wrong place to find out.
+        status = getattr(settings, "ECHO_LU_CREATE_STATUS", "pending")
+        response = client.create_experience({**payload, "status": status})
         outcome = "created"
 
     experience_id = extract_experience_id(response) or sync.experience_id
@@ -744,7 +1106,11 @@ def sync_event(event, client=None, force=False, dry_run=False):
             return "skipped"
         return withdraw_event(event, client=client, dry_run=dry_run)
 
-    payload = build_experience_payload(event)
+    # Cached venue ids only out here — resolving for real can register a venue
+    # on echo.lu, and nothing before the lock is allowed to write anything. In
+    # the steady state the cache is warm and this fingerprint matches the one
+    # computed under the lock, so an unchanged event still costs no API call.
+    payload = build_experience_payload(event, venue_ids=cached_venue_ids(event))
     fingerprint = payload_fingerprint(payload)
 
     def _no_op_outcome(row):
@@ -829,15 +1195,35 @@ def sync_event(event, client=None, force=False, dry_run=False):
             # missed; what must not happen is this call publishing over it.
             return "skipped"
 
-        # Recomputed from the event as it is now, for the same reason.
-        payload = build_experience_payload(event)
-        fingerprint = payload_fingerprint(payload)
-
-        settled = _no_op_outcome(sync)
-        if settled:
-            return settled
-
         try:
+            # Recomputed from the event as it is now, for the same reason.
+            # Venue resolution lives in here too: it can register a venue on
+            # echo.lu, so it belongs inside the lock with every other write —
+            # and inside this try, so a registry we cannot read is recorded on
+            # the row like any other failure instead of escaping unrecorded.
+            address = parse_address(event.address, event.canton)
+            venue_ids = resolve_venue_ids(event, client, address=address)
+            payload = build_experience_payload(event, venue_ids=venue_ids)
+            fingerprint = payload_fingerprint(payload)
+
+            settled = _no_op_outcome(sync)
+            if settled:
+                return settled
+
+            # Checked before spending a round trip. echo.lu rejects the whole
+            # experience if any of these is missing, and answers with a field
+            # list that only ever reaches the logs — whereas this names the
+            # setting to fix and lands on the sync row the admin renders.
+            missing = missing_required_fields(payload)
+            if missing:
+                raise EchoLuError(
+                    "not sent — echo.lu requires "
+                    + ", ".join(missing)
+                    + ". Set the matching ECHO_LU_DEFAULT_* values (run "
+                    "`manage.py echo_taxonomy` for the accepted ids); an event "
+                    "with no image needs ECHO_LU_FALLBACK_IMAGE."
+                )
+
             outcome = _write_experience(sync, payload, fingerprint, client)
         except EchoLuOrphanedCreate as exc:
             # Recorded here, inside the lock, and deliberately NOT re-raised

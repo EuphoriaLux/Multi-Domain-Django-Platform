@@ -388,11 +388,15 @@ class Command(BaseCommand):
 
         client = echo_lu.EchoLuClient()
         try:
-            response = client.list_experiences()
+            # Paged, because echo.lu pages. A single unpaged call used to be
+            # taken for the whole portal, which made this command report live
+            # listings as "deleted there?" — and `--forget` on that advice is
+            # exactly how a duplicate gets created. If any page fails the whole
+            # audit fails: a partial answer is worse than none, because it
+            # reads as a complete one.
+            remote = _experience_entries(client.iter_experiences())
         except echo_lu.EchoLuError as exc:
             raise CommandError(str(exc))
-
-        remote = _experience_entries(response)
         tracked = dict(
             EchoExperienceSync.objects.exclude(experience_id="").values_list(
                 "experience_id", "event_id"
@@ -500,24 +504,20 @@ class Command(BaseCommand):
             )
 
 
-def _experience_entries(response):
-    """Normalise a ListExperience response into [(id, title), ...].
+def _experience_entries(records):
+    """Normalise experience records into [(id, title), ...].
 
-    The list response is not documented in the same detail as /experiences and
-    differs between the sandbox and production versions, so accept a bare list
-    or any of the usual envelopes rather than assuming one and reporting an
-    empty portal when it is the other.
+    Takes an iterable of records — `client.iter_experiences()` yields them
+    across pages — but still accepts a raw response body so a caller holding
+    one page does not have to unwrap it first. The envelope key is ``records``;
+    it was absent from the original list and every audit therefore parsed as an
+    empty portal.
     """
-    if isinstance(response, dict):
-        for key in ("data", "items", "results", "experiences"):
-            if isinstance(response.get(key), list):
-                response = response[key]
-                break
-        else:
-            response = []
+    if isinstance(records, dict):
+        records = echo_lu.response_records(records)
 
     entries = []
-    for entry in response or []:
+    for entry in records or []:
         if not isinstance(entry, dict):
             continue
         experience_id = echo_lu.extract_experience_id(entry)

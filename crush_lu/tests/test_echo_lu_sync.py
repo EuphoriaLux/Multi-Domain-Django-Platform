@@ -58,12 +58,38 @@ def make_event(**overrides):
     return MeetupEvent.objects.create(**defaults)
 
 
+def echo_response(record):
+    """A response in echo.lu's real envelope: ``{"stats": …, "record": {…}}``.
+
+    This suite used to hand back a bare ``{"id": …}`` — a shape the API never
+    returns. Every test passed against it while the real thing would have
+    parked each newly created listing as an untracked orphan. So the fake now
+    speaks the documented envelope, and the bare spellings are pinned by their
+    own fallback tests rather than being what the whole suite is built on.
+    """
+    return {"stats": {"start": 0, "end": 0, "duration": 1}, "record": record}
+
+
 class FakeClient:
     """Records calls and returns canned responses, in place of EchoLuClient."""
 
-    def __init__(self, create_response=None, error=None):
-        self.create_response = create_response or {"id": "exp-123"}
+    def __init__(self, create_response=None, error=None, venues=None):
+        self.create_response = (
+            create_response
+            if create_response is not None
+            else echo_response({"id": "exp-123"})
+        )
         self.error = error
+        # The venue registry this fake pretends echo.lu holds. It already
+        # contains make_event's venue, because that is the ordinary case
+        # against a national registry of 5k+ rows — the venue exists and we
+        # match it, which costs no write. Pass `venues=[]` for the other case,
+        # where we have to register one.
+        self.venues = (
+            list(venues)
+            if venues is not None
+            else [{"id": "venue-1", "title": "Café Konrad"}]
+        )
         self.calls = []
 
     def _record(self, name, *args):
@@ -71,13 +97,26 @@ class FakeClient:
         if self.error:
             raise self.error
 
+    # --- venues ---
+    # list_venues is deliberately NOT recorded: venue lookups are plumbing, and
+    # threading them into every call-order assertion would bury the experience
+    # calls those assertions exist to pin.
+    def list_venues(self, **params):
+        return {"stats": {}, "records": list(self.venues)}
+
+    def create_venue(self, payload):
+        self._record("create_venue", payload)
+        venue_id = f"venue-{len(self.venues) + 1}"
+        self.venues.append({"id": venue_id, "title": payload.get("title", "")})
+        return echo_response({"id": venue_id})
+
     def create_experience(self, payload):
         self._record("create", payload)
         return self.create_response
 
     def update_experience(self, experience_id, payload):
         self._record("update", experience_id, payload)
-        return {"id": experience_id}
+        return echo_response({"id": experience_id})
 
     def cancel_experience(self, experience_id):
         self._record("cancel", experience_id)
@@ -175,8 +214,15 @@ class PayloadTests(TestCase):
         self.assertEqual(payload["title"], "Speed Dating Luxembourg")
         self.assertEqual(payload["description"], "An evening of short dates.")
         self.assertEqual(payload["subtitle"], "Speed Dating")
-        self.assertEqual(payload["venues"], ["Café Konrad"])
         self.assertEqual(payload["location"]["address"]["postcode"], "2229")
+        # `venues` carries echo.lu venue IDs, resolved by the caller against
+        # echo.lu's own registry — never the venue name, which is what this
+        # used to assert. The name goes nowhere near the field.
+        self.assertEqual(payload["venues"], [])
+        self.assertEqual(
+            echo_lu.build_experience_payload(event, venue_ids=["venue-9"])["venues"],
+            ["venue-9"],
+        )
 
     def test_dates_are_rfc3339_utc_and_span_the_duration(self):
         event = make_event(duration_minutes=90)
@@ -226,11 +272,12 @@ class PayloadTests(TestCase):
         )
 
     @override_settings(ECHO_LU_CONTACT_WEBSITE="https://crush.lu")
+    @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_uses_the_configured_organiser_site(self):
         payload = echo_lu.build_experience_payload(make_event())
         self.assertEqual(payload["contact"]["website"], "https://crush.lu")
 
-    @override_settings(ECHO_LU_CONTACT_WEBSITE="")
+    @override_settings(ECHO_LU_CONTACT_WEBSITE="", ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_falls_back_to_the_event_page(self):
         # Better than sending nothing: readers still get somewhere useful.
         event = make_event()
@@ -239,19 +286,69 @@ class PayloadTests(TestCase):
             payload["contact"]["website"], f"https://crush.lu/en/events/{event.pk}/"
         )
 
-    def test_blank_contact_fields_are_dropped(self):
-        # An empty string is a supplied value to echo.lu and renders as a blank
-        # contact line.
+    def test_a_partial_contact_is_omitted_entirely(self):
+        # name/email/phone are all required *within* contact while contact
+        # itself is optional, so a partial one is strictly worse than none: it
+        # converts an optional block into a guaranteed 400. This used to send
+        # whichever fields happened to be configured.
         with override_settings(ECHO_LU_CONTACT_PHONE=""):
-            contact = echo_lu.build_experience_payload(make_event())["contact"]
-        self.assertNotIn("phone", contact)
+            payload = echo_lu.build_experience_payload(make_event())
+        self.assertNotIn("contact", payload)
 
-    def test_taxonomy_facets_are_omitted_when_unconfigured(self):
-        # Guessing a slug gets the whole experience rejected, so empty means
-        # "send nothing".
+    @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
+    def test_a_complete_contact_is_sent(self):
+        contact = echo_lu.build_experience_payload(make_event())["contact"]
+        self.assertEqual({"name", "email", "phone", "company", "website"}, set(contact))
+        self.assertTrue(all(contact.values()))
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_unconfigured_facets_travel_empty_and_are_reported_missing(self):
+        # This used to assert the opposite — that an unconfigured facet was
+        # omitted, "which is valid and safer than guessing". It is not valid:
+        # all four are required, and POSTing without them answers 400 with
+        # "Missing categories" and so on. So they travel as empty lists and
+        # `missing_required_fields` names them before a round trip is spent.
         payload = echo_lu.build_experience_payload(make_event())
         for facet in ("categories", "audiences", "formats", "environments"):
-            self.assertNotIn(facet, payload)
+            self.assertIn(facet, payload)
+            self.assertEqual(payload[facet], [])
+        self.assertEqual(
+            set(echo_lu.missing_required_fields(payload))
+            & {"categories", "audiences", "formats", "environments"},
+            {"categories", "audiences", "formats", "environments"},
+        )
+
+    def test_a_complete_payload_reports_nothing_missing(self):
+        # The settings defaults are real echo.lu ids, so an ordinary event
+        # with a resolved venue is publishable as-is.
+        payload = echo_lu.build_experience_payload(make_event(), venue_ids=["venue-1"])
+        self.assertEqual(echo_lu.missing_required_fields(payload), [])
+
+    def test_an_event_without_an_image_still_gets_a_picture(self):
+        # `pictures` is required, so "no image" is a rejection rather than a
+        # listing without a banner.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"],
+            "https://crush.lu/static/crush_lu/images/og-image.jpg",
+        )
+
+    @override_settings(ECHO_LU_DEFAULT_LANGUAGES="en,fr")
+    def test_languages_fall_back_when_the_event_names_none(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["languages"], ["en", "fr"])
+        payload = echo_lu.build_experience_payload(make_event(languages=["de"]))
+        self.assertEqual(payload["languages"], ["de"])
+
+    def test_status_is_not_part_of_the_payload(self):
+        # It is a create-time instruction, not content. In the payload it would
+        # join the fingerprint and ride every PUT.
+        self.assertNotIn("status", echo_lu.build_experience_payload(make_event()))
 
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="nightlife",
@@ -315,6 +412,119 @@ class ExtractExperienceIdTests(TestCase):
 
     def test_non_dict_returns_empty(self):
         self.assertEqual(echo_lu.extract_experience_id(["abc"]), "")
+
+    def test_the_documented_record_envelope(self):
+        # THE shape the API actually returns. Missing it meant every create
+        # looked like it came back without an id, so every first publish was
+        # parked as an untracked orphan needing manual recovery.
+        self.assertEqual(
+            echo_lu.extract_experience_id(
+                {"stats": {"duration": 3}, "record": {"id": "exp_abc123"}}
+            ),
+            "exp_abc123",
+        )
+
+
+class ResponseRecordsTests(TestCase):
+    """List responses are ``{"stats": …, "records": [...]}``."""
+
+    def test_the_documented_records_envelope(self):
+        # Missing this made every list parse as empty — and an empty portal
+        # reads as "everything we track was deleted upstream".
+        self.assertEqual(
+            echo_lu.response_records({"stats": {}, "records": [{"id": "a"}]}),
+            [{"id": "a"}],
+        )
+
+    def test_a_bare_list_still_works(self):
+        self.assertEqual(echo_lu.response_records([{"id": "a"}]), [{"id": "a"}])
+
+    def test_legacy_envelopes_still_work(self):
+        self.assertEqual(
+            echo_lu.response_records({"data": [{"id": "a"}]}), [{"id": "a"}]
+        )
+
+    def test_unrecognised_returns_empty(self):
+        self.assertEqual(echo_lu.response_records({"stats": {}}), [])
+
+
+@override_settings(**ENABLED)
+class VenueResolutionTests(TestCase):
+    """`venues` takes echo.lu venue IDs from a shared national registry."""
+
+    def test_an_existing_venue_is_matched_not_registered(self):
+        # The registry is shared with every other organiser, so registering a
+        # second "Café Konrad" beside the one already there is litter in a
+        # public dataset.
+        event = make_event()
+        client = FakeClient(venues=[{"id": "venue-77", "title": "café  KONRAD"}])
+        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-77"])
+        self.assertEqual(client.calls, [])
+
+    def test_an_unknown_venue_is_registered(self):
+        event = make_event()
+        client = FakeClient(venues=[])
+        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-1"])
+        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
+        self.assertEqual(client.calls[0][1]["title"], "Café Konrad")
+
+    def test_a_similar_name_is_not_matched(self):
+        # Attaching our event to somebody else's venue is worse than a
+        # duplicate, and invisible from our side — so matching is normalised
+        # equality, never a substring.
+        event = make_event()
+        client = FakeClient(venues=[{"id": "venue-9", "title": "Café Konrad Bar"}])
+        # A fresh registration, not venue-9.
+        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-2"])
+        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
+
+    def test_the_id_is_cached_so_the_next_event_costs_nothing(self):
+        first = make_event()
+        client = FakeClient(venues=[])
+        echo_lu.resolve_venue_ids(first, client)
+        second = make_event(title="Another night")
+        after = FakeClient(venues=[])
+        self.assertEqual(echo_lu.resolve_venue_ids(second, after), ["venue-1"])
+        self.assertEqual(after.calls, [])
+
+    def test_cached_ids_never_call_the_api(self):
+        event = make_event()
+        self.assertEqual(echo_lu.cached_venue_ids(event), [])
+        echo_lu.resolve_venue_ids(event, FakeClient(venues=[]))
+        self.assertEqual(echo_lu.cached_venue_ids(event), ["venue-1"])
+
+
+@override_settings(**ENABLED)
+class CreateStatusTests(TestCase):
+    """`status` is a create-time instruction, and only that."""
+
+    def test_a_create_asks_for_validation(self):
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        create = [c for c in client.calls if c[0] == "create"][0]
+        self.assertEqual(create[1]["status"], "pending")
+
+    @override_settings(ECHO_LU_CREATE_STATUS="draft")
+    def test_the_status_is_configurable(self):
+        client = FakeClient()
+        echo_lu.sync_event(make_event(), client=client)
+        self.assertEqual(
+            [c for c in client.calls if c[0] == "create"][0][1]["status"], "draft"
+        )
+
+    def test_an_update_never_carries_a_status(self):
+        # What a status does to an already-validated listing is undocumented,
+        # and a national portal is the wrong place to find out.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+        event.title = "Renamed"
+        event.save()
+        echo_lu.sync_event(event, client=client)
+        update = [c for c in client.calls if c[0] == "update"][0]
+        self.assertNotIn("status", update[2])
 
 
 @override_settings(**ENABLED)
@@ -1632,8 +1842,14 @@ class SweepFairnessTests(TestCase):
 
 
 @override_settings(**ENABLED)
+@override_settings(ECHO_LU_DEFAULT_CATEGORIES="")
 class CategoryMapSafetyTests(TestCase):
-    """Bad config must not raise out of a save that already committed."""
+    """Bad config must not raise out of a save that already committed.
+
+    Defaults are cleared class-wide so each case measures the MAP alone; the
+    real ECHO_LU_DEFAULT_CATEGORIES is now a live id rather than empty, and
+    would otherwise show up in every expected list.
+    """
 
     @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": 123}')
     def test_a_scalar_map_value_is_ignored_rather_than_raising(self):
@@ -1645,7 +1861,7 @@ class CategoryMapSafetyTests(TestCase):
         # the assertion is that the payload builds at all — the bug was a
         # TypeError escaping into an already-committed save.
         payload = echo_lu.build_experience_payload(make_event())
-        self.assertNotIn("categories", payload)
+        self.assertEqual(payload["categories"], [])
 
     @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": ["dating"]}')
     def test_a_list_map_value_is_used(self):
@@ -1660,7 +1876,7 @@ class CategoryMapSafetyTests(TestCase):
     @override_settings(ECHO_LU_CATEGORY_MAP="not json at all")
     def test_unparseable_map_does_not_raise(self):
         payload = echo_lu.build_experience_payload(make_event())
-        self.assertNotIn("categories", payload)
+        self.assertEqual(payload["categories"], [])
 
 
 @override_settings(**ENABLED)

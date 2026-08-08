@@ -829,12 +829,20 @@ SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00")
 # office, so the key alone identifies who the experience is published as —
 # there is no separate organisation id to send.
 ECHO_LU_API_KEY = os.environ.get("ECHO_LU_API_KEY", "")
-# echo.lu runs a separate sandbox at test-api.echo.lu with its own keys and its
-# own data. Point staging at it; a key from one environment is rejected by the
-# other. Trailing slashes are stripped in the client so both spellings work.
+# There is NO sandbox. An earlier note here promised one at test-api.echo.lu
+# with its own keys; the published docs name exactly one base URL and never
+# mention a test environment, and that hostname serves a byte-identical
+# documentation page from the same address as api.echo.lu. Every write lands on
+# the live national portal — which is why the first run is a single event by
+# id, not a staging walk. See docs/integrations/echo-lu-sync.md.
 ECHO_LU_API_BASE_URL = os.environ.get(
     "ECHO_LU_API_BASE_URL", "https://api.echo.lu/v1"
 ).strip()
+# What a newly created experience asks for. echo.lu moderates listings:
+# "draft" parks it in the organiser back office and does nothing else,
+# "pending" saves it and submits it for validation. Create-only — see
+# services.echo_lu._write_experience for why it must never ride a PUT.
+ECHO_LU_CREATE_STATUS = os.environ.get("ECHO_LU_CREATE_STATUS", "pending").strip()
 # Master switch, default OFF. Every sync entry point is gated on this, so an
 # environment that merely inherits the key (a restored production DB on
 # staging, a local shell) cannot mutate live echo.lu listings by accident.
@@ -874,17 +882,31 @@ ECHO_LU_CONTACT_EMAIL = os.environ.get("ECHO_LU_CONTACT_EMAIL", "hello@crush.lu"
 ECHO_LU_CONTACT_PHONE = os.environ.get("ECHO_LU_CONTACT_PHONE", "")
 ECHO_LU_CONTACT_WEBSITE = os.environ.get("ECHO_LU_CONTACT_WEBSITE", "https://crush.lu")
 
-# Taxonomy slugs. echo.lu validates categories/audiences/formats/environments
+# Taxonomy ids. echo.lu validates categories/audiences/formats/environments
 # against ITS OWN vocabularies and rejects the whole experience on an unknown
-# value, so these are configuration rather than constants — run
-# `manage.py echo_taxonomy` to print the accepted slugs for our key and set
-# these to match. Comma-separated; blank means "send nothing for this facet",
-# which is valid and safer than guessing.
-ECHO_LU_DEFAULT_CATEGORIES = os.environ.get("ECHO_LU_DEFAULT_CATEGORIES", "")
-ECHO_LU_DEFAULT_AUDIENCES = os.environ.get("ECHO_LU_DEFAULT_AUDIENCES", "")
-ECHO_LU_DEFAULT_FORMATS = os.environ.get("ECHO_LU_DEFAULT_FORMATS", "")
-ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "")
+# value — and it requires all four, so "blank" is NOT a safe default the way an
+# earlier note here claimed. POSTing an experience without them answers 400
+# with "Missing categories" and so on for each.
+#
+# The defaults below are real ids, read off the live API on 2026-08-08 with our
+# own key (`manage.py echo_taxonomy` prints the full lists: 190 categories, 10
+# audiences, 16 formats, 3 environments). They are a starting point chosen for
+# a dating/social meetup, not a considered editorial decision — override per
+# environment once somebody has looked at how the listings read.
+ECHO_LU_DEFAULT_CATEGORIES = os.environ.get("ECHO_LU_DEFAULT_CATEGORIES", "nightlife")
+# `adults` rather than `everyone`: the platform is 18+.
+ECHO_LU_DEFAULT_AUDIENCES = os.environ.get("ECHO_LU_DEFAULT_AUDIENCES", "adults")
+ECHO_LU_DEFAULT_FORMATS = os.environ.get("ECHO_LU_DEFAULT_FORMATS", "networking")
+# Note the real id is "indoors", not "indoor".
+ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "indoors")
+# Required too, and an event with no languages set cannot simply omit them.
+ECHO_LU_DEFAULT_LANGUAGES = os.environ.get("ECHO_LU_DEFAULT_LANGUAGES", "en,fr")
 ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
+# `pictures` is required, so an event with no image is rejected outright rather
+# than listed without a banner. This stands in for it.
+ECHO_LU_FALLBACK_IMAGE = os.environ.get(
+    "ECHO_LU_FALLBACK_IMAGE", "https://crush.lu/static/crush_lu/images/og-image.jpg"
+)
 # Optional JSON object mapping MeetupEvent.event_type -> list of category
 # slugs, layered on top of ECHO_LU_DEFAULT_CATEGORIES. Example:
 #   {"speed_dating": ["rencontres"], "quiz_night": ["jeux"]}

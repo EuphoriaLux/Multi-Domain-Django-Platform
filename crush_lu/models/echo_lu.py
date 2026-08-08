@@ -18,6 +18,62 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
+class EchoVenue(models.Model):
+    """Maps one of our venue strings to an echo.lu venue id.
+
+    ``venues`` on an experience is a list of **ids** from echo.lu's own venue
+    registry — a shared national table of 5k+ rows, not free text. There is no
+    search endpoint (ListVenues filters only by category and commune), so
+    resolving a venue means reading pages of that registry and matching, or
+    registering a new one. Either is far too expensive to repeat per event, and
+    Crush.lu runs the same handful of venues over and over.
+
+    Hence a cache keyed on the normalised venue string. It is deliberately a
+    table rather than a column on the sync row: the id belongs to the *venue*,
+    not to any one event, and every event at Café Konrad should reuse the same
+    registry entry rather than registering a duplicate beside it.
+    """
+
+    key = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text=_(
+            "Normalised venue string (see services.echo_lu.venue_key) — "
+            "lowercased name plus postcode, so casing and spacing changes do "
+            "not register a second venue for the same place."
+        ),
+    )
+    venue_id = models.CharField(
+        max_length=128,
+        db_index=True,
+        help_text=_("Server-assigned echo.lu venue id."),
+    )
+    title = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("The venue name as echo.lu holds it, for the admin."),
+    )
+    created_by_us = models.BooleanField(
+        default=False,
+        help_text=_(
+            "True when we registered this venue rather than matching one that "
+            "already existed. Worth knowing before deleting anything: the "
+            "registry is shared with every other organiser."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("echo.lu venue")
+        verbose_name_plural = _("echo.lu venues")
+        ordering = ["title", "key"]
+
+    def __str__(self):
+        return f"{self.title or self.key} -> echo.lu {self.venue_id}"
+
+
 class EchoExperienceSync(models.Model):
     """Links one MeetupEvent to its echo.lu experience and records sync health.
 
