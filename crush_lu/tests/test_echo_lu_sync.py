@@ -199,12 +199,52 @@ class AddressParsingTests(TestCase):
         self.assertEqual(parsed["postcode"], "1648")
 
     def test_street_falls_back_to_joined_lines_when_unparseable(self):
-        # A venue name on line 0 with no street-shaped line above the postcode
-        # must still produce a non-empty street (the "never less informative"
-        # guarantee), by joining every non-postcode line.
-        parsed = echo_lu.parse_address("Behind the old brewery\nL-1333 somewhere")
+        # When the candidate line above the postcode doesn't read like a street
+        # and line 0 has already been consumed as the postcode line itself,
+        # street_line ends up empty and the join-fallback must run — producing
+        # every non-postcode line joined, never blank. Constructed so the
+        # fallback code path is actually reached (the postcode is on line 0,
+        # leaving no line 0 to fall back to).
+        parsed = echo_lu.parse_address("L-1333 somewhere\nBehind the old brewery")
         self.assertEqual(parsed["postcode"], "1333")
         self.assertIn("Behind the old brewery", parsed["street"])
+
+    def test_bare_postcode_without_l_prefix_not_stolen_by_digit_venue(self):
+        # The L-prefix preference alone is not enough: when the real postcode
+        # has no "L-" prefix, a digit-led venue name on an earlier line would
+        # win under a first-match rule. The last bare match must win instead.
+        parsed = echo_lu.parse_address(
+            "1535 Creative Hub\n45 rue Emile Mark\n4620 Differdange"
+        )
+        self.assertEqual(parsed["postcode"], "4620")
+        self.assertEqual(parsed["street"], "rue Emile Mark")
+        self.assertEqual(parsed["number"], "45")
+
+    def test_numberless_street_line_above_postcode_is_kept(self):
+        # A street line without a house number ("rue du Nord") sitting above the
+        # postcode must still be recognised as the street, not masked by the
+        # venue name on line 0.
+        parsed = echo_lu.parse_address("Café Konrad\nrue du Nord\nL-2229 Luxembourg")
+        self.assertEqual(parsed["street"], "rue du Nord")
+        self.assertEqual(parsed["number"], "")
+        self.assertEqual(parsed["postcode"], "2229")
+
+    def test_unit_designation_above_postcode_is_not_promoted_to_street(self):
+        # A "Suite 12" / "Floor 3" line above the postcode must not be mistaken
+        # for the street — that would fabricate a bogus house number. Line 0
+        # (the venue name) is the safer fallback.
+        parsed = echo_lu.parse_address("Café Konrad\nSuite 12\nL-2229 Luxembourg")
+        self.assertNotEqual(parsed["street"], "Suite")
+        self.assertEqual(parsed["number"], "")
+        self.assertEqual(parsed["postcode"], "2229")
+
+    def test_single_line_matching_only_postcode_still_keeps_street(self):
+        # A single-line input that the postcode regex consumes entirely (e.g.
+        # "1535 Creative Hub" or "L-1333") must not yield a blank street — the
+        # whole input survives as the street via the final original-text
+        # fallback.
+        parsed = echo_lu.parse_address("L-1333")
+        self.assertTrue(parsed["street"])
 
 
 @override_settings(**ENABLED)

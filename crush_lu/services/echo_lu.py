@@ -406,6 +406,47 @@ def _absolute_media_url(url):
     return f"https://crush.lu{url}"
 
 
+# Lines that designate a unit/floor/room inside a building, not a street. When
+# such a line sits directly above the postcode line it must NOT be promoted to
+# the street — doing so fabricates a house number from an unrelated designation
+# and sends people to the wrong door, the exact failure this parser avoids.
+_NON_STREET_PREFIXES = (
+    "suite",
+    "floor",
+    "étage",
+    "etage",
+    "apt",
+    "apartment",
+    "unit",
+    "bureau",
+    "bts",  # basement
+    "office",
+    "room",
+    "chambre",
+)
+
+
+def _looks_like_street(line):
+    """Decide whether a candidate line above the postcode is the street.
+
+    True when the line carries a house number (the strong signal), or when it is
+    a non-unit/floor designation that is not just a postcode repeat. A bare
+    name like "rue du Nord" (no number) still counts, but "Suite 12" or
+    "2e étage" does not.
+    """
+    if not line:
+        return False
+    lowered = line.lower()
+    if lowered.startswith(_NON_STREET_PREFIXES):
+        return False
+    if _LEADING_NUMBER_RE.match(line) or _TRAILING_NUMBER_RE.search(line):
+        return True
+    # A line with no digits at all and no unit prefix reads like a street name
+    # (e.g. "rue du Nord", "boulevard Royal"). A line with digits but no
+    # house-number shape is ambiguous — leave it out rather than guess.
+    return not any(ch.isdigit() for ch in line)
+
+
 def parse_address(address, canton=""):
     """Split a free-text venue address into echo.lu's address object.
 
@@ -413,9 +454,15 @@ def parse_address(address, canton=""):
     while echo.lu wants street/number/postcode/town separately. Nothing here
     guesses: a component that cannot be identified with confidence is left
     blank, because echo.lu shows these fields verbatim and a wrong house number
-    sends people to the wrong door. The full first line always survives in
-    ``street`` so the listing is never less informative than what we hold.
+    sends people to the wrong door.
+
+    The street is never blank: the fallback chain is (1) the line immediately
+    above the postcode when it reads like a street, (2) line 0, (3) every
+    non-postcode line joined, (4) the original address text whole. So the
+    listing is never less informative than what we hold, even when nothing
+    parses cleanly.
     """
+    original = (address or "").strip(" ,\t")
     lines = [line.strip(" ,\t") for line in (address or "").splitlines()]
     lines = [line for line in lines if line]
 
@@ -423,25 +470,35 @@ def parse_address(address, canton=""):
     town = ""
     street_line = lines[0] if lines else ""
 
-    # Find the postcode line. An "L-"-prefixed four-digit group wins over a bare
-    # one, so a venue name starting with digits ("1535 Creative Hub") can't
-    # steal the postcode from a real "L-4620" later on the same or another line.
+    # Locate the postcode. Preference order, strongest first:
+    #   1. An "L-"-prefixed four-digit group anywhere.
+    #   2. A bare four-digit group on the LAST line — a real postcode+town line
+    #      is almost always final, while a digit-led venue name sits on line 0.
+    #   3. Any bare four-digit group (last one wins, same reason as #2).
+    # This stops "1535 Creative Hub" stealing the postcode from "4620
+    # Differdange" when the real postcode has no "L-" prefix.
     postcode_index = None
     postcode_match = None
+    prefixed_match = None
+    prefixed_index = None
     bare_match = None
     bare_index = None
     for index, line in enumerate(lines):
         prefixed = _PREFIXED_POSTCODE_RE.search(line)
-        if prefixed:
-            postcode_index = index
-            postcode_match = prefixed
-            break
+        if prefixed and prefixed_match is None:
+            prefixed_match = prefixed
+            prefixed_index = index
         bare = _POSTCODE_RE.search(line)
-        if bare and bare_match is None:
+        if bare:
+            # Keep the last bare match — it's the most likely to be the real
+            # postcode line rather than a digit-led venue name above it.
             bare_match = bare
             bare_index = index
 
-    if postcode_match is None and bare_match is not None:
+    if prefixed_match is not None:
+        postcode_index = prefixed_index
+        postcode_match = prefixed_match
+    elif bare_match is not None:
         postcode_index = bare_index
         postcode_match = bare_match
 
@@ -458,30 +515,25 @@ def parse_address(address, canton=""):
             # side of the postcode on that line. For the street, prefer the line
             # immediately above the postcode — that is where staff put the
             # street when line 0 carries the venue name — but only when that
-            # line looks like a street (carries a house number, or has no
-            # postcode of its own and isn't line 0). Otherwise line 0 stays the
-            # street, preserving the "never less informative" guarantee.
+            # line reads like a street. Otherwise line 0 stays the street.
             town = (
                 line[: postcode_match.start()].strip(" ,-")
                 + " "
                 + line[postcode_match.end() :].strip(" ,-")
             ).strip(" ,-")
             candidate = lines[postcode_index - 1]
-            looks_like_street = bool(
-                _LEADING_NUMBER_RE.match(candidate)
-                or _TRAILING_NUMBER_RE.search(candidate)
-            )
-            if looks_like_street:
+            if _looks_like_street(candidate):
                 street_line = candidate
 
-    # If street parsing still left us empty (e.g. line 0 was a venue name and
-    # no street-shaped line sat above the postcode), fall back to every
-    # non-postcode line joined together, so the listing is never blank.
+    # If street parsing still left us empty, fall back to every non-postcode
+    # line joined; if that is also empty (e.g. the whole input was one
+    # postcode-shaped token), fall back to the original text so the listing is
+    # never blank.
     if not street_line:
         non_postcode_lines = [
             line for i, line in enumerate(lines) if i != postcode_index
         ]
-        street_line = ", ".join(non_postcode_lines).strip(" ,-")
+        street_line = ", ".join(non_postcode_lines).strip(" ,-") or original
 
     number = ""
     leading = _LEADING_NUMBER_RE.match(street_line)
