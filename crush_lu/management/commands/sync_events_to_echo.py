@@ -208,14 +208,33 @@ class Command(BaseCommand):
             if show_payload and echo_lu.should_publish(event):
                 import json
 
-                self.stdout.write(
-                    json.dumps(
-                        echo_lu.build_experience_payload(event),
-                        indent=2,
-                        ensure_ascii=False,
-                        default=str,
-                    )
+                # Cached venue ids, so the preview shows the `venues` the real
+                # run would send. Without them it printed `[]` every time — and
+                # `venues` is both the field this integration is least sure of
+                # and the one the setup guide tells operators to read before
+                # turning the switch on, so a preview that cannot show it is a
+                # preview that cannot be trusted for the thing it exists for.
+                # Cached only: a preview must never resolve, because resolving
+                # can register a venue.
+                preview = echo_lu.build_experience_payload(
+                    event, venue_ids=echo_lu.cached_venue_ids(event)
                 )
+                missing = echo_lu.missing_required_fields(preview)
+                self.stdout.write(
+                    json.dumps(preview, indent=2, ensure_ascii=False, default=str)
+                )
+                if missing:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            "  ↑ echo.lu would reject this: missing "
+                            + ", ".join(missing)
+                            + (
+                                " (venues resolves on the real run)"
+                                if missing == ["venues"]
+                                else ""
+                            )
+                        )
+                    )
 
             try:
                 if withdraw:

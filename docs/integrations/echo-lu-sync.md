@@ -334,6 +334,21 @@ Adopting sets the row to **Pending** with no payload fingerprint, so the next
 sync sends a full update rather than trusting a hash against a listing whose
 content nobody has confirmed.
 
+**One case where `--audit` will find nothing: an orphaned _venue_.** If
+`CreateVenue` answers 2xx without an id, the event's row is marked **Orphaned**
+as well — that is the state that blocks automatic retries, which is what has to
+happen here, because retrying would register a *second* venue into a registry
+shared with every other organiser in the country. But the orphan is a venue,
+not an experience, and `--audit` only walks experiences, so the usual
+`--adopt`/`--forget` path has nothing to work with. The error text saved on the
+row says so; the recovery is:
+
+1. find the venue in the echo.lu organiser back office and note its id;
+2. create the mapping by hand — an `EchoVenue` row whose `key` is what
+   `services.echo_lu.venue_key(location, postcode)` returns for that venue;
+3. then `--event-id N --forget` to clear the event's block, since no experience
+   was ever created for it.
+
 ## Field mapping
 
 | echo.lu | Crush.lu |

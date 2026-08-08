@@ -350,6 +350,56 @@ class PayloadTests(TestCase):
         # join the fingerprint and ride every PUT.
         self.assertNotIn("status", echo_lu.build_experience_payload(make_event()))
 
+
+@override_settings(**ENABLED)
+class UnsendablePayloadTests(TestCase):
+    """Refusing to send is not the same as a create whose answer was lost."""
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_a_misconfigured_facet_leaves_the_row_retryable(self):
+        # This used to park the row in ORPHANED. A locally raised error carries
+        # no status code, and "no status code" otherwise reads as "the answer
+        # was lost" — so an event whose required facets were blanked out (which
+        # the setup guide invites, per-environment) was blocked from ever
+        # syncing, and pointed at an --audit that cannot find anything because
+        # nothing was ever sent.
+        event = make_event()
+        client = FakeClient()
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])  # never reached the API
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertIn("categories", event.echo_sync.last_error)
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_it_syncs_once_the_configuration_is_fixed(self):
+        # The point of staying FAILED rather than ORPHANED: it recovers by
+        # itself on the next sweep once somebody sets the ids.
+        event = make_event()
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=FakeClient())
+
+        with override_settings(
+            ECHO_LU_DEFAULT_CATEGORIES="nightlife",
+            ECHO_LU_DEFAULT_AUDIENCES="adults",
+            ECHO_LU_DEFAULT_FORMATS="networking",
+            ECHO_LU_DEFAULT_ENVIRONMENTS="indoors",
+        ):
+            event.refresh_from_db()
+            self.assertEqual(echo_lu.sync_event(event, client=FakeClient()), "created")
+
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="nightlife",
         ECHO_LU_CATEGORY_MAP='{"speed_dating": ["rencontres"]}',
@@ -451,6 +501,28 @@ class ResponseRecordsTests(TestCase):
 @override_settings(**ENABLED)
 class VenueResolutionTests(TestCase):
     """`venues` takes echo.lu venue IDs from a shared national registry."""
+
+    def test_a_match_outside_the_commune_filter_is_still_found(self):
+        # The commune pass is an optimisation, not the search. Our `canton` is
+        # free text while echo.lu's commune filter is a controlled value, so
+        # the narrowed pass can return unrelated venues while the real match
+        # sits in another bucket. Skipping the wide pass because the narrow one
+        # returned *something* registered a duplicate into a shared national
+        # registry — the exact cost this lookup exists to avoid.
+        event = make_event()
+        real = {"id": "venue-real", "title": "Café Konrad"}
+        unrelated = {"id": "venue-other", "title": "Somewhere Else"}
+
+        class CommuneFilteringClient(FakeClient):
+            def list_venues(self, **params):
+                if "communes[]" in params:
+                    # Narrowed pass: rows, but not the one we want.
+                    return {"records": [unrelated]}
+                return {"records": [unrelated, real]}
+
+        client = CommuneFilteringClient(venues=[])
+        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-real"])
+        self.assertEqual(client.calls, [])  # nothing was registered
 
     def test_an_existing_venue_is_matched_not_registered(self):
         # The registry is shared with every other organiser, so registering a

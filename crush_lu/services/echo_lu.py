@@ -101,6 +101,19 @@ class EchoLuNotConfigured(EchoLuError):
     answers with a bare 401 that looks exactly like a revoked key."""
 
 
+class EchoLuNotSent(EchoLuError):
+    """We refused to send the request; echo.lu never heard of it.
+
+    Its own class because "nothing was created" has to be *provable*, and the
+    only other proof available is a 4xx status code. A locally-raised error
+    carries no status, so without this type an unsendable payload — a blanked
+    ECHO_LU_DEFAULT_* leaving a required facet empty, say — looked exactly like
+    a create whose answer was lost, and every affected event was parked in
+    ``ORPHANED``: blocked from syncing, and pointing its operator at an
+    ``--audit`` that cannot possibly find anything, because nothing was sent.
+    """
+
+
 class EchoLuOrphanedCreate(EchoLuError):
     """echo.lu accepted a create but did not return an id.
 
@@ -724,39 +737,51 @@ def resolve_venue_ids(event, client, address=None):
 
 
 def _iter_venue_records(client, address):
-    """Pages of the venue registry, narrowed by commune when we can.
+    """Every venue worth checking, cheapest first.
 
     The registry is thousands of rows and ListVenues offers no text search, so
-    the commune filter is the only way to keep this from being a full scan on
-    every miss. It is a filter, not a requirement: an unmatched commune just
-    means reading more pages.
+    a commune filter goes first to put a likely match in the first page or two.
+    The nationwide pass then follows unconditionally.
+
+    "Unconditionally" is the point, and an earlier version got it wrong: it
+    skipped the wide pass whenever the narrowed one returned *any* rows, which
+    says nothing about whether the venue we want was among them. Our `canton`
+    is free text while echo.lu's commune filter is a controlled value, so the
+    narrow pass can easily return a handful of unrelated venues and hide a real
+    match sitting in a different bucket — and the caller then registers a
+    duplicate into a shared national dataset. Only the *caller* knows when it
+    has found its venue, and it stops iterating the moment it does, so the wide
+    pass costs nothing in the case that matters.
+
+    Ids already yielded by the narrow pass are not yielded twice.
     """
     per_page = 200
-    base = {}
     commune = (address or {}).get("commune") or ""
-    if commune:
-        base["communes[]"] = commune
-    for attempt_params in ({**base}, {}) if base else ({},):
+    passes = [{"communes[]": commune}] if commune else []
+    passes.append({})
+
+    seen_ids = set()
+    for extra in passes:
         page = 0
-        found_any = False
         while True:
-            params = dict(attempt_params)
+            params = dict(extra)
             params["pagination[page]"] = page
             params["pagination[perPage]"] = per_page
             records = response_records(client.list_venues(**params))
             if not records:
                 break
-            found_any = True
             for record in records:
+                identifier = extract_experience_id(record)
+                if identifier and identifier in seen_ids:
+                    continue
+                if identifier:
+                    seen_ids.add(identifier)
                 yield record
             if len(records) < per_page:
                 break
             page += 1
             if page > 200:  # pragma: no cover - runaway guard
                 return
-        if found_any:
-            # The narrowed pass returned rows; no need for the wide one.
-            return
 
 
 # Exactly what a create must carry, read off the API rather than the schema
@@ -989,8 +1014,12 @@ def _proves_nothing_was_created(error):
     Everything else — a 5xx, a timeout, a socket closed mid-response — leaves
     it genuinely unknown whether the listing was committed before the answer
     was lost, and unknown has to be treated as "it exists".
+
+    :class:`EchoLuNotSent` is the strongest case of all: we declined to make
+    the call. It needs naming explicitly because a locally-raised error has no
+    status code, and "no status code" otherwise reads as "the answer was lost".
     """
-    if isinstance(error, EchoLuNotConfigured):
+    if isinstance(error, (EchoLuNotConfigured, EchoLuNotSent)):
         return True
     status = getattr(error, "status_code", None)
     return status is not None and 400 <= status < 500
@@ -1216,7 +1245,7 @@ def sync_event(event, client=None, force=False, dry_run=False):
             # setting to fix and lands on the sync row the admin renders.
             missing = missing_required_fields(payload)
             if missing:
-                raise EchoLuError(
+                raise EchoLuNotSent(
                     "not sent — echo.lu requires "
                     + ", ".join(missing)
                     + ". Set the matching ECHO_LU_DEFAULT_* values (run "
