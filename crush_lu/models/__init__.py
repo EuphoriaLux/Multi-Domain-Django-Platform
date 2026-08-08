@@ -26,4 +26,5 @@ from .ios_app import *
 from .android_app import *
 from .event_lobby import *
 from .payments import *
+from .echo_lu import *
 

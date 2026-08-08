@@ -371,6 +371,7 @@ urlpatterns = [
     path('api/admin/event-reminders/', api_admin_events.event_reminders_sweep, name='api_admin_event_reminders'),
     path('api/admin/event-recaps/', api_admin_events.event_recaps_sweep, name='api_admin_event_recaps'),
     path('api/admin/event-feedback/', api_admin_events.event_feedback_sweep, name='api_admin_event_feedback'),
+    path('api/admin/echo-sync/', api_admin_events.echo_lu_sync_sweep, name='api_admin_echo_sync'),
 
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.

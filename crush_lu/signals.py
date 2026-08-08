@@ -4,6 +4,7 @@ Signal handlers for Crush.lu app
 
 import logging
 import threading
+import time
 from datetime import datetime, timedelta
 
 import requests
@@ -922,6 +923,167 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         logger.error(
             f"Error refreshing Google Wallet objects for event {instance.pk}: {e}"
         )
+
+
+@receiver(post_save, sender=MeetupEvent)
+def sync_event_to_echo_lu(sender, instance, created, **kwargs):
+    """Mirror the event onto echo.lu whenever it is saved.
+
+    No change detection here, deliberately. The service fingerprints the
+    payload it would send and compares it with the one echo.lu last accepted,
+    so an unrelated save costs a hash and no HTTP request — which makes a
+    snapshot receiver (a second SELECT on every event save, kept in sync with a
+    field list by hand) pure overhead. It also means the receiver cannot get
+    the field list *wrong*: publishing, cancelling, going private, retitling,
+    moving venue and re-pricing all reach echo.lu through the same one check.
+
+    Enqueued rather than called inline, and on_commit rather than immediately:
+    the admin's save path would otherwise wait on a third-party HTTP round trip
+    before rendering, and a task that beat the transaction would read the
+    pre-save row (or, for a new event, no row at all).
+    """
+    from .services import echo_lu
+
+    if not echo_lu.is_sync_enabled():
+        return
+
+    from .tasks import sync_event_to_echo_task
+
+    event_id = instance.pk
+    transaction.on_commit(
+        lambda: sync_event_to_echo_task.enqueue(event_id=event_id)
+    )
+
+
+_echo_deletions = threading.local()
+
+# What separates one delete's take-downs from the next delete's. The callbacks
+# of a single commit run back to back in one loop, so the only thing between
+# consecutive members of a burst is the HTTP call this function just made —
+# measured from when that call *finished*, the gap is effectively zero. Any
+# real pause means a different delete, on a thread the pool happened to reuse.
+_ECHO_DELETE_BURST_IDLE_SECONDS = 1.0
+
+
+def _withdraw_deleted_echo_listing(event_pk, experience_id):
+    """Take down one listing whose event has just been deleted.
+
+    Registered per event and run after the delete commits. Two things follow
+    from *after*:
+
+    * A rolled-back delete withdraws nothing. Doing this at pre_delete meant
+      an aborted delete still pulled the listing, leaving an event that exists
+      and a listing that does not — with no row saying so, since the rollback
+      restored the row too.
+    * No HTTP happens inside the delete's transaction. Django's collector
+      wraps the whole cascade in one, and holding it open across a series of
+      third-party calls is what every other entry point here was bounded to
+      avoid.
+
+    A bulk delete arrives as N of these, back to back, so a per-call timeout
+    alone would multiply by N. They share a wall-clock budget instead: the
+    first call of a burst starts the clock, and one that finds it spent logs
+    rather than dials.
+
+    A burst is delimited by an **idle gap**, not by the budget. Measuring the
+    gap from the first call of the burst left a window — anything from
+    ``budget - timeout`` to ``budget`` after it — in which an unrelated later
+    delete on the same worker thread was refused *and* did not start a burst
+    of its own, so it silently skipped its take-down while its row was already
+    gone. The thread-local has no transaction or request boundary of its own,
+    so the boundary has to be inferred, and the end of the previous call is the
+    one signal that actually distinguishes the two cases.
+
+    Whatever is not reached is logged with its id. The event is gone, so
+    nothing can retry from the database: this log line is the last copy.
+    """
+    from .services import echo_lu
+
+    timeout = getattr(settings, "ECHO_LU_SIGNAL_TIMEOUT_SECONDS", 5)
+    budget = getattr(settings, "ECHO_LU_ADMIN_BUDGET_SECONDS", 30)
+
+    now = time.monotonic()
+    started = getattr(_echo_deletions, "burst_started", None)
+    finished = getattr(_echo_deletions, "burst_last_finished", None)
+    if (
+        started is None
+        or finished is None
+        or now - finished > _ECHO_DELETE_BURST_IDLE_SECONDS
+    ):
+        started = _echo_deletions.burst_started = now
+
+    # Recorded however this call ends, including the refusal below: a burst
+    # that has run out of budget still refuses back to back, and those
+    # instantaneous refusals must not read as an idle gap that hands the rest
+    # of the same bulk delete a fresh budget each.
+    try:
+        if now - started > budget - timeout:
+            logger.error(
+                "[ECHO] Out of time withdrawing experience %s for deleted event "
+                "%s; it is live and untracked — remove it in the organiser back "
+                "office, or find it with `sync_events_to_echo --audit`",
+                experience_id,
+                event_pk,
+            )
+            return
+
+        client = echo_lu.EchoLuClient(timeout=timeout, max_retries=0)
+        try:
+            client.unpublish_experience(experience_id)
+        except echo_lu.EchoLuError as exc:
+            logger.error(
+                "[ECHO] Could not withdraw experience %s for deleted event %s "
+                "(%s); it is live and untracked — remove it in the organiser "
+                "back office, or find it with `sync_events_to_echo --audit`",
+                experience_id,
+                event_pk,
+                exc,
+            )
+    finally:
+        _echo_deletions.burst_last_finished = time.monotonic()
+
+
+@receiver(pre_delete, sender=MeetupEvent)
+def withdraw_from_echo_lu_before_delete(sender, instance, **kwargs):
+    """Note the listing's id while the row that holds it still exists.
+
+    `EchoExperienceSync` cascades with the event, and the experience id is the
+    only handle echo.lu gives us. Once the row is gone the listing is still
+    public and nothing left in the database can name it — no sweep, no admin
+    action, no retry. `--audit` can still spot it as untracked, but that is a
+    person noticing later, not a mechanism.
+
+    So the id is captured here, where it is readable, and the take-down itself
+    happens after the delete commits — see
+    :func:`_withdraw_deleted_echo_listing`. Nothing here touches the network
+    or the database: this fires once per instance for *any* delete reaching
+    this model, including Django's stock bulk action and any cascade from
+    somewhere else, so it has to stay cheap.
+    """
+    from .services import echo_lu
+
+    sync = getattr(instance, "echo_sync", None)
+    if sync is None or not sync.experience_id:
+        return
+    if not echo_lu.is_sync_enabled():
+        logger.warning(
+            "[ECHO] Event %s is being deleted while echo.lu sync is off; "
+            "experience %s stays live and untracked — remove it in the "
+            "organiser back office",
+            instance.pk,
+            sync.experience_id,
+        )
+        return
+
+    # Bound to this instance rather than accumulated in a list: a batch built
+    # up here would have to survive a transaction that may roll back, and a
+    # stale one carried into the next delete would withdraw a listing whose
+    # event is still very much alive.
+    event_pk = instance.pk
+    experience_id = sync.experience_id
+    transaction.on_commit(
+        lambda: _withdraw_deleted_echo_listing(event_pk, experience_id)
+    )
 
 
 @receiver(post_save, sender=MeetupEvent)
