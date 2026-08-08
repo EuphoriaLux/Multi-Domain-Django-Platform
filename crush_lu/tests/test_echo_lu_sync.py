@@ -383,6 +383,28 @@ class PayloadTests(TestCase):
 class UnsendablePayloadTests(TestCase):
     """Refusing to send is not the same as a create whose answer was lost."""
 
+    def test_an_unreadable_venue_registry_leaves_the_row_retryable(self):
+        # This one bit on the very first production sync. The venue search
+        # happens BEFORE the experience create, so a registry we cannot read
+        # proves nothing was created — but a locally raised error carries no
+        # status code, and a missing status otherwise reads as "the answer was
+        # lost". The event was parked in ORPHANED: blocked from syncing, and
+        # sent to an --audit with nothing to find.
+        event = make_event()
+
+        class BrokenRegistryClient(FakeClient):
+            def list_venues(self, **params):
+                raise echo_lu.EchoLuError("nope", status_code=400)
+
+        client = BrokenRegistryClient(venues=[])
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])  # no venue and no experience created
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertNotEqual(event.echo_sync.status, EchoExperienceSync.Status.ORPHANED)
+
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="",
         ECHO_LU_DEFAULT_AUDIENCES="",
@@ -551,6 +573,61 @@ class VenueResolutionTests(TestCase):
         client = CommuneFilteringClient(venues=[])
         self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-real"])
         self.assertEqual(client.calls, [])  # nothing was registered
+
+    def test_pages_never_exceed_the_hundred_item_ceiling(self):
+        # echo.lu rejects a bigger page outright rather than clamping it:
+        # "It is not allowed to retrieve more than 100 items per page". The
+        # first live sync asked for 200 and failed on this.
+        seen = []
+
+        class RecordingClient(FakeClient):
+            def list_venues(self, **params):
+                seen.append(params.get("pagination[perPage]"))
+                return {"records": []}
+
+        echo_lu.resolve_venue_ids(make_event(), RecordingClient(venues=[]))
+        self.assertTrue(seen)
+        self.assertTrue(all(p is not None and p <= 100 for p in seen), seen)
+
+    def test_an_unknown_commune_falls_back_to_the_wide_search(self):
+        # Our commune comes from `canton`, which is free text
+        # ("Luxembourg - City"), while echo.lu wants one of its own ids
+        # ("luxembourg") and 404s on anything else. The filter is an
+        # optimisation, so an unusable one must demote to the unfiltered pass
+        # rather than failing the sync.
+        real = {"id": "venue-real", "title": "Café Konrad"}
+
+        class PickyClient(FakeClient):
+            def list_venues(self, **params):
+                if "communes[]" in params:
+                    raise echo_lu.EchoLuError("no such commune", status_code=404)
+                return {"records": [real]}
+
+        client = PickyClient(venues=[])
+        self.assertEqual(
+            echo_lu.resolve_venue_ids(make_event(), client), ["venue-real"]
+        )
+        self.assertEqual(client.calls, [])  # matched, nothing registered
+
+    @override_settings(ECHO_LU_VENUE_SEARCH_PAGES=2)
+    def test_the_search_is_capped_and_then_registers(self):
+        # Pages cost 3-4s each and the admin action allows 5s per call, so an
+        # uncapped scan of 5,000 venues is a hung request. Past the cap we
+        # register rather than hunt — a duplicate is untidy, a hung admin
+        # request is broken.
+        pages = []
+
+        class EndlessClient(FakeClient):
+            def list_venues(self, **params):
+                pages.append(params.get("pagination[page]"))
+                return {"records": [{"id": f"v{len(pages)}", "title": "Nope"}] * 100}
+
+        client = EndlessClient(venues=[])
+        result = echo_lu.resolve_venue_ids(make_event(), client)
+        self.assertTrue(result[0].startswith("venue-"))
+        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
+        # 2 pages for the commune pass + 2 for the wide one, and no more.
+        self.assertLessEqual(len(pages), 4)
 
     def test_an_existing_venue_is_matched_not_registered(self):
         # The registry is shared with every other organiser, so registering a
