@@ -10,6 +10,8 @@ This module contains middleware for:
 - Custom CSRF failure handling
 """
 import logging
+import threading
+
 from django.core.cache import cache
 from django.db import IntegrityError
 from django.utils import translation
@@ -168,6 +170,10 @@ class HealthCheckMiddleware:
 
 
 _runtime_logging_canary_done = False
+# Sync middleware under an ASGI worker runs in a thread pool, so two requests
+# arriving together on a cold worker really can both read the flag as False.
+# A bare check-then-set makes "once per worker" true only most of the time.
+_runtime_logging_canary_lock = threading.Lock()
 
 
 class RuntimeLoggingCanaryMiddleware:
@@ -218,13 +224,18 @@ class RuntimeLoggingCanaryMiddleware:
 
     def __call__(self, request):
         global _runtime_logging_canary_done
+        # Double-checked: the unlocked read keeps every request after the first
+        # off the lock entirely, and the second read inside it is what makes
+        # "once per worker" actually true rather than usually true.
         if not _runtime_logging_canary_done:
-            # Set before emitting, not after. If the emit raises, this must not
-            # retry on every subsequent request — a diagnostic that fails
-            # loudly once is useful, one that fails loudly forever is an
-            # outage of its own.
-            _runtime_logging_canary_done = True
-            self._emit()
+            with _runtime_logging_canary_lock:
+                if not _runtime_logging_canary_done:
+                    # Set before emitting, not after. If the emit raises, this
+                    # must not retry on every subsequent request — a diagnostic
+                    # that fails loudly once is useful, one that fails loudly
+                    # forever is an outage of its own.
+                    _runtime_logging_canary_done = True
+                    self._emit()
         return self.get_response(request)
 
     @staticmethod
