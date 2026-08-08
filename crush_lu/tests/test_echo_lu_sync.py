@@ -165,6 +165,47 @@ class AddressParsingTests(TestCase):
         self.assertEqual(parsed["street"], "")
         self.assertEqual(parsed["town"], "Luxembourg")
 
+    def test_venue_name_on_first_line_does_not_eat_the_street(self):
+        # Staff often put the venue name on line 0 and the street on line 1.
+        # The street must be read from the line above the postcode, not from
+        # line 0, so the real street survives and the venue name doesn't mask it.
+        parsed = echo_lu.parse_address("Café Konrad\n7, rue du Nord\nL-2229 Luxembourg")
+        self.assertEqual(parsed["street"], "rue du Nord")
+        self.assertEqual(parsed["number"], "7")
+        self.assertEqual(parsed["postcode"], "2229")
+        self.assertEqual(parsed["town"], "Luxembourg")
+
+    def test_venue_name_with_leading_digits_does_not_steal_postcode(self):
+        # A venue whose name starts with digits ("1535 Creative Hub" in
+        # Differdange is real) must not be read as the postcode when a genuine
+        # L-prefixed postcode is present. The L-prefixed match wins.
+        parsed = echo_lu.parse_address(
+            "1535 Creative Hub\n45 rue Emile Mark\nL-4620 Differdange"
+        )
+        self.assertEqual(parsed["street"], "rue Emile Mark")
+        self.assertEqual(parsed["number"], "45")
+        self.assertEqual(parsed["postcode"], "4620")
+        self.assertEqual(parsed["town"], "Differdange")
+
+    def test_trailing_house_number_above_postcode_line(self):
+        # Same venue-name-first shape, but a trailing house number ("place
+        # Guillaume II 12" style is rare, but the trailing regex must still
+        # fire on the street candidate line).
+        parsed = echo_lu.parse_address(
+            "Brasserie Guillaume\n12-14 place Guillaume II\nL-1648 Luxembourg"
+        )
+        self.assertEqual(parsed["street"], "place Guillaume II")
+        self.assertEqual(parsed["number"], "12-14")
+        self.assertEqual(parsed["postcode"], "1648")
+
+    def test_street_falls_back_to_joined_lines_when_unparseable(self):
+        # A venue name on line 0 with no street-shaped line above the postcode
+        # must still produce a non-empty street (the "never less informative"
+        # guarantee), by joining every non-postcode line.
+        parsed = echo_lu.parse_address("Behind the old brewery\nL-1333 somewhere")
+        self.assertEqual(parsed["postcode"], "1333")
+        self.assertIn("Behind the old brewery", parsed["street"])
+
 
 @override_settings(**ENABLED)
 class PayloadTests(TestCase):
