@@ -37,6 +37,7 @@ Environment Variables Required:
     - DJANGO_EVENT_REMINDERS_URL: e.g. https://crush.lu/api/admin/event-reminders/
     - DJANGO_EVENT_RECAPS_URL: e.g. https://crush.lu/api/admin/event-recaps/
     - DJANGO_EVENT_FEEDBACK_URL: e.g. https://crush.lu/api/admin/event-feedback/
+    - DJANGO_ECHO_SYNC_URL: e.g. https://crush.lu/api/admin/echo-sync/
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -415,3 +416,33 @@ def event_feedback(timer: func.TimerRequest) -> None:
         logging.warning("EventFeedback: timer past due at %s", ts)
     logging.info("EventFeedback: starting at %s", ts)
     _call_admin_endpoint("EventFeedback", "DJANGO_EVENT_FEEDBACK_URL", timeout=110)
+
+
+@app.function_name(name="EchoLuSync")
+@app.timer_trigger(
+    # Hourly at :05. Clear of invites (:x0), SLA (:15), recaps (:25),
+    # reminders (:35), lead reminders (:45), feedback (:55) and campaigns
+    # (:x2/:x7).
+    schedule="0 5 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def echo_lu_sync(timer: func.TimerRequest) -> None:
+    """Reconcile published Crush.lu events with echo.lu.
+
+    Hourly rather than daily because the sweep is what takes finished and
+    cancelled events *off* the national portal, and a listing that outlives
+    its event by up to a day is the failure everyone sees. It is also the
+    retry path for writes the live receiver could not complete during an
+    echo.lu outage.
+
+    Cheap to repeat: the command hashes the payload it would send and skips
+    every event whose listing already matches, so a steady-state run makes no
+    API calls at all.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("EchoLuSync: timer past due at %s", ts)
+    logging.info("EchoLuSync: starting at %s", ts)
+    _call_admin_endpoint("EchoLuSync", "DJANGO_ECHO_SYNC_URL", timeout=110)
