@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .constants import SOCIAL_CONTENT_MAX_LENGTH
 from .models import (
     HubRequest,
     HubResource,
@@ -167,9 +168,10 @@ class SocialPostSerializer(serializers.ModelSerializer):
         return value
 
     def validate_content(self, value):
-        if len(value) > 1500:
+        if len(value) > SOCIAL_CONTENT_MAX_LENGTH:
             raise serializers.ValidationError(
-                "Social post content cannot exceed 1500 characters."
+                f"Social post content cannot exceed {SOCIAL_CONTENT_MAX_LENGTH} "
+                "characters."
             )
         return value
 
