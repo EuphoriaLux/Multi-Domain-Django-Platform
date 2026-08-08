@@ -1074,6 +1074,31 @@ WIDGET_NOTE_SEPARATOR = "\n— widget: "
 # reading the notes back in the Coach Panel.
 NOTE_JOIN = " | "
 
+# Which statuses a widget failure note may still be written onto.
+#
+# FAILED belongs here, and leaving it out cost us the only record of WHY a card
+# was refused. `report_sumup_widget_failure` asks SumUp first and writes the
+# note second, so when SumUp has already declared the checkout FAILED — the
+# ordinary case for a declined card — the sync marked the row FAILED and the
+# note was then discarded as "the payment is failed now". The widget's wording
+# is frequently the only account of the decline in existence: SumUp's checkout
+# resource returns a bare FAILED with no `failure_reason`, `error_message` or
+# `auth_code` (measured against live refusals on 2026-08-07, where the sole
+# difference between a refused and an approved attempt was the auth code).
+#
+# PAID and REFUNDED stay out, which is the point of the guard: an in-flight
+# poll can apply a successful payment between this request's SumUp read and
+# this save, and stamping a failure note onto a row `_apply_paid_checkout` has
+# just cleared would describe a payment that went through as one that did not.
+# CANCELLED stays out too — its `failure_reason` is the "superseded by a newer
+# checkout" text, and no card was charged against it to have a decline to note.
+_NOTEABLE_STATUSES = frozenset(
+    {
+        PaymentTransaction.Status.PENDING,
+        PaymentTransaction.Status.FAILED,
+    }
+)
+
 
 def _split_failure_reason(text):
     """Return (SumUp's account, the widget's own notes)."""
@@ -1121,7 +1146,7 @@ def _append_widget_note(tx_obj, note):
     """
     with transaction.atomic():
         locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
-        if locked.status != PaymentTransaction.Status.PENDING:
+        if locked.status not in _NOTEABLE_STATUSES:
             logger.info(
                 "Discarded a widget failure note for checkout %s — the payment "
                 "is %s now.",

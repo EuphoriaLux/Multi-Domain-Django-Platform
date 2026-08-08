@@ -128,16 +128,23 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 MIDDLEWARE = list(MIDDLEWARE)  # Copy the list from settings.py (imported via *)
 
-# Insert Azure-specific middleware after SecurityMiddleware (index 1)
-MIDDLEWARE.insert(
-    2, "azureproject.redirect_www_middleware.AzureInternalIPMiddleware"
-)  # Handle Azure internal IPs
-MIDDLEWARE.insert(
-    3, "azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware"
-)  # WWW redirect
-MIDDLEWARE.insert(
-    4, "azureproject.redirect_www_middleware.StagingNoIndexMiddleware"
-)  # Noindex for test.* staging subdomains
+# Insert the Azure middlewares directly after CorsMiddleware, i.e. still inside
+# its wrapping and ahead of SecurityMiddleware.
+#
+# Anchored by name, never by number. These used to be insert(2/3/4), which only
+# happened to land here because CorsMiddleware sat at index 1 in the base list —
+# so adding anything before it in settings.py silently pushed all three ahead of
+# Cors, and RedirectWWWToRootDomainMiddleware's 301s (and StagingNoIndex's
+# X-Robots-Tag) started going out without the CORS and security headers those
+# two middlewares add. Nothing catches that: the test suite runs against
+# settings.py, not this module. Adding RuntimeLoggingCanaryMiddleware did
+# exactly that; test_production_middleware_order.py now pins the relationship.
+_cors_idx = MIDDLEWARE.index("corsheaders.middleware.CorsMiddleware")
+MIDDLEWARE[_cors_idx + 1 : _cors_idx + 1] = [
+    "azureproject.redirect_www_middleware.AzureInternalIPMiddleware",  # Handle Azure internal IPs
+    "azureproject.redirect_www_middleware.RedirectWWWToRootDomainMiddleware",  # WWW redirect
+    "azureproject.redirect_www_middleware.StagingNoIndexMiddleware",  # Noindex for test.* staging subdomains
+]
 
 # Add ForceAdminToEnglish after DomainURLRoutingMiddleware
 domain_routing_idx = MIDDLEWARE.index(

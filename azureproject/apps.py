@@ -26,9 +26,16 @@ class AzureprojectConfig(AppConfig):
         # APPLICATIONINSIGHTS_CONNECTION_STRING). Idempotent on repeat calls.
         attach_otel_logging_handler_to_root()
 
-        # Startup canary — if this message shows up in App Insights `traces`
-        # within ~2 minutes of a deploy, the logging pipeline is healthy.
-        # Query: traces | where message startswith "azureproject booted"
+        # Startup canary. It proves the handler is live AT THIS INSTANT and
+        # nothing more — do NOT read it as "the logging pipeline is healthy",
+        # which is what it used to claim. It is emitted on the line after the
+        # handler is attached, in the same function, so it cannot fail for the
+        # reason it exists to detect. On 2026-08-07 both slots had exported
+        # nothing BUT this line for 96 hours (0 runtime records against 6,822
+        # production requests) while it read green the whole time.
+        # `RuntimeLoggingCanaryMiddleware` is the probe that actually answers
+        # the question, because it runs on the request path.
+        # Query: AppTraces | where Message startswith "azureproject booted"
         logging.getLogger("azureproject").info(
             "azureproject booted env=%s settings=%s",
             os.environ.get("DJANGO_ENV", "unknown"),
