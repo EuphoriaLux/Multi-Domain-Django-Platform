@@ -334,15 +334,31 @@ class PayloadTests(TestCase):
         # `pictures` is required, so "no image" is a rejection rather than a
         # listing without a banner.
         payload = echo_lu.build_experience_payload(make_event())
-        self.assertEqual(payload["pictures"][0]["url"], settings.ECHO_LU_FALLBACK_IMAGE)
+        self.assertEqual(payload["pictures"][0]["url"], echo_lu.fallback_picture_url())
+        self.assertTrue(payload["pictures"][0]["url"])
 
     def test_the_fallback_image_is_the_og_image(self):
         # Not a second hand-written branding URL. The first attempt at this
         # setting invented a path that 404s, and echo.lu fetches pictures
         # server-side — so a 404 is a rejected experience, not a missing
         # banner. Tying it to the og:image means one URL to keep true.
+        #
+        # Asserted through the payload, against whatever SOCIAL_PREVIEW_IMAGE_URL
+        # resolves to in THIS environment. Comparing two settings constants
+        # instead is what let the first version of this fix pass locally and
+        # fail in CI: the URL is reassigned after the constant was bound (blob
+        # storage here, the CDN domain in production.py), so the snapshot and
+        # the live value were already different everywhere that matters.
+        payload = echo_lu.build_experience_payload(make_event())
         self.assertEqual(
-            settings.ECHO_LU_FALLBACK_IMAGE, settings.SOCIAL_PREVIEW_IMAGE_URL
+            payload["pictures"][0]["url"], settings.SOCIAL_PREVIEW_IMAGE_URL
+        )
+
+    @override_settings(ECHO_LU_FALLBACK_IMAGE="https://example.test/banner.jpg")
+    def test_an_explicit_override_wins(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], "https://example.test/banner.jpg"
         )
 
     @override_settings(ECHO_LU_DEFAULT_LANGUAGES="en,fr")

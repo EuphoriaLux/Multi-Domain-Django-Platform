@@ -22,6 +22,33 @@ Only events that are **published, public, and not yet finished**:
 The private-invitation exclusion is the one that matters most: those events are
 invitation-only by design, and echo.lu is a public, indexed, national listing.
 
+### The venue is published, and that is a decision, not an oversight
+
+`event_detail.html` shows `location` and `address` **only to signed-in users** —
+anonymous visitors get the canton and *"Sign up to reveal the exact location"*.
+The echo.lu payload sends both fields, so **publishing an event puts its exact
+venue and street address on a public, indexed, national portal**, visible to
+people who have not signed up and to search engines.
+
+Decided 2026-08-08 (Tom): **that is fine.** The reveal-on-signup gate is a
+signup nudge rather than a confidentiality requirement, and national discovery
+is worth more than the nudge.
+
+Written down because it is invisible from the code — nothing enforces it either
+way; it is simply a property of sending `location`/`address` at all — and
+because it is easy to reverse later. If the trade stops being worth it, three
+options, cheapest first:
+
+1. **A placeholder venue.** Register one "Crush.lu — Luxembourg City" venue and
+   point every experience at it, with a canton-level address. `venues` is
+   required so it cannot just be dropped; this satisfies it, keeps the gate,
+   and `purchaseLink` still sends readers to the event page for the real
+   detail. Costs one generic row in a registry shared with other organisers.
+2. **A per-event opt-in.** A `publish_venue_publicly` flag on `MeetupEvent`,
+   default off. Most control; needs a migration and an admin field.
+3. **Skip venue-gated events entirely.** Simplest — and since today that is
+   every event, it amounts to leaving the integration off.
+
 ## Turning it on
 
 > **There is no sandbox.** An earlier version of this page sent you to
