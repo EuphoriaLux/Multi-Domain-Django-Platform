@@ -57,8 +57,11 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 # already, and replaying that is how you get two. See create_experience.
 CREATE_RETRY_STATUSES = frozenset({429})
 # echo.lu rejects a page larger than this outright — "It is not allowed to
-# retrieve more than 100 items per page" — rather than clamping it.
-VENUE_PAGE_SIZE = 100
+# retrieve more than 100 items per page" — rather than clamping it. It governs
+# every list endpoint, not just venues, which is why the name is generic: a
+# future reader raising it "for venues" would silently repage the experience
+# sweep too.
+LIST_PAGE_SIZE = 100
 MAX_RETRIES = 3
 DEFAULT_RETRY_AFTER = 2.0
 # Ceiling on total sleep across retries. The sync can run from a request-thread
@@ -307,7 +310,7 @@ class EchoLuClient:
                 return {"records": []}
             raise
 
-    def iter_experiences(self, per_page=VENUE_PAGE_SIZE):
+    def iter_experiences(self, per_page=LIST_PAGE_SIZE):
         """Every experience, page by page.
 
         echo.lu pages with ``pagination[page]`` / ``pagination[perPage]`` and
@@ -804,7 +807,7 @@ def _iter_venue_records(client, address):
       one — the opposite trade to the one above, and the right way round: a
       duplicate is untidy, while a hung admin request is broken.
     """
-    per_page = VENUE_PAGE_SIZE
+    per_page = LIST_PAGE_SIZE
     max_pages = max(1, int(getattr(settings, "ECHO_LU_VENUE_SEARCH_PAGES", 5)))
     commune = (address or {}).get("commune") or ""
     passes = [{"communes[]": commune}] if commune else []
@@ -842,13 +845,24 @@ def _iter_venue_records(client, address):
             if len(records) < per_page:
                 break
         else:
-            logger.info(
-                "[ECHO] venue search stopped at the %s-page cap (%s venues "
-                "read); a match beyond it will not be found and a new venue "
-                "may be registered instead",
-                max_pages,
-                max_pages * per_page,
-            )
+            # Only the LAST pass decides anything. The narrow pass capping out
+            # says nothing about the outcome — the wide pass runs straight
+            # after it and may well find the match — so announcing a probable
+            # duplicate there would be a false alarm in the common case.
+            if extra:
+                logger.debug(
+                    "[ECHO] commune-narrowed venue search hit the %s-page cap; "
+                    "continuing with the full registry",
+                    max_pages,
+                )
+            else:
+                logger.info(
+                    "[ECHO] venue search stopped at the %s-page cap (%s venues "
+                    "read); a match beyond it will not be found and a new venue "
+                    "may be registered instead",
+                    max_pages,
+                    max_pages * per_page,
+                )
 
 
 # Exactly what a create must carry, read off the API rather than the schema

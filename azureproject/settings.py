@@ -908,12 +908,20 @@ ECHO_LU_DEFAULT_LANGUAGES = os.environ.get("ECHO_LU_DEFAULT_LANGUAGES", "en,fr")
 ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
 # How many 100-row pages of echo.lu's venue registry to read before giving up
 # and registering a new venue. The registry is 5,000+ rows with no text search
-# and each page costs 3-4 seconds, so an uncapped scan is minutes — far past
-# what the admin action (5s per call) or the save-signal can hold. Five pages
-# is ~500 venues per pass and a couple of seconds; a match beyond it is missed
-# and a duplicate registered, which is untidy rather than broken. Raise it when
-# running the sync from a shell, where the budget is generous.
-ECHO_LU_VENUE_SEARCH_PAGES = int(os.environ.get("ECHO_LU_VENUE_SEARCH_PAGES", "5"))
+# and **each page measures 3-4 seconds**, so do the arithmetic before raising
+# this: a call can make TWO passes (commune-narrowed, then the full registry),
+# so N pages is up to 2N requests — at the default 3 that is ~20s worst case,
+# and at 5 it would be 30-40s, i.e. the whole ECHO_LU_ADMIN_BUDGET_SECONDS on a
+# single event. The admin action only checks its deadline *between* events, so
+# one slow venue search cannot be interrupted once started.
+#
+# Hence a deliberately low default. A miss inside the cap registers a new venue
+# — untidy, not broken — while a scan that outlives the request is broken. Each
+# venue is searched once and then cached in EchoVenue, so this cost is paid per
+# venue, not per event. Raise it (ECHO_LU_VENUE_SEARCH_PAGES=20) when running
+# `sync_events_to_echo` from a shell, where the budget is generous and a
+# thorough search is worth the wait.
+ECHO_LU_VENUE_SEARCH_PAGES = int(os.environ.get("ECHO_LU_VENUE_SEARCH_PAGES", "3"))
 # Optional override for the picture sent when an event has no image of its own.
 # Left EMPTY on purpose: the fallback is resolved at call time in
 # services.echo_lu, from SOCIAL_PREVIEW_IMAGE_URL. Binding it to that value
