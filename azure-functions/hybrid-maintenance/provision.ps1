@@ -132,7 +132,7 @@ if (-not [string]::IsNullOrWhiteSpace($previousUrl)) {
 # right for a first provision and a trap on every run after it: this script is
 # also the documented home of every DJANGO_*_URL, so the natural way to add a
 # new URL is to re-run it -- which would have re-set the master switch to false
-# and silently stopped all eleven timers. `_call_admin_endpoint` checks that
+# and silently stopped all twelve timers. `_call_admin_endpoint` checks that
 # flag before anything else and returns quietly, so every invocation would keep
 # reporting *Success* while nothing ran at all.
 $settings = @(
@@ -148,6 +148,7 @@ $settings = @(
     "DJANGO_EVENT_REMINDERS_URL=https://$DJANGO_HOST/api/admin/event-reminders/",
     "DJANGO_EVENT_RECAPS_URL=https://$DJANGO_HOST/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL=https://$DJANGO_HOST/api/admin/event-feedback/",
+    "DJANGO_ECHO_SYNC_URL=https://$DJANGO_HOST/api/admin/echo-sync/",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
 if (-not [string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
@@ -165,7 +166,7 @@ if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
 # Preserving an existing "true" is right when the run only adds or refreshes a
 # URL for the SAME target -- that is the re-run this change exists to make
 # safe. It is WRONG when -Slot flips the target: every URL was just repointed,
-# so leaving the timers on swings all eleven -- including the production
+# so leaving the timers on swings all twelve -- including the production
 # campaign dispatcher -- onto the other slot on the next tick, using an
 # ADMIN_API_KEY that may not even be valid there (see the staging warning
 # above). Retargeting therefore deploys dark, exactly like a first provision,

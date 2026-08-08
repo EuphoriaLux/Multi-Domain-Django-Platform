@@ -822,6 +822,78 @@ SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
 # Monthly fee for a Crush Connect Premium membership, in EUR.
 SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00").strip()
 
+# ============================================================================
+# ECHO.LU EVENT SYNC
+# ============================================================================
+# Publishes public Crush.lu events to echo.lu, Luxembourg's national events
+# portal, via its partner API (https://api.echo.lu/). See
+# crush_lu/services/echo_lu.py and docs/integrations/echo-lu-sync.md.
+#
+# The api-key is issued per ORGANISATION from the echo.lu organiser back
+# office, so the key alone identifies who the experience is published as —
+# there is no separate organisation id to send.
+ECHO_LU_API_KEY = os.environ.get("ECHO_LU_API_KEY", "")
+# echo.lu runs a separate sandbox at test-api.echo.lu with its own keys and its
+# own data. Point staging at it; a key from one environment is rejected by the
+# other. Trailing slashes are stripped in the client so both spellings work.
+ECHO_LU_API_BASE_URL = os.environ.get(
+    "ECHO_LU_API_BASE_URL", "https://api.echo.lu/v1"
+).strip()
+# Master switch, default OFF. Every sync entry point is gated on this, so an
+# environment that merely inherits the key (a restored production DB on
+# staging, a local shell) cannot mutate live echo.lu listings by accident.
+ECHO_LU_SYNC_ENABLED = _env_bool("ECHO_LU_SYNC_ENABLED", False)
+ECHO_LU_TIMEOUT_SECONDS = int(os.environ.get("ECHO_LU_TIMEOUT_SECONDS", "20"))
+# What the save-signal path is allowed to spend. DJANGO_TASKS_BACKEND is unset
+# in production, so TASKS uses ImmediateBackend and .enqueue() runs the sync
+# inside the request that saved the event — the same trap
+# PASSKIT_BULK_PUSH_BUDGET_SECONDS exists for. This timeout, with retries off,
+# is what stops an unreachable echo.lu from holding an admin save open; the
+# hourly sweep picks up whatever the fast path drops.
+ECHO_LU_SIGNAL_TIMEOUT_SECONDS = float(
+    os.environ.get("ECHO_LU_SIGNAL_TIMEOUT_SECONDS", "5")
+)
+# Wall-clock ceiling on one reconciliation pass. The EchoLuSync Function gives
+# the endpoint 110s, and an unbounded sweep can exceed that on a handful of
+# slow events — so the pass stops here and the next hour resumes where it left
+# off, rather than being killed mid-event.
+ECHO_LU_SWEEP_BUDGET_SECONDS = float(
+    os.environ.get("ECHO_LU_SWEEP_BUDGET_SECONDS", "90")
+)
+# Wall-clock ceiling on echo.lu work done inside an admin request — the bulk
+# publish/unpublish/cancel actions and the manual sync action. Both run inline
+# (ImmediateBackend again), and the admin page size is not a bound: a slow
+# echo.lu turns a two-dozen-event bulk publish into a lost response for work
+# the database already committed. Whatever does not fit is left to the sweep.
+ECHO_LU_ADMIN_BUDGET_SECONDS = float(
+    os.environ.get("ECHO_LU_ADMIN_BUDGET_SECONDS", "30")
+)
+
+# Public organiser contact echoed onto every experience. echo.lu shows these on
+# the listing page, so they must be addresses we actually monitor — not the
+# noreply mailbox.
+ECHO_LU_CONTACT_NAME = os.environ.get("ECHO_LU_CONTACT_NAME", "Crush.lu")
+ECHO_LU_CONTACT_COMPANY = os.environ.get("ECHO_LU_CONTACT_COMPANY", "Crush.lu")
+ECHO_LU_CONTACT_EMAIL = os.environ.get("ECHO_LU_CONTACT_EMAIL", "hello@crush.lu")
+ECHO_LU_CONTACT_PHONE = os.environ.get("ECHO_LU_CONTACT_PHONE", "")
+ECHO_LU_CONTACT_WEBSITE = os.environ.get("ECHO_LU_CONTACT_WEBSITE", "https://crush.lu")
+
+# Taxonomy slugs. echo.lu validates categories/audiences/formats/environments
+# against ITS OWN vocabularies and rejects the whole experience on an unknown
+# value, so these are configuration rather than constants — run
+# `manage.py echo_taxonomy` to print the accepted slugs for our key and set
+# these to match. Comma-separated; blank means "send nothing for this facet",
+# which is valid and safer than guessing.
+ECHO_LU_DEFAULT_CATEGORIES = os.environ.get("ECHO_LU_DEFAULT_CATEGORIES", "")
+ECHO_LU_DEFAULT_AUDIENCES = os.environ.get("ECHO_LU_DEFAULT_AUDIENCES", "")
+ECHO_LU_DEFAULT_FORMATS = os.environ.get("ECHO_LU_DEFAULT_FORMATS", "")
+ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "")
+ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
+# Optional JSON object mapping MeetupEvent.event_type -> list of category
+# slugs, layered on top of ECHO_LU_DEFAULT_CATEGORIES. Example:
+#   {"speed_dating": ["rencontres"], "quiz_night": ["jeux"]}
+ECHO_LU_CATEGORY_MAP = os.environ.get("ECHO_LU_CATEGORY_MAP", "")
+
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
 # cross-origin). Leave it False so a compromised origin can't replay sessions.

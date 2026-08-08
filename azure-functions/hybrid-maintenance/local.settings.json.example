@@ -15,6 +15,7 @@
     "DJANGO_EVENT_REMINDERS_URL": "http://localhost:8000/api/admin/event-reminders/",
     "DJANGO_EVENT_RECAPS_URL": "http://localhost:8000/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL": "http://localhost:8000/api/admin/event-feedback/",
+    "DJANGO_ECHO_SYNC_URL": "http://localhost:8000/api/admin/echo-sync/",
     "ADMIN_API_KEY": "your-admin-api-key-here",
     "HYBRID_MAINTENANCE_ENABLED": "true",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": ""

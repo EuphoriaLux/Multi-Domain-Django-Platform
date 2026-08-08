@@ -318,3 +318,54 @@ def send_sla_fallback_email_task(submission_id, host, is_secure=True):
         logger.error(
             f"[TASK] Failed SLA fallback email for submission {submission_id}: {e}"
         )
+
+
+@task(priority=0)
+def sync_event_to_echo_task(event_id):
+    """Push one event's state to echo.lu in the background.
+
+    Runs at the lowest priority on purpose: a national events listing being a
+    few minutes stale is harmless, while an echo.lu outage must never delay a
+    ticket email or a push notification queued behind it.
+
+    "Background" is aspirational in production, which is why the client below
+    is a deliberately impatient one. DJANGO_TASKS_BACKEND is unset there, so
+    TASKS falls back to ImmediateBackend and `.enqueue()` runs this inline in
+    the request that saved the event. At the default 20s timeout with three
+    retries that is over a minute of held admin save against an unreachable
+    echo.lu; at ECHO_LU_SIGNAL_TIMEOUT_SECONDS with retries off it is seconds,
+    and anything dropped is picked up by the hourly sweep — which is the same
+    bargain PASSKIT_BULK_PUSH_BUDGET_SECONDS strikes for Wallet pushes.
+
+    Swallows API errors after logging them. The caller is a post_save signal on
+    the admin's save path — raising here would surface an echo.lu outage as a
+    failed event edit, and the failure is already recorded on the
+    EchoExperienceSync row and retried by the hourly `sync_events_to_echo`
+    sweep.
+    """
+    from django.conf import settings
+
+    from .models import MeetupEvent
+    from .services import echo_lu
+
+    if not echo_lu.is_sync_enabled():
+        return
+
+    try:
+        event = MeetupEvent.objects.select_related("echo_sync").get(pk=event_id)
+    except MeetupEvent.DoesNotExist:
+        # Deleted between enqueue and execution. The listing goes with it: the
+        # sync row cascades, so there is nothing left to reconcile from here —
+        # see docs/integrations/echo-lu-sync.md on deleting events.
+        logger.info(f"[TASK] Event {event_id} gone before echo.lu sync; skipping")
+        return
+
+    client = echo_lu.EchoLuClient(
+        timeout=getattr(settings, "ECHO_LU_SIGNAL_TIMEOUT_SECONDS", 5),
+        max_retries=0,
+    )
+    try:
+        outcome = echo_lu.sync_event(event, client=client)
+        logger.info(f"[TASK] echo.lu sync for event {event_id}: {outcome}")
+    except echo_lu.EchoLuError as e:
+        logger.error(f"[TASK] echo.lu sync failed for event {event_id}: {e}")
