@@ -4978,3 +4978,162 @@ class WidgetNativeCommerceGateTests(SiteTestMixin, TestCase):
         )
 
         self.assertEqual(self._widget("CHK_W_EVT", native=True).status_code, 200)
+
+
+class DeclineWordingSurvivesTests(SiteTestMixin, TestCase):
+    """SumUp declaring the checkout FAILED must not erase WHY it failed.
+
+    ``report_sumup_widget_failure`` asks SumUp first and records the widget's
+    own wording second. When SumUp has already called the checkout FAILED --
+    the ordinary shape of a declined card -- the sync moved the row to FAILED
+    and ``_append_widget_note`` then discarded the note as "the payment is
+    failed now". The guard was reading "not PENDING" as "settled".
+
+    What it threw away was frequently the only account of the decline in
+    existence. SumUp's checkout resource returns a bare FAILED carrying no
+    ``failure_reason``, no ``error_message`` and no ``auth_code``; on the live
+    refusals measured 2026-08-07 the sole difference between a refused and an
+    approved attempt was the presence of an auth code. The payloads below are
+    those live shapes, transaction codes and all.
+    """
+
+    FAILED_PAYLOAD = {
+        "id": "CHK_DECLINE",
+        "status": "FAILED",
+        "transactions": [
+            {
+                "status": "FAILED",
+                "payment_type": "ECOM",
+                "entry_mode": "CUSTOMER_ENTRY",
+                "transaction_code": "TAAA4NSCZGG",
+            }
+        ],
+    }
+    PAID_PAYLOAD = {
+        "id": "CHK_DECLINE",
+        "status": "PAID",
+        "transactions": [
+            {
+                "status": "SUCCESSFUL",
+                "auth_code": "223882",
+                "payment_type": "ECOM",
+                "entry_mode": "CUSTOMER_ENTRY",
+                "transaction_code": "TAAA4NSDXEU",
+            }
+        ],
+    }
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="decline@crush.lu",
+            email="decline@crush.lu",
+            password="password123",
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Decline",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-DECLINE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_DECLINE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        # Literal, not reverse(). The host is crush.lu, so DomainURLRoutingMiddleware
+        # serves urls_crush — where this endpoint sits at the root — while
+        # reverse("crush_lu:...") builds the ROOT_URLCONF "/crush/..." form and
+        # 404s against it.
+        self.url = "/payments/sumup/widget/CHK_DECLINE/failed/"
+        self.client.force_login(self.user)
+
+    def _report(self, message="Card was declined by the issuer"):
+        return self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail", "message": message}),
+            content_type="application/json",
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_note_survives_sumup_declaring_the_checkout_failed(self, mock_get):
+        """The exact production sequence: sync marks FAILED, then the note lands.
+
+        Ordering is the whole bug, so the test has to run it in that order
+        rather than appending a note to a row that is already FAILED.
+        """
+        from crush_lu.views_payments import _split_failure_reason
+
+        mock_get.return_value = self.FAILED_PAYLOAD
+
+        self.assertEqual(self._report().status_code, 200)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+
+        provider, notes = _split_failure_reason(self.tx.failure_reason)
+        # SumUp's account stays in its own half...
+        self.assertIn("FAILED", provider)
+        # ...and the wording the customer actually saw is now beside it.
+        self.assertIn("Card was declined by the issuer", notes)
+        self.assertIn("Card widget reported", notes)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_payment_that_succeeded_still_discards_the_note(self, mock_get):
+        """The guard's real job, and it must survive the widening.
+
+        An SDK error raised after the money was captured is a real sequence,
+        and an in-flight poll can apply the payment between this request's
+        SumUp read and the note's save. Writing a decline onto a row
+        ``_apply_paid_checkout`` has just cleared would describe a payment that
+        went through as one that did not.
+        """
+        mock_get.return_value = self.PAID_PAYLOAD
+
+        self._report()
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+
+    def test_a_superseded_checkout_keeps_our_own_reason(self):
+        """CANCELLED carries a sentence WE wrote; a stray note must not join it.
+
+        No card was ever charged against a checkout we deactivated, so there is
+        no decline to describe -- and "superseded by a newer checkout" is the
+        one sentence distinguishing it from a card a bank refused.
+        """
+        from crush_lu.views_payments import _append_widget_note
+
+        self.tx.status = PaymentTransaction.Status.CANCELLED
+        self.tx.failure_reason = "Superseded by a newer checkout"
+        self.tx.save(update_fields=["status", "failure_reason"])
+
+        self.assertFalse(_append_widget_note(self.tx, "Card widget reported 'fail'"))
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "Superseded by a newer checkout")
