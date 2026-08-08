@@ -906,6 +906,14 @@ ECHO_LU_DEFAULT_ENVIRONMENTS = os.environ.get("ECHO_LU_DEFAULT_ENVIRONMENTS", "i
 # Required too, and an event with no languages set cannot simply omit them.
 ECHO_LU_DEFAULT_LANGUAGES = os.environ.get("ECHO_LU_DEFAULT_LANGUAGES", "en,fr")
 ECHO_LU_DEFAULT_TAGS = os.environ.get("ECHO_LU_DEFAULT_TAGS", "crush.lu")
+# How many 100-row pages of echo.lu's venue registry to read before giving up
+# and registering a new venue. The registry is 5,000+ rows with no text search
+# and each page costs 3-4 seconds, so an uncapped scan is minutes — far past
+# what the admin action (5s per call) or the save-signal can hold. Five pages
+# is ~500 venues per pass and a couple of seconds; a match beyond it is missed
+# and a duplicate registered, which is untidy rather than broken. Raise it when
+# running the sync from a shell, where the budget is generous.
+ECHO_LU_VENUE_SEARCH_PAGES = int(os.environ.get("ECHO_LU_VENUE_SEARCH_PAGES", "5"))
 # Optional override for the picture sent when an event has no image of its own.
 # Left EMPTY on purpose: the fallback is resolved at call time in
 # services.echo_lu, from SOCIAL_PREVIEW_IMAGE_URL. Binding it to that value

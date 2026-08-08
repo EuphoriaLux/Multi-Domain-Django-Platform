@@ -56,6 +56,9 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 # not process the request; a 5xx or a lost socket may mean the listing exists
 # already, and replaying that is how you get two. See create_experience.
 CREATE_RETRY_STATUSES = frozenset({429})
+# echo.lu rejects a page larger than this outright — "It is not allowed to
+# retrieve more than 100 items per page" — rather than clamping it.
+VENUE_PAGE_SIZE = 100
 MAX_RETRIES = 3
 DEFAULT_RETRY_AFTER = 2.0
 # Ceiling on total sleep across retries. The sync can run from a request-thread
@@ -304,7 +307,7 @@ class EchoLuClient:
                 return {"records": []}
             raise
 
-    def iter_experiences(self, per_page=100):
+    def iter_experiences(self, per_page=VENUE_PAGE_SIZE):
         """Every experience, page by page.
 
         echo.lu pages with ``pagination[page]`` / ``pagination[perPage]`` and
@@ -774,20 +777,49 @@ def _iter_venue_records(client, address):
     pass costs nothing in the case that matters.
 
     Ids already yielded by the narrow pass are not yielded twice.
+
+    Three things learned from the first live call, all of them the hard way:
+
+    * **100 items per page is a hard ceiling.** Asking for more is a 400, not a
+      clamp — ``It is not allowed to retrieve more than 100 items per page``.
+    * **A commune the API does not recognise is a 404**, and our value comes
+      from ``canton``, which is free text ("Luxembourg - City") while echo.lu
+      wants one of its own 113 ids ("luxembourg"). So an unusable filter must
+      demote to the wide pass rather than failing the sync — the filter is an
+      optimisation, and no optimisation is worth an outage.
+    * **Pages cost 3–4 seconds each.** Reading 5,000 venues is minutes, which
+      no caller here has: the admin action allows 5s per call. So the scan is
+      capped, and a miss inside the cap registers a new venue rather than
+      hunting forever. That trades a small chance of a duplicate for a bounded
+      one — the opposite trade to the one above, and the right way round: a
+      duplicate is untidy, while a hung admin request is broken.
     """
-    per_page = 200
+    per_page = VENUE_PAGE_SIZE
+    max_pages = max(1, int(getattr(settings, "ECHO_LU_VENUE_SEARCH_PAGES", 5)))
     commune = (address or {}).get("commune") or ""
     passes = [{"communes[]": commune}] if commune else []
     passes.append({})
 
     seen_ids = set()
     for extra in passes:
-        page = 0
-        while True:
+        for page in range(max_pages):
             params = dict(extra)
             params["pagination[page]"] = page
             params["pagination[perPage]"] = per_page
-            records = response_records(client.list_venues(**params))
+            try:
+                records = response_records(client.list_venues(**params))
+            except EchoLuError as exc:
+                if extra and exc.status_code in (400, 404):
+                    # The narrowed pass is unusable — almost always a commune
+                    # echo.lu has never heard of. Fall through to the wide one.
+                    logger.info(
+                        "[ECHO] venue commune filter %r rejected (%s); "
+                        "searching without it",
+                        commune,
+                        exc.status_code,
+                    )
+                    break
+                raise
             if not records:
                 break
             for record in records:
@@ -799,9 +831,14 @@ def _iter_venue_records(client, address):
                 yield record
             if len(records) < per_page:
                 break
-            page += 1
-            if page > 200:  # pragma: no cover - runaway guard
-                return
+        else:
+            logger.info(
+                "[ECHO] venue search stopped at the %s-page cap (%s venues "
+                "read); a match beyond it will not be found and a new venue "
+                "may be registered instead",
+                max_pages,
+                max_pages * per_page,
+            )
 
 
 # Exactly what a create must carry, read off the API rather than the schema
