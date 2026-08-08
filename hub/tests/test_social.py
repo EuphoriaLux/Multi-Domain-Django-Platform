@@ -515,6 +515,46 @@ class SocialMediaTests(TestCase):
         self.assertIsNone(dispatched.source_event_id)
         self.assertEqual(dispatched.buffer_id, "buffer_post_1")
 
+    def test_deleting_event_also_removes_reviewed_but_undispatched_posts(self):
+        # Reviewed copy for a deleted event is not salvageable work: source_event
+        # is SET_NULL, and patch() gates its eligibility check on
+        # source_event_id, so a survivor could still be scheduled and would
+        # publish a link to an event page that no longer exists.
+        event = self._event()
+        reviewed = [
+            SocialPost.objects.create(
+                user=self.user,
+                source_event=event,
+                language="fr",
+                platforms=["facebook"],
+                content=f"Copie {state}",
+                status=state,
+            )
+            for state in (
+                SocialPost.Status.PENDING_REVIEW,
+                SocialPost.Status.APPROVED,
+                SocialPost.Status.FAILED,
+            )
+        ]
+        published = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Publication vivante",
+            status=SocialPost.Status.PUBLISHED,
+            buffer_id="buffer_post_2",
+        )
+
+        event.delete()
+
+        self.assertFalse(
+            SocialPost.objects.filter(pk__in=[post.pk for post in reviewed]).exists()
+        )
+        published.refresh_from_db()
+        self.assertIsNone(published.source_event_id)
+        self.assertEqual(published.buffer_id, "buffer_post_2")
+
     def test_event_without_explicit_translations_cannot_create_draft(self):
         event = self._event()
         MeetupEvent.objects.filter(pk=event.pk).update(
