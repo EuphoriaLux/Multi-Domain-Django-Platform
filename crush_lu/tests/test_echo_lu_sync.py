@@ -55,8 +55,22 @@ def make_event(**overrides):
         "registration_deadline": start - timedelta(days=1),
         "is_published": True,
     }
+    link_venue = overrides.pop("link_venue", True)
     defaults.update(overrides)
-    return MeetupEvent.objects.create(**defaults)
+    event = MeetupEvent.objects.create(**defaults)
+    if link_venue and event.location:
+        # echo.lu takes venue IDS from its own registry, and the sync refuses
+        # to invent one, so an event with no linked venue cannot publish. Every
+        # test that is about something else gets the mapping for free; the
+        # tests that are about the mapping pass link_venue=False.
+        from crush_lu.models.echo_lu import EchoVenue
+
+        address = echo_lu.parse_address(event.address, event.canton)
+        EchoVenue.objects.get_or_create(
+            key=echo_lu.venue_key(event.location, address.get("postcode", "")),
+            defaults={"venue_id": "venue-1", "title": event.location},
+        )
+    return event
 
 
 def echo_response(record):
@@ -429,28 +443,6 @@ class PayloadTests(TestCase):
 class UnsendablePayloadTests(TestCase):
     """Refusing to send is not the same as a create whose answer was lost."""
 
-    def test_an_unreadable_venue_registry_leaves_the_row_retryable(self):
-        # This one bit on the very first production sync. The venue search
-        # happens BEFORE the experience create, so a registry we cannot read
-        # proves nothing was created — but a locally raised error carries no
-        # status code, and a missing status otherwise reads as "the answer was
-        # lost". The event was parked in ORPHANED: blocked from syncing, and
-        # sent to an --audit with nothing to find.
-        event = make_event()
-
-        class BrokenRegistryClient(FakeClient):
-            def list_venues(self, **params):
-                raise echo_lu.EchoLuError("nope", status_code=400)
-
-        client = BrokenRegistryClient(venues=[])
-        with self.assertRaises(echo_lu.EchoLuError):
-            echo_lu.sync_event(event, client=client)
-
-        self.assertEqual(client.calls, [])  # no venue and no experience created
-        event.refresh_from_db()
-        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
-        self.assertNotEqual(event.echo_sync.status, EchoExperienceSync.Status.ORPHANED)
-
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="",
         ECHO_LU_DEFAULT_AUDIENCES="",
@@ -596,34 +588,65 @@ class ResponseRecordsTests(TestCase):
 
 @override_settings(**ENABLED)
 class VenueResolutionTests(TestCase):
-    """`venues` takes echo.lu venue IDs from a shared national registry."""
+    """`venues` takes ids from echo.lu's registry, and we only ever link them."""
 
-    def test_a_match_outside_the_commune_filter_is_still_found(self):
-        # The commune pass is an optimisation, not the search. Our `canton` is
-        # free text while echo.lu's commune filter is a controlled value, so
-        # the narrowed pass can return unrelated venues while the real match
-        # sits in another bucket. Skipping the wide pass because the narrow one
-        # returned *something* registered a duplicate into a shared national
-        # registry — the exact cost this lookup exists to avoid.
+    def test_a_linked_venue_is_used(self):
         event = make_event()
-        real = {"id": "venue-real", "title": "Café Konrad"}
-        unrelated = {"id": "venue-other", "title": "Somewhere Else"}
+        client = FakeClient()
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["venue-1"])
+        self.assertEqual(client.calls, [])
 
-        class CommuneFilteringClient(FakeClient):
-            def list_venues(self, **params):
-                if "communes[]" in params:
-                    # Narrowed pass: rows, but not the one we want.
-                    return {"records": [unrelated]}
-                return {"records": [unrelated, real]}
+    def test_resolution_never_calls_the_api(self):
+        # The whole point of linking: the sync path does no network work for
+        # venues at all, so it cannot be slow and cannot register anything.
+        event = make_event()
 
-        client = CommuneFilteringClient(venues=[])
-        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-real"])
-        self.assertEqual(client.calls, [])  # nothing was registered
+        class ExplodingClient(FakeClient):
+            def list_venues(self, **params):  # pragma: no cover - must not run
+                raise AssertionError("resolution must not call echo.lu")
+
+        echo_lu.sync_event(event, client=ExplodingClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SYNCED)
+
+    def test_an_unlinked_venue_fails_with_instructions(self):
+        # And fails as EchoLuNotSent, so the row stays retryable rather than
+        # being parked as an orphan for a listing that was never created.
+        event = make_event(link_venue=False)
+        client = FakeClient()
+        with self.assertRaises(echo_lu.EchoLuNotSent) as caught:
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])
+        self.assertIn("echo_venue --search", str(caught.exception))
+        self.assertIn("Café Konrad", str(caught.exception))
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+
+    def test_an_event_with_no_venue_at_all_sends_none(self):
+        event = make_event(location="", link_venue=False)
+        self.assertEqual(echo_lu.resolve_venue_ids(event), [])
+
+    def test_the_key_ignores_casing_and_spacing(self):
+        # A hand-typed location that drifts in case or spacing must still find
+        # the mapping, or the same venue gets linked twice.
+        self.assertEqual(
+            echo_lu.venue_key("  café   KONRAD ", "1450"),
+            echo_lu.venue_key("Café Konrad", "1450"),
+        )
+        self.assertNotEqual(
+            echo_lu.venue_key("Café Konrad", "1450"),
+            echo_lu.venue_key("Café Konrad", "2229"),
+        )
+
+
+@override_settings(**ENABLED)
+class VenueSearchHelperTests(TestCase):
+    """The registry pager, which now only serves `manage.py echo_venue`."""
 
     def test_pages_never_exceed_the_hundred_item_ceiling(self):
         # echo.lu rejects a bigger page outright rather than clamping it:
-        # "It is not allowed to retrieve more than 100 items per page". The
-        # first live sync asked for 200 and failed on this.
+        # "It is not allowed to retrieve more than 100 items per page".
         seen = []
 
         class RecordingClient(FakeClient):
@@ -631,16 +654,14 @@ class VenueResolutionTests(TestCase):
                 seen.append(params.get("pagination[perPage]"))
                 return {"records": []}
 
-        echo_lu.resolve_venue_ids(make_event(), RecordingClient(venues=[]))
+        list(echo_lu.iter_venue_records(RecordingClient(), None))
         self.assertTrue(seen)
         self.assertTrue(all(p is not None and p <= 100 for p in seen), seen)
 
     def test_an_unknown_commune_falls_back_to_the_wide_search(self):
-        # Our commune comes from `canton`, which is free text
-        # ("Luxembourg - City"), while echo.lu wants one of its own ids
-        # ("luxembourg") and 404s on anything else. The filter is an
-        # optimisation, so an unusable one must demote to the unfiltered pass
-        # rather than failing the sync.
+        # Our commune comes from `canton` (free text) while echo.lu wants one
+        # of its own ids and 404s otherwise. The filter is an optimisation, so
+        # an unusable one demotes rather than failing.
         real = {"id": "venue-real", "title": "Café Konrad"}
 
         class PickyClient(FakeClient):
@@ -649,72 +670,19 @@ class VenueResolutionTests(TestCase):
                     raise echo_lu.EchoLuError("no such commune", status_code=404)
                 return {"records": [real]}
 
-        client = PickyClient(venues=[])
-        self.assertEqual(
-            echo_lu.resolve_venue_ids(make_event(), client), ["venue-real"]
-        )
-        self.assertEqual(client.calls, [])  # matched, nothing registered
+        found = list(echo_lu.iter_venue_records(PickyClient(), {"commune": "Nowhere"}))
+        self.assertIn("venue-real", [echo_lu.extract_experience_id(r) for r in found])
 
-    @override_settings(ECHO_LU_VENUE_SEARCH_PAGES=2)
-    def test_the_search_is_capped_and_then_registers(self):
-        # Pages cost 3-4s each and the admin action allows 5s per call, so an
-        # uncapped scan of 5,000 venues is a hung request. Past the cap we
-        # register rather than hunt — a duplicate is untidy, a hung admin
-        # request is broken.
+    def test_the_caller_can_widen_the_page_budget(self):
         pages = []
 
         class EndlessClient(FakeClient):
             def list_venues(self, **params):
                 pages.append(params.get("pagination[page]"))
-                return {"records": [{"id": f"v{len(pages)}", "title": "Nope"}] * 100}
+                return {"records": [{"id": f"v{len(pages)}", "title": "x"}] * 100}
 
-        client = EndlessClient(venues=[])
-        result = echo_lu.resolve_venue_ids(make_event(), client)
-        self.assertTrue(result[0].startswith("venue-"))
-        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
-        # 2 pages for the commune pass + 2 for the wide one, and no more.
-        self.assertLessEqual(len(pages), 4)
-
-    def test_an_existing_venue_is_matched_not_registered(self):
-        # The registry is shared with every other organiser, so registering a
-        # second "Café Konrad" beside the one already there is litter in a
-        # public dataset.
-        event = make_event()
-        client = FakeClient(venues=[{"id": "venue-77", "title": "café  KONRAD"}])
-        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-77"])
-        self.assertEqual(client.calls, [])
-
-    def test_an_unknown_venue_is_registered(self):
-        event = make_event()
-        client = FakeClient(venues=[])
-        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-1"])
-        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
-        self.assertEqual(client.calls[0][1]["title"], "Café Konrad")
-
-    def test_a_similar_name_is_not_matched(self):
-        # Attaching our event to somebody else's venue is worse than a
-        # duplicate, and invisible from our side — so matching is normalised
-        # equality, never a substring.
-        event = make_event()
-        client = FakeClient(venues=[{"id": "venue-9", "title": "Café Konrad Bar"}])
-        # A fresh registration, not venue-9.
-        self.assertEqual(echo_lu.resolve_venue_ids(event, client), ["venue-2"])
-        self.assertEqual([c[0] for c in client.calls], ["create_venue"])
-
-    def test_the_id_is_cached_so_the_next_event_costs_nothing(self):
-        first = make_event()
-        client = FakeClient(venues=[])
-        echo_lu.resolve_venue_ids(first, client)
-        second = make_event(title="Another night")
-        after = FakeClient(venues=[])
-        self.assertEqual(echo_lu.resolve_venue_ids(second, after), ["venue-1"])
-        self.assertEqual(after.calls, [])
-
-    def test_cached_ids_never_call_the_api(self):
-        event = make_event()
-        self.assertEqual(echo_lu.cached_venue_ids(event), [])
-        echo_lu.resolve_venue_ids(event, FakeClient(venues=[]))
-        self.assertEqual(echo_lu.cached_venue_ids(event), ["venue-1"])
+        list(echo_lu.iter_venue_records(EndlessClient(), None, max_pages=2))
+        self.assertEqual(len(pages), 2)
 
 
 @override_settings(**ENABLED)

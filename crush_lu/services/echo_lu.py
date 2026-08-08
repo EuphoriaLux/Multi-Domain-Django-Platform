@@ -369,18 +369,6 @@ class EchoLuClient:
     def list_venues(self, **params):
         return self._request("GET", "/venues", params=params or None)
 
-    def create_venue(self, payload):
-        """Register a venue and get its id back.
-
-        Not retried on anything but 429, for the same reason creating an
-        experience is not: venues are a shared national registry with
-        server-assigned ids, so a replay after a lost response leaves a
-        duplicate venue nobody can tell from the original.
-        """
-        return self._request(
-            "POST", "/venues", json_body=payload, retry_statuses=CREATE_RETRY_STATUSES
-        )
-
     # --- vocabularies ----------------------------------------------------
 
     #: The facets echo.lu validates against its own vocabularies. An unknown
@@ -646,11 +634,11 @@ def venue_key(name, postcode=""):
 
 
 def cached_venue_ids(event):
-    """Venue ids already known locally — no API calls, no writes.
+    """Venue ids already known locally, or ``[]`` if none is linked.
 
-    The read-only half of :func:`resolve_venue_ids`, for the paths that must
-    not touch echo.lu: the dry run, and the pre-lock fingerprint that decides
-    whether an unchanged event needs a write at all.
+    The non-raising twin of :func:`resolve_venue_ids`, for the paths that need
+    an answer rather than an error: the dry run, and the pre-lock fingerprint
+    that decides whether an unchanged event needs a write at all.
     """
     from ..models.echo_lu import EchoVenue
 
@@ -711,109 +699,54 @@ def fallback_picture_url():
     )
 
 
-def _venue_payload(event, address):
-    """A CreateVenue body for this event's location."""
-    return {
-        "title": event.location,
-        "location": {"address": address},
-    }
-
-
-def resolve_venue_ids(event, client, address=None):
-    """The echo.lu venue ids for this event, registering one if needed.
+def resolve_venue_ids(event):
+    """The echo.lu venue ids for this event, from the local mapping only.
 
     Returns a list because the field is a list; in practice it is one venue.
 
-    Three steps, cheapest first: the local cache, then echo.lu's registry, then
-    registering a new venue. The middle step matters because that registry is
-    shared with every other organiser in the country — a venue we create beside
-    an identical one that already exists is litter in a public dataset, not
-    just a wasted call.
+    **This never creates a venue, and never calls the API.** Both were tried
+    and both were wrong:
 
-    Matching is deliberately strict: normalised equality on the venue name, not
-    a fuzzy or substring match. Attaching our event to somebody else's venue
-    because the names looked similar is a worse failure than registering a
-    duplicate, and it is the kind that is invisible from our side.
+    * *Creating* one means claiming it. ``CreateVenue`` requires a description,
+      a category, a website and a contact — for premises we merely book. The
+      only values we hold are Crush.lu's own, so an automatic registration
+      would publish somebody else's venue into a shared national registry with
+      our contact details on it, which other organisers then attach their
+      events to. That is not a call a program should make by itself.
+    * *Searching* for one does not work at this size. The registry is 5,000+
+      rows with no text search and 3-4 seconds a page, so a scan bounded
+      tightly enough for a web request sees a few hundred rows and reliably
+      misses — while an unbounded one takes minutes. A search that almost
+      always falls through to a create is just a slow way to reach the wrong
+      answer.
+
+    So the mapping is explicit and made once per venue by a person:
+    ``manage.py echo_venue --search`` to find the id, ``--link`` to record it.
+    After that this is a single indexed lookup and the sync path touches no
+    network at all.
     """
     from ..models.echo_lu import EchoVenue
 
     if not event.location:
         return []
 
-    address = (
-        address if address is not None else parse_address(event.address, event.canton)
-    )
+    address = parse_address(event.address, event.canton)
     key = venue_key(event.location, address.get("postcode", ""))
+    row = EchoVenue.objects.filter(key=key).first()
+    if row is not None:
+        return [row.venue_id]
 
-    cached = EchoVenue.objects.filter(key=key).first()
-    if cached is not None:
-        return [cached.venue_id]
-
-    target = venue_key(event.location)
-    match_id, match_title = "", ""
-    try:
-        for record in _iter_venue_records(client, address):
-            title = record.get("title") or ""
-            if isinstance(title, dict):
-                title = title.get("en") or next(iter(title.values()), "")
-            if venue_key(str(title)) == target:
-                match_id = extract_experience_id(record)
-                match_title = str(title)
-                if match_id:
-                    break
-    except EchoLuError as exc:
-        # A registry we could not read is not a reason to register a duplicate
-        # into it. Fail the sync instead; the sweep retries in an hour.
-        #
-        # EchoLuNotSent, emphatically, and not a bare EchoLuError. Everything
-        # here happens *before* the experience create is attempted, so nothing
-        # can possibly have been created — but a locally raised error carries no
-        # status code, and `_proves_nothing_was_created` reads a missing status
-        # as "the answer was lost, assume a listing exists". A bare raise here
-        # therefore parked the event in ORPHANED: blocked from syncing forever
-        # and pointing its operator at an `--audit` that cannot find anything,
-        # because there is nothing to find. That is exactly what happened on the
-        # first production sync.
-        raise EchoLuNotSent(
-            f"could not search echo.lu venues for {event.location!r}: {exc}"
-        ) from exc
-
-    created_by_us = False
-    if not match_id:
-        response = client.create_venue(_venue_payload(event, address))
-        match_id = extract_experience_id(response)
-        match_title = event.location
-        created_by_us = True
-        if not match_id:
-            # Same shape of problem as an experience create with no id back,
-            # and the same answer: do not try again automatically. Without the
-            # id we cannot reference the venue, and a second attempt registers
-            # a second one into a shared national table.
-            raise EchoLuOrphanedCreate(
-                f"echo.lu accepted a venue for {event.location!r} but returned "
-                f"no id; it is now registered and untracked. Find it in the "
-                f"organiser back office and record its id on an EchoVenue row "
-                f"before syncing this event again."
-            )
-
-    EchoVenue.objects.update_or_create(
-        key=key,
-        defaults={
-            "venue_id": match_id,
-            "title": match_title,
-            "created_by_us": created_by_us,
-        },
+    raise EchoLuNotSent(
+        f"no echo.lu venue is linked to {event.location!r}. echo.lu requires a "
+        f"venue id from its own registry, and we deliberately do not register "
+        f"venues we only book. Find it with `manage.py echo_venue --search "
+        f"{event.location!r}`, or create it in the organiser back office, then "
+        f"link it with `manage.py echo_venue --link {event.location!r} "
+        f"--postcode {address.get('postcode', '')} --venue-id <id>`."
     )
-    logger.info(
-        "echo.lu venue %s for %r (%s)",
-        match_id,
-        event.location,
-        "registered" if created_by_us else "matched",
-    )
-    return [match_id]
 
 
-def _iter_venue_records(client, address):
+def iter_venue_records(client, address=None, max_pages=None):
     """Every venue worth checking, cheapest first.
 
     The registry is thousands of rows and ListVenues offers no text search, so
@@ -849,7 +782,9 @@ def _iter_venue_records(client, address):
       duplicate is untidy, while a hung admin request is broken.
     """
     per_page = LIST_PAGE_SIZE
-    max_pages = max(1, int(getattr(settings, "ECHO_LU_VENUE_SEARCH_PAGES", 5)))
+    if max_pages is None:
+        max_pages = int(getattr(settings, "ECHO_LU_VENUE_SEARCH_PAGES", 3))
+    max_pages = max(1, int(max_pages))
     commune = (address or {}).get("commune") or ""
     passes = [{"communes[]": commune}] if commune else []
     passes.append({})
@@ -1354,12 +1289,11 @@ def sync_event(event, client=None, force=False, dry_run=False):
 
         try:
             # Recomputed from the event as it is now, for the same reason.
-            # Venue resolution lives in here too: it can register a venue on
-            # echo.lu, so it belongs inside the lock with every other write —
-            # and inside this try, so a registry we cannot read is recorded on
-            # the row like any other failure instead of escaping unrecorded.
-            address = parse_address(event.address, event.canton)
-            venue_ids = resolve_venue_ids(event, client, address=address)
+            # Venue resolution is a local lookup — it neither calls echo.lu nor
+            # registers anything — but it stays inside this try so an unlinked
+            # venue is recorded on the row and shown in the admin, rather than
+            # escaping as an unexplained failure.
+            venue_ids = resolve_venue_ids(event)
             payload = build_experience_payload(event, venue_ids=venue_ids)
             fingerprint = payload_fingerprint(payload)
 
