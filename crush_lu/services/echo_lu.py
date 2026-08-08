@@ -424,6 +424,13 @@ _NON_STREET_PREFIXES = (
     "room",
     "chambre",
 )
+# French ordinal floor notation ("2e étage", "3ème étage", "1er étage") — the
+# noun follows the ordinal, so `startswith` on its own misses it and the
+# leading "2e" matches the house-number regex. Match the whole phrase instead.
+_ORDINAL_FLOOR_RE = re.compile(
+    r"\d+\s*(?:er|re|ème|eme|e|st|nd|rd|th)?\s*(?:étage|etage|floor|stage)",
+    re.IGNORECASE,
+)
 
 
 def _looks_like_street(line):
@@ -438,6 +445,8 @@ def _looks_like_street(line):
         return False
     lowered = line.lower()
     if lowered.startswith(_NON_STREET_PREFIXES):
+        return False
+    if _ORDINAL_FLOOR_RE.search(lowered):
         return False
     if _LEADING_NUMBER_RE.match(line) or _TRAILING_NUMBER_RE.search(line):
         return True
@@ -472,15 +481,21 @@ def parse_address(address, canton=""):
 
     # Locate the postcode. Preference order, strongest first:
     #   1. An "L-"-prefixed four-digit group anywhere.
-    #   2. A bare four-digit group on the LAST line — a real postcode+town line
-    #      is almost always final, while a digit-led venue name sits on line 0.
-    #   3. Any bare four-digit group (last one wins, same reason as #2).
+    #   2. A bare four-digit group that stands alone on its own line (the shape
+    #      a real "4620 Differdange" postcode+town line takes) — preferred over
+    #      a four-digit group embedded inside a longer line (the shape a
+    #      digit-led venue name like "1535 Creative Hub" or a trailing
+    #      free-text line like "Depuis 1920" takes).
+    #   3. Any bare four-digit group (last standalone wins, else last overall).
     # This stops "1535 Creative Hub" stealing the postcode from "4620
-    # Differdange" when the real postcode has no "L-" prefix.
+    # Differdange" when the real postcode has no "L-" prefix, and also stops a
+    # trailing "Depuis 1920" line stealing it from a real bare postcode.
     postcode_index = None
     postcode_match = None
     prefixed_match = None
     prefixed_index = None
+    standalone_match = None
+    standalone_index = None
     bare_match = None
     bare_index = None
     for index, line in enumerate(lines):
@@ -490,14 +505,35 @@ def parse_address(address, canton=""):
             prefixed_index = index
         bare = _POSTCODE_RE.search(line)
         if bare:
-            # Keep the last bare match — it's the most likely to be the real
-            # postcode line rather than a digit-led venue name above it.
             bare_match = bare
             bare_index = index
+            # A postcode that is the whole line (modulo whitespace) is the
+            # strongest bare signal — record the most recent such match.
+            if line.strip() == bare.group(0).strip() or _POSTCODE_RE.fullmatch(
+                line.strip()
+            ):
+                standalone_match = bare
+                standalone_index = index
+
+    if standalone_match is None:
+        # No line stood alone; fall back to preferring the last bare match on
+        # its own line over the last bare match overall (a real postcode+town
+        # line is almost always final, while a digit-led venue name is early).
+        for index, line in enumerate(lines):
+            bare = _POSTCODE_RE.search(line)
+            if bare and bare.group(0) in line:
+                # Prefer a line whose postcode token is at the start — that's
+                # the shape "4620 Differdange" takes, vs. "Depuis 1920".
+                if line.strip().startswith(bare.group(0).strip()):
+                    standalone_match = bare
+                    standalone_index = index
 
     if prefixed_match is not None:
         postcode_index = prefixed_index
         postcode_match = prefixed_match
+    elif standalone_match is not None:
+        postcode_index = standalone_index
+        postcode_match = standalone_match
     elif bare_match is not None:
         postcode_index = bare_index
         postcode_match = bare_match

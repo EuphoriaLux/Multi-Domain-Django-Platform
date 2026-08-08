@@ -246,6 +246,30 @@ class AddressParsingTests(TestCase):
         parsed = echo_lu.parse_address("L-1333")
         self.assertTrue(parsed["street"])
 
+    def test_ordinal_floor_designation_not_promoted_to_street(self):
+        # French ordinal floor notation ("2e étage", "3ème étage") puts the
+        # ordinal before the noun, so the _NON_STREET_PREFIXES startswith check
+        # misses it and "2e" matches the leading-house-number regex. The whole
+        # phrase must be rejected so it can't fabricate a house number.
+        for floor_line in ("2e étage", "3ème étage", "1er étage"):
+            parsed = echo_lu.parse_address(
+                f"Café Konrad\n{floor_line}\nL-2229 Luxembourg"
+            )
+            self.assertNotEqual(parsed["street"], "étage", msg=floor_line)
+            self.assertNotEqual(parsed["number"], "2e", msg=floor_line)
+            self.assertEqual(parsed["postcode"], "2229", msg=floor_line)
+
+    def test_trailing_four_digit_free_text_does_not_steal_bare_postcode(self):
+        # A trailing free-text line with an unrelated 4-digit token ("Depuis
+        # 1920") must not steal the postcode from a real bare postcode earlier
+        # in the address. The standalone / start-of-line bare match wins.
+        parsed = echo_lu.parse_address(
+            "Café Konrad\n45 rue Emile Mark\n4620 Differdange\nDepuis 1920"
+        )
+        self.assertEqual(parsed["postcode"], "4620")
+        self.assertEqual(parsed["street"], "rue Emile Mark")
+        self.assertEqual(parsed["number"], "45")
+
 
 @override_settings(**ENABLED)
 class PayloadTests(TestCase):
