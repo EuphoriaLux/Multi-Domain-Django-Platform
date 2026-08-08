@@ -24,6 +24,7 @@ from .buffer_service import (
     list_buffer_profiles,
 )
 from .claude_service import ClaudeServiceError, expand_social_post, generate_social_copy
+from .constants import SOCIAL_CONTENT_MAX_LENGTH
 from .image_generator import (
     generate_kpi_card,
     generate_profile_card,
@@ -37,7 +38,6 @@ ALLOWED_CATEGORIES = {"events", "kpis", "profiles", "tips", "recaps"}
 ALLOWED_PLATFORMS = {"instagram", "facebook", "linkedin"}
 ALLOWED_LANGUAGES = {choice for choice, _label in SocialPost.Language.choices}
 ALLOWED_PILLARS = {choice for choice, _label in SocialPost.Pillar.choices}
-SOCIAL_CONTENT_MAX_LENGTH = 1500
 
 BUFFER_SCHEDULE_ERROR = "Buffer could not schedule this post. Try again later."
 COPY_GENERATION_ERROR = "Social copy generation is temporarily unavailable."
