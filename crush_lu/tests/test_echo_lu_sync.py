@@ -21,6 +21,7 @@ from decimal import Decimal
 from io import StringIO
 from unittest import mock
 
+from django.conf import settings
 from django.core.management import call_command
 from django.db import transaction
 from django.test import TestCase, override_settings
@@ -333,9 +334,15 @@ class PayloadTests(TestCase):
         # `pictures` is required, so "no image" is a rejection rather than a
         # listing without a banner.
         payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["pictures"][0]["url"], settings.ECHO_LU_FALLBACK_IMAGE)
+
+    def test_the_fallback_image_is_the_og_image(self):
+        # Not a second hand-written branding URL. The first attempt at this
+        # setting invented a path that 404s, and echo.lu fetches pictures
+        # server-side — so a 404 is a rejected experience, not a missing
+        # banner. Tying it to the og:image means one URL to keep true.
         self.assertEqual(
-            payload["pictures"][0]["url"],
-            "https://crush.lu/static/crush_lu/images/og-image.jpg",
+            settings.ECHO_LU_FALLBACK_IMAGE, settings.SOCIAL_PREVIEW_IMAGE_URL
         )
 
     @override_settings(ECHO_LU_DEFAULT_LANGUAGES="en,fr")
