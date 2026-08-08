@@ -11,6 +11,7 @@ Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure.
 """
 import logging
 import os
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +300,13 @@ def configure_azure_monitor_telemetry(environment="production"):
         return False
 
 
+# Serialises the scan-then-attach below. Two callers finding no handler before
+# either adds one would leave root with two, and every record in that worker
+# would export twice for the rest of its life — inflating the very AppTraces
+# counts this module exists to make trustworthy.
+_attach_otel_handler_lock = threading.Lock()
+
+
 def attach_otel_logging_handler_to_root(level=logging.INFO):
     """
     Explicitly attach the OpenTelemetry LoggingHandler to the Python root logger.
@@ -341,17 +349,21 @@ def attach_otel_logging_handler_to_root(level=logging.INFO):
 
     root_logger = logging.getLogger()
 
-    # Idempotency: don't attach a second OTel handler if one is already present
-    for existing in root_logger.handlers:
-        if isinstance(existing, LoggingHandler):
-            logger.debug("OTel LoggingHandler already attached to root logger")
-            return True
+    # The scan and the attach have to be one step. `ready()` and
+    # RuntimeLoggingCanaryMiddleware both call this, and the middleware runs on
+    # a thread pool under the ASGI worker, so "check, then add" is racy.
+    with _attach_otel_handler_lock:
+        # Idempotency: don't attach a second OTel handler if one is already present
+        for existing in root_logger.handlers:
+            if isinstance(existing, LoggingHandler):
+                logger.debug("OTel LoggingHandler already attached to root logger")
+                return True
 
-    handler = LoggingHandler(level=level, logger_provider=logger_provider)
-    root_logger.addHandler(handler)
-    # Ensure root level is low enough to propagate records to the OTel handler
-    if root_logger.level > level or root_logger.level == logging.NOTSET:
-        root_logger.setLevel(level)
+        handler = LoggingHandler(level=level, logger_provider=logger_provider)
+        root_logger.addHandler(handler)
+        # Ensure root level is low enough to propagate records to the OTel handler
+        if root_logger.level > level or root_logger.level == logging.NOTSET:
+            root_logger.setLevel(level)
 
     logger.info(
         "OTel LoggingHandler attached to root logger at level %s — "

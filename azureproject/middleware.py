@@ -10,6 +10,8 @@ This module contains middleware for:
 - Custom CSRF failure handling
 """
 import logging
+import threading
+
 from django.core.cache import cache
 from django.db import IntegrityError
 from django.utils import translation
@@ -165,6 +167,99 @@ class HealthCheckMiddleware:
                 payload["build"] = build
             return JsonResponse(payload, status=200 if all_passed else 503)
         return self.get_response(request)
+
+
+_runtime_logging_canary_done = False
+# Sync middleware under an ASGI worker runs in a thread pool, so two requests
+# arriving together on a cold worker really can both read the flag as False.
+# A bare check-then-set makes "once per worker" true only most of the time.
+_runtime_logging_canary_lock = threading.Lock()
+
+
+class RuntimeLoggingCanaryMiddleware:
+    """Prove, from the request path, whether log records reach App Insights.
+
+    The boot canary in ``azureproject.apps`` cannot answer that question. It is
+    emitted inside ``AppConfig.ready()`` on the line after the OTel handler is
+    attached, so all it ever showed was that the handler worked in that
+    instant — which is the one instant it does work. Measured 2026-08-07
+    against the live workspace: over 96 hours BOTH slots had exported nothing
+    but those two boot lines. Zero runtime log records against 6,822
+    production requests, and one exception in fourteen days, while span
+    telemetry poured in (49,483 dependencies). The canary written to catch
+    exactly this ("`traces` and `exceptions` empty for 7+ days while `requests`
+    kept flowing", per its own docstring) had been reporting green throughout.
+
+    A probe that runs in a different process phase from the traffic it vouches
+    for certifies nothing. This one runs where the traffic runs.
+
+    Fires once per worker — gunicorn recycles each worker every ~1000 requests
+    (``--max-requests`` in startup.sh), so it re-asserts periodically rather
+    than once for the life of the instance, at a cost of one record per
+    thousand requests.
+
+    It does two things:
+
+    1. Re-attaches the OTel handler when it has gone missing. Idempotent, and
+       a real repair for the failure mode where something strips root's
+       handlers after ``ready()``: every later record in this worker then
+       exports, instead of being dropped for the worker's whole life.
+    2. Emits ONE record naming the handlers actually on root.
+
+    ERROR level on purpose. The console handler is ERROR-only, so this reaches
+    stderr and the Azure Log Stream even when the OTel export path is dead —
+    and reading the two together is what localises the fault:
+
+    * in the log stream but NOT in ``AppTraces`` → records are emitted and
+      dropped on export
+    * in neither → they never reached a handler at all
+    * in both → runtime logging works
+
+    No ``exc_info``: an exception record would land in ``AppExceptions``, and
+    the whole point is to test the path ``AppTraces`` rows travel.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        global _runtime_logging_canary_done
+        # Double-checked: the unlocked read keeps every request after the first
+        # off the lock entirely, and the second read inside it is what makes
+        # "once per worker" actually true rather than usually true.
+        if not _runtime_logging_canary_done:
+            with _runtime_logging_canary_lock:
+                if not _runtime_logging_canary_done:
+                    # Set before emitting, not after. If the emit raises, this
+                    # must not retry on every subsequent request — a diagnostic
+                    # that fails loudly once is useful, one that fails loudly
+                    # forever is an outage of its own.
+                    _runtime_logging_canary_done = True
+                    self._emit()
+        return self.get_response(request)
+
+    @staticmethod
+    def _emit():
+        try:
+            from azureproject.telemetry_config import (
+                attach_otel_logging_handler_to_root,
+            )
+
+            root = logging.getLogger()
+            before = [type(h).__name__ for h in root.handlers]
+            attached = attach_otel_logging_handler_to_root()
+            after = [type(h).__name__ for h in root.handlers]
+            logger.error(
+                "Runtime logging canary: root handlers before=%s after=%s "
+                "level=%s attach_ok=%s — if this line is in the log stream but "
+                "not in App Insights AppTraces, log export is broken.",
+                before,
+                after,
+                logging.getLevelName(root.level),
+                attached,
+            )
+        except Exception as exc:  # a diagnostic must never take a request down
+            logger.error("Runtime logging canary failed: %s", exc)
 
 
 class AuthRateLimitMiddleware:

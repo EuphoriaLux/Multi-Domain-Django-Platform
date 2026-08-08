@@ -6,13 +6,11 @@ import io
 import logging
 import os
 from pathlib import Path
-from urllib.parse import urlparse
 
-import requests
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import storages
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +20,9 @@ PURPLE = (147, 51, 234)
 WHITE = (255, 255, 255)
 MUTED = (188, 190, 207)
 CARD = (31, 29, 49, 225)
-MAX_BACKGROUND_BYTES = 12 * 1024 * 1024
 CARD_COPY = {
     "fr": {
         "tagline": "RENCONTRES AUTHENTIQUES",
-        "event_badge": "ÉVÉNEMENT CRUSH.LU",
-        "event_cta": "RÉSERVER MA PLACE",
         "community_badge": "COMMUNAUTÉ CRUSH.LU",
         "kpi_title": "CHIFFRES DE LA SEMAINE",
         "kpi_subtitle": "Les données réelles de notre communauté",
@@ -37,8 +32,6 @@ CARD_COPY = {
     },
     "en": {
         "tagline": "AUTHENTIC CONNECTIONS",
-        "event_badge": "CRUSH.LU EVENT",
-        "event_cta": "RESERVE MY SPOT",
         "community_badge": "CRUSH.LU COMMUNITY",
         "kpi_title": "THIS WEEK'S NUMBERS",
         "kpi_subtitle": "Real data from our community",
@@ -48,8 +41,6 @@ CARD_COPY = {
     },
     "de": {
         "tagline": "ECHTE BEGEGNUNGEN",
-        "event_badge": "CRUSH.LU EVENT",
-        "event_cta": "PLATZ RESERVIEREN",
         "community_badge": "CRUSH.LU COMMUNITY",
         "kpi_title": "ZAHLEN DER WOCHE",
         "kpi_subtitle": "Echte Daten aus unserer Community",
@@ -117,47 +108,8 @@ def _gradient() -> Image.Image:
     return image.convert("RGBA")
 
 
-def _background_image(url: str | None) -> Image.Image | None:
-    parsed = urlparse(url or "")
-    if parsed.scheme not in {"http", "https"}:
-        return None
-    response = None
-    try:
-        response = requests.get(url, timeout=6, stream=True)
-        response.raise_for_status()
-        content_length = int(response.headers.get("content-length") or 0)
-        if content_length > MAX_BACKGROUND_BYTES:
-            raise ValueError("background image exceeds 12 MB")
-        content = bytearray()
-        for chunk in response.iter_content(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-            content.extend(chunk)
-            if len(content) > MAX_BACKGROUND_BYTES:
-                raise ValueError("background image exceeds 12 MB")
-        image = Image.open(io.BytesIO(content)).convert("RGBA")
-        scale = max(SIZE / image.width, SIZE / image.height)
-        resized = image.resize(
-            (round(image.width * scale), round(image.height * scale)),
-            Image.Resampling.LANCZOS,
-        )
-        left = (resized.width - SIZE) // 2
-        top = (resized.height - SIZE) // 2
-        return resized.crop((left, top, left + SIZE, top + SIZE))
-    except (requests.RequestException, OSError, ValueError):
-        logger.warning("Could not load event background image", exc_info=True)
-        return None
-    finally:
-        if response is not None:
-            response.close()
-
-
-def _canvas(background_url: str | None = None) -> Image.Image:
-    background = _background_image(background_url) or _gradient()
-    if background_url and background:
-        background = ImageEnhance.Brightness(background).enhance(0.38)
-        background = background.filter(ImageFilter.GaussianBlur(radius=1.2))
-        background.alpha_composite(Image.new("RGBA", background.size, (10, 8, 25, 125)))
+def _canvas() -> Image.Image:
+    background = _gradient()
     draw = ImageDraw.Draw(background, "RGBA")
     draw.ellipse((-180, -220, 520, 480), fill=(*PURPLE, 52))
     draw.ellipse((690, 700, 1290, 1300), fill=(*ROSE, 55))
@@ -200,41 +152,6 @@ def _save(image: Image.Image, prefix: str) -> str:
     if url.startswith("/"):
         return f"{settings.BACKEND_BASE_URL.rstrip('/')}{url}"
     return url
-
-
-def generate_event_flyer(
-    title="Soirée rencontre Crush.lu",
-    date_str="Jeudi · 19:30",
-    location="Luxembourg",
-    background_url: str | None = None,
-    language: str = "fr",
-) -> str:
-    copy = _card_copy(language)
-    image = _canvas(background_url)
-    draw = ImageDraw.Draw(image, "RGBA")
-    draw.rounded_rectangle((55, 55, 1025, 970), radius=44, fill=(15, 13, 30, 178))
-    _pill(draw, (92, 92), copy["event_badge"], fill=(*ROSE, 205), font_size=25)
-
-    title_font = _font(73, bold=True)
-    lines = _wrap(draw, title, title_font, 870)[:4]
-    y = 250
-    for line in lines:
-        draw.text((92, y), line, font=title_font, fill=WHITE)
-        y += 91
-
-    draw.rounded_rectangle((92, 680, 988, 855), radius=30, fill=CARD)
-    draw.text((130, 714), date_str, font=_font(36, bold=True), fill=WHITE)
-    draw.text((130, 775), location, font=_font(31), fill=MUTED)
-    draw.rounded_rectangle((92, 885, 450, 950), radius=30, fill=(*ROSE, 255))
-    draw.text(
-        (271, 916),
-        copy["event_cta"],
-        font=_font(24, bold=True),
-        fill=WHITE,
-        anchor="mm",
-    )
-    _brand_footer(draw, language=language)
-    return _save(image, "event_flyer")
 
 
 def generate_kpi_card(title=None, stats=None, *, language: str = "fr") -> str:
