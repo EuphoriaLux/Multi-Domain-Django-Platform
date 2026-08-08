@@ -26,11 +26,18 @@ from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from crush_lu import signals as crush_signals
 from crush_lu.models import MeetupEvent
 from crush_lu.models.echo_lu import EchoExperienceSync
 from crush_lu.services import echo_lu
 
 ENABLED = {"ECHO_LU_SYNC_ENABLED": True, "ECHO_LU_API_KEY": "test-key"}
+
+
+def _reset_echo_delete_burst():
+    """Forget the delete take-down's wall-clock budget between tests."""
+    for attribute in ("burst_started", "burst_last_finished"):
+        crush_signals._echo_deletions.__dict__.pop(attribute, None)
 
 
 def make_event(**overrides):
@@ -1942,8 +1949,127 @@ class AdoptBlankIdTests(TestCase):
 
 
 @override_settings(**ENABLED)
+class DryRunNeverWritesTests(TestCase):
+    """--dry-run is documented as writing nothing. Two options bypassed it."""
+
+    def test_dry_run_refuses_to_resolve_an_orphan(self):
+        # --adopt/--forget are dispatched before any dry-run handling, so
+        # `--dry-run --forget` cleared the one state standing between an
+        # untracked listing and a second one beside it.
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        sync = EchoExperienceSync.objects.create(
+            event=event,
+            status=EchoExperienceSync.Status.ORPHANED,
+            last_error="no id came back",
+        )
+
+        with self.assertRaises(CommandError):
+            call_command(
+                "sync_events_to_echo",
+                "--dry-run",
+                "--forget",
+                f"--event-id={event.pk}",
+                stdout=StringIO(),
+            )
+
+        sync.refresh_from_db()
+        self.assertEqual(sync.status, EchoExperienceSync.Status.ORPHANED)
+
+    def test_dry_run_refuses_to_adopt_an_id(self):
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        sync = EchoExperienceSync.objects.create(
+            event=event, status=EchoExperienceSync.Status.ORPHANED
+        )
+
+        with self.assertRaises(CommandError):
+            call_command(
+                "sync_events_to_echo",
+                "--dry-run",
+                "--adopt=exp-999",
+                f"--event-id={event.pk}",
+                stdout=StringIO(),
+            )
+
+        sync.refresh_from_db()
+        self.assertEqual(sync.experience_id, "")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.ORPHANED)
+
+
+@override_settings(**ENABLED)
+class WithdrawnThenCancelledTests(TestCase):
+    """The one lifecycle transition that reached no sweep at all."""
+
+    def _withdrawn_then_republished_as_cancelled(self):
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        # Unpublished, so the listing comes down and the row reads WITHDRAWN.
+        event.is_published = False
+        event.save()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.WITHDRAWN)
+
+        # Then published again — but cancelled. The event is public and
+        # upcoming, so a cancellation notice belongs on echo.lu.
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            is_published=True, is_cancelled=True
+        )
+        return MeetupEvent.objects.select_related("echo_sync").get(pk=event.pk)
+
+    def test_a_withdrawn_listing_still_gets_its_cancellation_notice(self):
+        # `should_publish` is false (cancelled) and the row is WITHDRAWN, so
+        # this used to short-circuit to "skipped" and the notice was never
+        # sent — the listing stayed down with nothing explaining why.
+        event = self._withdrawn_then_republished_as_cancelled()
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "withdrawn")
+
+        self.assertEqual([call[0] for call in client.calls], ["cancel"])
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.CANCELLED)
+
+    def test_the_sweep_selects_it(self):
+        # `publishable` drops it for being cancelled and `withdrawable` drops
+        # it for being withdrawn, so without a term of its own the save-signal
+        # is the only thing that could ever send the notice — and an admin
+        # bulk publish emits no signal at all.
+        event = self._withdrawn_then_republished_as_cancelled()
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
+
+    def test_an_ordinary_withdrawn_event_is_still_left_alone(self):
+        # The short-circuit still has to hold for every other withdrawn row,
+        # or each sweep would re-send a take-down that already happened.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        event.is_published = False
+        event.save()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "skipped")
+        self.assertEqual(client.calls, [])
+
+
+@override_settings(**ENABLED)
 class DeleteEventTests(TestCase):
     """Deleting the event destroys the only record of the listing's id."""
+
+    def setUp(self):
+        # The take-down budget lives in a module-level threading.local with no
+        # transaction or request boundary of its own, so it survives between
+        # tests on the same worker. The fake-clock tests below would otherwise
+        # inherit real monotonic values — or leave them behind — and the
+        # outcome would depend on which test happened to run first.
+        _reset_echo_delete_burst()
 
     def _delete(self, *events):
         """Delete and run the on-commit hook, as a real transaction would."""
@@ -2026,6 +2152,44 @@ class DeleteEventTests(TestCase):
         self.assertFalse(
             MeetupEvent.objects.filter(pk__in=[e.pk for e in events]).exists()
         )
+
+    def test_a_later_unrelated_delete_gets_its_own_budget(self):
+        # The budget is a thread-local with no transaction boundary, so a
+        # second delete arriving on the same worker inherits whatever the
+        # first one spent. Delimiting the burst by time-since-its-first-call
+        # left a window — from `budget - timeout` to `budget` — in which that
+        # second delete was refused AND did not start a burst of its own, so
+        # it silently skipped a take-down whose row was already gone. A burst
+        # is an unbroken run of callbacks, so an idle gap ends it.
+        first = make_event(title="First")
+        echo_lu.sync_event(first, client=FakeClient(create_response={"id": "exp-a"}))
+        first.refresh_from_db()
+        second = make_event(title="Second")
+        echo_lu.sync_event(second, client=FakeClient(create_response={"id": "exp-b"}))
+        second.refresh_from_db()
+
+        clock = [0]
+        sent = []
+
+        client = FakeClient()
+        client.unpublish_experience = lambda experience_id: (
+            clock.__setitem__(0, clock[0] + 1),
+            sent.append(experience_id),
+            {},
+        )[-1]
+
+        with mock.patch.object(
+            echo_lu, "EchoLuClient", return_value=client
+        ), mock.patch("crush_lu.signals.time.monotonic", side_effect=lambda: clock[0]):
+            self._delete(first)
+            # A coach deletes another event 25 seconds later. That lands 26s
+            # after the first burst started: past the 25s cut-off (budget 30,
+            # timeout 5) but short of the 30s that used to start a fresh one,
+            # so it was refused and its listing left live and untracked.
+            clock[0] += 25
+            self._delete(second)
+
+        self.assertEqual(sent, ["exp-a", "exp-b"])
 
     def test_a_failed_take_down_still_lets_the_delete_through(self):
         # Refusing the delete would be the worse failure — a coach unable to

@@ -140,6 +140,19 @@ class Command(BaseCommand):
             )
 
         if options["adopt"] or options["forget"]:
+            if dry_run:
+                # These are the only options here that write to the database,
+                # and they are dispatched before any of the dry-run handling
+                # below — so `--dry-run --forget` would clear an orphan block
+                # while the setup guide says a dry run writes nothing. The
+                # blocked state is the one thing standing between an untracked
+                # listing and a second one beside it, so a flag that reads as
+                # "show me what would happen" must not be what lifts it.
+                raise CommandError(
+                    "--adopt and --forget change the stored sync state, so "
+                    "they cannot be combined with --dry-run. Run --audit "
+                    "first to see what echo.lu holds; that writes nothing."
+                )
             return self._resolve_orphan(event_id, options["adopt"], options["forget"])
 
         if options["audit"]:

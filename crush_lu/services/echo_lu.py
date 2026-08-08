@@ -714,7 +714,19 @@ def sync_event(event, client=None, force=False, dry_run=False):
         # Nothing was ever published, so there is nothing to take down.
         if sync is None or not sync.experience_id:
             return "skipped"
-        if sync.status == EchoExperienceSync.Status.WITHDRAWN:
+        # Already down, so ordinarily nothing to do — with one exception. A
+        # WITHDRAWN row whose event is now public, upcoming and *cancelled*
+        # falls through to the take-down below, which sends the cancellation
+        # notice it is owed. That combination can only be reached by coming
+        # back: the listing was pulled while the event was unpublished or
+        # private, and the event has since been republished with the
+        # cancellation still on it. Nothing else would ever send that notice —
+        # `publishable` drops the event for being cancelled and `withdrawable`
+        # drops it for being withdrawn, so this is the only path back. See the
+        # matching term in `events_needing_sync`.
+        if sync.status == EchoExperienceSync.Status.WITHDRAWN and not (
+            _cancellation_notice_wanted(event)
+        ):
             return "skipped"
         if sync.status == EchoExperienceSync.Status.SUPPRESSED:
             # Already down, and the state has to survive: withdrawing again
@@ -1087,12 +1099,26 @@ def events_needing_sync(queryset=None):
     # eligibility and answers "blocked", which is what keeps the hourly job
     # red until a person resolves it.
     orphaned = queryset.filter(echo_sync__status=EchoExperienceSync.Status.ORPHANED)
+    # A withdrawn listing owed a cancellation notice. The event was pulled
+    # while unpublished or private, then republished with the cancellation
+    # still on it — so it is public, upcoming and cancelled, which `publishable`
+    # rejects for being cancelled and `withdrawable` rejects for being
+    # withdrawn. Without a term of its own the transition reaches no sweep at
+    # all and the notice is never sent. Coarse `date_time` pre-filter as above;
+    # `sync_event` applies the precise `end_time` test.
+    notice_pending = queryset.filter(
+        echo_sync__status=EchoExperienceSync.Status.WITHDRAWN,
+        is_published=True,
+        is_cancelled=True,
+        is_private_invitation=False,
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+    ).exclude(echo_sync__experience_id="")
     # Same reasoning again: a take-down that failed leaves an event whose own
     # fields still say "publish me", so no eligibility-based filter would pick
     # it up to retry the removal — it would pick it up to republish.
     removal_pending = queryset.filter(echo_sync__removal_requested=True)
     return (
-        (publishable | withdrawable | orphaned | removal_pending)
+        (publishable | withdrawable | orphaned | removal_pending | notice_pending)
         .distinct()
         .select_related("echo_sync")
         # Least-recently-attempted first, nulls (never attempted) ahead of

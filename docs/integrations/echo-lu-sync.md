@@ -24,26 +24,40 @@ invitation-only by design, and echo.lu is a public, indexed, national listing.
 
 ## Turning it on
 
+**Order matters, and the order below is not the obvious one.** Turning the
+switch on is the *last* configuration step, not the first: from the moment it
+is true, every event save and every admin bulk publish writes to echo.lu for
+real. Wiring the hourly timer is later still, because the sweep publishes the
+whole upcoming calendar on its first tick.
+
 1. **Issue an API key** in the echo.lu organiser back office. The key is tied to
    your organisation — there is no separate organisation id to configure.
-2. **Set the environment variables** (Azure App Service application settings):
+2. **Set the credentials, with the switch still off** (Azure App Service
+   application settings):
 
    ```
    ECHO_LU_API_KEY=<key>
-   ECHO_LU_API_BASE_URL=https://api.echo.lu/v1     # sandbox: https://test-api.echo.lu/v1
-   ECHO_LU_SYNC_ENABLED=true
-   ECHO_LU_CONTACT_EMAIL=hello@crush.lu
+   ECHO_LU_API_BASE_URL=https://test-api.echo.lu/v1   # production: https://api.echo.lu/v1
+   ECHO_LU_CONTACT_EMAIL=<a mailbox somebody actually reads>
    ECHO_LU_CONTACT_PHONE=+352...
    ```
 
-   Two more have sensible defaults and only need setting if echo.lu turns out
-   to be slower than expected: `ECHO_LU_SIGNAL_TIMEOUT_SECONDS` (5) caps what
-   an event save spends on the sync, and `ECHO_LU_SWEEP_BUDGET_SECONDS` (90)
-   caps one hourly pass. See *How it stays in sync* for why both exist.
-
-   `ECHO_LU_SYNC_ENABLED` defaults to **false** everywhere. Nothing is written
-   to echo.lu until it is explicitly turned on, so a restored production
+   `ECHO_LU_SYNC_ENABLED` defaults to **false** everywhere, and setting the key
+   alone is inert. That is what lets the next two steps run against the real
+   API without anything being published — and it is why a restored production
    database on staging cannot mutate live listings just by inheriting the key.
+
+   `ECHO_LU_CONTACT_*` is printed on the public listing, so the email has to be
+   a monitored mailbox — enquiries go there, and a bounce is invisible from our
+   side.
+
+   Two more settings have sensible defaults and only need changing if echo.lu
+   turns out to be slower than expected: `ECHO_LU_SIGNAL_TIMEOUT_SECONDS` (5)
+   caps what an event save spends on the sync, and
+   `ECHO_LU_SWEEP_BUDGET_SECONDS` (90) caps one hourly pass. See *How it stays
+   in sync* for why both exist. Keep the sweep budget comfortably above
+   `ECHO_LU_TIMEOUT_SECONDS` (20) — the pass reserves one timeout of headroom,
+   so a budget below it would defer every event and do nothing.
 
 3. **Pick the taxonomy slugs.** echo.lu validates categories, audiences, formats
    and environments against its own vocabularies and rejects the *entire*
@@ -77,11 +91,35 @@ invitation-only by design, and echo.lu is a public, indexed, national listing.
    python manage.py sync_events_to_echo --event-id 42 --dry-run --show-payload
    ```
 
-5. **Sync one event first**, look at it on echo.lu, then let the sweep take over:
+   Read the `--show-payload` output rather than skimming it. `location.address`
+   is parsed out of a free-text field and is the part most likely to be wrong,
+   and echo.lu renders whatever it accepts verbatim.
+
+5. **Now turn it on**: `ECHO_LU_SYNC_ENABLED=true`. Sandbox first — a sandbox
+   key is rejected by production and vice versa, so pointing staging at
+   `test-api.echo.lu` is what makes this reversible.
+
+6. **Sync one event and look at it on echo.lu** before anything else does:
 
    ```bash
    python manage.py sync_events_to_echo --event-id 42
    ```
+
+7. **Only then wire up the hourly sweep**, by setting `DJANGO_ECHO_SYNC_URL` on
+   the `crush-hybrid-maintenance` Function App — re-running `provision.sh` /
+   `provision.ps1` does it, or set it directly:
+
+   ```bash
+   az functionapp config appsettings set -g django-app-rg \
+     -n crush-hybrid-maintenance \
+     --settings DJANGO_ECHO_SYNC_URL=https://crush.lu/api/admin/echo-sync/
+   ```
+
+   Last, for two reasons. The sweep's first tick reconciles the *entire*
+   upcoming calendar, so everything above needs to have been checked by then.
+   And the endpoint answers 500 while the switch is off — deliberately, so a
+   dormant sweep cannot look green — which the `EchoLuSync` timer records as a
+   Failed invocation every hour until step 5 is done.
 
 ## How it stays in sync
 
@@ -265,6 +303,16 @@ python manage.py sync_events_to_echo --event-id 42 --adopt exp_abc123
 python manage.py sync_events_to_echo --event-id 42 --forget
 ```
 
+**Confirm in the back office before using `--forget`.** `--audit` asks echo.lu
+for its listings in one request and does not page, and whether
+`GET /experiences` paginates has never been verified against the real API. If
+it does, listings past the first page are reported as `tracked but not returned
+by echo.lu (deleted there?)` when they are in fact live — and `--forget` on one
+of those clears a valid id, so the next sync creates the duplicate this whole
+section exists to avoid. Treat that line as a prompt to go and look, not as an
+answer. (Neither `--adopt` nor `--forget` accepts `--dry-run`: they change
+stored state, so the combination is refused rather than silently writing.)
+
 Adopting sets the row to **Pending** with no payload fingerprint, so the next
 sync sends a full update rather than trusting a hash against a listing whose
 content nobody has confirmed.
@@ -310,7 +358,8 @@ sync, last error) on the event's change form.
 | Every sync fails with a 4xx | Almost always an unknown taxonomy slug. Run `echo_taxonomy --check`. |
 | `sync_events_to_echo` errors "sync is disabled" | `ECHO_LU_SYNC_ENABLED` or `ECHO_LU_API_KEY` is unset. Deliberate: a silent no-op on a scheduled job is indistinguishable from "nothing to do". |
 | Bare 401 | The key is wrong for the environment — production and sandbox keys are not interchangeable. |
-| "accepted the experience but returned no id" | echo.lu created a listing we cannot address. Run `sync_events_to_echo --audit` to find it, then delete it in the back office before re-running — otherwise the next sync creates a duplicate. |
+| "accepted the experience but returned no id" | echo.lu created a listing we cannot address. The row is **Orphaned** and stays blocked until a person resolves it — re-running does nothing. Run `--audit`, then `--adopt` the id or `--forget` it; see *Orphaned listings*. |
+| The sweep reports events deferred every run | echo.lu is slow, or `ECHO_LU_SWEEP_BUDGET_SECONDS` is set at or below `ECHO_LU_TIMEOUT_SECONDS` — the pass reserves one timeout of headroom, so a budget below that defers everything. |
 | Event never appears, no error | Check eligibility — private, unpublished, cancelled and finished events are all skipped by design. |
 
 Nothing here raises into a user-facing path: the background task logs API

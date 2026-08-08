@@ -957,6 +957,13 @@ def sync_event_to_echo_lu(sender, instance, created, **kwargs):
 
 _echo_deletions = threading.local()
 
+# What separates one delete's take-downs from the next delete's. The callbacks
+# of a single commit run back to back in one loop, so the only thing between
+# consecutive members of a burst is the HTTP call this function just made —
+# measured from when that call *finished*, the gap is effectively zero. Any
+# real pause means a different delete, on a thread the pool happened to reuse.
+_ECHO_DELETE_BURST_IDLE_SECONDS = 1.0
+
 
 def _withdraw_deleted_echo_listing(event_pk, experience_id):
     """Take down one listing whose event has just been deleted.
@@ -976,9 +983,16 @@ def _withdraw_deleted_echo_listing(event_pk, experience_id):
     A bulk delete arrives as N of these, back to back, so a per-call timeout
     alone would multiply by N. They share a wall-clock budget instead: the
     first call of a burst starts the clock, and one that finds it spent logs
-    rather than dials. The burst is delimited by the budget itself — anything
-    arriving a full budget after the last start is a new one — which needs no
-    state carried across a transaction that may never commit.
+    rather than dials.
+
+    A burst is delimited by an **idle gap**, not by the budget. Measuring the
+    gap from the first call of the burst left a window — anything from
+    ``budget - timeout`` to ``budget`` after it — in which an unrelated later
+    delete on the same worker thread was refused *and* did not start a burst
+    of its own, so it silently skipped its take-down while its row was already
+    gone. The thread-local has no transaction or request boundary of its own,
+    so the boundary has to be inferred, and the end of the previous call is the
+    one signal that actually distinguishes the two cases.
 
     Whatever is not reached is logged with its id. The event is gone, so
     nothing can retry from the database: this log line is the last copy.
@@ -990,31 +1004,43 @@ def _withdraw_deleted_echo_listing(event_pk, experience_id):
 
     now = time.monotonic()
     started = getattr(_echo_deletions, "burst_started", None)
-    if started is None or now - started > budget:
+    finished = getattr(_echo_deletions, "burst_last_finished", None)
+    if (
+        started is None
+        or finished is None
+        or now - finished > _ECHO_DELETE_BURST_IDLE_SECONDS
+    ):
         started = _echo_deletions.burst_started = now
 
-    if now - started > budget - timeout:
-        logger.error(
-            "[ECHO] Out of time withdrawing experience %s for deleted event "
-            "%s; it is live and untracked — remove it in the organiser back "
-            "office, or find it with `sync_events_to_echo --audit`",
-            experience_id,
-            event_pk,
-        )
-        return
-
-    client = echo_lu.EchoLuClient(timeout=timeout, max_retries=0)
+    # Recorded however this call ends, including the refusal below: a burst
+    # that has run out of budget still refuses back to back, and those
+    # instantaneous refusals must not read as an idle gap that hands the rest
+    # of the same bulk delete a fresh budget each.
     try:
-        client.unpublish_experience(experience_id)
-    except echo_lu.EchoLuError as exc:
-        logger.error(
-            "[ECHO] Could not withdraw experience %s for deleted event %s "
-            "(%s); it is live and untracked — remove it in the organiser "
-            "back office, or find it with `sync_events_to_echo --audit`",
-            experience_id,
-            event_pk,
-            exc,
-        )
+        if now - started > budget - timeout:
+            logger.error(
+                "[ECHO] Out of time withdrawing experience %s for deleted event "
+                "%s; it is live and untracked — remove it in the organiser back "
+                "office, or find it with `sync_events_to_echo --audit`",
+                experience_id,
+                event_pk,
+            )
+            return
+
+        client = echo_lu.EchoLuClient(timeout=timeout, max_retries=0)
+        try:
+            client.unpublish_experience(experience_id)
+        except echo_lu.EchoLuError as exc:
+            logger.error(
+                "[ECHO] Could not withdraw experience %s for deleted event %s "
+                "(%s); it is live and untracked — remove it in the organiser "
+                "back office, or find it with `sync_events_to_echo --audit`",
+                experience_id,
+                event_pk,
+                exc,
+            )
+    finally:
+        _echo_deletions.burst_last_finished = time.monotonic()
 
 
 @receiver(pre_delete, sender=MeetupEvent)
