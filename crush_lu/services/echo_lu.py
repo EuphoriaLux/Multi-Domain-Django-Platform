@@ -1000,6 +1000,22 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
         event.refresh_from_db()
         event.echo_sync = sync
 
+        # The re-read can also say the take-down is not wanted at all any
+        # more. An automatic withdrawal decided from an older save can queue
+        # behind a sync that republished the listing and left it correct;
+        # going ahead unpublishes what that newer save just put up and writes
+        # WITHDRAWN over its SYNCED, so the listing stays missing until the
+        # next hourly sweep notices. This is the mirror of the publish path's
+        # own "no longer ours to publish" check, which this side lacked.
+        #
+        # Only automatic take-downs abort. An `explicit` one is a person
+        # removing a listing whose event still qualifies — that is precisely
+        # what it is for — and `removal_requested` is that same instruction
+        # surviving a failed attempt, so neither may be talked out of it by
+        # eligibility coming back.
+        if not explicit and not sync.removal_requested and should_publish(event):
+            return "skipped"
+
         # `explicit` overrides the cancellation notice as well. Somebody asking
         # to remove a listing means remove it — leaving a public notice up
         # because the event also happens to be cancelled ignores the
