@@ -445,13 +445,36 @@ class Command(BaseCommand):
             if event.unmet_publish_requirements()
         ]
         valid_cantons = {value for value, _label in MeetupEvent.CANTON_CHOICES}
-        # A blank canton counts as stray on a PUBLISHED event: `clean()` has
-        # required one there since long before this work, so leaving it out
-        # would let the audit report all-clear on a row the very validation it
-        # gates would reject. Unpublished events may legitimately have none.
-        stray_cantons = list(
-            MeetupEvent.objects.exclude(canton__in=valid_cantons)
-            .exclude(canton="", is_published=False)
+        # Only PUBLISHED events block.
+        #
+        # This gates a change that makes canton and the address components
+        # required on save, and that rule only applies to published events --
+        # so the gate has to ask about the same set. Blocking on every row with
+        # an odd canton means one archived event that nobody can publish, with
+        # 'test' typed into it years ago, holds up the whole rollout.
+        #
+        # A blank canton still counts as stray when published: `clean()` has
+        # required one there all along, so ignoring it would let the audit
+        # report all-clear on a row the validation would reject.
+        # `incomplete` already covers published events whose canton is missing
+        # or unrecognised -- `unmet_publish_requirements()` checks membership,
+        # not just presence. Listing them here as well reported the same row
+        # twice under two different headings.
+        incomplete_pks = {event.pk for event in incomplete}
+        stray_cantons = [
+            row
+            for row in MeetupEvent.objects.filter(is_published=True)
+            .exclude(canton__in=valid_cantons)
+            .values_list("pk", "canton")
+            .order_by("pk")
+            if row[0] not in incomplete_pks
+        ]
+        # Unpublished ones are worth seeing -- they become a problem the moment
+        # somebody republishes -- but they are not a reason to stop.
+        dormant_cantons = list(
+            MeetupEvent.objects.filter(is_published=False)
+            .exclude(canton__in=valid_cantons)
+            .exclude(canton="")
             .values_list("pk", "canton")
             .order_by("pk")
         )
@@ -471,6 +494,11 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(f"[{pk}] canton not in the list — {canton!r}")
             )
+        for pk, canton in dormant_cantons:
+            self.stdout.write(
+                f"[{pk}] canton not in the list — {canton!r} "
+                f"(unpublished, not blocking)"
+            )
 
         if not incomplete and not stray_cantons:
             self.stdout.write(
@@ -483,5 +511,5 @@ class Command(BaseCommand):
 
         raise CommandError(
             f"{len(incomplete)} published event(s) with an incomplete address, "
-            f"{len(stray_cantons)} unrecognised canton(s)."
+            f"{len(stray_cantons)} published event(s) with an unrecognised canton."
         )

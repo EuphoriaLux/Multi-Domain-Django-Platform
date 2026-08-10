@@ -727,10 +727,23 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             django_messages.warning(
                 request,
                 _(
-                    "Not published — no complete address: {titles}. Fill in "
-                    "street, postcode and town, or run "
+                    "Not published — {details}. Fill those in, or run "
                     "`manage.py backfill_event_addresses`."
-                ).format(titles=", ".join(str(event) for event in incomplete)),
+                ).format(
+                    # Name the actual gaps per event. A fixed "street, postcode
+                    # and town" sends staff hunting through address boxes that
+                    # are already filled when the only thing missing is canton.
+                    details="; ".join(
+                        "{title} needs {fields}".format(
+                            title=event,
+                            fields=", ".join(
+                                name.removeprefix("address_")
+                                for name in event.unmet_publish_requirements()
+                            ),
+                        )
+                        for event in incomplete
+                    )
+                ),
             )
 
         # Snapshot before .update(): the queryset is lazy and may well filter on

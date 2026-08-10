@@ -704,10 +704,20 @@ def event_venue_keys(event):
         event.address_postcode,
         parse_address(event.address, "").get("postcode", ""),
     ):
+        # Blank postcodes are skipped, not turned into keys. `venue_key` drops
+        # the empty half, so `venue_key("Melusina", "")` is the bare
+        # `"melusina"` -- a real key that a name-only EchoVenue row can match.
+        # An event whose structured postcode is still empty would then try that
+        # bare key FIRST and could pick a generic mapping over the
+        # postcode-specific one meant for it.
+        if not postcode:
+            continue
         key = venue_key(event.location, postcode)
         if key and key not in keys:
             keys.append(key)
-    return keys
+    # Nothing resolvable at all: fall back to the name-only key, which is what a
+    # venue linked before any postcode was known is stored under.
+    return keys or [venue_key(event.location, "")]
 
 
 def _linked_venue_id(event):

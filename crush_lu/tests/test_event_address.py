@@ -339,6 +339,38 @@ class TestBulkPublishAction:
         event.refresh_from_db()
         assert event.is_published is False
 
+    @pytest.mark.parametrize("canton", ["test", "Beaufort", "Luxembourg - City"])
+    def test_an_unrecognised_canton_is_not_bulk_published(self, canton):
+        """`.update()` skips the field's choice validation.
+
+        Checking presence alone let a canton like 'test', or a commune where a
+        canton belongs, through the bulk action — and canton is rendered raw in
+        OG tags and JSON-LD.
+        """
+        event = self._event(
+            canton=canton,
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_whitespace_only_components_do_not_count_as_complete(self):
+        """A blank-looking value is truthy and reached echo.lu as an empty line."""
+        event = self._event(
+            address_street="   ",
+            address_postcode="2229",
+            address_town="\t",
+        )
+        unmet = event.unmet_publish_requirements()
+
+        assert "address_street" in unmet
+        assert "address_town" in unmet
+
     def test_a_complete_address_publishes(self):
         event = self._event(
             address_street="rue du Nord",

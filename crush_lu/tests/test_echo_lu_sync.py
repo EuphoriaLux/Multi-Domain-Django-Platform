@@ -335,6 +335,27 @@ class PayloadTests(TestCase):
 
         self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_legacy"])
 
+    def test_a_blank_postcode_does_not_produce_a_bare_venue_key(self):
+        """`venue_key(name, "")` is a real key a name-only row can match.
+
+        An event with no structured postcode would try that bare key FIRST and
+        could pick a generic mapping over the postcode-specific one meant for
+        it. Blank postcodes are skipped instead.
+        """
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_generic"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_specific"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_specific"])
+
     def test_the_structured_key_wins_when_both_exist(self):
         event = make_event(
             address="7, rue du Nord\nL-2229 Luxembourg",

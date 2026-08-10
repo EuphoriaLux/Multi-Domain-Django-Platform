@@ -682,10 +682,17 @@ class MeetupEvent(models.Model):
         required number field only invites a made-up one.
         """
         unmet = {}
-        if not self.canton:
-            unmet["canton"] = _("Canton is required for published events.")
+        # Membership, not just presence. `.update()` and `.create()` skip the
+        # field's own choice validation, so a canton like "test" or a commune
+        # where a canton belongs can already be in the column -- and it is
+        # rendered raw in OG tags and JSON-LD.
+        valid_cantons = {value for value, _label in CANTON_CHOICES}
+        if self.canton not in valid_cantons:
+            unmet["canton"] = _("A recognised canton is required for published events.")
         for name in ("address_street", "address_town"):
-            if not getattr(self, name):
+            # `.strip()`: a whitespace-only value is truthy and would pass as
+            # complete, then reach echo.lu as a blank line on a public listing.
+            if not (getattr(self, name) or "").strip():
                 unmet[name] = _("Required for published events.")
         # Validity, not just presence: `.create()` and `.update()` skip field
         # validators, so an impossible postcode can already be sitting in the
