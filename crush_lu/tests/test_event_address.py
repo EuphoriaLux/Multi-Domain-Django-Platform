@@ -128,6 +128,23 @@ class TestPostcodeNormalization:
         """The helper must never quietly repair a wrong postcode."""
         assert normalize_lu_postcode(typed) == typed.strip()
 
+    def test_a_long_run_of_spaces_does_not_blow_up(self):
+        """Regression: polynomial ReDoS (CodeQL py/polynomial-redos).
+
+        The first version matched leading whitespace both before and inside the
+        optional 'L-' group, so "l" plus a long run of spaces gave the engine a
+        quadratic number of ways to split them before failing. This value comes
+        from an admin form, so the input is attacker-influenced. Whitespace is
+        now removed before matching, which is linear.
+        """
+        import time
+
+        hostile = "l" + " " * 20000
+        started = time.perf_counter()
+        result = normalize_lu_postcode(hostile)
+        assert time.perf_counter() - started < 1.0
+        assert result == "l"
+
 
 @pytest.mark.django_db
 class TestAdminFormPostcode:

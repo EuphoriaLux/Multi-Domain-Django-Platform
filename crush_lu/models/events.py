@@ -26,9 +26,17 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
 
-# A Luxembourg postcode as somebody types it: four digits, with the national
-# "L-" prefix optionally in front and spaced however the keyboard landed.
-_LU_POSTCODE_INPUT_RE = re.compile(r"^\s*(?:L\s*-?\s*)?(\d{4})\s*$", re.IGNORECASE)
+# A Luxembourg postcode once whitespace is out of the way: four digits behind
+# an optional national "L-" prefix.
+#
+# Whitespace is stripped separately rather than woven into this pattern. An
+# earlier version read `^\s*(?:L\s*-?\s*)?(\d{4})\s*$`, where the leading `\s*`
+# and the prefix group's own `\s*` can match the same run of spaces: input like
+# "l" followed by many spaces gives the engine a quadratic number of ways to
+# split them before it can fail, which CodeQL flags as a polynomial ReDoS. This
+# field is filled from an admin form, so the input is attacker-influenced.
+_LU_POSTCODE_INPUT_RE = re.compile(r"^(?:L-?)?(\d{4})$", re.IGNORECASE)
+_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def normalize_lu_postcode(value):
@@ -39,7 +47,8 @@ def normalize_lu_postcode(value):
     reports the typo -- this helper must never quietly swallow one, because a
     wrong postcode on a national portal sends people to the wrong town.
     """
-    match = _LU_POSTCODE_INPUT_RE.match(value or "")
+    compact = _WHITESPACE_RE.sub("", value or "")
+    match = _LU_POSTCODE_INPUT_RE.match(compact)
     return match.group(1) if match else (value or "").strip()
 
 
