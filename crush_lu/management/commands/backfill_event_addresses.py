@@ -23,6 +23,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from crush_lu.models import MeetupEvent
+from crush_lu.models.events import _LU_POSTCODE_STORED_RE
 
 # A Luxembourg postcode: four digits, optionally behind the national "L-".
 # ASCII digits only -- `\d` matches every Unicode decimal, and "٢٢٢٩" is not a
@@ -34,15 +35,48 @@ _PREFIXED_POSTCODE_RE = re.compile(r"\bL\s*-\s*([0-9]{4})\b", re.IGNORECASE)
 # line of prose.
 _LEADING_POSTCODE_RE = re.compile(r"^L?\s*-?\s*([0-9]{4})\b", re.IGNORECASE)
 
-# A house number: a digit run, optionally with a letter, optionally a range.
+# A house number: a digit run, optionally with a letter, optionally a range, and
+# optionally an ordinal suffix -- "12 bis" and "12 ter" are ordinary here, and
+# without them "12 bis rue du Nord" splits into number "12" and a street called
+# "bis rue du Nord".
 # Anchored to one end of the street segment or the other, because Luxembourg
 # writes both "12, rue de la Gare" and "rue de la Gare 12".
-_LEADING_NUMBER_RE = re.compile(
-    r"^(\d+\s*[A-Za-z]?(?:\s*[-/]\s*\d+\s*[A-Za-z]?)?)(?=[,\s])"
-)
-_TRAILING_NUMBER_RE = re.compile(
-    r"(?<=[,\s])(\d+\s*[A-Za-z]?(?:\s*[-/]\s*\d+\s*[A-Za-z]?)?)$"
-)
+_NUM = r"[0-9]+\s*[A-Za-z]?(?:\s*[-/]\s*[0-9]+\s*[A-Za-z]?)?(?:\s+(?:bis|ter|quater))?"
+_LEADING_NUMBER_RE = re.compile(rf"^({_NUM})(?=[,\s])", re.IGNORECASE)
+_TRAILING_NUMBER_RE = re.compile(rf"(?<=[,\s])({_NUM})$", re.IGNORECASE)
+
+# What makes a line recognisable as a street. Luxembourg addresses are written
+# in French, German and Luxembourgish, often mixed, so this covers all three --
+# including the prepositional forms ("Op der Haart", "Am Bongert") that carry no
+# generic noun at all.
+#
+# This is the parser's entire notion of what a street looks like, and it does
+# NOT need to be exhaustive. A line it fails to recognise is reported for a
+# person to confirm, never written. Being wrong here costs someone a minute in
+# the admin; the alternative -- accepting any line above the postcode -- writes
+# "Rear entrance" into a national listing as a street name.
+_STREET_WORDS = frozenset("""
+    rue route avenue boulevard place allee allée chemin impasse quai
+    montee montée cite cité esplanade square passage galerie parc val
+    coin zone domaine residence résidence rond-point
+    strooss strasse straße wee gaass plaz breck haart bierg duerf
+    eck bongert millen weg gass
+    """.split())
+_STREET_PREFIXES = ("op ", "an ", "am ", "um ", "bei ", "beim ", "hannert ")
+
+
+def _looks_like_a_street(candidate):
+    """Whether a line is recognisable as a street name.
+
+    A house number is the strongest signal and is checked by the caller. This
+    covers the rest: a generic noun anywhere in the line, or one of the
+    prepositional openings Luxembourgish street names use.
+    """
+    lowered = candidate.casefold()
+    if lowered.startswith(_STREET_PREFIXES):
+        return True
+    return any(word.strip(".,").casefold() in _STREET_WORDS for word in lowered.split())
+
 
 # Statuses. Only OK and NO_NUMBER are clean outcomes -- a venue with no street
 # number is normal, not a failure.
@@ -54,6 +88,7 @@ NO_STREET = "NO_STREET"
 EXTRA_TEXT = "EXTRA_TEXT"
 TOO_LONG = "TOO_LONG"
 CHECK_NUMBER = "CHECK_NUMBER"
+CHECK_STREET = "CHECK_STREET"
 
 CLEAN_STATUSES = {OK, NO_NUMBER}
 
@@ -263,6 +298,13 @@ def parse_legacy_address(text, venue_name=""):
     if ambiguous_number:
         return fields, CHECK_NUMBER, street_segment
 
+    # A house number is proof enough that this is a street. Without one, the
+    # line has to be recognisable as a street on its own -- "Rear entrance" sits
+    # exactly where a street would and reads exactly like one to a parser that
+    # only checks position.
+    if not number and not _looks_like_a_street(street_segment):
+        return fields, CHECK_STREET, street_segment
+
     return fields, (OK if number else NO_NUMBER), ""
 
 
@@ -327,10 +369,23 @@ class Command(BaseCommand):
                 # would leave a --force reparse mixing a fresh postcode with a
                 # street from a previous run -- an address that never existed
                 # in any single source.
+                # `queryset.update()`, not `event.save()`, and deliberately.
+                #
+                # These four columns are in `_TICKET_PAYLOAD_BASE_FIELDS`, so a
+                # save fans out an Apple Wallet refresh to every pass holder --
+                # and, with echo.lu enabled, an inline sync per event. Over a
+                # back catalogue that is an APNs storm and a pile of synchronous
+                # HTTP, to publish an address that renders the same as before:
+                # this command transcribes what the legacy text already said.
+                #
+                # Passes pick the structured address up on the event's next real
+                # edit, which is also when it might actually have changed.
+                with transaction.atomic():
+                    MeetupEvent.objects.filter(pk=event.pk).update(
+                        **{name: fields.get(name, "") for name in ADDRESS_FIELDS}
+                    )
                 for name in ADDRESS_FIELDS:
                     setattr(event, name, fields.get(name, ""))
-                with transaction.atomic():
-                    event.save(update_fields=list(ADDRESS_FIELDS))
                 written += 1
 
             self._report(event, fields, status, note)
@@ -371,11 +426,19 @@ class Command(BaseCommand):
 
     def _audit(self):
         """What still needs a person, and whether validation can be switched on."""
+        # Presence is not enough. A row can hold a truthy but invalid postcode
+        # ("ABCD", or Unicode digits) which the model's RegexValidator rejects
+        # on the next validated save -- and the normal backfill skips it,
+        # because it already has structured data. Checking only truthiness let
+        # --audit report all-clear on precisely the rows the validation it
+        # gates would refuse.
         incomplete = [
             event
             for event in MeetupEvent.objects.filter(is_published=True).order_by("pk")
             if not (
-                event.address_street and event.address_postcode and event.address_town
+                event.address_street
+                and event.address_town
+                and _LU_POSTCODE_STORED_RE.match(event.address_postcode or "")
             )
         ]
         valid_cantons = {value for value, _label in MeetupEvent.CANTON_CHOICES}

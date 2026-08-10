@@ -14,6 +14,7 @@ with digits.
 import pytest
 from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -22,6 +23,7 @@ from django.utils import timezone
 from crush_lu.models import MeetupEvent
 from crush_lu.management.commands.backfill_event_addresses import (
     CHECK_NUMBER,
+    CHECK_STREET,
     EXTRA_TEXT,
     NO_NUMBER,
     NO_POSTCODE,
@@ -152,11 +154,47 @@ class TestParser:
         assert fields["address_postcode"] == "1616"
 
     def test_a_venue_with_no_number_gets_none_invented(self):
-        fields, status, _ = parse_legacy_address(
-            "Parking Heringermill, L-6360 Beaufort"
-        )
+        """A street word carries a line that has no house number."""
+        fields, status, _ = parse_legacy_address("Place de la Gare, L-1616 Luxembourg")
         assert status == NO_NUMBER
         assert "address_number" not in fields
+        assert fields["address_street"] == "Place de la Gare"
+
+    def test_a_line_that_is_neither_numbered_nor_street_like_needs_a_human(self):
+        """ "Parking Heringermill" is a place, not a street.
+
+        With no house number and no street word there is nothing to confirm it
+        belongs in `street`, so it is reported rather than written -- the same
+        rule that stops "Rear entrance" being published as a street name.
+        """
+        _fields, status, _ = parse_legacy_address(
+            "Parking Heringermill, L-6360 Beaufort"
+        )
+        assert status == CHECK_STREET
+        assert status not in WRITABLE_STATUSES
+
+    def test_an_access_instruction_is_not_accepted_as_a_street(self):
+        fields, status, _ = parse_legacy_address(
+            "Café Konrad\nRear entrance\nL-2229 Luxembourg", "Café Konrad"
+        )
+        assert status == CHECK_STREET
+        assert status not in WRITABLE_STATUSES
+        assert fields["address_town"] == "Luxembourg"
+
+    def test_a_luxembourgish_prepositional_street_is_recognised(self):
+        """ "Op der Haart" has no generic noun but is a real street name."""
+        _fields, status, _ = parse_legacy_address("Op der Haart\nL-9999 Wiltz", "X")
+        assert status == NO_NUMBER
+
+    @pytest.mark.parametrize("suffix", ["bis", "ter"])
+    def test_an_ordinal_house_number_suffix_stays_with_the_number(self, suffix):
+        """ "12 bis rue du Nord" split into number 12 and street "bis rue…"."""
+        fields, status, _ = parse_legacy_address(
+            f"12 {suffix} rue du Nord\nL-2229 Luxembourg", "X"
+        )
+        assert status == OK
+        assert fields["address_number"] == f"12 {suffix}"
+        assert fields["address_street"] == "rue du Nord"
 
     def test_no_postcode_writes_nothing(self):
         """Without an anchor there is no way to tell prose from a street."""
@@ -303,6 +341,35 @@ class TestCommand:
 
         with pytest.raises(CommandError):
             call_command("backfill_event_addresses", "--audit", stdout=StringIO())
+
+    def test_audit_rejects_a_present_but_invalid_postcode(self, legacy_event):
+        """Presence is not validity.
+
+        A row holding "ABCD" is skipped by the normal backfill (it already has
+        structured data) and used to satisfy --audit, so the gate reported
+        all-clear on exactly the row the validation it gates would refuse.
+        """
+        call_command("backfill_event_addresses", stdout=StringIO())
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            is_published=True, address_postcode="ABCD"
+        )
+
+        with pytest.raises(CommandError):
+            call_command("backfill_event_addresses", "--audit", stdout=StringIO())
+
+    def test_the_backfill_does_not_fan_out_wallet_refreshes(self, legacy_event):
+        """The address columns are in _TICKET_PAYLOAD_BASE_FIELDS.
+
+        Saving them per event would push an Apple Wallet refresh to every pass
+        holder — across a back catalogue, an APNs storm to publish an address
+        that renders the same as the legacy text it came from.
+        """
+        with patch("crush_lu.signals.refresh_apple_tickets_on_event_change") as refresh:
+            call_command("backfill_event_addresses", stdout=StringIO())
+
+        legacy_event.refresh_from_db()
+        assert legacy_event.address_street == "rue du Nord"
+        refresh.assert_not_called()
 
     def test_audit_flags_a_published_event_with_no_canton(self, legacy_event):
         """`clean()` has required a canton on published events all along.
