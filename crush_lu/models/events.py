@@ -513,20 +513,31 @@ class MeetupEvent(models.Model):
 
         super().clean()
 
-        # Only events that will actually reach echo.lu are held to this.
+        # Only events that will actually reach echo.lu are held to this, and
+        # `should_publish()` is what decides that -- so ask it, rather than
+        # restate it here.
         #
-        # The requirement exists because a national portal renders these fields
-        # verbatim, so it applies exactly where `should_publish()` does.
-        # Checking `is_published` alone blocked the transitions that make an
-        # event STOP being published: ticking `is_cancelled`, or switching it to
-        # invitation-only, leaves `is_published` true, so a coach cancelling an
-        # event whose address was never transcribed was refused the save with an
-        # address error on a field they had not touched.
-        if (
-            self.is_published
-            and not self.is_cancelled
-            and not self.is_private_invitation
-        ):
+        # Spelling the condition out by hand kept missing cases. First it was
+        # `is_published` alone, which blocked the transitions that make an event
+        # STOP being published: a coach ticking `is_cancelled` on an event whose
+        # address was never transcribed got an address error on fields they had
+        # not touched, and no way to cancel it. Adding cancelled and
+        # invitation-only still left events that have simply ENDED -- which
+        # `should_publish()` also excludes, and which nobody can fix by editing
+        # an address.
+        #
+        # Imported inside the method because echo_lu imports this module.
+        from ..services.echo_lu import should_publish
+
+        try:
+            reaches_echo = should_publish(self)
+        except (TypeError, AttributeError):
+            # `should_publish` reads `end_time`, which needs `date_time` and
+            # `duration_minutes`. A form still missing those has its own errors
+            # to report; do not bury them under an address complaint.
+            reaches_echo = False
+
+        if reaches_echo:
             unmet = self.unmet_publish_requirements()
             if unmet:
                 raise ValidationError(dict(unmet))

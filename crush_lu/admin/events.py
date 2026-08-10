@@ -238,6 +238,27 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.is_private_invitation = False
         return instance
 
+    def _post_clean(self):
+        """Apply the audience choice BEFORE the model validates itself.
+
+        `_post_clean` is where Django copies cleaned data onto the instance and
+        calls `MeetupEvent.clean()`. `is_private_invitation` is not a form field
+        -- it is derived from `registration_audience` -- and deriving it in
+        `save()` alone meant model validation ran against the *stored* value.
+
+        That matters now `clean()` skips its address rule for invitation-only
+        events: switching a public event to invitation-only was still validated
+        as public, and switching a private one to public was still skipped. Both
+        judged the change that was being made by the state it was leaving.
+        """
+        audience = self.cleaned_data.get("registration_audience")
+        if audience:
+            try:
+                self.apply_registration_audience(self.instance, audience)
+            except forms.ValidationError as error:
+                self.add_error("registration_audience", error)
+        super()._post_clean()
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         self.apply_registration_audience(

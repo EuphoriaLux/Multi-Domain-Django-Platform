@@ -220,6 +220,26 @@ class TestAdminFormPostcode:
         assert form.is_valid(), form.errors
         assert form.cleaned_data["address_postcode"] == "2229"
 
+    def test_switching_to_invitation_only_is_judged_on_the_new_audience(self):
+        """`is_private_invitation` is derived, not a form field.
+
+        Deriving it in `save()` alone meant model validation ran against the
+        stored value — so switching a public event to invitation-only was still
+        validated as public, and a legacy address blocked the switch.
+        """
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        form = MeetupEventAdminForm(
+            data=self._form_data(
+                registration_audience=MeetupEventAdminForm.PRIVATE_INVITATION,
+                address_street="",
+                address_postcode="",
+                address_town="",
+                is_published=True,
+            )
+        )
+        assert form.is_valid(), form.errors
+
     def test_malformed_postcode_is_rejected(self):
         from crush_lu.admin.events import MeetupEventAdminForm
 
@@ -262,6 +282,21 @@ class TestPublishedEventValidation:
 
     def test_an_unpublished_event_needs_nothing(self):
         make_event(is_published=False).clean()
+
+    def test_an_event_that_has_already_ended_is_not_blocked(self):
+        """`should_publish()` excludes finished events, so this must too.
+
+        Nobody can fix a past event by editing its address, and echo.lu takes
+        the listing down when it ends regardless.
+        """
+        past = timezone.now() - timedelta(days=30)
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            date_time=past,
+            registration_deadline=past - timedelta(days=1),
+        )
+        event.clean()
 
     @pytest.mark.parametrize(
         "transition", [{"is_cancelled": True}, {"is_private_invitation": True}]
