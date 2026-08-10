@@ -622,6 +622,59 @@ def parse_address(address, canton=""):
     }
 
 
+def address_payload(event):
+    """echo.lu's address object for an event.
+
+    Reads the structured fields, which are typed one per box in the admin, and
+    only falls back to parsing the legacy free text for rows that predate the
+    split. Parsing is a migration aid here, not the mechanism: it stays until
+    `backfill_event_addresses --audit` is clean and no published event still
+    depends on it.
+
+    Empty components are dropped rather than sent as "" — echo.lu treats an
+    empty string as a supplied value and renders a blank line for it, the same
+    rule `contact` already follows.
+    """
+    if event.address_street:
+        payload = {
+            "street": event.address_street,
+            "number": event.address_number,
+            "postcode": event.address_postcode,
+            # The town is the town. This used to fall back to `canton`, which
+            # published a canton name where echo.lu shows a locality — and
+            # `commune` got the canton outright. echo.lu's commune filter is a
+            # controlled vocabulary and an unrecognised value 404s, so a wrong
+            # one is worse than none: `commune` is omitted until we hold a real
+            # one.
+            "town": event.address_town,
+            "country": "Luxembourg",
+        }
+        return {key: value for key, value in payload.items() if value}
+
+    # Parsed with NO canton, deliberately. Given one, `parse_address` puts it in
+    # `commune` and substitutes it for a town it could not read -- and published
+    # events always have a canton, so every fallback payload would otherwise
+    # keep shipping the canton-in-a-commune-field value this whole change
+    # exists to remove, on exactly the rows most likely to hit it. Passing ""
+    # switches both substitutions off at the source rather than trying to
+    # recognise and undo them afterwards, which cannot tell a canton that was
+    # substituted from a town that genuinely shares its name.
+    legacy = parse_address(event.address, "")
+    return {key: value for key, value in legacy.items() if value}
+
+
+def event_postcode(event):
+    """The event's postcode, structured first, parsed out of legacy text after.
+
+    No canton is passed: it only ever reaches `town` and `commune`, neither of
+    which is read here, and leaving it out keeps this on the same footing as
+    `address_payload`.
+    """
+    if event.address_postcode:
+        return event.address_postcode
+    return parse_address(event.address, "").get("postcode", "")
+
+
 def venue_key(name, postcode=""):
     """Cache key for a venue: lowercased name plus postcode.
 
@@ -644,8 +697,7 @@ def cached_venue_ids(event):
 
     if not event.location:
         return []
-    address = parse_address(event.address, event.canton)
-    key = venue_key(event.location, address.get("postcode", ""))
+    key = venue_key(event.location, event_postcode(event))
     row = EchoVenue.objects.filter(key=key).first()
     return [row.venue_id] if row else []
 
@@ -768,8 +820,8 @@ def resolve_venue_ids(event):
     if not event.location:
         return []
 
-    address = parse_address(event.address, event.canton)
-    key = venue_key(event.location, address.get("postcode", ""))
+    postcode = event_postcode(event)
+    key = venue_key(event.location, postcode)
     row = EchoVenue.objects.filter(key=key).first()
     if row is not None:
         return [row.venue_id]
@@ -780,7 +832,7 @@ def resolve_venue_ids(event):
         f"venues we only book. Find it with `manage.py echo_venue --search "
         f"{event.location!r}`, or create it in the organiser back office, then "
         f"link it with `manage.py echo_venue --link {event.location!r} "
-        f"--postcode {address.get('postcode', '')} --venue-id <id>`."
+        f"--postcode {postcode} --venue-id <id>`."
     )
 
 
@@ -914,9 +966,10 @@ def missing_required_fields(payload):
 def build_experience_payload(event, venue_ids=None):
     """Map a MeetupEvent onto the echo.lu experience schema.
 
-    ``duration`` is omitted from the date entry even though the schema accepts
-    it: its unit is not documented, ``from``/``to`` already pin the span
-    exactly, and a duration in the wrong unit would contradict them publicly.
+    ``duration`` is sent as ``duration_minutes``. It was omitted while its unit
+    was undocumented — a duration in the wrong unit would have contradicted
+    ``from``/``to`` on a public listing — but the API documents it as an
+    integer count of minutes, which is exactly what the column holds.
 
     ``status`` is deliberately NOT built here. It is a create-time instruction
     ("save as draft" vs "submit for validation"), not content, so putting it in
@@ -944,6 +997,7 @@ def build_experience_payload(event, venue_ids=None):
             {
                 "from": _rfc3339(event.date_time),
                 "to": _rfc3339(event.end_time),
+                "duration": event.duration_minutes,
                 "purchaseLink": event_url,
             }
         ],
@@ -952,7 +1006,7 @@ def build_experience_payload(event, venue_ids=None):
         # and ListExperience documents this parameter as "Venue IDs", so the
         # original `[event.location]` sent a display name into an id field.
         "venues": list(venue_ids or []),
-        "location": {"address": parse_address(event.address, event.canton)},
+        "location": {"address": address_payload(event)},
         "tickets": _build_tickets(event),
     }
 

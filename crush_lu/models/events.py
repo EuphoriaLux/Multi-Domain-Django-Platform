@@ -516,6 +516,22 @@ class MeetupEvent(models.Model):
                 {"canton": _("Canton is required for published events.")}
             )
 
+        # A published event is one echo.lu may publish on a national portal, so
+        # the address components it renders have to be there. `address_number`
+        # is deliberately not required: real venues have none (Place de la Gare,
+        # Parking Heringermill), and a required number field only invites a
+        # made-up one.
+        if self.is_published:
+            missing = [
+                name
+                for name in ("address_street", "address_postcode", "address_town")
+                if not getattr(self, name)
+            ]
+            if missing:
+                raise ValidationError(
+                    {name: _("Required for published events.") for name in missing}
+                )
+
         # Gender caps: all three must be set together or all left blank
         gender_caps = [
             self.max_participants_m,

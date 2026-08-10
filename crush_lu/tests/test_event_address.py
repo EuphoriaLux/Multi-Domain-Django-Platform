@@ -228,6 +228,94 @@ class TestAdminFormPostcode:
         assert "address_postcode" in form.errors
 
 
+class TestPublishedEventValidation:
+    """A published event is one echo.lu may put on a national portal."""
+
+    def _publishable(self, **overrides):
+        fields = {
+            "is_published": True,
+            "address_street": "rue du Nord",
+            "address_number": "7",
+            "address_postcode": "2229",
+            "address_town": "Luxembourg",
+        }
+        fields.update(overrides)
+        return make_event(**fields)
+
+    @pytest.mark.parametrize(
+        "missing", ["address_street", "address_postcode", "address_town"]
+    )
+    def test_publishing_without_a_component_is_rejected(self, missing):
+        from django.core.exceptions import ValidationError
+
+        event = self._publishable(**{missing: ""})
+        with pytest.raises(ValidationError) as caught:
+            event.clean()
+        assert missing in caught.value.message_dict
+
+    def test_a_venue_with_no_house_number_can_still_publish(self):
+        """Place de la Gare and Parking Heringermill genuinely have none.
+
+        Requiring a number here would only produce invented ones.
+        """
+        self._publishable(address_number="").clean()
+
+    def test_an_unpublished_event_needs_nothing(self):
+        make_event(is_published=False).clean()
+
+
+@pytest.mark.django_db
+class TestBulkPublishAction:
+    """`queryset.update()` runs no `clean()`, so the model rule cannot see it."""
+
+    def _event(self, **overrides):
+        fields = {
+            "title": "Speed Dating",
+            "description": "An evening.",
+            "event_type": "speed_dating",
+            "location": "Café Konrad",
+            "canton": "Luxembourg",
+            "date_time": timezone.now() + timedelta(days=7),
+            "registration_deadline": timezone.now() + timedelta(days=5),
+        }
+        fields.update(overrides)
+        return MeetupEvent.objects.create(**fields)
+
+    def _run_action(self, events):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/crush-admin/")
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        model_admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        model_admin.publish_events(
+            request, MeetupEvent.objects.filter(pk__in=[e.pk for e in events])
+        )
+
+    def test_an_incomplete_address_is_not_bulk_published(self):
+        event = self._event(address="7, rue du Nord\nL-2229 Luxembourg")
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_a_complete_address_publishes(self):
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is True
+
+
 class TestPostalAddressJsonLd:
     def test_components_map_to_their_own_keys(self):
         event = make_event(

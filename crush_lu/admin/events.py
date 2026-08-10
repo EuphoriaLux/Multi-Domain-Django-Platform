@@ -424,6 +424,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "canton",
     )
     readonly_fields = (
+        # Legacy free text, read-only from here on. echo.lu now reads the
+        # structured fields, so this box no longer feeds anything — leaving it
+        # writable would just invite staff to keep typing addresses into it.
+        "address",
         "created_at",
         "updated_at",
         "invitation_code",
@@ -499,11 +503,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "fields": ("address",),
                 "classes": ("collapse",),
                 "description": (
-                    "What was typed before the address was split into fields. "
-                    "Transcribe it into the fields above; until you do, this is "
-                    "still what tickets, e-mails and echo.lu publish, so it stays "
-                    "editable for now. It becomes read-only once the backfill has "
-                    "run and echo.lu reads the structured fields."
+                    "Read-only. What was typed before the address was split into "
+                    "fields — kept so it can be transcribed into the fields "
+                    "above, then ignored. echo.lu reads the structured fields now."
                 ),
             },
         ),
@@ -709,6 +711,29 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
+        # `queryset.update()` emits no signals and runs no `clean()`, so the
+        # address rule on the model cannot see this path. Without the check
+        # below, selecting a batch of drafts publishes the incomplete ones and
+        # sends them straight to a national portal with half an address —
+        # the one publish route that bypasses every guard on the change form.
+        incomplete = [
+            event
+            for event in queryset
+            if not (
+                event.address_street and event.address_postcode and event.address_town
+            )
+        ]
+        if incomplete:
+            queryset = queryset.exclude(pk__in=[event.pk for event in incomplete])
+            django_messages.warning(
+                request,
+                _(
+                    "Not published — no complete address: {titles}. Fill in "
+                    "street, postcode and town, or run "
+                    "`manage.py backfill_event_addresses`."
+                ).format(titles=", ".join(str(event) for event in incomplete)),
+            )
+
         # Snapshot before .update(): the queryset is lazy and may well filter on
         # is_published=False, which matches nothing once the update lands.
         event_ids = list(queryset.values_list("pk", flat=True))

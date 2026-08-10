@@ -239,6 +239,74 @@ class PayloadTests(TestCase):
             ["venue-9"],
         )
 
+    def test_address_comes_from_the_structured_fields(self):
+        event = make_event(
+            address="ignored legacy text",
+            address_street="rue Emile Mark",
+            address_number="45",
+            address_postcode="4620",
+            address_town="Differdange",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue Emile Mark")
+        self.assertEqual(address["number"], "45")
+        self.assertEqual(address["postcode"], "4620")
+        self.assertEqual(address["country"], "Luxembourg")
+
+    def test_town_is_the_town_and_commune_is_not_the_canton(self):
+        # `town` used to fall back to `canton`, and `commune` was set to it
+        # outright -- publishing a canton name where echo.lu shows a locality.
+        # echo.lu's commune filter is a controlled vocabulary and an
+        # unrecognised value 404s, so none is better than a wrong one.
+        event = make_event(
+            address_street="rue Emile Mark",
+            address_postcode="4620",
+            address_town="Differdange",
+            canton="Esch-sur-Alzette",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["town"], "Differdange")
+        self.assertNotIn("commune", address)
+
+    def test_empty_components_are_absent_rather_than_blank(self):
+        # echo.lu treats "" as a supplied value and renders a blank line for it.
+        event = make_event(
+            address_street="Place de la Gare",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+        self.assertNotIn("", address.values())
+
+    def test_legacy_rows_still_publish_a_parsed_address(self):
+        # Rows that predate the split, and any the backfill could not place.
+        event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue du Nord")
+        self.assertEqual(address["postcode"], "2229")
+
+    def test_the_legacy_fallback_does_not_smuggle_the_canton_back_in(self):
+        # `parse_address` puts the canton in `commune` and substitutes it for a
+        # town it could not read. Published events always have a canton, so
+        # without sanitising the fallback, the rows most likely to use it would
+        # be the ones still shipping the value this change removes.
+        event = make_event(
+            address="Behind the old brewery",
+            canton="Esch-sur-Alzette",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("commune", address)
+        self.assertNotEqual(address.get("town"), "Esch-sur-Alzette")
+
     def test_dates_are_rfc3339_utc_and_span_the_duration(self):
         event = make_event(duration_minutes=90)
         entry = echo_lu.build_experience_payload(event)["dates"][0]
@@ -248,11 +316,14 @@ class PayloadTests(TestCase):
         self.assertEqual(entry["from"], echo_lu._rfc3339(event.date_time))
         self.assertEqual(entry["to"], echo_lu._rfc3339(event.end_time))
 
-    def test_duration_is_not_sent(self):
-        # Its unit is undocumented and from/to already pin the span; a wrong
-        # unit would contradict them on the public listing.
-        entry = echo_lu.build_experience_payload(make_event())["dates"][0]
-        self.assertNotIn("duration", entry)
+    def test_duration_is_sent_in_minutes(self):
+        # Held back while the unit was undocumented, because a wrong unit would
+        # have contradicted from/to on the public listing. The API documents it
+        # as an integer count of minutes, which is what the column holds.
+        entry = echo_lu.build_experience_payload(make_event(duration_minutes=90))[
+            "dates"
+        ][0]
+        self.assertEqual(entry["duration"], 90)
 
     def test_free_event_gets_an_explicit_zero_price_ticket(self):
         # No tickets at all reads as "price unknown", which costs signups.
