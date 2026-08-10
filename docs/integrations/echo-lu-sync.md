@@ -527,7 +527,7 @@ row says so; the recovery is:
 | `dates[0].from` / `.to` | `date_time` / `end_time`, RFC 3339 in UTC |
 | `dates[0].purchaseLink` | the event detail page |
 | `venues` | `location` (venue name) |
-| `location.address` | `address_street` / `address_number` / `address_postcode` / `address_town`; `commune` is not sent |
+| `location.address` | `address_street` / `address_number` / `address_postcode` / `address_town`; `commune` gets the town too |
 | `location.address.latitude/longitude` | `latitude` / `longitude`, as strings, omitted when unset |
 | `pictures[0]` | `image`, made absolute |
 | `tickets` | `registration_fee` in EUR; free events get an explicit €0 ticket |
@@ -535,14 +535,26 @@ row says so; the recovery is:
 | `languages` | `languages` |
 | `categories` / `audiences` / `formats` / `environments` / `tags` | the `ECHO_LU_DEFAULT_*` settings |
 
-Two deliberate omissions:
+**`commune` is required, and gets the town.** It once carried the event's
+`canton`, which is a region rather than a commune. Omitting it looked like the
+safe correction — echo.lu's commune filter is a controlled vocabulary where an
+unrecognised value 404s the venue search — but the field is mandatory: on
+2026-08-10 every event was rejected with `location.address: Missing or malformed
+address`, including three that were already live, and the whole integration
+stopped publishing until the town was sent.
 
-- **`commune`** — this used to be sent as the event's `canton`, which is a
-  region, not a commune. echo.lu's commune filter is a controlled vocabulary and
-  an unrecognised value is a 404, so nothing is sent until we hold a real one.
-- **Blank contact and address fields** — echo.lu treats an empty string as a
-  supplied value and renders a blank line for it, so empty components are
-  dropped rather than sent.
+⚠️ **Known limitation.** A Luxembourg commune takes its name from its principal
+town, so this is right wherever the two coincide (Luxembourg, Differdange,
+Esch-sur-Alzette). It is wrong where they do not: **Rodange is in the commune of
+Pétange**, Belval is in Sanem, and a quarter like Ville-Haute is not a commune at
+all. Booking a venue in one of those will send a town where echo.lu expects a
+commune, and may be rejected or filed under the wrong municipality. Fixing it
+properly needs a postcode→commune table, or a `commune` field of its own on the
+event. Until then, check the listing after publishing an event outside the
+towns above.
+
+**Blank contact and address fields** are dropped rather than sent — echo.lu
+treats an empty string as a supplied value and renders a blank line for it.
 
 `dates[].duration` **is** sent, as `duration_minutes`. It was held back while
 its unit was undocumented — a wrong unit would have contradicted `from`/`to` on
