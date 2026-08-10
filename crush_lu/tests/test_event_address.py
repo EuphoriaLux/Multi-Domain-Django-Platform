@@ -259,3 +259,42 @@ class TestPostalAddressJsonLd:
         postal = _postal_address(event)
         assert postal["streetAddress"] == "7, rue du Nord\nL-2229 Luxembourg"
         assert "postalCode" not in postal
+
+    def test_a_part_transcribed_row_does_not_repeat_itself(self):
+        """`streetAddress` must not be the postcode+town it sits next to.
+
+        Falling back to `full_address` composed those in, so a row with a town
+        and postcode but no street published "L-2229 Luxembourg" three times
+        over -- as the street, the postal code and the locality.
+        """
+        event = make_event(
+            address="", address_postcode="2229", address_town="Luxembourg"
+        )
+        postal = _postal_address(event)
+
+        assert "streetAddress" not in postal
+        assert postal["postalCode"] == "2229"
+        assert postal["addressLocality"] == "Luxembourg"
+
+    def test_empty_keys_are_dropped_not_published_blank(self):
+        postal = _postal_address(make_event(address="", canton=""))
+        assert "addressLocality" not in postal
+        assert "streetAddress" not in postal
+
+
+class TestPostcodeDisplay:
+    def test_a_four_digit_postcode_gets_the_national_prefix(self):
+        assert make_event(address_postcode="2229").postcode_display == "L-2229"
+
+    @pytest.mark.parametrize("stored", ["L-2229", "abcd", "22"])
+    def test_anything_else_is_rendered_as_stored(self, stored):
+        """`.create()`/`.update()` skip the form and `full_clean()` alike.
+
+        A fixture or data migration can put anything in the column, and
+        "L-L-2229" on a wallet ticket would be self-inflicted.
+        """
+        assert make_event(address_postcode=stored).postcode_display == stored
+
+    def test_non_ascii_digits_are_not_treated_as_a_postcode(self):
+        """`\\d` matches every Unicode decimal digit; the pattern uses [0-9]."""
+        assert make_event(address_postcode="٢٢٢٩").postcode_display == "٢٢٢٩"

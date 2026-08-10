@@ -418,6 +418,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "location",
         "address",
         "address_street",
+        "address_number",
         "address_town",
         "address_postcode",
         "canton",

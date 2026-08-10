@@ -35,8 +35,12 @@ SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
 # "l" followed by many spaces gives the engine a quadratic number of ways to
 # split them before it can fail, which CodeQL flags as a polynomial ReDoS. This
 # field is filled from an admin form, so the input is attacker-influenced.
-_LU_POSTCODE_INPUT_RE = re.compile(r"^(?:L-?)?(\d{4})$", re.IGNORECASE)
+_LU_POSTCODE_INPUT_RE = re.compile(r"^(?:L-?)?([0-9]{4})$", re.IGNORECASE)
 _WHITESPACE_RE = re.compile(r"\s+")
+# What the column is supposed to hold: four ASCII digits and nothing else. The
+# input pattern above accepts an "L-" prefix by design, so it cannot double as
+# the check for whether one still needs adding.
+_LU_POSTCODE_STORED_RE = re.compile(r"^[0-9]{4}$")
 
 
 def normalize_lu_postcode(value):
@@ -162,7 +166,7 @@ class MeetupEvent(models.Model):
         blank=True,
         validators=[
             RegexValidator(
-                regex=r"^\d{4}$",
+                regex=r"^[0-9]{4}$",
                 message=_("Luxembourg postcodes are exactly four digits."),
             )
         ],
@@ -184,9 +188,9 @@ class MeetupEvent(models.Model):
         blank=True,
         verbose_name=_("Legacy address (free text)"),
         help_text=_(
-            "Superseded by the street/number/postcode/town fields above. Kept so "
-            "events created before the split keep rendering. Do not type new "
-            "addresses here."
+            "Being replaced by the street/number/postcode/town fields above. Kept so "
+            "events created before the split keep rendering, and still what "
+            "echo.lu publishes until an event's street is filled in."
         ),
     )
     latitude = models.DecimalField(
@@ -625,18 +629,29 @@ class MeetupEvent(models.Model):
         return self.address_street
 
     @property
+    def postcode_display(self):
+        """The postcode as Luxembourg writes it: "L-2229".
+
+        The prefix is only added to something that is actually four digits.
+        `normalize_lu_postcode` runs in the admin form, but `.create()` and
+        `.update()` call neither it nor `full_clean()`, so a fixture or a data
+        migration can put anything in this column -- and "L-L-2229" on a ticket
+        would be a self-inflicted wound.
+        """
+        if not self.address_postcode:
+            return ""
+        if _LU_POSTCODE_STORED_RE.match(self.address_postcode):
+            return f"L-{self.address_postcode}"
+        return self.address_postcode
+
+    @property
     def structured_address(self):
         """The structured fields on one line, or "" if none are filled in."""
         parts = []
         if self.street_line:
             parts.append(self.street_line)
         locality = " ".join(
-            part
-            for part in (
-                f"L-{self.address_postcode}" if self.address_postcode else "",
-                self.address_town,
-            )
-            if part
+            part for part in (self.postcode_display, self.address_town) if part
         )
         if locality:
             parts.append(locality)
