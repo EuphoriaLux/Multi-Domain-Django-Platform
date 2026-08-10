@@ -742,7 +742,11 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # what a publishable event needs -- shared with `clean()` and with
         # `backfill_event_addresses --audit`. Re-deriving it here is what let
         # this action forget `canton`, which `clean()` has required all along.
-        incomplete = [event for event in queryset if event.unmet_publish_requirements()]
+        incomplete = [
+            event
+            for event in queryset
+            if event.unmet_publish_requirements(as_published=True)
+        ]
         if incomplete:
             queryset = queryset.exclude(pk__in=[event.pk for event in incomplete])
             django_messages.warning(
@@ -759,7 +763,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                             title=event,
                             fields=", ".join(
                                 name.removeprefix("address_")
-                                for name in event.unmet_publish_requirements()
+                                for name in event.unmet_publish_requirements(
+                                    as_published=True
+                                )
                             ),
                         )
                         for event in incomplete

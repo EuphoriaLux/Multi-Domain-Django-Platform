@@ -418,7 +418,7 @@ class TestBulkPublishAction:
             address_postcode="2229",
             address_town="\t",
         )
-        unmet = event.unmet_publish_requirements()
+        unmet = event.unmet_publish_requirements(as_published=True)
 
         assert "address_street" in unmet
         assert "address_town" in unmet

@@ -513,34 +513,13 @@ class MeetupEvent(models.Model):
 
         super().clean()
 
-        # Only events that will actually reach echo.lu are held to this, and
-        # `should_publish()` is what decides that -- so ask it, rather than
-        # restate it here.
-        #
-        # Spelling the condition out by hand kept missing cases. First it was
-        # `is_published` alone, which blocked the transitions that make an event
-        # STOP being published: a coach ticking `is_cancelled` on an event whose
-        # address was never transcribed got an address error on fields they had
-        # not touched, and no way to cancel it. Adding cancelled and
-        # invitation-only still left events that have simply ENDED -- which
-        # `should_publish()` also excludes, and which nobody can fix by editing
-        # an address.
-        #
-        # Imported inside the method because echo_lu imports this module.
-        from ..services.echo_lu import should_publish
-
-        try:
-            reaches_echo = should_publish(self)
-        except (TypeError, AttributeError):
-            # `should_publish` reads `end_time`, which needs `date_time` and
-            # `duration_minutes`. A form still missing those has its own errors
-            # to report; do not bury them under an address complaint.
-            reaches_echo = False
-
-        if reaches_echo:
-            unmet = self.unmet_publish_requirements()
-            if unmet:
-                raise ValidationError(dict(unmet))
+        # Eligibility lives inside unmet_publish_requirements(), which returns
+        # nothing for an event echo.lu would not publish -- so cancelling,
+        # making private, or editing a finished event is never blocked by an
+        # address. See that method for why the gate is not written here.
+        unmet = self.unmet_publish_requirements()
+        if unmet:
+            raise ValidationError(dict(unmet))
 
         # Gender caps: all three must be set together or all left blank
         gender_caps = [
@@ -689,20 +668,55 @@ class MeetupEvent(models.Model):
             return f"{self.address_number}, {self.address_street}"
         return self.address_street
 
-    def unmet_publish_requirements(self):
+    def reaches_echo_lu(self, *, as_published=False):
+        """Whether this event is one echo.lu would publish.
+
+        `as_published=True` asks it of a DRAFT: "if this were published, would
+        echo.lu take it?" The admin's bulk publish action needs that, because
+        it checks before flipping the flag — asked plainly, a draft is never
+        echo-eligible and the gate would never fire.
+
+        Wraps `should_publish()` so callers get a straight answer even on a
+        half-filled form: it reads `end_time`, which needs `date_time` and
+        `duration_minutes`, and a form still missing those has its own errors
+        to report rather than a spurious address complaint.
+        """
+        from ..services.echo_lu import should_publish
+
+        was_published = self.is_published
+        if as_published:
+            # In memory only, and restored below — this asks a hypothetical.
+            self.is_published = True
+        try:
+            return should_publish(self)
+        except (TypeError, AttributeError):
+            return False
+        finally:
+            self.is_published = was_published
+
+    def unmet_publish_requirements(self, *, as_published=False):
         """What stops this event being published, as {field: message}.
 
         The single source of truth for "is this event fit for a public national
-        listing". `clean()` raises on it, the admin's bulk publish action
-        filters on it, and `backfill_event_addresses --audit` gates on it --
-        three call sites that each grew their own version of the rule and each
-        drifted: the bulk action forgot `canton` (which `clean()` had required
-        since long before this work), and the audit checked the postcode was
-        present rather than valid.
+        listing" — and empty for any event echo.lu would not publish anyway.
+
+        Three call sites depend on that being one answer: `clean()` raises on
+        it, the admin's bulk publish action filters on it, and
+        `backfill_event_addresses --audit` gates on it. Each has already grown
+        its own version of the rule once and drifted — the bulk action forgot
+        `canton`, the audit checked the postcode was present rather than valid
+        — and when the eligibility gate was added to `clean()` alone, the other
+        two became STRICTER than the rule they enforce, blocking cancelled and
+        finished events nobody can fix by editing an address.
+
+        So eligibility lives here too, not at the call sites.
 
         `address_number` is deliberately absent: real venues have none, and a
         required number field only invites a made-up one.
         """
+        if not self.reaches_echo_lu(as_published=as_published):
+            return {}
+
         unmet = {}
         # Membership, not just presence. `.update()` and `.create()` skip the
         # field's own choice validation, so a canton like "test" or a commune
