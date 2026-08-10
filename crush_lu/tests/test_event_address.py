@@ -220,12 +220,220 @@ class TestAdminFormPostcode:
         assert form.is_valid(), form.errors
         assert form.cleaned_data["address_postcode"] == "2229"
 
+    def test_switching_to_invitation_only_is_judged_on_the_new_audience(self):
+        """`is_private_invitation` is derived, not a form field.
+
+        Deriving it in `save()` alone meant model validation ran against the
+        stored value — so switching a public event to invitation-only was still
+        validated as public, and a legacy address blocked the switch.
+        """
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        form = MeetupEventAdminForm(
+            data=self._form_data(
+                registration_audience=MeetupEventAdminForm.PRIVATE_INVITATION,
+                address_street="",
+                address_postcode="",
+                address_town="",
+                is_published=True,
+            )
+        )
+        assert form.is_valid(), form.errors
+
     def test_malformed_postcode_is_rejected(self):
         from crush_lu.admin.events import MeetupEventAdminForm
 
         form = MeetupEventAdminForm(data=self._form_data(address_postcode="22"))
         assert not form.is_valid()
         assert "address_postcode" in form.errors
+
+
+class TestPublishedEventValidation:
+    """A published event is one echo.lu may put on a national portal."""
+
+    def _publishable(self, **overrides):
+        fields = {
+            "is_published": True,
+            "address_street": "rue du Nord",
+            "address_number": "7",
+            "address_postcode": "2229",
+            "address_town": "Luxembourg",
+        }
+        fields.update(overrides)
+        return make_event(**fields)
+
+    @pytest.mark.parametrize(
+        "missing", ["address_street", "address_postcode", "address_town"]
+    )
+    def test_publishing_without_a_component_is_rejected(self, missing):
+        from django.core.exceptions import ValidationError
+
+        event = self._publishable(**{missing: ""})
+        with pytest.raises(ValidationError) as caught:
+            event.clean()
+        assert missing in caught.value.message_dict
+
+    def test_a_venue_with_no_house_number_can_still_publish(self):
+        """Place de la Gare and Parking Heringermill genuinely have none.
+
+        Requiring a number here would only produce invented ones.
+        """
+        self._publishable(address_number="").clean()
+
+    def test_an_unpublished_event_needs_nothing(self):
+        make_event(is_published=False).clean()
+
+    def test_an_event_that_has_already_ended_is_not_blocked(self):
+        """`should_publish()` excludes finished events, so this must too.
+
+        Nobody can fix a past event by editing its address, and echo.lu takes
+        the listing down when it ends regardless.
+        """
+        past = timezone.now() - timedelta(days=30)
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            date_time=past,
+            registration_deadline=past - timedelta(days=1),
+        )
+        event.clean()
+
+    @pytest.mark.parametrize(
+        "transition", [{"is_cancelled": True}, {"is_private_invitation": True}]
+    )
+    def test_taking_an_event_down_is_never_blocked_by_its_address(self, transition):
+        """Both transitions leave `is_published` true.
+
+        Checking that flag alone meant a coach cancelling an event whose
+        address was never transcribed got an address error on fields they had
+        not touched — and no way to cancel it.
+        """
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            **transition,
+        )
+        event.clean()
+
+
+@pytest.mark.django_db
+class TestBulkPublishAction:
+    """`queryset.update()` runs no `clean()`, so the model rule cannot see it."""
+
+    def _event(self, **overrides):
+        fields = {
+            "title": "Speed Dating",
+            "description": "An evening.",
+            "event_type": "speed_dating",
+            "location": "Café Konrad",
+            "canton": "Luxembourg",
+            "date_time": timezone.now() + timedelta(days=7),
+            "registration_deadline": timezone.now() + timedelta(days=5),
+        }
+        fields.update(overrides)
+        return MeetupEvent.objects.create(**fields)
+
+    def _run_action(self, events):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/crush-admin/")
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        model_admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        model_admin.publish_events(
+            request, MeetupEvent.objects.filter(pk__in=[e.pk for e in events])
+        )
+
+    def test_an_incomplete_address_is_not_bulk_published(self):
+        event = self._event(address="7, rue du Nord\nL-2229 Luxembourg")
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_a_present_but_invalid_postcode_is_not_bulk_published(self):
+        """`.update()` skips field validators, so "ABCD" can be sitting there.
+
+        Checking truthiness published it, and the echo.lu payload forwards the
+        postcode verbatim now instead of reparsing the legacy text.
+        """
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="ABCD",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_a_blank_canton_is_not_bulk_published(self):
+        """`clean()` has required a canton on published events all along.
+
+        The bulk action re-derived its own completeness rule and forgot it, so
+        an event with a full address but no canton sailed through silently.
+        Both now ask `unmet_publish_requirements()`.
+        """
+        event = self._event(
+            canton="",
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    @pytest.mark.parametrize("canton", ["test", "Beaufort", "Luxembourg - City"])
+    def test_an_unrecognised_canton_is_not_bulk_published(self, canton):
+        """`.update()` skips the field's choice validation.
+
+        Checking presence alone let a canton like 'test', or a commune where a
+        canton belongs, through the bulk action — and canton is rendered raw in
+        OG tags and JSON-LD.
+        """
+        event = self._event(
+            canton=canton,
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_whitespace_only_components_do_not_count_as_complete(self):
+        """A blank-looking value is truthy and reached echo.lu as an empty line."""
+        event = self._event(
+            address_street="   ",
+            address_postcode="2229",
+            address_town="\t",
+        )
+        unmet = event.unmet_publish_requirements(as_published=True)
+
+        assert "address_street" in unmet
+        assert "address_town" in unmet
+
+    def test_a_complete_address_publishes(self):
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is True
 
 
 class TestPostalAddressJsonLd:
@@ -298,3 +506,21 @@ class TestPostcodeDisplay:
     def test_non_ascii_digits_are_not_treated_as_a_postcode(self):
         """`\\d` matches every Unicode decimal digit; the pattern uses [0-9]."""
         assert make_event(address_postcode="٢٢٢٩").postcode_display == "٢٢٢٩"
+
+    def test_a_trailing_newline_is_not_a_valid_postcode(self):
+        """A bare `$` matches before a trailing newline, so `match` accepted it.
+
+        The checks use `fullmatch` now — this pattern is the sole validity gate
+        for bulk publish and for the audit.
+        """
+        event = make_event(address_postcode="2229\n")
+        assert event.postcode_display == "2229\n"
+        assert (
+            "address_postcode"
+            in make_event(
+                is_published=True,
+                address_street="rue du Nord",
+                address_town="Luxembourg",
+                address_postcode="2229\n",
+            ).unmet_publish_requirements()
+        )

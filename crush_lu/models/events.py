@@ -69,6 +69,9 @@ _WHITESPACE_RE = re.compile(r"\s+")
 # What the column is supposed to hold: four ASCII digits and nothing else. The
 # input pattern above accepts an "L-" prefix by design, so it cannot double as
 # the check for whether one still needs adding.
+#
+# Always used with `fullmatch`: a bare `$` also matches immediately before a
+# trailing newline, so `match` would accept a postcode with one on the end.
 _LU_POSTCODE_STORED_RE = re.compile(r"^[0-9]{4}$")
 
 
@@ -510,11 +513,13 @@ class MeetupEvent(models.Model):
 
         super().clean()
 
-        # Require canton for published events
-        if self.is_published and not self.canton:
-            raise ValidationError(
-                {"canton": _("Canton is required for published events.")}
-            )
+        # Eligibility lives inside unmet_publish_requirements(), which returns
+        # nothing for an event echo.lu would not publish -- so cancelling,
+        # making private, or editing a finished event is never blocked by an
+        # address. See that method for why the gate is not written here.
+        unmet = self.unmet_publish_requirements()
+        if unmet:
+            raise ValidationError(dict(unmet))
 
         # Gender caps: all three must be set together or all left blank
         gender_caps = [
@@ -663,6 +668,77 @@ class MeetupEvent(models.Model):
             return f"{self.address_number}, {self.address_street}"
         return self.address_street
 
+    def reaches_echo_lu(self, *, as_published=False):
+        """Whether this event is one echo.lu would publish.
+
+        `as_published=True` asks it of a DRAFT: "if this were published, would
+        echo.lu take it?" The admin's bulk publish action needs that, because
+        it checks before flipping the flag — asked plainly, a draft is never
+        echo-eligible and the gate would never fire.
+
+        Wraps `should_publish()` so callers get a straight answer even on a
+        half-filled form: it reads `end_time`, which needs `date_time` and
+        `duration_minutes`, and a form still missing those has its own errors
+        to report rather than a spurious address complaint.
+        """
+        from ..services.echo_lu import should_publish
+
+        was_published = self.is_published
+        if as_published:
+            # In memory only, and restored below — this asks a hypothetical.
+            self.is_published = True
+        try:
+            return should_publish(self)
+        except (TypeError, AttributeError):
+            return False
+        finally:
+            self.is_published = was_published
+
+    def unmet_publish_requirements(self, *, as_published=False):
+        """What stops this event being published, as {field: message}.
+
+        The single source of truth for "is this event fit for a public national
+        listing" — and empty for any event echo.lu would not publish anyway.
+
+        Three call sites depend on that being one answer: `clean()` raises on
+        it, the admin's bulk publish action filters on it, and
+        `backfill_event_addresses --audit` gates on it. Each has already grown
+        its own version of the rule once and drifted — the bulk action forgot
+        `canton`, the audit checked the postcode was present rather than valid
+        — and when the eligibility gate was added to `clean()` alone, the other
+        two became STRICTER than the rule they enforce, blocking cancelled and
+        finished events nobody can fix by editing an address.
+
+        So eligibility lives here too, not at the call sites.
+
+        `address_number` is deliberately absent: real venues have none, and a
+        required number field only invites a made-up one.
+        """
+        if not self.reaches_echo_lu(as_published=as_published):
+            return {}
+
+        unmet = {}
+        # Membership, not just presence. `.update()` and `.create()` skip the
+        # field's own choice validation, so a canton like "test" or a commune
+        # where a canton belongs can already be in the column -- and it is
+        # rendered raw in OG tags and JSON-LD.
+        valid_cantons = {value for value, _label in CANTON_CHOICES}
+        if self.canton not in valid_cantons:
+            unmet["canton"] = _("A recognised canton is required for published events.")
+        for name in ("address_street", "address_town"):
+            # `.strip()`: a whitespace-only value is truthy and would pass as
+            # complete, then reach echo.lu as a blank line on a public listing.
+            if not (getattr(self, name) or "").strip():
+                unmet[name] = _("Required for published events.")
+        # Validity, not just presence: `.create()` and `.update()` skip field
+        # validators, so an impossible postcode can already be sitting in the
+        # column -- and echo.lu is now sent it verbatim.
+        if not _LU_POSTCODE_STORED_RE.fullmatch(self.address_postcode or ""):
+            unmet["address_postcode"] = _(
+                "A four-digit postcode is required for published events."
+            )
+        return unmet
+
     @property
     def postcode_display(self):
         """The postcode as Luxembourg writes it: "L-2229".
@@ -675,7 +751,7 @@ class MeetupEvent(models.Model):
         """
         if not self.address_postcode:
             return ""
-        if _LU_POSTCODE_STORED_RE.match(self.address_postcode):
+        if _LU_POSTCODE_STORED_RE.fullmatch(self.address_postcode):
             return f"L-{self.address_postcode}"
         return self.address_postcode
 
