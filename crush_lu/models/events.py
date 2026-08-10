@@ -26,6 +26,35 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
 
+# Luxembourg's 12 cantons, stored as display names rather than slugs.
+#
+# The profile side keeps the same 12 as `canton-*` slugs (crush_lu/forms.py),
+# because those key an interactive SVG map. Events have no map, and `canton` is
+# rendered raw in a dozen places -- OG tags, meta description, JSON-LD
+# addressRegion, the anonymous location teaser -- so slugs would need a display
+# lookup at every one of them, and would silently publish "canton-esch" at any
+# site that was missed. The two vocabularies stay separate on purpose.
+#
+# Cantons rather than communes: this field is a privacy control. The event page
+# shows it to anonymous visitors *instead of* the address, and a commune -- many
+# under 2,000 residents -- narrows an unlisted venue to roughly a street. The
+# precise locality now lives in `address_town`, which is what removed the
+# pressure that made canton do both jobs.
+CANTON_CHOICES = [
+    ("Capellen", _("Capellen")),
+    ("Clervaux", _("Clervaux")),
+    ("Diekirch", _("Diekirch")),
+    ("Echternach", _("Echternach")),
+    ("Esch-sur-Alzette", _("Esch-sur-Alzette")),
+    ("Grevenmacher", _("Grevenmacher")),
+    ("Luxembourg", _("Luxembourg")),
+    ("Mersch", _("Mersch")),
+    ("Redange", _("Redange")),
+    ("Remich", _("Remich")),
+    ("Vianden", _("Vianden")),
+    ("Wiltz", _("Wiltz")),
+]
+
 # A Luxembourg postcode once whitespace is out of the way: four digits behind
 # an optional national "L-" prefix.
 #
@@ -119,6 +148,10 @@ class MeetupEvent(models.Model):
         ("crush_cache", "Crush Cache Hunt"),
     ]
 
+    # Reachable as MeetupEvent.CANTON_CHOICES for callers that validate against
+    # the list without importing the module constant.
+    CANTON_CHOICES = CANTON_CHOICES
+
     title = models.CharField(max_length=200)
     description = models.TextField()
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
@@ -210,8 +243,10 @@ class MeetupEvent(models.Model):
     canton = models.CharField(
         max_length=200,
         blank=True,
+        choices=CANTON_CHOICES,
         help_text=_(
-            "Canton/region visible to public visitors (e.g., 'Luxembourg', 'Esch-sur-Alzette'). Free-text entry for flexibility."
+            "The region anonymous visitors see instead of the exact address. "
+            "This is the canton, not the town - the town has its own field."
         ),
     )
     date_time = models.DateTimeField()
