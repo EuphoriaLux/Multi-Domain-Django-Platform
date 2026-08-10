@@ -356,6 +356,20 @@ class PayloadTests(TestCase):
 
         self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_specific"])
 
+    def test_a_name_only_venue_link_survives_adding_a_postcode(self):
+        """`echo_venue --link` permits a link with no postcode.
+
+        That row is stored under the bare name key. Filling in the structured
+        postcode afterwards -- which the publishing rule asks people to do --
+        made the candidate list non-empty and orphaned the link.
+        """
+        event = make_event(address_postcode="2229", link_venue=False)
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_nameonly"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_nameonly"])
+
     def test_the_structured_key_wins_when_both_exist(self):
         event = make_event(
             address="7, rue du Nord\nL-2229 Luxembourg",

@@ -715,9 +715,19 @@ def event_venue_keys(event):
         key = venue_key(event.location, postcode)
         if key and key not in keys:
             keys.append(key)
-    # Nothing resolvable at all: fall back to the name-only key, which is what a
-    # venue linked before any postcode was known is stored under.
-    return keys or [venue_key(event.location, "")]
+
+    # The name-only key goes LAST, always -- not only when nothing else
+    # resolved. `manage.py echo_venue --link` permits a link without a
+    # postcode, and that row is stored under the bare name; filling in the
+    # structured postcode afterwards, which the new publishing rule asks people
+    # to do, would otherwise make this list non-empty and orphan the link.
+    #
+    # Last, because a postcode-specific mapping is the more precise answer
+    # wherever both exist.
+    bare = venue_key(event.location, "")
+    if bare and bare not in keys:
+        keys.append(bare)
+    return keys
 
 
 def _linked_venue_id(event):

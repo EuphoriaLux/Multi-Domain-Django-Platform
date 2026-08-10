@@ -513,12 +513,23 @@ class MeetupEvent(models.Model):
 
         super().clean()
 
-        if self.is_published:
+        # Only events that will actually reach echo.lu are held to this.
+        #
+        # The requirement exists because a national portal renders these fields
+        # verbatim, so it applies exactly where `should_publish()` does.
+        # Checking `is_published` alone blocked the transitions that make an
+        # event STOP being published: ticking `is_cancelled`, or switching it to
+        # invitation-only, leaves `is_published` true, so a coach cancelling an
+        # event whose address was never transcribed was refused the save with an
+        # address error on a field they had not touched.
+        if (
+            self.is_published
+            and not self.is_cancelled
+            and not self.is_private_invitation
+        ):
             unmet = self.unmet_publish_requirements()
             if unmet:
-                raise ValidationError(
-                    {name: message for name, message in unmet.items()}
-                )
+                raise ValidationError(dict(unmet))
 
         # Gender caps: all three must be set together or all left blank
         gender_caps = [

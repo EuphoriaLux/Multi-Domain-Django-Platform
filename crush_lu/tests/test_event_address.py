@@ -263,6 +263,23 @@ class TestPublishedEventValidation:
     def test_an_unpublished_event_needs_nothing(self):
         make_event(is_published=False).clean()
 
+    @pytest.mark.parametrize(
+        "transition", [{"is_cancelled": True}, {"is_private_invitation": True}]
+    )
+    def test_taking_an_event_down_is_never_blocked_by_its_address(self, transition):
+        """Both transitions leave `is_published` true.
+
+        Checking that flag alone meant a coach cancelling an event whose
+        address was never transcribed got an address error on fields they had
+        not touched — and no way to cancel it.
+        """
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            **transition,
+        )
+        event.clean()
+
 
 @pytest.mark.django_db
 class TestBulkPublishAction:
