@@ -196,6 +196,11 @@ def parse_legacy_address(text, venue_name=""):
     # and feeding the venue to the house-number parser yields street="Creative
     # Hub", number="1535" -- the exact shape of wrong address this parser
     # exists to refuse, and it would report OK and sail past --audit.
+    #
+    # Checked twice, before and after the number comes off, because a house
+    # number can arrive attached to the venue from either end: "1535 Creative
+    # Hub" only matches before, and "Café Konrad" with a number on its own line
+    # (which _segments rejoins into "7, Café Konrad") only matches after.
     if _same_place(street_segment, venue_name):
         return fields, NO_STREET, street_segment
 
@@ -221,6 +226,11 @@ def parse_legacy_address(text, venue_name=""):
     if not street_segment:
         # The segment was nothing but a number. Keep neither: a bare number in
         # `street` is worse than an empty one.
+        return fields, NO_STREET, segments[postcode_index - 1]
+
+    if _same_place(street_segment, venue_name):
+        # What is left once the number came off is the venue, so the number was
+        # never a house number and there is no street here at all.
         return fields, NO_STREET, segments[postcode_index - 1]
 
     fields["address_street"] = street_segment
@@ -306,21 +316,19 @@ class Command(BaseCommand):
             counts[status] = counts.get(status, 0) + 1
 
             if fields and status in WRITABLE_STATUSES and not options["dry_run"]:
-                # A parse that succeeded outright owns the whole address, so it
-                # also clears what it determined is absent -- a --force reparse
-                # of an address that has lost its house number must not leave
-                # the old number in place while reporting a clean status.
+                # Always write all four, never just the ones that parsed.
                 #
-                # A partial parse only writes what it actually found. It has no
-                # standing to blank a component somebody typed in by hand,
-                # which is how the rows this command cannot parse get fixed.
-                written_names = (
-                    ADDRESS_FIELDS if status in CLEAN_STATUSES else list(fields)
-                )
-                for name in written_names:
+                # A row only reaches here with either no structured data at all
+                # (the default path skips rows that have some) or `--force`,
+                # which means "reparse from the legacy text". In both cases the
+                # parse owns the whole address. Writing only the parsed keys
+                # would leave a --force reparse mixing a fresh postcode with a
+                # street from a previous run -- an address that never existed
+                # in any single source.
+                for name in ADDRESS_FIELDS:
                     setattr(event, name, fields.get(name, ""))
                 with transaction.atomic():
-                    event.save(update_fields=list(written_names))
+                    event.save(update_fields=list(ADDRESS_FIELDS))
                 written += 1
 
             self._report(event, fields, status, note)

@@ -96,6 +96,22 @@ class TestParser:
         )
         assert status not in WRITABLE_STATUSES
 
+    def test_a_number_on_its_own_line_does_not_smuggle_the_venue_into_street(self):
+        """Regression on the fix above, not the original bug.
+
+        Rejoining a lone number with the line above turns "Café Konrad / 7"
+        into "7, Café Konrad", which no longer matches the venue name — so the
+        guard that refuses venue-as-street missed it and the parser reported a
+        clean street="Café Konrad", number="7". The guard now runs again after
+        the number comes off.
+        """
+        fields, status, _ = parse_legacy_address(
+            "Café Konrad\n7\nL-2229 Luxembourg", "Café Konrad"
+        )
+        assert status == NO_STREET
+        assert "address_street" not in fields
+        assert "address_number" not in fields
+
     def test_a_house_number_on_its_own_line_rejoins_its_street(self):
         """ "Rue Test / 7 / L-1234 Luxembourg" must not glue 7 to the postcode."""
         fields, status, _ = parse_legacy_address("Rue Test\n7\nL-1234 Luxembourg", "X")
@@ -340,6 +356,28 @@ class TestCommand:
 
         legacy_event.refresh_from_db()
         assert legacy_event.address_street == "Place de la Gare"
+        assert legacy_event.address_number == ""
+
+    def test_force_never_mixes_a_new_parse_with_old_components(self, legacy_event):
+        """A --force reparse owns the whole address, partial or not.
+
+        Writing only the parsed keys left a fresh postcode sitting beside a
+        street from the previous run -- an address that never existed in any
+        single source.
+        """
+        call_command("backfill_event_addresses", stdout=StringIO())
+        legacy_event.refresh_from_db()
+        assert legacy_event.address_street == "rue du Nord"
+
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            address="L-4620 Differdange"
+        )
+        call_command("backfill_event_addresses", "--force", stdout=StringIO())
+
+        legacy_event.refresh_from_db()
+        assert legacy_event.address_postcode == "4620"
+        assert legacy_event.address_town == "Differdange"
+        assert legacy_event.address_street == ""
         assert legacy_event.address_number == ""
 
     def test_event_id_zero_does_not_backfill_everything(self, legacy_event):
