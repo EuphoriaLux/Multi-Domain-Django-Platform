@@ -186,15 +186,32 @@ class TestParser:
         _fields, status, _ = parse_legacy_address("Op der Haart\nL-9999 Wiltz", "X")
         assert status == NO_NUMBER
 
-    @pytest.mark.parametrize("suffix", ["bis", "ter"])
+    @pytest.mark.parametrize("suffix", ["12 bis", "12bis", "12 ter", "12ter"])
     def test_an_ordinal_house_number_suffix_stays_with_the_number(self, suffix):
-        """ "12 bis rue du Nord" split into number 12 and street "bis rue…"."""
+        """Both spellings, spaced and not.
+
+        Without the suffix, "12 bis rue du Nord" split into number 12 and a
+        street called "bis rue du Nord". The space-less "12bis" then defeated
+        that first fix: it matched no number at all, and the street-word check
+        waved the whole line through as a clean street.
+        """
         fields, status, _ = parse_legacy_address(
-            f"12 {suffix} rue du Nord\nL-2229 Luxembourg", "X"
+            f"{suffix} rue du Nord\nL-2229 Luxembourg", "X"
         )
         assert status == OK
-        assert fields["address_number"] == f"12 {suffix}"
+        assert fields["address_number"] == suffix
         assert fields["address_street"] == "rue du Nord"
+
+    def test_an_oversized_town_is_caught_on_the_no_street_path_too(self):
+        """The length check has to guard every exit, not just the full one.
+
+        `address_town` is set well before the street logic runs, so a NO_STREET
+        return carried an oversized town straight past the check -- and Postgres
+        rejecting one value aborts the whole backfill mid-run.
+        """
+        _fields, status, _ = parse_legacy_address("L-2229 " + "A" * 150, "X")
+        assert status == TOO_LONG
+        assert status not in WRITABLE_STATUSES
 
     def test_no_postcode_writes_nothing(self):
         """Without an anchor there is no way to tell prose from a street."""

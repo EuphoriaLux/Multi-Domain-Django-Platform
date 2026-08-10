@@ -41,7 +41,7 @@ _LEADING_POSTCODE_RE = re.compile(r"^L?\s*-?\s*([0-9]{4})\b", re.IGNORECASE)
 # "bis rue du Nord".
 # Anchored to one end of the street segment or the other, because Luxembourg
 # writes both "12, rue de la Gare" and "rue de la Gare 12".
-_NUM = r"[0-9]+\s*[A-Za-z]?(?:\s*[-/]\s*[0-9]+\s*[A-Za-z]?)?(?:\s+(?:bis|ter|quater))?"
+_NUM = r"[0-9]+\s*[A-Za-z]?(?:\s*[-/]\s*[0-9]+\s*[A-Za-z]?)?(?:\s*(?:bis|ter|quater))?"
 _LEADING_NUMBER_RE = re.compile(rf"^({_NUM})(?=[,\s])", re.IGNORECASE)
 _TRAILING_NUMBER_RE = re.compile(rf"(?<=[,\s])({_NUM})$", re.IGNORECASE)
 
@@ -132,6 +132,21 @@ def _too_long_for_column(fields):
     return " ".join(too_long)
 
 
+def _result(fields, status, note):
+    """Every exit from the parser goes through here.
+
+    The length check has to guard *all* of them, not just the fully-parsed
+    path. `address_town` is set long before the street logic runs, so the
+    NO_STREET returns carried a town straight past the check -- and Postgres
+    rejecting one oversized value aborts the entire backfill mid-run, leaving
+    a half-migrated table behind.
+    """
+    oversized = _too_long_for_column(fields)
+    if oversized:
+        return fields, TOO_LONG, oversized
+    return fields, status, note
+
+
 # A segment that is nothing but a house number. Luxembourg's dominant format is
 # "7, rue du Nord" -- so splitting on commas alone would tear the number off its
 # street, strand it as an unexplained extra line, and lose it.
@@ -189,7 +204,7 @@ def parse_legacy_address(text, venue_name=""):
     """
     segments = _segments(text)
     if not segments:
-        return {}, NO_POSTCODE, "empty"
+        return _result({}, NO_POSTCODE, "empty")
 
     postcode_index = None
     match = None
@@ -208,7 +223,7 @@ def parse_legacy_address(text, venue_name=""):
         # Without a postcode there is no anchor, and guessing which line is the
         # street from prose like "Behind the old brewery" is exactly the kind of
         # invention this parser refuses.
-        return {}, NO_POSTCODE, segments[0]
+        return _result({}, NO_POSTCODE, segments[0])
 
     fields = {"address_postcode": match.group(1)}
 
@@ -218,13 +233,13 @@ def parse_legacy_address(text, venue_name=""):
     ).strip(" ,-")
     if not town or any(char.isdigit() for char in town):
         # "L-2229" alone, or something like "L-2229 Hall 3" that is not a town.
-        return fields, NO_TOWN, postcode_segment
+        return _result(fields, NO_TOWN, postcode_segment)
     fields["address_town"] = town
 
     if postcode_index == 0:
         # Everything sat on one line and the postcode consumed it; there is no
         # separate street segment to read.
-        return fields, NO_STREET, postcode_segment
+        return _result(fields, NO_STREET, postcode_segment)
 
     street_segment = segments[postcode_index - 1]
 
@@ -239,7 +254,7 @@ def parse_legacy_address(text, venue_name=""):
     # Hub" only matches before, and "Café Konrad" with a number on its own line
     # (which _segments rejoins into "7, Café Konrad") only matches after.
     if _same_place(street_segment, venue_name):
-        return fields, NO_STREET, street_segment
+        return _result(fields, NO_STREET, street_segment)
 
     number = ""
     ambiguous_number = False
@@ -263,12 +278,12 @@ def parse_legacy_address(text, venue_name=""):
     if not street_segment:
         # The segment was nothing but a number. Keep neither: a bare number in
         # `street` is worse than an empty one.
-        return fields, NO_STREET, segments[postcode_index - 1]
+        return _result(fields, NO_STREET, segments[postcode_index - 1])
 
     if _same_place(street_segment, venue_name):
         # What is left once the number came off is the venue, so the number was
         # never a house number and there is no street here at all.
-        return fields, NO_STREET, segments[postcode_index - 1]
+        return _result(fields, NO_STREET, segments[postcode_index - 1])
 
     fields["address_street"] = street_segment
     if number:
@@ -285,27 +300,20 @@ def parse_legacy_address(text, venue_name=""):
         if index not in (postcode_index, postcode_index - 1)
         and not _same_place(segment, venue_name)
     ]
-    # Length is checked before any of the "needs a human" statuses below, so an
-    # oversized component cannot slip out under one of them: Postgres would
-    # reject the write and abort the whole run mid-way.
-    oversized = _too_long_for_column(fields)
-    if oversized:
-        return fields, TOO_LONG, oversized
-
     if leftover:
-        return fields, EXTRA_TEXT, " | ".join(leftover)
+        return _result(fields, EXTRA_TEXT, " | ".join(leftover))
 
     if ambiguous_number:
-        return fields, CHECK_NUMBER, street_segment
+        return _result(fields, CHECK_NUMBER, street_segment)
 
     # A house number is proof enough that this is a street. Without one, the
     # line has to be recognisable as a street on its own -- "Rear entrance" sits
     # exactly where a street would and reads exactly like one to a parser that
     # only checks position.
     if not number and not _looks_like_a_street(street_segment):
-        return fields, CHECK_STREET, street_segment
+        return _result(fields, CHECK_STREET, street_segment)
 
-    return fields, (OK if number else NO_NUMBER), ""
+    return _result(fields, (OK if number else NO_NUMBER), "")
 
 
 class Command(BaseCommand):
