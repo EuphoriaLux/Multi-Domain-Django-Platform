@@ -320,6 +320,25 @@ class TestBulkPublishAction:
         event.refresh_from_db()
         assert event.is_published is False
 
+    def test_a_blank_canton_is_not_bulk_published(self):
+        """`clean()` has required a canton on published events all along.
+
+        The bulk action re-derived its own completeness rule and forgot it, so
+        an event with a full address but no canton sailed through silently.
+        Both now ask `unmet_publish_requirements()`.
+        """
+        event = self._event(
+            canton="",
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
     def test_a_complete_address_publishes(self):
         event = self._event(
             address_street="rue du Nord",
@@ -403,3 +422,21 @@ class TestPostcodeDisplay:
     def test_non_ascii_digits_are_not_treated_as_a_postcode(self):
         """`\\d` matches every Unicode decimal digit; the pattern uses [0-9]."""
         assert make_event(address_postcode="٢٢٢٩").postcode_display == "٢٢٢٩"
+
+    def test_a_trailing_newline_is_not_a_valid_postcode(self):
+        """A bare `$` matches before a trailing newline, so `match` accepted it.
+
+        The checks use `fullmatch` now — this pattern is the sole validity gate
+        for bulk publish and for the audit.
+        """
+        event = make_event(address_postcode="2229\n")
+        assert event.postcode_display == "2229\n"
+        assert (
+            "address_postcode"
+            in make_event(
+                is_published=True,
+                address_street="rue du Nord",
+                address_town="Luxembourg",
+                address_postcode="2229\n",
+            ).unmet_publish_requirements()
+        )

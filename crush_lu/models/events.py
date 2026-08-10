@@ -69,6 +69,9 @@ _WHITESPACE_RE = re.compile(r"\s+")
 # What the column is supposed to hold: four ASCII digits and nothing else. The
 # input pattern above accepts an "L-" prefix by design, so it cannot double as
 # the check for whether one still needs adding.
+#
+# Always used with `fullmatch`: a bare `$` also matches immediately before a
+# trailing newline, so `match` would accept a postcode with one on the end.
 _LU_POSTCODE_STORED_RE = re.compile(r"^[0-9]{4}$")
 
 
@@ -510,26 +513,11 @@ class MeetupEvent(models.Model):
 
         super().clean()
 
-        # Require canton for published events
-        if self.is_published and not self.canton:
-            raise ValidationError(
-                {"canton": _("Canton is required for published events.")}
-            )
-
-        # A published event is one echo.lu may publish on a national portal, so
-        # the address components it renders have to be there. `address_number`
-        # is deliberately not required: real venues have none (Place de la Gare,
-        # Parking Heringermill), and a required number field only invites a
-        # made-up one.
         if self.is_published:
-            missing = [
-                name
-                for name in ("address_street", "address_postcode", "address_town")
-                if not getattr(self, name)
-            ]
-            if missing:
+            unmet = self.unmet_publish_requirements()
+            if unmet:
                 raise ValidationError(
-                    {name: _("Required for published events.") for name in missing}
+                    {name: message for name, message in unmet.items()}
                 )
 
         # Gender caps: all three must be set together or all left blank
@@ -679,6 +667,35 @@ class MeetupEvent(models.Model):
             return f"{self.address_number}, {self.address_street}"
         return self.address_street
 
+    def unmet_publish_requirements(self):
+        """What stops this event being published, as {field: message}.
+
+        The single source of truth for "is this event fit for a public national
+        listing". `clean()` raises on it, the admin's bulk publish action
+        filters on it, and `backfill_event_addresses --audit` gates on it --
+        three call sites that each grew their own version of the rule and each
+        drifted: the bulk action forgot `canton` (which `clean()` had required
+        since long before this work), and the audit checked the postcode was
+        present rather than valid.
+
+        `address_number` is deliberately absent: real venues have none, and a
+        required number field only invites a made-up one.
+        """
+        unmet = {}
+        if not self.canton:
+            unmet["canton"] = _("Canton is required for published events.")
+        for name in ("address_street", "address_town"):
+            if not getattr(self, name):
+                unmet[name] = _("Required for published events.")
+        # Validity, not just presence: `.create()` and `.update()` skip field
+        # validators, so an impossible postcode can already be sitting in the
+        # column -- and echo.lu is now sent it verbatim.
+        if not _LU_POSTCODE_STORED_RE.fullmatch(self.address_postcode or ""):
+            unmet["address_postcode"] = _(
+                "A four-digit postcode is required for published events."
+            )
+        return unmet
+
     @property
     def postcode_display(self):
         """The postcode as Luxembourg writes it: "L-2229".
@@ -691,7 +708,7 @@ class MeetupEvent(models.Model):
         """
         if not self.address_postcode:
             return ""
-        if _LU_POSTCODE_STORED_RE.match(self.address_postcode):
+        if _LU_POSTCODE_STORED_RE.fullmatch(self.address_postcode):
             return f"L-{self.address_postcode}"
         return self.address_postcode
 

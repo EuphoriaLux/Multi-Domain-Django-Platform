@@ -636,17 +636,29 @@ def address_payload(event):
     rule `contact` already follows.
     """
     if event.address_street:
+        # A missing postcode or town is filled from the legacy text rather than
+        # left out. Branching on `address_street` alone means a half-transcribed
+        # row would otherwise publish a street with no locality at all -- less
+        # than the unsplit text it replaced, which is the one thing this must
+        # never do.
+        #
+        # `number` is NOT recovered that way. A blank house number is a
+        # statement -- this venue has none, which is true of Place de la Gare
+        # and Parking Heringermill -- so filling it from older text would
+        # reinstate a number somebody removed on purpose. Everywhere else in
+        # this change a house number is either known or absent, never inferred.
+        legacy = parse_address(event.address, "") if event.address else {}
         payload = {
             "street": event.address_street,
             "number": event.address_number,
-            "postcode": event.address_postcode,
+            "postcode": event.address_postcode or legacy.get("postcode", ""),
             # The town is the town. This used to fall back to `canton`, which
             # published a canton name where echo.lu shows a locality — and
             # `commune` got the canton outright. echo.lu's commune filter is a
             # controlled vocabulary and an unrecognised value 404s, so a wrong
             # one is worse than none: `commune` is omitted until we hold a real
             # one.
-            "town": event.address_town,
+            "town": event.address_town or legacy.get("town", ""),
             "country": "Luxembourg",
         }
         return {key: value for key, value in payload.items() if value}
@@ -675,6 +687,41 @@ def event_postcode(event):
     return parse_address(event.address, "").get("postcode", "")
 
 
+def event_venue_keys(event):
+    """Every key an EchoVenue row for this event might be stored under.
+
+    Existing links were all created while the postcode could only come from
+    parsing the legacy text. Now that the structured field wins, a postcode
+    somebody corrected by hand -- exactly what the backfill asks people to do
+    for the rows it refuses -- moves the key and orphans the link, and the
+    event stops publishing with "no echo.lu venue is linked".
+
+    So the structured key is tried first and the legacy-derived one second.
+    Returned in preference order, deduplicated, blanks dropped.
+    """
+    keys = []
+    for postcode in (
+        event.address_postcode,
+        parse_address(event.address, "").get("postcode", ""),
+    ):
+        key = venue_key(event.location, postcode)
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
+def _linked_venue_id(event):
+    """The echo.lu venue id linked to this event's venue, or None."""
+    from ..models.echo_lu import EchoVenue
+
+    keys = event_venue_keys(event)
+    rows = {row.key: row for row in EchoVenue.objects.filter(key__in=keys)}
+    for key in keys:
+        if key in rows:
+            return rows[key].venue_id
+    return None
+
+
 def venue_key(name, postcode=""):
     """Cache key for a venue: lowercased name plus postcode.
 
@@ -693,13 +740,10 @@ def cached_venue_ids(event):
     an answer rather than an error: the dry run, and the pre-lock fingerprint
     that decides whether an unchanged event needs a write at all.
     """
-    from ..models.echo_lu import EchoVenue
-
     if not event.location:
         return []
-    key = venue_key(event.location, event_postcode(event))
-    row = EchoVenue.objects.filter(key=key).first()
-    return [row.venue_id] if row else []
+    venue_id = _linked_venue_id(event)
+    return [venue_id] if venue_id else []
 
 
 def _echo_languages(codes):
@@ -815,16 +859,13 @@ def resolve_venue_ids(event):
     After that this is a single indexed lookup and the sync path touches no
     network at all.
     """
-    from ..models.echo_lu import EchoVenue
-
     if not event.location:
         return []
 
     postcode = event_postcode(event)
-    key = venue_key(event.location, postcode)
-    row = EchoVenue.objects.filter(key=key).first()
-    if row is not None:
-        return [row.venue_id]
+    venue_id = _linked_venue_id(event)
+    if venue_id is not None:
+        return [venue_id]
 
     raise EchoLuNotSent(
         f"no echo.lu venue is linked to {event.location!r}. echo.lu requires a "

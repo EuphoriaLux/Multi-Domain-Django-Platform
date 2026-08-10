@@ -29,7 +29,7 @@ from django.utils import timezone
 
 from crush_lu import signals as crush_signals
 from crush_lu.models import MeetupEvent
-from crush_lu.models.echo_lu import EchoExperienceSync
+from crush_lu.models.echo_lu import EchoExperienceSync, EchoVenue
 from crush_lu.services import echo_lu
 
 ENABLED = {"ECHO_LU_SYNC_ENABLED": True, "ECHO_LU_API_KEY": "test-key"}
@@ -289,6 +289,66 @@ class PayloadTests(TestCase):
 
         self.assertEqual(address["street"], "rue du Nord")
         self.assertEqual(address["postcode"], "2229")
+
+    def test_a_half_transcribed_row_recovers_its_locality_from_the_legacy_text(self):
+        # Branching on address_street alone published a street with no postcode
+        # or town at all -- less than the unsplit text it replaced.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="rue du Nord",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["postcode"], "2229")
+        self.assertEqual(address["town"], "Luxembourg")
+
+    def test_a_blank_house_number_is_never_refilled_from_the_legacy_text(self):
+        # A blank number is a statement -- this venue has none. Recovering it
+        # would reinstate a number somebody removed on purpose.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="Place de la Gare",
+            address_number="",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+
+    def test_a_corrected_postcode_keeps_an_existing_venue_link(self):
+        # Venue links were all created while the postcode could only come from
+        # parsing the legacy text. Preferring the structured field moves the
+        # key, so a postcode corrected by hand -- exactly what the backfill asks
+        # for on the rows it refuses -- would orphan the link and stop the event
+        # publishing.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_legacy"])
+
+    def test_the_structured_key_wins_when_both_exist(self):
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "1831"), venue_id="ven_current"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_current"])
 
     def test_the_legacy_fallback_does_not_smuggle_the_canton_back_in(self):
         # `parse_address` puts the canton in `commune` and substitutes it for a

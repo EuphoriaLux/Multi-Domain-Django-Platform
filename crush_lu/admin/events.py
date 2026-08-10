@@ -31,11 +31,7 @@ from crush_lu.models import (
     MeetupEvent,
     PresentationQueue,
 )
-from crush_lu.models.events import (
-    SEAT_HOLDING_STATUSES,
-    _LU_POSTCODE_STORED_RE,
-    normalize_lu_postcode,
-)
+from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
 
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
@@ -721,20 +717,11 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # below, selecting a batch of drafts publishes the incomplete ones and
         # sends them straight to a national portal with half an address —
         # the one publish route that bypasses every guard on the change form.
-        # Validity, not just presence. `.update()` and `.create()` skip field
-        # validators, so a row can hold a truthy but impossible postcode
-        # ("ABCD", Unicode digits) -- and `address_payload` now forwards it to
-        # echo.lu verbatim rather than reparsing the legacy text. The audit
-        # applies the same rule for the same reason.
-        incomplete = [
-            event
-            for event in queryset
-            if not (
-                event.address_street
-                and event.address_town
-                and _LU_POSTCODE_STORED_RE.match(event.address_postcode or "")
-            )
-        ]
+        # `MeetupEvent.unmet_publish_requirements()` is the one definition of
+        # what a publishable event needs -- shared with `clean()` and with
+        # `backfill_event_addresses --audit`. Re-deriving it here is what let
+        # this action forget `canton`, which `clean()` has required all along.
+        incomplete = [event for event in queryset if event.unmet_publish_requirements()]
         if incomplete:
             queryset = queryset.exclude(pk__in=[event.pk for event in incomplete])
             django_messages.warning(

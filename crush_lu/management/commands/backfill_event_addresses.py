@@ -23,7 +23,6 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from crush_lu.models import MeetupEvent
-from crush_lu.models.events import _LU_POSTCODE_STORED_RE
 
 # A Luxembourg postcode: four digits, optionally behind the national "L-".
 # ASCII digits only -- `\d` matches every Unicode decimal, and "٢٢٢٩" is not a
@@ -443,11 +442,7 @@ class Command(BaseCommand):
         incomplete = [
             event
             for event in MeetupEvent.objects.filter(is_published=True).order_by("pk")
-            if not (
-                event.address_street
-                and event.address_town
-                and _LU_POSTCODE_STORED_RE.match(event.address_postcode or "")
-            )
+            if event.unmet_publish_requirements()
         ]
         valid_cantons = {value for value, _label in MeetupEvent.CANTON_CHOICES}
         # A blank canton counts as stray on a PUBLISHED event: `clean()` has
