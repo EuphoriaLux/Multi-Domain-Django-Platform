@@ -57,11 +57,13 @@ CHECK_NUMBER = "CHECK_NUMBER"
 
 CLEAN_STATUSES = {OK, NO_NUMBER}
 
-# Which parses may touch the database.
+# Which parses may touch the database. Every one of them writes all four
+# components (see the write loop); the question here is only whether a parse is
+# trustworthy enough to write at all.
 #
-# A clean parse writes everything. NO_STREET and NO_TOWN write the partial they
-# did resolve, which is harmless: with no street, `full_address` keeps falling
-# back to the legacy text, so nothing published changes.
+# A clean parse is. So are NO_STREET and NO_TOWN: they resolve less, but what
+# they resolve is right, and with no street `full_address` keeps falling back
+# to the legacy text, so nothing published changes either way.
 #
 # The rest write NOTHING. EXTRA_TEXT and CHECK_NUMBER both produce a complete
 # street/postcode/town -- which is exactly the problem, because writing it hands
