@@ -32,6 +32,15 @@ from crush_lu.models import (
     PresentationQueue,
 )
 from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+
+# Size the address boxes to the data, so the shape of a Luxembourg address is
+# legible at a glance. `address_postcode` is absent on purpose — its widget
+# lives on the declared form field, which formfield_for_dbfield cannot reach.
+ADDRESS_WIDGET_ATTRS = {
+    "address_street": {"size": 50, "placeholder": "rue du Nord"},
+    "address_number": {"size": 8, "placeholder": "7"},
+    "address_town": {"size": 30, "placeholder": "Luxembourg"},
+}
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
 
@@ -414,10 +423,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "canton",
     )
     readonly_fields = (
-        # Legacy free text: shown for transcription, never edited again. This is
-        # what makes the split stick — with it writable, staff keep typing
-        # addresses into the one box that no longer feeds echo.lu.
-        "address",
         "created_at",
         "updated_at",
         "invitation_code",
@@ -493,9 +498,11 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "fields": ("address",),
                 "classes": ("collapse",),
                 "description": (
-                    "Read-only. What was typed before the address was split into "
-                    "fields — kept so it can be transcribed into the fields above, "
-                    "then ignored."
+                    "What was typed before the address was split into fields. "
+                    "Transcribe it into the fields above; until you do, this is "
+                    "still what tickets, e-mails and echo.lu publish, so it stays "
+                    "editable for now. It becomes read-only once the backfill has "
+                    "run and echo.lu reads the structured fields."
                 ),
             },
         ),
@@ -1292,16 +1299,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "• This size works great for social media sharing (Open Graph) and displays perfectly on all devices\n"
                 "• The image will be cropped to fit: centered on mobile, full width on desktop"
             )
-        elif db_field.name in ("address_street", "address_number", "address_town"):
-            # Size the boxes to the data so the shape of a Luxembourg address is
-            # legible at a glance. `address_postcode` is absent on purpose — its
-            # widget lives on the declared form field, which this cannot reach.
+        elif db_field.name in ADDRESS_WIDGET_ATTRS:
             kwargs["widget"] = forms.TextInput(
-                attrs={
-                    "address_street": {"size": 50, "placeholder": "rue du Nord"},
-                    "address_number": {"size": 8, "placeholder": "7"},
-                    "address_town": {"size": 30, "placeholder": "Luxembourg"},
-                }[db_field.name]
+                attrs=ADDRESS_WIDGET_ATTRS[db_field.name]
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 

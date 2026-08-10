@@ -135,9 +135,13 @@ class MeetupEvent(models.Model):
     # The venue address, one component per field. echo.lu publishes these
     # separately on a national listing and renders whatever it is given
     # verbatim, so they are captured as typed rather than parsed back out of
-    # free text. All blank=True: `clean()` requires them for published events,
-    # which keeps the column permissive for the many fixtures and management
-    # commands that build events directly.
+    # free text.
+    #
+    # All blank=True, and nothing requires them yet: making them mandatory for
+    # published events is deliberately held back until the backfill has run
+    # (`manage.py backfill_event_addresses`), because `clean()` fires on every
+    # admin save and would otherwise block a coach editing an unrelated field
+    # on an event whose address is still legacy text.
     address_street = models.CharField(
         max_length=200,
         blank=True,
@@ -607,32 +611,25 @@ class MeetupEvent(models.Model):
         return total_remaining - public_remaining
 
     @property
-    def full_address(self):
-        """The venue address on one line, for tickets, e-mails, ICS and JSON-LD.
+    def street_line(self):
+        """The street with its house number: "45, rue Emile Mark".
 
-        Formats as "7, rue du Nord, L-2229 Luxembourg". Missing components are
-        dropped rather than left as gaps or stray separators.
-
-        Falls back to the legacy free-text `address` while the structured
-        fields are empty, which is what lets every existing caller -- and every
-        existing test fixture -- keep rendering exactly what it renders today.
-        Returns "" when there is nothing at all, because several templates
-        guard on the truthiness of the address before printing a label.
-
-        The fallback deliberately triggers on street/town rather than on any
-        field being set: a row where only the postcode could be recovered must
-        not shadow a richer legacy string with a bare "L-2229".
+        One definition, because `full_address` and the schema.org PostalAddress
+        both need it and a separator change made in only one of them would put
+        two different addresses on the same page.
         """
-        if not (self.address_street or self.address_town):
-            return (self.address or "").strip()
+        if not self.address_street:
+            return ""
+        if self.address_number:
+            return f"{self.address_number}, {self.address_street}"
+        return self.address_street
 
+    @property
+    def structured_address(self):
+        """The structured fields on one line, or "" if none are filled in."""
         parts = []
-        if self.address_street:
-            parts.append(
-                f"{self.address_number}, {self.address_street}"
-                if self.address_number
-                else self.address_street
-            )
+        if self.street_line:
+            parts.append(self.street_line)
         locality = " ".join(
             part
             for part in (
@@ -644,6 +641,30 @@ class MeetupEvent(models.Model):
         if locality:
             parts.append(locality)
         return ", ".join(parts)
+
+    @property
+    def full_address(self):
+        """The venue address on one line, for tickets, e-mails, ICS and JSON-LD.
+
+        Formats as "7, rue du Nord, L-2229 Luxembourg". Missing components are
+        dropped rather than left as gaps or stray separators. Returns "" when
+        there is nothing at all, because several templates guard on the
+        truthiness of the address before printing a label.
+
+        **The legacy free text wins over a half-filled structured address.**
+        Transcribing an address into four boxes is not atomic -- a coach who
+        fills in the town and saves would otherwise turn
+        "7, rue du Nord, L-2229 Luxembourg" into "Luxembourg" on every wallet
+        pass, ticket, e-mail and calendar entry already issued. So the
+        structured fields only take over once `address_street` is set, which is
+        the component that makes them at least as informative as the text they
+        replace. With no legacy text there is nothing to lose, so whatever is
+        filled in is used.
+        """
+        composed = self.structured_address
+        if self.address_street:
+            return composed
+        return (self.address or "").strip() or composed
 
     @property
     def end_time(self):

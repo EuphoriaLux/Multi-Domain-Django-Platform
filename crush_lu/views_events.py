@@ -152,18 +152,15 @@ def _postal_address(event):
     structured fields exist to end, and search engines read these keys
     separately.
 
-    Legacy rows with no structured street still get their whole address in
-    `streetAddress` -- less precise, but never empty.
+    Legacy rows with no structured street fall back to whatever address we do
+    hold, which is less precise but as informative as the record gets. It can
+    still be "" for an event with no address at all -- an empty key is dropped
+    rather than published blank.
     """
     postal = {"@type": "PostalAddress", "addressCountry": "LU"}
-    if event.address_street:
-        postal["streetAddress"] = (
-            f"{event.address_number}, {event.address_street}"
-            if event.address_number
-            else event.address_street
-        )
-    else:
-        postal["streetAddress"] = event.full_address
+    street = event.street_line or event.full_address
+    if street:
+        postal["streetAddress"] = street
     if event.address_postcode:
         postal["postalCode"] = event.address_postcode
     # The locality is the town. It used to be `event.location`, which is the

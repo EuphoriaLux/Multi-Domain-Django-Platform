@@ -94,18 +94,42 @@ class TestFullAddress:
         event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
         assert event.full_address == "7, rue du Nord\nL-2229 Luxembourg"
 
-    def test_postcode_alone_does_not_shadow_legacy_text(self):
-        """A half-parsed row must not replace a richer legacy string.
+    @pytest.mark.parametrize(
+        "partial",
+        [
+            {"address_postcode": "2229"},
+            {"address_town": "Luxembourg"},
+            {"address_postcode": "2229", "address_town": "Luxembourg"},
+            {"address_number": "7"},
+        ],
+    )
+    def test_a_half_transcribed_address_does_not_replace_the_legacy_text(self, partial):
+        """Transcribing into four boxes is not atomic.
 
-        If the fallback triggered on "no field set at all", a backfill that
-        recovered only the postcode would publish a bare "L-2229" in place of
-        the full address we already hold.
+        A coach who fills in the town and saves must not turn the full address
+        into "Luxembourg" on every wallet pass, ticket and e-mail already
+        issued. Only `address_street` — the component that makes the structured
+        fields at least as informative as the text they replace — hands over.
         """
+        legacy = "7, rue du Nord\nL-2229 Luxembourg"
+        assert make_event(address=legacy, **partial).full_address == legacy
+
+    def test_street_hands_over_from_the_legacy_text(self):
         event = make_event(
-            address="Behind the old brewery, L-2229",
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="rue du Nord",
+            address_number="7",
             address_postcode="2229",
+            address_town="Luxembourg",
         )
-        assert event.full_address == "Behind the old brewery, L-2229"
+        assert event.full_address == "7, rue du Nord, L-2229 Luxembourg"
+
+    def test_partial_fields_are_used_when_there_is_no_legacy_text(self):
+        """Nothing to lose, so show what we have rather than nothing."""
+        event = make_event(
+            address="", address_postcode="2229", address_town="Luxembourg"
+        )
+        assert event.full_address == "L-2229 Luxembourg"
 
     def test_empty_is_empty_string(self):
         """Templates guard on truthiness before printing an address label."""
