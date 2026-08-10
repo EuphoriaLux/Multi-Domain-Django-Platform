@@ -17,7 +17,7 @@
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
         <li><strong>{% trans "Location:" %}</strong><br>
             {{ event.location }}<br>
-            {{ event.address }}<br>
+            {{ event.full_address }}<br>
             {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}
         </li>
         {% if event.registration_fee > 0 %}

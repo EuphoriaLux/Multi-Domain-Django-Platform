@@ -1,9 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
+import re
 import uuid
 from .profiles import CrushCoach, SpecialUserExperience
 from crush_lu.storage import crush_upload_path, crush_media_storage
@@ -24,6 +25,64 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # the annotation when present*, so if the two lists ever disagree the same event
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
+
+# Luxembourg's 12 cantons, stored as display names rather than slugs.
+#
+# The profile side keeps the same 12 as `canton-*` slugs (crush_lu/forms.py),
+# because those key an interactive SVG map. Events have no map, and `canton` is
+# rendered raw in a dozen places -- OG tags, meta description, JSON-LD
+# addressRegion, the anonymous location teaser -- so slugs would need a display
+# lookup at every one of them, and would silently publish "canton-esch" at any
+# site that was missed. The two vocabularies stay separate on purpose.
+#
+# Cantons rather than communes: this field is a privacy control. The event page
+# shows it to anonymous visitors *instead of* the address, and a commune -- many
+# under 2,000 residents -- narrows an unlisted venue to roughly a street. The
+# precise locality now lives in `address_town`, which is what removed the
+# pressure that made canton do both jobs.
+CANTON_CHOICES = [
+    ("Capellen", _("Capellen")),
+    ("Clervaux", _("Clervaux")),
+    ("Diekirch", _("Diekirch")),
+    ("Echternach", _("Echternach")),
+    ("Esch-sur-Alzette", _("Esch-sur-Alzette")),
+    ("Grevenmacher", _("Grevenmacher")),
+    ("Luxembourg", _("Luxembourg")),
+    ("Mersch", _("Mersch")),
+    ("Redange", _("Redange")),
+    ("Remich", _("Remich")),
+    ("Vianden", _("Vianden")),
+    ("Wiltz", _("Wiltz")),
+]
+
+# A Luxembourg postcode once whitespace is out of the way: four digits behind
+# an optional national "L-" prefix.
+#
+# Whitespace is stripped separately rather than woven into this pattern. An
+# earlier version read `^\s*(?:L\s*-?\s*)?(\d{4})\s*$`, where the leading `\s*`
+# and the prefix group's own `\s*` can match the same run of spaces: input like
+# "l" followed by many spaces gives the engine a quadratic number of ways to
+# split them before it can fail, which CodeQL flags as a polynomial ReDoS. This
+# field is filled from an admin form, so the input is attacker-influenced.
+_LU_POSTCODE_INPUT_RE = re.compile(r"^(?:L-?)?([0-9]{4})$", re.IGNORECASE)
+_WHITESPACE_RE = re.compile(r"\s+")
+# What the column is supposed to hold: four ASCII digits and nothing else. The
+# input pattern above accepts an "L-" prefix by design, so it cannot double as
+# the check for whether one still needs adding.
+_LU_POSTCODE_STORED_RE = re.compile(r"^[0-9]{4}$")
+
+
+def normalize_lu_postcode(value):
+    """Reduce a typed Luxembourg postcode to its four bare digits.
+
+    Accepts "L-2229", "L2229", "l - 2229" and "2229". Anything else is handed
+    back stripped but otherwise untouched, so the field's RegexValidator is what
+    reports the typo -- this helper must never quietly swallow one, because a
+    wrong postcode on a national portal sends people to the wrong town.
+    """
+    compact = _WHITESPACE_RE.sub("", value or "")
+    match = _LU_POSTCODE_INPUT_RE.match(compact)
+    return match.group(1) if match else (value or "").strip()
 
 
 class MeetupEventQuerySet(models.QuerySet):
@@ -89,6 +148,10 @@ class MeetupEvent(models.Model):
         ("crush_cache", "Crush Cache Hunt"),
     ]
 
+    # Reachable as MeetupEvent.CANTON_CHOICES for callers that validate against
+    # the list without importing the module constant.
+    CANTON_CHOICES = CANTON_CHOICES
+
     title = models.CharField(max_length=200)
     description = models.TextField()
     event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
@@ -106,7 +169,63 @@ class MeetupEvent(models.Model):
 
     # Event Details
     location = models.CharField(max_length=200)
-    address = models.TextField()
+    # The venue address, one component per field. echo.lu publishes these
+    # separately on a national listing and renders whatever it is given
+    # verbatim, so they are captured as typed rather than parsed back out of
+    # free text.
+    #
+    # All blank=True, and nothing requires them yet: making them mandatory for
+    # published events is deliberately held back until the backfill has run
+    # (`manage.py backfill_event_addresses`), because `clean()` fires on every
+    # admin save and would otherwise block a coach editing an unrelated field
+    # on an event whose address is still legacy text.
+    address_street = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Street"),
+        help_text=_("Street name only, without the house number (e.g. 'rue du Nord')."),
+    )
+    address_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("House number"),
+        help_text=_(
+            "House number exactly as written: '7', '12A', '12-14'. "
+            "Leave blank if the venue has no number."
+        ),
+    )
+    address_postcode = models.CharField(
+        max_length=4,
+        blank=True,
+        validators=[
+            RegexValidator(
+                regex=r"^[0-9]{4}$",
+                message=_("Luxembourg postcodes are exactly four digits."),
+            )
+        ],
+        verbose_name=_("Postcode"),
+        help_text=_(
+            "Four digits. Type 'L-2229' or '2229' - the 'L-' is added on display."
+        ),
+    )
+    address_town = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Town"),
+        help_text=_(
+            "The town the venue is in (e.g. 'Luxembourg', 'Differdange'). This is "
+            "NOT the canton - the canton is its own field."
+        ),
+    )
+    address = models.TextField(
+        blank=True,
+        verbose_name=_("Legacy address (free text)"),
+        help_text=_(
+            "Being replaced by the street/number/postcode/town fields above. Kept so "
+            "events created before the split keep rendering, and still what "
+            "echo.lu publishes until an event's street is filled in."
+        ),
+    )
     latitude = models.DecimalField(
         max_digits=9,
         decimal_places=6,
@@ -124,8 +243,10 @@ class MeetupEvent(models.Model):
     canton = models.CharField(
         max_length=200,
         blank=True,
+        choices=CANTON_CHOICES,
         help_text=_(
-            "Canton/region visible to public visitors (e.g., 'Luxembourg', 'Esch-sur-Alzette'). Free-text entry for flexibility."
+            "The region anonymous visitors see instead of the exact address. "
+            "This is the canton, not the town - the town has its own field."
         ),
     )
     date_time = models.DateTimeField()
@@ -527,6 +648,73 @@ class MeetupEvent(models.Model):
         total_remaining = max(0, self.max_participants - confirmed)
         public_remaining = max(0, self.public_capacity - confirmed)
         return total_remaining - public_remaining
+
+    @property
+    def street_line(self):
+        """The street with its house number: "45, rue Emile Mark".
+
+        One definition, because `full_address` and the schema.org PostalAddress
+        both need it and a separator change made in only one of them would put
+        two different addresses on the same page.
+        """
+        if not self.address_street:
+            return ""
+        if self.address_number:
+            return f"{self.address_number}, {self.address_street}"
+        return self.address_street
+
+    @property
+    def postcode_display(self):
+        """The postcode as Luxembourg writes it: "L-2229".
+
+        The prefix is only added to something that is actually four digits.
+        `normalize_lu_postcode` runs in the admin form, but `.create()` and
+        `.update()` call neither it nor `full_clean()`, so a fixture or a data
+        migration can put anything in this column -- and "L-L-2229" on a ticket
+        would be a self-inflicted wound.
+        """
+        if not self.address_postcode:
+            return ""
+        if _LU_POSTCODE_STORED_RE.match(self.address_postcode):
+            return f"L-{self.address_postcode}"
+        return self.address_postcode
+
+    @property
+    def structured_address(self):
+        """The structured fields on one line, or "" if none are filled in."""
+        parts = []
+        if self.street_line:
+            parts.append(self.street_line)
+        locality = " ".join(
+            part for part in (self.postcode_display, self.address_town) if part
+        )
+        if locality:
+            parts.append(locality)
+        return ", ".join(parts)
+
+    @property
+    def full_address(self):
+        """The venue address on one line, for tickets, e-mails, ICS and JSON-LD.
+
+        Formats as "7, rue du Nord, L-2229 Luxembourg". Missing components are
+        dropped rather than left as gaps or stray separators. Returns "" when
+        there is nothing at all, because several templates guard on the
+        truthiness of the address before printing a label.
+
+        **The legacy free text wins over a half-filled structured address.**
+        Transcribing an address into four boxes is not atomic -- a coach who
+        fills in the town and saves would otherwise turn
+        "7, rue du Nord, L-2229 Luxembourg" into "Luxembourg" on every wallet
+        pass, ticket, e-mail and calendar entry already issued. So the
+        structured fields only take over once `address_street` is set, which is
+        the component that makes them at least as informative as the text they
+        replace. With no legacy text there is nothing to lose, so whatever is
+        filled in is used.
+        """
+        composed = self.structured_address
+        if self.address_street:
+            return composed
+        return (self.address or "").strip() or composed
 
     @property
     def end_time(self):

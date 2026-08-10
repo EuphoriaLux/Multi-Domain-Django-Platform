@@ -559,11 +559,23 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
 # any of them leaves installed passes showing something that is simply wrong,
 # so refresh_apple_tickets_on_event_change compares all of them — not just the
 # start time. Keep in sync with apple_event_ticket.build_apple_event_ticket.
+#
+# The back field is composed by MeetupEvent.full_address, so *every component
+# that property reads* belongs in this tuple — including the legacy `address`
+# it falls back to. Miss one and editing that field silently stops refreshing
+# installed passes: no error anywhere, just a card showing the old venue.
+#
+# `canton` is deliberately absent: no wallet surface renders it, so listing it
+# would cost an APNs fan-out that changes nothing on the card.
 _TICKET_PAYLOAD_BASE_FIELDS = (
     "date_time",      # date/time fields, relevantDate, expirationDate
     "duration_minutes",  # expirationDate
     "location",       # auxiliary field
-    "address",        # back field
+    "address",        # back field — legacy free text, still the fallback
+    "address_street",    # back field, via full_address
+    "address_number",    # back field, via full_address
+    "address_postcode",  # back field, via full_address
+    "address_town",      # back field, via full_address
     "event_type",     # back field (get_event_type_display)
     "latitude",       # locations[] lock-screen trigger
     "longitude",

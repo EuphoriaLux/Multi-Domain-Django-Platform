@@ -295,7 +295,7 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
                 {
                     "key": "address",
                     "label": "Address",
-                    "value": event.address,
+                    "value": event.full_address,
                 },
                 {
                     "key": "event_type",

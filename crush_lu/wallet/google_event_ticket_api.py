@@ -56,7 +56,7 @@ def create_event_ticket_class(event):
                 "defaultValue": {"language": "en-US", "value": event.location}
             },
             "address": {
-                "defaultValue": {"language": "en-US", "value": event.address}
+                "defaultValue": {"language": "en-US", "value": event.full_address}
             },
         },
         "dateTime": {
@@ -151,7 +151,7 @@ def update_event_ticket(registration):
             "textModulesData": [
                 {"id": "date", "header": "Date", "body": event_date},
                 {"id": "time", "header": "Time", "body": event_time},
-                {"id": "location", "header": "Location", "body": f"{event.location}\n{event.address}"},
+                {"id": "location", "header": "Location", "body": f"{event.location}\n{event.full_address}"},
             ],
         }
 

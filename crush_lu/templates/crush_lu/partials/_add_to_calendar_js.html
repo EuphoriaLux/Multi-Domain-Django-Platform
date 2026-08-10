@@ -6,7 +6,7 @@
 
     var title = '{{ event.title|escapejs }}';
     var description = '{{ event.description|escapejs }}';
-    var location = '{% if user.is_authenticated %}{{ event.location|escapejs }}, {{ event.address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}';
+    var location = '{% if user.is_authenticated %}{{ event.location|escapejs }}, {{ event.full_address|escapejs }}{% else %}{{ event.canton|default:"Luxembourg"|escapejs }}{% endif %}';
     var eventUrl = window.location.origin + '{% url "crush_lu:event_detail" event.id %}';
 
     var startDate = new Date('{{ event.date_time|date:"c" }}');
