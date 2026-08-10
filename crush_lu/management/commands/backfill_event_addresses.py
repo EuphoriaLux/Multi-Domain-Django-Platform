@@ -1,0 +1,404 @@
+"""Fill the structured address fields from the legacy free-text `address`.
+
+A management command rather than a data migration, deliberately. Migrations run
+unattended on deploy; this parses hand-typed text whose output is published on
+a national events portal, so it has to be readable before it is trusted,
+re-runnable after somebody fixes a row by hand, and safe to leave half-done.
+`MeetupEvent.full_address` already falls back to the legacy text, so nothing
+breaks while this has not run.
+
+    python manage.py backfill_event_addresses --dry-run   # read this first
+    python manage.py backfill_event_addresses
+    python manage.py backfill_event_addresses --audit      # what still needs a human
+
+The parser is confident-or-nothing. It never invents a house number and never
+guesses a street: a component it cannot identify is left blank and the event is
+reported, because a wrong number on a public listing sends people to the wrong
+door, while a missing one merely sends them to the right street.
+"""
+
+import re
+
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from crush_lu.models import MeetupEvent
+
+# A Luxembourg postcode: four digits, optionally behind the national "L-".
+# ASCII digits only -- `\d` matches every Unicode decimal, and "٢٢٢٩" is not a
+# Luxembourg postcode however convincingly it renders.
+_POSTCODE_RE = re.compile(r"\bL?\s*-?\s*([0-9]{4})\b", re.IGNORECASE)
+_PREFIXED_POSTCODE_RE = re.compile(r"\bL\s*-\s*([0-9]{4})\b", re.IGNORECASE)
+# The postcode at the START of its segment: the shape of a real "4620
+# Differdange" line, as opposed to a number that merely appears somewhere in a
+# line of prose.
+_LEADING_POSTCODE_RE = re.compile(r"^L?\s*-?\s*([0-9]{4})\b", re.IGNORECASE)
+
+# A house number: a digit run, optionally with a letter, optionally a range.
+# Anchored to one end of the street segment or the other, because Luxembourg
+# writes both "12, rue de la Gare" and "rue de la Gare 12".
+_LEADING_NUMBER_RE = re.compile(
+    r"^(\d+\s*[A-Za-z]?(?:\s*[-/]\s*\d+\s*[A-Za-z]?)?)(?=[,\s])"
+)
+_TRAILING_NUMBER_RE = re.compile(
+    r"(?<=[,\s])(\d+\s*[A-Za-z]?(?:\s*[-/]\s*\d+\s*[A-Za-z]?)?)$"
+)
+
+# Statuses. Only OK and NO_NUMBER are clean outcomes -- a venue with no street
+# number is normal, not a failure.
+OK = "OK"
+NO_NUMBER = "NO_NUMBER"
+NO_POSTCODE = "NO_POSTCODE"
+NO_TOWN = "NO_TOWN"
+NO_STREET = "NO_STREET"
+EXTRA_TEXT = "EXTRA_TEXT"
+TOO_LONG = "TOO_LONG"
+CHECK_NUMBER = "CHECK_NUMBER"
+
+CLEAN_STATUSES = {OK, NO_NUMBER}
+
+# Which parses may touch the database.
+#
+# A clean parse writes everything. NO_STREET and NO_TOWN write the partial they
+# did resolve, which is harmless: with no street, `full_address` keeps falling
+# back to the legacy text, so nothing published changes.
+#
+# The rest write NOTHING. EXTRA_TEXT and CHECK_NUMBER both produce a complete
+# street/postcode/town -- which is exactly the problem, because writing it hands
+# `full_address` over to the structured fields and the unexplained line, or the
+# possibly-fabricated house number, silently stops being published. Worse, the
+# row then looks complete to `--audit` and nothing ever flags it again.
+WRITABLE_STATUSES = CLEAN_STATUSES | {NO_STREET, NO_TOWN}
+
+# Every component the parser can produce, so a --force reparse can clear the
+# ones a clean parse says are absent instead of leaving stale values behind.
+ADDRESS_FIELDS = (
+    "address_street",
+    "address_number",
+    "address_postcode",
+    "address_town",
+)
+
+
+def _same_place(segment, venue_name):
+    """Whether a segment is just the venue name we already hold in `location`."""
+    return bool(venue_name) and segment.casefold() == venue_name.casefold()
+
+
+def _too_long_for_column(fields):
+    """Report any parsed component the column cannot hold, or "" if all fit."""
+    too_long = [
+        f"{name.removeprefix('address_')}={value!r}"
+        for name, value in fields.items()
+        if len(value) > MeetupEvent._meta.get_field(name).max_length
+    ]
+    return " ".join(too_long)
+
+
+# A segment that is nothing but a house number. Luxembourg's dominant format is
+# "7, rue du Nord" -- so splitting on commas alone would tear the number off its
+# street, strand it as an unexplained extra line, and lose it.
+_BARE_NUMBER_RE = re.compile(r"^\d+\s*[A-Za-z]?(?:\s*[-/]\s*\d+\s*[A-Za-z]?)?$")
+
+
+def _segments(text):
+    """Split free text into address segments, on newlines and then commas."""
+    pieces = []
+    for line in (text or "").splitlines():
+        for piece in line.split(","):
+            piece = piece.strip(" \t-")
+            if piece:
+                pieces.append(piece)
+
+    segments = []
+    index = 0
+    while index < len(pieces):
+        piece = pieces[index]
+        # A segment that is only a house number belongs to the street beside
+        # it -- but only if the neighbour IS a street. "Rue Test / 7 / L-1234
+        # Luxembourg" would otherwise glue the number to the postcode line and
+        # lose both the street and the town.
+        if (
+            _BARE_NUMBER_RE.match(piece)
+            and index + 1 < len(pieces)
+            and not _POSTCODE_RE.search(pieces[index + 1])
+        ):
+            segments.append(f"{piece}, {pieces[index + 1]}")
+            index += 2
+            continue
+        if _BARE_NUMBER_RE.match(piece) and segments:
+            # Number on its own line, with the street above it instead.
+            segments[-1] = f"{piece}, {segments[-1]}"
+            index += 1
+            continue
+        segments.append(piece)
+        index += 1
+    return segments
+
+
+def parse_legacy_address(text, venue_name=""):
+    """Split hand-typed address text into components.
+
+    Returns ``(fields, status, note)``. ``fields`` only ever contains keys the
+    parser is confident about, so a caller can apply it wholesale.
+
+    The postcode is located first because everything else is positioned
+    relative to it. An "L-" prefixed match wins anywhere. Failing that, the
+    last segment that *starts* with a bare four-digit group wins -- that is the
+    shape a real "4620 Differdange" line takes, and requiring it rules out both
+    a venue whose name starts with digits ("1535 Creative Hub") and a trailing
+    aside that merely contains a number ("Depuis 1920"), either of which would
+    otherwise be read as the postcode and collapse the whole address.
+    """
+    segments = _segments(text)
+    if not segments:
+        return {}, NO_POSTCODE, "empty"
+
+    postcode_index = None
+    match = None
+    for index, segment in enumerate(segments):
+        found = _PREFIXED_POSTCODE_RE.search(segment)
+        if found:
+            postcode_index, match = index, found
+            break
+    if match is None:
+        for index in range(len(segments) - 1, -1, -1):
+            found = _LEADING_POSTCODE_RE.match(segments[index])
+            if found:
+                postcode_index, match = index, found
+                break
+    if match is None:
+        # Without a postcode there is no anchor, and guessing which line is the
+        # street from prose like "Behind the old brewery" is exactly the kind of
+        # invention this parser refuses.
+        return {}, NO_POSTCODE, segments[0]
+
+    fields = {"address_postcode": match.group(1)}
+
+    postcode_segment = segments[postcode_index]
+    town = (
+        postcode_segment[: match.start()] + " " + postcode_segment[match.end() :]
+    ).strip(" ,-")
+    if not town or any(char.isdigit() for char in town):
+        # "L-2229" alone, or something like "L-2229 Hall 3" that is not a town.
+        return fields, NO_TOWN, postcode_segment
+    fields["address_town"] = town
+
+    if postcode_index == 0:
+        # Everything sat on one line and the postcode consumed it; there is no
+        # separate street segment to read.
+        return fields, NO_STREET, postcode_segment
+
+    street_segment = segments[postcode_index - 1]
+
+    # The segment above the postcode is only the street if it is not the venue
+    # name. "1535 Creative Hub\nL-4620 Differdange" has no street line at all,
+    # and feeding the venue to the house-number parser yields street="Creative
+    # Hub", number="1535" -- the exact shape of wrong address this parser
+    # exists to refuse, and it would report OK and sail past --audit.
+    if _same_place(street_segment, venue_name):
+        return fields, NO_STREET, street_segment
+
+    number = ""
+    ambiguous_number = False
+    leading = _LEADING_NUMBER_RE.match(street_segment)
+    if leading:
+        number = leading.group(1).strip()
+        street_segment = street_segment[leading.end() :].strip(" ,")
+    else:
+        trailing = _TRAILING_NUMBER_RE.search(street_segment)
+        if trailing:
+            # A number at the END is genuinely ambiguous: "rue de la Tour Jacob
+            # 145" is a house number, and Luxembourg's "Rue de l'An 40" is part
+            # of the street's name. Nothing in the text distinguishes them, and
+            # only a street register could. Split it so a human has something
+            # to confirm, but never call it clean -- a fabricated split sends a
+            # national listing to the wrong door while reporting OK.
+            number = trailing.group(1).strip()
+            street_segment = street_segment[: trailing.start()].strip(" ,")
+            ambiguous_number = True
+
+    if not street_segment:
+        # The segment was nothing but a number. Keep neither: a bare number in
+        # `street` is worse than an empty one.
+        return fields, NO_STREET, segments[postcode_index - 1]
+
+    fields["address_street"] = street_segment
+    if number:
+        fields["address_number"] = number
+
+    # Anything that is not the venue name and did not become a component is
+    # unexplained: lines above the street, and anything after the postcode
+    # (access instructions like "Rear entrance" live there). Report it rather
+    # than dropping it -- once the structured fields take over, whatever is not
+    # carried across stops being published.
+    leftover = [
+        segment
+        for index, segment in enumerate(segments)
+        if index not in (postcode_index, postcode_index - 1)
+        and not _same_place(segment, venue_name)
+    ]
+    # Length is checked before any of the "needs a human" statuses below, so an
+    # oversized component cannot slip out under one of them: Postgres would
+    # reject the write and abort the whole run mid-way.
+    oversized = _too_long_for_column(fields)
+    if oversized:
+        return fields, TOO_LONG, oversized
+
+    if leftover:
+        return fields, EXTRA_TEXT, " | ".join(leftover)
+
+    if ambiguous_number:
+        return fields, CHECK_NUMBER, street_segment
+
+    return fields, (OK if number else NO_NUMBER), ""
+
+
+class Command(BaseCommand):
+    help = "Fill structured address fields from the legacy free-text address."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Parse and report, write nothing.",
+        )
+        parser.add_argument(
+            "--event-id",
+            type=int,
+            help="Backfill a single event.",
+        )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Re-parse events that already have structured data.",
+        )
+        parser.add_argument(
+            "--audit",
+            action="store_true",
+            help=(
+                "Report only: published events whose structured address is "
+                "incomplete. Exits non-zero if any are found, so it can gate a "
+                "deploy that turns on validation."
+            ),
+        )
+
+    def handle(self, *args, **options):
+        if options["audit"]:
+            return self._audit()
+
+        events = MeetupEvent.objects.all().order_by("pk")
+        # `is not None`, not truthiness: `--event-id 0` would otherwise fall
+        # through and backfill every event, on a command that writes by default.
+        if options["event_id"] is not None:
+            events = events.filter(pk=options["event_id"])
+            if not events.exists():
+                raise CommandError(f"No event with id {options['event_id']}.")
+
+        counts = {}
+        written = 0
+        for event in events:
+            already = any(getattr(event, name) for name in ADDRESS_FIELDS)
+            if already and not options["force"]:
+                continue
+
+            fields, status, note = parse_legacy_address(event.address, event.location)
+            counts[status] = counts.get(status, 0) + 1
+
+            if fields and status in WRITABLE_STATUSES and not options["dry_run"]:
+                # A parse that succeeded outright owns the whole address, so it
+                # also clears what it determined is absent -- a --force reparse
+                # of an address that has lost its house number must not leave
+                # the old number in place while reporting a clean status.
+                #
+                # A partial parse only writes what it actually found. It has no
+                # standing to blank a component somebody typed in by hand,
+                # which is how the rows this command cannot parse get fixed.
+                written_names = (
+                    ADDRESS_FIELDS if status in CLEAN_STATUSES else list(fields)
+                )
+                for name in written_names:
+                    setattr(event, name, fields.get(name, ""))
+                with transaction.atomic():
+                    event.save(update_fields=list(written_names))
+                written += 1
+
+            self._report(event, fields, status, note)
+
+        self.stdout.write("")
+        for status, count in sorted(counts.items()):
+            self.stdout.write(f"  {status:<12} {count}")
+        if options["dry_run"]:
+            self.stdout.write(self.style.WARNING("\nDry run — nothing was written."))
+        else:
+            self.stdout.write(self.style.SUCCESS(f"\nUpdated {written} event(s)."))
+
+        unresolved = sum(
+            count for status, count in counts.items() if status not in CLEAN_STATUSES
+        )
+        if unresolved:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"{unresolved} event(s) need a human — fix them in the admin, "
+                    "then re-run. The legacy text is untouched, so nothing is lost."
+                )
+            )
+
+    def _report(self, event, fields, status, note):
+        style = self.style.SUCCESS if status in CLEAN_STATUSES else self.style.WARNING
+        source = " / ".join(_segments(event.address)) or "(blank)"
+        self.stdout.write(style(f"[{event.pk}] {status}  {event.title}"))
+        self.stdout.write(f"      from: {source}")
+        if fields:
+            self.stdout.write(
+                "      ->    "
+                + "  ".join(
+                    f"{k.removeprefix('address_')}={v!r}" for k, v in fields.items()
+                )
+            )
+        if note:
+            self.stdout.write(f"      note: {note}")
+
+    def _audit(self):
+        """What still needs a person, and whether validation can be switched on."""
+        incomplete = [
+            event
+            for event in MeetupEvent.objects.filter(is_published=True).order_by("pk")
+            if not (
+                event.address_street and event.address_postcode and event.address_town
+            )
+        ]
+        valid_cantons = {value for value, _label in MeetupEvent.CANTON_CHOICES}
+        # A blank canton counts as stray on a PUBLISHED event: `clean()` has
+        # required one there since long before this work, so leaving it out
+        # would let the audit report all-clear on a row the very validation it
+        # gates would reject. Unpublished events may legitimately have none.
+        stray_cantons = list(
+            MeetupEvent.objects.exclude(canton__in=valid_cantons)
+            .exclude(canton="", is_published=False)
+            .values_list("pk", "canton")
+            .order_by("pk")
+        )
+
+        for event in incomplete:
+            self.stdout.write(
+                self.style.WARNING(f"[{event.pk}] incomplete address — {event.title}")
+            )
+        for pk, canton in stray_cantons:
+            self.stdout.write(
+                self.style.WARNING(f"[{pk}] canton not in the list — {canton!r}")
+            )
+
+        if not incomplete and not stray_cantons:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "Every published event has a complete structured address, and "
+                    "every canton is a recognised one."
+                )
+            )
+            return
+
+        raise CommandError(
+            f"{len(incomplete)} published event(s) with an incomplete address, "
+            f"{len(stray_cantons)} unrecognised canton(s)."
+        )
