@@ -457,8 +457,15 @@ class Command(BaseCommand):
         )
 
         for event in incomplete:
+            # Name the fields. "Incomplete address" on its own means opening
+            # every event to find out which box is empty, and the whole point
+            # of this report is to be a worklist.
+            unmet = ", ".join(
+                name.removeprefix("address_")
+                for name in event.unmet_publish_requirements()
+            )
             self.stdout.write(
-                self.style.WARNING(f"[{event.pk}] incomplete address — {event.title}")
+                self.style.WARNING(f"[{event.pk}] needs {unmet} — {event.title}")
             )
         for pk, canton in stray_cantons:
             self.stdout.write(

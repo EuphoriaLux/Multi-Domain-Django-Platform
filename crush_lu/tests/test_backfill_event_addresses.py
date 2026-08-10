@@ -353,6 +353,43 @@ class TestCommand:
         call_command("backfill_event_addresses", "--audit", stdout=out)
         assert "complete structured address" in out.getvalue()
 
+    @pytest.mark.parametrize(
+        "typed,expected",
+        [
+            # The shapes staging actually held. 0222 keyed on whitespace-
+            # collapsed text, so the punctuated spellings never matched and it
+            # silently left them alone.
+            ("Luxembourg - City", "Luxembourg"),
+            ("Luxembourg-City", "Luxembourg"),
+            ("Lux", "Luxembourg"),
+            ("luxembourg", "Luxembourg"),
+            ("Esch/Alzette", "Esch-sur-Alzette"),
+            ("Beaufort", "Echternach"),
+        ],
+    )
+    def test_canton_aliases_survive_punctuation(self, typed, expected):
+        import importlib
+
+        migration = importlib.import_module(
+            "crush_lu.migrations.0224_normalize_event_canton_again"
+        )
+        by_key = {migration._key(name): name for name in migration.CANONICAL}
+        key = migration._key(typed)
+        assert (by_key.get(key) or migration.ALIASES.get(key)) == expected
+
+    def test_the_audit_names_the_missing_fields(self, legacy_event):
+        """ "incomplete address" alone means opening every event to find out."""
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            is_published=True, canton=""
+        )
+        out = StringIO()
+        with pytest.raises(CommandError):
+            call_command("backfill_event_addresses", "--audit", stdout=out)
+
+        report = out.getvalue()
+        assert "canton" in report
+        assert "street" in report
+
     def test_audit_flags_a_canton_outside_the_list(self, legacy_event):
         MeetupEvent.objects.filter(pk=legacy_event.pk).update(canton="Beaufort")
 
