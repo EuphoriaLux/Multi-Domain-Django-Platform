@@ -1,9 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
+import re
 import uuid
 from .profiles import CrushCoach, SpecialUserExperience
 from crush_lu.storage import crush_upload_path, crush_media_storage
@@ -24,6 +25,22 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # the annotation when present*, so if the two lists ever disagree the same event
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
+
+# A Luxembourg postcode as somebody types it: four digits, with the national
+# "L-" prefix optionally in front and spaced however the keyboard landed.
+_LU_POSTCODE_INPUT_RE = re.compile(r"^\s*(?:L\s*-?\s*)?(\d{4})\s*$", re.IGNORECASE)
+
+
+def normalize_lu_postcode(value):
+    """Reduce a typed Luxembourg postcode to its four bare digits.
+
+    Accepts "L-2229", "L2229", "l - 2229" and "2229". Anything else is handed
+    back stripped but otherwise untouched, so the field's RegexValidator is what
+    reports the typo -- this helper must never quietly swallow one, because a
+    wrong postcode on a national portal sends people to the wrong town.
+    """
+    match = _LU_POSTCODE_INPUT_RE.match(value or "")
+    return match.group(1) if match else (value or "").strip()
 
 
 class MeetupEventQuerySet(models.QuerySet):
@@ -106,7 +123,59 @@ class MeetupEvent(models.Model):
 
     # Event Details
     location = models.CharField(max_length=200)
-    address = models.TextField()
+    # The venue address, one component per field. echo.lu publishes these
+    # separately on a national listing and renders whatever it is given
+    # verbatim, so they are captured as typed rather than parsed back out of
+    # free text. All blank=True: `clean()` requires them for published events,
+    # which keeps the column permissive for the many fixtures and management
+    # commands that build events directly.
+    address_street = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_("Street"),
+        help_text=_("Street name only, without the house number (e.g. 'rue du Nord')."),
+    )
+    address_number = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name=_("House number"),
+        help_text=_(
+            "House number exactly as written: '7', '12A', '12-14'. "
+            "Leave blank if the venue has no number."
+        ),
+    )
+    address_postcode = models.CharField(
+        max_length=4,
+        blank=True,
+        validators=[
+            RegexValidator(
+                regex=r"^\d{4}$",
+                message=_("Luxembourg postcodes are exactly four digits."),
+            )
+        ],
+        verbose_name=_("Postcode"),
+        help_text=_(
+            "Four digits. Type 'L-2229' or '2229' - the 'L-' is added on display."
+        ),
+    )
+    address_town = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Town"),
+        help_text=_(
+            "The town the venue is in (e.g. 'Luxembourg', 'Differdange'). This is "
+            "NOT the canton - the canton is its own field."
+        ),
+    )
+    address = models.TextField(
+        blank=True,
+        verbose_name=_("Legacy address (free text)"),
+        help_text=_(
+            "Superseded by the street/number/postcode/town fields above. Kept so "
+            "events created before the split keep rendering. Do not type new "
+            "addresses here."
+        ),
+    )
     latitude = models.DecimalField(
         max_digits=9,
         decimal_places=6,
@@ -527,6 +596,45 @@ class MeetupEvent(models.Model):
         total_remaining = max(0, self.max_participants - confirmed)
         public_remaining = max(0, self.public_capacity - confirmed)
         return total_remaining - public_remaining
+
+    @property
+    def full_address(self):
+        """The venue address on one line, for tickets, e-mails, ICS and JSON-LD.
+
+        Formats as "7, rue du Nord, L-2229 Luxembourg". Missing components are
+        dropped rather than left as gaps or stray separators.
+
+        Falls back to the legacy free-text `address` while the structured
+        fields are empty, which is what lets every existing caller -- and every
+        existing test fixture -- keep rendering exactly what it renders today.
+        Returns "" when there is nothing at all, because several templates
+        guard on the truthiness of the address before printing a label.
+
+        The fallback deliberately triggers on street/town rather than on any
+        field being set: a row where only the postcode could be recovered must
+        not shadow a richer legacy string with a bare "L-2229".
+        """
+        if not (self.address_street or self.address_town):
+            return (self.address or "").strip()
+
+        parts = []
+        if self.address_street:
+            parts.append(
+                f"{self.address_number}, {self.address_street}"
+                if self.address_number
+                else self.address_street
+            )
+        locality = " ".join(
+            part
+            for part in (
+                f"L-{self.address_postcode}" if self.address_postcode else "",
+                self.address_town,
+            )
+            if part
+        )
+        if locality:
+            parts.append(locality)
+        return ", ".join(parts)
 
     @property
     def end_time(self):

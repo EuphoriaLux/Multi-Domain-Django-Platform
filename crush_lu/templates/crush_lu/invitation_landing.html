@@ -157,8 +157,8 @@
                         <div class="event-detail-info">
                             <h5>{% trans "Location" %}</h5>
                             <p>{{ event.location }}</p>
-                            {% if event.address %}
-                            <p><small class="text-muted">{{ event.address }}</small></p>
+                            {% if event.full_address %}
+                            <p><small class="text-muted">{{ event.full_address }}</small></p>
                             {% endif %}
                         </div>
                     </div>
