@@ -31,7 +31,16 @@ from crush_lu.models import (
     MeetupEvent,
     PresentationQueue,
 )
-from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+from crush_lu.models.events import (
+    SEAT_HOLDING_STATUSES,
+    _LU_POSTCODE_STORED_RE,
+    normalize_lu_postcode,
+)
+
+from .filters import EventCapacityFilter
+from .quiz import QuizEventInline
+
+logger = logging.getLogger(__name__)
 
 # Size the address boxes to the data, so the shape of a Luxembourg address is
 # legible at a glance. `address_postcode` is absent on purpose — its widget
@@ -41,10 +50,6 @@ ADDRESS_WIDGET_ATTRS = {
     "address_number": {"size": 8, "placeholder": "7"},
     "address_town": {"size": 30, "placeholder": "Luxembourg"},
 }
-from .filters import EventCapacityFilter
-from .quiz import QuizEventInline
-
-logger = logging.getLogger(__name__)
 
 
 def _enqueue_echo_sync(event_ids):
@@ -716,11 +721,18 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # below, selecting a batch of drafts publishes the incomplete ones and
         # sends them straight to a national portal with half an address —
         # the one publish route that bypasses every guard on the change form.
+        # Validity, not just presence. `.update()` and `.create()` skip field
+        # validators, so a row can hold a truthy but impossible postcode
+        # ("ABCD", Unicode digits) -- and `address_payload` now forwards it to
+        # echo.lu verbatim rather than reparsing the legacy text. The audit
+        # applies the same rule for the same reason.
         incomplete = [
             event
             for event in queryset
             if not (
-                event.address_street and event.address_postcode and event.address_town
+                event.address_street
+                and event.address_town
+                and _LU_POSTCODE_STORED_RE.match(event.address_postcode or "")
             )
         ]
         if incomplete:

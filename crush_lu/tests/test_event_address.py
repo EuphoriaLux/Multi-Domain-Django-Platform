@@ -303,6 +303,23 @@ class TestBulkPublishAction:
         event.refresh_from_db()
         assert event.is_published is False
 
+    def test_a_present_but_invalid_postcode_is_not_bulk_published(self):
+        """`.update()` skips field validators, so "ABCD" can be sitting there.
+
+        Checking truthiness published it, and the echo.lu payload forwards the
+        postcode verbatim now instead of reparsing the legacy text.
+        """
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="ABCD",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
     def test_a_complete_address_publishes(self):
         event = self._event(
             address_street="rue du Nord",
