@@ -353,8 +353,42 @@ class TestCommand:
         call_command("backfill_event_addresses", "--audit", stdout=out)
         assert "complete structured address" in out.getvalue()
 
-    def test_audit_flags_a_canton_outside_the_list(self, legacy_event):
-        MeetupEvent.objects.filter(pk=legacy_event.pk).update(canton="Beaufort")
+    def test_an_unpublished_stray_canton_is_reported_but_does_not_block(
+        self, legacy_event
+    ):
+        """The gate asks about the same rows the rule applies to.
+
+        `clean()` only requires a canton on published events, so blocking on
+        every row with an odd one meant a single archived event with 'test'
+        typed into it held up the whole rollout.
+        """
+        call_command("backfill_event_addresses", stdout=StringIO())
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            canton="test", is_published=False
+        )
+
+        out = StringIO()
+        call_command("backfill_event_addresses", "--audit", stdout=out)
+
+        report = out.getvalue()
+        assert "not blocking" in report
+        assert "'test'" in report
+
+    def test_a_published_stray_canton_still_blocks(self, legacy_event):
+        call_command("backfill_event_addresses", stdout=StringIO())
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            canton="test", is_published=True
+        )
+
+        with pytest.raises(CommandError):
+            call_command("backfill_event_addresses", "--audit", stdout=StringIO())
+
+    def test_audit_flags_a_commune_where_a_canton_belongs(self, legacy_event):
+        """Beaufort is a commune in canton Echternach, not a canton."""
+        call_command("backfill_event_addresses", stdout=StringIO())
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            canton="Beaufort", is_published=True
+        )
 
         with pytest.raises(CommandError):
             call_command("backfill_event_addresses", "--audit", stdout=StringIO())
