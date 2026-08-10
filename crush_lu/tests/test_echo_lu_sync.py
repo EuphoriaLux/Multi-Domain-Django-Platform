@@ -254,11 +254,11 @@ class PayloadTests(TestCase):
         self.assertEqual(address["postcode"], "4620")
         self.assertEqual(address["country"], "Luxembourg")
 
-    def test_town_is_the_town_and_commune_is_not_the_canton(self):
-        # `town` used to fall back to `canton`, and `commune` was set to it
-        # outright -- publishing a canton name where echo.lu shows a locality.
-        # echo.lu's commune filter is a controlled vocabulary and an
-        # unrecognised value 404s, so none is better than a wrong one.
+    def test_town_and_commune_are_the_town_not_the_canton(self):
+        # Both used to carry `canton` -- the wrong administrative level. They
+        # carry the town now. `commune` is REQUIRED: omitting it made echo.lu
+        # reject the whole experience with "Missing or malformed address", so
+        # six events stopped publishing entirely (verified live 2026-08-10).
         event = make_event(
             address_street="rue Emile Mark",
             address_postcode="4620",
@@ -268,7 +268,7 @@ class PayloadTests(TestCase):
         address = echo_lu.build_experience_payload(event)["location"]["address"]
 
         self.assertEqual(address["town"], "Differdange")
-        self.assertNotIn("commune", address)
+        self.assertEqual(address["commune"], "Differdange")
 
     def test_empty_components_are_absent_rather_than_blank(self):
         # echo.lu treats "" as a supplied value and renders a blank line for it.
@@ -387,9 +387,7 @@ class PayloadTests(TestCase):
 
     def test_the_legacy_fallback_does_not_smuggle_the_canton_back_in(self):
         # `parse_address` puts the canton in `commune` and substitutes it for a
-        # town it could not read. Published events always have a canton, so
-        # without sanitising the fallback, the rows most likely to use it would
-        # be the ones still shipping the value this change removes.
+        # town it could not read -- the wrong level in both places.
         event = make_event(
             address="Behind the old brewery",
             canton="Esch-sur-Alzette",
@@ -399,8 +397,20 @@ class PayloadTests(TestCase):
         )
         address = echo_lu.build_experience_payload(event)["location"]["address"]
 
-        self.assertNotIn("commune", address)
+        self.assertNotEqual(address.get("commune"), "Esch-sur-Alzette")
         self.assertNotEqual(address.get("town"), "Esch-sur-Alzette")
+
+    def test_the_legacy_fallback_still_sends_a_commune(self):
+        # Required field: a legacy row that parses a town must fill it.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Luxembourg")
 
     def test_dates_are_rfc3339_utc_and_span_the_duration(self):
         event = make_event(duration_minutes=90)

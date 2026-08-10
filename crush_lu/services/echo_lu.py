@@ -653,25 +653,39 @@ def address_payload(event):
             "number": event.address_number,
             "postcode": event.address_postcode or legacy.get("postcode", ""),
             # The town is the town. This used to fall back to `canton`, which
-            # published a canton name where echo.lu shows a locality — and
-            # `commune` got the canton outright. echo.lu's commune filter is a
-            # controlled vocabulary and an unrecognised value 404s, so a wrong
-            # one is worse than none: `commune` is omitted until we hold a real
-            # one.
+            # published a canton name where echo.lu shows a locality.
             "town": event.address_town or legacy.get("town", ""),
+            # `commune` is REQUIRED, and gets the town.
+            #
+            # It previously carried `canton`, which is the wrong administrative
+            # level. Omitting it looked like the safe correction -- a wrong
+            # value on a controlled vocabulary 404s their venue filter, so none
+            # seemed better than wrong. It is not: echo.lu rejects the whole
+            # experience with "Missing or malformed address" and the listing
+            # never publishes at all. Verified against the live API on
+            # 2026-08-10, when six events failed at once.
+            #
+            # The town is the right value, not a stand-in: a Luxembourg commune
+            # takes its name from its principal town, so Differdange the town
+            # is Differdange the commune. Where they differ, the town is still
+            # the closer answer of the two we hold.
+            "commune": event.address_town or legacy.get("town", ""),
             "country": "Luxembourg",
         }
         return {key: value for key, value in payload.items() if value}
 
-    # Parsed with NO canton, deliberately. Given one, `parse_address` puts it in
-    # `commune` and substitutes it for a town it could not read -- and published
-    # events always have a canton, so every fallback payload would otherwise
-    # keep shipping the canton-in-a-commune-field value this whole change
-    # exists to remove, on exactly the rows most likely to hit it. Passing ""
-    # switches both substitutions off at the source rather than trying to
-    # recognise and undo them afterwards, which cannot tell a canton that was
-    # substituted from a town that genuinely shares its name.
+    # Parsed with NO canton, deliberately. Given one, `parse_address` puts the
+    # canton in `commune` and substitutes it for a town it could not read --
+    # the wrong administrative level in both places. Passing "" switches both
+    # substitutions off at the source rather than trying to recognise and undo
+    # them afterwards, which cannot tell a canton that was substituted from a
+    # town that genuinely shares its name.
     legacy = parse_address(event.address, "")
+    # `commune` is required, so the parsed town fills it here too. A legacy row
+    # with no readable town sends neither, and echo.lu will reject it -- which
+    # is the correct outcome: it has no address worth publishing, and `--audit`
+    # names it.
+    legacy["commune"] = legacy.get("town", "")
     return {key: value for key, value in legacy.items() if value}
 
 
