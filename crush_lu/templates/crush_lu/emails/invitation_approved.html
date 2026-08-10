@@ -126,8 +126,8 @@
                     <span class="detail-icon">📍</span>
                     <div>
                         <strong>{% trans "Where:" %}</strong> {{ event.location }}
-                        {% if event.address %}
-                        <br><span style="color: #666;">{{ event.address }}</span>
+                        {% if event.full_address %}
+                        <br><span style="color: #666;">{{ event.full_address }}</span>
                         {% endif %}
                     </div>
                 </div>

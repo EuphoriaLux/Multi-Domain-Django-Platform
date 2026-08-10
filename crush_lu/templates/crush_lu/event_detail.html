@@ -166,7 +166,7 @@
                             {# Authenticated users: Show full address #}
                             <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
                                 <strong>{{ event.location }}</strong><br>
-                                <span class="text-gray-500 dark:text-gray-400">{{ event.address }}</span>
+                                <span class="text-gray-500 dark:text-gray-400">{{ event.full_address }}</span>
                             </p>
                         {% else %}
                             {# Anonymous visitors: Show canton only #}
