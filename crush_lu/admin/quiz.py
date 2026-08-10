@@ -14,6 +14,7 @@ from crush_lu.models.quiz import (
     QuizTable,
     QuizTableMembership,
 )
+from crush_lu.quiz_packs import PACKS, pack_names
 
 logger = logging.getLogger(__name__)
 
@@ -269,9 +270,9 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
         # under-refreshing strands a wrong card with nothing left to correct it.
         quiz_ended = quiz.event.end_time < now
         quiz_candidates = list(
-            CrushProfile.objects.filter(
-                user__eventregistration__in=affected
-            ).exclude(google_wallet_object_id="")
+            CrushProfile.objects.filter(user__eventregistration__in=affected).exclude(
+                google_wallet_object_id=""
+            )
         )
         displayed = (
             {}
@@ -327,32 +328,60 @@ mark_unattended_as_no_show.short_description = _(
 )
 
 
-def populate_crush_quiz_questions(modeladmin, request, queryset):
-    """Admin action: populate selected QuizEvents with Crush quiz rounds & questions."""
-    from crush_lu.management.commands.generate_crush_quiz import populate_quiz
+def _make_populate_action(pack_name):
+    """Build an admin action that seeds selected QuizEvents from *pack_name*.
 
-    for quiz in queryset:
-        existing = quiz.rounds.count()
-        if existing:
-            messages.warning(
+    One action per registered pack, so a coach picks the pack from the same
+    dropdown they already use rather than needing shell access.
+    """
+
+    def action(modeladmin, request, queryset):
+        from crush_lu.management.commands.generate_crush_quiz import populate_quiz
+
+        for quiz in queryset:
+            existing = quiz.rounds.count()
+            if existing:
+                messages.warning(
+                    request,
+                    f"'{quiz.event}': Already has {existing} rounds. "
+                    f"Skipped. Delete existing rounds first or use "
+                    f"the management command with --clear.",
+                )
+                continue
+
+            try:
+                result = populate_quiz(quiz, pack=pack_name)
+            except ValueError as exc:
+                messages.error(request, f"'{quiz.event}': {exc}")
+                continue
+
+            messages.success(
                 request,
-                f"'{quiz.event}': Already has {existing} rounds. "
-                f"Skipped. Delete existing rounds first or use "
-                f"the management command with --clear.",
+                f"'{quiz.event}': Created {result.rounds_created} rounds and "
+                f"{result.questions_created} questions from pack "
+                f"'{pack_name}'.",
             )
-            continue
+            if result.pending_uploads:
+                # Seeded without media on purpose — images have no embed path.
+                messages.warning(
+                    request,
+                    f"'{quiz.event}': {len(result.pending_uploads)} image "
+                    f"question(s) still need a file uploaded via the quiz "
+                    f"authoring UI: "
+                    + ", ".join(p.filename for p in result.pending_uploads),
+                )
 
-        rounds_created, questions_created = populate_quiz(quiz)
-        messages.success(
-            request,
-            f"'{quiz.event}': Created {rounds_created} rounds and "
-            f"{questions_created} questions.",
-        )
+    rounds = PACKS[pack_name]
+    questions = sum(len(r.get("questions") or []) for r in rounds)
+    action.__name__ = f"populate_quiz_pack_{pack_name.replace('-', '_')}"
+    action.short_description = _(
+        "Populate quiz questions — %(pack)s pack (%(rounds)d rounds, "
+        "%(questions)d questions)"
+    ) % {"pack": pack_name, "rounds": len(rounds), "questions": questions}
+    return action
 
 
-populate_crush_quiz_questions.short_description = _(
-    "Populate Crush Quiz questions (6 rounds, 36 questions)"
-)
+POPULATE_PACK_ACTIONS = [_make_populate_action(name) for name in pack_names()]
 
 
 class QuizEventAdmin(admin.ModelAdmin):
@@ -378,7 +407,7 @@ class QuizEventAdmin(admin.ModelAdmin):
     actions = [
         generate_quiz_night_tables,
         mark_unattended_as_no_show,
-        populate_crush_quiz_questions,
+        *POPULATE_PACK_ACTIONS,
     ]
 
     def readiness_check_display(self, obj):
