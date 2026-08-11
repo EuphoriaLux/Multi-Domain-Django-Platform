@@ -144,6 +144,39 @@ def _promote_from_waitlist(event, cancelled_user=None):
     return None
 
 
+def _postal_address(event):
+    """schema.org PostalAddress for an event, one field per component.
+
+    Built per-component rather than from `full_address`: a composed one-liner
+    in `streetAddress` is the same "structure recovered from free text" the
+    structured fields exist to end, and search engines read these keys
+    separately.
+
+    Legacy rows with no structured street fall back to the legacy text, which
+    is less precise but as informative as the record gets. Every key is dropped
+    when empty rather than published blank.
+
+    The fallback is the raw legacy text, *not* `full_address`: that composes
+    the postcode and town into the string, so a part-transcribed row with no
+    street would publish "L-2229 Luxembourg" as its street address while
+    `postalCode` and `addressLocality` said the same thing again.
+    """
+    postal = {"@type": "PostalAddress", "addressCountry": "LU"}
+    street = event.street_line or (event.address or "").strip()
+    if street:
+        postal["streetAddress"] = street
+    if event.address_postcode:
+        postal["postalCode"] = event.address_postcode
+    # The locality is the town. It used to be `event.location`, which is the
+    # venue *name* -- "Café Konrad" was being published as a town.
+    locality = event.address_town or event.canton
+    if locality:
+        postal["addressLocality"] = locality
+    if event.canton:
+        postal["addressRegion"] = event.canton
+    return postal
+
+
 def _filter_private_events(events, user):
     """Filter out private invitation events unless user is invited."""
     if not user.is_authenticated:
@@ -251,12 +284,7 @@ def event_list(request):
             location_data = {
                 "@type": "Place",
                 "name": event.location or "",
-                "address": {
-                    "@type": "PostalAddress",
-                    "streetAddress": event.address or "",
-                    "addressLocality": event.location or "",
-                    "addressCountry": "LU",
-                },
+                "address": _postal_address(event),
             }
         else:
             canton = event.canton or "Luxembourg"
@@ -526,12 +554,7 @@ def event_detail(request, event_id):
         location_data = {
             "@type": "Place",
             "name": event.location,
-            "address": {
-                "@type": "PostalAddress",
-                "streetAddress": event.address,
-                "addressLocality": event.location,
-                "addressCountry": "LU",
-            },
+            "address": _postal_address(event),
         }
     else:
         canton = event.canton or "Luxembourg"
@@ -752,7 +775,7 @@ def event_calendar_download(request, event_id):
     dtstamp = timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     if request.user.is_authenticated and hasattr(request.user, "crushprofile"):
-        location = f"{event.location}, {event.address}"
+        location = f"{event.location}, {event.full_address}"
     else:
         location = event.canton or "Luxembourg"
 

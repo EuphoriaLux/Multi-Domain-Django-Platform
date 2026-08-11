@@ -1,0 +1,526 @@
+"""
+Tests for the structured venue address on MeetupEvent.
+
+The address used to be one hand-typed TextField that echo.lu's payload builder
+split back apart with a regex. These tests cover the fields that replaced it:
+
+- `full_address` composition, and its fallback to the legacy free text
+- Luxembourg postcode normalization ("L-2229" -> "2229")
+- the admin form accepting a typed "L-" prefix (a validation-ordering trap)
+- the schema.org PostalAddress mapping, which used to publish the venue *name*
+  as the town
+"""
+
+import pytest
+from datetime import timedelta
+
+from django.utils import timezone
+
+from crush_lu.models import MeetupEvent
+from crush_lu.models.events import normalize_lu_postcode
+from crush_lu.views_events import _postal_address
+
+
+def make_event(**overrides):
+    """An unsaved event carrying only what these tests read."""
+    fields = {
+        "title": "Speed Dating",
+        "description": "An evening.",
+        "event_type": "speed_dating",
+        "location": "Café Konrad",
+        "address": "",
+        "canton": "Luxembourg",
+        "date_time": timezone.now() + timedelta(days=7),
+        "registration_deadline": timezone.now() + timedelta(days=5),
+    }
+    fields.update(overrides)
+    return MeetupEvent(**fields)
+
+
+class TestFullAddress:
+    """The composed one-liner every ticket, e-mail and calendar entry renders."""
+
+    @pytest.mark.parametrize(
+        "fields,expected",
+        [
+            (
+                {
+                    "address_street": "rue du Nord",
+                    "address_number": "7",
+                    "address_postcode": "2229",
+                    "address_town": "Luxembourg",
+                },
+                "7, rue du Nord, L-2229 Luxembourg",
+            ),
+            (
+                {
+                    "address_street": "rue Emile Mark",
+                    "address_number": "45",
+                    "address_postcode": "4620",
+                    "address_town": "Differdange",
+                },
+                "45, rue Emile Mark, L-4620 Differdange",
+            ),
+            # A venue with no house number must not gain a fabricated one.
+            (
+                {
+                    "address_street": "Place de la Gare",
+                    "address_postcode": "1616",
+                    "address_town": "Luxembourg",
+                },
+                "Place de la Gare, L-1616 Luxembourg",
+            ),
+            # Missing postcode leaves no stray "L-" or double separator.
+            (
+                {
+                    "address_street": "rue du Nord",
+                    "address_number": "7",
+                    "address_town": "Luxembourg",
+                },
+                "7, rue du Nord, Luxembourg",
+            ),
+            # Town but no street: still renders, no leading comma.
+            (
+                {"address_postcode": "2229", "address_town": "Luxembourg"},
+                "L-2229 Luxembourg",
+            ),
+        ],
+    )
+    def test_composition(self, fields, expected):
+        assert make_event(**fields).full_address == expected
+
+    def test_falls_back_to_legacy_free_text(self):
+        """Un-backfilled rows keep rendering exactly what they render today."""
+        event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
+        assert event.full_address == "7, rue du Nord\nL-2229 Luxembourg"
+
+    @pytest.mark.parametrize(
+        "partial",
+        [
+            {"address_postcode": "2229"},
+            {"address_town": "Luxembourg"},
+            {"address_postcode": "2229", "address_town": "Luxembourg"},
+            {"address_number": "7"},
+        ],
+    )
+    def test_a_half_transcribed_address_does_not_replace_the_legacy_text(self, partial):
+        """Transcribing into four boxes is not atomic.
+
+        A coach who fills in the town and saves must not turn the full address
+        into "Luxembourg" on every wallet pass, ticket and e-mail already
+        issued. Only `address_street` — the component that makes the structured
+        fields at least as informative as the text they replace — hands over.
+        """
+        legacy = "7, rue du Nord\nL-2229 Luxembourg"
+        assert make_event(address=legacy, **partial).full_address == legacy
+
+    def test_street_hands_over_from_the_legacy_text(self):
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        assert event.full_address == "7, rue du Nord, L-2229 Luxembourg"
+
+    def test_partial_fields_are_used_when_there_is_no_legacy_text(self):
+        """Nothing to lose, so show what we have rather than nothing."""
+        event = make_event(
+            address="", address_postcode="2229", address_town="Luxembourg"
+        )
+        assert event.full_address == "L-2229 Luxembourg"
+
+    def test_empty_is_empty_string(self):
+        """Templates guard on truthiness before printing an address label."""
+        assert make_event().full_address == ""
+
+
+class TestPostcodeNormalization:
+    @pytest.mark.parametrize(
+        "typed", ["L-2229", "L2229", "l - 2229", "2229", "  2229  ", "l-2229"]
+    )
+    def test_accepted_spellings_reduce_to_four_digits(self, typed):
+        assert normalize_lu_postcode(typed) == "2229"
+
+    @pytest.mark.parametrize("typed", ["", None])
+    def test_blank_stays_blank(self, typed):
+        assert normalize_lu_postcode(typed) == ""
+
+    @pytest.mark.parametrize("typed", ["ABCD", "22", "222900", "L-22"])
+    def test_a_typo_is_passed_through_for_the_validator_to_report(self, typed):
+        """The helper must never quietly repair a wrong postcode."""
+        assert normalize_lu_postcode(typed) == typed.strip()
+
+    def test_a_long_run_of_spaces_does_not_blow_up(self):
+        """Regression: polynomial ReDoS (CodeQL py/polynomial-redos).
+
+        The first version matched leading whitespace both before and inside the
+        optional 'L-' group, so "l" plus a long run of spaces gave the engine a
+        quadratic number of ways to split them before failing. This value comes
+        from an admin form, so the input is attacker-influenced. Whitespace is
+        now removed before matching, which is linear.
+        """
+        import time
+
+        hostile = "l" + " " * 20000
+        started = time.perf_counter()
+        result = normalize_lu_postcode(hostile)
+        assert time.perf_counter() - started < 1.0
+        assert result == "l"
+
+
+@pytest.mark.django_db
+class TestAdminFormPostcode:
+    """The field-length ordering trap.
+
+    Django runs a form field's own validators before `clean_<name>()`. With the
+    model's `max_length=4` propagated to the form, typing the natural "L-2229"
+    is six characters and would be rejected before the prefix could be
+    stripped. The admin form declares a wider field to avoid that.
+    """
+
+    def _form_data(self, **overrides):
+        start = timezone.now() + timedelta(days=7)
+        data = {
+            # modeltranslation exposes the bare field alongside the per-language
+            # columns, and the bare one is the required original.
+            "title": "Speed Dating",
+            "title_en": "Speed Dating",
+            "description": "An evening.",
+            "description_en": "An evening.",
+            "event_type": "speed_dating",
+            "location": "Café Konrad",
+            "canton": "Luxembourg",
+            "address_street": "rue du Nord",
+            "address_number": "7",
+            "address_postcode": "L-2229",
+            "address_town": "Luxembourg",
+            "date_time": start.strftime("%Y-%m-%d %H:%M:%S"),
+            "duration_minutes": 120,
+            "registration_deadline": start.strftime("%Y-%m-%d %H:%M:%S"),
+            "registration_fee": "0.00",
+            "max_participants": 20,
+            "reserved_premium_seats": 0,
+            "min_age": 18,
+            "max_age": 99,
+            "registration_audience": "completed",
+            "max_sparks_per_event": 3,
+            "connection_window_hours": 48,
+            "max_cross_gender_connections": 1,
+            "max_invited_guests": 20,
+        }
+        data.update(overrides)
+        return data
+
+    def test_typed_prefix_is_accepted_and_stored_bare(self):
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        form = MeetupEventAdminForm(data=self._form_data())
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["address_postcode"] == "2229"
+
+    def test_switching_to_invitation_only_is_judged_on_the_new_audience(self):
+        """`is_private_invitation` is derived, not a form field.
+
+        Deriving it in `save()` alone meant model validation ran against the
+        stored value — so switching a public event to invitation-only was still
+        validated as public, and a legacy address blocked the switch.
+        """
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        form = MeetupEventAdminForm(
+            data=self._form_data(
+                registration_audience=MeetupEventAdminForm.PRIVATE_INVITATION,
+                address_street="",
+                address_postcode="",
+                address_town="",
+                is_published=True,
+            )
+        )
+        assert form.is_valid(), form.errors
+
+    def test_malformed_postcode_is_rejected(self):
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        form = MeetupEventAdminForm(data=self._form_data(address_postcode="22"))
+        assert not form.is_valid()
+        assert "address_postcode" in form.errors
+
+
+class TestPublishedEventValidation:
+    """A published event is one echo.lu may put on a national portal."""
+
+    def _publishable(self, **overrides):
+        fields = {
+            "is_published": True,
+            "address_street": "rue du Nord",
+            "address_number": "7",
+            "address_postcode": "2229",
+            "address_town": "Luxembourg",
+        }
+        fields.update(overrides)
+        return make_event(**fields)
+
+    @pytest.mark.parametrize(
+        "missing", ["address_street", "address_postcode", "address_town"]
+    )
+    def test_publishing_without_a_component_is_rejected(self, missing):
+        from django.core.exceptions import ValidationError
+
+        event = self._publishable(**{missing: ""})
+        with pytest.raises(ValidationError) as caught:
+            event.clean()
+        assert missing in caught.value.message_dict
+
+    def test_a_venue_with_no_house_number_can_still_publish(self):
+        """Place de la Gare and Parking Heringermill genuinely have none.
+
+        Requiring a number here would only produce invented ones.
+        """
+        self._publishable(address_number="").clean()
+
+    def test_an_unpublished_event_needs_nothing(self):
+        make_event(is_published=False).clean()
+
+    def test_an_event_that_has_already_ended_is_not_blocked(self):
+        """`should_publish()` excludes finished events, so this must too.
+
+        Nobody can fix a past event by editing its address, and echo.lu takes
+        the listing down when it ends regardless.
+        """
+        past = timezone.now() - timedelta(days=30)
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            date_time=past,
+            registration_deadline=past - timedelta(days=1),
+        )
+        event.clean()
+
+    @pytest.mark.parametrize(
+        "transition", [{"is_cancelled": True}, {"is_private_invitation": True}]
+    )
+    def test_taking_an_event_down_is_never_blocked_by_its_address(self, transition):
+        """Both transitions leave `is_published` true.
+
+        Checking that flag alone meant a coach cancelling an event whose
+        address was never transcribed got an address error on fields they had
+        not touched — and no way to cancel it.
+        """
+        event = make_event(
+            is_published=True,
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            **transition,
+        )
+        event.clean()
+
+
+@pytest.mark.django_db
+class TestBulkPublishAction:
+    """`queryset.update()` runs no `clean()`, so the model rule cannot see it."""
+
+    def _event(self, **overrides):
+        fields = {
+            "title": "Speed Dating",
+            "description": "An evening.",
+            "event_type": "speed_dating",
+            "location": "Café Konrad",
+            "canton": "Luxembourg",
+            "date_time": timezone.now() + timedelta(days=7),
+            "registration_deadline": timezone.now() + timedelta(days=5),
+        }
+        fields.update(overrides)
+        return MeetupEvent.objects.create(**fields)
+
+    def _run_action(self, events):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/crush-admin/")
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        model_admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        model_admin.publish_events(
+            request, MeetupEvent.objects.filter(pk__in=[e.pk for e in events])
+        )
+
+    def test_an_incomplete_address_is_not_bulk_published(self):
+        event = self._event(address="7, rue du Nord\nL-2229 Luxembourg")
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_a_present_but_invalid_postcode_is_not_bulk_published(self):
+        """`.update()` skips field validators, so "ABCD" can be sitting there.
+
+        Checking truthiness published it, and the echo.lu payload forwards the
+        postcode verbatim now instead of reparsing the legacy text.
+        """
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="ABCD",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_a_blank_canton_is_not_bulk_published(self):
+        """`clean()` has required a canton on published events all along.
+
+        The bulk action re-derived its own completeness rule and forgot it, so
+        an event with a full address but no canton sailed through silently.
+        Both now ask `unmet_publish_requirements()`.
+        """
+        event = self._event(
+            canton="",
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    @pytest.mark.parametrize("canton", ["test", "Beaufort", "Luxembourg - City"])
+    def test_an_unrecognised_canton_is_not_bulk_published(self, canton):
+        """`.update()` skips the field's choice validation.
+
+        Checking presence alone let a canton like 'test', or a commune where a
+        canton belongs, through the bulk action — and canton is rendered raw in
+        OG tags and JSON-LD.
+        """
+        event = self._event(
+            canton=canton,
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is False
+
+    def test_whitespace_only_components_do_not_count_as_complete(self):
+        """A blank-looking value is truthy and reached echo.lu as an empty line."""
+        event = self._event(
+            address_street="   ",
+            address_postcode="2229",
+            address_town="\t",
+        )
+        unmet = event.unmet_publish_requirements(as_published=True)
+
+        assert "address_street" in unmet
+        assert "address_town" in unmet
+
+    def test_a_complete_address_publishes(self):
+        event = self._event(
+            address_street="rue du Nord",
+            address_number="7",
+            address_postcode="2229",
+            address_town="Luxembourg",
+        )
+        self._run_action([event])
+
+        event.refresh_from_db()
+        assert event.is_published is True
+
+
+class TestPostalAddressJsonLd:
+    def test_components_map_to_their_own_keys(self):
+        event = make_event(
+            address_street="rue Emile Mark",
+            address_number="45",
+            address_postcode="4620",
+            address_town="Differdange",
+            canton="Esch-sur-Alzette",
+        )
+        postal = _postal_address(event)
+        assert postal["streetAddress"] == "45, rue Emile Mark"
+        assert postal["postalCode"] == "4620"
+        assert postal["addressRegion"] == "Esch-sur-Alzette"
+
+    def test_locality_is_the_town_not_the_venue_name(self):
+        """Regression: `addressLocality` used to be `event.location`.
+
+        That published "Café Konrad" as the town of the event.
+        """
+        event = make_event(
+            location="Café Konrad",
+            address_street="rue du Nord",
+            address_town="Luxembourg",
+        )
+        assert _postal_address(event)["addressLocality"] == "Luxembourg"
+
+    def test_legacy_row_still_gets_a_street_address(self):
+        event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
+        postal = _postal_address(event)
+        assert postal["streetAddress"] == "7, rue du Nord\nL-2229 Luxembourg"
+        assert "postalCode" not in postal
+
+    def test_a_part_transcribed_row_does_not_repeat_itself(self):
+        """`streetAddress` must not be the postcode+town it sits next to.
+
+        Falling back to `full_address` composed those in, so a row with a town
+        and postcode but no street published "L-2229 Luxembourg" three times
+        over -- as the street, the postal code and the locality.
+        """
+        event = make_event(
+            address="", address_postcode="2229", address_town="Luxembourg"
+        )
+        postal = _postal_address(event)
+
+        assert "streetAddress" not in postal
+        assert postal["postalCode"] == "2229"
+        assert postal["addressLocality"] == "Luxembourg"
+
+    def test_empty_keys_are_dropped_not_published_blank(self):
+        postal = _postal_address(make_event(address="", canton=""))
+        assert "addressLocality" not in postal
+        assert "streetAddress" not in postal
+
+
+class TestPostcodeDisplay:
+    def test_a_four_digit_postcode_gets_the_national_prefix(self):
+        assert make_event(address_postcode="2229").postcode_display == "L-2229"
+
+    @pytest.mark.parametrize("stored", ["L-2229", "abcd", "22"])
+    def test_anything_else_is_rendered_as_stored(self, stored):
+        """`.create()`/`.update()` skip the form and `full_clean()` alike.
+
+        A fixture or data migration can put anything in the column, and
+        "L-L-2229" on a wallet ticket would be self-inflicted.
+        """
+        assert make_event(address_postcode=stored).postcode_display == stored
+
+    def test_non_ascii_digits_are_not_treated_as_a_postcode(self):
+        """`\\d` matches every Unicode decimal digit; the pattern uses [0-9]."""
+        assert make_event(address_postcode="٢٢٢٩").postcode_display == "٢٢٢٩"
+
+    def test_a_trailing_newline_is_not_a_valid_postcode(self):
+        """A bare `$` matches before a trailing newline, so `match` accepted it.
+
+        The checks use `fullmatch` now — this pattern is the sole validity gate
+        for bulk publish and for the audit.
+        """
+        event = make_event(address_postcode="2229\n")
+        assert event.postcode_display == "2229\n"
+        assert (
+            "address_postcode"
+            in make_event(
+                is_published=True,
+                address_street="rue du Nord",
+                address_town="Luxembourg",
+                address_postcode="2229\n",
+            ).unmet_publish_requirements()
+        )

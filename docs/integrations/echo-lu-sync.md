@@ -117,8 +117,10 @@ on its first tick.
    python manage.py sync_events_to_echo --event-id 42 --dry-run --show-payload
    ```
 
-   Read it rather than skim it. `location.address` is parsed out of a free-text
-   field, and echo.lu renders whatever it accepts verbatim.
+   Read it rather than skim it — echo.lu renders whatever it accepts verbatim.
+   `location.address` comes from the event's street/number/postcode/town
+   fields; if it looks thin, that event still holds only the legacy free text
+   and needs `manage.py backfill_event_addresses`.
 
 5. **Turn it on:** `ECHO_LU_SYNC_ENABLED=true` on the production slot.
 
@@ -255,8 +257,10 @@ on its first tick.
    python manage.py sync_events_to_echo --event-id 42 --dry-run --show-payload
    ```
 
-   Read it rather than skim it. `location.address` is parsed out of a free-text
-   field, and echo.lu renders whatever it accepts verbatim.
+   Read it rather than skim it — echo.lu renders whatever it accepts verbatim.
+   `location.address` comes from the event's street/number/postcode/town
+   fields; if it looks thin, that event still holds only the legacy free text
+   and needs `manage.py backfill_event_addresses`.
 
 5. **Turn it on:** `ECHO_LU_SYNC_ENABLED=true` on the production slot.
 
@@ -523,7 +527,7 @@ row says so; the recovery is:
 | `dates[0].from` / `.to` | `date_time` / `end_time`, RFC 3339 in UTC |
 | `dates[0].purchaseLink` | the event detail page |
 | `venues` | `location` (venue name) |
-| `location.address` | `address` parsed into street/number/postcode/town, plus `canton` |
+| `location.address` | `address_street` / `address_number` / `address_postcode` / `address_town`; `commune` gets the town too |
 | `location.address.latitude/longitude` | `latitude` / `longitude`, as strings, omitted when unset |
 | `pictures[0]` | `image`, made absolute |
 | `tickets` | `registration_fee` in EUR; free events get an explicit €0 ticket |
@@ -531,18 +535,39 @@ row says so; the recovery is:
 | `languages` | `languages` |
 | `categories` / `audiences` / `formats` / `environments` / `tags` | the `ECHO_LU_DEFAULT_*` settings |
 
-Two deliberate omissions:
+**`commune` is required, and gets the town.** It once carried the event's
+`canton`, which is a region rather than a commune. Omitting it looked like the
+safe correction — echo.lu's commune filter is a controlled vocabulary where an
+unrecognised value 404s the venue search — but the field is mandatory: on
+2026-08-10 every event was rejected with `location.address: Missing or malformed
+address`, including three that were already live, and the whole integration
+stopped publishing until the town was sent.
 
-- **`dates[].duration`** — the unit is undocumented and `from`/`to` already pin
-  the span exactly, so a duration in the wrong unit would contradict them on the
-  public listing.
-- **Blank contact fields** — echo.lu treats an empty string as a supplied value
-  and renders a blank contact line for it.
+⚠️ **Known limitation.** A Luxembourg commune takes its name from its principal
+town, so this is right wherever the two coincide (Luxembourg, Differdange,
+Esch-sur-Alzette). It is wrong where they do not: **Rodange is in the commune of
+Pétange**, Belval is in Sanem, and a quarter like Ville-Haute is not a commune at
+all. Booking a venue in one of those will send a town where echo.lu expects a
+commune, and may be rejected or filed under the wrong municipality. Fixing it
+properly needs a postcode→commune table, or a `commune` field of its own on the
+event. Until then, check the listing after publishing an event outside the
+towns above.
 
-Addresses are parsed best-effort and never guessed: a component that cannot be
-identified with confidence is left blank, and the full first line always
-survives in `street`, so the listing is never less informative than what we
-hold.
+**Blank contact and address fields** are dropped rather than sent — echo.lu
+treats an empty string as a supplied value and renders a blank line for it.
+
+`dates[].duration` **is** sent, as `duration_minutes`. It was held back while
+its unit was undocumented — a wrong unit would have contradicted `from`/`to` on
+a public listing — but the API documents it as an integer count of minutes.
+
+The address is typed one component per field in the admin, so nothing is parsed
+at publish time. Events created before that split fall back to parsing their
+legacy free text, best-effort and never guessed: a component that cannot be
+identified with confidence is left blank rather than invented. Find them with:
+
+```bash
+python manage.py backfill_event_addresses --audit
+```
 
 ## Troubleshooting
 
