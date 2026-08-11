@@ -558,6 +558,48 @@ class TestCreateQuizNightEventCommand:
         self._run(clear=True, publish=True)
         assert MeetupEvent.objects.get(title=self.TITLE).is_published is True
 
+    def test_rerun_with_publish_alone_publishes_and_keeps_the_rounds(self, db):
+        """The workflow the drafted event's own advice sends operators to.
+
+        The publish write and the "already has rounds" refusal live in one
+        atomic block, so raising after publishing rolls the publish back.
+        """
+        from crush_lu.models import MeetupEvent
+
+        self._run()
+        assert MeetupEvent.objects.get(title=self.TITLE).is_published is False
+
+        self._run(publish=True)
+
+        assert MeetupEvent.objects.get(title=self.TITLE).is_published is True
+        assert QuizQuestion.objects.count() == 36  # rounds survived, once
+
+    def test_publish_alone_reports_that_the_rounds_were_kept(self, db, capsys):
+        self._run()
+        capsys.readouterr()
+
+        self._run(publish=True)
+        assert "Left the existing 6 rounds untouched" in capsys.readouterr().out
+
+    def test_duplicate_quiz_night_titles_are_a_clear_error(self, db):
+        """Two matches would crash `get_or_create` with MultipleObjectsReturned."""
+        from crush_lu.models import MeetupEvent
+
+        for _ in range(2):
+            MeetupEvent.objects.create(
+                title=self.TITLE,
+                description="Hand-made duplicate",
+                event_type="quiz_night",
+                date_time=timezone.now() + timedelta(days=1),
+                location="Luxembourg City",
+                address="1 Place d'Armes",
+                max_participants=30,
+                registration_deadline=timezone.now() + timedelta(hours=12),
+            )
+
+        with pytest.raises(CommandError, match="More than one Quiz Night"):
+            self._run()
+
     def test_reuse_publish_backfills_a_missing_canton(self, db):
         """A published event without a canton is one `clean()` would reject."""
         from crush_lu.models import MeetupEvent
