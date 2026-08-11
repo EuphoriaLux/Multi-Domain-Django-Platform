@@ -1160,6 +1160,154 @@ class EventRegistrationAdminFormAgeTests(TestCase):
         self.assertFalse(form.is_valid())
 
 
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class MeetupEventAdminDuplicateRegistrationTests(TestCase):
+    """
+    A change form submitted twice must not 500 on the (event, user) unique index.
+
+    Staging 2026-08-11, event 29 / user 86: two overlapping POSTs of the
+    MeetupEvent change form each validated against a table that did not hold
+    the registration yet, both INSERTed, and the loser came back as
+
+        IntegrityError: duplicate key value violates unique constraint
+        "crush_lu_eventregistration_event_id_user_id_52c32bb9_uniq"
+
+    `changeform_view` runs the POST inside a transaction, so that rollback took
+    the parent event's edits and every other inline down with it — over a row
+    its own twin had already written.
+
+    These tests drive `save_formset` directly and create the conflicting row
+    between `is_valid()` and the save, which is precisely the window the
+    database index was catching.
+    """
+
+    def setUp(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.events import EventRegistrationInline, MeetupEventAdmin
+        from crush_lu.models import MeetupEvent
+
+        self.factory = RequestFactory()
+        self.FallbackStorage = FallbackStorage
+        self.site = crush_admin_site
+        self.inline_cls = EventRegistrationInline
+        self.admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+
+        self.staff = User.objects.create_superuser(
+            username='dup-admin', email='dup-admin@test.lu', password='x',
+        )
+        self.member = User.objects.create_user(
+            username='dup-member', email='dup-member@test.lu', password='x',
+        )
+        self.event = MeetupEvent.objects.create(
+            title='Duplicate Guard Event',
+            description='no age restriction, so the age gate stays inert',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+    def _request(self):
+        request = self.factory.post('/')
+        request.user = self.staff
+        request.session = {}
+        request._messages = self.FallbackStorage(request)
+        return request
+
+    def _validated_formset_adding(self, user):
+        """One new registration row, already through `is_valid()`."""
+        from crush_lu.models import MeetupEvent
+
+        inline = self.inline_cls(MeetupEvent, self.site)
+        formset_cls = inline.get_formset(self._request())
+        prefix = formset_cls.get_default_prefix()
+        formset = formset_cls(
+            {
+                f'{prefix}-TOTAL_FORMS': '1',
+                f'{prefix}-INITIAL_FORMS': '0',
+                f'{prefix}-MIN_NUM_FORMS': '0',
+                f'{prefix}-MAX_NUM_FORMS': '1000',
+                f'{prefix}-0-id': '',
+                f'{prefix}-0-user': str(user.pk),
+                f'{prefix}-0-status': 'confirmed',
+            },
+            instance=self.event,
+        )
+        self.assertTrue(formset.is_valid(), formset.errors)
+        return formset
+
+    def _parent_form(self):
+        request = self._request()
+        return self.admin.get_form(request, self.event)(instance=self.event)
+
+    def _messages(self, request):
+        return [str(m) for m in request._messages]
+
+    def test_row_written_by_a_twin_submission_is_skipped(self):
+        from crush_lu.models import EventRegistration
+
+        formset = self._validated_formset_adding(self.member)
+
+        # The twin request lands after validation and before the save.
+        EventRegistration.objects.create(
+            event=self.event, user=self.member, status='confirmed'
+        )
+
+        request = self._request()
+        self.admin.save_formset(request, self._parent_form(), formset, change=True)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=self.event, user=self.member
+            ).count(),
+            1,
+        )
+        self.assertTrue(
+            any('Already registered' in m for m in self._messages(request)),
+            f'expected a warning naming the skipped user, got {self._messages(request)}',
+        )
+
+    def test_registration_is_still_created_when_there_is_no_conflict(self):
+        """The happy path must survive the override."""
+        from crush_lu.models import EventRegistration
+
+        formset = self._validated_formset_adding(self.member)
+        request = self._request()
+        self.admin.save_formset(request, self._parent_form(), formset, change=True)
+
+        registration = EventRegistration.objects.get(
+            event=self.event, user=self.member
+        )
+        self.assertEqual(registration.status, 'confirmed')
+        self.assertEqual(self._messages(request), [])
+
+    def test_other_integrity_errors_are_not_swallowed(self):
+        """
+        Only an already-registered (event, user) pair is absorbed. Anything
+        else still has to reach the caller, or the override would be hiding
+        real database failures behind a warning.
+        """
+        from django.db import IntegrityError
+
+        formset = self._validated_formset_adding(self.member)
+        # A NOT NULL violation: an IntegrityError the guard must not recognise.
+        # Not a foreign-key violation — Django declares those DEFERRABLE on
+        # SQLite, so under `TestCase` they would not surface until a commit
+        # that never comes, and the row would insert cleanly instead.
+        formset.forms[0].instance.checkin_token = None
+
+        with self.assertRaises(IntegrityError):
+            self.admin.save_formset(
+                self._request(), self._parent_form(), formset, change=True
+            )
+
+
 @override_settings(
     ROOT_URLCONF="azureproject.urls_crush",
     RATELIMIT_ENABLE=False,

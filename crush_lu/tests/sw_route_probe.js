@@ -51,10 +51,15 @@ const workbox = {
         skipWaiting: () => {},
     }),
     routing: lenientNamespace({
-        registerRoute: (match, handler) => {
+        // Workbox keeps one router per HTTP method and defaults to GET, so a
+        // POST probe must only be matched against POST-registered routes.
+        // Ignoring the method here made every probe look like it hit the
+        // background-sync route.
+        registerRoute: (match, handler, method) => {
             routes.push({
                 match,
                 strategy: (handler && handler.__strategy) || "unknown",
+                method: method || "GET",
             });
         },
         setCatchHandler: () => {},
@@ -140,6 +145,7 @@ function earlyListenerClaims(request) {
 function matchingRoute(request) {
     const url = new URL(request.url);
     for (const route of routes) {
+        if (route.method !== (request.method || "GET")) continue;
         let hit = false;
         try {
             hit = !!route.match({ url, request, event: { request } });
@@ -192,6 +198,40 @@ const probes = [
         destination: "document",
         mustBeClaimed: true, // proves the probe detects claiming at all
     },
+    {
+        // A queued admin POST is replayed verbatim for up to 24h, which
+        // re-submits the change form's inline rows and duplicates whatever the
+        // first submission already wrote. Staging 2026-08-11: a second
+        // EventRegistration INSERT for (event 29, user 86) came back as a 500
+        // on the unique index.
+        name: "crush_admin_form_post",
+        url: "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        // The admin lives at /crush-admin/, which does not contain "/admin" —
+        // so it slipped past the authenticated-route list and its pages were
+        // cacheable. A cached change form carries stale inline ids.
+        name: "crush_admin_page_navigation",
+        url: "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkOnly",
+    },
+    {
+        // Guards the method-aware probe: ordinary site POSTs must KEEP their
+        // background-sync queueing, which is the whole point of the route.
+        name: "ordinary_form_post",
+        url: "https://crush.lu/en/events/29/register/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -199,21 +239,26 @@ const results = probes.map((probe) => {
         url: probe.url,
         mode: probe.mode,
         destination: probe.destination,
-        method: "GET",
+        method: probe.method || "GET",
         headers: { get: () => "" },
     };
     const early = earlyListenerClaims(request);
     const route = early ? null : matchingRoute(request);
     const claimed = early || route !== null;
+    const strategyOk = !probe.mustMatchStrategy || route === probe.mustMatchStrategy;
     return {
         name: probe.name,
         url: probe.url,
+        method: request.method,
         claimedByEarlyListener: early,
         matchedRoute: route,
         claimed,
         informational: !!probe.informational,
         mustBeClaimed: probe.informational ? null : probe.mustBeClaimed,
-        ok: probe.informational ? true : claimed === probe.mustBeClaimed,
+        mustMatchStrategy: probe.mustMatchStrategy || null,
+        ok: probe.informational
+            ? true
+            : claimed === probe.mustBeClaimed && strategyOk,
     };
 });
 

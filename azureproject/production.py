@@ -480,18 +480,36 @@ LOGGING = {
         "handlers": ["console"],
         "level": "INFO",  # Allow INFO+ to propagate to App Insights
     },
+    # NOTE ON `handlers: []` BELOW.
+    #
+    # Every logger here that propagates must leave `handlers` empty: root
+    # already owns "console", and logging calls the handlers found at EVERY
+    # level it walks, not just the first. A logger that names "console" AND
+    # propagates therefore prints twice, and `django.request` — which walks
+    # django.request -> django -> root, all three naming "console" — printed
+    # every record three times. One 500 on the MeetupEvent change form filled
+    # the staging log with three identical IntegrityError tracebacks
+    # (2026-08-11), which reads as three failures.
+    #
+    # Do NOT "fix" that by setting `propagate: False`. App Insights is fed by
+    # an OTel LoggingHandler attached to the ROOT logger
+    # (azureproject/apps.py -> attach_otel_logging_handler_to_root), so
+    # anything that stops propagating stops being exported. Dropping the
+    # duplicate handler keeps console at one line and leaves the export path
+    # untouched; the "console" handler's own ERROR level still applies, so
+    # nothing new reaches the console either.
     "loggers": {
         # =================================================================
         # Django Core Loggers - Minimal console output
         # =================================================================
         "django": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "WARNING",
             # Propagate to root so App Insights captures Django warnings/errors
             "propagate": True,
         },
         "django.request": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "WARNING",
             # Propagate to root so 4xx/5xx and CSRF failures reach App Insights
             "propagate": True,
@@ -542,33 +560,33 @@ LOGGING = {
         # WARNING: state not found
         # ERROR: database failures
         "crush_lu.oauth_statekit": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "INFO",
             "propagate": True,  # Propagate to App Insights
         },
         # ASGI transport errors (e.g. CurrentThreadExecutor broken)
         # These occur before Django's request pipeline starts
         "azureproject.asgi": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "ERROR",
             "propagate": True,  # Propagate to root → App Insights
         },
         # Middleware logging (CSRF failures, routing)
         "azureproject.middleware": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "WARNING",
             "propagate": True,
         },
         # Crush.lu application logging
         "crush_lu": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "INFO",
             "propagate": True,
         },
         # CSP violation reports
         # Query in App Insights: traces | where message contains "CSP"
         "csp_reports": {
-            "handlers": ["console"],
+            "handlers": [],
             "level": "WARNING",
             "propagate": True,
         },

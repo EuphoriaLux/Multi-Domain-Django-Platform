@@ -14,7 +14,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages as django_messages
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -1369,6 +1369,79 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 attrs=ADDRESS_WIDGET_ATTRS[db_field.name]
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def save_formset(self, request, form, formset, change):
+        """
+        Don't let a re-submitted registration row take the whole save down.
+
+        `EventRegistration` is unique on (event, user) and the formset does
+        check that before saving — but only against the table as it stood when
+        the form was validated. Two overlapping submissions of the same change
+        form therefore both pass validation, both INSERT, and the loser gets
+
+            IntegrityError: duplicate key value violates unique constraint
+            "crush_lu_eventregistration_event_id_user_id_52c32bb9_uniq"
+
+        rendered as a 500. `changeform_view` wraps the POST in a transaction,
+        so that rollback also discards the parent event's edits and every other
+        inline in the same submission — for a row the admin's own twin request
+        had already written (staging 2026-08-11, event 29 / user 86). The
+        registration exists either way, so the duplicate is dropped and named
+        in a warning instead of costing the rest of the save.
+
+        Only that exact collision is absorbed. Each row goes in under its own
+        savepoint and anything that is not an already-registered (event, user)
+        pair is re-raised untouched.
+        """
+        if formset.model is not EventRegistration:
+            super().save_formset(request, form, formset, change)
+            return
+
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        skipped = []
+        for obj in instances:
+            try:
+                # A savepoint, not a nested transaction: the admin's atomic
+                # block is already open, and an IntegrityError that escapes
+                # into it poisons it — Postgres rejects every later statement
+                # in an aborted transaction, including the lookup below.
+                with transaction.atomic():
+                    obj.save()
+            except IntegrityError:
+                already_registered = EventRegistration.objects.filter(
+                    event_id=obj.event_id, user_id=obj.user_id
+                )
+                if obj.pk is not None:
+                    already_registered = already_registered.exclude(pk=obj.pk)
+                if not already_registered.exists():
+                    raise
+                skipped.append(obj)
+
+        formset.save_m2m()
+
+        if skipped:
+            names = ", ".join(
+                obj.user.get_full_name() or obj.user.username for obj in skipped
+            )
+            logger.warning(
+                "Dropped %d duplicate registration row(s) on event %s (users: %s) "
+                "— the change form was submitted more than once.",
+                len(skipped),
+                form.instance.pk,
+                names,
+            )
+            self.message_user(
+                request,
+                _(
+                    "Already registered for this event, so no duplicate was "
+                    "created: %(users)s."
+                )
+                % {"users": names},
+                level=django_messages.WARNING,
+            )
 
 
 class EventRegistrationAdmin(admin.ModelAdmin):
