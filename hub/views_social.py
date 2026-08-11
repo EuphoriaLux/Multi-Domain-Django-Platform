@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
+from crush_lu.utils.i18n import build_absolute_url
 
 from .buffer_service import (
     BufferPartialFailure,
@@ -23,8 +24,8 @@ from .buffer_service import (
     list_buffer_profiles,
 )
 from .claude_service import ClaudeServiceError, expand_social_post, generate_social_copy
+from .constants import SOCIAL_CONTENT_MAX_LENGTH
 from .image_generator import (
-    generate_event_flyer,
     generate_kpi_card,
     generate_profile_card,
 )
@@ -49,10 +50,31 @@ BUFFER_PARTIAL_ERROR = (
 PROFILE_INELIGIBLE_ERROR = (
     "The featured profile is no longer eligible for marketing publication."
 )
+EVENT_INELIGIBLE_ERROR = "The linked event is no longer public, published, or upcoming."
+EVENT_SCHEDULE_ERROR = "Publication time must be before the linked event starts."
+BUFFER_PLATFORM_SCOPE_ERROR = (
+    "Every selected Buffer channel must be mapped to one of this post's platforms."
+)
 SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
-SCHEDULING_FIELDS = {"content", "scheduled_for", "media_url", "buffer_profile_ids"}
+SCHEDULING_FIELDS = {
+    "content",
+    "scheduled_for",
+    "media_url",
+    "platforms",
+    "buffer_profile_ids",
+    "buffer_profile_platforms",
+}
+PROMOTED_STATUSES = {SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED}
+PROMOTION_STATUS_RANK = {
+    SocialPost.Status.PUBLISHED: 6,
+    SocialPost.Status.SCHEDULED: 5,
+    SocialPost.Status.APPROVED: 4,
+    SocialPost.Status.PENDING_REVIEW: 3,
+    SocialPost.Status.DRAFT: 2,
+    SocialPost.Status.FAILED: 1,
+}
 KPI_LABELS = {
     "fr": ("Nouveaux membres", "Connexions créées", "Répartition des profils"),
     "en": ("New members", "Connections made", "Profile distribution"),
@@ -173,6 +195,28 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         image_url = event.image.url
         if image_url.startswith("/"):
             image_url = request.build_absolute_uri(image_url)
+    facebook_posts = [
+        post
+        for post in event.social_promotion_posts.all()
+        if "facebook" in (post.platforms or [])
+    ]
+    # A partial Buffer failure leaves the post FAILED even though Facebook is
+    # already live, and FAILED ranks below DRAFT — so a newer draft would win
+    # max() and report the event as unpromoted while the publication exists.
+    # Read the delivery that actually happened, not the overall status.
+    dispatched_posts = [
+        post
+        for post in facebook_posts
+        if "facebook" in _event_post_dispatched_platforms(post)
+    ]
+    promotion_post = max(
+        dispatched_posts or facebook_posts,
+        key=lambda post: (PROMOTION_STATUS_RANK.get(post.status, 0), post.created_at),
+        default=None,
+    )
+    available_languages = _event_available_languages(event)
+    event_url_language = available_languages[0] if available_languages else "fr"
+
     return {
         "id": str(event.pk),
         "title": event.title,
@@ -180,7 +224,236 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         "date": event.date_time.isoformat(),
         "location": event.location,
         "image_url": image_url,
+        "event_url": build_absolute_url(
+            "crush_lu:event_detail",
+            lang=event_url_language,
+            kwargs={"event_id": event.pk},
+        ),
+        "available_languages": available_languages,
+        "promotion_post_id": str(promotion_post.pk) if promotion_post else None,
+        "promotion_status": promotion_post.status if promotion_post else "not_started",
+        "is_promoted": bool(dispatched_posts),
     }
+
+
+def _event_available_languages(event: MeetupEvent) -> list[str]:
+    return [
+        language
+        for language in (
+            SocialPost.Language.FR,
+            SocialPost.Language.EN,
+            SocialPost.Language.DE,
+        )
+        if str(getattr(event, f"title_{language}", "") or "").strip()
+        and str(getattr(event, f"description_{language}", "") or "").strip()
+    ]
+
+
+def _event_value(event: MeetupEvent, field: str, language: str) -> str:
+    """Return stored event copy without generating or paraphrasing it."""
+
+    return str(getattr(event, f"{field}_{language}", "") or "").strip()
+
+
+def _unique_string_list(value) -> list[str] | None:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return None
+    return list(dict.fromkeys(value))
+
+
+def _event_post_content(event: MeetupEvent, language: str) -> str:
+    title = _event_value(event, "title", language)
+    description = _event_value(event, "description", language)
+    local_date = timezone.localtime(event.date_time).strftime("%d/%m/%Y · %H:%M")
+    event_url = build_absolute_url(
+        "crush_lu:event_detail",
+        lang=language,
+        kwargs={"event_id": event.pk},
+    )
+    return (
+        f"{title}\n\n{description}\n\n"
+        f"📅 {local_date}\n"
+        f"📍 {event.location}\n\n"
+        f"{event_url}"
+    )
+
+
+def _event_copy_validation_error(
+    event: MeetupEvent, languages: list[str]
+) -> str | None:
+    unavailable_languages = set(languages) - set(_event_available_languages(event))
+    if unavailable_languages:
+        return "The event has no stored title and description for: " + ", ".join(
+            sorted(unavailable_languages)
+        )
+    oversized_languages = [
+        language
+        for language in languages
+        if len(_event_post_content(event, language)) > SOCIAL_CONTENT_MAX_LENGTH
+    ]
+    if oversized_languages:
+        return (
+            f"The stored event copy exceeds {SOCIAL_CONTENT_MAX_LENGTH} characters for: "
+            + ", ".join(oversized_languages)
+        )
+    return None
+
+
+def _event_post_is_dispatched(post: SocialPost) -> bool:
+    return post.status in PROMOTED_STATUSES or bool(post.buffer_id)
+
+
+def _event_post_dispatched_platforms(post: SocialPost) -> set[str]:
+    if post.dispatched_platforms:
+        return set(post.dispatched_platforms)
+    if post.status in PROMOTED_STATUSES:
+        return set(post.platforms or [])
+    return set()
+
+
+def _event_media_url(event: MeetupEvent, request) -> str | None:
+    if not event.image:
+        return None
+    image_url = event.image.url
+    return (
+        request.build_absolute_uri(image_url)
+        if image_url.startswith("/")
+        else image_url
+    )
+
+
+def _refresh_event_draft(
+    post: SocialPost,
+    *,
+    event: MeetupEvent,
+    language: str,
+    platforms: list[str],
+    request,
+) -> SocialPost:
+    """Synchronize a reusable draft with the event's current stored content."""
+
+    refreshed = {
+        "hook": _event_value(event, "title", language),
+        "content": _event_post_content(event, language),
+        "media_url": _event_media_url(event, request),
+        "platforms": platforms,
+    }
+    if post.platforms != platforms:
+        refreshed["buffer_profile_ids"] = []
+        refreshed["buffer_profile_platforms"] = {}
+    changed_fields = [
+        field for field, value in refreshed.items() if getattr(post, field) != value
+    ]
+    if not changed_fields:
+        return post
+
+    for field, value in refreshed.items():
+        setattr(post, field, value)
+    if post.status != SocialPost.Status.DRAFT:
+        post.status = SocialPost.Status.DRAFT
+        changed_fields.append("status")
+    history = list(post.status_history or [])
+    history.append(
+        _history_entry(
+            request,
+            SocialPost.Status.DRAFT,
+            note="Refreshed from the event's current stored content.",
+        )
+    )
+    post.status_history = history
+    changed_fields.append("status_history")
+    post.save(update_fields=[*dict.fromkeys(changed_fields), "updated_at"])
+    return post
+
+
+def _create_event_drafts(
+    *,
+    event: MeetupEvent,
+    languages: list[str],
+    platforms: list[str],
+    request,
+) -> tuple[list[SocialPost], int]:
+    posts = []
+    created_count = 0
+    event_posts = list(
+        SocialPost.objects.select_for_update()
+        .filter(source_event=event)
+        .order_by("created_at")
+    )
+    for language in languages:
+        language_posts = [post for post in event_posts if post.language == language]
+        dispatched_posts = [
+            post for post in language_posts if _event_post_is_dispatched(post)
+        ]
+        dispatched_platforms = {
+            platform
+            for post in dispatched_posts
+            for platform in _event_post_dispatched_platforms(post)
+        }
+        missing_platforms = [
+            platform for platform in platforms if platform not in dispatched_platforms
+        ]
+        if not missing_platforms:
+            posts.extend(
+                post
+                for post in dispatched_posts
+                if set(post.platforms or []).intersection(platforms)
+            )
+            continue
+
+        reusable = next(
+            (
+                post
+                for post in language_posts
+                if not _event_post_is_dispatched(post)
+                and set(missing_platforms).issubset(set(post.platforms or []))
+            ),
+            None,
+        ) or next(
+            (post for post in language_posts if not _event_post_is_dispatched(post)),
+            None,
+        )
+        if reusable:
+            reusable_platforms = [
+                platform
+                for platform in (reusable.platforms or [])
+                if platform not in dispatched_platforms
+            ]
+            merged_platforms = list(
+                dict.fromkeys([*reusable_platforms, *missing_platforms])
+            )
+            posts.append(
+                _refresh_event_draft(
+                    reusable,
+                    event=event,
+                    language=language,
+                    platforms=merged_platforms,
+                    request=request,
+                )
+            )
+            continue
+
+        post = SocialPost.objects.create(
+            user=request.user,
+            source_event=event,
+            hook=_event_value(event, "title", language),
+            pillar=SocialPost.Pillar.PROMO,
+            language=language,
+            platforms=missing_platforms,
+            content=_event_post_content(event, language),
+            media_url=_event_media_url(event, request),
+            status=SocialPost.Status.DRAFT,
+            status_history=[
+                _history_entry(
+                    request,
+                    SocialPost.Status.DRAFT,
+                    note="Created from stored event content without AI generation.",
+                )
+            ],
+        )
+        posts.append(post)
+        created_count += 1
+    return posts, created_count
 
 
 class SocialPostsView(APIView):
@@ -188,7 +461,9 @@ class SocialPostsView(APIView):
 
     def get(self, request):
         status_filter = request.query_params.get("status")
-        queryset = SocialPost.objects.all()
+        queryset = SocialPost.objects.select_related(
+            "user", "featured_profile", "source_event"
+        )
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         return Response({"items": SocialPostSerializer(queryset, many=True).data})
@@ -219,6 +494,8 @@ class SocialPostDetailView(APIView):
             )
 
         requested_status = request.data.get("status", post.status)
+        serializer = SocialPostSerializer(post, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         if requested_status == SocialPost.Status.SCHEDULED:
             if post.buffer_id and post.status != SocialPost.Status.SCHEDULED:
                 return Response(
@@ -240,19 +517,68 @@ class SocialPostDetailView(APIView):
                     {"error": PROFILE_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
                 )
+            linked_event = None
+            if post.source_event_id:
+                linked_event = MeetupEvent.objects.filter(
+                    pk=post.source_event_id,
+                    is_published=True,
+                    is_cancelled=False,
+                    is_private_invitation=False,
+                    date_time__gte=timezone.now(),
+                ).first()
+            if post.source_event_id and not linked_event:
+                return Response(
+                    {"error": EVENT_INELIGIBLE_ERROR},
+                    status=status.HTTP_409_CONFLICT,
+                )
             scheduling_errors = {}
-            if not request.data.get("scheduled_for", post.scheduled_for):
+            scheduled_for = serializer.validated_data.get(
+                "scheduled_for", post.scheduled_for
+            )
+            if not scheduled_for:
                 scheduling_errors["scheduled_for"] = "Choose a publication time"
-            if not request.data.get("buffer_profile_ids", post.buffer_profile_ids):
+            elif linked_event and scheduled_for >= linked_event.date_time:
+                scheduling_errors["scheduled_for"] = EVENT_SCHEDULE_ERROR
+            selected_profile_ids = serializer.validated_data.get(
+                "buffer_profile_ids", post.buffer_profile_ids
+            )
+            profile_platforms = serializer.validated_data.get(
+                "buffer_profile_platforms", post.buffer_profile_platforms
+            )
+            effective_platforms = serializer.validated_data.get(
+                "platforms", post.platforms
+            )
+            if not selected_profile_ids:
                 scheduling_errors["buffer_profile_ids"] = "Select a Buffer channel"
+            elif all(
+                profile_id in profile_platforms for profile_id in selected_profile_ids
+            ):
+                # The mapping is what dispatched_platforms is recorded from, so
+                # a channel mapped outside this post's own platforms would book
+                # coverage the publication never had — and leave the platform it
+                # really went to looking unpromoted, i.e. duplicable.
+                mapped_platforms = {
+                    profile_platforms[profile_id] for profile_id in selected_profile_ids
+                }
+                if not mapped_platforms.issubset(set(effective_platforms or [])):
+                    scheduling_errors["buffer_profile_platforms"] = (
+                        BUFFER_PLATFORM_SCOPE_ERROR
+                    )
+            elif len(effective_platforms or []) == 1:
+                serializer.validated_data["buffer_profile_platforms"] = {
+                    profile_id: effective_platforms[0]
+                    for profile_id in selected_profile_ids
+                }
+            elif linked_event:
+                scheduling_errors["buffer_profile_platforms"] = (
+                    "Identify the platform for every selected Buffer channel"
+                )
             if not str(request.data.get("content", post.content)).strip():
                 scheduling_errors["content"] = "Post content cannot be empty"
             if scheduling_errors:
                 return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
 
         old_status = post.status
-        serializer = SocialPostSerializer(post, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
         if post.status == SocialPost.Status.SCHEDULED:
             changed_delivery_fields = sorted(
                 field
@@ -292,6 +618,13 @@ class SocialPostDetailView(APIView):
                 )
                 updated_post.status = SocialPost.Status.FAILED
                 updated_post.buffer_id = ",".join(exc.created_post_ids)
+                updated_post.dispatched_platforms = list(
+                    dict.fromkeys(
+                        updated_post.buffer_profile_platforms[profile_id]
+                        for profile_id in exc.created_profile_ids
+                        if profile_id in updated_post.buffer_profile_platforms
+                    )
+                )
                 history = list(updated_post.status_history or [])
                 history.append(
                     _history_entry(
@@ -302,7 +635,12 @@ class SocialPostDetailView(APIView):
                 )
                 updated_post.status_history = history
                 updated_post.save(
-                    update_fields=["status", "buffer_id", "status_history"]
+                    update_fields=[
+                        "status",
+                        "buffer_id",
+                        "dispatched_platforms",
+                        "status_history",
+                    ]
                 )
                 return Response(
                     {
@@ -335,7 +673,17 @@ class SocialPostDetailView(APIView):
                 )
 
             updated_post.buffer_id = result["buffer_id"]
-            updated_post.save(update_fields=["buffer_id"])
+            successful_profile_ids = result.get(
+                "created_profile_ids", updated_post.buffer_profile_ids
+            )
+            updated_post.dispatched_platforms = list(
+                dict.fromkeys(
+                    updated_post.buffer_profile_platforms[profile_id]
+                    for profile_id in successful_profile_ids
+                    if profile_id in updated_post.buffer_profile_platforms
+                )
+            )
+            updated_post.save(update_fields=["buffer_id", "dispatched_platforms"])
 
         return Response({"post": SocialPostSerializer(updated_post).data})
 
@@ -347,8 +695,8 @@ class SocialGenerateView(APIView):
         category = request.data.get("category", "events")
         hook = str(request.data.get("hook", "")).strip()
         pillar = request.data.get("pillar", SocialPost.Pillar.EVENT_RECAP)
-        platforms = list(dict.fromkeys(request.data.get("platforms") or []))
-        languages = list(dict.fromkeys(request.data.get("languages") or []))
+        platforms = _unique_string_list(request.data.get("platforms"))
+        languages = _unique_string_list(request.data.get("languages"))
 
         errors = {}
         if category not in ALLOWED_CATEGORIES:
@@ -357,9 +705,17 @@ class SocialGenerateView(APIView):
             errors["hook"] = "Provide a hook between 1 and 255 characters"
         if pillar not in ALLOWED_PILLARS:
             errors["pillar"] = "Unsupported pillar"
-        if not platforms or not set(platforms).issubset(ALLOWED_PLATFORMS):
+        if (
+            platforms is None
+            or not platforms
+            or not set(platforms).issubset(ALLOWED_PLATFORMS)
+        ):
             errors["platforms"] = "Select at least one supported platform"
-        if not languages or not set(languages).issubset(ALLOWED_LANGUAGES):
+        if (
+            languages is None
+            or not languages
+            or not set(languages).issubset(ALLOWED_LANGUAGES)
+        ):
             errors["languages"] = "Select at least one supported language"
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
@@ -371,32 +727,51 @@ class SocialGenerateView(APIView):
 
         if category == "events":
             event_id = request.data.get("event_id")
-            event = (
-                MeetupEvent.objects.filter(
-                    pk=event_id,
-                    is_published=True,
-                    is_cancelled=False,
-                    date_time__gte=timezone.now(),
-                ).first()
-                if event_id
-                else None
-            )
-            if not event:
-                return Response(
-                    {"event_id": "Select a published upcoming event"},
-                    status=status.HTTP_400_BAD_REQUEST,
+            with transaction.atomic():
+                event = (
+                    MeetupEvent.objects.select_for_update()
+                    .filter(
+                        pk=event_id,
+                        is_published=True,
+                        is_cancelled=False,
+                        is_private_invitation=False,
+                        date_time__gte=timezone.now(),
+                    )
+                    .first()
+                    if event_id
+                    else None
                 )
-            context = _event_payload(event, request)
-            hook = event.title
-            local_date = timezone.localtime(event.date_time)
-            graphic = partial(
-                generate_event_flyer,
-                title=event.title,
-                date_str=local_date.strftime("%d/%m/%Y · %H:%M"),
-                location=event.location,
-                background_url=context["image_url"] or None,
+                if not event:
+                    return Response(
+                        {"event_id": "Select a public, published upcoming event"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                copy_error = _event_copy_validation_error(event, languages)
+                if copy_error:
+                    return Response(
+                        {"languages": copy_error},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                posts, created_count = _create_event_drafts(
+                    event=event,
+                    languages=languages,
+                    platforms=platforms,
+                    request=request,
+                )
+            return Response(
+                {
+                    "posts": SocialPostSerializer(posts, many=True).data,
+                    "warnings": [],
+                    "created_count": created_count,
+                    "reused_count": len(posts) - created_count,
+                    "copy_source": "event",
+                },
+                status=(
+                    status.HTTP_201_CREATED if created_count else status.HTTP_200_OK
+                ),
             )
-        elif category == "kpis":
+
+        if category == "kpis":
             context = _kpi_snapshot()
             graphic = partial(_generate_kpi_graphic, context)
         elif category == "profiles":
@@ -479,12 +854,75 @@ class SocialUpcomingEventsView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        events = MeetupEvent.objects.filter(
-            is_published=True,
-            is_cancelled=False,
-            date_time__gte=timezone.now(),
-        ).order_by("date_time")[:20]
+        events = (
+            MeetupEvent.objects.filter(
+                is_published=True,
+                is_cancelled=False,
+                is_private_invitation=False,
+                date_time__gte=timezone.now(),
+            )
+            .prefetch_related("social_promotion_posts")
+            .order_by("date_time")[:20]
+        )
         return Response({"items": [_event_payload(event, request) for event in events]})
+
+
+class SocialEventDraftsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, event_id):
+        languages = _unique_string_list(
+            request.data.get("languages", [SocialPost.Language.FR])
+        )
+        if (
+            languages is None
+            or not languages
+            or not set(languages).issubset(ALLOWED_LANGUAGES)
+        ):
+            return Response(
+                {"languages": "Select at least one supported language"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            event = (
+                MeetupEvent.objects.select_for_update()
+                .filter(
+                    pk=event_id,
+                    is_published=True,
+                    is_cancelled=False,
+                    is_private_invitation=False,
+                    date_time__gte=timezone.now(),
+                )
+                .first()
+            )
+            if not event:
+                return Response(
+                    {"event_id": "Select a public, published upcoming event"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            copy_error = _event_copy_validation_error(event, languages)
+            if copy_error:
+                return Response(
+                    {"languages": copy_error},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            posts, created_count = _create_event_drafts(
+                event=event,
+                languages=languages,
+                platforms=["facebook"],
+                request=request,
+            )
+
+        return Response(
+            {
+                "posts": SocialPostSerializer(posts, many=True).data,
+                "created_count": created_count,
+                "reused_count": len(posts) - created_count,
+                "copy_source": "event",
+            },
+            status=status.HTTP_201_CREATED if created_count else status.HTTP_200_OK,
+        )
 
 
 class SocialKpisSummaryView(APIView):

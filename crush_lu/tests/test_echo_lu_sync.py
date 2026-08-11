@@ -21,6 +21,7 @@ from decimal import Decimal
 from io import StringIO
 from unittest import mock
 
+from django.conf import settings
 from django.core.management import call_command
 from django.db import transaction
 from django.test import TestCase, override_settings
@@ -28,7 +29,7 @@ from django.utils import timezone
 
 from crush_lu import signals as crush_signals
 from crush_lu.models import MeetupEvent
-from crush_lu.models.echo_lu import EchoExperienceSync
+from crush_lu.models.echo_lu import EchoExperienceSync, EchoVenue
 from crush_lu.services import echo_lu
 
 ENABLED = {"ECHO_LU_SYNC_ENABLED": True, "ECHO_LU_API_KEY": "test-key"}
@@ -54,16 +55,56 @@ def make_event(**overrides):
         "registration_deadline": start - timedelta(days=1),
         "is_published": True,
     }
+    link_venue = overrides.pop("link_venue", True)
     defaults.update(overrides)
-    return MeetupEvent.objects.create(**defaults)
+    event = MeetupEvent.objects.create(**defaults)
+    if link_venue and event.location:
+        # echo.lu takes venue IDS from its own registry, and the sync refuses
+        # to invent one, so an event with no linked venue cannot publish. Every
+        # test that is about something else gets the mapping for free; the
+        # tests that are about the mapping pass link_venue=False.
+        from crush_lu.models.echo_lu import EchoVenue
+
+        address = echo_lu.parse_address(event.address, event.canton)
+        EchoVenue.objects.get_or_create(
+            key=echo_lu.venue_key(event.location, address.get("postcode", "")),
+            defaults={"venue_id": "venue-1", "title": event.location},
+        )
+    return event
+
+
+def echo_response(record):
+    """A response in echo.lu's real envelope: ``{"stats": …, "record": {…}}``.
+
+    This suite used to hand back a bare ``{"id": …}`` — a shape the API never
+    returns. Every test passed against it while the real thing would have
+    parked each newly created listing as an untracked orphan. So the fake now
+    speaks the documented envelope, and the bare spellings are pinned by their
+    own fallback tests rather than being what the whole suite is built on.
+    """
+    return {"stats": {"start": 0, "end": 0, "duration": 1}, "record": record}
 
 
 class FakeClient:
     """Records calls and returns canned responses, in place of EchoLuClient."""
 
-    def __init__(self, create_response=None, error=None):
-        self.create_response = create_response or {"id": "exp-123"}
+    def __init__(self, create_response=None, error=None, venues=None):
+        self.create_response = (
+            create_response
+            if create_response is not None
+            else echo_response({"id": "exp-123"})
+        )
         self.error = error
+        # The venue registry this fake pretends echo.lu holds. It already
+        # contains make_event's venue, because that is the ordinary case
+        # against a national registry of 5k+ rows — the venue exists and we
+        # match it, which costs no write. Pass `venues=[]` for the other case,
+        # where we have to register one.
+        self.venues = (
+            list(venues)
+            if venues is not None
+            else [{"id": "venue-1", "title": "Café Konrad"}]
+        )
         self.calls = []
 
     def _record(self, name, *args):
@@ -71,13 +112,26 @@ class FakeClient:
         if self.error:
             raise self.error
 
+    # --- venues ---
+    # list_venues is deliberately NOT recorded: venue lookups are plumbing, and
+    # threading them into every call-order assertion would bury the experience
+    # calls those assertions exist to pin.
+    def list_venues(self, **params):
+        return {"stats": {}, "records": list(self.venues)}
+
+    def create_venue(self, payload):
+        self._record("create_venue", payload)
+        venue_id = f"venue-{len(self.venues) + 1}"
+        self.venues.append({"id": venue_id, "title": payload.get("title", "")})
+        return echo_response({"id": venue_id})
+
     def create_experience(self, payload):
         self._record("create", payload)
         return self.create_response
 
     def update_experience(self, experience_id, payload):
         self._record("update", experience_id, payload)
-        return {"id": experience_id}
+        return echo_response({"id": experience_id})
 
     def cancel_experience(self, experience_id):
         self._record("cancel", experience_id)
@@ -175,8 +229,188 @@ class PayloadTests(TestCase):
         self.assertEqual(payload["title"], "Speed Dating Luxembourg")
         self.assertEqual(payload["description"], "An evening of short dates.")
         self.assertEqual(payload["subtitle"], "Speed Dating")
-        self.assertEqual(payload["venues"], ["Café Konrad"])
         self.assertEqual(payload["location"]["address"]["postcode"], "2229")
+        # `venues` carries echo.lu venue IDs, resolved by the caller against
+        # echo.lu's own registry — never the venue name, which is what this
+        # used to assert. The name goes nowhere near the field.
+        self.assertEqual(payload["venues"], [])
+        self.assertEqual(
+            echo_lu.build_experience_payload(event, venue_ids=["venue-9"])["venues"],
+            ["venue-9"],
+        )
+
+    def test_address_comes_from_the_structured_fields(self):
+        event = make_event(
+            address="ignored legacy text",
+            address_street="rue Emile Mark",
+            address_number="45",
+            address_postcode="4620",
+            address_town="Differdange",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue Emile Mark")
+        self.assertEqual(address["number"], "45")
+        self.assertEqual(address["postcode"], "4620")
+        self.assertEqual(address["country"], "Luxembourg")
+
+    def test_town_and_commune_are_the_town_not_the_canton(self):
+        # Both used to carry `canton` -- the wrong administrative level. They
+        # carry the town now. `commune` is REQUIRED: omitting it made echo.lu
+        # reject the whole experience with "Missing or malformed address", so
+        # six events stopped publishing entirely (verified live 2026-08-10).
+        event = make_event(
+            address_street="rue Emile Mark",
+            address_postcode="4620",
+            address_town="Differdange",
+            canton="Esch-sur-Alzette",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["town"], "Differdange")
+        self.assertEqual(address["commune"], "Differdange")
+
+    def test_empty_components_are_absent_rather_than_blank(self):
+        # echo.lu treats "" as a supplied value and renders a blank line for it.
+        event = make_event(
+            address_street="Place de la Gare",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+        self.assertNotIn("", address.values())
+
+    def test_legacy_rows_still_publish_a_parsed_address(self):
+        # Rows that predate the split, and any the backfill could not place.
+        event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue du Nord")
+        self.assertEqual(address["postcode"], "2229")
+
+    def test_a_half_transcribed_row_recovers_its_locality_from_the_legacy_text(self):
+        # Branching on address_street alone published a street with no postcode
+        # or town at all -- less than the unsplit text it replaced.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="rue du Nord",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["postcode"], "2229")
+        self.assertEqual(address["town"], "Luxembourg")
+
+    def test_a_blank_house_number_is_never_refilled_from_the_legacy_text(self):
+        # A blank number is a statement -- this venue has none. Recovering it
+        # would reinstate a number somebody removed on purpose.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="Place de la Gare",
+            address_number="",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+
+    def test_a_corrected_postcode_keeps_an_existing_venue_link(self):
+        # Venue links were all created while the postcode could only come from
+        # parsing the legacy text. Preferring the structured field moves the
+        # key, so a postcode corrected by hand -- exactly what the backfill asks
+        # for on the rows it refuses -- would orphan the link and stop the event
+        # publishing.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_legacy"])
+
+    def test_a_blank_postcode_does_not_produce_a_bare_venue_key(self):
+        """`venue_key(name, "")` is a real key a name-only row can match.
+
+        An event with no structured postcode would try that bare key FIRST and
+        could pick a generic mapping over the postcode-specific one meant for
+        it. Blank postcodes are skipped instead.
+        """
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_generic"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_specific"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_specific"])
+
+    def test_a_name_only_venue_link_survives_adding_a_postcode(self):
+        """`echo_venue --link` permits a link with no postcode.
+
+        That row is stored under the bare name key. Filling in the structured
+        postcode afterwards -- which the publishing rule asks people to do --
+        made the candidate list non-empty and orphaned the link.
+        """
+        event = make_event(address_postcode="2229", link_venue=False)
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_nameonly"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_nameonly"])
+
+    def test_the_structured_key_wins_when_both_exist(self):
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "1831"), venue_id="ven_current"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_current"])
+
+    def test_the_legacy_fallback_does_not_smuggle_the_canton_back_in(self):
+        # `parse_address` puts the canton in `commune` and substitutes it for a
+        # town it could not read -- the wrong level in both places.
+        event = make_event(
+            address="Behind the old brewery",
+            canton="Esch-sur-Alzette",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotEqual(address.get("commune"), "Esch-sur-Alzette")
+        self.assertNotEqual(address.get("town"), "Esch-sur-Alzette")
+
+    def test_the_legacy_fallback_still_sends_a_commune(self):
+        # Required field: a legacy row that parses a town must fill it.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Luxembourg")
 
     def test_dates_are_rfc3339_utc_and_span_the_duration(self):
         event = make_event(duration_minutes=90)
@@ -187,11 +421,14 @@ class PayloadTests(TestCase):
         self.assertEqual(entry["from"], echo_lu._rfc3339(event.date_time))
         self.assertEqual(entry["to"], echo_lu._rfc3339(event.end_time))
 
-    def test_duration_is_not_sent(self):
-        # Its unit is undocumented and from/to already pin the span; a wrong
-        # unit would contradict them on the public listing.
-        entry = echo_lu.build_experience_payload(make_event())["dates"][0]
-        self.assertNotIn("duration", entry)
+    def test_duration_is_sent_in_minutes(self):
+        # Held back while the unit was undocumented, because a wrong unit would
+        # have contradicted from/to on the public listing. The API documents it
+        # as an integer count of minutes, which is what the column holds.
+        entry = echo_lu.build_experience_payload(make_event(duration_minutes=90))[
+            "dates"
+        ][0]
+        self.assertEqual(entry["duration"], 90)
 
     def test_free_event_gets_an_explicit_zero_price_ticket(self):
         # No tickets at all reads as "price unknown", which costs signups.
@@ -226,11 +463,12 @@ class PayloadTests(TestCase):
         )
 
     @override_settings(ECHO_LU_CONTACT_WEBSITE="https://crush.lu")
+    @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_uses_the_configured_organiser_site(self):
         payload = echo_lu.build_experience_payload(make_event())
         self.assertEqual(payload["contact"]["website"], "https://crush.lu")
 
-    @override_settings(ECHO_LU_CONTACT_WEBSITE="")
+    @override_settings(ECHO_LU_CONTACT_WEBSITE="", ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_falls_back_to_the_event_page(self):
         # Better than sending nothing: readers still get somewhere useful.
         event = make_event()
@@ -239,19 +477,235 @@ class PayloadTests(TestCase):
             payload["contact"]["website"], f"https://crush.lu/en/events/{event.pk}/"
         )
 
-    def test_blank_contact_fields_are_dropped(self):
-        # An empty string is a supplied value to echo.lu and renders as a blank
-        # contact line.
+    def test_a_partial_contact_is_omitted_entirely(self):
+        # name/email/phone are all required *within* contact while contact
+        # itself is optional, so a partial one is strictly worse than none: it
+        # converts an optional block into a guaranteed 400. This used to send
+        # whichever fields happened to be configured.
         with override_settings(ECHO_LU_CONTACT_PHONE=""):
-            contact = echo_lu.build_experience_payload(make_event())["contact"]
-        self.assertNotIn("phone", contact)
+            payload = echo_lu.build_experience_payload(make_event())
+        self.assertNotIn("contact", payload)
 
-    def test_taxonomy_facets_are_omitted_when_unconfigured(self):
-        # Guessing a slug gets the whole experience rejected, so empty means
-        # "send nothing".
+    @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
+    def test_a_complete_contact_is_sent(self):
+        contact = echo_lu.build_experience_payload(make_event())["contact"]
+        self.assertEqual({"name", "email", "phone", "company", "website"}, set(contact))
+        self.assertTrue(all(contact.values()))
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_unconfigured_facets_travel_empty_and_are_reported_missing(self):
+        # This used to assert the opposite — that an unconfigured facet was
+        # omitted, "which is valid and safer than guessing". It is not valid:
+        # all four are required, and POSTing without them answers 400 with
+        # "Missing categories" and so on. So they travel as empty lists and
+        # `missing_required_fields` names them before a round trip is spent.
         payload = echo_lu.build_experience_payload(make_event())
         for facet in ("categories", "audiences", "formats", "environments"):
-            self.assertNotIn(facet, payload)
+            self.assertIn(facet, payload)
+            self.assertEqual(payload[facet], [])
+        self.assertEqual(
+            set(echo_lu.missing_required_fields(payload))
+            & {"categories", "audiences", "formats", "environments"},
+            {"categories", "audiences", "formats", "environments"},
+        )
+
+    def test_a_complete_payload_reports_nothing_missing(self):
+        # The settings defaults are real echo.lu ids, so an ordinary event
+        # with a resolved venue is publishable as-is.
+        payload = echo_lu.build_experience_payload(make_event(), venue_ids=["venue-1"])
+        self.assertEqual(echo_lu.missing_required_fields(payload), [])
+
+    def test_an_event_without_an_image_still_gets_a_picture(self):
+        # `pictures` is required, so "no image" is a rejection rather than a
+        # listing without a banner.
+        # Asserted against the settings chain, not against the helper that
+        # produced it — comparing the function under test to itself passes even
+        # if both sides are wrong together.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], settings.SOCIAL_PREVIEW_IMAGE_URL
+        )
+        self.assertTrue(payload["pictures"][0]["url"])
+
+    def test_the_fallback_image_is_the_og_image(self):
+        # Not a second hand-written branding URL. The first attempt at this
+        # setting invented a path that 404s, and echo.lu fetches pictures
+        # server-side — so a 404 is a rejected experience, not a missing
+        # banner. Tying it to the og:image means one URL to keep true.
+        #
+        # Asserted through the payload, against whatever SOCIAL_PREVIEW_IMAGE_URL
+        # resolves to in THIS environment. Comparing two settings constants
+        # instead is what let the first version of this fix pass locally and
+        # fail in CI: the URL is reassigned after the constant was bound (blob
+        # storage here, the CDN domain in production.py), so the snapshot and
+        # the live value were already different everywhere that matters.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], settings.SOCIAL_PREVIEW_IMAGE_URL
+        )
+
+    @override_settings(ECHO_LU_FALLBACK_IMAGE="https://example.test/banner.jpg")
+    def test_an_explicit_override_wins(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(
+            payload["pictures"][0]["url"], "https://example.test/banner.jpg"
+        )
+
+    @override_settings(ECHO_LU_DEFAULT_LANGUAGES="en,fr")
+    def test_languages_fall_back_when_the_event_names_none(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["languages"], ["en", "fr"])
+        payload = echo_lu.build_experience_payload(make_event(languages=["de"]))
+        self.assertEqual(payload["languages"], ["de"])
+
+    def test_luxembourgish_is_translated_to_echo_lu_s_code(self):
+        # We spell it "lu" (which is really the ISO country code); echo.lu
+        # wants the ISO 639-1 language code "lb", and rejects the whole
+        # experience on anything else: "Nonexisting value was found: lu".
+        payload = echo_lu.build_experience_payload(make_event(languages=["en", "lu"]))
+        self.assertEqual(payload["languages"], ["en", "lb"])
+
+    def test_language_matching_is_case_insensitive(self):
+        # A stray "LU" from an import or a fixture would otherwise sail past a
+        # bare dict lookup and be rejected by echo.lu with the same opaque
+        # message the mapping exists to prevent.
+        payload = echo_lu.build_experience_payload(make_event(languages=["LU", "EN"]))
+        self.assertEqual(payload["languages"], ["lb", "en"])
+
+    def test_the_default_languages_are_translated_too(self):
+        # The fallback goes through the same helper, so a deployment that set
+        # ECHO_LU_DEFAULT_LANGUAGES=lu is not a rejection waiting to happen.
+        with override_settings(ECHO_LU_DEFAULT_LANGUAGES="lu"):
+            payload = echo_lu.build_experience_payload(make_event(languages=[]))
+        self.assertEqual(payload["languages"], ["lb"])
+
+    def test_unknown_language_codes_are_passed_through(self):
+        # There is no vocabulary endpoint for languages, so we cannot validate
+        # them. Dropping one silently would publish an event as English-only
+        # and tell nobody; echo.lu rejecting it says exactly what is wrong.
+        payload = echo_lu.build_experience_payload(make_event(languages=["xx"]))
+        self.assertEqual(payload["languages"], ["xx"])
+
+    @override_settings(ECHO_LU_MAX_PICTURE_BYTES=1000)
+    def test_an_oversized_banner_falls_back_instead_of_failing(self):
+        # echo.lu rejects the whole experience over a heavy image, so a big
+        # banner costs the listing rather than the banner.
+        event = make_event()
+
+        class BigImage:
+            size = 5000
+            url = "https://cdn.crush.lu/huge.png"
+
+            def __bool__(self):
+                return True
+
+        event.image = BigImage()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(payload["pictures"][0]["url"], echo_lu.fallback_picture_url())
+
+    @override_settings(ECHO_LU_MAX_PICTURE_BYTES=1000)
+    def test_the_banner_size_is_read_once_and_cached(self):
+        # `.size` is a network call on Azure Blob and FieldFile caches nothing,
+        # so reading it per payload build would put a storage round trip on
+        # every event of every sweep — including the no-ops the whole
+        # fingerprint design exists to keep free.
+        from django.core.cache import cache
+
+        cache.clear()
+        reads = []
+
+        class CountingImage:
+            name = "banners/counted.png"
+            url = "https://cdn.crush.lu/counted.png"
+
+            def __bool__(self):
+                return True
+
+            @property
+            def size(self):
+                reads.append(1)
+                return 5000
+
+        event = make_event()
+        event.image = CountingImage()
+        for _ in range(3):
+            echo_lu.build_experience_payload(event)
+        self.assertEqual(len(reads), 1, "banner size should be read once, then cached")
+
+    @override_settings(ECHO_LU_MAX_PICTURE_BYTES=10000)
+    def test_a_banner_within_the_limit_is_used(self):
+        event = make_event()
+
+        class SmallImage:
+            size = 5000
+            url = "https://cdn.crush.lu/fine.png"
+
+            def __bool__(self):
+                return True
+
+        event.image = SmallImage()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(payload["pictures"][0]["url"], "https://cdn.crush.lu/fine.png")
+
+    def test_status_is_not_part_of_the_payload(self):
+        # It is a create-time instruction, not content. In the payload it would
+        # join the fingerprint and ride every PUT.
+        self.assertNotIn("status", echo_lu.build_experience_payload(make_event()))
+
+
+@override_settings(**ENABLED)
+class UnsendablePayloadTests(TestCase):
+    """Refusing to send is not the same as a create whose answer was lost."""
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_a_misconfigured_facet_leaves_the_row_retryable(self):
+        # This used to park the row in ORPHANED. A locally raised error carries
+        # no status code, and "no status code" otherwise reads as "the answer
+        # was lost" — so an event whose required facets were blanked out (which
+        # the setup guide invites, per-environment) was blocked from ever
+        # syncing, and pointed at an --audit that cannot find anything because
+        # nothing was ever sent.
+        event = make_event()
+        client = FakeClient()
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])  # never reached the API
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertIn("categories", event.echo_sync.last_error)
+
+    @override_settings(
+        ECHO_LU_DEFAULT_CATEGORIES="",
+        ECHO_LU_DEFAULT_AUDIENCES="",
+        ECHO_LU_DEFAULT_FORMATS="",
+        ECHO_LU_DEFAULT_ENVIRONMENTS="",
+    )
+    def test_it_syncs_once_the_configuration_is_fixed(self):
+        # The point of staying FAILED rather than ORPHANED: it recovers by
+        # itself on the next sweep once somebody sets the ids.
+        event = make_event()
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=FakeClient())
+
+        with override_settings(
+            ECHO_LU_DEFAULT_CATEGORIES="nightlife",
+            ECHO_LU_DEFAULT_AUDIENCES="adults",
+            ECHO_LU_DEFAULT_FORMATS="networking",
+            ECHO_LU_DEFAULT_ENVIRONMENTS="indoors",
+        ):
+            event.refresh_from_db()
+            self.assertEqual(echo_lu.sync_event(event, client=FakeClient()), "created")
 
     @override_settings(
         ECHO_LU_DEFAULT_CATEGORIES="nightlife",
@@ -315,6 +769,172 @@ class ExtractExperienceIdTests(TestCase):
 
     def test_non_dict_returns_empty(self):
         self.assertEqual(echo_lu.extract_experience_id(["abc"]), "")
+
+    def test_the_documented_record_envelope(self):
+        # THE shape the API actually returns. Missing it meant every create
+        # looked like it came back without an id, so every first publish was
+        # parked as an untracked orphan needing manual recovery.
+        self.assertEqual(
+            echo_lu.extract_experience_id(
+                {"stats": {"duration": 3}, "record": {"id": "exp_abc123"}}
+            ),
+            "exp_abc123",
+        )
+
+
+class ResponseRecordsTests(TestCase):
+    """List responses are ``{"stats": …, "records": [...]}``."""
+
+    def test_the_documented_records_envelope(self):
+        # Missing this made every list parse as empty — and an empty portal
+        # reads as "everything we track was deleted upstream".
+        self.assertEqual(
+            echo_lu.response_records({"stats": {}, "records": [{"id": "a"}]}),
+            [{"id": "a"}],
+        )
+
+    def test_a_bare_list_still_works(self):
+        self.assertEqual(echo_lu.response_records([{"id": "a"}]), [{"id": "a"}])
+
+    def test_legacy_envelopes_still_work(self):
+        self.assertEqual(
+            echo_lu.response_records({"data": [{"id": "a"}]}), [{"id": "a"}]
+        )
+
+    def test_unrecognised_returns_empty(self):
+        self.assertEqual(echo_lu.response_records({"stats": {}}), [])
+
+
+@override_settings(**ENABLED)
+class VenueResolutionTests(TestCase):
+    """`venues` takes ids from echo.lu's registry, and we only ever link them."""
+
+    def test_a_linked_venue_is_used(self):
+        event = make_event()
+        client = FakeClient()
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["venue-1"])
+        self.assertEqual(client.calls, [])
+
+    def test_resolution_never_calls_the_api(self):
+        # The whole point of linking: the sync path does no network work for
+        # venues at all, so it cannot be slow and cannot register anything.
+        event = make_event()
+
+        class ExplodingClient(FakeClient):
+            def list_venues(self, **params):  # pragma: no cover - must not run
+                raise AssertionError("resolution must not call echo.lu")
+
+        echo_lu.sync_event(event, client=ExplodingClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SYNCED)
+
+    def test_an_unlinked_venue_fails_with_instructions(self):
+        # And fails as EchoLuNotSent, so the row stays retryable rather than
+        # being parked as an orphan for a listing that was never created.
+        event = make_event(link_venue=False)
+        client = FakeClient()
+        with self.assertRaises(echo_lu.EchoLuNotSent) as caught:
+            echo_lu.sync_event(event, client=client)
+
+        self.assertEqual(client.calls, [])
+        self.assertIn("echo_venue --search", str(caught.exception))
+        self.assertIn("Café Konrad", str(caught.exception))
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.FAILED)
+
+    def test_an_event_with_no_venue_at_all_sends_none(self):
+        event = make_event(location="", link_venue=False)
+        self.assertEqual(echo_lu.resolve_venue_ids(event), [])
+
+    def test_the_key_ignores_casing_and_spacing(self):
+        # A hand-typed location that drifts in case or spacing must still find
+        # the mapping, or the same venue gets linked twice.
+        self.assertEqual(
+            echo_lu.venue_key("  café   KONRAD ", "1450"),
+            echo_lu.venue_key("Café Konrad", "1450"),
+        )
+        self.assertNotEqual(
+            echo_lu.venue_key("Café Konrad", "1450"),
+            echo_lu.venue_key("Café Konrad", "2229"),
+        )
+
+
+@override_settings(**ENABLED)
+class VenueSearchHelperTests(TestCase):
+    """The registry pager, which now only serves `manage.py echo_venue`."""
+
+    def test_pages_never_exceed_the_hundred_item_ceiling(self):
+        # echo.lu rejects a bigger page outright rather than clamping it:
+        # "It is not allowed to retrieve more than 100 items per page".
+        seen = []
+
+        class RecordingClient(FakeClient):
+            def list_venues(self, **params):
+                seen.append(params.get("pagination[perPage]"))
+                return {"records": []}
+
+        list(echo_lu.iter_venue_records(RecordingClient(), None))
+        self.assertTrue(seen)
+        self.assertTrue(all(p is not None and p <= 100 for p in seen), seen)
+
+    def test_an_unknown_commune_falls_back_to_the_wide_search(self):
+        # Our commune comes from `canton` (free text) while echo.lu wants one
+        # of its own ids and 404s otherwise. The filter is an optimisation, so
+        # an unusable one demotes rather than failing.
+        real = {"id": "venue-real", "title": "Café Konrad"}
+
+        class PickyClient(FakeClient):
+            def list_venues(self, **params):
+                if "communes[]" in params:
+                    raise echo_lu.EchoLuError("no such commune", status_code=404)
+                return {"records": [real]}
+
+        found = list(echo_lu.iter_venue_records(PickyClient(), {"commune": "Nowhere"}))
+        self.assertIn("venue-real", [echo_lu.extract_experience_id(r) for r in found])
+
+    def test_the_caller_can_widen_the_page_budget(self):
+        pages = []
+
+        class EndlessClient(FakeClient):
+            def list_venues(self, **params):
+                pages.append(params.get("pagination[page]"))
+                return {"records": [{"id": f"v{len(pages)}", "title": "x"}] * 100}
+
+        list(echo_lu.iter_venue_records(EndlessClient(), None, max_pages=2))
+        self.assertEqual(len(pages), 2)
+
+
+@override_settings(**ENABLED)
+class CreateStatusTests(TestCase):
+    """`status` is a create-time instruction, and only that."""
+
+    def test_a_create_asks_for_validation(self):
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        create = [c for c in client.calls if c[0] == "create"][0]
+        self.assertEqual(create[1]["status"], "pending")
+
+    @override_settings(ECHO_LU_CREATE_STATUS="draft")
+    def test_the_status_is_configurable(self):
+        client = FakeClient()
+        echo_lu.sync_event(make_event(), client=client)
+        self.assertEqual(
+            [c for c in client.calls if c[0] == "create"][0][1]["status"], "draft"
+        )
+
+    def test_an_update_never_carries_a_status(self):
+        # What a status does to an already-validated listing is undocumented,
+        # and a national portal is the wrong place to find out.
+        event = make_event()
+        client = FakeClient()
+        echo_lu.sync_event(event, client=client)
+        event.refresh_from_db()
+        event.title = "Renamed"
+        event.save()
+        echo_lu.sync_event(event, client=client)
+        update = [c for c in client.calls if c[0] == "update"][0]
+        self.assertNotIn("status", update[2])
 
 
 @override_settings(**ENABLED)
@@ -1632,8 +2252,14 @@ class SweepFairnessTests(TestCase):
 
 
 @override_settings(**ENABLED)
+@override_settings(ECHO_LU_DEFAULT_CATEGORIES="")
 class CategoryMapSafetyTests(TestCase):
-    """Bad config must not raise out of a save that already committed."""
+    """Bad config must not raise out of a save that already committed.
+
+    Defaults are cleared class-wide so each case measures the MAP alone; the
+    real ECHO_LU_DEFAULT_CATEGORIES is now a live id rather than empty, and
+    would otherwise show up in every expected list.
+    """
 
     @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": 123}')
     def test_a_scalar_map_value_is_ignored_rather_than_raising(self):
@@ -1645,7 +2271,7 @@ class CategoryMapSafetyTests(TestCase):
         # the assertion is that the payload builds at all — the bug was a
         # TypeError escaping into an already-committed save.
         payload = echo_lu.build_experience_payload(make_event())
-        self.assertNotIn("categories", payload)
+        self.assertEqual(payload["categories"], [])
 
     @override_settings(ECHO_LU_CATEGORY_MAP='{"speed_dating": ["dating"]}')
     def test_a_list_map_value_is_used(self):
@@ -1660,7 +2286,7 @@ class CategoryMapSafetyTests(TestCase):
     @override_settings(ECHO_LU_CATEGORY_MAP="not json at all")
     def test_unparseable_map_does_not_raise(self):
         payload = echo_lu.build_experience_payload(make_event())
-        self.assertNotIn("categories", payload)
+        self.assertEqual(payload["categories"], [])
 
 
 @override_settings(**ENABLED)
@@ -2060,6 +2686,64 @@ class WithdrawnThenCancelledTests(TestCase):
 
 
 @override_settings(**ENABLED)
+class StaleWithdrawalTests(TestCase):
+    """The withdraw path lacked the publish path's own "never mind" check."""
+
+    def test_an_automatic_withdrawal_aborts_if_the_event_became_eligible(self):
+        # An automatic take-down decided from an older save can queue behind a
+        # sync that republished the listing and left it correct. Going ahead
+        # unpublishes what that newer save just put up and writes WITHDRAWN
+        # over its SYNCED, so the listing stays missing for up to an hour.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        # Stand in for the caller that decided to withdraw: its copy says
+        # unpublished, while the winner has since republished the event.
+        stale = MeetupEvent.objects.get(pk=event.pk)
+        stale.is_published = False
+        self.assertTrue(MeetupEvent.objects.get(pk=event.pk).is_published)
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(stale, client=client), "skipped")
+        self.assertEqual(client.calls, [])
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SYNCED)
+
+    def test_an_explicit_withdrawal_is_not_talked_out_of_it(self):
+        # The whole point of an explicit take-down is that it removes a
+        # listing whose event still qualifies, so eligibility must not abort
+        # it — otherwise the coach's Remove action would become a no-op on
+        # exactly the events they use it for.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+
+        client = FakeClient()
+        self.assertEqual(
+            echo_lu.withdraw_event(event, client=client, explicit=True),
+            "withdrawn",
+        )
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.SUPPRESSED)
+
+    def test_a_pending_removal_still_goes_through(self):
+        # `removal_requested` is an explicit instruction that survived a failed
+        # attempt. The retry arrives with the event still saying "publish me" —
+        # that is the state the flag exists for — so it must not abort either.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        EchoExperienceSync.objects.filter(event=event).update(removal_requested=True)
+        event = MeetupEvent.objects.select_related("echo_sync").get(pk=event.pk)
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(event, client=client), "withdrawn")
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+
+
+@override_settings(**ENABLED)
 class DeleteEventTests(TestCase):
     """Deleting the event destroys the only record of the listing's id."""
 
@@ -2213,6 +2897,67 @@ class DeleteEventTests(TestCase):
         with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
             self._delete(event)
         self.assertEqual(client.calls, [])
+
+    def test_an_already_withdrawn_listing_is_not_taken_down_again(self):
+        # The id is kept on a withdrawn row on purpose, so "has an id" is not
+        # "is up". Dialling anyway spends the batch's shared budget on a no-op,
+        # and in a bulk delete enough of them push a live listing's callback
+        # past the budget — after its row is gone.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        event.is_published = False
+        event.save()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.WITHDRAWN)
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+        self.assertEqual(client.calls, [])
+
+    def test_a_cancelled_notice_is_still_taken_down_on_delete(self):
+        # The counter-case, and the reason the skip above is a two-item list
+        # rather than "anything not synced": a cancelled listing is still on
+        # public display, and the delete is the last moment anything can reach
+        # it. Miss this and the country keeps a cancellation notice for an
+        # event that no longer exists.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        MeetupEvent.objects.filter(pk=event.pk).update(is_cancelled=True)
+        event.refresh_from_db()
+        echo_lu.sync_event(event, client=FakeClient())
+        event.refresh_from_db()
+        self.assertEqual(event.echo_sync.status, EchoExperienceSync.Status.CANCELLED)
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+        self.assertEqual([call[0] for call in client.calls], ["unpublish"])
+
+    def test_an_id_written_since_the_event_was_loaded_is_still_found(self):
+        # The receiver used to read `instance.echo_sync`, which can be a copy
+        # cached when the event was loaded. A first publish that lands after
+        # that — it holds the row locked across its POST, so a racing delete
+        # reads the pre-create blank id — left the receiver concluding there
+        # was no listing, and the cascade then deleted the row the winner had
+        # just written the id into. Reading the row fresh, under its lock, is
+        # what makes the answer current.
+        event = make_event()
+        stale = EchoExperienceSync.objects.create(event=event)
+        event.echo_sync = stale  # the copy from before the create landed
+        EchoExperienceSync.objects.filter(pk=stale.pk).update(
+            experience_id="exp-late", status=EchoExperienceSync.Status.SYNCED
+        )
+        self.assertEqual(event.echo_sync.experience_id, "")
+
+        client = FakeClient()
+        with mock.patch.object(echo_lu, "EchoLuClient", return_value=client):
+            self._delete(event)
+
+        self.assertEqual(client.calls, [("unpublish", "exp-late")])
 
     @override_settings(ECHO_LU_SYNC_ENABLED=False)
     def test_a_disabled_environment_still_names_the_stranded_listing(self):

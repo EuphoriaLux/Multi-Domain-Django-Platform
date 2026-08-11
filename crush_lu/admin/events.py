@@ -31,11 +31,21 @@ from crush_lu.models import (
     MeetupEvent,
     PresentationQueue,
 )
-from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
 
 logger = logging.getLogger(__name__)
+
+# Size the address boxes to the data, so the shape of a Luxembourg address is
+# legible at a glance. `address_postcode` is absent on purpose — its widget
+# lives on the declared form field, which formfield_for_dbfield cannot reach.
+ADDRESS_WIDGET_ATTRS = {
+    "address_street": {"size": 50, "placeholder": "rue du Nord"},
+    "address_number": {"size": 8, "placeholder": "7"},
+    "address_town": {"size": 30, "placeholder": "Luxembourg"},
+}
 
 
 def _enqueue_echo_sync(event_ids):
@@ -171,6 +181,24 @@ class MeetupEventAdminForm(forms.ModelForm):
         ),
     )
 
+    # Declared explicitly so the form accepts more characters than the column.
+    # Django runs the field's own validators (including max_length) *before*
+    # clean_<name>(), so with the model's max_length=4 propagated here, typing
+    # the natural "L-2229" would be rejected six characters long before
+    # clean_address_postcode could strip the prefix. The model's 4-char limit
+    # and its RegexValidator still run, at _post_clean, against the normalized
+    # value.
+    address_postcode = forms.CharField(
+        required=False,
+        max_length=8,
+        label=_("Postcode"),
+        widget=forms.TextInput(attrs={"size": 8, "placeholder": "L-2229"}),
+        help_text=_("Four digits. 'L-' optional — stored bare, displayed as L-NNNN."),
+    )
+
+    def clean_address_postcode(self):
+        return normalize_lu_postcode(self.cleaned_data.get("address_postcode", ""))
+
     class Meta:
         model = MeetupEvent
         fields = "__all__"
@@ -209,6 +237,27 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.profile_requirement = audience
         instance.is_private_invitation = False
         return instance
+
+    def _post_clean(self):
+        """Apply the audience choice BEFORE the model validates itself.
+
+        `_post_clean` is where Django copies cleaned data onto the instance and
+        calls `MeetupEvent.clean()`. `is_private_invitation` is not a form field
+        -- it is derived from `registration_audience` -- and deriving it in
+        `save()` alone meant model validation ran against the *stored* value.
+
+        That matters now `clean()` skips its address rule for invitation-only
+        events: switching a public event to invitation-only was still validated
+        as public, and switching a private one to public was still skipped. Both
+        judged the change that was being made by the state it was leaving.
+        """
+        audience = self.cleaned_data.get("registration_audience")
+        if audience:
+            try:
+                self.apply_registration_audience(self.instance, audience)
+            except forms.ValidationError as error:
+                self.add_error("registration_audience", error)
+        super()._post_clean()
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -385,8 +434,22 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         EventCapacityFilter,
         "date_time",
     )
-    search_fields = ("title", "description", "location", "address", "canton")
+    search_fields = (
+        "title",
+        "description",
+        "location",
+        "address",
+        "address_street",
+        "address_number",
+        "address_town",
+        "address_postcode",
+        "canton",
+    )
     readonly_fields = (
+        # Legacy free text, read-only from here on. echo.lu now reads the
+        # structured fields, so this box no longer feeds anything — leaving it
+        # writable would just invite staff to keep typing addresses into it.
+        "address",
         "created_at",
         "updated_at",
         "invitation_code",
@@ -440,11 +503,32 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "fields": (
                     "canton",
                     "location",
-                    "address",
+                    ("address_number", "address_street"),
+                    ("address_postcode", "address_town"),
                     ("latitude", "longitude"),
                     "date_time",
                     "duration_minutes",
-                )
+                ),
+                "description": (
+                    "<strong>Location</strong> is the venue NAME (e.g. Café Konrad). "
+                    "The street, number, postcode and town go in their own fields — "
+                    "echo.lu publishes them separately on the national events portal "
+                    "and prints them on wallet tickets, so don't repeat the venue "
+                    "name in the street. <strong>Canton</strong> is the only part of "
+                    "the location anonymous visitors can see."
+                ),
+            },
+        ),
+        (
+            "Legacy address",
+            {
+                "fields": ("address",),
+                "classes": ("collapse",),
+                "description": (
+                    "Read-only. What was typed before the address was split into "
+                    "fields — kept so it can be transcribed into the fields "
+                    "above, then ignored. echo.lu reads the structured fields now."
+                ),
             },
         ),
         (
@@ -649,6 +733,46 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
+        # `queryset.update()` emits no signals and runs no `clean()`, so the
+        # address rule on the model cannot see this path. Without the check
+        # below, selecting a batch of drafts publishes the incomplete ones and
+        # sends them straight to a national portal with half an address —
+        # the one publish route that bypasses every guard on the change form.
+        # `MeetupEvent.unmet_publish_requirements()` is the one definition of
+        # what a publishable event needs -- shared with `clean()` and with
+        # `backfill_event_addresses --audit`. Re-deriving it here is what let
+        # this action forget `canton`, which `clean()` has required all along.
+        incomplete = [
+            event
+            for event in queryset
+            if event.unmet_publish_requirements(as_published=True)
+        ]
+        if incomplete:
+            queryset = queryset.exclude(pk__in=[event.pk for event in incomplete])
+            django_messages.warning(
+                request,
+                _(
+                    "Not published — {details}. Fill those in, or run "
+                    "`manage.py backfill_event_addresses`."
+                ).format(
+                    # Name the actual gaps per event. A fixed "street, postcode
+                    # and town" sends staff hunting through address boxes that
+                    # are already filled when the only thing missing is canton.
+                    details="; ".join(
+                        "{title} needs {fields}".format(
+                            title=event,
+                            fields=", ".join(
+                                name.removeprefix("address_")
+                                for name in event.unmet_publish_requirements(
+                                    as_published=True
+                                )
+                            ),
+                        )
+                        for event in incomplete
+                    )
+                ),
+            )
+
         # Snapshot before .update(): the queryset is lazy and may well filter on
         # is_published=False, which matches nothing once the update lands.
         event_ids = list(queryset.values_list("pk", flat=True))
@@ -1211,7 +1335,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         """Customize form fields for better UX"""
         if db_field.name == "languages":
-            from django import forms
+            # `forms` is imported at module level; a local re-import here would
+            # make the name local to this whole method and break every other
+            # branch that uses it.
             from crush_lu.models import CrushProfile
 
             kwargs["widget"] = forms.CheckboxSelectMultiple(
@@ -1237,6 +1363,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "• File size: Under 500KB for best performance\n"
                 "• This size works great for social media sharing (Open Graph) and displays perfectly on all devices\n"
                 "• The image will be cropped to fit: centered on mobile, full width on desktop"
+            )
+        elif db_field.name in ADDRESS_WIDGET_ATTRS:
+            kwargs["widget"] = forms.TextInput(
+                attrs=ADDRESS_WIDGET_ATTRS[db_field.name]
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
@@ -1498,9 +1628,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if best is None or _key(row) < best:
                     by_user[row.user_id] = _key(row)
             displayed = get_next_event_registrations(list(by_user), now=now)
-            candidates = CrushProfile.objects.filter(
-                user_id__in=list(by_user)
-            ).exclude(google_wallet_object_id="")
+            candidates = CrushProfile.objects.filter(user_id__in=list(by_user)).exclude(
+                google_wallet_object_id=""
+            )
             for profile in candidates:
                 showing = displayed.get(profile.user_id)
                 if showing is None or by_user[profile.user_id] < _key(showing):

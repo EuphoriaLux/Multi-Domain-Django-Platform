@@ -3,7 +3,7 @@
 Publishes public Crush.lu events to [echo.lu](https://www.echo.lu), Luxembourg's
 national events portal, through its partner API.
 
-- API reference: <https://api.echo.lu/> (sandbox: <https://test-api.echo.lu/>)
+- API reference: <https://api.echo.lu/> — Echo API v1.1.0. There is no sandbox.
 - Support: the echo.lu organiser back office issues the API key and answers
   vocabulary questions.
 
@@ -22,97 +22,127 @@ Only events that are **published, public, and not yet finished**:
 The private-invitation exclusion is the one that matters most: those events are
 invitation-only by design, and echo.lu is a public, indexed, national listing.
 
+### The venue is published, and that is a decision, not an oversight
+
+`event_detail.html` shows `location` and `address` **only to signed-in users** —
+anonymous visitors get the canton and *"Sign up to reveal the exact location"*.
+The echo.lu payload sends both fields, so **publishing an event puts its exact
+venue and street address on a public, indexed, national portal**, visible to
+people who have not signed up and to search engines.
+
+Decided 2026-08-08 (Tom): **that is fine.** The reveal-on-signup gate is a
+signup nudge rather than a confidentiality requirement, and national discovery
+is worth more than the nudge.
+
+Written down because it is invisible from the code — nothing enforces it either
+way; it is simply a property of sending `location`/`address` at all — and
+because it is easy to reverse later. If the trade stops being worth it, three
+options, cheapest first:
+
+1. **A placeholder venue.** Register one "Crush.lu — Luxembourg City" venue and
+   point every experience at it, with a canton-level address. `venues` is
+   required so it cannot just be dropped; this satisfies it, keeps the gate,
+   and `purchaseLink` still sends readers to the event page for the real
+   detail. Costs one generic row in a registry shared with other organisers.
+2. **A per-event opt-in.** A `publish_venue_publicly` flag on `MeetupEvent`,
+   default off. Most control; needs a migration and an admin field.
+3. **Skip venue-gated events entirely.** Simplest — and since today that is
+   every event, it amounts to leaving the integration off.
+
 ## Turning it on
 
-**Order matters, and the order below is not the obvious one.** Turning the
-switch on is the *last* configuration step, not the first: from the moment it
-is true, every event save and every admin bulk publish writes to echo.lu for
-real. Wiring the hourly timer is later still, because the sweep publishes the
-whole upcoming calendar on its first tick.
+> **There is no sandbox.** An earlier version of this page sent you to
+> `test-api.echo.lu` with a separate key. That environment is not real: the
+> published docs name exactly one base URL, never mention a test environment,
+> and that hostname serves a byte-identical documentation page from the same
+> address as `api.echo.lu`. **Every write lands on the live national portal.**
+>
+> That inverts the obvious rollout. Staging is the *dangerous* place to try
+> this — its database is `pythonapp_staging`, full of test events, and
+> publishing those to echo.lu is exactly the failure this integration is meant
+> to avoid. The safe first run is **one real production event, by id**. Its
+> blast radius is that one listing, and `DeleteExperience` is the undo.
+
+**Order matters and it is not the obvious order.** The switch goes on late, and
+the hourly timer later still — the sweep reconciles the whole upcoming calendar
+on its first tick.
 
 1. **Issue an API key** in the echo.lu organiser back office. The key is tied to
    your organisation — there is no separate organisation id to configure.
-2. **Set the credentials, with the switch still off** (Azure App Service
-   application settings):
+2. **Set the credentials on the production slot, switch still off:**
 
    ```
    ECHO_LU_API_KEY=<key>
-   ECHO_LU_API_BASE_URL=https://test-api.echo.lu/v1   # production: https://api.echo.lu/v1
    ECHO_LU_CONTACT_EMAIL=<a mailbox somebody actually reads>
    ECHO_LU_CONTACT_PHONE=+352...
    ```
 
-   `ECHO_LU_SYNC_ENABLED` defaults to **false** everywhere, and setting the key
-   alone is inert. That is what lets the next two steps run against the real
-   API without anything being published — and it is why a restored production
-   database on staging cannot mutate live listings just by inheriting the key.
+   `ECHO_LU_API_BASE_URL` needs no setting; it defaults to
+   `https://api.echo.lu/v1`, the only base URL there is.
 
-   `ECHO_LU_CONTACT_*` is printed on the public listing, so the email has to be
-   a monitored mailbox — enquiries go there, and a bounce is invisible from our
-   side.
+   `ECHO_LU_SYNC_ENABLED` defaults to **false**, and the key alone is inert —
+   that is what lets the next steps run against the real API while nothing can
+   be published. Note that `ECHO_LU_API_KEY` and `ECHO_LU_SYNC_ENABLED` are
+   **slot-sticky** (they are in `slotConfigNames`), so each slot keeps its own
+   and a swap does not carry them.
 
-   Two more settings have sensible defaults and only need changing if echo.lu
-   turns out to be slower than expected: `ECHO_LU_SIGNAL_TIMEOUT_SECONDS` (5)
-   caps what an event save spends on the sync, and
-   `ECHO_LU_SWEEP_BUDGET_SECONDS` (90) caps one hourly pass. See *How it stays
-   in sync* for why both exist. Keep the sweep budget comfortably above
-   `ECHO_LU_TIMEOUT_SECONDS` (20) — the pass reserves one timeout of headroom,
-   so a budget below it would defer every event and do nothing.
+   **Contact is all-or-nothing.** `name`, `email` and `phone` are all required
+   *within* the contact block while the block itself is optional, so a partial
+   one is worse than none — it turns an optional field into a guaranteed
+   rejection. Without a phone number the contact block is omitted entirely and
+   the listing carries no organiser contact.
 
-3. **Pick the taxonomy slugs.** echo.lu validates categories, audiences, formats
-   and environments against its own vocabularies and rejects the *entire*
-   experience on one unknown value, so these ship empty and have to be read off
-   the API:
+3. **Check the taxonomy ids.** All four facets are **required** — an experience
+   without them is rejected with `Missing categories` and so on, so "leave it
+   blank" is not an option:
 
    ```bash
-   python manage.py echo_taxonomy                  # print every vocabulary
-   python manage.py echo_taxonomy --kind categories
+   python manage.py echo_taxonomy            # 190 categories, 10 audiences,
+   python manage.py echo_taxonomy --check    # 16 formats, 3 environments
    ```
 
-   Then set what applies, comma-separated:
+   The shipped defaults are real ids read off the live API
+   (`nightlife` / `adults` / `networking` / `indoors`, languages `en,fr`),
+   chosen for a dating meetup rather than editorially decided. Override per
+   environment once somebody has read how the listings look:
 
    ```
-   ECHO_LU_DEFAULT_CATEGORIES=...
-   ECHO_LU_DEFAULT_AUDIENCES=...
-   ECHO_LU_CATEGORY_MAP={"speed_dating": ["..."], "quiz_night": ["..."]}
+   ECHO_LU_DEFAULT_CATEGORIES=nightlife
+   ECHO_LU_CATEGORY_MAP={"speed_dating": ["nightlife"], "mixer": ["nightlife-afterwork"]}
    ```
 
-   `ECHO_LU_CATEGORY_MAP` layers per-event-type categories on top of the
-   defaults. Verify what you configured actually exists:
+4. **Dry-run and read the payload**, which writes nothing:
 
    ```bash
-   python manage.py echo_taxonomy --check
-   ```
-
-4. **Dry-run before the first real sync**, which needs no key and writes nothing:
-
-   ```bash
-   python manage.py sync_events_to_echo --dry-run
    python manage.py sync_events_to_echo --event-id 42 --dry-run --show-payload
    ```
 
-   Read the `--show-payload` output rather than skimming it. `location.address`
-   is parsed out of a free-text field and is the part most likely to be wrong,
-   and echo.lu renders whatever it accepts verbatim.
+   Read it rather than skim it — echo.lu renders whatever it accepts verbatim.
+   `location.address` comes from the event's street/number/postcode/town
+   fields; if it looks thin, that event still holds only the legacy free text
+   and needs `manage.py backfill_event_addresses`.
 
-5. **Now turn it on**: `ECHO_LU_SYNC_ENABLED=true`. Sandbox first — a sandbox
-   key is rejected by production and vice versa, so pointing staging at
-   `test-api.echo.lu` is what makes this reversible.
+5. **Turn it on:** `ECHO_LU_SYNC_ENABLED=true` on the production slot.
 
-6. **Sync one event and look at it on echo.lu** before anything else does:
+6. **Sync exactly one event and go and look at it:**
 
    ```bash
    python manage.py sync_events_to_echo --event-id 42
    ```
+
+   This is the real test, because there is nowhere else to run one. The
+   experience is created with `status=pending`, which submits it for
+   validation — **echo.lu moderates listings**, so it will not appear publicly
+   the moment the command returns. Check the organiser back office. Set
+   `ECHO_LU_CREATE_STATUS=draft` first if you would rather it park there
+   without being submitted at all.
 
 7. **Only then wire up the hourly sweep**, by setting `DJANGO_ECHO_SYNC_URL` on
    the `crush-hybrid-maintenance` Function App — re-running `provision.sh` /
    `provision.ps1` does it, or set it directly:
 
    ```bash
-   az functionapp config appsettings set -g django-app-rg \
-     -n crush-hybrid-maintenance \
-     --settings DJANGO_ECHO_SYNC_URL=https://crush.lu/api/admin/echo-sync/
+   az functionapp config appsettings set -g django-app-rg      -n crush-hybrid-maintenance      --settings DJANGO_ECHO_SYNC_URL=https://crush.lu/api/admin/echo-sync/
    ```
 
    Last, for two reasons. The sweep's first tick reconciles the *entire*
@@ -120,6 +150,162 @@ whole upcoming calendar on its first tick.
    And the endpoint answers 500 while the switch is off — deliberately, so a
    dormant sweep cannot look green — which the `EchoLuSync` timer records as a
    Failed invocation every hour until step 5 is done.
+
+### Venues are linked by hand, never created
+
+`venues` on an experience is a list of **ids** from echo.lu's own venue
+registry — a shared national table of 5,000+ rows that every organiser reads
+and writes. Two facts about it shape everything else:
+
+* **There is no text search.** ListVenues filters only by category and commune,
+  and a page of 100 costs 3-4 seconds. Finding one venue means paging the whole
+  registry: minutes. That is fine once, in a shell; it is impossible inside an
+  admin action that allows five seconds.
+* **Registering a venue means claiming it.** CreateVenue requires a
+  description, a category, a website and a contact. For premises we merely
+  book, the only values we hold are Crush.lu's own — so an automatic
+  registration would publish somebody else's venue into a public national
+  registry with our contact details on it, for other organisers to attach their
+  events to.
+
+So the sync **never registers a venue and never searches at request time.** It
+reads a mapping made once, by a person:
+
+```bash
+# find the id (slow, exhaustive, read-only)
+python manage.py echo_venue --search "MAIN Experience"
+
+# record it — the key is name + postcode, exactly as the event produces them
+python manage.py echo_venue --link "MAIN Experience" --postcode 1450     --venue-id <id>
+
+python manage.py echo_venue --list
+```
+
+If the venue is not in the registry, create it in the echo.lu organiser back
+office first — with its own description, category and contact, not ours — then
+link the id it is given.
+
+Until a venue is linked, syncing an event there fails with a message naming it
+and the command to run. That failure is retryable (`FAILED`, not `ORPHANED`):
+nothing was sent, so the next sweep succeeds by itself once the link exists.
+
+## Turning it on
+
+> **There is no sandbox.** An earlier version of this page sent you to
+> `test-api.echo.lu` with a separate key. That environment is not real: the
+> published docs name exactly one base URL, never mention a test environment,
+> and that hostname serves a byte-identical documentation page from the same
+> address as `api.echo.lu`. **Every write lands on the live national portal.**
+>
+> That inverts the obvious rollout. Staging is the *dangerous* place to try
+> this — its database is `pythonapp_staging`, full of test events, and
+> publishing those to echo.lu is exactly the failure this integration is meant
+> to avoid. The safe first run is **one real production event, by id**. Its
+> blast radius is that one listing, and `DeleteExperience` is the undo.
+
+**Order matters and it is not the obvious order.** The switch goes on late, and
+the hourly timer later still — the sweep reconciles the whole upcoming calendar
+on its first tick.
+
+1. **Issue an API key** in the echo.lu organiser back office. The key is tied to
+   your organisation — there is no separate organisation id to configure.
+2. **Set the credentials on the production slot, switch still off:**
+
+   ```
+   ECHO_LU_API_KEY=<key>
+   ECHO_LU_CONTACT_EMAIL=<a mailbox somebody actually reads>
+   ECHO_LU_CONTACT_PHONE=+352...
+   ```
+
+   `ECHO_LU_API_BASE_URL` needs no setting; it defaults to
+   `https://api.echo.lu/v1`, the only base URL there is.
+
+   `ECHO_LU_SYNC_ENABLED` defaults to **false**, and the key alone is inert —
+   that is what lets the next steps run against the real API while nothing can
+   be published. Note that `ECHO_LU_API_KEY` and `ECHO_LU_SYNC_ENABLED` are
+   **slot-sticky** (they are in `slotConfigNames`), so each slot keeps its own
+   and a swap does not carry them.
+
+   **Contact is all-or-nothing.** `name`, `email` and `phone` are all required
+   *within* the contact block while the block itself is optional, so a partial
+   one is worse than none — it turns an optional field into a guaranteed
+   rejection. Without a phone number the contact block is omitted entirely and
+   the listing carries no organiser contact.
+
+3. **Check the taxonomy ids.** All four facets are **required** — an experience
+   without them is rejected with `Missing categories` and so on, so "leave it
+   blank" is not an option:
+
+   ```bash
+   python manage.py echo_taxonomy            # 190 categories, 10 audiences,
+   python manage.py echo_taxonomy --check    # 16 formats, 3 environments
+   ```
+
+   The shipped defaults are real ids read off the live API
+   (`nightlife` / `adults` / `networking` / `indoors`, languages `en,fr`),
+   chosen for a dating meetup rather than editorially decided. Override per
+   environment once somebody has read how the listings look:
+
+   ```
+   ECHO_LU_DEFAULT_CATEGORIES=nightlife
+   ECHO_LU_CATEGORY_MAP={"speed_dating": ["nightlife"], "mixer": ["nightlife-afterwork"]}
+   ```
+
+4. **Dry-run and read the payload**, which writes nothing:
+
+   ```bash
+   python manage.py sync_events_to_echo --event-id 42 --dry-run --show-payload
+   ```
+
+   Read it rather than skim it — echo.lu renders whatever it accepts verbatim.
+   `location.address` comes from the event's street/number/postcode/town
+   fields; if it looks thin, that event still holds only the legacy free text
+   and needs `manage.py backfill_event_addresses`.
+
+5. **Turn it on:** `ECHO_LU_SYNC_ENABLED=true` on the production slot.
+
+6. **Sync exactly one event and go and look at it:**
+
+   ```bash
+   python manage.py sync_events_to_echo --event-id 42
+   ```
+
+   This is the real test, because there is nowhere else to run one. The
+   experience is created with `status=pending`, which submits it for
+   validation — **echo.lu moderates listings**, so it will not appear publicly
+   the moment the command returns. Check the organiser back office. Set
+   `ECHO_LU_CREATE_STATUS=draft` first if you would rather it park there
+   without being submitted at all.
+
+7. **Only then wire up the hourly sweep**, by setting `DJANGO_ECHO_SYNC_URL` on
+   the `crush-hybrid-maintenance` Function App — re-running `provision.sh` /
+   `provision.ps1` does it, or set it directly:
+
+   ```bash
+   az functionapp config appsettings set -g django-app-rg      -n crush-hybrid-maintenance      --settings DJANGO_ECHO_SYNC_URL=https://crush.lu/api/admin/echo-sync/
+   ```
+
+   Last, for two reasons. The sweep's first tick reconciles the *entire*
+   upcoming calendar, so everything above needs to have been checked by then.
+   And the endpoint answers 500 while the switch is off — deliberately, so a
+   dormant sweep cannot look green — which the `EchoLuSync` timer records as a
+   Failed invocation every hour until step 5 is done.
+
+### Venues
+
+`venues` on an experience is a list of **ids** from echo.lu's own venue
+registry — a shared national table of 5,000+ rows, not free text. There is no
+search endpoint (ListVenues filters only by category and commune), so the sync
+resolves a venue once and caches it in `EchoVenue`:
+
+1. the local cache, keyed on the normalised venue name plus postcode;
+2. echo.lu's registry, matched on **normalised equality of the name** — never a
+   substring, because attaching our event to somebody else's venue is worse
+   than a duplicate and invisible from our side;
+3. failing both, `CreateVenue`, and the new id is cached.
+
+Registering into a registry shared with every other organiser is a real side
+effect, so `EchoVenue.created_by_us` records which rows we put there.
 
 ## How it stays in sync
 
@@ -317,6 +503,21 @@ Adopting sets the row to **Pending** with no payload fingerprint, so the next
 sync sends a full update rather than trusting a hash against a listing whose
 content nobody has confirmed.
 
+**One case where `--audit` will find nothing: an orphaned _venue_.** If
+`CreateVenue` answers 2xx without an id, the event's row is marked **Orphaned**
+as well — that is the state that blocks automatic retries, which is what has to
+happen here, because retrying would register a *second* venue into a registry
+shared with every other organiser in the country. But the orphan is a venue,
+not an experience, and `--audit` only walks experiences, so the usual
+`--adopt`/`--forget` path has nothing to work with. The error text saved on the
+row says so; the recovery is:
+
+1. find the venue in the echo.lu organiser back office and note its id;
+2. create the mapping by hand — an `EchoVenue` row whose `key` is what
+   `services.echo_lu.venue_key(location, postcode)` returns for that venue;
+3. then `--event-id N --forget` to clear the event's block, since no experience
+   was ever created for it.
+
 ## Field mapping
 
 | echo.lu | Crush.lu |
@@ -326,7 +527,7 @@ content nobody has confirmed.
 | `dates[0].from` / `.to` | `date_time` / `end_time`, RFC 3339 in UTC |
 | `dates[0].purchaseLink` | the event detail page |
 | `venues` | `location` (venue name) |
-| `location.address` | `address` parsed into street/number/postcode/town, plus `canton` |
+| `location.address` | `address_street` / `address_number` / `address_postcode` / `address_town`; `commune` gets the town too |
 | `location.address.latitude/longitude` | `latitude` / `longitude`, as strings, omitted when unset |
 | `pictures[0]` | `image`, made absolute |
 | `tickets` | `registration_fee` in EUR; free events get an explicit €0 ticket |
@@ -334,18 +535,39 @@ content nobody has confirmed.
 | `languages` | `languages` |
 | `categories` / `audiences` / `formats` / `environments` / `tags` | the `ECHO_LU_DEFAULT_*` settings |
 
-Two deliberate omissions:
+**`commune` is required, and gets the town.** It once carried the event's
+`canton`, which is a region rather than a commune. Omitting it looked like the
+safe correction — echo.lu's commune filter is a controlled vocabulary where an
+unrecognised value 404s the venue search — but the field is mandatory: on
+2026-08-10 every event was rejected with `location.address: Missing or malformed
+address`, including three that were already live, and the whole integration
+stopped publishing until the town was sent.
 
-- **`dates[].duration`** — the unit is undocumented and `from`/`to` already pin
-  the span exactly, so a duration in the wrong unit would contradict them on the
-  public listing.
-- **Blank contact fields** — echo.lu treats an empty string as a supplied value
-  and renders a blank contact line for it.
+⚠️ **Known limitation.** A Luxembourg commune takes its name from its principal
+town, so this is right wherever the two coincide (Luxembourg, Differdange,
+Esch-sur-Alzette). It is wrong where they do not: **Rodange is in the commune of
+Pétange**, Belval is in Sanem, and a quarter like Ville-Haute is not a commune at
+all. Booking a venue in one of those will send a town where echo.lu expects a
+commune, and may be rejected or filed under the wrong municipality. Fixing it
+properly needs a postcode→commune table, or a `commune` field of its own on the
+event. Until then, check the listing after publishing an event outside the
+towns above.
 
-Addresses are parsed best-effort and never guessed: a component that cannot be
-identified with confidence is left blank, and the full first line always
-survives in `street`, so the listing is never less informative than what we
-hold.
+**Blank contact and address fields** are dropped rather than sent — echo.lu
+treats an empty string as a supplied value and renders a blank line for it.
+
+`dates[].duration` **is** sent, as `duration_minutes`. It was held back while
+its unit was undocumented — a wrong unit would have contradicted `from`/`to` on
+a public listing — but the API documents it as an integer count of minutes.
+
+The address is typed one component per field in the admin, so nothing is parsed
+at publish time. Events created before that split fall back to parsing their
+legacy free text, best-effort and never guessed: a component that cannot be
+identified with confidence is left blank rather than invented. Find them with:
+
+```bash
+python manage.py backfill_event_addresses --audit
+```
 
 ## Troubleshooting
 
@@ -357,7 +579,7 @@ sync, last error) on the event's change form.
 | --- | --- |
 | Every sync fails with a 4xx | Almost always an unknown taxonomy slug. Run `echo_taxonomy --check`. |
 | `sync_events_to_echo` errors "sync is disabled" | `ECHO_LU_SYNC_ENABLED` or `ECHO_LU_API_KEY` is unset. Deliberate: a silent no-op on a scheduled job is indistinguishable from "nothing to do". |
-| Bare 401 | The key is wrong for the environment — production and sandbox keys are not interchangeable. |
+| Bare 401 | The key is wrong or revoked. There is only one environment, so there is no "wrong environment" to be in. |
 | "accepted the experience but returned no id" | echo.lu created a listing we cannot address. The row is **Orphaned** and stays blocked until a person resolves it — re-running does nothing. Run `--audit`, then `--adopt` the id or `--forget` it; see *Orphaned listings*. |
 | The sweep reports events deferred every run | echo.lu is slow, or `ECHO_LU_SWEEP_BUDGET_SECONDS` is set at or below `ECHO_LU_TIMEOUT_SECONDS` — the pass reserves one timeout of headroom, so a budget below that defers everything. |
 | Event never appears, no error | Check eligibility — private, unpublished, cancelled and finished events are all skipped by design. |

@@ -132,7 +132,7 @@ def build_google_event_ticket_jwt(registration, request=None):
             {
                 "id": "location",
                 "header": "Location",
-                "body": f"{event.location}\n{event.address}",
+                "body": f"{event.location}\n{event.full_address}",
             },
             {
                 "id": "attendee",
@@ -193,7 +193,7 @@ def build_google_event_ticket_jwt(registration, request=None):
                 "defaultValue": {"language": "en-US", "value": event.location}
             },
             "address": {
-                "defaultValue": {"language": "en-US", "value": event.address}
+                "defaultValue": {"language": "en-US", "value": event.full_address}
             },
         },
         "dateTime": {
