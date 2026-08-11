@@ -33,6 +33,11 @@ from crush_lu.models import (
 )
 from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
 
+from .filters import EventCapacityFilter
+from .quiz import QuizEventInline
+
+logger = logging.getLogger(__name__)
+
 # Size the address boxes to the data, so the shape of a Luxembourg address is
 # legible at a glance. `address_postcode` is absent on purpose — its widget
 # lives on the declared form field, which formfield_for_dbfield cannot reach.
@@ -41,10 +46,6 @@ ADDRESS_WIDGET_ATTRS = {
     "address_number": {"size": 8, "placeholder": "7"},
     "address_town": {"size": 30, "placeholder": "Luxembourg"},
 }
-from .filters import EventCapacityFilter
-from .quiz import QuizEventInline
-
-logger = logging.getLogger(__name__)
 
 
 def _enqueue_echo_sync(event_ids):
@@ -237,6 +238,27 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.is_private_invitation = False
         return instance
 
+    def _post_clean(self):
+        """Apply the audience choice BEFORE the model validates itself.
+
+        `_post_clean` is where Django copies cleaned data onto the instance and
+        calls `MeetupEvent.clean()`. `is_private_invitation` is not a form field
+        -- it is derived from `registration_audience` -- and deriving it in
+        `save()` alone meant model validation ran against the *stored* value.
+
+        That matters now `clean()` skips its address rule for invitation-only
+        events: switching a public event to invitation-only was still validated
+        as public, and switching a private one to public was still skipped. Both
+        judged the change that was being made by the state it was leaving.
+        """
+        audience = self.cleaned_data.get("registration_audience")
+        if audience:
+            try:
+                self.apply_registration_audience(self.instance, audience)
+            except forms.ValidationError as error:
+                self.add_error("registration_audience", error)
+        super()._post_clean()
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         self.apply_registration_audience(
@@ -424,6 +446,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "canton",
     )
     readonly_fields = (
+        # Legacy free text, read-only from here on. echo.lu now reads the
+        # structured fields, so this box no longer feeds anything — leaving it
+        # writable would just invite staff to keep typing addresses into it.
+        "address",
         "created_at",
         "updated_at",
         "invitation_code",
@@ -499,11 +525,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "fields": ("address",),
                 "classes": ("collapse",),
                 "description": (
-                    "What was typed before the address was split into fields. "
-                    "Transcribe it into the fields above; until you do, this is "
-                    "still what tickets, e-mails and echo.lu publish, so it stays "
-                    "editable for now. It becomes read-only once the backfill has "
-                    "run and echo.lu reads the structured fields."
+                    "Read-only. What was typed before the address was split into "
+                    "fields — kept so it can be transcribed into the fields "
+                    "above, then ignored. echo.lu reads the structured fields now."
                 ),
             },
         ),
@@ -709,6 +733,46 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
+        # `queryset.update()` emits no signals and runs no `clean()`, so the
+        # address rule on the model cannot see this path. Without the check
+        # below, selecting a batch of drafts publishes the incomplete ones and
+        # sends them straight to a national portal with half an address —
+        # the one publish route that bypasses every guard on the change form.
+        # `MeetupEvent.unmet_publish_requirements()` is the one definition of
+        # what a publishable event needs -- shared with `clean()` and with
+        # `backfill_event_addresses --audit`. Re-deriving it here is what let
+        # this action forget `canton`, which `clean()` has required all along.
+        incomplete = [
+            event
+            for event in queryset
+            if event.unmet_publish_requirements(as_published=True)
+        ]
+        if incomplete:
+            queryset = queryset.exclude(pk__in=[event.pk for event in incomplete])
+            django_messages.warning(
+                request,
+                _(
+                    "Not published — {details}. Fill those in, or run "
+                    "`manage.py backfill_event_addresses`."
+                ).format(
+                    # Name the actual gaps per event. A fixed "street, postcode
+                    # and town" sends staff hunting through address boxes that
+                    # are already filled when the only thing missing is canton.
+                    details="; ".join(
+                        "{title} needs {fields}".format(
+                            title=event,
+                            fields=", ".join(
+                                name.removeprefix("address_")
+                                for name in event.unmet_publish_requirements(
+                                    as_published=True
+                                )
+                            ),
+                        )
+                        for event in incomplete
+                    )
+                ),
+            )
+
         # Snapshot before .update(): the queryset is lazy and may well filter on
         # is_published=False, which matches nothing once the update lands.
         event_ids = list(queryset.values_list("pk", flat=True))

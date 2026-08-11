@@ -390,8 +390,18 @@ class TestCommand:
             canton="Beaufort", is_published=True
         )
 
+    def test_the_audit_names_the_missing_fields(self, legacy_event):
+        """ "incomplete address" alone means opening every event to find out."""
+        MeetupEvent.objects.filter(pk=legacy_event.pk).update(
+            is_published=True, canton=""
+        )
+        out = StringIO()
         with pytest.raises(CommandError):
-            call_command("backfill_event_addresses", "--audit", stdout=StringIO())
+            call_command("backfill_event_addresses", "--audit", stdout=out)
+
+        report = out.getvalue()
+        assert "canton" in report
+        assert "street" in report
 
     def test_audit_rejects_a_present_but_invalid_postcode(self, legacy_event):
         """Presence is not validity.

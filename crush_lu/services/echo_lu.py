@@ -622,6 +622,140 @@ def parse_address(address, canton=""):
     }
 
 
+def address_payload(event):
+    """echo.lu's address object for an event.
+
+    Reads the structured fields, which are typed one per box in the admin, and
+    only falls back to parsing the legacy free text for rows that predate the
+    split. Parsing is a migration aid here, not the mechanism: it stays until
+    `backfill_event_addresses --audit` is clean and no published event still
+    depends on it.
+
+    Empty components are dropped rather than sent as "" — echo.lu treats an
+    empty string as a supplied value and renders a blank line for it, the same
+    rule `contact` already follows.
+    """
+    if event.address_street:
+        # A missing postcode or town is filled from the legacy text rather than
+        # left out. Branching on `address_street` alone means a half-transcribed
+        # row would otherwise publish a street with no locality at all -- less
+        # than the unsplit text it replaced, which is the one thing this must
+        # never do.
+        #
+        # `number` is NOT recovered that way. A blank house number is a
+        # statement -- this venue has none, which is true of Place de la Gare
+        # and Parking Heringermill -- so filling it from older text would
+        # reinstate a number somebody removed on purpose. Everywhere else in
+        # this change a house number is either known or absent, never inferred.
+        legacy = parse_address(event.address, "") if event.address else {}
+        payload = {
+            "street": event.address_street,
+            "number": event.address_number,
+            "postcode": event.address_postcode or legacy.get("postcode", ""),
+            # The town is the town. This used to fall back to `canton`, which
+            # published a canton name where echo.lu shows a locality.
+            "town": event.address_town or legacy.get("town", ""),
+            # `commune` is REQUIRED, and gets the town.
+            #
+            # It previously carried `canton`, which is the wrong administrative
+            # level. Omitting it looked like the safe correction -- a wrong
+            # value on a controlled vocabulary 404s their venue filter, so none
+            # seemed better than wrong. It is not: echo.lu rejects the whole
+            # experience with "Missing or malformed address" and the listing
+            # never publishes at all. Verified against the live API on
+            # 2026-08-10, when six events failed at once.
+            #
+            # The town is the right value, not a stand-in: a Luxembourg commune
+            # takes its name from its principal town, so Differdange the town
+            # is Differdange the commune. Where they differ, the town is still
+            # the closer answer of the two we hold.
+            "commune": event.address_town or legacy.get("town", ""),
+            "country": "Luxembourg",
+        }
+        return {key: value for key, value in payload.items() if value}
+
+    # Parsed with NO canton, deliberately. Given one, `parse_address` puts the
+    # canton in `commune` and substitutes it for a town it could not read --
+    # the wrong administrative level in both places. Passing "" switches both
+    # substitutions off at the source rather than trying to recognise and undo
+    # them afterwards, which cannot tell a canton that was substituted from a
+    # town that genuinely shares its name.
+    legacy = parse_address(event.address, "")
+    # `commune` is required, so the parsed town fills it here too. A legacy row
+    # with no readable town sends neither, and echo.lu will reject it -- which
+    # is the correct outcome: it has no address worth publishing, and `--audit`
+    # names it.
+    legacy["commune"] = legacy.get("town", "")
+    return {key: value for key, value in legacy.items() if value}
+
+
+def event_postcode(event):
+    """The event's postcode, structured first, parsed out of legacy text after.
+
+    No canton is passed: it only ever reaches `town` and `commune`, neither of
+    which is read here, and leaving it out keeps this on the same footing as
+    `address_payload`.
+    """
+    if event.address_postcode:
+        return event.address_postcode
+    return parse_address(event.address, "").get("postcode", "")
+
+
+def event_venue_keys(event):
+    """Every key an EchoVenue row for this event might be stored under.
+
+    Existing links were all created while the postcode could only come from
+    parsing the legacy text. Now that the structured field wins, a postcode
+    somebody corrected by hand -- exactly what the backfill asks people to do
+    for the rows it refuses -- moves the key and orphans the link, and the
+    event stops publishing with "no echo.lu venue is linked".
+
+    So the structured key is tried first and the legacy-derived one second.
+    Returned in preference order, deduplicated, blanks dropped.
+    """
+    keys = []
+    for postcode in (
+        event.address_postcode,
+        parse_address(event.address, "").get("postcode", ""),
+    ):
+        # Blank postcodes are skipped, not turned into keys. `venue_key` drops
+        # the empty half, so `venue_key("Melusina", "")` is the bare
+        # `"melusina"` -- a real key that a name-only EchoVenue row can match.
+        # An event whose structured postcode is still empty would then try that
+        # bare key FIRST and could pick a generic mapping over the
+        # postcode-specific one meant for it.
+        if not postcode:
+            continue
+        key = venue_key(event.location, postcode)
+        if key and key not in keys:
+            keys.append(key)
+
+    # The name-only key goes LAST, always -- not only when nothing else
+    # resolved. `manage.py echo_venue --link` permits a link without a
+    # postcode, and that row is stored under the bare name; filling in the
+    # structured postcode afterwards, which the new publishing rule asks people
+    # to do, would otherwise make this list non-empty and orphan the link.
+    #
+    # Last, because a postcode-specific mapping is the more precise answer
+    # wherever both exist.
+    bare = venue_key(event.location, "")
+    if bare and bare not in keys:
+        keys.append(bare)
+    return keys
+
+
+def _linked_venue_id(event):
+    """The echo.lu venue id linked to this event's venue, or None."""
+    from ..models.echo_lu import EchoVenue
+
+    keys = event_venue_keys(event)
+    rows = {row.key: row for row in EchoVenue.objects.filter(key__in=keys)}
+    for key in keys:
+        if key in rows:
+            return rows[key].venue_id
+    return None
+
+
 def venue_key(name, postcode=""):
     """Cache key for a venue: lowercased name plus postcode.
 
@@ -640,14 +774,10 @@ def cached_venue_ids(event):
     an answer rather than an error: the dry run, and the pre-lock fingerprint
     that decides whether an unchanged event needs a write at all.
     """
-    from ..models.echo_lu import EchoVenue
-
     if not event.location:
         return []
-    address = parse_address(event.address, event.canton)
-    key = venue_key(event.location, address.get("postcode", ""))
-    row = EchoVenue.objects.filter(key=key).first()
-    return [row.venue_id] if row else []
+    venue_id = _linked_venue_id(event)
+    return [venue_id] if venue_id else []
 
 
 def _echo_languages(codes):
@@ -763,16 +893,13 @@ def resolve_venue_ids(event):
     After that this is a single indexed lookup and the sync path touches no
     network at all.
     """
-    from ..models.echo_lu import EchoVenue
-
     if not event.location:
         return []
 
-    address = parse_address(event.address, event.canton)
-    key = venue_key(event.location, address.get("postcode", ""))
-    row = EchoVenue.objects.filter(key=key).first()
-    if row is not None:
-        return [row.venue_id]
+    postcode = event_postcode(event)
+    venue_id = _linked_venue_id(event)
+    if venue_id is not None:
+        return [venue_id]
 
     raise EchoLuNotSent(
         f"no echo.lu venue is linked to {event.location!r}. echo.lu requires a "
@@ -780,7 +907,7 @@ def resolve_venue_ids(event):
         f"venues we only book. Find it with `manage.py echo_venue --search "
         f"{event.location!r}`, or create it in the organiser back office, then "
         f"link it with `manage.py echo_venue --link {event.location!r} "
-        f"--postcode {address.get('postcode', '')} --venue-id <id>`."
+        f"--postcode {postcode} --venue-id <id>`."
     )
 
 
@@ -914,9 +1041,10 @@ def missing_required_fields(payload):
 def build_experience_payload(event, venue_ids=None):
     """Map a MeetupEvent onto the echo.lu experience schema.
 
-    ``duration`` is omitted from the date entry even though the schema accepts
-    it: its unit is not documented, ``from``/``to`` already pin the span
-    exactly, and a duration in the wrong unit would contradict them publicly.
+    ``duration`` is sent as ``duration_minutes``. It was omitted while its unit
+    was undocumented — a duration in the wrong unit would have contradicted
+    ``from``/``to`` on a public listing — but the API documents it as an
+    integer count of minutes, which is exactly what the column holds.
 
     ``status`` is deliberately NOT built here. It is a create-time instruction
     ("save as draft" vs "submit for validation"), not content, so putting it in
@@ -944,6 +1072,7 @@ def build_experience_payload(event, venue_ids=None):
             {
                 "from": _rfc3339(event.date_time),
                 "to": _rfc3339(event.end_time),
+                "duration": event.duration_minutes,
                 "purchaseLink": event_url,
             }
         ],
@@ -952,7 +1081,7 @@ def build_experience_payload(event, venue_ids=None):
         # and ListExperience documents this parameter as "Venue IDs", so the
         # original `[event.location]` sent a display name into an id field.
         "venues": list(venue_ids or []),
-        "location": {"address": parse_address(event.address, event.canton)},
+        "location": {"address": address_payload(event)},
         "tickets": _build_tickets(event),
     }
 

@@ -29,7 +29,7 @@ from django.utils import timezone
 
 from crush_lu import signals as crush_signals
 from crush_lu.models import MeetupEvent
-from crush_lu.models.echo_lu import EchoExperienceSync
+from crush_lu.models.echo_lu import EchoExperienceSync, EchoVenue
 from crush_lu.services import echo_lu
 
 ENABLED = {"ECHO_LU_SYNC_ENABLED": True, "ECHO_LU_API_KEY": "test-key"}
@@ -239,6 +239,179 @@ class PayloadTests(TestCase):
             ["venue-9"],
         )
 
+    def test_address_comes_from_the_structured_fields(self):
+        event = make_event(
+            address="ignored legacy text",
+            address_street="rue Emile Mark",
+            address_number="45",
+            address_postcode="4620",
+            address_town="Differdange",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue Emile Mark")
+        self.assertEqual(address["number"], "45")
+        self.assertEqual(address["postcode"], "4620")
+        self.assertEqual(address["country"], "Luxembourg")
+
+    def test_town_and_commune_are_the_town_not_the_canton(self):
+        # Both used to carry `canton` -- the wrong administrative level. They
+        # carry the town now. `commune` is REQUIRED: omitting it made echo.lu
+        # reject the whole experience with "Missing or malformed address", so
+        # six events stopped publishing entirely (verified live 2026-08-10).
+        event = make_event(
+            address_street="rue Emile Mark",
+            address_postcode="4620",
+            address_town="Differdange",
+            canton="Esch-sur-Alzette",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["town"], "Differdange")
+        self.assertEqual(address["commune"], "Differdange")
+
+    def test_empty_components_are_absent_rather_than_blank(self):
+        # echo.lu treats "" as a supplied value and renders a blank line for it.
+        event = make_event(
+            address_street="Place de la Gare",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+        self.assertNotIn("", address.values())
+
+    def test_legacy_rows_still_publish_a_parsed_address(self):
+        # Rows that predate the split, and any the backfill could not place.
+        event = make_event(address="7, rue du Nord\nL-2229 Luxembourg")
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["street"], "rue du Nord")
+        self.assertEqual(address["postcode"], "2229")
+
+    def test_a_half_transcribed_row_recovers_its_locality_from_the_legacy_text(self):
+        # Branching on address_street alone published a street with no postcode
+        # or town at all -- less than the unsplit text it replaced.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="rue du Nord",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["postcode"], "2229")
+        self.assertEqual(address["town"], "Luxembourg")
+
+    def test_a_blank_house_number_is_never_refilled_from_the_legacy_text(self):
+        # A blank number is a statement -- this venue has none. Recovering it
+        # would reinstate a number somebody removed on purpose.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="Place de la Gare",
+            address_number="",
+            address_postcode="1616",
+            address_town="Luxembourg",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotIn("number", address)
+
+    def test_a_corrected_postcode_keeps_an_existing_venue_link(self):
+        # Venue links were all created while the postcode could only come from
+        # parsing the legacy text. Preferring the structured field moves the
+        # key, so a postcode corrected by hand -- exactly what the backfill asks
+        # for on the rows it refuses -- would orphan the link and stop the event
+        # publishing.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_legacy"])
+
+    def test_a_blank_postcode_does_not_produce_a_bare_venue_key(self):
+        """`venue_key(name, "")` is a real key a name-only row can match.
+
+        An event with no structured postcode would try that bare key FIRST and
+        could pick a generic mapping over the postcode-specific one meant for
+        it. Blank postcodes are skipped instead.
+        """
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_generic"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_specific"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_specific"])
+
+    def test_a_name_only_venue_link_survives_adding_a_postcode(self):
+        """`echo_venue --link` permits a link with no postcode.
+
+        That row is stored under the bare name key. Filling in the structured
+        postcode afterwards -- which the publishing rule asks people to do --
+        made the candidate list non-empty and orphaned the link.
+        """
+        event = make_event(address_postcode="2229", link_venue=False)
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, ""), venue_id="ven_nameonly"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_nameonly"])
+
+    def test_the_structured_key_wins_when_both_exist(self):
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_postcode="1831",
+            link_venue=False,
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "2229"), venue_id="ven_legacy"
+        )
+        EchoVenue.objects.create(
+            key=echo_lu.venue_key(event.location, "1831"), venue_id="ven_current"
+        )
+
+        self.assertEqual(echo_lu.resolve_venue_ids(event), ["ven_current"])
+
+    def test_the_legacy_fallback_does_not_smuggle_the_canton_back_in(self):
+        # `parse_address` puts the canton in `commune` and substitutes it for a
+        # town it could not read -- the wrong level in both places.
+        event = make_event(
+            address="Behind the old brewery",
+            canton="Esch-sur-Alzette",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertNotEqual(address.get("commune"), "Esch-sur-Alzette")
+        self.assertNotEqual(address.get("town"), "Esch-sur-Alzette")
+
+    def test_the_legacy_fallback_still_sends_a_commune(self):
+        # Required field: a legacy row that parses a town must fill it.
+        event = make_event(
+            address="7, rue du Nord\nL-2229 Luxembourg",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Luxembourg")
+
     def test_dates_are_rfc3339_utc_and_span_the_duration(self):
         event = make_event(duration_minutes=90)
         entry = echo_lu.build_experience_payload(event)["dates"][0]
@@ -248,11 +421,14 @@ class PayloadTests(TestCase):
         self.assertEqual(entry["from"], echo_lu._rfc3339(event.date_time))
         self.assertEqual(entry["to"], echo_lu._rfc3339(event.end_time))
 
-    def test_duration_is_not_sent(self):
-        # Its unit is undocumented and from/to already pin the span; a wrong
-        # unit would contradict them on the public listing.
-        entry = echo_lu.build_experience_payload(make_event())["dates"][0]
-        self.assertNotIn("duration", entry)
+    def test_duration_is_sent_in_minutes(self):
+        # Held back while the unit was undocumented, because a wrong unit would
+        # have contradicted from/to on the public listing. The API documents it
+        # as an integer count of minutes, which is what the column holds.
+        entry = echo_lu.build_experience_payload(make_event(duration_minutes=90))[
+            "dates"
+        ][0]
+        self.assertEqual(entry["duration"], 90)
 
     def test_free_event_gets_an_explicit_zero_price_ticket(self):
         # No tickets at all reads as "price unknown", which costs signups.
