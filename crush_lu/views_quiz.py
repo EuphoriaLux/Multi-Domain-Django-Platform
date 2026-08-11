@@ -54,6 +54,20 @@ def _member_color(name):
     return _AVATAR_COLORS[h % len(_AVATAR_COLORS)]
 
 
+def _round_has_schedule(quiz, round_number):
+    """Whether the rotation schedule seats ``round_number`` at all.
+
+    The single fact the rotation-vs-membership fallback turns on, kept in
+    one place because every reader of a seat has to decide it the same
+    way. It is a question about the *quiz*, never about one player: a
+    player can be missing from a round the rest of the room is in, and
+    that is not licence to answer them from the check-in snapshot.
+    """
+    return QuizRotationSchedule.objects.filter(
+        quiz=quiz, round_number=round_number
+    ).exists()
+
+
 def _get_table_members_json(quiz, round_number=0):
     """Build JSON-safe list of tables with their current members.
 
@@ -62,12 +76,12 @@ def _get_table_members_json(quiz, round_number=0):
     shows as empty rather than the stale round-0 check-in snapshot).
     Only fall back to ``QuizTableMembership`` when the quiz has no
     rotation schedule for this round at all (legacy non-rotating
-    events).
+    events). Asked once here rather than per table, which is why this
+    renders the whole room in one decision and ``get_table_occupants``
+    answers for one table.
     """
     tables = QuizTable.objects.filter(quiz=quiz).order_by("table_number")
-    rotation_exists = QuizRotationSchedule.objects.filter(
-        quiz=quiz, round_number=round_number
-    ).exists()
+    rotation_exists = _round_has_schedule(quiz, round_number)
     result = []
     for table in tables:
         members = []
@@ -128,24 +142,28 @@ def get_table_occupants(quiz, table, round_number, exclude_user=None):
 
     ``QuizTableMembership`` answers only when the round has no schedule at
     all, which is a legacy non-rotating quiz or a rebuild that failed.
+    Never because *this* table came back empty — an empty table in a
+    scheduled round means nobody is sitting there, and saying so is the
+    point of deciding at the quiz level.
     """
-    from crush_lu.models.quiz import QuizRotationSchedule
-
-    round_is_scheduled = QuizRotationSchedule.objects.filter(
-        quiz=quiz, round_number=round_number
-    ).exists()
-
-    if round_is_scheduled:
-        rows = QuizRotationSchedule.objects.filter(
+    rows = list(
+        QuizRotationSchedule.objects.filter(
             quiz=quiz, round_number=round_number, table=table
         ).select_related("user__crushprofile")
-    else:
-        rows = table.memberships.select_related("user__crushprofile")
-    if exclude_user is not None:
-        rows = rows.exclude(user=exclude_user)
+    )
+    # Ask the quiz-level question only when it is the one still open.
+    # Rows here prove the round is scheduled, and a table with people at
+    # it is the ordinary case, so the common path costs one query instead
+    # of two — including the one ``my_assignment`` used to make after
+    # already having found the caller's own row for this very round.
+    if not rows and not _round_has_schedule(quiz, round_number):
+        rows = list(table.memberships.select_related("user__crushprofile"))
 
+    exclude_pk = exclude_user.pk if exclude_user is not None else None
     occupants = []
     for row in rows:
+        if row.user_id == exclude_pk:
+            continue
         profile = getattr(row.user, "crushprofile", None)
         occupants.append(
             {

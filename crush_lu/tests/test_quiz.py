@@ -2005,6 +2005,68 @@ class TestQuizAPI:
             f"expected the current round's occupants of this table, got {names}"
         )
 
+    def test_my_assignment_alone_at_a_scheduled_table(self, quiz_event, quiz_table):
+        """Being the only person the round seats here means no tablemates —
+        not a fall back to the check-in roster.
+
+        ``get_table_occupants`` reaches for memberships on an empty result
+        only once it has confirmed the round has no schedule *anywhere*.
+        Treating this table's emptiness as reason enough would answer a
+        player sitting alone with everyone who checked in beside them and
+        has since rotated away.
+        """
+        def _player(handle, first_name):
+            u = User.objects.create_user(
+                username=f"{handle}@test.com",
+                email=f"{handle}@test.com",
+                password="test",
+                first_name=first_name,
+            )
+            _grant_consent(u)
+            _create_profile(u)
+            return u
+
+        loner = _player("loner", "Loner")
+        moved_on = _player("emptied", "MovedOn")
+
+        table_two = QuizTable.objects.create(quiz=quiz_event, table_number=2)
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        next_round = QuizRound.objects.create(
+            quiz=quiz_event, title="R2", sort_order=1
+        )
+        quiz_event.current_round = next_round  # round_number 1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # Both checked in at table 1, so its membership roster is not
+        # empty — but round 1 seats nobody there at all: the rotator has
+        # moved to table 2 and the latecomer has no row for this round.
+        QuizTableMembership.objects.create(table=quiz_table, user=loner)
+        QuizTableMembership.objects.create(table=quiz_table, user=moved_on)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=table_two,
+            user=moved_on,
+            role="rotator",
+            rotation_group="A",
+        )
+        assert quiz_event.get_round_number() == 1
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=1, table=quiz_table
+        ).exists()
+
+        client = APIClient()
+        client.force_authenticate(user=loner)
+        response = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["seated"] is True
+        assert data["tablemates"] == [], (
+            f"expected nobody at an emptied table, got {data['tablemates']}"
+        )
+
     def test_my_assignment_not_assigned(self, quiz_event):
         """200 with `seated: false`, not 404.
 
