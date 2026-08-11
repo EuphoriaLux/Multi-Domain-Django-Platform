@@ -243,13 +243,37 @@ def my_assignment(request, quiz_id):
                 }
             )
 
+        # Read the room off the same membership rows the seat itself came
+        # from, the way ``quiz_live_view`` does when it renders this table
+        # into the page. An empty list here is not "no tablemates", it is
+        # the client's instruction to clear the ones the server just drew:
+        # ``fetchAssignment`` assigns every field it is handed (#723), and
+        # it runs on init, on reconnect and on every rotate. So a player on
+        # this fallback — anyone seated before a schedule existed, and
+        # everyone in the room when the rebuild for the current round has
+        # failed — watched their tablemates appear with the page and then
+        # vanish a moment later, which is the whole of what "it loads and
+        # then goes blank" looks like from the floor.
+        mates = []
+        for m in membership.table.memberships.exclude(user=user).select_related(
+            "user__crushprofile"
+        ):
+            profile = getattr(m.user, "crushprofile", None)
+            mates.append(
+                {
+                    "display_name": (
+                        (profile.display_name if profile else None) or "Anonymous"
+                    ),
+                    "role": "",
+                }
+            )
         return Response(
             {
                 "seated": True,
                 "table_number": membership.table.table_number,
                 "role": "unknown",
                 "rotation_group": "",
-                "tablemates": [],
+                "tablemates": mates,
                 "personal_score": _get_personal_score(quiz, user),
                 "next_table": None,
             }

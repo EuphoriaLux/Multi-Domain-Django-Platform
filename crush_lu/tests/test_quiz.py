@@ -1398,9 +1398,6 @@ class TestRotationRegistrationFiltering:
         from crush_lu.services.quiz_rotation import generate_rotation_rounds
         from crush_lu.models.events import EventRegistration
 
-        # num_tables=3 avoids the num_tables==2 special case in
-        # generate_rotation_schedule which creates duplicate (round, user)
-        # entries when len(group_a) is odd.
         quiz_event.num_tables = 3
         quiz_event.save()
         self._add_rounds(quiz_event, 3)
@@ -1718,6 +1715,68 @@ class TestRotationRegistrationFiltering:
         assert not QuizRotationSchedule.objects.filter(
             quiz=quiz_event, round_number__gte=1
         ).exists(), "no rounds 1+ should be generated while quiz is draft"
+
+    def test_two_tables_few_rotators_build_and_move(self, quiz_event):
+        """Reported from a live rehearsal: 2 tables, 7 men (4 + 3) and 2
+        women, and the women sat at their check-in table all night.
+
+        The schedule seated each woman at *both* tables in the same round,
+        which the (quiz, round_number, user) constraint rejects — so the
+        bulk insert of every round past check-in rolled back together and
+        rounds 1+ simply did not exist. With nothing to read for the
+        current round, every seat lookup in the app falls through to the
+        round-0 ``QuizTableMembership``: the view, the API and the socket
+        all answer with the table the player checked in at, and the room
+        rotates onto itself.
+        """
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        regs = self._make_attendees(quiz_event.event, men_count=7, women_count=2)
+        for reg in regs:
+            assign_table_on_checkin(quiz_event, reg.user)
+
+        generate_rotation_rounds(quiz_event)
+
+        women = [r.user for r in regs[7:]]
+        for rn in range(3):
+            seated = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=rn
+            )
+            assert seated.count() == 9, (
+                f"round {rn} seats {seated.count()}/9 participants"
+            )
+
+        for woman in women:
+            tables = [
+                QuizRotationSchedule.objects.get(
+                    quiz=quiz_event, round_number=rn, user=woman
+                ).table.table_number
+                for rn in range(3)
+            ]
+            assert tables[0] != tables[1] and tables[1] != tables[2], (
+                f"rotator {woman.username} never left table {tables[0]}: {tables}"
+            )
+            assert set(tables) == {1, 2}, (
+                f"rotator {woman.username} did not visit both tables: {tables}"
+            )
+
+        # The two women are never at the same table, so both tables keep a
+        # rotator in every round.
+        for rn in range(3):
+            occupied = {
+                QuizRotationSchedule.objects.get(
+                    quiz=quiz_event, round_number=rn, user=w
+                ).table.table_number
+                for w in women
+            }
+            assert occupied == {1, 2}, f"round {rn}: rotators bunched at {occupied}"
 
 
 # ============================================================================
@@ -2793,7 +2852,17 @@ class TestRotationInvariants:
         (7, 7, 3, 3),  # odd counts
         (6, 9, 3, 3),  # women > 2× tables → spillover group C
         (10, 4, 5, 3),  # more anchors than rotators
-        (4, 6, 2, 2),  # 2-table special case
+        (4, 6, 2, 2),  # 2 tables, exactly 2 rotators per table
+        # Two tables with a rotator count that is not a clean 2-per-table
+        # fit. The old 2-table branch packed the first four women into a
+        # single group indexed modulo their own count, so anything but
+        # exactly four seated the same woman at both tables in one round —
+        # which the DB rejects on (quiz, round_number, user) and which left
+        # a real 7-man/2-woman quiz with no rounds past check-in at all.
+        (7, 2, 2, 3),
+        (4, 3, 2, 3),
+        (5, 5, 2, 3),
+        (4, 7, 2, 3),  # 2 tables + spillover group C
     ]
 
     def test_anchor_invariance(self):
@@ -2825,17 +2894,15 @@ class TestRotationInvariants:
         """At most one user per (round, table, rotation_group) for groups
         A and B. Group C is spillover and may double up.
 
-        Skips ``num_tables == 2`` because the algorithm deliberately seats
-        two group-A rotators per table in the 2-table special case (there
-        is no group B; all women are in a single rotating group).
+        Every table count, including 2: the special case that used to seat
+        two group-A rotators per table there is gone, so a 2-table room now
+        fills A and B one deep each like any other size.
         """
         from collections import defaultdict
 
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
         for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
-            if tables_n == 2:
-                continue  # 2-table case intentionally groups 2 women per A-slot
             men = self._mk_users(f"cc_m_c{cfg_idx}_", men_n)
             women = self._mk_users(f"cc_w_c{cfg_idx}_", women_n)
             result = generate_rotation_schedule(
@@ -2881,6 +2948,41 @@ class TestRotationInvariants:
                     f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
                     f"group-A user {user_id} visited {tables}"
                 )
+
+    def test_rotators_move_between_consecutive_rounds(self):
+        """A rotator is at a different table after every rotation.
+
+        The invariant the suite was missing: it checked that anchors hold
+        still, that groups do not collide and that everyone has a seat, so
+        a schedule could satisfy all three while leaving the rotators
+        exactly where they started — which is what a 2-table room did,
+        group B being advanced by +2 tables, a no-op modulo 2.
+        """
+        from collections import defaultdict
+
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
+            men = self._mk_users(f"mv_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"mv_w_c{cfg_idx}_", women_n)
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+
+            seats = defaultdict(dict)
+            for e in result["schedule"]:
+                if e["role"] == "rotator":
+                    seats[e["user"].id][e["round_number"]] = e["table_number"]
+
+            for user_id, per_round in seats.items():
+                for rn in range(rounds_n - 1):
+                    if rn not in per_round or rn + 1 not in per_round:
+                        continue
+                    assert per_round[rn] != per_round[rn + 1], (
+                        f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                        f"rotator {user_id} sat at table {per_round[rn]} in "
+                        f"both round {rn} and round {rn + 1}"
+                    )
 
     def test_every_user_seated_every_round(self):
         """Every participant appears exactly once in every round."""

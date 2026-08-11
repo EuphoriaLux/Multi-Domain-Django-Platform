@@ -591,6 +591,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return
 
         rotation_data = await self.advance_round_and_rotate()
+        # A rebuild that could not produce seating for the new round comes
+        # back as an error, and it has to reach the host the way the guard
+        # above does. Falling through to the broadcast below sent the error
+        # dict itself as `quiz.rotate`: every screen in the room switched to
+        # the rotate splash and refetched an assignment that had not moved,
+        # while the one person who could act on it — the host — was told
+        # nothing. A room that visibly rotates but seats nobody anywhere new
+        # is exactly how a broken schedule reads as "the rotators stay put".
+        if rotation_data.get("error"):
+            await self.send_error(rotation_data["error"])
+            return
+
         if rotation_data.get("finished"):
             # No more rounds — broadcast finished status with leaderboard
             leaderboard = await self.get_leaderboard()
