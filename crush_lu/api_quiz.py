@@ -26,6 +26,7 @@ from crush_lu.models.quiz import (
     QuizTableMembership,
     TableRoundScore,
 )
+from crush_lu.views_quiz import get_table_occupants
 
 
 def _is_quiz_host(quiz, user):
@@ -243,60 +244,37 @@ def my_assignment(request, quiz_id):
                 }
             )
 
-        # Read the room off the same membership rows the seat itself came
-        # from, the way ``quiz_live_view`` does when it renders this table
-        # into the page. An empty list here is not "no tablemates", it is
-        # the client's instruction to clear the ones the server just drew:
-        # ``fetchAssignment`` assigns every field it is handed (#723), and
-        # it runs on init, on reconnect and on every rotate. So a player on
-        # this fallback — anyone seated before a schedule existed, and
-        # everyone in the room when the rebuild for the current round has
-        # failed — watched their tablemates appear with the page and then
-        # vanish a moment later, which is the whole of what "it loads and
-        # then goes blank" looks like from the floor.
-        mates = []
-        for m in membership.table.memberships.exclude(user=user).select_related(
-            "user__crushprofile"
-        ):
-            profile = getattr(m.user, "crushprofile", None)
-            mates.append(
-                {
-                    "display_name": (
-                        (profile.display_name if profile else None) or "Anonymous"
-                    ),
-                    "role": "",
-                }
-            )
+        # Name this table's other occupants. An empty list here is not "no
+        # tablemates", it is the client's instruction to clear the ones the
+        # server just drew: ``fetchAssignment`` assigns every field it is
+        # handed (#723), and it runs on init, on reconnect and on every
+        # rotate. So a player on this fallback watched their tablemates
+        # appear with the page and then vanish a moment later, which is the
+        # whole of what "it loads and then goes blank" looks like.
+        #
+        # Landing on this branch does not mean the room is unscheduled —
+        # only that *this* player is not in the round — so the helper, not
+        # the memberships, decides which rows answer. It is the one the
+        # page itself renders from, and the two must agree or the refetch
+        # flickers onto a different set of names.
         return Response(
             {
                 "seated": True,
                 "table_number": membership.table.table_number,
                 "role": "unknown",
                 "rotation_group": "",
-                "tablemates": mates,
+                "tablemates": get_table_occupants(
+                    quiz, membership.table, round_number, exclude_user=user
+                ),
                 "personal_score": _get_personal_score(quiz, user),
                 "next_table": None,
             }
         )
 
     # Get tablemates for current round
-    tablemates = []
-    for r in (
-        QuizRotationSchedule.objects.filter(
-            quiz=quiz,
-            round_number=round_number,
-            table=rotation.table,
-        )
-        .exclude(user=user)
-        .select_related("user__crushprofile")
-    ):
-        profile = getattr(r.user, "crushprofile", None)
-        tablemates.append(
-            {
-                "display_name": (profile.display_name if profile else "Anonymous"),
-                "role": r.role,
-            }
-        )
+    tablemates = get_table_occupants(
+        quiz, rotation.table, round_number, exclude_user=user
+    )
 
     # Peek at next round table
     next_table_number = None

@@ -3,14 +3,18 @@ Quiz Night table rotation algorithm.
 
 Generates a rotation schedule where:
 - Men are anchored at fixed tables (distributed evenly)
-- Women rotate between tables (split into groups A and B at different speeds)
+- Women rotate between tables (group A forwards, group B backwards)
 - Every woman is seated at exactly one table in every round
 - After N rounds (N = number of tables), every woman has visited every table
-- No two women are paired at the same table more than once
+- Group A and group B re-pair as they pass each other
 
-The last property needs at least 3 tables. Modulo 2 the only non-zero step
-is +1, so a 2-table room can either move both groups every round or freeze
-one of them — it cannot also vary who meets whom. Rotation wins.
+How often an A rotator meets the same B rotator is set by how far the two
+groups drift apart each round, and that cannot always be made maximal: at
+an even table count no step gives both full table coverage *and* a fresh
+pairing every round, because a step coprime with an even N is odd, which
+leaves the drift even. Coverage wins — meeting every anchor is the point of
+the evening. So the pairing cycles every N rounds at odd N and every N/2 at
+even N, and at 2 tables, where the only move is a swap, every round.
 """
 
 from django.core.exceptions import ValidationError
@@ -116,14 +120,18 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
             f"spillover distributed round-robin)."
         )
 
-    # Group A advances one table per round, group B two, so the two groups
-    # meet a different half of the room each round. A step is only a
-    # rotation when it is non-zero *modulo the table count*: with 2 tables
-    # +2 is the identity, which would leave every group-B rotator sitting
-    # at her check-in table for the whole quiz. Two tables leaves +1 as the
-    # only real move, so both groups take it — at that size the room cannot
-    # also vary who meets whom, since the only alternative speed is zero.
-    step_b = 2 if num_tables > 2 else 1
+    # Group A advances one table per round; group B counter-rotates by one,
+    # so the two groups pass each other and re-pair as they go.
+    #
+    # What makes a step a rotation is not that it is non-zero but that it is
+    # *coprime* with the table count — only then does repeating it reach
+    # every table. The old +2 was neither at 2 tables (where it is the
+    # identity, so group B never moved at all) nor at any other even count
+    # (where it walks the same-parity tables and skips half the room:
+    # at 4 tables, 1 → 3 → 1 → 3, meeting the same anchors all night).
+    # n-1 is coprime with n for every n, consecutive integers always being
+    # coprime, so this holds at every table count the quiz allows.
+    step_b = num_tables - 1
 
     for round_num in range(num_rounds):
         for table_idx in range(num_tables):
