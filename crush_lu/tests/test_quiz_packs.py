@@ -548,6 +548,60 @@ class TestCreateQuizNightEventCommand:
         assert MeetupEvent.objects.filter(title=self.TITLE).count() == 1
         assert QuizQuestion.objects.count() == 36
 
+    def test_rerun_with_clear_publishes_a_drafted_event(self, db):
+        """`defaults` only apply on creation, so reuse must publish explicitly."""
+        from crush_lu.models import MeetupEvent
+
+        self._run()
+        assert MeetupEvent.objects.get(title=self.TITLE).is_published is False
+
+        self._run(clear=True, publish=True)
+        assert MeetupEvent.objects.get(title=self.TITLE).is_published is True
+
+    def test_reuse_publish_backfills_a_missing_canton(self, db):
+        """A published event without a canton is one `clean()` would reject."""
+        from crush_lu.models import MeetupEvent
+
+        self._run(canton="")
+        self._run(clear=True, publish=True, canton="Esch-sur-Alzette")
+
+        event = MeetupEvent.objects.get(title=self.TITLE)
+        assert event.is_published is True
+        assert event.canton == "Esch-sur-Alzette"
+
+    def test_publishing_without_a_canton_is_an_error(self, db):
+        from crush_lu.models import MeetupEvent
+
+        with pytest.raises(CommandError, match="--canton is required"):
+            self._run(publish=True, canton="")
+        assert not MeetupEvent.objects.filter(title=self.TITLE).exists()
+
+    def test_dry_run_also_rejects_publishing_without_a_canton(self, db):
+        with pytest.raises(CommandError, match="--canton is required"):
+            self._run(publish=True, canton="", dry_run=True)
+
+    def test_a_title_held_by_another_event_type_is_refused(self, db):
+        """The title alone must not attach a quiz to an unrelated mixer."""
+        from crush_lu.models import MeetupEvent
+
+        mixer = MeetupEvent.objects.create(
+            title=self.TITLE,
+            description="Not a quiz night",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=1),
+            location="Luxembourg City",
+            address="1 Place d'Armes",
+            max_participants=30,
+            registration_deadline=timezone.now() + timedelta(hours=12),
+        )
+
+        with pytest.raises(CommandError, match="already exists as a Social Mixer"):
+            self._run()
+
+        mixer.refresh_from_db()
+        assert mixer.event_type == "mixer"
+        assert not QuizEvent.objects.filter(event=mixer).exists()
+
     def test_explicit_date_is_honoured(self, db):
         from crush_lu.models import MeetupEvent
 

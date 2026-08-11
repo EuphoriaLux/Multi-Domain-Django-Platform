@@ -7,8 +7,9 @@ clean database without clicking through the coach UI first.
 
 The event is created **unpublished** unless ``--publish`` is passed — it is a
 draft a coach reviews (date, venue, capacity) and publishes when ready. Re-runs
-match on the exact title, so the command is idempotent and safe to repeat; it
-refuses to seed over an existing set of rounds unless ``--clear`` is given.
+match an existing Quiz Night on the exact title, so the command is idempotent
+and safe to repeat; it refuses to seed over an existing set of rounds unless
+``--clear`` is given.
 
 Usage:
     python manage.py create_quiz_night_event
@@ -106,6 +107,12 @@ class Command(BaseCommand):
         if tables < 2:
             raise CommandError("--tables must be at least 2.")
 
+        # `MeetupEvent.clean()` rejects a published event without a canton, and
+        # `save()` never runs it — so refuse here rather than write a row the
+        # admin would then refuse to save.
+        if options["publish"] and not (options["canton"] or "").strip():
+            raise CommandError("--canton is required when publishing.")
+
         # Fail on the pack before touching the database: a stub pack should not
         # leave an empty event behind.
         problems = validate_pack(PACKS[pack])
@@ -122,6 +129,8 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             event, event_created = self._get_or_create_event(options, starts_at)
+            if not event_created:
+                self._publish_on_reuse(event, options)
             quiz, quiz_created = QuizEvent.objects.get_or_create(
                 event=event,
                 defaults={
@@ -188,12 +197,33 @@ class Command(BaseCommand):
         return parsed
 
     def _get_or_create_event(self, options, starts_at):
-        """Match on the exact title so re-runs update rather than duplicate."""
+        """Match an existing Quiz Night on the exact title, so re-runs update
+        rather than duplicate.
+
+        `MeetupEvent.title` is not unique, so a title on its own can also match
+        an unrelated mixer or speed-dating event. Attaching a QuizEvent to one
+        of those would seed questions nobody can ever play — quiz rotation and
+        the scoring consumer both return nothing for events whose `event_type`
+        is not `quiz_night` — so refuse instead of touching the other event.
+        """
+        title = options["title"]
+        clash = (
+            MeetupEvent.objects.filter(title=title)
+            .exclude(event_type="quiz_night")
+            .first()
+        )
+        if clash:
+            raise CommandError(
+                f"'{title}' already exists as a "
+                f"{clash.get_event_type_display()} event (id={clash.pk}). "
+                f"Pass a different --title."
+            )
+
         return MeetupEvent.objects.get_or_create(
-            title=options["title"],
+            title=title,
+            event_type="quiz_night",
             defaults={
                 "description": DEFAULT_DESCRIPTION_EN,
-                "event_type": "quiz_night",
                 "location": options["location"],
                 "address": options["address"],
                 "canton": options["canton"],
@@ -203,6 +233,24 @@ class Command(BaseCommand):
                 "is_published": options["publish"],
             },
         )
+
+    def _publish_on_reuse(self, event, options):
+        """Apply `--publish` to an event that already existed.
+
+        `get_or_create` only applies `defaults` when it creates the row, so on
+        a re-run the flag would otherwise do nothing — while `_report()` tells
+        the operator to "re-run with --publish", which would never work.
+        """
+        if not options["publish"] or event.is_published:
+            return
+
+        fields = ["is_published"]
+        event.is_published = True
+        if not event.canton:
+            # Validated non-empty above; a published event needs one.
+            event.canton = options["canton"]
+            fields.append("canton")
+        event.save(update_fields=fields)
 
     def _report_dry_run(self, options, pack, starts_at, tables):
         rounds = PACKS[pack]
