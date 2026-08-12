@@ -23,6 +23,7 @@ const source = fs.readFileSync(swPath, "utf8");
 
 const routes = [];
 const fetchListeners = [];
+let backgroundSync = null;
 
 function strategyName(name) {
     return function Strategy(opts) {
@@ -82,7 +83,13 @@ const workbox = {
     }),
     expiration: lenientNamespace(),
     cacheableResponse: lenientNamespace(),
-    backgroundSync: lenientNamespace(),
+    // Captured rather than stubbed away: the route predicate only governs what
+    // ENTERS the queue, so the replay loop has to be probed on its own.
+    backgroundSync: lenientNamespace({
+        BackgroundSyncPlugin: function (queueName, options) {
+            backgroundSync = { queueName, options: options || {} };
+        },
+    }),
     recipes: lenientNamespace(),
     rangeRequests: lenientNamespace(),
     broadcastUpdate: lenientNamespace(),
@@ -262,4 +269,43 @@ const results = probes.map((probe) => {
     };
 });
 
-process.stdout.write(JSON.stringify({ routeCount: routes.length, results }, null, 2));
+/**
+ * Drive the background-sync plugin's onSync over a queue that ALREADY holds
+ * these requests, as a store filled by an earlier worker version would.
+ * Returns the URLs it actually re-fetched.
+ */
+async function probeReplay(urls) {
+    if (!backgroundSync || typeof backgroundSync.options.onSync !== "function") {
+        return { available: false, replayed: [], drained: false };
+    }
+    const pending = urls.map((url) => ({ request: { url, method: "POST" } }));
+    const queue = {
+        shiftRequest: async () => pending.shift(),
+        unshiftRequest: async (entry) => {
+            pending.unshift(entry);
+        },
+    };
+    const replayed = [];
+    const realFetch = sandbox.fetch;
+    sandbox.fetch = async (request) => {
+        replayed.push(request.url);
+        return new Response("");
+    };
+    try {
+        await backgroundSync.options.onSync({ queue });
+    } finally {
+        sandbox.fetch = realFetch;
+    }
+    // A skipped entry must be shifted OUT, not left behind to try again.
+    return { available: true, replayed, drained: pending.length === 0 };
+}
+
+(async () => {
+    const replay = await probeReplay([
+        "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        "https://crush.lu/en/events/29/register/",
+    ]);
+    process.stdout.write(
+        JSON.stringify({ routeCount: routes.length, results, replay }, null, 2),
+    );
+})();

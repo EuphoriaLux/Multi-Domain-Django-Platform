@@ -14,6 +14,7 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages as django_messages
+from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -1391,7 +1392,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
         Only that exact collision is absorbed. Each row goes in under its own
         savepoint and anything that is not an already-registered (event, user)
-        pair is re-raised untouched.
+        pair is re-raised untouched. A collision whose winner does NOT match
+        what was submitted is still absorbed — a 500 helps nobody — but it is
+        reported field by field rather than as a plain duplicate, because
+        there the admin's values really were dropped.
         """
         if formset.model is not EventRegistration:
             super().save_formset(request, form, formset, change)
@@ -1400,6 +1404,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         instances = formset.save(commit=False)
         for obj in formset.deleted_objects:
             obj.delete()
+
+        # The form each row came from, so a collision is reported against
+        # exactly the fields the admin submitted and no others.
+        forms_by_instance = {
+            id(saved.instance): saved
+            for saved in getattr(formset, "saved_forms", [])
+        }
 
         skipped = []
         for obj in instances:
@@ -1416,20 +1427,86 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 )
                 if obj.pk is not None:
                     already_registered = already_registered.exclude(pk=obj.pk)
-                if not already_registered.exists():
+                winner = already_registered.first()
+                if winner is None:
                     raise
-                skipped.append(obj)
+                skipped.append(
+                    (
+                        obj,
+                        self._registration_conflicts(
+                            forms_by_instance.get(id(obj)), obj, winner
+                        ),
+                    )
+                )
 
         formset.save_m2m()
 
-        if skipped:
-            names = ", ".join(
-                obj.user.get_full_name() or obj.user.username for obj in skipped
-            )
+        if not skipped:
+            return
+
+        # `construct_change_message()` runs right after this and reads these
+        # two collections straight into the admin LogEntry. A row the savepoint
+        # rolled back must not show up in the event's history as added or
+        # changed — the history is the record of what was persisted.
+        dropped = {id(obj) for obj, _ in skipped}
+        formset.new_objects = [
+            obj for obj in formset.new_objects if id(obj) not in dropped
+        ]
+        formset.changed_objects = [
+            (obj, fields)
+            for obj, fields in formset.changed_objects
+            if id(obj) not in dropped
+        ]
+
+        self._report_skipped_registrations(request, form, skipped)
+
+    @staticmethod
+    def _registration_conflicts(saved_form, submitted, winner):
+        """Submitted values the row that won the race does not agree with.
+
+        A twin submission of the same form agrees on every field, so this comes
+        back empty and dropping the row costs nothing. A row written by someone
+        else inside the same window need not agree — a member self-registering
+        as `waitlist` while an admin adds them as `confirmed` with payment
+        recorded leaves those two values unapplied — and reporting that as a
+        plain duplicate would claim a save that did not happen.
+        """
+        if saved_form is None:
+            return []
+
+        conflicts = []
+        for name in saved_form.fields:
+            # `id` and `event` identify the row rather than describe it, and
+            # `user` is equal by construction: it is half the unique key.
+            if name in {"id", "event", "user"}:
+                continue
+            try:
+                field = EventRegistration._meta.get_field(name)
+            except FieldDoesNotExist:
+                continue  # the formset's own DELETE checkbox, etc.
+            if not field.concrete:
+                continue
+            mine = getattr(submitted, field.attname, None)
+            theirs = getattr(winner, field.attname, None)
+            if mine != theirs:
+                conflicts.append((field.verbose_name, mine, theirs))
+        return conflicts
+
+    def _report_skipped_registrations(self, request, form, skipped):
+        """Tell the admin which rows were dropped, and whether anything was lost."""
+
+        def label(obj):
+            return obj.user.get_full_name() or obj.user.username
+
+        duplicates = [obj for obj, conflicts in skipped if not conflicts]
+        conflicted = [(obj, conflicts) for obj, conflicts in skipped if conflicts]
+
+        if duplicates:
+            names = ", ".join(label(obj) for obj in duplicates)
             logger.warning(
                 "Dropped %d duplicate registration row(s) on event %s (users: %s) "
                 "— the change form was submitted more than once.",
-                len(skipped),
+                len(duplicates),
                 form.instance.pk,
                 names,
             )
@@ -1440,6 +1517,30 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     "created: %(users)s."
                 )
                 % {"users": names},
+                level=django_messages.WARNING,
+            )
+
+        for obj, conflicts in conflicted:
+            details = "; ".join(
+                _("%(field)s — you sent %(mine)s, the saved one has %(theirs)s")
+                % {"field": verbose_name, "mine": mine, "theirs": theirs}
+                for verbose_name, mine, theirs in conflicts
+            )
+            logger.warning(
+                "Kept an existing registration for user %s on event %s over a "
+                "concurrent admin submission; unapplied: %s",
+                obj.user_id,
+                form.instance.pk,
+                details,
+            )
+            self.message_user(
+                request,
+                _(
+                    "%(user)s was registered for this event by another request "
+                    "while you were editing, so your row was not applied "
+                    "(%(details)s). Open that registration to apply your values."
+                )
+                % {"user": label(obj), "details": details},
                 level=django_messages.WARNING,
             )
 

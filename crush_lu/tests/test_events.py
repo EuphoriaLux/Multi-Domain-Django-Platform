@@ -1287,6 +1287,71 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         self.assertEqual(registration.status, 'confirmed')
         self.assertEqual(self._messages(request), [])
 
+    def test_a_conflicting_winner_is_reported_field_by_field(self):
+        """
+        Codex review: the row that wins the race is not always the admin's own
+        twin. A member self-registering as 'waitlist' while an admin adds them
+        as 'confirmed' with payment recorded leaves those two values unapplied,
+        and calling that a plain duplicate would claim a save that never
+        happened. The save still succeeds — a 500 helps nobody — but the
+        warning has to name what was dropped.
+        """
+        from crush_lu.models import EventRegistration
+
+        formset = self._validated_formset_adding(self.member)
+
+        # Someone else gets there first, with different values.
+        EventRegistration.objects.create(
+            event=self.event,
+            user=self.member,
+            status='waitlist',
+            payment_confirmed=False,
+        )
+
+        request = self._request()
+        self.admin.save_formset(request, self._parent_form(), formset, change=True)
+
+        messages = self._messages(request)
+        self.assertEqual(len(messages), 1, messages)
+        message = messages[0]
+        self.assertIn('was not applied', message)
+        # The status the admin submitted and the one that actually won.
+        self.assertIn('confirmed', message)
+        self.assertIn('waitlist', message)
+        # The winner is left exactly as the other request wrote it.
+        registration = EventRegistration.objects.get(
+            event=self.event, user=self.member
+        )
+        self.assertEqual(registration.status, 'waitlist')
+
+    def test_skipped_rows_stay_out_of_the_admin_history(self):
+        """
+        Codex review: `formset.save(commit=False)` has already put the row in
+        `new_objects`, and Django reads that collection into the LogEntry after
+        save_formset() returns. A row the savepoint rolled back must not appear
+        in the event's history as added.
+        """
+        from django.contrib.admin.utils import construct_change_message
+
+        from crush_lu.models import EventRegistration
+
+        formset = self._validated_formset_adding(self.member)
+        EventRegistration.objects.create(
+            event=self.event, user=self.member, status='confirmed'
+        )
+
+        parent_form = self._parent_form()
+        self.admin.save_formset(self._request(), parent_form, formset, change=True)
+
+        self.assertEqual(formset.new_objects, [])
+        self.assertEqual(formset.changed_objects, [])
+        change_message = construct_change_message(parent_form, [formset], False)
+        self.assertEqual(
+            [entry for entry in change_message if 'added' in entry],
+            [],
+            f'history claims a rolled-back row was added: {change_message}',
+        )
+
     def test_other_integrity_errors_are_not_swallowed(self):
         """
         Only an already-registered (event, user) pair is absorbed. Anything

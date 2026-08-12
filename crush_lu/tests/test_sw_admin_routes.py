@@ -74,12 +74,67 @@ def test_admin_pages_are_never_cached():
     )
 
 
+def _run_replay_probe():
+    """The onSync half of the probe: what the queue actually re-fetches."""
+    import crush_lu
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not available to run the service-worker probe")
+
+    package_dir = Path(crush_lu.__file__).parent
+    result = subprocess.run(
+        [
+            node,
+            str(package_dir / "tests" / "sw_route_probe.js"),
+            str(package_dir / "static" / "crush_lu" / "sw-workbox.js"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    replay = json.loads(result.stdout)["replay"]
+    assert replay["available"], "the probe could not reach the BackgroundSyncPlugin"
+    return replay
+
+
+def test_already_queued_admin_posts_are_dropped_not_replayed():
+    """
+    Codex review: excluding admin paths from the route only governs what ENTERS
+    the queue. `crush-queue` is a named IndexedDB store that survives a worker
+    update, and onSync drains whatever an older worker left in it — so an admin
+    form queued before this change would still replay for up to 24h and
+    reproduce the duplicate submission this PR exists to stop.
+    """
+    replay = _run_replay_probe()
+    admin_posts = [url for url in replay["replayed"] if "/crush-admin/" in url]
+    assert not admin_posts, (
+        f"onSync re-fetched queued admin POSTs: {admin_posts}. Entries stored by "
+        "an earlier worker version must be discarded, not replayed."
+    )
+
+
+def test_dropped_entries_are_removed_from_the_queue():
+    """Skipping an entry has to shift it OUT. Left in place it would be retried
+    on every subsequent sync, forever."""
+    assert _run_replay_probe()["drained"], (
+        "the replay loop left entries in the queue; a skipped admin POST must be "
+        "discarded, not deferred to the next sync"
+    )
+
+
 def test_ordinary_form_posts_keep_background_sync():
-    """Guards the two assertions above: if the POST router stopped matching
-    anything at all they would pass vacuously, and offline form submission —
-    the reason the queue exists — would be silently gone."""
+    """Guards the assertions above: if the POST router stopped matching anything
+    at all, or the replay loop dropped everything, they would pass vacuously and
+    offline form submission — the reason the queue exists — would be gone."""
     probe = _run_sw_route_probe()["ordinary_form_post"]
     assert probe["claimed"], (
         f"POST {probe['url']} is no longer claimed by the background-sync route; "
         "offline form submission has been lost."
+    )
+    replayed = _run_replay_probe()["replayed"]
+    assert any("/events/" in url for url in replayed), (
+        f"onSync replayed nothing for an ordinary queued POST (got {replayed}); "
+        "the exclusion is now swallowing traffic it should retry."
     )
