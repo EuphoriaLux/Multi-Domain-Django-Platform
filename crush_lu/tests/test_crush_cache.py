@@ -1881,3 +1881,107 @@ class TestSeedCrushCacheCommand:
         blocking = [c for c in hunt.readiness_check() if c["blocking"]]
         assert blocking, "expected blocking readiness checks"
         assert all(c["ok"] for c in blocking), [c for c in blocking if not c["ok"]]
+
+    def test_player_email_puts_any_preset_on_the_solo_path(self, django_user_model):
+        """--player-email makes a local-QA preset safe to seed on staging: no
+        accounts created, nothing published, one seat."""
+        from django.core.management import call_command
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
+
+        player = django_user_model.objects.create_user(
+            username="um-see-staging@example.com",
+            email="um-see-staging@example.com",
+            password="keep-this-password",
+        )
+        before = set(django_user_model.objects.values_list("username", flat=True))
+
+        call_command(
+            "seed_crush_cache",
+            preset="echternach_um_see",
+            player_email=player.email,
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        # The debug path would have created a STAFF account on a shared
+        # password — the whole reason this path exists.
+        assert (
+            set(django_user_model.objects.values_list("username", flat=True)) == before
+        )
+        player.refresh_from_db()
+        assert player.check_password("keep-this-password")
+        assert not django_user_model.objects.filter(is_staff=True).exists()
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.event.is_published is False
+        assert hunt.team_size_max == 1
+        assert hunt.allow_self_join is False
+        assert hunt.created_by == player
+        assert hunt.status == "live"
+
+        # Still the team hunt's own content: QR stations, not the prototype's
+        # GPS-only run.
+        stations = list(hunt.ordered_stations())
+        assert all(s.unlock_mode == "gps_qr" for s in stations)
+        assert all(s.manual_code for s in stations)
+
+        registration = EventRegistration.objects.get(event=hunt.event, user=player)
+        assert registration.status == "attended"
+        assert CacheTeamMember.objects.filter(
+            hunt=hunt, registration=registration
+        ).exists()
+
+    def test_player_email_carries_the_production_guard_to_any_preset(
+        self, django_user_model, monkeypatch
+    ):
+        """The staging escape hatch must not become a production one."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        player = django_user_model.objects.create_user(
+            username="um-see-prod-guard@example.com",
+            email="um-see-prod-guard@example.com",
+        )
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app.azurewebsites.net")
+        monkeypatch.delenv("WEBSITE_SLOT_NAME", raising=False)
+
+        with pytest.raises(CommandError, match="refusing to modify production"):
+            call_command(
+                "seed_crush_cache",
+                preset="echternach_um_see",
+                player_email=player.email,
+                reset=True,
+                live=True,
+                force=True,
+            )
+
+    def test_without_player_email_the_team_preset_still_seeds_debug_accounts(self):
+        """The local path is unchanged — teams, join code and debug logins."""
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache", preset="echternach_um_see", reset=True, force=True
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.event.is_published is True
+        assert hunt.team_size_max == 4
+        assert hunt.allow_self_join is True
+        assert hunt.teams.get().join_code
+
+    def test_debug_path_is_refused_on_azure_even_with_force(self, monkeypatch):
+        """--force must not buy shared-password staff accounts onto a slot."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app-staging.azurewebsites.net")
+        monkeypatch.setenv("WEBSITE_SLOT_NAME", "staging")
+
+        for preset_name in ("lux_city", "minette", "echternach_um_see"):
+            with pytest.raises(CommandError, match="Refusing to do that on Azure"):
+                call_command(
+                    "seed_crush_cache", preset=preset_name, reset=True, force=True
+                )
