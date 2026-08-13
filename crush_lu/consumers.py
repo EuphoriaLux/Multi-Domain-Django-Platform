@@ -591,6 +591,18 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             return
 
         rotation_data = await self.advance_round_and_rotate()
+        # A rebuild that could not produce seating for the new round comes
+        # back as an error, and it has to reach the host the way the guard
+        # above does. Falling through to the broadcast below sent the error
+        # dict itself as `quiz.rotate`: every screen in the room switched to
+        # the rotate splash and refetched an assignment that had not moved,
+        # while the one person who could act on it — the host — was told
+        # nothing. A room that visibly rotates but seats nobody anywhere new
+        # is exactly how a broken schedule reads as "the rotators stay put".
+        if rotation_data.get("error"):
+            await self.send_error(rotation_data["error"])
+            return
+
         if rotation_data.get("finished"):
             # No more rounds — broadcast finished status with leaderboard
             leaderboard = await self.get_leaderboard()
@@ -1652,6 +1664,67 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 quiz.save(update_fields=["status"])
                 return {"finished": True, "status": "finished"}
 
+            # Get the round_number for rotation lookup. Derived from
+            # next_round explicitly, so it does not depend on
+            # current_round having been written yet.
+            round_number = quiz.get_round_number(next_round)
+
+            # Self-heal: a quiz_night quiz that reached this point with no
+            # rotation rows for the new round (e.g. started before the
+            # generation-error fix landed, or the schedule was wiped) would
+            # otherwise broadcast empty assignments and leave the coach
+            # staring at a wiped Table Overview. Try to (re)generate the
+            # missing rounds — passing ``preserve_current_round=False``
+            # because we want to fill in ``round_number``, which is the
+            # round we are about to advance ``current_round`` to. (The
+            # default preserve flag would bump from_round past it.) If
+            # regen also fails, surface the error instead of pretending
+            # success.
+            #
+            # Seat the room *before* the round moves, not after. Advancing
+            # first and rebuilding second commits a round that nothing is
+            # scheduled for: current_question_index is back at -1, so a
+            # second Rotate is refused by check_can_rotate ("questions
+            # remain in this round") and the host is left with a round they
+            # cannot re-enter and a room that never moved. Ordering it this
+            # way makes a failed rebuild a no-op — generate_rotation_rounds
+            # does all its work inside its own atomic block, so its
+            # savepoint unwinds and this transaction commits nothing.
+            if (
+                quiz.event.event_type == "quiz_night"
+                and quiz.num_tables
+                and not QuizRotationSchedule.objects.filter(
+                    quiz=quiz, round_number=round_number
+                ).exists()
+            ):
+                from django.core.exceptions import ValidationError
+
+                from crush_lu.services.quiz_rotation import (
+                    generate_rotation_rounds,
+                )
+
+                try:
+                    generate_rotation_rounds(
+                        quiz,
+                        from_round=round_number,
+                        preserve_current_round=False,
+                    )
+                except ValidationError as exc:
+                    msg = exc.messages[0] if exc.messages else str(exc)
+                    return {"error": f"Cannot rotate: {msg}"}
+                except Exception:
+                    logger.exception(
+                        "Rotation regeneration failed for quiz %s round %d",
+                        quiz.id,
+                        round_number,
+                    )
+                    return {
+                        "error": (
+                            "Cannot rotate: rotation schedule could not be "
+                            "regenerated. Check the server logs for details."
+                        )
+                    }
+
             quiz.current_round = next_round
             # Set to -1 so first next_question lands on Q0 (Issue #2)
             quiz.current_question_index = -1
@@ -1659,52 +1732,6 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             quiz.save(
                 update_fields=["current_round", "current_question_index", "status"]
             )
-
-        # Get the round_number for rotation lookup
-        round_number = quiz.get_round_number(next_round)
-
-        # Self-heal: a quiz_night quiz that reached this point with no
-        # rotation rows for the new round (e.g. started before the
-        # generation-error fix landed, or the schedule was wiped) would
-        # otherwise broadcast empty assignments and leave the coach
-        # staring at a wiped Table Overview. Try to (re)generate the
-        # missing rounds — passing ``preserve_current_round=False``
-        # because we want to fill in ``round_number``, which is the
-        # round we just advanced ``current_round`` to. (The default
-        # preserve flag would bump from_round past it.) If regen also
-        # fails, surface the error instead of pretending success.
-        if (
-            quiz.event.event_type == "quiz_night"
-            and quiz.num_tables
-            and not QuizRotationSchedule.objects.filter(
-                quiz=quiz, round_number=round_number
-            ).exists()
-        ):
-            from django.core.exceptions import ValidationError
-
-            from crush_lu.services.quiz_rotation import generate_rotation_rounds
-
-            try:
-                generate_rotation_rounds(
-                    quiz,
-                    from_round=round_number,
-                    preserve_current_round=False,
-                )
-            except ValidationError as exc:
-                msg = exc.messages[0] if exc.messages else str(exc)
-                return {"error": f"Cannot rotate: {msg}"}
-            except Exception:
-                logger.exception(
-                    "Rotation regeneration failed for quiz %s round %d",
-                    quiz.id,
-                    round_number,
-                )
-                return {
-                    "error": (
-                        "Cannot rotate: rotation schedule could not be "
-                        "regenerated. Check the server logs for details."
-                    )
-                }
 
         # Build per-user assignment map from rotation schedule
         assignments = {}
