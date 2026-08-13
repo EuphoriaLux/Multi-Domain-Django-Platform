@@ -1,7 +1,10 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v30 - Bypass /api/mobile/ so the native auth handoff's crushlu:// redirect
-//                is followed by the browser, not by the SW's fetch() (which cannot)
+// Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
+//                cache. The admin is mounted at /crush-admin/, not /admin/, so
+//                every exclusion list written against /admin/ missed it. The
+//                queue is also drained through the same list, so entries an
+//                older worker already stored are dropped rather than replayed.
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -295,6 +298,13 @@ if (workbox) {
     function isAuthenticatedRoute(pathname) {
         const authPaths = [
             "/admin",
+            // The Crush admin site is mounted at /crush-admin/ (urls_crush.py),
+            // which does NOT contain the substring "/admin" — the character
+            // before "admin" is a hyphen. Listing it separately keeps admin
+            // pages off every cache: a change form served from cache carries
+            // stale inline `id`/INITIAL_FORMS values, and re-posting those
+            // rows as new ones is what trips the (event, user) unique index.
+            "/crush-admin",
             "/accounts",
             "/coach",
             "/dashboard",
@@ -504,6 +514,39 @@ if (workbox) {
     // Background Sync (for future offline form submissions)
     // ============================================================================
 
+    // Which POSTs the queue may hold. ONE list with TWO readers: the route
+    // below decides what may ENTER the queue, and onSync decides what may
+    // LEAVE it. They have to agree. A path excluded only at the entrance still
+    // replays out of the IndexedDB store an older worker filled — the queue is
+    // named, so it survives the update, and `maxRetentionTime` keeps its
+    // contents replayable for 24h after this worker ships.
+    //
+    // IMPORTANT: auth-related POSTs carry CSRF tokens that can't be replayed.
+    //
+    // Admin POSTs are excluded for a second reason: a queued admin form is
+    // replayed verbatim up to 24h later, which re-submits the whole change
+    // form including its inline rows — writing them a second time, with no
+    // one watching the tab it answers into. On the MeetupEvent change form
+    // that means a second EventRegistration INSERT and
+    //   duplicate key ... crush_lu_eventregistration_event_id_user_id_..._uniq
+    // which surfaces as a form error if the replay is well separated from the
+    // original and as a 500 if the two overlap. Staging hit that 500 on
+    // 2026-08-11 (event 29 / user 86); the logs show a duplicate submission
+    // but cannot say whether the queue or a double-click produced it. Both
+    // mount points are listed: /admin/ is Django's own admin, /crush-admin/
+    // is the Crush coach panel (urls_crush.py).
+    function isQueueablePost(pathname) {
+        return (
+            !pathname.startsWith("/api/") &&
+            !pathname.startsWith("/admin/") &&
+            !pathname.startsWith("/crush-admin/") &&
+            !pathname.startsWith("/login") &&
+            !pathname.startsWith("/logout") &&
+            !pathname.startsWith("/accounts/") &&
+            !pathname.startsWith("/signup")
+        );
+    }
+
     const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin(
         "crush-queue",
         {
@@ -511,6 +554,12 @@ if (workbox) {
             onSync: async ({ queue }) => {
                 let entry;
                 while ((entry = await queue.shiftRequest())) {
+                    // Discard, don't replay: an entry an earlier worker
+                    // queued predates the exclusions above, and shifting it
+                    // out without fetching is what actually removes it.
+                    if (!isQueueablePost(new URL(entry.request.url).pathname)) {
+                        continue;
+                    }
                     try {
                         await fetch(entry.request);
                     } catch (error) {
@@ -523,16 +572,9 @@ if (workbox) {
     );
 
     // Use background sync for POST requests (event registrations, etc.)
-    // IMPORTANT: Exclude auth-related POSTs - they have CSRF tokens that can't be replayed
     workbox.routing.registerRoute(
         ({ url, request }) =>
-            request.method === "POST" &&
-            !url.pathname.startsWith("/api/") &&
-            !url.pathname.startsWith("/admin/") &&
-            !url.pathname.startsWith("/login") &&
-            !url.pathname.startsWith("/logout") &&
-            !url.pathname.startsWith("/accounts/") &&
-            !url.pathname.startsWith("/signup"),
+            request.method === "POST" && isQueueablePost(url.pathname),
         new workbox.strategies.NetworkOnly({
             plugins: [bgSyncPlugin],
         }),

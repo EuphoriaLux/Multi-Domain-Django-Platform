@@ -54,6 +54,20 @@ def _member_color(name):
     return _AVATAR_COLORS[h % len(_AVATAR_COLORS)]
 
 
+def _round_has_schedule(quiz, round_number):
+    """Whether the rotation schedule seats ``round_number`` at all.
+
+    The single fact the rotation-vs-membership fallback turns on, kept in
+    one place because every reader of a seat has to decide it the same
+    way. It is a question about the *quiz*, never about one player: a
+    player can be missing from a round the rest of the room is in, and
+    that is not licence to answer them from the check-in snapshot.
+    """
+    return QuizRotationSchedule.objects.filter(
+        quiz=quiz, round_number=round_number
+    ).exists()
+
+
 def _get_table_members_json(quiz, round_number=0):
     """Build JSON-safe list of tables with their current members.
 
@@ -62,12 +76,12 @@ def _get_table_members_json(quiz, round_number=0):
     shows as empty rather than the stale round-0 check-in snapshot).
     Only fall back to ``QuizTableMembership`` when the quiz has no
     rotation schedule for this round at all (legacy non-rotating
-    events).
+    events). Asked once here rather than per table, which is why this
+    renders the whole room in one decision and ``get_table_occupants``
+    answers for one table.
     """
     tables = QuizTable.objects.filter(quiz=quiz).order_by("table_number")
-    rotation_exists = QuizRotationSchedule.objects.filter(
-        quiz=quiz, round_number=round_number
-    ).exists()
+    rotation_exists = _round_has_schedule(quiz, round_number)
     result = []
     for table in tables:
         members = []
@@ -109,6 +123,57 @@ def _get_table_members_json(quiz, round_number=0):
             }
         )
     return result
+
+
+def get_table_occupants(quiz, table, round_number, exclude_user=None):
+    """Who is sitting at ``table`` in ``round_number``, as a JSON-safe list
+    of ``{display_name, role}``.
+
+    Answers the seat question the same way ``_get_table_members_json``
+    answers it for the whole room, and for the same reason: whether the
+    round is scheduled is a fact about the *quiz*, not about any one
+    player. A player can be missing from a round that everyone else is in
+    — someone who checks in mid-quiz gets a membership and a round-0 row
+    while ``assign_table_on_checkin`` rebuilds from the *next* round, so as
+    not to move the room mid-question — and their neighbours are still
+    whoever the current round seats here. Falling back to memberships for
+    them would name the check-in roster: the rotators who have since moved
+    on, and none of the ones who have moved in.
+
+    ``QuizTableMembership`` answers only when the round has no schedule at
+    all, which is a legacy non-rotating quiz or a rebuild that failed.
+    Never because *this* table came back empty — an empty table in a
+    scheduled round means nobody is sitting there, and saying so is the
+    point of deciding at the quiz level.
+    """
+    rows = list(
+        QuizRotationSchedule.objects.filter(
+            quiz=quiz, round_number=round_number, table=table
+        ).select_related("user__crushprofile")
+    )
+    # Ask the quiz-level question only when it is the one still open.
+    # Rows here prove the round is scheduled, and a table with people at
+    # it is the ordinary case, so the common path costs one query instead
+    # of two — including the one ``my_assignment`` used to make after
+    # already having found the caller's own row for this very round.
+    if not rows and not _round_has_schedule(quiz, round_number):
+        rows = list(table.memberships.select_related("user__crushprofile"))
+
+    exclude_pk = exclude_user.pk if exclude_user is not None else None
+    occupants = []
+    for row in rows:
+        if row.user_id == exclude_pk:
+            continue
+        profile = getattr(row.user, "crushprofile", None)
+        occupants.append(
+            {
+                "display_name": (
+                    (profile.display_name if profile else None) or "Anonymous"
+                ),
+                "role": getattr(row, "role", ""),
+            }
+        )
+    return occupants
 
 
 @login_required
@@ -159,41 +224,16 @@ def quiz_live_view(request, event_id):
             user_table_number = membership.table.table_number
             user_table = membership.table
 
-    # Build initial tablemates list (so it shows immediately without API call)
+    # Build initial tablemates list (so it shows immediately without API
+    # call). Same helper as ``my_assignment``, which matters here twice
+    # over: that endpoint overwrites this list a moment after the page
+    # paints, and the two disagreeing is a visible flicker onto a
+    # different set of names.
     tablemates = []
     if user_table:
-        if rotation:
-            mates = (
-                QuizRotationSchedule.objects.filter(
-                    quiz=quiz, round_number=round_number, table=user_table
-                )
-                .exclude(user=request.user)
-                .select_related("user__crushprofile")
-            )
-            for r in mates:
-                profile = getattr(r.user, "crushprofile", None)
-                tablemates.append(
-                    {
-                        "display_name": (
-                            (profile.display_name if profile else None) or "Anonymous"
-                        ),
-                        "role": r.role,
-                    }
-                )
-        else:
-            mates = user_table.memberships.exclude(user=request.user).select_related(
-                "user__crushprofile"
-            )
-            for m in mates:
-                profile = getattr(m.user, "crushprofile", None)
-                tablemates.append(
-                    {
-                        "display_name": (
-                            (profile.display_name if profile else None) or "Anonymous"
-                        ),
-                        "role": "",
-                    }
-                )
+        tablemates = get_table_occupants(
+            quiz, user_table, round_number, exclude_user=request.user
+        )
 
     # For coaches/staff who aren't assigned to a table, provide the full
     # table overview so they can see the setup from the participant view

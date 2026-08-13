@@ -3,9 +3,18 @@ Quiz Night table rotation algorithm.
 
 Generates a rotation schedule where:
 - Men are anchored at fixed tables (distributed evenly)
-- Women rotate between tables (split into groups A and B at different speeds)
+- Women rotate between tables (group A forwards, group B backwards)
+- Every woman is seated at exactly one table in every round
 - After N rounds (N = number of tables), every woman has visited every table
-- No two women are paired at the same table more than once
+- Group A and group B re-pair as they pass each other
+
+How often an A rotator meets the same B rotator is set by how far the two
+groups drift apart each round, and that cannot always be made maximal: at
+an even table count no step gives both full table coverage *and* a fresh
+pairing every round, because a step coprime with an even N is odd, which
+leaves the drift even. Coverage wins — meeting every anchor is the point of
+the evening. So the pairing cycles every N rounds at odd N and every N/2 at
+even N, and at 2 tables, where the only move is a swap, every round.
 """
 
 from django.core.exceptions import ValidationError
@@ -93,15 +102,16 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
 
     schedule = []
 
-    # Split women into rotation groups (all women are seated)
-    if num_tables == 2:
-        group_a = women[:4] if len(women) >= 4 else women
-        group_b = []
-        group_c = women[4:]
-    else:
-        group_a = women[:num_tables]
-        group_b = women[num_tables : num_tables * 2]
-        group_c = women[num_tables * 2 :]  # spillover — everyone gets seated
+    # Split women into rotation groups (all women are seated): one group-A
+    # and one group-B rotator per table, everyone past that into spillover.
+    # This is the same split ``assign_table_on_checkin`` and
+    # ``manual_assign_table`` apply when they stamp ``rotation_group`` at
+    # check-in (A while fewer than num_tables rotators exist, then B, then
+    # C), so the labels this function reads back out of round 0 via
+    # ``generate_rotation_rounds`` mean the same thing here.
+    group_a = women[:num_tables]
+    group_b = women[num_tables : num_tables * 2]
+    group_c = women[num_tables * 2 :]  # spillover — everyone gets seated
 
     if group_c:
         warnings.append(
@@ -109,6 +119,19 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
             f"(groups A/B hold {len(group_a) + len(group_b)}, "
             f"spillover distributed round-robin)."
         )
+
+    # Group A advances one table per round; group B counter-rotates by one,
+    # so the two groups pass each other and re-pair as they go.
+    #
+    # What makes a step a rotation is not that it is non-zero but that it is
+    # *coprime* with the table count — only then does repeating it reach
+    # every table. The old +2 was neither at 2 tables (where it is the
+    # identity, so group B never moved at all) nor at any other even count
+    # (where it walks the same-parity tables and skips half the room:
+    # at 4 tables, 1 → 3 → 1 → 3, meeting the same anchors all night).
+    # n-1 is coprime with n for every n, consecutive integers always being
+    # coprime, so this holds at every table count the quiz allows.
+    step_b = num_tables - 1
 
     for round_num in range(num_rounds):
         for table_idx in range(num_tables):
@@ -126,49 +149,29 @@ def generate_rotation_schedule(men, women, num_rounds=3, num_tables=None):
                     }
                 )
 
-            if num_tables == 2:
-                # 2 tables: all women in one group, rotating +1
-                for offset in range(2):
-                    w_idx = (
-                        (table_idx * 2 + offset + round_num) % len(group_a)
-                        if group_a
-                        else -1
-                    )
-                    if 0 <= w_idx < len(group_a):
-                        schedule.append(
-                            {
-                                "round_number": round_num,
-                                "table_number": table_number,
-                                "user": group_a[w_idx],
-                                "role": "rotator",
-                                "rotation_group": "A",
-                            }
-                        )
-            else:
-                # 3+ tables: Group A at step +1, Group B at step +2
-                a_idx = (table_idx + round_num) % num_tables
-                if a_idx < len(group_a):
-                    schedule.append(
-                        {
-                            "round_number": round_num,
-                            "table_number": table_number,
-                            "user": group_a[a_idx],
-                            "role": "rotator",
-                            "rotation_group": "A",
-                        }
-                    )
+            a_idx = (table_idx + round_num) % num_tables
+            if a_idx < len(group_a):
+                schedule.append(
+                    {
+                        "round_number": round_num,
+                        "table_number": table_number,
+                        "user": group_a[a_idx],
+                        "role": "rotator",
+                        "rotation_group": "A",
+                    }
+                )
 
-                b_idx = (table_idx + round_num * 2) % num_tables
-                if b_idx < len(group_b):
-                    schedule.append(
-                        {
-                            "round_number": round_num,
-                            "table_number": table_number,
-                            "user": group_b[b_idx],
-                            "role": "rotator",
-                            "rotation_group": "B",
-                        }
-                    )
+            b_idx = (table_idx + round_num * step_b) % num_tables
+            if b_idx < len(group_b):
+                schedule.append(
+                    {
+                        "round_number": round_num,
+                        "table_number": table_number,
+                        "user": group_b[b_idx],
+                        "role": "rotator",
+                        "rotation_group": "B",
+                    }
+                )
 
         # Group C (spillover): distribute round-robin across tables each round
         for c_idx, extra_woman in enumerate(group_c):
