@@ -95,9 +95,11 @@ document.addEventListener("alpine:init", function () {
                             }
                         }
                     } catch (e) {}
+                    self.preloadAudio();
                 };
                 window.addEventListener("pointerdown", unlockAudio, { once: true });
                 window.addEventListener("click", unlockAudio, { once: true });
+                this.preloadAudio();
 
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
@@ -258,8 +260,59 @@ document.addEventListener("alpine:init", function () {
                 }, reduce ? 1200 : 2200);
             },
 
+            preloadAudio: function () {
+                if (window._crushMp3Buffer || window._crushMp3Loading) return;
+                window._crushMp3Loading = true;
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    fetch("/static/crush_lu/audio/Crush-Love-Sound.mp3")
+                        .then(function (res) { return res.arrayBuffer(); })
+                        .then(function (buf) { return ctx.decodeAudioData(buf); })
+                        .then(function (decoded) { window._crushMp3Buffer = decoded; })
+                        .catch(function () { window._crushMp3Loading = false; });
+                } catch (e) {
+                    window._crushMp3Loading = false;
+                }
+            },
+
             playGpsChime: function () {
-                this.playSynthGpsChime();
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (window._crushMp3Buffer && AudioCtx) {
+                        if (!window._crushAudioCtx) window._crushAudioCtx = new AudioCtx();
+                        var ctx = window._crushAudioCtx;
+                        if (ctx.state === "suspended") {
+                            ctx.resume();
+                        }
+                        var src = ctx.createBufferSource();
+                        var gain = ctx.createGain();
+                        gain.gain.value = 0.8;
+                        src.buffer = window._crushMp3Buffer;
+                        src.connect(gain);
+                        gain.connect(ctx.destination);
+                        src.start(0);
+                        return;
+                    }
+                } catch (e) {}
+
+                var self = this;
+                try {
+                    var audio = new Audio("/static/crush_lu/audio/Crush-Love-Sound.mp3");
+                    audio.volume = 0.8;
+                    var playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(function () {
+                            self.playSynthGpsChime();
+                        });
+                    }
+                } catch (e) {
+                    this.playSynthGpsChime();
+                }
             },
 
             playSynthGpsChime: function () {
