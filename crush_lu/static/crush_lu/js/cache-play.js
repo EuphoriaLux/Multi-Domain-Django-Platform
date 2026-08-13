@@ -334,6 +334,24 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            _getRomanticReverb: function (ctx) {
+                try {
+                    var delay = ctx.createDelay();
+                    var feedback = ctx.createGain();
+                    var filter = ctx.createBiquadFilter();
+                    delay.delayTime.setValueAtTime(0.16, ctx.currentTime);
+                    feedback.gain.setValueAtTime(0.32, ctx.currentTime);
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(1400, ctx.currentTime);
+                    delay.connect(filter);
+                    filter.connect(feedback);
+                    feedback.connect(delay);
+                    return delay;
+                } catch (e) {
+                    return null;
+                }
+            },
+
             playSynthGpsChime: function () {
                 try {
                     var AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -346,51 +364,65 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
 
                     // 1. Romantic Heartbeat Sub-Pulse (lub-dub)
-                    [0, 0.12].forEach(function (delay) {
+                    [0, 0.13].forEach(function (delayTime) {
                         var o = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var t = now + delay;
+                        var t = now + delayTime;
                         o.type = "sine";
-                        o.frequency.setValueAtTime(90, t);
-                        o.frequency.exponentialRampToValueAtTime(45, t + 0.1);
-                        g.gain.setValueAtTime(0.4, t);
-                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                        o.frequency.setValueAtTime(95, t);
+                        o.frequency.exponentialRampToValueAtTime(42, t + 0.11);
+                        g.gain.setValueAtTime(0.45, t);
+                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
                         o.connect(g);
                         g.connect(ctx.destination);
                         o.start(t);
-                        o.stop(t + 0.1);
+                        o.stop(t + 0.11);
                     });
 
-                    // 2. Romantic C Major 9th "Love Bloom" Arpeggio: C4, G4, B4, D5, E5, G5, B5
-                    var notes = [261.63, 392.00, 493.88, 587.33, 659.25, 783.99, 987.77];
+                    // 2. Romantic C Major 11th "Warm Embrace" Swell: C4, G4, B4, D5, F#5, G5, B5, D6
+                    var notes = [261.63, 392.00, 493.88, 587.33, 739.99, 783.99, 987.77, 1174.66];
                     notes.forEach(function (freq, idx) {
                         var o1 = ctx.createOscillator();
                         var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
                         var g = ctx.createGain();
                         var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-                        var t = now + 0.22 + (idx * 0.10);
+                        var t = now + 0.22 + (idx * 0.095);
+
+                        // 5.2Hz romantic vibrato
+                        lfo.frequency.setValueAtTime(5.2, t);
+                        lfoGain.gain.setValueAtTime(freq * 0.006, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
                         o1.type = "sine";
                         o2.type = "triangle";
                         o1.frequency.setValueAtTime(freq, t);
-                        o2.frequency.setValueAtTime(freq * 1.0045, t); // 8-cent warm chorus detune
-                        g.gain.setValueAtTime(0.28, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+                        o2.frequency.setValueAtTime(freq * 1.0045, t);
+                        g.gain.setValueAtTime(0.24, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+
                         o1.connect(g);
                         o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
                         if (p) {
-                            var pan = (idx % 2 === 0 ? -1 : 1) * 0.3;
-                            p.pan.setValueAtTime(pan, t);
-                            g.connect(p);
+                            p.pan.setValueAtTime((idx % 2 === 0 ? -1 : 1) * 0.35, t);
                             p.connect(ctx.destination);
-                        } else {
-                            g.connect(ctx.destination);
                         }
+
+                        lfo.start(t);
                         o1.start(t);
                         o2.start(t);
-                        o1.stop(t + 0.7);
-                        o2.stop(t + 0.7);
+                        lfo.stop(t + 0.85);
+                        o1.stop(t + 0.85);
+                        o2.stop(t + 0.85);
                     });
                     if (navigator.vibrate) {
                         try { navigator.vibrate([100, 90, 180]); } catch (e) {}
@@ -410,34 +442,48 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // Romantic F Major 9th "Cupid's Strum" Harp Sweep: F4, A4, C5, E5, G5, C6
-                    var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 1046.50];
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
+
+                    // Romantic F Major 13th "Cupid's Dream" Harp Sweep: F4, A4, C5, E5, G5, B5, D6, E6
+                    var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 987.77, 1174.66, 1318.51];
                     freqs.forEach(function (f, idx) {
                         var o1 = ctx.createOscillator();
                         var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
                         var g = ctx.createGain();
                         var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-                        var t = now + (idx * 0.065);
+                        var t = now + (idx * 0.058);
+
+                        lfo.frequency.setValueAtTime(5.8, t);
+                        lfoGain.gain.setValueAtTime(f * 0.005, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
                         o1.type = "sine";
                         o2.type = "sine";
                         o1.frequency.setValueAtTime(f, t);
-                        o2.frequency.setValueAtTime(f * 1.005, t); // Dreamy chorus detune
-                        g.gain.setValueAtTime(0.32, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+                        o2.frequency.setValueAtTime(f * 1.005, t);
+                        g.gain.setValueAtTime(0.28, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+
                         o1.connect(g);
                         o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
                         if (p) {
-                            var pan = (idx / (freqs.length - 1) - 0.5) * 0.6; // Stereo harp sweep left to right
-                            p.pan.setValueAtTime(pan, t);
-                            g.connect(p);
+                            p.pan.setValueAtTime((idx / (freqs.length - 1) - 0.5) * 0.7, t);
                             p.connect(ctx.destination);
-                        } else {
-                            g.connect(ctx.destination);
                         }
+
+                        lfo.start(t);
                         o1.start(t);
                         o2.start(t);
-                        o1.stop(t + 0.6);
-                        o2.stop(t + 0.6);
+                        lfo.stop(t + 0.75);
+                        o1.stop(t + 0.75);
+                        o2.stop(t + 0.75);
                     });
                     if (navigator.vibrate) {
                         try { navigator.vibrate([70, 50, 140]); } catch (e) {}
@@ -457,34 +503,48 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // Triumphant A Major 9th "True Love Match" Fanfare: A3, E4, A4, C#5, E5, G#5, B5, E6
-                    var chord = [220.00, 329.63, 440.00, 554.37, 659.25, 830.61, 987.77, 1318.51];
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
+
+                    // Triumphant A Major 9th "Eternal Love" Fanfare: A3, E4, A4, C#5, E5, G#5, B5, E6, G#6
+                    var chord = [220.00, 329.63, 440.00, 554.37, 659.25, 830.61, 987.77, 1318.51, 1661.22];
                     chord.forEach(function (f, idx) {
                         var o1 = ctx.createOscillator();
                         var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
                         var g = ctx.createGain();
                         var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-                        var t = now + (idx * 0.08);
+                        var t = now + (idx * 0.075);
+
+                        lfo.frequency.setValueAtTime(4.8, t);
+                        lfoGain.gain.setValueAtTime(f * 0.004, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
                         o1.type = "sine";
                         o2.type = "triangle";
                         o1.frequency.setValueAtTime(f, t);
                         o2.frequency.setValueAtTime(f * 1.004, t);
-                        g.gain.setValueAtTime(0.26, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+                        g.gain.setValueAtTime(0.24, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+
                         o1.connect(g);
                         o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
                         if (p) {
-                            var pan = (idx % 2 === 0 ? -0.4 : 0.4);
-                            p.pan.setValueAtTime(pan, t);
-                            g.connect(p);
+                            p.pan.setValueAtTime((idx % 2 === 0 ? -0.45 : 0.45), t);
                             p.connect(ctx.destination);
-                        } else {
-                            g.connect(ctx.destination);
                         }
+
+                        lfo.start(t);
                         o1.start(t);
                         o2.start(t);
-                        o1.stop(t + 0.9);
-                        o2.stop(t + 0.9);
+                        lfo.stop(t + 1.1);
+                        o1.stop(t + 1.1);
+                        o2.stop(t + 1.1);
                     });
                     if (navigator.vibrate) {
                         try { navigator.vibrate([120, 80, 120, 80, 260]); } catch (e) {}
