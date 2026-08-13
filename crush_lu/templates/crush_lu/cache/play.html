@@ -49,6 +49,7 @@
          data-nav-mode="{{ hunt.navigation_mode }}"
          data-needs-gps="{{ needs_gps|yesno:'true,false' }}"
          data-unlocked="{{ attempt.is_unlocked|yesno:'true,false' }}"
+         data-audio-url="{% static 'crush_lu/audio/Crush-Love-Sound.mp3' %}"
          {% if show_map and station and station.latitude is not None %}
          data-target-lat="{{ station.latitude|unlocalize }}"
          data-target-lng="{{ station.longitude|unlocalize }}"

@@ -54,6 +54,7 @@ document.addEventListener("alpine:init", function () {
                 this.targetLat = root.dataset.targetLat ? parseFloat(root.dataset.targetLat) : null;
                 this.targetLng = root.dataset.targetLng ? parseFloat(root.dataset.targetLng) : null;
                 this.targetRadius = root.dataset.targetRadius ? parseInt(root.dataset.targetRadius, 10) : null;
+                this.audioUrl = root.dataset.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
                 this.msgs = {
                     gpsDenied: root.dataset.msgGpsDenied || "Location permission denied",
                     gpsWaiting: root.dataset.msgGpsWaiting || "Waiting for GPS…",
@@ -70,12 +71,6 @@ document.addEventListener("alpine:init", function () {
                     this.connectWebSocket();
                     this.startPolling();
                 }
-                // A station/hunt-complete celebration swapped into the play
-                // region makes this shell's data stale — progress already
-                // points at the next station, so the next position POST
-                // would report "unlocked" and reload right over the card.
-                // Suspend navigation while it's on screen; its Continue
-                // link does the reload.
                 var self = this;
                 root.addEventListener("htmx:afterSwap", function () {
                     if (document.getElementById("cache-celebration")) {
@@ -95,7 +90,6 @@ document.addEventListener("alpine:init", function () {
                             }
                         }
                     } catch (e) {}
-                    self.preloadAudio();
                 };
                 window.addEventListener("pointerdown", unlockAudio, { once: true });
                 window.addEventListener("click", unlockAudio, { once: true });
@@ -136,8 +130,6 @@ document.addEventListener("alpine:init", function () {
                 return "transform: rotate(" + rotation + "deg)";
             },
 
-            // CSP-build note: x-show only takes property paths, so the
-            // negation lives here instead of "!geoSupported" in templates.
             get geoUnsupported() {
                 return !this.geoSupported;
             },
@@ -181,7 +173,6 @@ document.addEventListener("alpine:init", function () {
                 this.updateSelfMarker(lat, lng, accuracy);
                 this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));
 
-                // Throttle server posts to one every 3 seconds
                 var now = Date.now();
                 if (this.posting || now - this.lastPostAt < 3000) return;
                 this.lastPostAt = now;
@@ -207,13 +198,8 @@ document.addEventListener("alpine:init", function () {
                                     if (self.suspended) return null;
                                     var code = err && err.error;
                                     if (code === "finished" || code === "not_live" || code === "no_team") {
-                                        // Hunt or membership state changed under
-                                        // us — stop posting, re-render from the
-                                        // server (e.g. show the finish screen).
                                         self.stopAndReload();
                                     } else {
-                                        // Unknown 403 (e.g. CSRF): stop posting
-                                        // but never enter a reload loop.
                                         self.stopWatching();
                                     }
                                     return null;
@@ -226,8 +212,6 @@ document.addEventListener("alpine:init", function () {
                         if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") self.bearing = data.bearing;
-                        // Server-side arrival — celebrate for a beat, then
-                        // reload so the state machine advances
                         if (self.needsGps && (data.arrived || data.unlocked)) {
                             self.celebrateArrival();
                         }
@@ -254,7 +238,9 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                var delayMs = reduce ? 1200 : Math.max(2200, Math.ceil(soundDurationMs + 300));
+                var delayMs = reduce
+                    ? Math.max(1200, Math.ceil(soundDurationMs))
+                    : Math.max(2200, Math.ceil(soundDurationMs + 300));
                 setTimeout(function () {
                     if (self.suspended) return;
                     window.location.reload();
@@ -271,7 +257,8 @@ document.addEventListener("alpine:init", function () {
                         window._crushAudioCtx = new AudioCtx();
                     }
                     var ctx = window._crushAudioCtx;
-                    fetch("/static/crush_lu/audio/Crush-Love-Sound.mp3")
+                    var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
+                    fetch(url)
                         .then(function (res) { return res.arrayBuffer(); })
                         .then(function (buf) {
                             var res = ctx.decodeAudioData(
@@ -319,7 +306,8 @@ document.addEventListener("alpine:init", function () {
 
                 var self = this;
                 try {
-                    var audio = new Audio("/static/crush_lu/audio/Crush-Love-Sound.mp3");
+                    var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
+                    var audio = new Audio(url);
                     audio.volume = 0.8;
                     var playPromise = audio.play();
                     if (playPromise !== undefined) {
@@ -336,6 +324,7 @@ document.addEventListener("alpine:init", function () {
 
             _getRomanticReverb: function (ctx) {
                 try {
+                    if (ctx._crushReverb) return ctx._crushReverb;
                     var delay = ctx.createDelay();
                     var feedback = ctx.createGain();
                     var filter = ctx.createBiquadFilter();
@@ -346,7 +335,9 @@ document.addEventListener("alpine:init", function () {
                     delay.connect(filter);
                     filter.connect(feedback);
                     feedback.connect(delay);
-                    return delay;
+                    delay.connect(ctx.destination);
+                    ctx._crushReverb = delay;
+                    return ctx._crushReverb;
                 } catch (e) {
                     return null;
                 }
@@ -561,6 +552,7 @@ document.addEventListener("alpine:init", function () {
                 this.arrivalCelebrating = false;
                 this.reloading = false;
                 this.stopWatching();
+                this.playSynthVictorySound();
             },
 
             // --- Compass (device orientation) ---
