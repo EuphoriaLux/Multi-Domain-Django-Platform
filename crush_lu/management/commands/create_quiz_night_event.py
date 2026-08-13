@@ -9,7 +9,8 @@ The event is created **unpublished** unless ``--publish`` is passed — it is a
 draft a coach reviews (date, venue, capacity) and publishes when ready. Re-runs
 match an existing Quiz Night on the exact title, so the command is idempotent
 and safe to repeat; it refuses to seed over an existing set of rounds unless
-``--clear`` is given.
+``--clear`` is given. Re-running with ``--publish`` alone publishes the event
+and leaves the rounds where they are.
 
 Usage:
     python manage.py create_quiz_night_event
@@ -129,8 +130,6 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             event, event_created = self._get_or_create_event(options, starts_at)
-            if not event_created:
-                self._publish_on_reuse(event, options)
             quiz, quiz_created = QuizEvent.objects.get_or_create(
                 event=event,
                 defaults={
@@ -143,15 +142,29 @@ class Command(BaseCommand):
                 quiz.ensure_tables()
 
             existing_rounds = quiz.rounds.count()
-            if existing_rounds and not options["clear"]:
+            seed = options["clear"] or not existing_rounds
+
+            # Rounds already there and no --clear: the run is only meaningful
+            # if it publishes. Refusing outright would be the error the drafted
+            # event's own advice ("re-run with --publish") walks the operator
+            # straight into.
+            if not seed and not options["publish"]:
                 raise CommandError(
                     f"'{event.title}' already has {existing_rounds} rounds. "
-                    f"Re-run with --clear to replace them."
+                    f"Re-run with --clear to replace them, or with --publish "
+                    f"to publish the event and leave them alone."
                 )
 
-            result = populate_quiz(quiz, clear=options["clear"], pack=pack)
+            # After the guard above, never before it: this writes, and a raise
+            # inside the same atomic block would roll the publish back.
+            if not event_created:
+                self._publish_on_reuse(event, options)
 
-        self._report(event, quiz, result, pack, event_created)
+            result = (
+                populate_quiz(quiz, clear=options["clear"], pack=pack) if seed else None
+            )
+
+        self._report(event, quiz, result, pack, event_created, existing_rounds)
 
     # --- helpers ---------------------------------------------------------
 
@@ -205,6 +218,9 @@ class Command(BaseCommand):
         of those would seed questions nobody can ever play — quiz rotation and
         the scoring consumer both return nothing for events whose `event_type`
         is not `quiz_night` — so refuse instead of touching the other event.
+        Two Quiz Nights sharing the title are ambiguous in the same way, and
+        `get_or_create` would raise `MultipleObjectsReturned` at the operator
+        rather than say what is wrong.
         """
         title = options["title"]
         clash = (
@@ -219,19 +235,34 @@ class Command(BaseCommand):
                 f"Pass a different --title."
             )
 
-        return MeetupEvent.objects.get_or_create(
-            title=title,
-            event_type="quiz_night",
-            defaults={
-                "description": DEFAULT_DESCRIPTION_EN,
-                "location": options["location"],
-                "address": options["address"],
-                "canton": options["canton"],
-                "date_time": starts_at,
-                "registration_deadline": starts_at - REGISTRATION_CUTOFF,
-                "max_participants": options["max_participants"],
-                "is_published": options["publish"],
-            },
+        matches = list(
+            MeetupEvent.objects.filter(title=title, event_type="quiz_night").order_by(
+                "pk"
+            )[:2]
+        )
+        if len(matches) > 1:
+            raise CommandError(
+                f"More than one Quiz Night is already titled '{title}' "
+                f"(ids {matches[0].pk}, {matches[1].pk}, …). Pass a different "
+                f"--title, or remove the duplicates first."
+            )
+        if matches:
+            return matches[0], False
+
+        return (
+            MeetupEvent.objects.create(
+                title=title,
+                event_type="quiz_night",
+                description=DEFAULT_DESCRIPTION_EN,
+                location=options["location"],
+                address=options["address"],
+                canton=options["canton"],
+                date_time=starts_at,
+                registration_deadline=starts_at - REGISTRATION_CUTOFF,
+                max_participants=options["max_participants"],
+                is_published=options["publish"],
+            ),
+            True,
         )
 
     def _publish_on_reuse(self, event, options):
@@ -270,7 +301,7 @@ class Command(BaseCommand):
             f"  published: {'yes' if options['publish'] else 'no (draft)'}"
         )
 
-    def _report(self, event, quiz, result, pack, event_created):
+    def _report(self, event, quiz, result, pack, event_created, existing_rounds):
         verb = "Created" if event_created else "Reused"
         self.stdout.write(
             self.style.SUCCESS(
@@ -278,10 +309,16 @@ class Command(BaseCommand):
                 f"quiz id={quiz.pk}) starting {event.date_time:%Y-%m-%d %H:%M}."
             )
         )
-        self.stdout.write(
-            f"Seeded {result.rounds_created} rounds and "
-            f"{result.questions_created} questions from pack '{pack}'."
-        )
+        if result is None:
+            self.stdout.write(
+                f"Left the existing {existing_rounds} rounds untouched "
+                f"(no --clear given)."
+            )
+        else:
+            self.stdout.write(
+                f"Seeded {result.rounds_created} rounds and "
+                f"{result.questions_created} questions from pack '{pack}'."
+            )
 
         if not event.is_published:
             self.stdout.write(
@@ -301,7 +338,7 @@ class Command(BaseCommand):
             "on the night — seeding cannot satisfy them.)"
         )
 
-        if result.pending_uploads:
+        if result is not None and result.pending_uploads:
             self.stdout.write("")
             self.stdout.write(
                 self.style.WARNING(
