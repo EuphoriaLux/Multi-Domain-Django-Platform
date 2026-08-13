@@ -474,6 +474,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "publish_events",
         "unpublish_events",
         "cancel_events",
+        "cancel_events_and_credit",
         "send_event_reminders",
         "export_attendees_csv",
         "sync_to_echo_lu",
@@ -1205,6 +1206,67 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
+        )
+
+    @admin.action(description=_("💳 Cancel selected events AND credit paid seats"))
+    def cancel_events_and_credit(self, request, queryset):
+        """Cancel the events and give every paid seat its Crush Credit.
+
+        The credit is issued at a **premium** over the ticket price (§4.3):
+        €20 against a €15.50 seat. It costs one marginal seat, converts a legal
+        obligation into goodwill, and makes credit the obviously better choice
+        for the member — which is how the cash is kept without refusing anyone.
+
+        Each credit is also flagged ``cash_refund_eligible``, and that half is
+        not optional. When the **organiser** cancels, Luxembourg consumer
+        guidance entitles the member to a full refund of what they paid, and a
+        voucher is not a substitute. The flag is the queue a human works from;
+        the refunds themselves are still made by hand in the SumUp dashboard.
+
+        Credits are issued FIRST, then ``cancel_events`` does the actual
+        cancellation and all of its side effects. Two reasons for that order:
+        ``issue_credit`` clears ``payment_confirmed``, which is what makes a
+        second run credit nobody twice, and the withdrawal from echo.lu and the
+        wallet refreshes belong to one implementation — a cancelled event left
+        advertising itself on the national portal is a documented incident, and
+        re-implementing that here is how the two copies drift.
+        """
+        from crush_lu.services.credits import (
+            credit_paid_registrations_for_cancelled_event,
+        )
+
+        events = list(queryset)
+        credited = 0
+        for event in events:
+            try:
+                credited += len(
+                    credit_paid_registrations_for_cancelled_event(event)
+                )
+            except Exception:
+                # Never let a credit failure stop the cancellation itself: an
+                # event that stays live because a ledger write failed keeps
+                # selling seats to an evening that is not happening. The credit
+                # is recoverable by hand; the sale is not.
+                logger.exception(
+                    "Failed issuing cancellation credit for event %s", event.pk
+                )
+                django_messages.error(
+                    request,
+                    _(
+                        "Could not issue credit for “{title}” — the event is "
+                        "still being cancelled. Issue the credit by hand."
+                    ).format(title=event.title),
+                )
+
+        self.cancel_events(request, queryset)
+
+        django_messages.success(
+            request,
+            _(
+                "Issued Crush Credit to {count} paid registration(s). They are "
+                "flagged as eligible for a cash refund on request — see the "
+                "Crush Credits list."
+            ).format(count=credited),
         )
 
     @admin.action(description=_("🔔 Send reminders to confirmed attendees"))

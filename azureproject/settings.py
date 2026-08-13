@@ -823,6 +823,35 @@ SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
 SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00").strip()
 
 # ============================================================================
+# CRUSH CREDIT
+# ============================================================================
+# Store credit, which replaced cash refunds as the default remedy for a
+# cancelled event registration (policy v2, approved 2026-08-13). See
+# crush_lu/services/credits.py. Every one of these is a published promise, so
+# changing one changes the Terms — they are settings so the business can move
+# them, not so they can be tuned casually.
+#
+# How long an issued credit stays spendable. The member-facing §7.3 says
+# "valid for 6 months from the date it is issued", counted in calendar months.
+CRUSH_CREDIT_EXPIRY_MONTHS = int(os.environ.get("CRUSH_CREDIT_EXPIRY_MONTHS", "6"))
+# Inside this many hours of the start, cancelling earns nothing up front.
+CRUSH_CREDIT_LATE_CANCELLATION_HOURS = int(
+    os.environ.get("CRUSH_CREDIT_LATE_CANCELLATION_HOURS", "48")
+)
+# The resale clause: what a late canceller gets back if their seat is refilled
+# from the waitlist before the event starts.
+CRUSH_CREDIT_RESALE_SHARE_PERCENT = int(
+    os.environ.get("CRUSH_CREDIT_RESALE_SHARE_PERCENT", "50")
+)
+# What a paid seat is worth in credit when CRUSH.LU cancels the event, in
+# cents. Deliberately above the €15.50 face value: the premium costs one
+# marginal seat and makes credit the obviously better choice for the member,
+# which is how the cash is kept without refusing anyone who asks for it.
+CRUSH_CREDIT_EVENT_CANCELLED_PREMIUM_CENTS = int(
+    os.environ.get("CRUSH_CREDIT_EVENT_CANCELLED_PREMIUM_CENTS", "2000")
+)
+
+# ============================================================================
 # ECHO.LU EVENT SYNC
 # ============================================================================
 # Publishes public Crush.lu events to echo.lu, Luxembourg's national events

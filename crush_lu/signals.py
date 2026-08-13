@@ -3593,6 +3593,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
             send_event_payment_pending_notification,
             send_event_registration_confirmation,
         )
+        from .services.credits import maybe_issue_resale_credit
         from .views_events import _promote_from_waitlist
 
         try:
@@ -3608,6 +3609,30 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 if not locked_event.accepts_waitlist_promotion:
                     return
                 promoted = _promote_from_waitlist(locked_event, cancelled_user)
+
+                # §4.1, the resale clause: a seat released by a LATE
+                # cancellation and then refilled from the waitlist earns its
+                # canceller 50% back. Hung here rather than on the
+                # cancellation because "was the seat resold" is only knowable
+                # once a promotion has actually succeeded.
+                #
+                # Re-read the cancelled row FOR UPDATE rather than trusting
+                # `instance`: this runs on_commit, and re-registration reuses
+                # the very same row, so a member who cancelled and signed
+                # straight back up must be seen holding their seat again — and
+                # credited nothing. `maybe_issue_resale_credit` owns every
+                # other condition (paid, late, event not started, at most
+                # once), so a promotion from the admin or the shell cannot
+                # accidentally pay out on a cancellation the 48h branch in
+                # `event_cancel` already settled in full.
+                if promoted is not None:
+                    cancelled = (
+                        EventRegistration.objects.select_for_update()
+                        .select_related("event", "user")
+                        .filter(pk=instance.pk)
+                        .first()
+                    )
+                    maybe_issue_resale_credit(cancelled, promoted)
         except Exception:
             logger.exception(
                 "Waitlist promotion failed after cancellation of registration %s",

@@ -21,6 +21,10 @@ from .models import (
 from .models.event_polls import EventPoll
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.credits import (
+    issue_cancellation_credit,
+    maybe_issue_resale_credit,
+)
 from .email_helpers import (
     send_event_payment_pending_notification,
     send_event_registration_confirmation,
@@ -1324,6 +1328,15 @@ def event_cancel(request, event_id):
 
             messages.success(request, _("Your registration has been cancelled."))
 
+            # A paid cancellation used to notify nobody and give back nothing:
+            # this view gates on already-cancelled, already-attended and
+            # already-started, and never looked at `payment_confirmed` at all.
+            # Under the credit policy the money now has somewhere to go on its
+            # own. Inside the lock, on the row we just cancelled — the credit
+            # and the `payment_confirmed` it releases have to land together
+            # (see issue_credit's Trap 1 note).
+            credit = issue_cancellation_credit(registration)
+
             # Gender-aware waitlist promotion (DB only, inside transaction).
             # `accepts_waitlist_promotion` also covers is_cancelled, which this
             # branch previously did not: a member cancelling their place at a
@@ -1331,6 +1344,23 @@ def event_cancel(request, event_id):
             # and email them a confirmation for it.
             if locked_event.accepts_waitlist_promotion:
                 promoted = _promote_from_waitlist(locked_event, request.user)
+                # §4.1, the resale clause. Only fires for a late cancellation
+                # that has just watched its seat go to the waitlist — the same
+                # chair being paid for twice is precisely the shape of
+                # complaint that becomes a card dispute. `credit` is None on
+                # that path (nothing was owed up front), and
+                # maybe_issue_resale_credit re-checks every condition itself.
+                credit = credit or maybe_issue_resale_credit(registration, promoted)
+
+            if credit is not None:
+                messages.success(
+                    request,
+                    _(
+                        "We've added €%(amount).2f in Crush Credit to your "
+                        "account — it's ready to use on any Crush.lu event."
+                    )
+                    % {"amount": credit.amount_cents / 100},
+                )
 
         # Send emails OUTSIDE the transaction so they are only dispatched
         # after a successful commit and don't hold the DB lock during SMTP I/O.

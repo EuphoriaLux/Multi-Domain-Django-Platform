@@ -218,6 +218,14 @@ from .metrics import WeeklyMetricsSnapshotAdmin
 
 from .payments import PaymentTransactionAdmin
 
+from .credits import (
+    CashRefundQueueFilter,
+    CreditRedemptionAdmin,
+    CreditRedemptionInline,
+    CrushCreditAdmin,
+    issue_goodwill_credit,
+)
+
 from .changelog import PatchReleaseAdmin, PatchNoteAdmin, PatchNoteInline
 
 from .quiz import (
@@ -335,6 +343,8 @@ from crush_lu.models import (
     CacheChallengeAttempt,
     WeeklyMetricsSnapshot,
     PaymentTransaction,
+    CrushCredit,
+    CreditRedemption,
     UserReport,
     UserBlock,
     EventLobbyParticipation,
@@ -377,6 +387,10 @@ crush_admin_site.register(EventFeedback, EventFeedbackAdmin)
 
 # Payments (SumUp) — event fees and Connect Premium in one place
 crush_admin_site.register(PaymentTransaction, PaymentTransactionAdmin)
+
+# Crush Credit — the store-credit ledger that replaced cash refunds
+crush_admin_site.register(CrushCredit, CrushCreditAdmin)
+crush_admin_site.register(CreditRedemption, CreditRedemptionAdmin)
 
 # Phone Verification Call Log
 crush_admin_site.register(CallAttempt, CallAttemptAdmin)
@@ -687,6 +701,13 @@ __all__ = [
 
     # Weekly KPI Snapshots
     'WeeklyMetricsSnapshotAdmin',
+
+    # Crush Credit
+    'CrushCreditAdmin',
+    'CreditRedemptionAdmin',
+    'CreditRedemptionInline',
+    'CashRefundQueueFilter',
+    'issue_goodwill_credit',
 
     # Changelog / Patch Notes
     'PatchReleaseAdmin',

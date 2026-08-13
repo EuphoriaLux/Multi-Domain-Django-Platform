@@ -12,6 +12,14 @@ class PaymentTransaction(models.Model):
 
     class Provider(models.TextChoices):
         SUMUP = "sumup", _("SumUp")
+        # Crush Credit is a payment *method*, not a payment provider — no money
+        # moves and no checkout exists at anybody's API. It lives here because
+        # this field is what every reader uses to decide how a payment was
+        # made, and because keeping credit payments out of the SumUp value is
+        # what stops `sumup_checkout_status` and the reconciliation sweep
+        # hunting for a checkout that was never opened. A CREDIT row carries an
+        # empty `sumup_checkout_id` for the same reason.
+        CREDIT = "credit", _("Crush Credit")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")

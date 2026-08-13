@@ -15,6 +15,14 @@ from .blocking import (
     terminate_active_connections,
     withdraw_active_coach_picks,
 )
+from .credits import (
+    available_credit_cents,
+    credit_paid_registrations_for_cancelled_event,
+    issue_cancellation_credit,
+    issue_credit,
+    maybe_issue_resale_credit,
+    redeem_for_registration,
+)
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
 from .crush_leads import call_by, coach_action_queue, reminder_due
 from .echo_lu import (
@@ -53,4 +61,11 @@ __all__ = [
     'decline_active_sparks',
     'purge_user_from_connect_queues',
     'cancel_legacy_sparks',
+    # Crush Credit
+    'available_credit_cents',
+    'issue_credit',
+    'issue_cancellation_credit',
+    'maybe_issue_resale_credit',
+    'credit_paid_registrations_for_cancelled_event',
+    'redeem_for_registration',
 ]

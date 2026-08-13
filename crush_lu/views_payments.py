@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import override
@@ -25,6 +26,10 @@ from crush_lu.models.events import (
 )
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
+from crush_lu.services.credits import (
+    credit_transaction_reference,
+    redeem_for_registration,
+)
 from crush_lu.services.sumup import SumUpClient, SumUpError
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
@@ -226,6 +231,42 @@ def create_sumup_event_checkout(request, registration_id):
                 {"error": _("This event has been cancelled.")}, status=400
             )
         amount = event.registration_fee
+
+        # Crush Credit, before SumUp is asked for anything.
+        #
+        # WHOLE SEAT OR NOTHING, on purpose. Either the balance covers the
+        # whole price and no card is charged at all, or the member pays the
+        # full price by card and every cent of their credit is left where it
+        # is. Every event is EUR 15.50, so a split credit/card payment buys
+        # nothing real and costs partial captures, SumUp's minimum-charge
+        # threshold and refunding a part of a capture.
+        #
+        # Deliberately AFTER the supersede loop above. A member sitting on a
+        # stale PENDING checkout still holds a payable widget, and paying with
+        # credit must not leave that widget alive to take a card payment for a
+        # seat credit has already bought.
+        credit_tx = _pay_registration_with_credit(registration, amount)
+        if credit_tx is not None:
+            destination = reverse(
+                "crush_lu:event_detail", kwargs={"event_id": registration.event_id}
+            )
+            return JsonResponse(
+                {
+                    "success": True,
+                    "paid_with_credit": True,
+                    "amount": float(amount),
+                    "currency": "EUR",
+                    "transaction_reference": credit_tx.transaction_reference,
+                    "redirect_url": destination,
+                    # Every existing caller does
+                    # `if (data.success && data.widget_url) location = widget_url`,
+                    # so the same key carries the destination here rather than
+                    # a widget URL. `redirect_url` above is the name new
+                    # callers should read; this one keeps the four templates
+                    # and alpine-components.js working untouched.
+                    "widget_url": destination,
+                }
+            )
 
         checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
         description = f"Crush.lu Event: {registration.event.title[:50]}"
@@ -605,6 +646,82 @@ def _send_registration_confirmation_safely(registration):
             registration.id,
             type(exc).__name__,
         )
+
+
+class _CreditNotApplied(Exception):
+    """Credit was consumed but the seat did not confirm. Rolls the spend back."""
+
+
+def _pay_registration_with_credit(registration, amount):
+    """Buy this seat with Crush Credit, or leave the credit alone.
+
+    Returns the ``CREDIT`` ``PaymentTransaction`` when the seat is paid and
+    confirmed, or ``None`` when the balance did not cover the price — in which
+    case nothing has been written and the caller charges the card as before.
+
+    The transaction is created **PENDING** and handed to ``_apply_paid_checkout``
+    rather than being written PAID outright. That function early-returns for a
+    row already PAID, so a pre-PAID row would skip the whole confirmation
+    block: no ``payment_confirmed``, no check-in token, no confirmation email —
+    a member holding a seat they cannot scan into. Going through it also means
+    a credit payment confirms a registration by exactly the same code a card
+    payment does, which is the only way the two cannot drift.
+
+    ⚠️ It carries **no** ``sumup_checkout_id`` and provider ``CREDIT``. That is
+    what keeps ``sumup_checkout_status`` and the reconciliation sweep from
+    walking this row and going hunting for a checkout that was never opened.
+
+    The whole thing runs in a savepoint so that a decline inside
+    ``_apply_paid_checkout`` — event cancelled or the fee changed under us
+    between the checks above and here — takes the redemptions and the
+    transaction row back out with it. Credit that has been spent for nothing is
+    money the member cannot get back without a human.
+    """
+    price_cents = int(
+        (amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+    try:
+        with transaction.atomic():
+            redemptions = redeem_for_registration(
+                registration.user, registration, price_cents
+            )
+            if redemptions is None:
+                return None
+
+            tx_obj = PaymentTransaction.objects.create(
+                transaction_reference=credit_transaction_reference(registration),
+                provider=PaymentTransaction.Provider.CREDIT,
+                sumup_checkout_id="",
+                amount=amount,
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                user=registration.user,
+                event_registration=registration,
+                raw_response={
+                    "paid_with": "crush_credit",
+                    "redemptions": [
+                        {"credit_id": r.credit_id, "amount_cents": r.amount_cents}
+                        for r in redemptions
+                    ],
+                },
+            )
+            _apply_paid_checkout(tx_obj, tx_obj.raw_response)
+
+            registration.refresh_from_db()
+            if not registration.payment_confirmed:
+                raise _CreditNotApplied(registration.pk)
+            return tx_obj
+    except _CreditNotApplied:
+        # _apply_paid_checkout has already logged the specific reason at error
+        # level. Returning None puts the member back on the card path with
+        # their balance intact, which is the safe half of a bad situation.
+        logger.error(
+            "Crush Credit payment for registration %s was rolled back — the "
+            "seat did not confirm; credit restored, member sent to card.",
+            registration.pk,
+        )
+        return None
 
 
 def _premium_purchase_refused(membership, *, lock=False):
