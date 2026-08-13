@@ -277,10 +277,14 @@ class ReRegistrationAfterCreditTests(CreditFixture):
             self.client.post(url, {"confirm_registration": "on"})
 
         self.registration.refresh_from_db()
-        self.assertNotEqual(
+        # The POSITIVE transition, not just "not confirmed" — a re-registration
+        # that silently failed would also leave the row 'cancelled' and pass a
+        # bare not-equal assertion, so the most expensive trap in this feature
+        # would be guarded by a test that never re-registered anybody.
+        self.assertEqual(
             self.registration.status,
-            "confirmed",
-            "re-registration after a credit must not hand back a paid seat",
+            "pending",
+            "the cancelled row must be reused and asked to pay again",
         )
         self.assertFalse(self.registration.payment_confirmed)
 
