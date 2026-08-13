@@ -145,15 +145,32 @@ class CrushCredit(models.Model):
             ),
         ]
         constraints = [
-            # The resale clause pays out once per cancelled seat or not at all.
-            # The service checks this too, but a promotion can be driven from
-            # the member cancel view, a signal, the admin and the shell, and a
-            # guard that only exists in Python is one concurrent path away from
-            # paying twice.
+            # The resale clause pays out once per PAID SEAT — which is one per
+            # *payment*, not one per registration row.
+            #
+            # This originally keyed on (source_registration, reason) and that
+            # was wrong in a way that crashed a member-facing flow.
+            # ``event_register`` reuses the same ``EventRegistration`` row every
+            # time a member re-registers for an event, so someone who pays,
+            # late-cancels, watches the seat resell, re-registers, pays AGAIN
+            # and late-cancels again is legitimately owed a second 50% share —
+            # two payments, two resold seats. The old constraint refused it with
+            # an IntegrityError that took the whole cancellation down with it.
+            #
+            # Keyed on the payment, the constraint says what was actually meant:
+            # one resale credit per captured payment. A second cycle carries a
+            # different ``PaymentTransaction`` and passes; a duplicate for the
+            # same one still cannot be written.
+            #
+            # NULL ``source_payment`` (a legacy row with no attributable
+            # capture) does not collide in Postgres, so this is a backstop, not
+            # the guard. The guard is ``payment_confirmed``, read under lock —
+            # and ``maybe_issue_resale_credit`` also catches IntegrityError, so
+            # no path here can 500 a member trying to cancel.
             models.UniqueConstraint(
-                fields=["source_registration", "reason"],
+                fields=["source_registration", "source_payment", "reason"],
                 condition=models.Q(reason="seat_resold"),
-                name="one_resale_credit_per_registration",
+                name="one_resale_credit_per_payment",
             ),
         ]
 
@@ -208,6 +225,16 @@ class CreditRedemption(models.Model):
 
     The join row is what makes the ledger work: a credit can be spent across
     several registrations, and a registration can be paid by several credits.
+
+    ⚠️ ``event_registration`` is ``SET_NULL``, deliberately, and this is the
+    whole ledger hanging on one keyword. Under ``CASCADE`` — which is what this
+    was first written as — deleting a registration deleted the redemption rows
+    against it, and the credit they were spent from silently refilled: a partly
+    spent credit stays ``ACTIVE``, so ``available_credit_cents`` would hand the
+    member back money they had already spent. Registrations are deletable from
+    the admin and are removed by ``services/account_merge.py``, so that is a
+    real flow, not a hypothetical. A redemption is a record of value leaving
+    the ledger and must outlive whatever it was spent on.
     """
 
     credit = models.ForeignKey(
@@ -217,8 +244,11 @@ class CreditRedemption(models.Model):
     )
     event_registration = models.ForeignKey(
         "crush_lu.EventRegistration",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="credit_redemptions",
+        help_text=_("The seat this was spent on, while that seat still exists."),
     )
     amount_cents = models.PositiveIntegerField()
     redeemed_at = models.DateTimeField(default=timezone.now, db_index=True)

@@ -117,6 +117,30 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     if moved_payments:
         log.append(f"Moved {moved_payments} donation transaction(s) to keeper")
 
+    # 2c. Crush Credit follows the surviving account -- this is the member's
+    # money.
+    #
+    # Credit is account-bound and non-transferable by design, and every read
+    # goes through available_credit_cents(user). Left on the duplicate, a
+    # balance would sit on an account that can no longer log in and would be
+    # invisible to the keeper: the merge would quietly confiscate it. That is
+    # the one outcome the ledger exists to make impossible, and a merge is a
+    # supported, routine operation.
+    #
+    # CreditRedemption needs no move -- it hangs off the credit, not the user.
+    #
+    # LOCK ORDER: after PaymentTransaction above, before CrushProfile below.
+    # CrushCredit is always taken last of the money models (see
+    # services/credits.py), and taking it here between the two keeps this
+    # function consistent with every other path that touches both.
+    from crush_lu.models.credits import CrushCredit
+
+    moved_credits = CrushCredit.objects.filter(user=duplicate_user).update(
+        user=keeper_user
+    )
+    if moved_credits:
+        log.append(f"Moved {moved_credits} Crush Credit row(s) to keeper")
+
     # 3. Handle CrushProfile (OneToOne)
     keeper_profile = getattr(keeper_user, 'crushprofile', None)
     dup_profile = getattr(duplicate_user, 'crushprofile', None)

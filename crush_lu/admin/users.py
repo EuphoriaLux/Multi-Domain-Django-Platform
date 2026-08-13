@@ -14,7 +14,11 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from crush_lu.admin.credits import credit_balance_column, issue_goodwill_credit
+from crush_lu.admin.credits import (
+    annotate_credit_balance,
+    credit_balance_column,
+    issue_goodwill_credit,
+)
 from crush_lu.models import CrushProfile, CrushCoach, UserDataConsent
 
 
@@ -263,6 +267,10 @@ class CrushUserAdmin(BaseUserAdmin):
         except CrushProfile.DoesNotExist:
             return mark_safe('<span style="color: #999;">No profile</span>')
     get_crush_profile_link.short_description = '💕 Profile'
+
+    def get_queryset(self, request):
+        """Annotate the credit balance once for the page, not once per row."""
+        return annotate_credit_balance(super().get_queryset(request))
 
     def get_crush_credit(self, obj):
         """Spendable Crush Credit balance, computed from the ledger."""

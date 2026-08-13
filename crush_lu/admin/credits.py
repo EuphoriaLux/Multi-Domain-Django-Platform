@@ -17,9 +17,11 @@ Two staff surfaces beyond the ledger itself:
   human finds everyone who may ask.
 """
 
+from decimal import ROUND_HALF_UP, Decimal
+
 from django import forms
 from django.contrib import admin, messages
-from django.db.models import Sum, Value
+from django.db.models import IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
 from django.utils import timezone
@@ -54,19 +56,30 @@ class CashRefundQueueFilter(admin.SimpleListFilter):
             ("settled", "Cash no longer available"),
         ]
 
+    def _open(self, queryset):
+        """Credits whose holder can still be given cash instead.
+
+        ``redemptions__isnull=True`` is the load-bearing clause. The standard
+        event-cancellation credit is €20 against a €15.50 seat, so a member who
+        has spent it on a replacement event still holds €4.50 and the row is
+        still ``ACTIVE`` — without this it would keep reading "may still ask
+        for cash", and staff following the queue would refund €15.50 in cash on
+        top of €15.50 of credit the member had already used. Once any of a
+        credit is spent, the member has taken the alternative and the cash
+        question is closed.
+        """
+        return queryset.filter(
+            cash_refund_eligible=True,
+            status=CrushCredit.Status.ACTIVE,
+            expires_at__gt=timezone.now(),
+            redemptions__isnull=True,
+        )
+
     def queryset(self, request, queryset):
         if self.value() == "open":
-            return queryset.filter(
-                cash_refund_eligible=True,
-                status=CrushCredit.Status.ACTIVE,
-                expires_at__gt=timezone.now(),
-            )
+            return self._open(queryset)
         if self.value() == "settled":
-            return queryset.exclude(
-                cash_refund_eligible=True,
-                status=CrushCredit.Status.ACTIVE,
-                expires_at__gt=timezone.now(),
-            )
+            return queryset.exclude(pk__in=self._open(queryset).values("pk"))
         return queryset
 
 
@@ -118,6 +131,7 @@ class CrushCreditAdmin(admin.ModelAdmin):
     date_hierarchy = "issued_at"
     ordering = ["-issued_at"]
     inlines = [CreditRedemptionInline]
+    actions = ["void_credits"]
 
     readonly_fields = (
         "user",
@@ -236,6 +250,57 @@ class CrushCreditAdmin(admin.ModelAdmin):
     def get_cash_refund_flag(self, obj):
         return obj.cash_refund_eligible
 
+    @admin.action(description="🚫 Void selected credits (after a cash refund)")
+    def void_credits(self, request, queryset):
+        """Withdraw credit that has been settled in cash instead.
+
+        The "Cash refund" fieldset tells staff to refund in the SumUp dashboard
+        and then void the credit — and until this existed there was no way to
+        do the second half, so the member kept a spendable balance on top of
+        their money back. That is the credit-plus-cash double benefit the queue
+        is meant to prevent, left open by the very screen that describes the
+        workflow.
+
+        Only ``active`` credits are voided, and only the unspent part is at
+        stake: a credit already partly redeemed has value that has left the
+        ledger and cannot be taken back by a status flip, so those are refused
+        outright rather than half-withdrawn. Redemptions are never deleted.
+        """
+        voided = spent = skipped = 0
+        for credit in queryset:
+            if credit.status != CrushCredit.Status.ACTIVE:
+                skipped += 1
+                continue
+            if credit.redeemed_cents:
+                spent += 1
+                continue
+            credit.status = CrushCredit.Status.VOID
+            credit.note = (
+                f"{credit.note}\n— voided by {request.user.email or request.user}: "
+                "settled in cash instead."
+            ).strip()
+            credit.save(update_fields=["status", "note"])
+            voided += 1
+
+        if voided:
+            self.message_user(
+                request, f"Voided {voided} credit(s).", level=messages.SUCCESS
+            )
+        if spent:
+            self.message_user(
+                request,
+                f"{spent} credit(s) have already been partly or fully spent and "
+                "were NOT voided — that value has left the ledger. Reconcile "
+                "those by hand before refunding any cash.",
+                level=messages.ERROR,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} credit(s) were not active and were left alone.",
+                level=messages.WARNING,
+            )
+
     def has_add_permission(self, request):
         # Issued through services.credits.issue_credit, which is also what
         # clears payment_confirmed on the seat being credited. A hand-made row
@@ -348,7 +413,16 @@ def issue_goodwill_credit(modeladmin, request, queryset):
     if "apply" in request.POST:
         form = GoodwillCreditForm(request.POST)
         if form.is_valid():
-            amount_cents = int(round(float(form.cleaned_data["amount_eur"]) * 100))
+            # Decimal all the way to cents, never through float. The field is
+            # already a Decimal and the rest of this feature is careful to
+            # quantize exactly; routing money through a binary float here for
+            # no reason is the kind of inconsistency that is harmless until the
+            # bounds change.
+            amount_cents = int(
+                (form.cleaned_data["amount_eur"] * 100).quantize(
+                    Decimal("1"), rounding=ROUND_HALF_UP
+                )
+            )
             note = form.cleaned_data["reason"].strip()
             issued = 0
             for user in users:
@@ -385,9 +459,64 @@ def issue_goodwill_credit(modeladmin, request, queryset):
     )
 
 
+def annotate_credit_balance(queryset, user_path="pk"):
+    """Annotate a User queryset with ``_credit_cents``, the spendable balance.
+
+    One query for the whole page instead of one per row. Rendering the balance
+    in a ``list_display`` column called ``available_credit_cents`` per object,
+    which is what this replaced, is exactly the per-row query
+    ``PaymentTransactionAdmin.get_queryset`` documents itself avoiding.
+
+    Two subqueries rather than a join-and-group: annotating a sum over credits
+    and a sum over their redemptions in one queryset multiplies the first by
+    the row count of the second, and a member with two redemptions against one
+    credit would be shown double the money they have.
+    """
+    now = timezone.now()
+    active = CrushCredit.objects.filter(
+        user=OuterRef(user_path),
+        status=CrushCredit.Status.ACTIVE,
+        expires_at__gt=now,
+    )
+    issued = (
+        active.order_by()
+        .values("user")
+        .annotate(total=Sum("amount_cents"))
+        .values("total")
+    )
+    redeemed = (
+        CreditRedemption.objects.filter(
+            credit__user=OuterRef(user_path),
+            credit__status=CrushCredit.Status.ACTIVE,
+            credit__expires_at__gt=now,
+        )
+        .order_by()
+        .values("credit__user")
+        .annotate(total=Sum("amount_cents"))
+        .values("total")
+    )
+    return queryset.annotate(
+        _credit_issued=Coalesce(
+            Subquery(issued, output_field=IntegerField()), Value(0)
+        ),
+        _credit_redeemed=Coalesce(
+            Subquery(redeemed, output_field=IntegerField()), Value(0)
+        ),
+    )
+
+
 def credit_balance_column(obj):
-    """Reusable ``list_display`` cell showing a member's spendable balance."""
-    cents = available_credit_cents(obj)
+    """Reusable ``list_display`` cell showing a member's spendable balance.
+
+    Uses the annotation from :func:`annotate_credit_balance` when the admin
+    added one, and falls back to the authoritative read otherwise so the cell
+    is never silently wrong on a queryset nobody annotated.
+    """
+    issued = getattr(obj, "_credit_issued", None)
+    if issued is None:
+        cents = available_credit_cents(obj)
+    else:
+        cents = max(0, issued - getattr(obj, "_credit_redeemed", 0))
     if not cents:
         return mark_safe('<span style="color: #999;">—</span>')
     return format_html(
