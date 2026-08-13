@@ -69,6 +69,10 @@ class CashRefundQueueFilter(admin.SimpleListFilter):
         credit is spent, the member has taken the alternative and the cash
         question is closed.
         """
+        # Mirrors ``CrushCredit.cash_refund_still_available`` exactly. The two
+        # must agree: that property is what the member's data export reports,
+        # and this is what staff work from. Them disagreeing means one of the
+        # two parties is being told the wrong answer about money.
         return queryset.filter(
             cash_refund_eligible=True,
             status=CrushCredit.Status.ACTIVE,

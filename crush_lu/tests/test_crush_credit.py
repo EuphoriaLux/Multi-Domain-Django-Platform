@@ -1289,7 +1289,11 @@ class ReviewRoundThreeTests(CreditFixture):
         entry = payload["crush_credit"][0]
         self.assertEqual(entry["amount"], "20.00")
         self.assertEqual(entry["remaining"], "4.50")
-        self.assertTrue(entry["cash_refund_available_on_request"])
+        # False, not True: this credit has been partly spent, so the member has
+        # taken the alternative and the cash offer is closed. Reporting the raw
+        # issuance flag here told them otherwise — see
+        # test_the_export_reports_effective_cash_availability.
+        self.assertFalse(entry["cash_refund_available_on_request"])
         self.assertEqual(len(entry["spent_on"]), 1)
         self.assertEqual(entry["spent_on"][0]["amount"], "15.50")
         self.assertNotIn(
@@ -1298,6 +1302,63 @@ class ReviewRoundThreeTests(CreditFixture):
             "the staff note is internal and can name other people",
         )
         self.assertEqual(credit.pk, CrushCredit.objects.get().pk)
+
+    def test_the_premium_never_credits_less_than_was_paid(self):
+        """`registration_fee` is editable and uncapped; €20 is a floor."""
+        event = self._event(hours_away=96, max_participants=5, fee=Decimal("30.00"))
+        self._paid_registration(event, self._user("pricey@crush.lu"))
+
+        issued = credit_paid_registrations_for_cancelled_event(event)
+
+        self.assertEqual(
+            issued[0].amount_cents,
+            3000,
+            "an organiser cancellation must never return less than was paid",
+        )
+
+    def test_the_export_reports_effective_cash_availability(self):
+        """Not the issuance flag — the member must not be told a stale yes."""
+        credit = issue_credit(
+            self.user,
+            2000,
+            CrushCredit.Reason.EVENT_CANCELLED,
+            cash_refund_eligible=True,
+        )
+        self.assertTrue(credit.cash_refund_still_available)
+
+        seat = self._registration(
+            self._event(hours_away=96, max_participants=5), self.user, status="pending"
+        )
+        redeem_for_registration(self.user, seat, FEE_CENTS)
+
+        credit.refresh_from_db()
+        self.assertFalse(
+            credit.cash_refund_still_available,
+            "the member took the credit; the cash offer is closed",
+        )
+
+        self.client.force_login(self.user)
+        payload = json.loads(
+            self.client.get(reverse("crush_lu:export_user_data")).content
+        )
+        self.assertFalse(payload["crush_credit"][0]["cash_refund_available_on_request"])
+
+    def test_merging_accounts_takes_credit_after_registrations(self):
+        """Trap 2: redemption locks EventRegistration then CrushCredit.
+
+        A merge that locked credit first and touched registrations afterwards
+        is an ABBA against any member completing a credit checkout.
+        """
+        import inspect
+
+        from crush_lu.services import account_merge
+
+        src = inspect.getsource(account_merge.merge_accounts)
+        self.assertLess(
+            src.index("EventRegistration.objects.filter(user=duplicate_user)"),
+            src.index("CrushCredit.objects.filter(user=duplicate_user)"),
+            "credit must be transferred AFTER registrations, never before",
+        )
 
     def test_a_failed_goodwill_batch_credits_nobody(self):
         """All-or-nothing, so re-running the same selection is safe."""

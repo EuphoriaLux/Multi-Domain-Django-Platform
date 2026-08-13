@@ -1356,7 +1356,15 @@ def export_user_data(request):
                 "issued_at": credit.issued_at.isoformat(),
                 "expires_at": credit.expires_at.isoformat(),
                 "remaining": f"{credit.remaining_cents / 100:.2f}",
-                "cash_refund_available_on_request": credit.cash_refund_eligible,
+                # The EFFECTIVE answer, not the issuance flag. Once any of the
+                # credit is spent — or it expires, or is voided after a cash
+                # refund has already been paid — the offer is closed, and the
+                # staff queue treats it as closed. Exporting the raw flag told
+                # the member they could still ask for money back when they
+                # could not.
+                "cash_refund_available_on_request": (
+                    credit.cash_refund_still_available
+                ),
                 "spent_on": [
                     {
                         "amount": f"{redemption.amount_cents / 100:.2f}",

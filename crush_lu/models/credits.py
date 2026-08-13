@@ -219,6 +219,27 @@ class CrushCredit(models.Model):
             and self.remaining_cents > 0
         )
 
+    @property
+    def cash_refund_still_available(self):
+        """Can this member still ask for money instead — right now?
+
+        ``cash_refund_eligible`` records only that the credit was *issued*
+        under an organiser cancellation. The offer closes the moment the member
+        takes the alternative: spending any of it, letting it expire, or having
+        it voided after a cash refund already paid.
+
+        The staff queue applies exactly these conditions, and so must anything
+        else that tells someone whether cash is available — the member's own
+        data export said "true" off the raw flag long after the answer had
+        become no.
+        """
+        return (
+            self.cash_refund_eligible
+            and self.status == self.Status.ACTIVE
+            and self.expires_at > timezone.now()
+            and self.redeemed_cents == 0
+        )
+
 
 class CreditRedemption(models.Model):
     """One spend of one credit against one event registration.

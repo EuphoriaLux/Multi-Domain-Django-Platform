@@ -481,7 +481,15 @@ def credit_paid_registrations_for_cancelled_event(event, *, note=""):
             .exclude(status="cancelled")
         )
         for registration in registrations:
-            _, payment = paid_amount_cents(registration)
+            paid_cents, payment = paid_amount_cents(registration)
+            # The premium is a FLOOR, not a fixed award. `registration_fee` is
+            # admin-editable and nothing caps it at the €15.50 the default
+            # premium was sized against, so a €30 event would otherwise credit
+            # €20 — less than Crush.lu kept — while this function's own
+            # docstring, the policy and the member-facing email all promise
+            # "more than you paid". Whichever is larger is the only version of
+            # that promise that holds at every price.
+            award = max(premium, paid_cents)
             # Cash on request applies to money that actually arrived on a card.
             # A seat bought entirely with goodwill or cancellation credit has a
             # CREDIT payment behind it and no SumUp capture to refund — flagging
@@ -495,7 +503,7 @@ def credit_paid_registrations_for_cancelled_event(event, *, note=""):
             )
             credit = issue_credit(
                 registration.user,
-                premium,
+                award,
                 CrushCredit.Reason.EVENT_CANCELLED,
                 registration=registration,
                 payment=payment,
