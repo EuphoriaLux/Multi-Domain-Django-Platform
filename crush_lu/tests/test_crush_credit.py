@@ -1303,6 +1303,56 @@ class ReviewRoundThreeTests(CreditFixture):
         )
         self.assertEqual(credit.pk, CrushCredit.objects.get().pk)
 
+    def test_a_late_canceller_is_compensated_when_the_event_is_then_cancelled(self):
+        """The costs-are-committed argument dies with the evening.
+
+        A late canceller keeps `payment_confirmed` on purpose so the resale
+        clause can find them. An `.exclude(status="cancelled")` in the sweep
+        therefore dropped exactly the people who had paid and received nothing.
+        """
+        event = self._event(hours_away=30, max_participants=5)
+        late = self._paid_registration(event, self.user)
+        self._cancel(self.user, event)
+
+        late.refresh_from_db()
+        self.assertEqual(late.status, "cancelled")
+        self.assertTrue(late.payment_confirmed, "uncompensated, by construction")
+        self.assertEqual(self._credits(self.user).count(), 0)
+
+        issued = credit_paid_registrations_for_cancelled_event(event)
+
+        self.assertEqual(len(issued), 1)
+        self.assertEqual(issued[0].amount_cents, 2000)
+        self.assertTrue(issued[0].cash_refund_eligible)
+
+    def test_an_early_cancellation_from_the_admin_is_credited(self):
+        """A coach cancelling a paid seat a week out compensates the member."""
+        event = self._event(hours_away=200, max_participants=5)
+        registration = self._paid_registration(event, self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            registration.status = "cancelled"
+            registration.save()
+
+        credits = list(self._credits(self.user))
+        self.assertEqual(len(credits), 1)
+        self.assertEqual(credits[0].reason, CrushCredit.Reason.MEMBER_CANCELLATION)
+        self.assertEqual(credits[0].amount_cents, FEE_CENTS)
+        registration.refresh_from_db()
+        self.assertFalse(registration.payment_confirmed)
+
+    def test_an_admin_cancellation_is_not_credited_twice(self):
+        """The >48h payout and the resale share are mutually exclusive."""
+        event = self._event(hours_away=200, max_participants=1)
+        registration = self._paid_registration(event, self.user)
+        self._registration(event, self._user("wait@crush.lu"), status="waitlist")
+
+        with self.captureOnCommitCallbacks(execute=True):
+            registration.status = "cancelled"
+            registration.save()
+
+        self.assertEqual(self._credits(self.user).count(), 1)
+
     def test_the_premium_never_credits_less_than_was_paid(self):
         """`registration_fee` is editable and uncapped; €20 is a floor."""
         event = self._event(hours_away=96, max_participants=5, fee=Decimal("30.00"))

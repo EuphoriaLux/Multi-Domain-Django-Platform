@@ -475,10 +475,27 @@ def credit_paid_registrations_for_cancelled_event(event, *, note=""):
     premium = event_cancelled_premium_cents()
     issued = []
     with transaction.atomic():
+        # `payment_confirmed=True` is the ONLY predicate needed, because it is
+        # by construction the "we hold this money and have given nothing back"
+        # marker: issue_credit clears it whenever it returns value.
+        #
+        # There used to be an `.exclude(status="cancelled")` here and it cost
+        # exactly the people least able to argue. A member who cancels INSIDE
+        # 48h is owed nothing at that moment and keeps `payment_confirmed`
+        # precisely so the resale clause can find them later — so they are
+        # `cancelled` AND uncompensated. If Crush.lu then cancels the event,
+        # the exclusion dropped them: they paid, the evening never happened,
+        # and they got neither credit nor the cash-refund flag. The whole
+        # justification for keeping a late canceller's money is that the costs
+        # of the evening are already committed, and that reasoning evaporates
+        # when there is no evening.
+        #
+        # A >48h canceller is already excluded correctly, because issuing their
+        # 100% credit cleared the flag. Nobody is credited twice.
         registrations = list(
-            EventRegistration.objects.select_for_update()
-            .filter(event=event, payment_confirmed=True)
-            .exclude(status="cancelled")
+            EventRegistration.objects.select_for_update().filter(
+                event=event, payment_confirmed=True
+            )
         )
         for registration in registrations:
             paid_cents, payment = paid_amount_cents(registration)
