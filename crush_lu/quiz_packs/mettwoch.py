@@ -25,8 +25,18 @@ Wissenschaft (atmosphere), Filme (The Godfather), Superhelden (Gotham City),
 Geographie (Luxembourg's neighbours). They are kept at the sheet's difficulty
 and, like every source question, three-option multiple choice.
 
-Two source questions were corrected rather than reproduced:
+Four source questions were corrected rather than reproduced. In each case the
+sheet's intended answer is kept and only the prompt is tightened, because as
+written each one would have scored a knowledgeable player wrong:
 
+* The Sistine Chapel question asked who painted *the chapel*. Its walls were
+  frescoed by Botticelli, Perugino, Ghirlandaio and Rosselli; Michelangelo
+  painted the ceiling and the Last Judgment. Narrowed to the ceiling, which
+  makes the keyed Michelangelo the only defensible answer.
+* The geology question asked for "die Wissenschaft von den Gesteinen", whose
+  exact name is petrology — not among the three options offered. Reworded to
+  ask which science studies the structure and history of the Earth, which the
+  keyed Geologie answers uniquely and Mineralogie no longer does.
 * The EU question read "In welchem *Land* wurde die Europäische Union
   gegründet?" while offering years (1951/1957/1993) as answers. Reworded to
   "Jahr"; keyed 1993, the Maastricht Treaty that created the Union proper,
@@ -54,9 +64,9 @@ QUIZ_ROUNDS = [
         "questions": [
             {
                 "type": "multiple_choice",
-                "text_en": "Who painted the Sistine Chapel?",
-                "text_de": "Wer malte die Sixtinische Kapelle?",
-                "text_fr": "Qui a peint la chapelle Sixtine ?",
+                "text_en": "Who painted the ceiling of the Sistine Chapel?",
+                "text_de": "Wer malte die Decke der Sixtinischen Kapelle?",
+                "text_fr": "Qui a peint le plafond de la chapelle Sixtine ?",
                 "correct_answer_en": "Michelangelo",
                 "correct_answer_de": "Michelangelo",
                 "correct_answer_fr": "Michel-Ange",
@@ -280,9 +290,9 @@ QUIZ_ROUNDS = [
             },
             {
                 "type": "multiple_choice",
-                "text_en": "What is the science of rocks called?",
-                "text_de": "Wie nennt man die Wissenschaft von den Gesteinen?",
-                "text_fr": "Comment appelle-t-on la science des roches ?",
+                "text_en": "Which science studies the structure and history of the Earth?",
+                "text_de": "Welche Wissenschaft erforscht den Aufbau und die Geschichte der Erde?",
+                "text_fr": "Quelle science étudie la structure et l'histoire de la Terre ?",
                 "correct_answer_en": "Geology",
                 "correct_answer_de": "Geologie",
                 "correct_answer_fr": "La géologie",
