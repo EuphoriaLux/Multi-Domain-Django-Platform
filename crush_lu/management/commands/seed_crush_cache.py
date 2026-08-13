@@ -1,12 +1,18 @@
 """
-Seed a ready-to-play **Crush Cache** scavenger hunt through Luxembourg City,
-for manual QA of the GPS + QR gameplay.
+Seed a ready-to-play **Crush Cache** scavenger hunt, for manual QA of the
+GPS + QR gameplay.
 
 Creates one `crush_cache` MeetupEvent + a CacheHunt with a walking loop of real
-Luxembourg City landmarks (GPS coords + a QR station), each with a challenge,
-plus a demo team. Every existing `debug_*` account (from
-`seed_debug_profiles`) is registered as a confirmed attendee so you can log in
-and play immediately; if none exist it creates a couple of players.
+Luxembourg landmarks (GPS coords + QR stations), each with a challenge, plus a
+demo team. Every existing `debug_*` account (from `seed_debug_profiles`) is
+registered as a confirmed attendee so you can log in and play immediately; if
+none exist it creates a couple of players.
+
+Presets live in the `PRESETS` registry below — adding a hunt is data, not code:
+
+    lux_city    Luxembourg City old town, English trivia about landmarks
+    minette     Fond-de-Gras mining valley, German icebreakers, QR at every stop
+    echternach  Echternach lake loop, German icebreakers, QR at every stop
 
 LOCAL-ONLY: refuses to run on Azure (WEBSITE_HOSTNAME set) or when DEBUG is
 False, unless --force. Also needs the feature flag: CRUSH_CACHE_ENABLED=true
@@ -14,9 +20,9 @@ False, unless --force. Also needs the feature flag: CRUSH_CACHE_ENABLED=true
 
 Usage:
     python manage.py seed_crush_cache --reset
-    python manage.py seed_crush_cache --reset --live   # start the hunt now
+    python manage.py seed_crush_cache --preset echternach --reset --live
 
-Testing GPS without being in Luxembourg: open the play page in Chrome, then
+Testing GPS without being on site: open the play page in Chrome, then
 DevTools → ⋮ → More tools → Sensors → Location → "Other…" and paste a
 station's lat/lng (printed below). The arrival check will pass.
 """
@@ -37,9 +43,6 @@ from crush_lu.models.crush_cache import (
     CacheTeam,
 )
 from crush_lu.models.profiles import CrushCoach
-
-EVENT_TITLE_LUX = "🧭 [DEBUG] Luxembourg City Crush Cache"
-EVENT_TITLE_MINETTE = "🧭 [DEBUG] Fond-de-Gras Crush Cache \"Minette\""
 
 STATIONS_LUX_CITY = [
     {
@@ -221,25 +224,220 @@ STATIONS_MINETTE = [
         "challenge_type": "riddle",
         "question": "Glückwunsch! Welches historische Industriezeitalter hat dieses Tal geprägt?",
         "answer": "Industrielle Revolution",
-        "alternatives": ["Industrial Revolution", "Bergbau", "Stahlindustrie", "Stahlzeitalter"],
+        "alternatives": [
+            "Industrial Revolution",
+            "Bergbau",
+            "Stahlindustrie",
+            "Stahlzeitalter",
+        ],
         "hint_1": "Das Zeitalter von Eisen, Stahl und Dampf im 19. und 20. Jahrhundert.",
         "points": 150,
     },
 ]
 
+# Echternach lake Crush Cache "Um See" — a ~1.8 km clockwise loop of the
+# lakeside path, 6 stations, Crush Statue QR at every stop (same shape as the
+# Minette hunt). The loop starts at the Roman villa on the west shore, runs
+# east along the south bank to the playground/BBQ area, and comes back along
+# the north bank past the bike park to the boat rental.
+#
+# Station 1 is the only surveyed point: the villa's published visitor-parking
+# GPS (N49°48'18.1" E6°24'30.8"). Stations 2-6 are laid out from it along the
+# lake and are ACCURATE TO ROUGHLY 50-100 m — see `coords_note` on the preset.
+# Walk the loop with a phone and correct them here (or in the Django admin,
+# Cache Stations) before running this hunt for real.
+STATIONS_ECHTERNACH = [
+    {
+        "order": 1,
+        "name": "Réimervilla (Villa Romaine)",
+        "lat": "49.805028",
+        "lng": "6.408556",
+        "unlock_mode": "gps_qr",
+        "intro": "Start am Westufer bei der Réimervilla! Beim Ausbaggern des Sees stießen die Arbeiter hier 1975 auf etwas sehr Altes. Findet die Crush-Statue beim Museumseingang und scannt den QR-Code.",
+        "challenge_type": "multiple_choice",
+        "question": "Wenn du eine Zeitreise machen könntest — wohin?",
+        "options": {
+            "1": "Ins römische Echternach, genau hier",
+            "2": "Hundert Jahre in die Zukunft",
+            "3": "Zurück in meine eigene Kindheit",
+        },
+        "answer": "",  # Accepts any choice (icebreaker prompt)
+        "alternatives": [],
+        "hint_1": "Es gibt kein Richtig oder Falsch — nimm das, was dich zuerst anlacht.",
+        "points": 100,
+    },
+    {
+        "order": 2,
+        "name": "Uferwee Südufer",
+        "lat": "49.805900",
+        "lng": "6.411800",
+        "unlock_mode": "gps_qr",
+        "intro": "Folgt dem Uferweg nach Osten, mit dem Wasser zu eurer Linken. Zwischen See und Wald wartet die nächste Crush-Statue am Wegrand.",
+        "challenge_type": "multiple_choice",
+        "question": "Ein perfekter Nachmittag am See ist für dich...",
+        "options": {
+            "1": "Schwimmen, Sonne, Sprung ins Wasser",
+            "2": "Spazieren und gute Gespräche",
+            "3": "Decke, Buch und Ruhe",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Stell dir den nächsten freien Samstag vor.",
+        "points": 100,
+    },
+    {
+        "order": 3,
+        "name": "Aventure-Insel & Jugendherberge",
+        "lat": "49.807000",
+        "lng": "6.415200",
+        "unlock_mode": "gps_qr",
+        "intro": "Ihr erreicht die Aventure-Insel bei der Jugendherberge — hier wird von Mai bis September geschwommen. Die Crush-Statue steht beim Badebereich.",
+        "challenge_type": "multiple_choice",
+        "question": "Der See hat 14 Grad. Du...",
+        "options": {
+            "1": "springst sofort rein",
+            "2": "gehst langsam bis zu den Knien",
+            "3": "bleibst am Ufer und lachst die anderen aus",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Ehrlich sein zählt hier mehr als mutig sein.",
+        "points": 100,
+    },
+    {
+        "order": 4,
+        "name": "Ostufer: Spillplaz & Grillplazen",
+        "lat": "49.809200",
+        "lng": "6.418200",
+        "unlock_mode": "gps_qr",
+        "intro": "Am Ostufer liegen Spielplatz und Grillplätze, mit Blick zurück über den ganzen See. Sucht die Crush-Statue bei den Grillhütten.",
+        "challenge_type": "multiple_choice",
+        "question": "Beim Grillen mit Freunden bist du...",
+        "options": {
+            "1": "am Grill — ich habe das im Griff",
+            "2": "für Musik und Stimmung zuständig",
+            "3": "der, der isst, redet und zuhört",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Denk an das letzte Grillfest, bei dem du dabei warst.",
+        "points": 100,
+    },
+    {
+        "order": 5,
+        "name": "Nordufer: Bike Park & Trampolinen",
+        "lat": "49.809600",
+        "lng": "6.414300",
+        "unlock_mode": "gps_qr",
+        "intro": "Jetzt zurück am Nordufer, vorbei am Bike Park und den Trampolinen. Die nächste Crush-Statue steht am Wegrand.",
+        "challenge_type": "multiple_choice",
+        "question": "Etwas Neues ausprobieren:",
+        "options": {
+            "1": "sofort, ohne lange nachzudenken",
+            "2": "erst zuschauen, dann mitmachen",
+            "3": "lieber bei dem bleiben, was ich kann",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Wie war es das letzte Mal, als dich jemand zu etwas überredet hat?",
+        "points": 100,
+    },
+    {
+        "order": 6,
+        "name": "Bootsverleih Nordwestufer (Schluss)",
+        "lat": "49.807600",
+        "lng": "6.410600",
+        "unlock_mode": "gps_qr",
+        "intro": "Letzte Station am Nordwestufer beim Bootsverleih — der Kreis schließt sich. Scannt die letzte Crush-Statue und denkt an Station 1 zurück.",
+        "challenge_type": "riddle",
+        "question": "Zum Schluss: Beim Ausbaggern dieses künstlichen Sees fanden die Arbeiter 1975 Mauerreste. Was wurde hier ausgegraben?",
+        "answer": "Römische Villa",
+        "alternatives": [
+            "Roemische Villa",
+            "eine römische Villa",
+            "Gallo-römische Villa",
+            "Römervilla",
+            "Reimervilla",
+            "Réimervilla",
+            "Villa Romaine",
+            "Roman villa",
+            "Villa",
+        ],
+        "hint_1": "Station 1 steht direkt darauf — 40 Räume, Fußbodenheizung, Mosaike.",
+        "points": 150,
+    },
+]
+
+# Everything that differs between hunts lives here, so a new preset is data,
+# not another branch in the command.
+PRESETS = {
+    "lux_city": {
+        "event_title": "🧭 [DEBUG] Luxembourg City Crush Cache",
+        "event_description": "Debug scavenger hunt through Luxembourg City for QA.",
+        "location": "Luxembourg City",
+        "address": "Place de la Constitution, Luxembourg",
+        "hunt_title": "Old Town GPS Hunt",
+        "hunt_description": "Follow the pins around the Ville Haute. First team home wins!",
+        "team_name": "Explorers",
+        "radius_meters": 40,
+        "completion_message": "Nice — on to the next station!",
+        "success_message": "Correct!",
+        "stations": STATIONS_LUX_CITY,
+    },
+    "minette": {
+        "event_title": '🧭 [DEBUG] Fond-de-Gras Crush Cache "Minette"',
+        "event_description": "Debug scavenger hunt through Fond-de-Gras Minette mining area for QA.",
+        "location": "Fond-de-Gras",
+        "address": "Fond-de-Gras, L-4570 Differdange",
+        "hunt_title": 'Crush Cache "Minette"',
+        "hunt_description": "Explore the historic red-rock mining valley of Fond-de-Gras. First team to the Schluss station wins!",
+        "team_name": "Minette Miners",
+        "radius_meters": 40,
+        "completion_message": "Nice — on to the next station!",
+        "success_message": "Correct!",
+        "stations": STATIONS_MINETTE,
+    },
+    "echternach": {
+        "event_title": '🧭 [DEBUG] Echternach Lake Crush Cache "Um See"',
+        "event_description": "Debug scavenger hunt around Echternach lake for QA.",
+        "location": "Echternach",
+        "address": "Rue des Romains, L-6478 Echternach",
+        "hunt_title": 'Crush Cache "Um See"',
+        "hunt_description": "Ein Rundweg um den Echternacher See: sechs Stationen, sechs Fragen, rund 1,8 km. Wer zuerst zurück beim Bootsverleih ist, gewinnt!",
+        "team_name": "Seewanderer",
+        # Slightly more forgiving than the other presets: the lakeside path is
+        # open ground and these coordinates are still estimates.
+        "radius_meters": 50,
+        "completion_message": "Stark — weiter zur nächsten Station!",
+        "success_message": "Gespeichert — weiter geht's!",
+        "stations": STATIONS_ECHTERNACH,
+        "coords_note": (
+            "Only station 1 (Réimervilla) is a surveyed coordinate. Stations 2-6 "
+            "are laid out along the lake and are accurate to roughly 50-100 m. "
+            "Walk the loop and correct them in the admin (Cache Stations) "
+            "before running this hunt for real."
+        ),
+    },
+}
+
+DEFAULT_PRESET = "lux_city"
+
 
 class Command(BaseCommand):
     help = (
-        "Seed a playable Crush Cache hunt (Luxembourg City or Fond-de-Gras Minette) "
-        "for manual QA. Local-only."
+        "Seed a playable Crush Cache hunt (Luxembourg City, Fond-de-Gras Minette "
+        "or Echternach lake) for manual QA. Local-only."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--preset",
-            choices=["lux_city", "minette"],
-            default="lux_city",
-            help="Which hunt preset to seed: 'lux_city' (default) or 'minette' (Fond-de-Gras).",
+            choices=sorted(PRESETS),
+            default=DEFAULT_PRESET,
+            help=(
+                "Which hunt preset to seed: 'lux_city' (default), 'minette' "
+                "(Fond-de-Gras) or 'echternach' (lake loop)."
+            ),
         )
         parser.add_argument(
             "--reset",
@@ -278,9 +476,8 @@ class Command(BaseCommand):
                 )
             )
 
-        preset = options["preset"]
-        event_title = EVENT_TITLE_MINETTE if preset == "minette" else EVENT_TITLE_LUX
-        stations_data = STATIONS_MINETTE if preset == "minette" else STATIONS_LUX_CITY
+        preset = PRESETS[options["preset"]]
+        event_title = preset["event_title"]
 
         existing = MeetupEvent.objects.filter(
             title=event_title, event_type="crush_cache"
@@ -293,12 +490,14 @@ class Command(BaseCommand):
                 )
             # Cascades to hunt, stations, challenges, teams, registrations.
             existing.delete()
-            self.stdout.write(f"Deleted the previous debug Crush Cache event '{event_title}'.")
+            self.stdout.write(
+                f"Deleted the previous debug Crush Cache event '{event_title}'."
+            )
 
         coach = self._ensure_coach()
-        event = self._create_event(preset, event_title)
+        event = self._create_event(preset)
         hunt = self._create_hunt(event, coach, preset)
-        self._create_stations(hunt, stations_data)
+        self._create_stations(hunt, preset)
         team = self._create_demo_team(hunt, preset)
         players = self._register_players(event)
 
@@ -307,7 +506,7 @@ class Command(BaseCommand):
             hunt.started_at = timezone.now()
             hunt.save(update_fields=["status", "started_at"])
 
-        self._report(hunt, team, players, stations_data)
+        self._report(hunt, team, players, preset)
 
     # ------------------------------------------------------------------ #
 
@@ -338,41 +537,25 @@ class Command(BaseCommand):
         )
         return coach_user
 
-    def _create_event(self, preset, title):
+    def _create_event(self, preset):
         now = timezone.now()
-        if preset == "minette":
-            desc = "Debug scavenger hunt through Fond-de-Gras Minette mining area for QA."
-            loc = "Fond-de-Gras"
-            addr = "Fond-de-Gras, L-4570 Differdange"
-        else:
-            desc = "Debug scavenger hunt through Luxembourg City for QA."
-            loc = "Luxembourg City"
-            addr = "Place de la Constitution, Luxembourg"
-
         return MeetupEvent.objects.create(
-            title=title,
-            description=desc,
+            title=preset["event_title"],
+            description=preset["event_description"],
             event_type="crush_cache",
             date_time=now + timedelta(hours=2),
             registration_deadline=now + timedelta(hours=1),
-            location=loc,
-            address=addr,
+            location=preset["location"],
+            address=preset["address"],
             max_participants=30,
             is_published=True,
         )
 
     def _create_hunt(self, event, coach, preset):
-        if preset == "minette":
-            title = "Crush Cache \"Minette\""
-            desc = "Explore the historic red-rock mining valley of Fond-de-Gras. First team to the Schluss station wins!"
-        else:
-            title = "Old Town GPS Hunt"
-            desc = "Follow the pins around the Ville Haute. First team home wins!"
-
         return CacheHunt.objects.create(
             event=event,
-            title=title,
-            description=desc,
+            title=preset["hunt_title"],
+            description=preset["hunt_description"],
             status="draft",
             navigation_mode="map",  # target pin shown — easiest to test GPS with
             team_size_max=4,
@@ -380,8 +563,8 @@ class Command(BaseCommand):
             created_by=coach,
         )
 
-    def _create_stations(self, hunt, stations_data):
-        for s in stations_data:
+    def _create_stations(self, hunt, preset):
+        for s in preset["stations"]:
             station = CacheStation.objects.create(
                 hunt=hunt,
                 order=s["order"],
@@ -389,9 +572,9 @@ class Command(BaseCommand):
                 intro_text=s["intro"],
                 latitude=s["lat"],
                 longitude=s["lng"],
-                radius_meters=40,
+                radius_meters=preset["radius_meters"],
                 unlock_mode=s["unlock_mode"],
-                completion_message="Nice — on to the next station!",
+                completion_message=preset["completion_message"],
             )
             CacheChallenge.objects.create(
                 station=station,
@@ -403,13 +586,12 @@ class Command(BaseCommand):
                 alternative_answers=s["alternatives"],
                 hint_1=s["hint_1"],
                 points_awarded=s["points"],
-                success_message="Correct!",
+                success_message=preset["success_message"],
             )
 
     def _create_demo_team(self, hunt, preset):
-        team_name = "Minette Miners" if preset == "minette" else "Explorers"
         return CacheTeam.objects.create(
-            hunt=hunt, name=team_name, color="#3b82f6"
+            hunt=hunt, name=preset["team_name"], color="#3b82f6"
         )
 
     def _register_players(self, event):
@@ -451,7 +633,7 @@ class Command(BaseCommand):
             registered.append(user)
         return registered
 
-    def _report(self, hunt, team, players, stations_data):
+    def _report(self, hunt, team, players, preset):
         out = self.stdout
         style = self.style
         out.write(style.SUCCESS(f"\n✅ Seeded '{hunt.title}' ({hunt.status})."))
@@ -465,12 +647,18 @@ class Command(BaseCommand):
             out.write(f"     - {u.username}")
         out.write("\n   Play URL (log in as a registered player first):")
         out.write(f"     http://localhost:8000/en/events/{hunt.event_id}/cache/")
-        out.write("\n   Station coordinates (for the DevTools → Sensors override):")
-        for s in stations_data:
+        out.write(
+            "\n   Station coordinates (for the DevTools → Sensors override, "
+            "and to check each pin on a map):"
+        )
+        for s in preset["stations"]:
             out.write(
                 f"     {s['order']}. {s['name']}: {s['lat']}, {s['lng']} "
                 f"({s['unlock_mode']})"
             )
+            out.write(f"        https://www.google.com/maps?q={s['lat']},{s['lng']}")
+        if preset.get("coords_note"):
+            out.write(style.WARNING(f"\n   ⚠ {preset['coords_note']}"))
         if hunt.status == "draft":
             out.write(
                 style.WARNING(
@@ -480,4 +668,3 @@ class Command(BaseCommand):
                 )
             )
         out.write("")
-

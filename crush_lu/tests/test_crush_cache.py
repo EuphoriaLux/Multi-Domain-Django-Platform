@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.geo import bearing_deg, haversine_m
+from crush_lu.management.commands.seed_crush_cache import PRESETS as SEED_PRESETS
 from crush_lu.models import CrushCoach, EventRegistration, MeetupEvent
 from crush_lu.models.crush_cache import (
     CacheChallenge,
@@ -1620,3 +1621,71 @@ class TestSeedCrushCacheCommand:
         hunt = CacheHunt.objects.get(event__title__contains="Luxembourg City")
         assert hunt.stations.count() == 5
 
+    def test_seed_echternach_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache", preset="echternach", reset=True, live=True, force=True
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Echternach")
+        assert hunt.status == "live"
+        assert hunt.event.location == "Echternach"
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+
+        # Station 1 is the only surveyed coordinate (the villa's published
+        # visitor-parking GPS) — the rest are laid out from it, so pin this one.
+        assert stations[0].name == "Réimervilla (Villa Romaine)"
+        assert str(stations[0].latitude) == "49.805028"
+        assert str(stations[0].longitude) == "6.408556"
+
+        # Crush Statue at every stop, same shape as the Minette hunt, and the
+        # wider radius the open lakeside path needs.
+        assert all(s.unlock_mode == "gps_qr" for s in stations)
+        assert all(s.radius_meters == 50 for s in stations)
+
+        # The loop closes back at the boat rental with a real answer that
+        # station 1 gives away — the only non-icebreaker challenge.
+        schluss = stations[5]
+        assert schluss.name == "Bootsverleih Nordwestufer (Schluss)"
+        final = schluss.challenges.get()
+        assert final.challenge_type == "riddle"
+        assert final.points_awarded == 150
+        # Phone-typed spellings all land: accents fold, alternates cover the
+        # ö→oe transliteration that folding alone does not.
+        for typed in ("Römische Villa", "romische villa", "Roemische Villa", "villa"):
+            assert final.check_answer(typed), typed
+        assert not final.check_answer("Bergbau")
+
+    def test_seed_echternach_stations_are_icebreakers_with_choices(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command("seed_crush_cache", preset="echternach", reset=True, force=True)
+
+        hunt = CacheHunt.objects.get(event__title__contains="Echternach")
+        for station in list(hunt.ordered_stations())[:5]:
+            challenge = station.challenges.get()
+            assert challenge.challenge_type == "multiple_choice"
+            assert len(challenge.options) == 3
+            # Blank correct_answer = every choice accepted (opinion prompt).
+            assert challenge.accepts_any_answer
+
+    @pytest.mark.parametrize("preset_name", sorted(SEED_PRESETS))
+    def test_every_preset_seeds_a_playable_hunt(self, preset_name):
+        """The readiness check must pass for each preset in the registry —
+        this is what the coach dashboard gates Start on."""
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command("seed_crush_cache", preset=preset_name, reset=True, force=True)
+
+        hunt = CacheHunt.objects.get(
+            event__title=SEED_PRESETS[preset_name]["event_title"]
+        )
+        blocking = [c for c in hunt.readiness_check() if c["blocking"]]
+        assert blocking, "expected blocking readiness checks"
+        assert all(c["ok"] for c in blocking), [c for c in blocking if not c["ok"]]
