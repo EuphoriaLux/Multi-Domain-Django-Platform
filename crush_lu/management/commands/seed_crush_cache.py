@@ -393,10 +393,10 @@ STATIONS_ECHTERNACH_LAKE = [
 # played as a team hunt: a Crush Statue QR at every stop and German icebreaker
 # prompts, the Minette shape rather than the prototype's GPS-only feedback run.
 #
-# Stations sit on the SAME official GPX track as STATIONS_ECHTERNACH_LAKE,
-# spaced round the loop so that one walk can field-test both presets. Five are
-# points the prototype already uses; station 6 is the midpoint of the long
-# western leg back to the villa. Do not re-derive these from a map — the
+# Every station is a point the prototype already uses on the official GPX
+# track, so one walk of the ~3.25 km lake loop can field-test both presets.
+# The loop runs villa → climbing hall → east shore → south bend → west shore
+# and finishes back at the villa. Do not re-derive these from a map — the
 # prototype's track is the surveyed source.
 STATIONS_ECHTERNACH_UM_SEE = [
     {
@@ -513,14 +513,19 @@ STATIONS_ECHTERNACH_UM_SEE = [
     },
     {
         "order": 6,
-        "name": "Nordwestufer (Schluss)",
-        "lat": "49.800881",
-        "lng": "6.410979",
+        # Same coordinates as station 1 on purpose: the hunt is won back at
+        # the villa where it started, so the finish line matches what the
+        # event copy promises. (The prototype closes its loop the same way.)
+        # One statue position therefore carries two codes — or players type
+        # the manual codes, which the seed report prints.
+        "name": "Réimervilla (Schluss)",
+        "lat": "49.804108",
+        "lng": "6.411389",
         "unlock_mode": "gps_qr",
         "intro": (
-            "Letzte Station auf dem Rückweg zur Villa — der Kreis schließt "
-            "sich. Scannt die letzte Crush-Statue und denkt an Station 1 "
-            "zurück."
+            "Zurück am Startpunkt unterhalb der Réimervilla — der Kreis "
+            "schließt sich. Scannt die letzte Crush-Statue und denkt an "
+            "Station 1 zurück."
         ),
         "challenge_type": "riddle",
         "question": (
@@ -614,7 +619,7 @@ PRESETS = {
         "hunt_title": 'Crush Cache "Um See"',
         "hunt_description": (
             "Ein Rundweg um den Echternacher See: sechs Stationen, sechs "
-            "Fragen, rund 2,5 km. Wer zuerst zurück an der Villa ist, gewinnt!"
+            "Fragen, rund 3,25 km. Wer zuerst zurück an der Villa ist, gewinnt!"
         ),
         "team_name": "Seewanderer",
         # Wider than the other presets: these are GPX track points rather than

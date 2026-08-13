@@ -1769,10 +1769,12 @@ class TestSeedCrushCacheCommand:
         assert all(s.manual_code for s in stations)
         assert len({s.manual_code for s in stations}) == 6
 
-        # The loop closes back near the villa with a real answer that
-        # station 1 gives away — the only non-icebreaker challenge.
+        # The hunt is won back at the villa where it started, so the finish
+        # line matches what the event copy promises.
         schluss = stations[5]
-        assert schluss.name == "Nordwestufer (Schluss)"
+        assert schluss.name == "Réimervilla (Schluss)"
+        assert schluss.latitude == stations[0].latitude
+        assert schluss.longitude == stations[0].longitude
         final = schluss.challenges.get()
         assert final.challenge_type == "riddle"
         assert final.points_awarded == 150
@@ -1791,19 +1793,14 @@ class TestSeedCrushCacheCommand:
         )
 
         track = {(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_LAKE}
-        on_track = [
-            s for s in STATIONS_ECHTERNACH_UM_SEE if (s["lat"], s["lng"]) in track
-        ]
-        # Five of six are prototype points; only the long western leg's
-        # midpoint is interpolated.
-        assert len(on_track) == 5
-
-        # And that interpolated point really is between two track points.
-        extra = next(
+        off_track = [
             s for s in STATIONS_ECHTERNACH_UM_SEE if (s["lat"], s["lng"]) not in track
-        )
-        assert 49.7976 < float(extra["lat"]) < 49.8042
-        assert 6.4105 < float(extra["lng"]) < 6.4114
+        ]
+        # No invented coordinates: every station is a surveyed track point.
+        assert off_track == []
+
+        # Both loops cover the whole lake rather than doubling up on one shore.
+        assert len({(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_UM_SEE}) == 5
 
     def test_seed_echternach_um_see_stations_are_icebreakers_with_choices(self):
         from django.core.management import call_command
