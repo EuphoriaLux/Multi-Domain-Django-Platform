@@ -461,6 +461,109 @@ class TestMediaLovePack:
 
 
 # ============================================================================
+# METTWOCH PACK
+# ============================================================================
+
+
+class TestMettwochPack:
+    """A coach's German question sheet, reshaped to 6x6 and translated.
+
+    The source sheet marked no answers and carried no English or French, so the
+    answer key and two thirds of the text are editorial. These tests guard the
+    shape and the couple of facts that go stale or were wrong on the sheet.
+    """
+
+    def test_pack_is_registered(self):
+        assert "mettwoch" in PACKS
+        assert "mettwoch" in pack_names()
+
+    def test_pack_shape_is_six_by_six(self):
+        rounds = PACKS["mettwoch"]
+        assert len(rounds) == 6
+        assert [len(r["questions"]) for r in rounds] == [6] * 6
+
+    def test_pack_is_text_only(self):
+        """No media means no pending uploads — it is playable straight away."""
+        for r in PACKS["mettwoch"]:
+            for q in r["questions"]:
+                assert not q.get("media")
+
+    def test_every_question_is_three_option_multiple_choice(self):
+        """The sheet was uniformly A/B/C; a stray type would break that rhythm."""
+        for r in PACKS["mettwoch"]:
+            for q in r["questions"]:
+                assert q["type"] == "multiple_choice"
+                for lang in ("en", "de", "fr"):
+                    assert len(q[f"choices_{lang}"]) == 3
+
+    def test_correct_answer_text_matches_the_flagged_choice(self):
+        """The reveal reads correct_answer_*; a drift from the flagged option
+        would show players one answer and score another."""
+        for r in PACKS["mettwoch"]:
+            for q in r["questions"]:
+                for lang in ("en", "de", "fr"):
+                    flagged = [
+                        c["text"] for c in q[f"choices_{lang}"] if c["is_correct"]
+                    ]
+                    assert len(flagged) == 1
+                    # The reveal may add a parenthetical gloss ("1993 (Maastricht
+                    # Treaty)"), so the option must be a prefix of it, not equal.
+                    assert q[f"correct_answer_{lang}"].startswith(flagged[0])
+
+    def test_no_round_leaks_the_answer_by_always_using_the_same_slot(self):
+        """A pack that keyed every question to option A would be guessable."""
+        slots = {
+            next(i for i, c in enumerate(q["choices_de"]) if c["is_correct"])
+            for r in PACKS["mettwoch"]
+            for q in r["questions"]
+        }
+        assert slots == {0, 1, 2}
+
+    def test_european_parliament_question_uses_the_current_seat_count(self):
+        """720 since June 2024. The sheet's other option, 705, is last term's."""
+        politics = PACKS["mettwoch"][5]["questions"]
+        ep = next(q for q in politics if "Europäischen Parlaments" in q["text_de"])
+        assert ep["correct_answer_de"] == "720"
+        assert {c["text"] for c in ep["choices_de"]} == {"500", "705", "720"}
+
+    def test_eu_founding_question_asks_for_a_year_not_a_country(self):
+        """The source sheet asked for a country but offered years as answers."""
+        politics = PACKS["mettwoch"][5]["questions"]
+        eu = next(q for q in politics if "Europäische Union" in q["text_de"])
+        assert "Jahr" in eu["text_de"]
+        assert eu["correct_answer_de"].startswith("1993")
+
+    def test_seeding_produces_thirty_six_questions_and_no_uploads(self, quiz_event):
+        result = populate_quiz(quiz_event, pack="mettwoch")
+        assert result.rounds_created == 6
+        assert result.questions_created == 36
+        assert result.pending_uploads == []
+        assert QuizQuestion.objects.filter(media_kind="none").count() == 36
+
+    def test_seeded_questions_pass_model_validation(self, quiz_event):
+        populate_quiz(quiz_event, pack="mettwoch")
+        for question in QuizQuestion.objects.all():
+            question.clean()
+
+    def test_round_titles_survive_seeding_in_all_three_languages(self, quiz_event):
+        populate_quiz(quiz_event, pack="mettwoch")
+        first = quiz_event.rounds.order_by("sort_order").first()
+        assert first.title_en == "Art & Music"
+        assert first.title_de == "Kunst & Musik"
+        assert first.title_fr == "Art et musique"
+
+    def test_seeds_through_the_management_command(self, quiz_event):
+        """The path a coach actually uses to put this pack on a quiz night."""
+        call_command("generate_crush_quiz", quiz_id=quiz_event.pk, pack="mettwoch")
+        assert quiz_event.rounds.count() == 6
+        assert QuizQuestion.objects.count() == 36
+
+    def test_pack_is_offered_by_list_packs(self, db, capsys):
+        call_command("generate_crush_quiz", list_packs=True)
+        assert "mettwoch: 6 rounds, 36 questions" in capsys.readouterr().out
+
+
+# ============================================================================
 # EMPTY PACKS
 # ============================================================================
 
