@@ -428,10 +428,14 @@ STATIONS_ECHTERNACH_UM_SEE = [
         "lat": "49.801690",
         "lng": "6.415928",
         "unlock_mode": "gps_qr",
+        # The station label is the navigation cue in the field, so the intro
+        # repeats it verbatim and glosses it — "Kloterhal" is Luxembourgish,
+        # and a tester should not have to bridge it to "Kletterhalle" while
+        # standing at the lake.
         "intro": (
-            "Folgt dem Uferweg im Uhrzeigersinn bis zur Kletterhalle und dem "
-            "Trampolinpark. Hier wird im Sommer auch gebadet — die "
-            "Crush-Statue steht am Weg."
+            "Folgt dem Uferweg im Uhrzeigersinn bis zur Kloterhal "
+            "(Kletterhalle) und dem Trampolinpark bei der Jugendherberge. "
+            "Hier wird im Sommer auch gebadet — die Crush-Statue steht am Weg."
         ),
         "challenge_type": "multiple_choice",
         "question": "Der See hat 14 Grad. Du...",
@@ -792,10 +796,12 @@ class Command(BaseCommand):
         self._report(hunt, team, players, preset)
 
     def _validate_prototype_environment(self, options):
+        # Named from the chosen preset, not hardcoded: any preset can set
+        # solo_prototype, and a guard that blames the wrong one sends whoever
+        # hits it looking in the wrong place.
+        name = options["preset"]
         if not options.get("player_email"):
-            raise CommandError(
-                "--player-email is required for the echternach_lake prototype."
-            )
+            raise CommandError(f"--player-email is required for the {name} prototype.")
 
         # This prototype may run locally or in the staging slot, but never in
         # the production slot. --force only bypasses the command's general
@@ -804,7 +810,7 @@ class Command(BaseCommand):
         slot_name = os.getenv("WEBSITE_SLOT_NAME", "").casefold()
         if hostname and "staging" not in hostname and slot_name != "staging":
             raise CommandError(
-                "The echternach_lake prototype is restricted to local or Azure "
+                f"The {name} prototype is restricted to local or Azure "
                 "staging environments; refusing to modify production."
             )
 
