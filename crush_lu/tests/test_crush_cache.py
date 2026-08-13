@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.geo import bearing_deg, haversine_m
+from crush_lu.management.commands.seed_crush_cache import PRESETS as SEED_PRESETS
 from crush_lu.models import CrushCoach, EventRegistration, MeetupEvent
 from crush_lu.models.crush_cache import (
     CacheChallenge,
@@ -1736,3 +1737,147 @@ class TestSeedCrushCacheCommand:
         hunts = CacheHunt.objects.filter(event__title__contains="Echternach Lake")
         assert hunts.count() == 1
         assert hunts.get().event_id != first_event_id
+
+    def test_seed_echternach_um_see_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache",
+            preset="echternach_um_see",
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.status == "live"
+        assert hunt.event.location == "Echternach"
+        assert hunt.event.is_published is True
+        assert hunt.team_size_max == 4
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+
+        # Crush Statue at every stop — the Minette shape, not the prototype's
+        # GPS-only run — and the wider radius the open lakeside path needs.
+        assert all(s.unlock_mode == "gps_qr" for s in stations)
+        assert all(s.radius_meters == 75 for s in stations)
+
+        # Every station carries a typeable fallback, so the hunt is playable
+        # before any physical QR sticker exists on the trail.
+        assert all(s.manual_code for s in stations)
+        assert len({s.manual_code for s in stations}) == 6
+
+        # The hunt is won back at the villa where it started, so the finish
+        # line matches what the event copy promises.
+        schluss = stations[5]
+        assert schluss.name == "Réimervilla (Schluss)"
+        assert schluss.latitude == stations[0].latitude
+        assert schluss.longitude == stations[0].longitude
+        final = schluss.challenges.get()
+        assert final.challenge_type == "riddle"
+        assert final.points_awarded == 150
+        # Phone-typed spellings all land: accents fold, alternates cover the
+        # ö→oe transliteration that folding alone does not.
+        for typed in ("Römische Villa", "romische villa", "Roemische Villa", "villa"):
+            assert final.check_answer(typed), typed
+        assert not final.check_answer("Bergbau")
+
+    def test_seed_echternach_um_see_walks_the_prototype_track(self):
+        """Both Echternach presets must sit on the same surveyed GPX loop, so
+        one trip round the lake can field-test the pair."""
+        from crush_lu.management.commands.seed_crush_cache import (
+            STATIONS_ECHTERNACH_LAKE,
+            STATIONS_ECHTERNACH_UM_SEE,
+        )
+
+        track = {(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_LAKE}
+        off_track = [
+            s for s in STATIONS_ECHTERNACH_UM_SEE if (s["lat"], s["lng"]) not in track
+        ]
+        # No invented coordinates: every station is a surveyed track point.
+        assert off_track == []
+
+        # Both loops cover the whole lake rather than doubling up on one shore.
+        assert len({(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_UM_SEE}) == 5
+
+    def test_seed_echternach_um_see_stations_are_icebreakers_with_choices(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache", preset="echternach_um_see", reset=True, force=True
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        for station in list(hunt.ordered_stations())[:5]:
+            challenge = station.challenges.get()
+            assert challenge.challenge_type == "multiple_choice"
+            assert len(challenge.options) == 3
+            # Blank correct_answer = every choice accepted (opinion prompt).
+            assert challenge.accepts_any_answer
+
+    def test_preset_registry_fills_defaults_and_keeps_deltas(self):
+        from crush_lu.management.commands.seed_crush_cache import (
+            PRESET_DEFAULTS,
+            PRESETS,
+        )
+
+        # Every preset is fully populated, so the command never needs .get().
+        for name, preset in PRESETS.items():
+            assert set(PRESET_DEFAULTS) <= set(preset), name
+
+        assert PRESETS["lux_city"]["radius_meters"] == 40
+        assert PRESETS["lux_city"]["completion_message"] == (
+            "Nice — on to the next station!"
+        )
+        assert PRESETS["echternach_um_see"]["radius_meters"] == 75
+        assert PRESETS["echternach_lake"]["solo_prototype"] is True
+        assert PRESETS["echternach_lake"]["is_published"] is False
+        assert PRESETS["lux_city"]["solo_prototype"] is False
+
+        # Distinct event titles: the command finds the event to reset by title.
+        titles = [p["event_title"] for p in PRESETS.values()]
+        assert len(set(titles)) == len(titles)
+
+    def test_preset_registry_rejects_a_malformed_preset(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from crush_lu.management.commands import seed_crush_cache
+
+        original = seed_crush_cache.PRESETS
+        try:
+            seed_crush_cache.PRESETS = {"broken": {"event_title": "only this"}}
+            with pytest.raises(ImproperlyConfigured, match="missing keys"):
+                seed_crush_cache._build_presets()
+
+            seed_crush_cache.PRESETS = {
+                "typo": {**original["lux_city"], "radius_meter": 40}
+            }
+            with pytest.raises(ImproperlyConfigured, match="unknown keys"):
+                seed_crush_cache._build_presets()
+        finally:
+            seed_crush_cache.PRESETS = original
+
+    @pytest.mark.parametrize("preset_name", sorted(SEED_PRESETS))
+    def test_every_preset_seeds_a_playable_hunt(self, preset_name, django_user_model):
+        """The readiness check must pass for each preset in the registry —
+        this is what the coach dashboard gates Start on."""
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        preset = SEED_PRESETS[preset_name]
+        options = {"preset": preset_name, "reset": True, "force": True}
+        if preset["solo_prototype"]:
+            player = django_user_model.objects.create_user(
+                username=f"{preset_name}-player@example.com",
+                email=f"{preset_name}-player@example.com",
+            )
+            options["player_email"] = player.email
+
+        call_command("seed_crush_cache", **options)
+
+        hunt = CacheHunt.objects.get(event__title=preset["event_title"])
+        blocking = [c for c in hunt.readiness_check() if c["blocking"]]
+        assert blocking, "expected blocking readiness checks"
+        assert all(c["ok"] for c in blocking), [c for c in blocking if not c["ok"]]
