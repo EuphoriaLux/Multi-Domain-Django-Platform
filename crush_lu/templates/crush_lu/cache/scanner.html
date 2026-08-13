@@ -135,21 +135,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.resume();
             }
             var now = ctx.currentTime;
-            // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
-            var freqs = [523.25, 659.25, 783.99, 1046.50];
+            var delay = ctx.createDelay();
+            var feedback = ctx.createGain();
+            var filter = ctx.createBiquadFilter();
+            delay.delayTime.setValueAtTime(0.16, now);
+            feedback.gain.setValueAtTime(0.32, now);
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(1400, now);
+            delay.connect(filter);
+            filter.connect(feedback);
+            feedback.connect(delay);
+            delay.connect(ctx.destination);
+
+            // Romantic F Major 13th "Cupid's Dream" Harp Sweep: F4, A4, C5, E5, G5, B5, D6, E6
+            var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 987.77, 1174.66, 1318.51];
             freqs.forEach(function(f, idx) {
-                var o = ctx.createOscillator();
+                var o1 = ctx.createOscillator();
+                var o2 = ctx.createOscillator();
+                var lfo = ctx.createOscillator();
+                var lfoGain = ctx.createGain();
                 var g = ctx.createGain();
-                var t = now + (idx * 0.08);
-                o.type = "triangle";
-                o.frequency.setValueAtTime(f, t);
-                g.gain.setValueAtTime(0.35, t);
-                g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-                o.connect(g);
-                g.connect(ctx.destination);
-                o.start(t);
-                o.stop(t + 0.4);
+                var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+                var t = now + (idx * 0.058);
+
+                lfo.frequency.setValueAtTime(5.8, t);
+                lfoGain.gain.setValueAtTime(f * 0.005, t);
+                lfo.connect(lfoGain);
+                lfoGain.connect(o1.frequency);
+
+                o1.type = "sine";
+                o2.type = "sine";
+                o1.frequency.setValueAtTime(f, t);
+                o2.frequency.setValueAtTime(f * 1.005, t);
+                g.gain.setValueAtTime(0.28, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+                o1.connect(g);
+                o2.connect(g);
+
+                var target = p || ctx.destination;
+                g.connect(target);
+                g.connect(delay);
+                if (p) {
+                    p.pan.setValueAtTime((idx / (freqs.length - 1) - 0.5) * 0.7, t);
+                    p.connect(ctx.destination);
+                }
+
+                lfo.start(t);
+                o1.start(t);
+                o2.start(t);
+                lfo.stop(t + 0.75);
+                o1.stop(t + 0.75);
+                o2.stop(t + 0.75);
             });
+            if (navigator.vibrate) {
+                try { navigator.vibrate([70, 50, 140]); } catch (e) {}
+            }
         } catch (e) {}
     }
 

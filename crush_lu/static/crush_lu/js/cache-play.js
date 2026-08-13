@@ -54,6 +54,7 @@ document.addEventListener("alpine:init", function () {
                 this.targetLat = root.dataset.targetLat ? parseFloat(root.dataset.targetLat) : null;
                 this.targetLng = root.dataset.targetLng ? parseFloat(root.dataset.targetLng) : null;
                 this.targetRadius = root.dataset.targetRadius ? parseInt(root.dataset.targetRadius, 10) : null;
+                this.audioUrl = root.dataset.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
                 this.msgs = {
                     gpsDenied: root.dataset.msgGpsDenied || "Location permission denied",
                     gpsWaiting: root.dataset.msgGpsWaiting || "Waiting for GPS…",
@@ -70,12 +71,6 @@ document.addEventListener("alpine:init", function () {
                     this.connectWebSocket();
                     this.startPolling();
                 }
-                // A station/hunt-complete celebration swapped into the play
-                // region makes this shell's data stale — progress already
-                // points at the next station, so the next position POST
-                // would report "unlocked" and reload right over the card.
-                // Suspend navigation while it's on screen; its Continue
-                // link does the reload.
                 var self = this;
                 root.addEventListener("htmx:afterSwap", function () {
                     if (document.getElementById("cache-celebration")) {
@@ -98,6 +93,7 @@ document.addEventListener("alpine:init", function () {
                 };
                 window.addEventListener("pointerdown", unlockAudio, { once: true });
                 window.addEventListener("click", unlockAudio, { once: true });
+                this.preloadAudio();
 
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
@@ -134,8 +130,6 @@ document.addEventListener("alpine:init", function () {
                 return "transform: rotate(" + rotation + "deg)";
             },
 
-            // CSP-build note: x-show only takes property paths, so the
-            // negation lives here instead of "!geoSupported" in templates.
             get geoUnsupported() {
                 return !this.geoSupported;
             },
@@ -179,7 +173,6 @@ document.addEventListener("alpine:init", function () {
                 this.updateSelfMarker(lat, lng, accuracy);
                 this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));
 
-                // Throttle server posts to one every 3 seconds
                 var now = Date.now();
                 if (this.posting || now - this.lastPostAt < 3000) return;
                 this.lastPostAt = now;
@@ -205,13 +198,8 @@ document.addEventListener("alpine:init", function () {
                                     if (self.suspended) return null;
                                     var code = err && err.error;
                                     if (code === "finished" || code === "not_live" || code === "no_team") {
-                                        // Hunt or membership state changed under
-                                        // us — stop posting, re-render from the
-                                        // server (e.g. show the finish screen).
                                         self.stopAndReload();
                                     } else {
-                                        // Unknown 403 (e.g. CSRF): stop posting
-                                        // but never enter a reload loop.
                                         self.stopWatching();
                                     }
                                     return null;
@@ -224,8 +212,6 @@ document.addEventListener("alpine:init", function () {
                         if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") self.bearing = data.bearing;
-                        // Server-side arrival — celebrate for a beat, then
-                        // reload so the state machine advances
                         if (self.needsGps && (data.arrived || data.unlocked)) {
                             self.celebrateArrival();
                         }
@@ -245,21 +231,116 @@ document.addEventListener("alpine:init", function () {
                 this.reloading = true;
                 this.stopWatching();
                 this.arrivalCelebrating = true;
-                this.playGpsChime();
+                var soundDurationMs = this.playGpsChime() || 2200;
                 if (navigator.vibrate) {
                     try { navigator.vibrate([150, 100, 150]); } catch (e) {}
                 }
                 var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                var delayMs = reduce
+                    ? Math.max(1200, Math.ceil(soundDurationMs))
+                    : Math.max(2200, Math.ceil(soundDurationMs + 300));
                 setTimeout(function () {
                     if (self.suspended) return;
                     window.location.reload();
-                }, reduce ? 1200 : 2200);
+                }, delayMs);
+            },
+
+            preloadAudio: function () {
+                if (window._crushMp3Buffer || window._crushMp3Loading) return;
+                window._crushMp3Loading = true;
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
+                    fetch(url)
+                        .then(function (res) { return res.arrayBuffer(); })
+                        .then(function (buf) {
+                            var res = ctx.decodeAudioData(
+                                buf,
+                                function (decoded) {
+                                    window._crushMp3Buffer = decoded;
+                                },
+                                function () {
+                                    window._crushMp3Loading = false;
+                                }
+                            );
+                            if (res && typeof res.then === "function") {
+                                res.then(function (decoded) {
+                                    window._crushMp3Buffer = decoded;
+                                }).catch(function () {
+                                    window._crushMp3Loading = false;
+                                });
+                            }
+                        })
+                        .catch(function () { window._crushMp3Loading = false; });
+                } catch (e) {
+                    window._crushMp3Loading = false;
+                }
             },
 
             playGpsChime: function () {
-                this.playSynthGpsChime();
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (window._crushMp3Buffer && AudioCtx) {
+                        if (!window._crushAudioCtx) window._crushAudioCtx = new AudioCtx();
+                        var ctx = window._crushAudioCtx;
+                        if (ctx.state === "suspended") {
+                            ctx.resume();
+                        }
+                        var src = ctx.createBufferSource();
+                        var gain = ctx.createGain();
+                        gain.gain.value = 0.8;
+                        src.buffer = window._crushMp3Buffer;
+                        src.connect(gain);
+                        gain.connect(ctx.destination);
+                        src.start(0);
+                        return Math.ceil(src.buffer.duration * 1000);
+                    }
+                } catch (e) {}
+
+                var self = this;
+                try {
+                    var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
+                    var audio = new Audio(url);
+                    audio.volume = 0.8;
+                    var playPromise = audio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(function () {
+                            self.playSynthGpsChime();
+                        });
+                    }
+                    return 11500;
+                } catch (e) {
+                    this.playSynthGpsChime();
+                    return 800;
+                }
+            },
+
+            _getRomanticReverb: function (ctx) {
+                try {
+                    if (ctx._crushReverb) return ctx._crushReverb;
+                    var delay = ctx.createDelay();
+                    var feedback = ctx.createGain();
+                    var filter = ctx.createBiquadFilter();
+                    delay.delayTime.setValueAtTime(0.16, ctx.currentTime);
+                    feedback.gain.setValueAtTime(0.32, ctx.currentTime);
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(1400, ctx.currentTime);
+                    delay.connect(filter);
+                    filter.connect(feedback);
+                    feedback.connect(delay);
+                    delay.connect(ctx.destination);
+                    ctx._crushReverb = delay;
+                    return ctx._crushReverb;
+                } catch (e) {
+                    return null;
+                }
             },
 
             playSynthGpsChime: function () {
@@ -274,21 +355,69 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // E Major triad arpeggio: E5 (659.25Hz), G#5 (830.61Hz), B5 (987.77Hz)
-                    var notes = [659.25, 830.61, 987.77];
-                    notes.forEach(function (freq, idx) {
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
+
+                    // 1. Romantic Heartbeat Sub-Pulse (lub-dub)
+                    [0, 0.13].forEach(function (delayTime) {
                         var o = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var t = now + (idx * 0.12);
+                        var t = now + delayTime;
                         o.type = "sine";
-                        o.frequency.setValueAtTime(freq, t);
-                        g.gain.setValueAtTime(0.4, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+                        o.frequency.setValueAtTime(95, t);
+                        o.frequency.exponentialRampToValueAtTime(42, t + 0.11);
+                        g.gain.setValueAtTime(0.45, t);
+                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
                         o.connect(g);
                         g.connect(ctx.destination);
                         o.start(t);
-                        o.stop(t + 0.5);
+                        o.stop(t + 0.11);
                     });
+
+                    // 2. Romantic C Major 11th "Warm Embrace" Swell: C4, G4, B4, D5, F#5, G5, B5, D6
+                    var notes = [261.63, 392.00, 493.88, 587.33, 739.99, 783.99, 987.77, 1174.66];
+                    notes.forEach(function (freq, idx) {
+                        var o1 = ctx.createOscillator();
+                        var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
+                        var g = ctx.createGain();
+                        var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+                        var t = now + 0.22 + (idx * 0.095);
+
+                        // 5.2Hz romantic vibrato
+                        lfo.frequency.setValueAtTime(5.2, t);
+                        lfoGain.gain.setValueAtTime(freq * 0.006, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
+                        o1.type = "sine";
+                        o2.type = "triangle";
+                        o1.frequency.setValueAtTime(freq, t);
+                        o2.frequency.setValueAtTime(freq * 1.0045, t);
+                        g.gain.setValueAtTime(0.24, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+
+                        o1.connect(g);
+                        o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
+                        if (p) {
+                            p.pan.setValueAtTime((idx % 2 === 0 ? -1 : 1) * 0.35, t);
+                            p.connect(ctx.destination);
+                        }
+
+                        lfo.start(t);
+                        o1.start(t);
+                        o2.start(t);
+                        lfo.stop(t + 0.85);
+                        o1.stop(t + 0.85);
+                        o2.stop(t + 0.85);
+                    });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([100, 90, 180]); } catch (e) {}
+                    }
                 } catch (e) {}
             },
 
@@ -304,21 +433,113 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
-                    var freqs = [523.25, 659.25, 783.99, 1046.50];
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
+
+                    // Romantic F Major 13th "Cupid's Dream" Harp Sweep: F4, A4, C5, E5, G5, B5, D6, E6
+                    var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 987.77, 1174.66, 1318.51];
                     freqs.forEach(function (f, idx) {
-                        var o = ctx.createOscillator();
+                        var o1 = ctx.createOscillator();
+                        var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
                         var g = ctx.createGain();
-                        var t = now + (idx * 0.08);
-                        o.type = "triangle";
-                        o.frequency.setValueAtTime(f, t);
-                        g.gain.setValueAtTime(0.35, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-                        o.connect(g);
-                        g.connect(ctx.destination);
-                        o.start(t);
-                        o.stop(t + 0.4);
+                        var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+                        var t = now + (idx * 0.058);
+
+                        lfo.frequency.setValueAtTime(5.8, t);
+                        lfoGain.gain.setValueAtTime(f * 0.005, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
+                        o1.type = "sine";
+                        o2.type = "sine";
+                        o1.frequency.setValueAtTime(f, t);
+                        o2.frequency.setValueAtTime(f * 1.005, t);
+                        g.gain.setValueAtTime(0.28, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+
+                        o1.connect(g);
+                        o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
+                        if (p) {
+                            p.pan.setValueAtTime((idx / (freqs.length - 1) - 0.5) * 0.7, t);
+                            p.connect(ctx.destination);
+                        }
+
+                        lfo.start(t);
+                        o1.start(t);
+                        o2.start(t);
+                        lfo.stop(t + 0.75);
+                        o1.stop(t + 0.75);
+                        o2.stop(t + 0.75);
                     });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([70, 50, 140]); } catch (e) {}
+                    }
+                } catch (e) {}
+            },
+
+            playSynthVictorySound: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    if (ctx.state === "suspended") {
+                        ctx.resume();
+                    }
+                    var now = ctx.currentTime;
+                    var reverb = this._getRomanticReverb(ctx);
+                    if (reverb) reverb.connect(ctx.destination);
+
+                    // Triumphant A Major 9th "Eternal Love" Fanfare: A3, E4, A4, C#5, E5, G#5, B5, E6, G#6
+                    var chord = [220.00, 329.63, 440.00, 554.37, 659.25, 830.61, 987.77, 1318.51, 1661.22];
+                    chord.forEach(function (f, idx) {
+                        var o1 = ctx.createOscillator();
+                        var o2 = ctx.createOscillator();
+                        var lfo = ctx.createOscillator();
+                        var lfoGain = ctx.createGain();
+                        var g = ctx.createGain();
+                        var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+                        var t = now + (idx * 0.075);
+
+                        lfo.frequency.setValueAtTime(4.8, t);
+                        lfoGain.gain.setValueAtTime(f * 0.004, t);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(o1.frequency);
+
+                        o1.type = "sine";
+                        o2.type = "triangle";
+                        o1.frequency.setValueAtTime(f, t);
+                        o2.frequency.setValueAtTime(f * 1.004, t);
+                        g.gain.setValueAtTime(0.24, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+
+                        o1.connect(g);
+                        o2.connect(g);
+                        var target = p || ctx.destination;
+                        g.connect(target);
+                        if (reverb) g.connect(reverb);
+                        if (p) {
+                            p.pan.setValueAtTime((idx % 2 === 0 ? -0.45 : 0.45), t);
+                            p.connect(ctx.destination);
+                        }
+
+                        lfo.start(t);
+                        o1.start(t);
+                        o2.start(t);
+                        lfo.stop(t + 1.1);
+                        o1.stop(t + 1.1);
+                        o2.stop(t + 1.1);
+                    });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([120, 80, 120, 80, 260]); } catch (e) {}
+                    }
                 } catch (e) {}
             },
 
@@ -331,6 +552,7 @@ document.addEventListener("alpine:init", function () {
                 this.arrivalCelebrating = false;
                 this.reloading = false;
                 this.stopWatching();
+                this.playSynthVictorySound();
             },
 
             // --- Compass (device orientation) ---
