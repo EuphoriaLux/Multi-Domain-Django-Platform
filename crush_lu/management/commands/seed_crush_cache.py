@@ -1,20 +1,22 @@
 """
-Seed a ready-to-play **Crush Cache** scavenger hunt through Luxembourg City,
-for manual QA of the GPS + QR gameplay.
+Seed a ready-to-play **Crush Cache** scavenger hunt for manual QA of the
+GPS + QR gameplay.
 
-Creates one `crush_cache` MeetupEvent + a CacheHunt with a walking loop of real
-Luxembourg City landmarks (GPS coords + a QR station), each with a challenge,
-plus a demo team. Every existing `debug_*` account (from
-`seed_debug_profiles`) is registered as a confirmed attendee so you can log in
-and play immediately; if none exist it creates a couple of players.
+The debug presets create a `crush_cache` MeetupEvent + CacheHunt with landmark
+stations, challenges and demo users. The Echternach Lake preset instead reuses
+one explicitly named account, creates no credentials, stays unpublished, and
+is permitted only locally or in the Azure staging slot.
 
-LOCAL-ONLY: refuses to run on Azure (WEBSITE_HOSTNAME set) or when DEBUG is
-False, unless --force. Also needs the feature flag: CRUSH_CACHE_ENABLED=true
-(in your .env), or the gameplay URLs 404.
+By default the command refuses to run on Azure (WEBSITE_HOSTNAME set) or when
+DEBUG is False. `--force` permits the Echternach preset on staging, while its
+separate production guard cannot be bypassed. The gameplay URLs also require
+CRUSH_CACHE_ENABLED=true.
 
 Usage:
     python manage.py seed_crush_cache --reset
     python manage.py seed_crush_cache --reset --live   # start the hunt now
+    python manage.py seed_crush_cache --preset echternach_lake --reset --live \
+        --player-email you@example.com --force
 
 Testing GPS without being in Luxembourg: open the play page in Chrome, then
 DevTools → ⋮ → More tools → Sensors → Location → "Other…" and paste a
@@ -39,7 +41,8 @@ from crush_lu.models.crush_cache import (
 from crush_lu.models.profiles import CrushCoach
 
 EVENT_TITLE_LUX = "🧭 [DEBUG] Luxembourg City Crush Cache"
-EVENT_TITLE_MINETTE = "🧭 [DEBUG] Fond-de-Gras Crush Cache \"Minette\""
+EVENT_TITLE_MINETTE = '🧭 [DEBUG] Fond-de-Gras Crush Cache "Minette"'
+EVENT_TITLE_ECHTERNACH = "🧭 [PROTOTYPE] Echternach Lake Crush Cache"
 
 STATIONS_LUX_CITY = [
     {
@@ -221,8 +224,153 @@ STATIONS_MINETTE = [
         "challenge_type": "riddle",
         "question": "Glückwunsch! Welches historische Industriezeitalter hat dieses Tal geprägt?",
         "answer": "Industrielle Revolution",
-        "alternatives": ["Industrial Revolution", "Bergbau", "Stahlindustrie", "Stahlzeitalter"],
+        "alternatives": [
+            "Industrial Revolution",
+            "Bergbau",
+            "Stahlindustrie",
+            "Stahlzeitalter",
+        ],
         "hint_1": "Das Zeitalter von Eisen, Stahl und Dampf im 19. und 20. Jahrhundert.",
+        "points": 150,
+    },
+]
+
+# GPS-only prototype following the official 3.25 km comfort trail clockwise
+# from the climbing hall / trampoline park. Coordinates are points on the
+# official Visit Luxembourg GPX track, not the centroids of nearby venues.
+# The questions intentionally collect field-test feedback instead of scoring
+# local trivia: the first real walk should validate the experience itself.
+STATIONS_ECHTERNACH_LAKE = [
+    {
+        "order": 1,
+        "name": "Climbing Hall & Trampoline Park Start",
+        "lat": "49.801690",
+        "lng": "6.415928",
+        "unlock_mode": "gps",
+        "intro": (
+            "Start beside the climbing hall and trampoline park, then follow "
+            "the paved lakeside path clockwise with the water on your right."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "For a future Crush Cache, how would you prefer to navigate?",
+        "options": {
+            "1": "A map with the next pin",
+            "2": "A compass and distance only",
+            "3": "Clues without a visible destination",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Choose the style that would feel most fun on a first date.",
+        "points": 100,
+    },
+    {
+        "order": 2,
+        "name": "East Shore Path",
+        "lat": "49.797563",
+        "lng": "6.416679",
+        "unlock_mode": "gps",
+        "intro": (
+            "Continue along the quiet eastern shore. Stop on the wide path "
+            "where you can look back across the lake."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "How did the first GPS arrival feel?",
+        "options": {
+            "1": "It unlocked too early",
+            "2": "It unlocked at the right moment",
+            "3": "It took too long to unlock",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Think about where you were standing when the arrival appeared.",
+        "points": 100,
+    },
+    {
+        "order": 3,
+        "name": "South Shore Bend",
+        "lat": "49.794390",
+        "lng": "6.415674",
+        "unlock_mode": "gps",
+        "intro": (
+            "Follow the path around the southern end of the lake and pause "
+            "after the broad bend. Stay on the paved route."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "What kind of task would best help two new people connect here?",
+        "options": {
+            "1": "A playful photo together",
+            "2": "A personal conversation question",
+            "3": "A small cooperative challenge",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Pick the one that would create the least awkwardness.",
+        "points": 100,
+    },
+    {
+        "order": 4,
+        "name": "Small Islands Stretch",
+        "lat": "49.797667",
+        "lng": "6.410571",
+        "unlock_mode": "gps",
+        "intro": (
+            "Continue north on the western side near the small islands. Use "
+            "the accessible main path rather than an island detour."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "How does the pacing feel after four checkpoints?",
+        "options": {
+            "1": "Too many stops",
+            "2": "A good rhythm",
+            "3": "I would add more stops",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Consider both the walking time and time spent on your phone.",
+        "points": 100,
+    },
+    {
+        "order": 5,
+        "name": "Roman Villa Lakeside Path",
+        "lat": "49.804108",
+        "lng": "6.411389",
+        "unlock_mode": "gps",
+        "intro": (
+            "Walk past the refreshment area toward the Roman villa. This "
+            "checkpoint is on the lakeside path below the archaeological site."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "What should a finished team receive at the end?",
+        "options": {
+            "1": "A digital badge or certificate",
+            "2": "A drink or partner reward",
+            "3": "Only the shared memory and leaderboard",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Choose what would make completion feel genuinely rewarding.",
+        "points": 100,
+    },
+    {
+        "order": 6,
+        "name": "Lake Loop Finish",
+        "lat": "49.801690",
+        "lng": "6.415928",
+        "unlock_mode": "gps",
+        "intro": (
+            "Complete the loop back at the climbing hall and trampoline park. "
+            "You have walked the full prototype route."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "After walking it, should we develop this into a real Crush experience?",
+        "options": {
+            "1": "Yes, the concept works",
+            "2": "Yes, but the route or gameplay needs changes",
+            "3": "No, it needs a different format",
+        },
+        "answer": "",
+        "alternatives": [],
+        "hint_1": "Judge the complete experience, not only one checkpoint.",
         "points": 150,
     },
 ]
@@ -230,16 +378,26 @@ STATIONS_MINETTE = [
 
 class Command(BaseCommand):
     help = (
-        "Seed a playable Crush Cache hunt (Luxembourg City or Fond-de-Gras Minette) "
-        "for manual QA. Local-only."
+        "Seed a playable Crush Cache hunt for manual QA. The Echternach preset "
+        "supports a credential-free, private staging prototype."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--preset",
-            choices=["lux_city", "minette"],
+            choices=["lux_city", "minette", "echternach_lake"],
             default="lux_city",
-            help="Which hunt preset to seed: 'lux_city' (default) or 'minette' (Fond-de-Gras).",
+            help=(
+                "Which hunt preset to seed: 'lux_city' (default), 'minette' "
+                "(Fond-de-Gras), or 'echternach_lake'."
+            ),
+        )
+        parser.add_argument(
+            "--player-email",
+            help=(
+                "Existing account to register as the solo prototype player. "
+                "Required for echternach_lake; no account or password is created."
+            ),
         )
         parser.add_argument(
             "--reset",
@@ -258,6 +416,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        preset = options["preset"]
+        if preset == "echternach_lake":
+            self._validate_echternach_environment(options)
+
         force = options["force"]
         if not force:
             if "WEBSITE_HOSTNAME" in os.environ:
@@ -278,9 +440,15 @@ class Command(BaseCommand):
                 )
             )
 
-        preset = options["preset"]
-        event_title = EVENT_TITLE_MINETTE if preset == "minette" else EVENT_TITLE_LUX
-        stations_data = STATIONS_MINETTE if preset == "minette" else STATIONS_LUX_CITY
+        if preset == "echternach_lake":
+            event_title = EVENT_TITLE_ECHTERNACH
+            stations_data = STATIONS_ECHTERNACH_LAKE
+        elif preset == "minette":
+            event_title = EVENT_TITLE_MINETTE
+            stations_data = STATIONS_MINETTE
+        else:
+            event_title = EVENT_TITLE_LUX
+            stations_data = STATIONS_LUX_CITY
 
         existing = MeetupEvent.objects.filter(
             title=event_title, event_type="crush_cache"
@@ -293,7 +461,25 @@ class Command(BaseCommand):
                 )
             # Cascades to hunt, stations, challenges, teams, registrations.
             existing.delete()
-            self.stdout.write(f"Deleted the previous debug Crush Cache event '{event_title}'.")
+            self.stdout.write(
+                f"Deleted the previous debug Crush Cache event '{event_title}'."
+            )
+
+        if preset == "echternach_lake":
+            player = self._get_existing_player(options["player_email"])
+            event = self._create_event(preset, event_title)
+            hunt = self._create_hunt(event, player, preset)
+            self._create_stations(hunt, stations_data)
+            team = self._create_demo_team(hunt, preset)
+
+            if options["live"]:
+                hunt.status = "live"
+                hunt.started_at = timezone.now()
+                hunt.save(update_fields=["status", "started_at"])
+
+            self._register_prototype_player(hunt, team, player)
+            self._report_prototype(hunt, team, player, stations_data)
+            return
 
         coach = self._ensure_coach()
         event = self._create_event(preset, event_title)
@@ -308,6 +494,34 @@ class Command(BaseCommand):
             hunt.save(update_fields=["status", "started_at"])
 
         self._report(hunt, team, players, stations_data)
+
+    def _validate_echternach_environment(self, options):
+        if not options.get("player_email"):
+            raise CommandError(
+                "--player-email is required for the echternach_lake prototype."
+            )
+
+        # This prototype may run locally or in the staging slot, but never in
+        # the production slot. --force only bypasses the command's general
+        # local-only guard; it cannot bypass this production boundary.
+        hostname = os.getenv("WEBSITE_HOSTNAME", "").casefold()
+        slot_name = os.getenv("WEBSITE_SLOT_NAME", "").casefold()
+        if hostname and "staging" not in hostname and slot_name != "staging":
+            raise CommandError(
+                "The echternach_lake prototype is restricted to local or Azure "
+                "staging environments; refusing to modify production."
+            )
+
+    def _get_existing_player(self, email):
+        player = User.objects.filter(email__iexact=email).first()
+        if player is None:
+            player = User.objects.filter(username__iexact=email).first()
+        if player is None:
+            raise CommandError(
+                f"No existing account matches '{email}'. Create or choose a "
+                "staging account, then rerun the command."
+            )
+        return player
 
     # ------------------------------------------------------------------ #
 
@@ -340,8 +554,17 @@ class Command(BaseCommand):
 
     def _create_event(self, preset, title):
         now = timezone.now()
-        if preset == "minette":
-            desc = "Debug scavenger hunt through Fond-de-Gras Minette mining area for QA."
+        if preset == "echternach_lake":
+            desc = (
+                "Private GPS-only prototype of a Crush Cache around the official "
+                "3.25 km Echternach Lake comfort trail."
+            )
+            loc = "Echternach Lake"
+            addr = "100 Rue Grégoire Schouppe, L-6479 Echternach"
+        elif preset == "minette":
+            desc = (
+                "Debug scavenger hunt through Fond-de-Gras Minette mining area for QA."
+            )
             loc = "Fond-de-Gras"
             addr = "Fond-de-Gras, L-4570 Differdange"
         else:
@@ -358,12 +581,20 @@ class Command(BaseCommand):
             location=loc,
             address=addr,
             max_participants=30,
-            is_published=True,
+            # The Echternach prototype is reachable only by its direct URL and
+            # does not appear in staging's public event catalogue.
+            is_published=preset != "echternach_lake",
         )
 
     def _create_hunt(self, event, coach, preset):
-        if preset == "minette":
-            title = "Crush Cache \"Minette\""
+        if preset == "echternach_lake":
+            title = "Echternach Lake Prototype"
+            desc = (
+                "Walk the full lake loop and test six GPS checkpoints. Your "
+                "answers collect feedback for a future Crush experience."
+            )
+        elif preset == "minette":
+            title = 'Crush Cache "Minette"'
             desc = "Explore the historic red-rock mining valley of Fond-de-Gras. First team to the Schluss station wins!"
         else:
             title = "Old Town GPS Hunt"
@@ -375,8 +606,8 @@ class Command(BaseCommand):
             description=desc,
             status="draft",
             navigation_mode="map",  # target pin shown — easiest to test GPS with
-            team_size_max=4,
-            allow_self_join=True,
+            team_size_max=1 if preset == "echternach_lake" else 4,
+            allow_self_join=preset != "echternach_lake",
             created_by=coach,
         )
 
@@ -389,7 +620,7 @@ class Command(BaseCommand):
                 intro_text=s["intro"],
                 latitude=s["lat"],
                 longitude=s["lng"],
-                radius_meters=40,
+                radius_meters=s.get("radius_meters", 40),
                 unlock_mode=s["unlock_mode"],
                 completion_message="Nice — on to the next station!",
             )
@@ -407,9 +638,32 @@ class Command(BaseCommand):
             )
 
     def _create_demo_team(self, hunt, preset):
-        team_name = "Minette Miners" if preset == "minette" else "Explorers"
-        return CacheTeam.objects.create(
-            hunt=hunt, name=team_name, color="#3b82f6"
+        if preset == "echternach_lake":
+            team_name = "Lake Prototype"
+        elif preset == "minette":
+            team_name = "Minette Miners"
+        else:
+            team_name = "Explorers"
+        return CacheTeam.objects.create(hunt=hunt, name=team_name, color="#3b82f6")
+
+    def _register_prototype_player(self, hunt, team, player):
+        from crush_lu.models.crush_cache import CacheTeamMember, CacheTeamProgress
+
+        registration = EventRegistration.objects.create(
+            event=hunt.event,
+            user=player,
+            status="attended",
+            checked_in_at=timezone.now(),
+        )
+        CacheTeamMember.objects.create(
+            hunt=hunt,
+            team=team,
+            registration=registration,
+        )
+        CacheTeamProgress.objects.create(
+            team=team,
+            current_station=hunt.ordered_stations().first(),
+            started_at=timezone.now() if hunt.is_live else None,
         )
 
     def _register_players(self, event):
@@ -481,3 +735,25 @@ class Command(BaseCommand):
             )
         out.write("")
 
+    def _report_prototype(self, hunt, team, player, stations_data):
+        out = self.stdout
+        style = self.style
+        out.write(style.SUCCESS(f"\nSeeded private '{hunt.title}' ({hunt.status})."))
+        out.write(f"   Event id: {hunt.event_id}")
+        out.write(f"   Existing player: {player.email or player.username}")
+        out.write(f"   Solo team: {team.name}")
+        out.write("\n   Staging play URL (sign in first):")
+        out.write(f"     https://test.crush.lu/en/events/{hunt.event_id}/cache/play/")
+        out.write("\n   GPS-only stations on the official lake loop:")
+        for station in stations_data:
+            out.write(
+                f"     {station['order']}. {station['name']}: "
+                f"{station['lat']}, {station['lng']}"
+            )
+        if hunt.status == "draft":
+            out.write(
+                style.WARNING(
+                    "\n   Hunt is DRAFT. Rerun with --reset --live before the walk."
+                )
+            )
+        out.write("")
