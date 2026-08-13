@@ -247,17 +247,18 @@ document.addEventListener("alpine:init", function () {
                 this.reloading = true;
                 this.stopWatching();
                 this.arrivalCelebrating = true;
-                this.playGpsChime();
+                var soundDurationMs = this.playGpsChime() || 2200;
                 if (navigator.vibrate) {
                     try { navigator.vibrate([150, 100, 150]); } catch (e) {}
                 }
                 var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                var delayMs = reduce ? 1200 : Math.max(2200, Math.ceil(soundDurationMs + 300));
                 setTimeout(function () {
                     if (self.suspended) return;
                     window.location.reload();
-                }, reduce ? 1200 : 2200);
+                }, delayMs);
             },
 
             preloadAudio: function () {
@@ -272,8 +273,24 @@ document.addEventListener("alpine:init", function () {
                     var ctx = window._crushAudioCtx;
                     fetch("/static/crush_lu/audio/Crush-Love-Sound.mp3")
                         .then(function (res) { return res.arrayBuffer(); })
-                        .then(function (buf) { return ctx.decodeAudioData(buf); })
-                        .then(function (decoded) { window._crushMp3Buffer = decoded; })
+                        .then(function (buf) {
+                            var res = ctx.decodeAudioData(
+                                buf,
+                                function (decoded) {
+                                    window._crushMp3Buffer = decoded;
+                                },
+                                function () {
+                                    window._crushMp3Loading = false;
+                                }
+                            );
+                            if (res && typeof res.then === "function") {
+                                res.then(function (decoded) {
+                                    window._crushMp3Buffer = decoded;
+                                }).catch(function () {
+                                    window._crushMp3Loading = false;
+                                });
+                            }
+                        })
                         .catch(function () { window._crushMp3Loading = false; });
                 } catch (e) {
                     window._crushMp3Loading = false;
@@ -296,7 +313,7 @@ document.addEventListener("alpine:init", function () {
                         src.connect(gain);
                         gain.connect(ctx.destination);
                         src.start(0);
-                        return;
+                        return Math.ceil(src.buffer.duration * 1000);
                     }
                 } catch (e) {}
 
@@ -310,8 +327,10 @@ document.addEventListener("alpine:init", function () {
                             self.playSynthGpsChime();
                         });
                     }
+                    return 11500;
                 } catch (e) {
                     this.playSynthGpsChime();
+                    return 800;
                 }
             },
 
