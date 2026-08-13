@@ -56,12 +56,13 @@ immediately playable row) and reports them as a manifest for a coach to upload
 through the quiz authoring UI.
 """
 
-from crush_lu.quiz_packs import classic, media_love
+from crush_lu.quiz_packs import classic, media_love, mettwoch
 
 #: Registry of available packs: name -> list of round dicts.
 PACKS = {
     "classic": classic.QUIZ_ROUNDS,
     "media-love": media_love.QUIZ_ROUNDS,
+    "mettwoch": mettwoch.QUIZ_ROUNDS,
 }
 
 #: The pack used when none is named — preserves the original command behaviour.
