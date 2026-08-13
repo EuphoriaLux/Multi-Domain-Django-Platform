@@ -168,7 +168,7 @@ def is_late_cancellation(event, moment=None):
 # ---------------------------------------------------------------------------
 
 
-def inherited_expiry(registration):
+def inherited_expiry(payment):
     """The expiry a credit-funded seat's credit must keep when given back.
 
     Cancelling a seat that was bought with credit gives the credit back — it
@@ -179,15 +179,34 @@ def inherited_expiry(registration):
     into real revenue; an expiry that can be rolled forward indefinitely is no
     expiry at all.
 
+    ⚠️ Keyed on the **payment**, not on the registration, and that distinction
+    is the same one that made ``one_resale_credit_per_registration`` crash a
+    member-facing cancel. ``EventRegistration`` rows are reused across
+    re-registrations, so redemptions from a *previous* credit-funded booking of
+    the same event stay attached to the row forever. Reading them by
+    registration meant a later seat, paid for by CARD, inherited the expiry of
+    credit spent months earlier — frequently a date already in the past, so the
+    member's cancellation credit was issued dead on arrival. The redemptions
+    that belong to *this* purchase are the ones recorded on the CREDIT
+    transaction that paid for it, and nothing else.
+
     Returns the EARLIEST expiry among the credits actually spent on this seat
     (a seat can be paid from several), so the member is never better off for
-    having cycled it. ``None`` when no credit was spent — an ordinary card
-    payment gets an ordinary fresh six months.
+    having cycled it. ``None`` for a card payment — that gets an ordinary fresh
+    six months, which is right, because real money went in.
     """
-    earliest = CreditRedemption.objects.filter(
-        event_registration_id=registration.pk
-    ).aggregate(first=Min("credit__expires_at"))["first"]
-    return earliest
+    if payment is None or payment.provider != PaymentTransaction.Provider.CREDIT:
+        return None
+    credit_ids = [
+        entry.get("credit_id")
+        for entry in (payment.raw_response or {}).get("redemptions", [])
+        if isinstance(entry, dict) and entry.get("credit_id")
+    ]
+    if not credit_ids:
+        return None
+    return CrushCredit.objects.filter(id__in=credit_ids).aggregate(
+        first=Min("expires_at")
+    )["first"]
 
 
 def issue_credit(
@@ -309,7 +328,7 @@ def issue_cancellation_credit(registration, *, moment=None):
         payment=payment,
         # A seat bought with credit gives that credit back on its ORIGINAL
         # clock. Otherwise book-and-cancel is an unlimited expiry extension.
-        expires_at=inherited_expiry(registration),
+        expires_at=inherited_expiry(payment),
         note=(
             f"Cancelled more than "
             f"{getattr(settings, 'CRUSH_CREDIT_LATE_CANCELLATION_HOURS', DEFAULT_LATE_CANCELLATION_HOURS)}h "
@@ -377,7 +396,7 @@ def maybe_issue_resale_credit(cancelled_registration, promoted_registration):
             CrushCredit.Reason.SEAT_RESOLD,
             registration=cancelled_registration,
             payment=payment,
-            expires_at=inherited_expiry(cancelled_registration),
+            expires_at=inherited_expiry(payment),
             note=(
                 f"Seat released by a late cancellation was taken by registration "
                 f"{promoted_registration.pk} before the event started — "
@@ -481,7 +500,7 @@ def credit_paid_registrations_for_cancelled_event(event, *, note=""):
                 registration=registration,
                 payment=payment,
                 cash_refund_eligible=refundable,
-                expires_at=inherited_expiry(registration),
+                expires_at=inherited_expiry(payment),
                 note=note or f"Crush.lu cancelled {event}.",
             )
             if credit is not None:

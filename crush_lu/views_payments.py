@@ -178,6 +178,9 @@ def create_sumup_event_checkout(request, registration_id):
             )
 
         client = SumUpClient()
+        # Whether every older checkout is now provably dead. Gates the credit
+        # branch below -- see the comment there.
+        all_superseded = True
         for old in superseded:
             if client.deactivate_checkout(old.sumup_checkout_id):
                 # CANCELLED, not FAILED. Both are terminal and behave
@@ -214,6 +217,7 @@ def create_sumup_event_checkout(request, registration_id):
                 # captured payment permanently invisible to both the webhook and
                 # the browser return, leaving the member unpaid and chargeable
                 # again on the new checkout.
+                all_superseded = False
                 logger.warning(
                     "Could not deactivate SumUp checkout %s for registration %s "
                     "— left PENDING so reconciliation can still apply it",
@@ -241,11 +245,29 @@ def create_sumup_event_checkout(request, registration_id):
         # nothing real and costs partial captures, SumUp's minimum-charge
         # threshold and refunding a part of a capture.
         #
-        # Deliberately AFTER the supersede loop above. A member sitting on a
-        # stale PENDING checkout still holds a payable widget, and paying with
-        # credit must not leave that widget alive to take a card payment for a
-        # seat credit has already bought.
-        credit_tx = _pay_registration_with_credit(registration, amount)
+        # Deliberately AFTER the supersede loop above, and gated on it having
+        # WORKED. A member sitting on a stale PENDING checkout still holds a
+        # payable widget, and paying with credit must not leave that widget
+        # alive to take a card payment for a seat credit has already bought.
+        #
+        # ``deactivate_checkout`` returning False is not a nuisance case: it
+        # means SumUp was unreachable, or that the checkout could no longer be
+        # cancelled *because it had just been paid*. In the second case the
+        # webhook for it is at this moment blocked on the row lock this request
+        # holds. Spend credit here and the sequence completes as: seat
+        # confirmed against credit, lock released, webhook marks the card
+        # payment PAID — and the member has paid twice for one seat, in two
+        # currencies, with only one of them refundable.
+        #
+        # So when anything failed to deactivate, fall through to the card path.
+        # That path is no worse than it is today, and it leaves the member's
+        # balance untouched, which is the half that cannot be put right by
+        # reconciliation afterwards.
+        credit_tx = (
+            _pay_registration_with_credit(registration, amount)
+            if all_superseded
+            else None
+        )
         if credit_tx is not None:
             destination = reverse(
                 "crush_lu:event_detail", kwargs={"event_id": registration.event_id}

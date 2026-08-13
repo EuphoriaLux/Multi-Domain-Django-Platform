@@ -21,6 +21,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django import forms
 from django.contrib import admin, messages
+from django.db import transaction
 from django.db.models import IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
@@ -265,22 +266,33 @@ class CrushCreditAdmin(admin.ModelAdmin):
         stake: a credit already partly redeemed has value that has left the
         ledger and cannot be taken back by a status flip, so those are refused
         outright rather than half-withdrawn. Redemptions are never deleted.
+
+        ⚠️ Each credit is locked before it is inspected, and the check and the
+        void happen under that one lock. Staff run this action *after* sending
+        the cash refund, so a checkout redeeming the credit between an unlocked
+        "has it been spent?" read and the save would leave the member holding
+        the refunded cash AND a seat they bought with credit that was voided
+        out from under the ledger a moment later. ``CrushCredit`` is the last
+        lock taken anywhere (see ``services/credits``), so taking it here on
+        its own cannot close a cycle.
         """
         voided = spent = skipped = 0
-        for credit in queryset:
-            if credit.status != CrushCredit.Status.ACTIVE:
-                skipped += 1
-                continue
-            if credit.redeemed_cents:
-                spent += 1
-                continue
-            credit.status = CrushCredit.Status.VOID
-            credit.note = (
-                f"{credit.note}\n— voided by {request.user.email or request.user}: "
-                "settled in cash instead."
-            ).strip()
-            credit.save(update_fields=["status", "note"])
-            voided += 1
+        for pk in list(queryset.values_list("pk", flat=True)):
+            with transaction.atomic():
+                credit = CrushCredit.objects.select_for_update().get(pk=pk)
+                if credit.status != CrushCredit.Status.ACTIVE:
+                    skipped += 1
+                    continue
+                if credit.redeemed_cents:
+                    spent += 1
+                    continue
+                credit.status = CrushCredit.Status.VOID
+                credit.note = (
+                    f"{credit.note}\n— voided by "
+                    f"{request.user.email or request.user}: settled in cash instead."
+                ).strip()
+                credit.save(update_fields=["status", "note"])
+                voided += 1
 
         if voided:
             self.message_user(
@@ -425,15 +437,27 @@ def issue_goodwill_credit(modeladmin, request, queryset):
             )
             note = form.cleaned_data["reason"].strip()
             issued = 0
-            for user in users:
-                credit = issue_credit(
-                    user,
-                    amount_cents,
-                    CrushCredit.Reason.GOODWILL,
-                    note=f"{note}\n— issued by {request.user.email or request.user}",
-                )
-                if credit is not None:
-                    issued += 1
+            # One transaction for the whole selection. Each issue_credit opens
+            # its own atomic block, so without this a failure part-way through
+            # — a member deleted concurrently, anything — would leave the
+            # earlier members credited while the action reported an error and
+            # named nobody. The obvious response to that error is to re-run the
+            # same selection, which would pay those earlier members twice.
+            # All-or-nothing makes the retry safe, which is the property that
+            # actually matters here.
+            with transaction.atomic():
+                for user in users:
+                    credit = issue_credit(
+                        user,
+                        amount_cents,
+                        CrushCredit.Reason.GOODWILL,
+                        note=(
+                            f"{note}\n— issued by "
+                            f"{request.user.email or request.user}"
+                        ),
+                    )
+                    if credit is not None:
+                        issued += 1
             modeladmin.message_user(
                 request,
                 f"Issued {amount_cents / 100:.2f} EUR of Crush Credit to "

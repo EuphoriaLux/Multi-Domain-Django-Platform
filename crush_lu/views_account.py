@@ -267,6 +267,47 @@ def delete_crushlu_profile_only(user):
     # Delete ProfileSubmissions (in case profile was deleted manually)
     ProfileSubmission.objects.filter(profile__user=user).delete()
 
+    # Close out any Crush Credit BEFORE the registrations go.
+    #
+    # Credit hangs off User, not CrushProfile, so nothing here cascades it: a
+    # member with a balance would leave it sitting `active` in the ledger on an
+    # account that is now permanently banned from creating a Crush profile and
+    # can never reach an event checkout to spend it. That is worse than either
+    # honest outcome — the ledger would keep reporting a live liability that
+    # cannot be discharged, and any "outstanding credit" figure read off it
+    # would be wrong.
+    #
+    # Voided rather than deleted, with the reason on the row: this is an
+    # append-only ledger, and "the holder deleted their account" is exactly the
+    # kind of thing it exists to still be able to answer a year later. Credit
+    # is non-transferable and never convertible to cash (policy §7.3), and the
+    # deletion is member-initiated, so forfeiture is the defensible reading —
+    # but it is a POLICY choice, and this is the one place to change it if
+    # Crush.lu would rather pay out first.
+    #
+    # Ordered before the registration delete only for tidiness of the log line;
+    # CreditRedemption is SET_NULL on registration, so the spend history
+    # survives either way.
+    from crush_lu.models.credits import CrushCredit
+
+    forfeited = CrushCredit.objects.filter(
+        user=user, status=CrushCredit.Status.ACTIVE
+    )
+    forfeited_count = forfeited.count()
+    if forfeited_count:
+        for credit in forfeited:
+            credit.status = CrushCredit.Status.VOID
+            credit.note = (
+                f"{credit.note}\n— voided on Crush.lu account deletion "
+                f"({timezone.now():%Y-%m-%d})."
+            ).strip()
+            credit.save(update_fields=["status", "note"])
+        logger.info(
+            "Voided %s active Crush Credit row(s) for deleted user %s",
+            forfeited_count,
+            user.id,
+        )
+
     # Delete EventRegistrations
     EventRegistration.objects.filter(user=user).delete()
 
@@ -1283,6 +1324,53 @@ def export_user_data(request):
                 "registered_at": reg.created_at.isoformat() if hasattr(reg, "created_at") and reg.created_at else None,
             }
             for reg in registrations
+        ]
+
+    # Crush Credit
+    #
+    # This endpoint promises "all of your personal data", and a credit ledger
+    # is both personal data and money owed — arguably the single entry a member
+    # is most likely to want a record of. Every field is included except the
+    # staff ``note``: that is an internal free-text field where a coach writes
+    # why goodwill was given, it can name other people and other incidents, and
+    # portability of the member's own data does not extend to it.
+    #
+    # Redemptions are nested under the credit they came off rather than listed
+    # separately, because "what happened to my €20" is only answerable in that
+    # shape. The seat is named where it still exists; a redemption outlives a
+    # deleted registration (SET_NULL), and reads "deleted event registration".
+    from crush_lu.models.credits import CrushCredit
+
+    credits = (
+        CrushCredit.objects.filter(user=user)
+        .prefetch_related("redemptions__event_registration__event")
+        .order_by("issued_at")
+    )
+    if credits.exists():
+        data["crush_credit"] = [
+            {
+                "amount": f"{credit.amount_cents / 100:.2f}",
+                "currency": credit.currency,
+                "reason": credit.get_reason_display(),
+                "status": credit.get_status_display(),
+                "issued_at": credit.issued_at.isoformat(),
+                "expires_at": credit.expires_at.isoformat(),
+                "remaining": f"{credit.remaining_cents / 100:.2f}",
+                "cash_refund_available_on_request": credit.cash_refund_eligible,
+                "spent_on": [
+                    {
+                        "amount": f"{redemption.amount_cents / 100:.2f}",
+                        "redeemed_at": redemption.redeemed_at.isoformat(),
+                        "event": (
+                            redemption.event_registration.event.title
+                            if redemption.event_registration
+                            else "deleted event registration"
+                        ),
+                    }
+                    for redemption in credit.redemptions.all()
+                ],
+            }
+            for credit in credits
         ]
 
     # Connections

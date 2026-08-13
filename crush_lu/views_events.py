@@ -1298,6 +1298,31 @@ def event_cancel(request, event_id):
                 messages.info(request, _("Your registration was already cancelled."))
                 return redirect("crush_lu:dashboard")
 
+            # Crush.lu has cancelled this event, so there is nothing for the
+            # member to cancel and a great deal for them to lose by trying.
+            #
+            # The organiser-cancellation remedy is a PREMIUM credit plus cash
+            # on request; the member-cancellation remedy is face value at best
+            # and nothing at all inside 48h. Letting this path run turns the
+            # first into the second. The window is real: the admin action
+            # commits `is_cancelled` and then does the echo.lu withdrawal and
+            # the Apple/Google wallet refreshes — network fan-out, seconds of
+            # it — before the credit sweep reaches this member, and the sweep
+            # skips rows that have gone `cancelled` in the meantime. A member
+            # reading the cancellation email and clicking "cancel my place"
+            # lands exactly there.
+            if locked_event.is_cancelled:
+                messages.info(
+                    request,
+                    _(
+                        "This event has been cancelled — you don't need to do "
+                        "anything. Your Crush Credit is on its way, and you can "
+                        "reply to the cancellation email if you would rather "
+                        "have your money back."
+                    ),
+                )
+                return redirect("crush_lu:event_detail", event_id=event_id)
+
             now = timezone.now()
             if registration.status == "attended" or locked_event.end_time <= now:
                 messages.error(
