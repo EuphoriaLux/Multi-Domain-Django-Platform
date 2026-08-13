@@ -14,7 +14,13 @@ The debug presets create a `crush_cache` MeetupEvent + CacheHunt with landmark
 stations, challenges and demo users. `echternach_lake` instead reuses one
 explicitly named account, creates no credentials, stays unpublished, and is
 permitted only locally or in the Azure staging slot — a preset sets
-`solo_prototype` to opt into that shape.
+`solo_prototype` to opt into that shape permanently.
+
+Passing --player-email puts ANY preset on that same solo path for one run, so
+a hunt written for local QA can be field-tested on staging without seeding the
+debug accounts and published event it would create locally. That matters
+because the debug path creates a STAFF account on a shared password: never
+run a preset on staging without --player-email.
 
 By default the command refuses to run on Azure (WEBSITE_HOSTNAME set) or when
 DEBUG is False. `--force` permits the Echternach prototype on staging, while
@@ -722,8 +728,26 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         preset = PRESETS[options["preset"]]
-        if preset["solo_prototype"]:
+        # Passing --player-email puts ANY preset on the solo path, so a hunt
+        # written for local QA can be field-tested on staging without seeding
+        # the debug accounts and published event it would create locally.
+        # solo_prototype presets have no other path — they always require it.
+        use_solo_path = preset["solo_prototype"] or bool(options.get("player_email"))
+        if use_solo_path:
             self._validate_prototype_environment(options)
+            preset = self._solo_safe(preset)
+
+        # The debug path creates debug_cache_coach@crush.lu as STAFF on a
+        # shared password and publishes the event into the public catalogue.
+        # That is fine on a laptop and never fine on an Azure slot, and
+        # --force must not buy its way past it: the solo path is right there.
+        if not use_solo_path and "WEBSITE_HOSTNAME" in os.environ:
+            raise CommandError(
+                f"'{options['preset']}' would create shared-password debug "
+                "accounts (including a staff account) and a published event. "
+                "Refusing to do that on Azure — pass --player-email <existing "
+                "account> to seed it as a private solo hunt instead."
+            )
 
         force = options["force"]
         if not force:
@@ -761,7 +785,7 @@ class Command(BaseCommand):
                 f"Deleted the previous debug Crush Cache event '{event_title}'."
             )
 
-        if preset["solo_prototype"]:
+        if use_solo_path:
             player = self._get_existing_player(options["player_email"])
             # One transaction, so a malformed preset cannot leave a half-built
             # event behind that the next run would refuse to overwrite.
@@ -794,6 +818,22 @@ class Command(BaseCommand):
                 hunt.save(update_fields=["status", "started_at"])
 
         self._report(hunt, team, players, preset)
+
+    def _solo_safe(self, preset):
+        """The shape the solo path guarantees, whatever the preset asked for.
+
+        This is the safety contract that makes a preset runnable on staging:
+        nothing published into the public catalogue, and one seat so a leaked
+        join code cannot pull anyone else in. Credential handling is the other
+        half and lives in the seeding path — the solo path never creates an
+        account, sets a password, or verifies an email.
+        """
+        return {
+            **preset,
+            "is_published": False,
+            "team_size_max": 1,
+            "allow_self_join": False,
+        }
 
     def _validate_prototype_environment(self, options):
         # Named from the chosen preset, not hardcoded: any preset can set
@@ -1028,12 +1068,22 @@ class Command(BaseCommand):
         out.write(f"   Solo team: {team.name}")
         out.write("\n   Staging play URL (sign in first):")
         out.write(f"     https://test.crush.lu/en/events/{hunt.event_id}/cache/play/")
-        out.write("\n   GPS-only stations on the official lake loop:")
-        for station in preset["stations"]:
-            out.write(
-                f"     {station['order']}. {station['name']}: "
-                f"{station['lat']}, {station['lng']}"
-            )
+        out.write("\n   Coach dashboard (you created the hunt, so you can watch it):")
+        out.write(f"     https://test.crush.lu/en/events/{hunt.event_id}/cache/coach/")
+        needs_qr = any(s.requires_qr for s in hunt.ordered_stations())
+        if needs_qr:
+            # This preset expects a Crush Statue at each stop. Without printed
+            # stickers the manual code is the only way past the scan, so it
+            # belongs in the report you carry to the lake.
+            out.write("\n   Stations (scan the statue, or type the manual code):")
+            self._write_station_lines(hunt, preset)
+        else:
+            out.write("\n   GPS-only stations on the official lake loop:")
+            for station in preset["stations"]:
+                out.write(
+                    f"     {station['order']}. {station['name']}: "
+                    f"{station['lat']}, {station['lng']}"
+                )
         if preset["coords_note"]:
             out.write(style.WARNING(f"\n   ⚠ {preset['coords_note']}"))
         if hunt.status == "draft":
