@@ -346,21 +346,30 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // E Major triad arpeggio: E5 (659.25Hz), G#5 (830.61Hz), B5 (987.77Hz)
-                    var notes = [659.25, 830.61, 987.77];
+                    // Romantic C Major 7th "Heartbeat Arrival" Arpeggio: C4, G4, B4, E5, G5
+                    var notes = [261.63, 392.00, 493.88, 659.25, 783.99];
                     notes.forEach(function (freq, idx) {
-                        var o = ctx.createOscillator();
+                        var o1 = ctx.createOscillator();
+                        var o2 = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var t = now + (idx * 0.12);
-                        o.type = "sine";
-                        o.frequency.setValueAtTime(freq, t);
-                        g.gain.setValueAtTime(0.4, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-                        o.connect(g);
+                        var t = now + (idx * 0.11);
+                        o1.type = "sine";
+                        o2.type = "triangle";
+                        o1.frequency.setValueAtTime(freq, t);
+                        o2.frequency.setValueAtTime(freq * 1.004, t); // Warm 7-cent detune for romantic shimmer
+                        g.gain.setValueAtTime(0.3, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+                        o1.connect(g);
+                        o2.connect(g);
                         g.connect(ctx.destination);
-                        o.start(t);
-                        o.stop(t + 0.5);
+                        o1.start(t);
+                        o2.start(t);
+                        o1.stop(t + 0.6);
+                        o2.stop(t + 0.6);
                     });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([100, 90, 180]); } catch (e) {}
+                    }
                 } catch (e) {}
             },
 
@@ -376,21 +385,63 @@ document.addEventListener("alpine:init", function () {
                         ctx.resume();
                     }
                     var now = ctx.currentTime;
-                    // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
-                    var freqs = [523.25, 659.25, 783.99, 1046.50];
+                    // Romantic F Major 9th "Cupid's Spark" Harp Strum: F4, A4, C5, E5, G5, C6
+                    var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 1046.50];
                     freqs.forEach(function (f, idx) {
                         var o = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var t = now + (idx * 0.08);
-                        o.type = "triangle";
+                        var t = now + (idx * 0.07);
+                        o.type = "sine";
                         o.frequency.setValueAtTime(f, t);
                         g.gain.setValueAtTime(0.35, t);
-                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
                         o.connect(g);
                         g.connect(ctx.destination);
                         o.start(t);
-                        o.stop(t + 0.4);
+                        o.stop(t + 0.5);
                     });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([70, 50, 140]); } catch (e) {}
+                    }
+                } catch (e) {}
+            },
+
+            playSynthVictorySound: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    if (ctx.state === "suspended") {
+                        ctx.resume();
+                    }
+                    var now = ctx.currentTime;
+                    // Triumphant A Major 7th "Love Match Victory" Fanfare: A3, E4, A4, C#5, E5, G#5, A5
+                    var chord = [220.00, 329.63, 440.00, 554.37, 659.25, 830.61, 880.00];
+                    chord.forEach(function (f, idx) {
+                        var o1 = ctx.createOscillator();
+                        var o2 = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        var t = now + (idx * 0.09);
+                        o1.type = "sine";
+                        o2.type = "triangle";
+                        o1.frequency.setValueAtTime(f, t);
+                        o2.frequency.setValueAtTime(f * 1.003, t);
+                        g.gain.setValueAtTime(0.28, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+                        o1.connect(g);
+                        o2.connect(g);
+                        g.connect(ctx.destination);
+                        o1.start(t);
+                        o2.start(t);
+                        o1.stop(t + 0.8);
+                        o2.stop(t + 0.8);
+                    });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([120, 80, 120, 80, 260]); } catch (e) {}
+                    }
                 } catch (e) {}
             },
 
