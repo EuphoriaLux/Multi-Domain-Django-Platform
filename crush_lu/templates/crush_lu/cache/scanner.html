@@ -135,20 +135,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.resume();
             }
             var now = ctx.currentTime;
-            // Romantic F Major 9th "Cupid's Spark" Harp Strum: F4, A4, C5, E5, G5, C6
+            // Romantic F Major 9th "Cupid's Strum" Harp Sweep: F4, A4, C5, E5, G5, C6
             var freqs = [349.23, 440.00, 523.25, 659.25, 783.99, 1046.50];
             freqs.forEach(function(f, idx) {
-                var o = ctx.createOscillator();
+                var o1 = ctx.createOscillator();
+                var o2 = ctx.createOscillator();
                 var g = ctx.createGain();
-                var t = now + (idx * 0.07);
-                o.type = "sine";
-                o.frequency.setValueAtTime(f, t);
-                g.gain.setValueAtTime(0.35, t);
-                g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-                o.connect(g);
-                g.connect(ctx.destination);
-                o.start(t);
-                o.stop(t + 0.5);
+                var p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+                var t = now + (idx * 0.065);
+                o1.type = "sine";
+                o2.type = "sine";
+                o1.frequency.setValueAtTime(f, t);
+                o2.frequency.setValueAtTime(f * 1.005, t);
+                g.gain.setValueAtTime(0.32, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+                o1.connect(g);
+                o2.connect(g);
+                if (p) {
+                    var pan = (idx / (freqs.length - 1) - 0.5) * 0.6;
+                    p.pan.setValueAtTime(pan, t);
+                    g.connect(p);
+                    p.connect(ctx.destination);
+                } else {
+                    g.connect(ctx.destination);
+                }
+                o1.start(t);
+                o2.start(t);
+                o1.stop(t + 0.6);
+                o2.stop(t + 0.6);
             });
             if (navigator.vibrate) {
                 try { navigator.vibrate([70, 50, 140]); } catch (e) {}
