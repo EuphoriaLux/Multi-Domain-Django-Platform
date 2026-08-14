@@ -940,6 +940,27 @@ ECHO_LU_FALLBACK_IMAGE = os.environ.get("ECHO_LU_FALLBACK_IMAGE", "")
 # slugs, layered on top of ECHO_LU_DEFAULT_CATEGORIES. Example:
 #   {"speed_dating": ["rencontres"], "quiz_night": ["jeux"]}
 ECHO_LU_CATEGORY_MAP = os.environ.get("ECHO_LU_CATEGORY_MAP", "")
+# Optional promo video attached to every synced listing.
+#
+# echo.lu's `videos` field is an EMBED, not a file it re-hosts the way
+# `pictures` are — it takes {"type": youtube|vimeo|other, "url": ...}. Probed
+# against the live API on 2026-08-15: `other` with a direct .mp4 URL is
+# accepted and stored, so a file on cdn.crush.lu works; so does a YouTube watch
+# URL. Which one is right is an operational choice, hence a setting rather than
+# a constant.
+#
+# Empty URL means no video is sent — and, because the key always travels,
+# clearing this setting actively retracts the video from listings that already
+# carry one. `videos: []` is accepted (200); see services.echo_lu.
+ECHO_LU_VIDEO_URL = os.environ.get("ECHO_LU_VIDEO_URL", "")
+# One of youtube / vimeo / other. An unknown value is dropped locally with a
+# warning rather than sent: echo.lu answers an unrecognised type with
+# `400 Malformed videos data` and refuses the WHOLE experience, so a typo here
+# would stop every event syncing, not merely omit the video.
+ECHO_LU_VIDEO_TYPE = os.environ.get("ECHO_LU_VIDEO_TYPE", "other")
+# Optional caption shown with the video. echo.lu stores this; it silently drops
+# the `cover` field, so there is no poster-image setting to go with it.
+ECHO_LU_VIDEO_DESCRIPTION = os.environ.get("ECHO_LU_VIDEO_DESCRIPTION", "")
 
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
