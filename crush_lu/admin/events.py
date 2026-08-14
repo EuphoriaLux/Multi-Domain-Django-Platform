@@ -16,6 +16,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -33,6 +34,7 @@ from crush_lu.models import (
     PresentationQueue,
 )
 from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+from crush_lu.models.payments import PaymentTransaction
 
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
@@ -462,6 +464,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_voting_status",
         "get_presentation_status",
         "get_echo_lu_detail",
+        # Event cancellation has money and notification side effects. It must
+        # go through the canonical action below, never a bare form save.
+        "is_cancelled",
     )
     inlines = [
         QuizEventInline,
@@ -474,7 +479,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "publish_events",
         "unpublish_events",
         "cancel_events",
-        "cancel_events_and_credit",
         "send_event_reminders",
         "export_attendees_csv",
         "sync_to_echo_lu",
@@ -690,10 +694,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     get_event_languages.short_description = _("Languages")
 
     def get_revenue(self, obj):
-        """Calculate total revenue from confirmed payments"""
-        confirmed = obj.eventregistration_set.filter(payment_confirmed=True).count()
-        revenue = confirmed * obj.registration_fee
-        return f"€{revenue:.2f} ({confirmed} paid)"
+        """Actual captured card revenue; credit is not new cash income."""
+        payments = PaymentTransaction.objects.filter(
+            event_registration__event=obj,
+            provider=PaymentTransaction.Provider.SUMUP,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        )
+        totals = payments.aggregate(total=Sum("amount"), count=Count("id"))
+        return f"€{(totals['total'] or 0):.2f} ({totals['count']} paid)"
 
     get_revenue.short_description = _("💰 Revenue")
 
@@ -1208,83 +1217,44 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             request, _("Cancelled {count} event(s)").format(count=updated)
         )
 
-        # This action does NOT issue credit, and it stays that way: a free
-        # event, or a duplicate created by mistake, is cancelled with nothing
-        # owed to anybody. But it is the older, more familiar action sitting
-        # directly above the one that does compensate, and cancelling a paid
-        # event from here leaves members holding a captured payment for an
-        # evening that will not happen, with nothing scheduled to notice.
-        # Cheaper to say so here than to discover it in an inbox.
-        owed = EventRegistration.objects.filter(
-            event__in=event_ids, payment_confirmed=True
-        ).exclude(status="cancelled")
-        if owed.exists():
-            django_messages.warning(
-                request,
-                _(
-                    "{count} paid registration(s) in that selection have NOT "
-                    "been compensated — this action only cancels. Use "
-                    "“Cancel selected events AND credit paid seats”, or issue "
-                    "the credit by hand."
-                ).format(count=owed.count()),
-            )
-
-    @admin.action(description=_("💳 Cancel selected events AND credit paid seats"))
-    def cancel_events_and_credit(self, request, queryset):
-        """Cancel the events and give every paid seat its Crush Credit.
-
-        The credit is issued at a **premium** over the ticket price (§4.3):
-        €20 against a €15.50 seat. It costs one marginal seat, converts a legal
-        obligation into goodwill, and makes credit the obviously better choice
-        for the member — which is how the cash is kept without refusing anyone.
-
-        Each credit is also flagged ``cash_refund_eligible``, and that half is
-        not optional. When the **organiser** cancels, Luxembourg consumer
-        guidance entitles the member to a full refund of what they paid, and a
-        voucher is not a substitute. The flag is the queue a human works from;
-        the refunds themselves are still made by hand in the SumUp dashboard.
-
-        ``cancel_events`` runs FIRST and the credit follows, which matters for
-        two independent reasons.
-
-        **The event has to be shut before the money moves.** ``issue_credit``
-        clears ``payment_confirmed``, and while the event is still live a
-        member holding freshly issued credit can re-open checkout and spend it
-        straight back into the seat that is about to be cancelled — and the
-        issuing loop, already past them, would never see that new payment.
-        ``create_sumup_event_checkout`` refuses a cancelled event, so cancelling
-        first closes the window rather than racing it.
-
-        **Lock order.** Crediting takes ``EventRegistration`` locks and
-        ``cancel_events`` takes ``MeetupEvent`` locks. ``event_cancel`` takes
-        them the other way round — ``MeetupEvent`` then ``EventRegistration`` —
-        so holding both at once here, in either order, would be an ABBA against
-        any member cancelling at that moment. Running them as two sequential
-        transactions means neither ever holds both.
-
-        Delegating the cancellation rather than re-implementing it is also
-        deliberate: ``cancel_events`` carries the echo.lu withdrawal and the
-        Apple/Google wallet refreshes, and a cancelled event left advertising
-        itself on the national portal is a documented incident.
-        """
+        # Cancellation is one operation: stop the event, compensate every paid
+        # registration, then tell each affected member what was issued and how
+        # to request cash when a SumUp capture exists. Free events naturally
+        # produce an empty issue list.
+        from crush_lu.email_helpers import send_event_cancelled_by_organiser
         from crush_lu.services.credits import (
             credit_paid_registrations_for_cancelled_event,
         )
 
-        events = list(queryset)
-        self.cancel_events(request, queryset)
-
         credited = 0
         for event in events:
             try:
-                credited += len(
-                    credit_paid_registrations_for_cancelled_event(event)
-                )
+                issued = credit_paid_registrations_for_cancelled_event(event)
+                by_registration = {}
+                for credit in issued:
+                    by_registration.setdefault(credit.source_registration, []).append(
+                        credit
+                    )
+                credited += len(by_registration)
+                for registration, credits in by_registration.items():
+                    try:
+                        send_event_cancelled_by_organiser(
+                            registration, credits, request
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed sending organiser cancellation email for "
+                            "registration %s",
+                            registration.pk,
+                        )
+                        django_messages.error(
+                            request,
+                            _(
+                                "Credit was issued to {email}, but the "
+                                "cancellation email failed. Contact them by hand."
+                            ).format(email=registration.user.email),
+                        )
             except Exception:
-                # The event is already cancelled by this point, which is the
-                # half that must not be left undone — an event that stays live
-                # keeps selling seats to an evening that is not happening. A
-                # failed ledger write is recoverable by hand; say so loudly.
                 logger.exception(
                     "Failed issuing cancellation credit for event %s", event.pk
                 )
@@ -1300,11 +1270,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         django_messages.success(
             request,
             _(
-                "Issued Crush Credit to {count} paid registration(s). Those "
-                "paid by card are flagged as eligible for a cash refund on "
-                "request — see the Crush Credits list."
+                "Issued Crush Credit to {count} paid registration(s). Card "
+                "payments remain eligible for a cash refund on request."
             ).format(count=credited),
         )
+
+    @admin.action(description=_("💳 Cancel selected events AND credit paid seats"))
+    def cancel_events_and_credit(self, request, queryset):
+        """Backward-compatible alias; the canonical action now always credits."""
+        return self.cancel_events(request, queryset)
 
     @admin.action(description=_("🔔 Send reminders to confirmed attendees"))
     def send_event_reminders(self, request, queryset):
@@ -1507,8 +1481,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # The form each row came from, so a collision is reported against
         # exactly the fields the admin submitted and no others.
         forms_by_instance = {
-            id(saved.instance): saved
-            for saved in getattr(formset, "saved_forms", [])
+            id(saved.instance): saved for saved in getattr(formset, "saved_forms", [])
         }
 
         skipped = []

@@ -18,7 +18,7 @@ import logging
 import traceback
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
-logger = logging.getLogger(__name__)
+from crush_lu.models.payments import PaymentTransaction
 
 from .models import (
     CrushProfile,
@@ -43,6 +43,8 @@ from .models import (
     CallAttempt,
     EventFeedback,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def export_pre_screening_csv(request):
@@ -473,9 +475,11 @@ def crush_admin_dashboard(request):
 
     # Revenue metrics
     total_revenue = (
-        EventRegistration.objects.filter(payment_confirmed=True).aggregate(
-            total=Sum(F("event__registration_fee"))
-        )["total"]
+        PaymentTransaction.objects.filter(
+            provider=PaymentTransaction.Provider.SUMUP,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        ).aggregate(total=Sum("amount"))["total"]
         or 0
     )
 
@@ -527,9 +531,7 @@ def crush_admin_dashboard(request):
 
     # Average capacity fill rate across past events
     capacity_stats = (
-        MeetupEvent.objects.filter(
-            date_time__lt=timezone.now(), max_participants__gt=0
-        )
+        MeetupEvent.objects.filter(date_time__lt=timezone.now(), max_participants__gt=0)
         .annotate(
             fill_confirmed=Count(
                 "eventregistration",

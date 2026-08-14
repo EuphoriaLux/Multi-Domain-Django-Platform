@@ -55,7 +55,12 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         CrushConnectMembership,
         CrushConnectWaitlist,
     )
-    from crush_lu.models.events import SEAT_HOLDING_STATUSES, EventRegistration, MeetupEvent
+    from crush_lu.models.events import (
+        SEAT_HOLDING_STATUSES,
+        EventRegistration,
+        MeetupEvent,
+    )
+    from crush_lu.models.payments import PaymentTransaction
     from crush_lu.models.profiles import (
         DailyUserActivity,
         PremiumMembership,
@@ -177,8 +182,16 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         "waitlist_total": CrushConnectWaitlist.objects.filter(
             joined_at__date__lte=week_end
         ).count(),
+        # Count captured card payments, not the mutable seat entitlement.
+        # Issuing cancellation credit clears EventRegistration.payment_* and
+        # a credit redemption creates a paid seat without new cash revenue.
         "paid_event_registrations": in_week(
-            EventRegistration.objects.filter(payment_confirmed=True), "payment_date"
+            PaymentTransaction.objects.filter(
+                provider=PaymentTransaction.Provider.SUMUP,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PAID,
+            ),
+            "updated_at",
         ).count(),
     }
 

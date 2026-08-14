@@ -76,7 +76,10 @@ class PaymentTransaction(models.Model):
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        # A captured payment is a financial record. Do not let a hard User
+        # delete erase it; profile-only deletion/anonymisation is the supported
+        # member flow.
+        on_delete=models.PROTECT,
         related_name="payment_transactions",
         null=True,
         blank=True,

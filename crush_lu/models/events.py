@@ -989,6 +989,25 @@ class EventRegistration(models.Model):
     payment_confirmed = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
 
+    # A waitlist promotion is only a *candidate* resale until the replacement
+    # actually pays. These links keep that obligation durable across the
+    # redirect/webhook boundary. They are cleared when payment settles or when
+    # this reusable registration row starts a fresh registration cycle.
+    resale_source_registration = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resale_replacements",
+    )
+    resale_source_payment = models.ForeignKey(
+        "crush_lu.PaymentTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resale_replacements",
+    )
+
     # QR Check-in
     checkin_token = models.CharField(
         max_length=128,

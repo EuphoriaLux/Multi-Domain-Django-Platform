@@ -62,7 +62,10 @@
                     {% include "crush_lu/components/event_lobby_cta.html" with cta=entry.lobby_cta event=entry.event %}
                     <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="btn-crush-solid flex-1 text-center py-2">{% trans "Details" %}</a>
                     {% if entry.is_pending_payment %}
-                    <button data-sumup-reg-id="{{ entry.registration.id }}" class="js-sumup-checkout inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-sm font-bold shadow transition-all cursor-pointer">
+                    <button data-sumup-reg-id="{{ entry.registration.id }}" data-payment-method="credit" class="js-sumup-checkout btn-crush-solid px-3 py-2 text-sm">
+                        <span>{% trans "Pay with Crush Credit" %}</span>
+                    </button>
+                    <button data-sumup-reg-id="{{ entry.registration.id }}" data-payment-method="card" class="js-sumup-checkout inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-sm font-bold shadow transition-all cursor-pointer">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
@@ -173,13 +176,14 @@
         return input ? input.value : '';
     }
 
-    function startSumUpCheckout(registrationId) {
+    function startSumUpCheckout(registrationId, paymentMethod) {
         fetch('/payments/sumup/create-event-checkout/' + registrationId + '/', {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCsrfToken(),
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({payment_method: paymentMethod})
         })
         .then(res => res.json().catch(() => {
             throw new Error('HTTP ' + res.status);
@@ -201,11 +205,11 @@
         const btn = e.target.closest('.js-sumup-checkout');
         if (btn) {
             const regId = btn.getAttribute('data-sumup-reg-id');
+            const paymentMethod = btn.getAttribute('data-payment-method') || 'card';
             if (regId) {
-                startSumUpCheckout(regId);
+                startSumUpCheckout(regId, paymentMethod);
             }
         }
     });
 </script>
 {% endblock %}
-

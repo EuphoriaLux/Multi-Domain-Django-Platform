@@ -77,7 +77,12 @@ class CrushCredit(models.Model):
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        # Financial ledgers must outlive an accidental hard-delete. The
+        # product-level Crush profile deletion flow already voids active
+        # credit without deleting the auth user; a true User deletion now
+        # requires an explicit retention/anonymisation decision instead of
+        # silently erasing issued value.
+        on_delete=models.PROTECT,
         related_name="crush_credits",
         db_index=True,
         help_text=_("The member who holds this credit. Non-transferable."),
@@ -109,6 +114,17 @@ class CrushCredit(models.Model):
         blank=True,
         related_name="issued_credits",
         help_text=_("The captured payment this credit gives back, where known."),
+    )
+    restored_from_credit = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="restoration_credits",
+        help_text=_(
+            "The original funding tranche restored by this issue. Its expiry "
+            "is preserved so booking and cancelling cannot extend credit."
+        ),
     )
     status = models.CharField(
         max_length=16,
@@ -169,9 +185,26 @@ class CrushCredit(models.Model):
             # no path here can 500 a member trying to cancel.
             models.UniqueConstraint(
                 fields=["source_registration", "source_payment", "reason"],
-                condition=models.Q(reason="seat_resold"),
+                condition=models.Q(
+                    reason="seat_resold", restored_from_credit__isnull=True
+                ),
                 name="one_resale_credit_per_payment",
             ),
+            models.UniqueConstraint(
+                fields=[
+                    "source_registration",
+                    "source_payment",
+                    "reason",
+                    "restored_from_credit",
+                ],
+                condition=models.Q(
+                    reason="seat_resold", restored_from_credit__isnull=False
+                ),
+                name="one_resale_restore_per_tranche",
+            ),
+        ]
+        permissions = [
+            ("void_crushcredit", "Can void Crush Credit"),
         ]
 
     def __str__(self):

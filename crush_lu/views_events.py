@@ -9,8 +9,6 @@ from datetime import timedelta
 import json
 import logging
 
-logger = logging.getLogger(__name__)
-
 from .models import (
     CrushProfile,
     MeetupEvent,
@@ -22,8 +20,9 @@ from .models.event_polls import EventPoll
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.credits import (
-    issue_cancellation_credit,
-    maybe_issue_resale_credit,
+    issue_cancellation_credits,
+    paid_amount_cents,
+    settle_pending_resale_credit,
 )
 from .email_helpers import (
     send_event_payment_pending_notification,
@@ -31,6 +30,8 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _admitted_status(event, registration=None):
@@ -55,7 +56,7 @@ def _admitted_status(event, registration=None):
     return "pending" if event.registration_fee > 0 else "confirmed"
 
 
-def _promote_from_waitlist(event, cancelled_user=None):
+def _promote_from_waitlist(event, cancelled_user=None, resale_source_registration=None):
     """
     Promote the best waitlisted candidate to confirmed.
 
@@ -102,14 +103,32 @@ def _promote_from_waitlist(event, cancelled_user=None):
         profile = profiles_by_user.get(reg.user_id)
         return bool(profile and profile.assigned_coach_id)
 
+    def _promote(candidate):
+        candidate.status = _admitted_status(event, candidate)
+        candidate.resale_source_registration = None
+        candidate.resale_source_payment = None
+        if (
+            resale_source_registration is not None
+            and resale_source_registration.status == "cancelled"
+            and resale_source_registration.payment_confirmed
+        ):
+            _amount, source_payment = paid_amount_cents(resale_source_registration)
+            candidate.resale_source_registration = resale_source_registration
+            candidate.resale_source_payment = source_payment
+        candidate.save()
+        # A reused waitlist row can already carry a valid payment. Settle that
+        # rare case now; ordinary paid-event promotions remain pending until
+        # _apply_paid_checkout confirms their replacement payment.
+        if candidate.payment_confirmed:
+            settle_pending_resale_credit(candidate)
+        return candidate
+
     # If gender limits are not active, promote the first in line who still has
     # a seat under their own capacity (general → public, premium → total).
     if not event.gender_limits_active:
         for candidate in waitlisted_list:
             if not event.is_full_for(is_premium=_is_premium(candidate)):
-                candidate.status = _admitted_status(event, candidate)
-                candidate.save()
-                return candidate
+                return _promote(candidate)
         return None
 
     # Gender-aware promotion
@@ -130,9 +149,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
                     if not event.is_full_for(
                         is_premium=_is_premium(candidate)
                     ) and not event.is_gender_pool_full(cand_gender):
-                        candidate.status = _admitted_status(event, candidate)
-                        candidate.save()
-                        return candidate
+                        return _promote(candidate)
 
     # 2. Try any waitlisted user whose pool (and overall capacity) has room
     for candidate in waitlisted_list:
@@ -141,9 +158,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
             continue
         if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
-        candidate.status = _admitted_status(event, candidate)
-        candidate.save()
-        return candidate
+        return _promote(candidate)
 
     return None
 
@@ -1165,6 +1180,8 @@ def event_register(request, event_id):
                     # the event is full). This prevents queue-jumping via
                     # cancel-then-re-register while the event is at capacity.
                     registration.registered_at = timezone.now()
+                    registration.resale_source_registration = None
+                    registration.resale_source_payment = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -1360,7 +1377,7 @@ def event_cancel(request, event_id):
             # own. Inside the lock, on the row we just cancelled — the credit
             # and the `payment_confirmed` it releases have to land together
             # (see issue_credit's Trap 1 note).
-            credit = issue_cancellation_credit(registration)
+            credits = issue_cancellation_credits(registration)
 
             # Gender-aware waitlist promotion (DB only, inside transaction).
             # `accepts_waitlist_promotion` also covers is_cancelled, which this
@@ -1368,29 +1385,26 @@ def event_cancel(request, event_id):
             # cancelled event used to hand the seat to someone on the waitlist
             # and email them a confirmation for it.
             if locked_event.accepts_waitlist_promotion:
-                promoted = _promote_from_waitlist(locked_event, request.user)
-                # §4.1, the resale clause. Only fires for a late cancellation
-                # that has just watched its seat go to the waitlist — the same
-                # chair being paid for twice is precisely the shape of
-                # complaint that becomes a card dispute. `credit` is None on
-                # that path (nothing was owed up front), and
-                # maybe_issue_resale_credit re-checks every condition itself.
-                credit = credit or maybe_issue_resale_credit(registration, promoted)
+                promoted = _promote_from_waitlist(
+                    locked_event,
+                    request.user,
+                    resale_source_registration=registration,
+                )
 
-            if credit is not None:
+            if credits:
                 messages.success(
                     request,
                     _(
                         "We've added €%(amount).2f in Crush Credit to your "
                         "account — it's ready to use on any Crush.lu event."
                     )
-                    % {"amount": credit.amount_cents / 100},
+                    % {"amount": sum(credit.amount_cents for credit in credits) / 100},
                 )
 
         # Send emails OUTSIDE the transaction so they are only dispatched
         # after a successful commit and don't hold the DB lock during SMTP I/O.
         try:
-            send_event_cancellation_confirmation(request.user, event, request)
+            send_event_cancellation_confirmation(request.user, event, request, credits)
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")
 

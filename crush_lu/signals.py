@@ -3563,15 +3563,6 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         return
 
     event = instance.event
-    # Cheap pre-filter only; the authoritative check is inside the callback,
-    # under the event lock. Deliberately does NOT also short-circuit on "no
-    # waitlist right now": that read happens before this transaction commits,
-    # so a registration joining the waitlist in the meantime would find the
-    # seat already given away to nobody, with nothing scheduled to retry.
-    # `_promote_from_waitlist` returns None cheaply when the waitlist is empty.
-    if not event.accepts_waitlist_promotion:
-        return
-
     cancelled_user = instance.user
     event_pk = event.pk
 
@@ -3582,53 +3573,20 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         )
         from .services.credits import (
             issue_cancellation_credit,
-            maybe_issue_resale_credit,
         )
         from .views_events import _promote_from_waitlist
 
         try:
             with transaction.atomic():
                 locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
-                # Re-read eligibility *under the lock*. The checks above ran
-                # before this transaction committed, against a possibly stale
-                # instance: another transaction may have cancelled the event in
-                # between (promoting into it would confirm and email a seat at
-                # a cancelled party), and a registration may have joined the
-                # waitlist since (the early return would have left the freed
-                # seat unfilled indefinitely, because nothing re-runs).
-                if not locked_event.accepts_waitlist_promotion:
-                    return
-                promoted = _promote_from_waitlist(locked_event, cancelled_user)
-
-                # §4.1, the resale clause: a seat released by a LATE
-                # cancellation and then refilled from the waitlist earns its
-                # canceller 50% back. Hung here rather than on the
-                # cancellation because "was the seat resold" is only knowable
-                # once a promotion has actually succeeded.
-                #
-                # Re-read the cancelled row FOR UPDATE rather than trusting
-                # `instance`: this runs on_commit, and re-registration reuses
-                # the very same row, so a member who cancelled and signed
-                # straight back up must be seen holding their seat again — and
-                # credited nothing. `maybe_issue_resale_credit` owns every
-                # other condition (paid, late, event not started, at most
-                # once), so a promotion from the admin or the shell cannot
-                # accidentally pay out on a cancellation the 48h branch in
-                # `event_cancel` already settled in full.
-                # Re-read the cancelled row FOR UPDATE rather than trusting
-                # `instance`: this runs on_commit, and re-registration reuses
-                # the very same row, so a member who cancelled and signed
-                # straight back up must be seen holding their seat again — and
-                # credited nothing.
-                #
-                # Locked AFTER the promotion, so that CrushCredit stays the
-                # last lock this transaction takes (see services/credits.py).
                 cancelled = (
                     EventRegistration.objects.select_for_update()
                     .select_related("event", "user")
                     .filter(pk=instance.pk)
                     .first()
                 )
+                if cancelled is None:
+                    return
 
                 # A cancellation driven from the ADMIN, a coach or the shell
                 # releases the seat exactly as the member-facing view does, and
@@ -3645,20 +3603,20 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 #
                 # `event_cancel` sets `_waitlist_promotion_handled`, so the
                 # member path never reaches here and cannot be paid twice.
-                credit = issue_cancellation_credit(cancelled)
+                issue_cancellation_credit(cancelled)
 
-                # §4.1, the resale clause: a seat released by a LATE
-                # cancellation and then refilled from the waitlist earns its
-                # canceller 50% back. Hung here rather than on the
-                # cancellation because "was the seat resold" is only knowable
-                # once a promotion has actually succeeded.
-                #
-                # `maybe_issue_resale_credit` owns every other condition (paid,
-                # late, event not started, at most once) — including the case
-                # just settled in full above, which cleared `payment_confirmed`
-                # and so makes this a no-op.
-                if credit is None and promoted is not None:
-                    maybe_issue_resale_credit(cancelled, promoted)
+                # Compensation is independent of whether this event can
+                # promote a waitlist. Promotion is optional; paying an early
+                # canceller is not. A late cancellation records the candidate
+                # resale on the promoted row, and the share is issued only
+                # after that replacement's payment completes.
+                promoted = None
+                if locked_event.accepts_waitlist_promotion:
+                    promoted = _promote_from_waitlist(
+                        locked_event,
+                        cancelled_user,
+                        resale_source_registration=cancelled,
+                    )
         except Exception:
             logger.exception(
                 "Waitlist promotion failed after cancellation of registration %s",

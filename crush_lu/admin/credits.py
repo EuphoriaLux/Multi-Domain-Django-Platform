@@ -21,6 +21,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django import forms
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
@@ -147,6 +148,7 @@ class CrushCreditAdmin(admin.ModelAdmin):
         "reason",
         "source_registration",
         "source_payment",
+        "restored_from_credit",
         "status",
         "cash_refund_eligible",
         "note",
@@ -191,7 +193,12 @@ class CrushCreditAdmin(admin.ModelAdmin):
         (
             "Where it came from",
             {
-                "fields": ("source_registration", "source_payment", "note"),
+                "fields": (
+                    "source_registration",
+                    "source_payment",
+                    "restored_from_credit",
+                    "note",
+                ),
                 "classes": ("collapse",),
             },
         ),
@@ -255,7 +262,10 @@ class CrushCreditAdmin(admin.ModelAdmin):
     def get_cash_refund_flag(self, obj):
         return obj.cash_refund_eligible
 
-    @admin.action(description="🚫 Void selected credits (after a cash refund)")
+    @admin.action(
+        description="🚫 Void selected credits (after a cash refund)",
+        permissions=["void"],
+    )
     def void_credits(self, request, queryset):
         """Withdraw credit that has been settled in cash instead.
 
@@ -280,6 +290,9 @@ class CrushCreditAdmin(admin.ModelAdmin):
         lock taken anywhere (see ``services/credits``), so taking it here on
         its own cannot close a cycle.
         """
+        if not self.has_void_permission(request):
+            raise PermissionDenied
+
         voided = spent = skipped = 0
         for pk in list(queryset.values_list("pk", flat=True)):
             with transaction.atomic():
@@ -325,6 +338,11 @@ class CrushCreditAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_void_permission(self, request):
+        return request.user.is_superuser or request.user.has_perm(
+            "crush_lu.void_crushcredit"
+        )
 
     def has_delete_permission(self, request, obj=None):
         # This is a record of value owed to a member. Deleting one loses the
@@ -407,7 +425,7 @@ class GoodwillCreditForm(forms.Form):
     )
 
 
-@admin.action(description="💳 Issue Crush Credit (goodwill)")
+@admin.action(description="💳 Issue Crush Credit (goodwill)", permissions=["change"])
 def issue_goodwill_credit(modeladmin, request, queryset):
     """Give the selected members credit, with a reason on the record.
 
@@ -420,6 +438,9 @@ def issue_goodwill_credit(modeladmin, request, queryset):
     ``payment_confirmed`` for exactly those reasons. Goodwill is additional
     money, so the member keeps whatever seat they have already paid for.
     """
+    if not modeladmin.has_change_permission(request):
+        raise PermissionDenied
+
     users = list(queryset)
     if "cancel" in request.POST:
         # Returning None sends the admin back to the changelist having done
