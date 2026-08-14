@@ -486,6 +486,21 @@ class TestPosition:
         assert progress.last_lat is not None
         assert progress.last_position_at is not None
 
+    def test_rate_limited_returns_json_429(self, client, hunt, stations, team, player):
+        """The 61st fix within a minute gets the API's own JSON 429, never
+        django-ratelimit's HTML 403. cache-play.js keys its behavior on the
+        error code — a body it can't parse used to permanently stop the GPS
+        watch mid-hunt (distance frozen under a live compass)."""
+        _start_hunt(hunt)
+        client.force_login(player)
+
+        for _ in range(60):
+            response = self._post(client, hunt, *PONT_ADOLPHE)
+            assert response.status_code == 200
+        response = self._post(client, hunt, *PONT_ADOLPHE)
+        assert response.status_code == 429
+        assert response.json() == {"ok": False, "error": "rate_limited"}
+
 
 # ============================================================================
 # QR SCANNING
