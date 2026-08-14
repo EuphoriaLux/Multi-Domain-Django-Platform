@@ -42,10 +42,14 @@ document.addEventListener("alpine:init", function () {
             // CSS-transitioned arrow/cone — see _updateArrowRotation().
             arrowRotation: null,
             _coneRotation: null,
+            // Heading-source recency (see onGpsCourse): the GPS course only
+            // yields to a compass source that recently produced a *usable*
+            // sample — a sticky boolean here would let a tilt-suppressed
+            // compass block the GPS fallback indefinitely.
+            _lastCompassAt: null,
+            _lastRelativeAt: null,
             // Relative-alpha fallback bookkeeping: its zero point is
             // arbitrary, the GPS travel course learns the correction.
-            _sawWebkit: false,
-            _sawRelative: false,
             _lastRelativeRaw: null,
             _relativeOffset: null,
             watchId: null,
@@ -804,7 +808,7 @@ document.addEventListener("alpine:init", function () {
 
                 var handler = function (e) {
                     if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
-                        self._sawWebkit = true;
+                        self._lastCompassAt = Date.now();
                         updateHeading(e.webkitCompassHeading);
                     } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
                         if (betaUnstable(e)) return;
@@ -813,7 +817,7 @@ document.addEventListener("alpine:init", function () {
                         // arrow can be off by anything up to 180° — apply the
                         // offset learned from the GPS course (onGpsCourse).
                         var raw = 360 - e.alpha;
-                        self._sawRelative = true;
+                        self._lastRelativeAt = Date.now();
                         self._lastRelativeRaw = raw;
                         updateHeading(self._relativeOffset === null ? raw : raw + self._relativeOffset);
                     }
@@ -823,8 +827,14 @@ document.addEventListener("alpine:init", function () {
                 try {
                     window.addEventListener("deviceorientationabsolute", function (e) {
                         if (e.alpha !== null && e.alpha !== undefined) {
+                            // Set before the tilt guard on purpose: while ANY
+                            // absolute source exists, the relative handler
+                            // must stay muted (same alpha, arbitrary zero) —
+                            // but only guard-passing samples count as a live
+                            // compass for onGpsCourse, via _lastCompassAt.
                             self.hasAbsoluteHeading = true;
                             if (betaUnstable(e)) return;
+                            self._lastCompassAt = Date.now();
                             updateHeading(360 - e.alpha);
                         }
                     }, true);
@@ -840,6 +850,7 @@ document.addEventListener("alpine:init", function () {
                                 var alpha = Math.atan2(2 * (q[3] * q[2] + q[0] * q[1]), 1 - 2 * (q[1] * q[1] + q[2] * q[2]));
                                 var deg = alpha * (180 / Math.PI);
                                 self.hasAbsoluteHeading = true;
+                                self._lastCompassAt = Date.now();
                                 updateHeading(360 - deg);
                             }
                         });
@@ -891,24 +902,28 @@ document.addEventListener("alpine:init", function () {
                 this.arrowRotation += ((normalized - current + 540) % 360) - 180;
             },
 
-            // Direction of travel from the GPS fix (see onPosition). With a
-            // trustworthy compass source it is ignored; with only the
-            // relative-alpha fallback it learns that source's unknown offset;
-            // with no orientation events at all it becomes the heading.
+            // Direction of travel from the GPS fix (see onPosition). Yields
+            // to a compass source that delivered a usable sample in the last
+            // 3 s; with only the relative-alpha fallback live it learns that
+            // source's unknown offset; otherwise (no orientation events at
+            // all, or every source tilt-suppressed/silent) it becomes the
+            // heading itself, so an upright-held phone still gets a live
+            // arrow while walking.
             onGpsCourse: function (course) {
-                if (this._sawWebkit || this.hasAbsoluteHeading) return;
-                if (this._sawRelative) {
-                    if (typeof this._lastRelativeRaw === "number") {
-                        // The offset is added to the raw (pre-screen-angle)
-                        // heading in the orientation handler, and
-                        // updateHeading() adds the screen angle afterwards —
-                        // so the screen angle must be subtracted while
-                        // learning it, or a landscape device ends up a
-                        // quarter-turn off after calibration.
-                        var screenAngle = this._getScreenAngle ? this._getScreenAngle() : 0;
-                        this._relativeOffset =
-                            ((course - screenAngle - this._lastRelativeRaw + 540) % 360) - 180;
-                    }
+                var now = Date.now();
+                if (this._lastCompassAt !== null && now - this._lastCompassAt < 3000) {
+                    return;
+                }
+                if (this._lastRelativeAt !== null && now - this._lastRelativeAt < 3000
+                    && typeof this._lastRelativeRaw === "number") {
+                    // The offset is added to the raw (pre-screen-angle)
+                    // heading in the orientation handler, and updateHeading()
+                    // adds the screen angle afterwards — so the screen angle
+                    // must be subtracted while learning it, or a landscape
+                    // device ends up a quarter-turn off after calibration.
+                    var screenAngle = this._getScreenAngle ? this._getScreenAngle() : 0;
+                    this._relativeOffset =
+                        ((course - screenAngle - this._lastRelativeRaw + 540) % 360) - 180;
                     return;
                 }
                 this._applyHeading(course);
