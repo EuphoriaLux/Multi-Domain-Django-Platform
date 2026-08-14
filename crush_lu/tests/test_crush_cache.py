@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.geo import bearing_deg, haversine_m
+from crush_lu.management.commands.seed_crush_cache import PRESETS as SEED_PRESETS
 from crush_lu.models import CrushCoach, EventRegistration, MeetupEvent
 from crush_lu.models.crush_cache import (
     CacheChallenge,
@@ -484,6 +485,21 @@ class TestPosition:
         progress = CacheTeamProgress.objects.get(team=team)
         assert progress.last_lat is not None
         assert progress.last_position_at is not None
+
+    def test_rate_limited_returns_json_429(self, client, hunt, stations, team, player):
+        """The 61st fix within a minute gets the API's own JSON 429, never
+        django-ratelimit's HTML 403. cache-play.js keys its behavior on the
+        error code — a body it can't parse used to permanently stop the GPS
+        watch mid-hunt (distance frozen under a live compass)."""
+        _start_hunt(hunt)
+        client.force_login(player)
+
+        for _ in range(60):
+            response = self._post(client, hunt, *PONT_ADOLPHE)
+            assert response.status_code == 200
+        response = self._post(client, hunt, *PONT_ADOLPHE)
+        assert response.status_code == 429
+        assert response.json() == {"ok": False, "error": "rate_limited"}
 
 
 # ============================================================================
@@ -1024,9 +1040,7 @@ class TestCoach:
         it was previously reachable only by typing the URL."""
         client.force_login(coach_user)
         url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
-        cache_url = reverse(
-            "crush_lu:cache_coach_dashboard", args=[hunt.event_id]
-        )
+        cache_url = reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
 
         response = client.get(url)
         assert response.status_code == 200
@@ -1590,9 +1604,11 @@ class TestDashboardAttendeesLink:
 class TestSeedCrushCacheCommand:
     def test_seed_minette_preset(self):
         from django.core.management import call_command
-        from crush_lu.models.crush_cache import CacheHunt, CacheStation
+        from crush_lu.models.crush_cache import CacheHunt
 
-        call_command("seed_crush_cache", preset="minette", reset=True, live=True, force=True)
+        call_command(
+            "seed_crush_cache", preset="minette", reset=True, live=True, force=True
+        )
 
         hunt = CacheHunt.objects.get(event__title__contains="Minette")
         assert hunt.status == "live"
@@ -1620,3 +1636,367 @@ class TestSeedCrushCacheCommand:
         hunt = CacheHunt.objects.get(event__title__contains="Luxembourg City")
         assert hunt.stations.count() == 5
 
+    def test_seed_echternach_requires_existing_player_email(self):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with pytest.raises(CommandError, match="--player-email is required"):
+            call_command(
+                "seed_crush_cache",
+                preset="echternach_lake",
+                reset=True,
+                live=True,
+                force=True,
+            )
+
+    def test_seed_echternach_creates_private_solo_live_hunt(self, django_user_model):
+        from django.core.management import call_command
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.crush_cache import (
+            CacheHunt,
+            CacheTeamMember,
+            CacheTeamProgress,
+        )
+
+        player = django_user_model.objects.create_user(
+            username="lake-player@example.com",
+            email="lake-player@example.com",
+            password="keep-this-password",
+        )
+
+        call_command(
+            "seed_crush_cache",
+            preset="echternach_lake",
+            player_email=player.email,
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        player.refresh_from_db()
+        assert player.check_password("keep-this-password")
+
+        hunt = CacheHunt.objects.get(event__title__contains="Echternach Lake")
+        assert hunt.status == "live"
+        assert hunt.navigation_mode == "map"
+        assert hunt.team_size_max == 1
+        assert hunt.allow_self_join is False
+        assert hunt.created_by == player
+        assert hunt.event.is_published is False
+        assert hunt.event.location == "Echternach Lake"
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+        assert all(station.unlock_mode == "gps" for station in stations)
+        assert str(stations[0].latitude) == "49.801690"
+        assert str(stations[0].longitude) == "6.415928"
+        assert stations[-1].latitude == stations[0].latitude
+        assert stations[-1].longitude == stations[0].longitude
+
+        registration = EventRegistration.objects.get(event=hunt.event, user=player)
+        assert registration.status == "attended"
+        membership = CacheTeamMember.objects.get(hunt=hunt, registration=registration)
+        progress = CacheTeamProgress.objects.get(team=membership.team)
+        assert progress.current_station == stations[0]
+        assert progress.started_at is not None
+
+    def test_seed_echternach_refuses_production_azure_even_with_force(
+        self, django_user_model, monkeypatch
+    ):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        player = django_user_model.objects.create_user(
+            username="production-guard@example.com",
+            email="production-guard@example.com",
+        )
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app.azurewebsites.net")
+        monkeypatch.delenv("WEBSITE_SLOT_NAME", raising=False)
+
+        with pytest.raises(CommandError, match="refusing to modify production"):
+            call_command(
+                "seed_crush_cache",
+                preset="echternach_lake",
+                player_email=player.email,
+                reset=True,
+                live=True,
+                force=True,
+            )
+
+    def test_seed_echternach_reset_is_idempotent_on_staging(
+        self, django_user_model, monkeypatch
+    ):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        player = django_user_model.objects.create_user(
+            username="staging-lake-player@example.com",
+            email="staging-lake-player@example.com",
+        )
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app-staging.azurewebsites.net")
+        monkeypatch.setenv("WEBSITE_SLOT_NAME", "staging")
+
+        command_options = {
+            "preset": "echternach_lake",
+            "player_email": player.email,
+            "reset": True,
+            "live": True,
+            "force": True,
+        }
+        call_command("seed_crush_cache", **command_options)
+        first_event_id = CacheHunt.objects.get(
+            event__title__contains="Echternach Lake"
+        ).event_id
+        call_command("seed_crush_cache", **command_options)
+
+        hunts = CacheHunt.objects.filter(event__title__contains="Echternach Lake")
+        assert hunts.count() == 1
+        assert hunts.get().event_id != first_event_id
+
+    def test_seed_echternach_um_see_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache",
+            preset="echternach_um_see",
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.status == "live"
+        assert hunt.event.location == "Echternach"
+        assert hunt.event.is_published is True
+        assert hunt.team_size_max == 4
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+
+        # Crush Statue at every stop — the Minette shape, not the prototype's
+        # GPS-only run — and the wider radius the open lakeside path needs.
+        assert all(s.unlock_mode == "gps_qr" for s in stations)
+        assert all(s.radius_meters == 75 for s in stations)
+
+        # Every station carries a typeable fallback, so the hunt is playable
+        # before any physical QR sticker exists on the trail.
+        assert all(s.manual_code for s in stations)
+        assert len({s.manual_code for s in stations}) == 6
+
+        # The hunt is won back at the villa where it started, so the finish
+        # line matches what the event copy promises.
+        schluss = stations[5]
+        assert schluss.name == "Réimervilla (Schluss)"
+        assert schluss.latitude == stations[0].latitude
+        assert schluss.longitude == stations[0].longitude
+        final = schluss.challenges.get()
+        assert final.challenge_type == "riddle"
+        assert final.points_awarded == 150
+        # Phone-typed spellings all land: accents fold, alternates cover the
+        # ö→oe transliteration that folding alone does not.
+        for typed in ("Römische Villa", "romische villa", "Roemische Villa", "villa"):
+            assert final.check_answer(typed), typed
+        assert not final.check_answer("Bergbau")
+
+    def test_seed_echternach_um_see_walks_the_prototype_track(self):
+        """Both Echternach presets must sit on the same surveyed GPX loop, so
+        one trip round the lake can field-test the pair."""
+        from crush_lu.management.commands.seed_crush_cache import (
+            STATIONS_ECHTERNACH_LAKE,
+            STATIONS_ECHTERNACH_UM_SEE,
+        )
+
+        track = {(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_LAKE}
+        off_track = [
+            s for s in STATIONS_ECHTERNACH_UM_SEE if (s["lat"], s["lng"]) not in track
+        ]
+        # No invented coordinates: every station is a surveyed track point.
+        assert off_track == []
+
+        # Both loops cover the whole lake rather than doubling up on one shore.
+        assert len({(s["lat"], s["lng"]) for s in STATIONS_ECHTERNACH_UM_SEE}) == 5
+
+    def test_seed_echternach_um_see_stations_are_icebreakers_with_choices(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache", preset="echternach_um_see", reset=True, force=True
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        for station in list(hunt.ordered_stations())[:5]:
+            challenge = station.challenges.get()
+            assert challenge.challenge_type == "multiple_choice"
+            assert len(challenge.options) == 3
+            # Blank correct_answer = every choice accepted (opinion prompt).
+            assert challenge.accepts_any_answer
+
+    def test_preset_registry_fills_defaults_and_keeps_deltas(self):
+        from crush_lu.management.commands.seed_crush_cache import (
+            PRESET_DEFAULTS,
+            PRESETS,
+        )
+
+        # Every preset is fully populated, so the command never needs .get().
+        for name, preset in PRESETS.items():
+            assert set(PRESET_DEFAULTS) <= set(preset), name
+
+        assert PRESETS["lux_city"]["radius_meters"] == 40
+        assert PRESETS["lux_city"]["completion_message"] == (
+            "Nice — on to the next station!"
+        )
+        assert PRESETS["echternach_um_see"]["radius_meters"] == 75
+        assert PRESETS["echternach_lake"]["solo_prototype"] is True
+        assert PRESETS["echternach_lake"]["is_published"] is False
+        assert PRESETS["lux_city"]["solo_prototype"] is False
+
+        # Distinct event titles: the command finds the event to reset by title.
+        titles = [p["event_title"] for p in PRESETS.values()]
+        assert len(set(titles)) == len(titles)
+
+    def test_preset_registry_rejects_a_malformed_preset(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from crush_lu.management.commands import seed_crush_cache
+
+        original = seed_crush_cache.PRESETS
+        try:
+            seed_crush_cache.PRESETS = {"broken": {"event_title": "only this"}}
+            with pytest.raises(ImproperlyConfigured, match="missing keys"):
+                seed_crush_cache._build_presets()
+
+            seed_crush_cache.PRESETS = {
+                "typo": {**original["lux_city"], "radius_meter": 40}
+            }
+            with pytest.raises(ImproperlyConfigured, match="unknown keys"):
+                seed_crush_cache._build_presets()
+        finally:
+            seed_crush_cache.PRESETS = original
+
+    @pytest.mark.parametrize("preset_name", sorted(SEED_PRESETS))
+    def test_every_preset_seeds_a_playable_hunt(self, preset_name, django_user_model):
+        """The readiness check must pass for each preset in the registry —
+        this is what the coach dashboard gates Start on."""
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        preset = SEED_PRESETS[preset_name]
+        options = {"preset": preset_name, "reset": True, "force": True}
+        if preset["solo_prototype"]:
+            player = django_user_model.objects.create_user(
+                username=f"{preset_name}-player@example.com",
+                email=f"{preset_name}-player@example.com",
+            )
+            options["player_email"] = player.email
+
+        call_command("seed_crush_cache", **options)
+
+        hunt = CacheHunt.objects.get(event__title=preset["event_title"])
+        blocking = [c for c in hunt.readiness_check() if c["blocking"]]
+        assert blocking, "expected blocking readiness checks"
+        assert all(c["ok"] for c in blocking), [c for c in blocking if not c["ok"]]
+
+    def test_player_email_puts_any_preset_on_the_solo_path(self, django_user_model):
+        """--player-email makes a local-QA preset safe to seed on staging: no
+        accounts created, nothing published, one seat."""
+        from django.core.management import call_command
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
+
+        player = django_user_model.objects.create_user(
+            username="um-see-staging@example.com",
+            email="um-see-staging@example.com",
+            password="keep-this-password",
+        )
+        before = set(django_user_model.objects.values_list("username", flat=True))
+
+        call_command(
+            "seed_crush_cache",
+            preset="echternach_um_see",
+            player_email=player.email,
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        # The debug path would have created a STAFF account on a shared
+        # password — the whole reason this path exists.
+        assert (
+            set(django_user_model.objects.values_list("username", flat=True)) == before
+        )
+        player.refresh_from_db()
+        assert player.check_password("keep-this-password")
+        assert not django_user_model.objects.filter(is_staff=True).exists()
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.event.is_published is False
+        assert hunt.team_size_max == 1
+        assert hunt.allow_self_join is False
+        assert hunt.created_by == player
+        assert hunt.status == "live"
+
+        # Still the team hunt's own content: QR stations, not the prototype's
+        # GPS-only run.
+        stations = list(hunt.ordered_stations())
+        assert all(s.unlock_mode == "gps_qr" for s in stations)
+        assert all(s.manual_code for s in stations)
+
+        registration = EventRegistration.objects.get(event=hunt.event, user=player)
+        assert registration.status == "attended"
+        assert CacheTeamMember.objects.filter(
+            hunt=hunt, registration=registration
+        ).exists()
+
+    def test_player_email_carries_the_production_guard_to_any_preset(
+        self, django_user_model, monkeypatch
+    ):
+        """The staging escape hatch must not become a production one."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        player = django_user_model.objects.create_user(
+            username="um-see-prod-guard@example.com",
+            email="um-see-prod-guard@example.com",
+        )
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app.azurewebsites.net")
+        monkeypatch.delenv("WEBSITE_SLOT_NAME", raising=False)
+
+        with pytest.raises(CommandError, match="refusing to modify production"):
+            call_command(
+                "seed_crush_cache",
+                preset="echternach_um_see",
+                player_email=player.email,
+                reset=True,
+                live=True,
+                force=True,
+            )
+
+    def test_without_player_email_the_team_preset_still_seeds_debug_accounts(self):
+        """The local path is unchanged — teams, join code and debug logins."""
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache", preset="echternach_um_see", reset=True, force=True
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Um See")
+        assert hunt.event.is_published is True
+        assert hunt.team_size_max == 4
+        assert hunt.allow_self_join is True
+        assert hunt.teams.get().join_code
+
+    def test_debug_path_is_refused_on_azure_even_with_force(self, monkeypatch):
+        """--force must not buy shared-password staff accounts onto a slot."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app-staging.azurewebsites.net")
+        monkeypatch.setenv("WEBSITE_SLOT_NAME", "staging")
+
+        for preset_name in ("lux_city", "minette", "echternach_um_see"):
+            with pytest.raises(CommandError, match="Refusing to do that on Azure"):
+                call_command(
+                    "seed_crush_cache", preset=preset_name, reset=True, force=True
+                )

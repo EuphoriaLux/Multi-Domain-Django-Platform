@@ -23,6 +23,7 @@ const source = fs.readFileSync(swPath, "utf8");
 
 const routes = [];
 const fetchListeners = [];
+let backgroundSync = null;
 
 function strategyName(name) {
     return function Strategy(opts) {
@@ -51,10 +52,15 @@ const workbox = {
         skipWaiting: () => {},
     }),
     routing: lenientNamespace({
-        registerRoute: (match, handler) => {
+        // Workbox keeps one router per HTTP method and defaults to GET, so a
+        // POST probe must only be matched against POST-registered routes.
+        // Ignoring the method here made every probe look like it hit the
+        // background-sync route.
+        registerRoute: (match, handler, method) => {
             routes.push({
                 match,
                 strategy: (handler && handler.__strategy) || "unknown",
+                method: method || "GET",
             });
         },
         setCatchHandler: () => {},
@@ -77,7 +83,13 @@ const workbox = {
     }),
     expiration: lenientNamespace(),
     cacheableResponse: lenientNamespace(),
-    backgroundSync: lenientNamespace(),
+    // Captured rather than stubbed away: the route predicate only governs what
+    // ENTERS the queue, so the replay loop has to be probed on its own.
+    backgroundSync: lenientNamespace({
+        BackgroundSyncPlugin: function (queueName, options) {
+            backgroundSync = { queueName, options: options || {} };
+        },
+    }),
     recipes: lenientNamespace(),
     rangeRequests: lenientNamespace(),
     broadcastUpdate: lenientNamespace(),
@@ -140,6 +152,7 @@ function earlyListenerClaims(request) {
 function matchingRoute(request) {
     const url = new URL(request.url);
     for (const route of routes) {
+        if (route.method !== (request.method || "GET")) continue;
         let hit = false;
         try {
             hit = !!route.match({ url, request, event: { request } });
@@ -192,6 +205,40 @@ const probes = [
         destination: "document",
         mustBeClaimed: true, // proves the probe detects claiming at all
     },
+    {
+        // A queued admin POST is replayed verbatim for up to 24h, which
+        // re-submits the change form's inline rows and duplicates whatever the
+        // first submission already wrote. Staging 2026-08-11: a second
+        // EventRegistration INSERT for (event 29, user 86) came back as a 500
+        // on the unique index.
+        name: "crush_admin_form_post",
+        url: "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        // The admin lives at /crush-admin/, which does not contain "/admin" —
+        // so it slipped past the authenticated-route list and its pages were
+        // cacheable. A cached change form carries stale inline ids.
+        name: "crush_admin_page_navigation",
+        url: "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkOnly",
+    },
+    {
+        // Guards the method-aware probe: ordinary site POSTs must KEEP their
+        // background-sync queueing, which is the whole point of the route.
+        name: "ordinary_form_post",
+        url: "https://crush.lu/en/events/29/register/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -199,22 +246,66 @@ const results = probes.map((probe) => {
         url: probe.url,
         mode: probe.mode,
         destination: probe.destination,
-        method: "GET",
+        method: probe.method || "GET",
         headers: { get: () => "" },
     };
     const early = earlyListenerClaims(request);
     const route = early ? null : matchingRoute(request);
     const claimed = early || route !== null;
+    const strategyOk = !probe.mustMatchStrategy || route === probe.mustMatchStrategy;
     return {
         name: probe.name,
         url: probe.url,
+        method: request.method,
         claimedByEarlyListener: early,
         matchedRoute: route,
         claimed,
         informational: !!probe.informational,
         mustBeClaimed: probe.informational ? null : probe.mustBeClaimed,
-        ok: probe.informational ? true : claimed === probe.mustBeClaimed,
+        mustMatchStrategy: probe.mustMatchStrategy || null,
+        ok: probe.informational
+            ? true
+            : claimed === probe.mustBeClaimed && strategyOk,
     };
 });
 
-process.stdout.write(JSON.stringify({ routeCount: routes.length, results }, null, 2));
+/**
+ * Drive the background-sync plugin's onSync over a queue that ALREADY holds
+ * these requests, as a store filled by an earlier worker version would.
+ * Returns the URLs it actually re-fetched.
+ */
+async function probeReplay(urls) {
+    if (!backgroundSync || typeof backgroundSync.options.onSync !== "function") {
+        return { available: false, replayed: [], drained: false };
+    }
+    const pending = urls.map((url) => ({ request: { url, method: "POST" } }));
+    const queue = {
+        shiftRequest: async () => pending.shift(),
+        unshiftRequest: async (entry) => {
+            pending.unshift(entry);
+        },
+    };
+    const replayed = [];
+    const realFetch = sandbox.fetch;
+    sandbox.fetch = async (request) => {
+        replayed.push(request.url);
+        return new Response("");
+    };
+    try {
+        await backgroundSync.options.onSync({ queue });
+    } finally {
+        sandbox.fetch = realFetch;
+    }
+    // A skipped entry must be shifted OUT, not left behind to try again.
+    return { available: true, replayed, drained: pending.length === 0 };
+}
+
+(async () => {
+    const replay = await probeReplay([
+        "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        "https://crush.lu/en/events/29/register/",
+    ]);
+    process.stdout.write(
+        JSON.stringify({ routeCount: routes.length, results, replay }, null, 2),
+    );
+})();

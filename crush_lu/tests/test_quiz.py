@@ -478,6 +478,79 @@ class TestQuizStartRotationFailure:
             > 0
         )
 
+    def test_advance_round_does_not_move_when_regeneration_fails(self, quiz_event):
+        """A rotate that cannot seat the next round must leave the quiz on
+        the round it was on.
+
+        Advancing first and rebuilding second commits a round nothing is
+        scheduled for. current_question_index goes back to -1 with it, so
+        check_can_rotate refuses the retry ('questions remain in this
+        round') and the host is left holding a round they cannot re-enter
+        while the room has not moved.
+        """
+        from asgiref.sync import async_to_sync
+
+        rounds = [
+            QuizRound.objects.create(quiz=quiz_event, title=f"R{i + 1}", sort_order=i)
+            for i in range(3)
+        ]
+        quiz_event.num_tables = 3
+        quiz_event.current_round = rounds[0]
+        quiz_event.current_question_index = 1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # No attended registrations at all, so the rebuild for round 1
+        # raises rather than producing seating.
+        consumer = self._make_consumer(quiz_event)
+        result = async_to_sync(consumer.advance_round_and_rotate)()
+
+        assert "error" in result, f"expected an error, got {result}"
+
+        quiz_event.refresh_from_db()
+        assert quiz_event.current_round_id == rounds[0].pk, (
+            "a failed rebuild must not leave the quiz on the next round"
+        )
+        assert quiz_event.current_question_index == 1, (
+            "a failed rebuild must not reset the question index"
+        )
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number__gte=1
+        ).exists()
+
+    def test_handle_rotate_tells_the_host_a_rebuild_failed(self):
+        """The error goes to the host and nothing goes to the room.
+
+        Broadcasting it as ``quiz.rotate`` is what made a failed rebuild
+        read as a successful rotation: every screen switched to the rotate
+        splash and refetched seating that had not moved, and the one person
+        who could act on it was told nothing.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = 1
+        consumer.quiz_group = "quiz_1"
+        consumer.check_can_rotate = AsyncMock(return_value={})
+        consumer.advance_round_and_rotate = AsyncMock(
+            return_value={"error": "Cannot rotate: not enough participants."}
+        )
+        consumer.send_json = AsyncMock()
+        consumer.channel_layer = MagicMock()
+        consumer.channel_layer.group_send = AsyncMock()
+
+        async_to_sync(consumer.handle_rotate)()
+
+        consumer.channel_layer.group_send.assert_not_awaited()
+        consumer.send_json.assert_awaited_once()
+        payload = consumer.send_json.await_args.args[0]
+        assert payload["type"] == "quiz.error"
+        assert "Cannot rotate" in payload["data"]["message"]
+
 
 class TestLastRoundDetection:
     """Test that the quiz correctly detects when the last round's questions are done."""
@@ -1398,9 +1471,6 @@ class TestRotationRegistrationFiltering:
         from crush_lu.services.quiz_rotation import generate_rotation_rounds
         from crush_lu.models.events import EventRegistration
 
-        # num_tables=3 avoids the num_tables==2 special case in
-        # generate_rotation_schedule which creates duplicate (round, user)
-        # entries when len(group_a) is odd.
         quiz_event.num_tables = 3
         quiz_event.save()
         self._add_rounds(quiz_event, 3)
@@ -1719,6 +1789,68 @@ class TestRotationRegistrationFiltering:
             quiz=quiz_event, round_number__gte=1
         ).exists(), "no rounds 1+ should be generated while quiz is draft"
 
+    def test_two_tables_few_rotators_build_and_move(self, quiz_event):
+        """Reported from a live rehearsal: 2 tables, 7 men (4 + 3) and 2
+        women, and the women sat at their check-in table all night.
+
+        The schedule seated each woman at *both* tables in the same round,
+        which the (quiz, round_number, user) constraint rejects — so the
+        bulk insert of every round past check-in rolled back together and
+        rounds 1+ simply did not exist. With nothing to read for the
+        current round, every seat lookup in the app falls through to the
+        round-0 ``QuizTableMembership``: the view, the API and the socket
+        all answer with the table the player checked in at, and the room
+        rotates onto itself.
+        """
+        from crush_lu.services.quiz_rotation import (
+            assign_table_on_checkin,
+            generate_rotation_rounds,
+        )
+
+        quiz_event.num_tables = 2
+        quiz_event.save()
+        self._add_rounds(quiz_event, 3)
+
+        regs = self._make_attendees(quiz_event.event, men_count=7, women_count=2)
+        for reg in regs:
+            assign_table_on_checkin(quiz_event, reg.user)
+
+        generate_rotation_rounds(quiz_event)
+
+        women = [r.user for r in regs[7:]]
+        for rn in range(3):
+            seated = QuizRotationSchedule.objects.filter(
+                quiz=quiz_event, round_number=rn
+            )
+            assert seated.count() == 9, (
+                f"round {rn} seats {seated.count()}/9 participants"
+            )
+
+        for woman in women:
+            tables = [
+                QuizRotationSchedule.objects.get(
+                    quiz=quiz_event, round_number=rn, user=woman
+                ).table.table_number
+                for rn in range(3)
+            ]
+            assert tables[0] != tables[1] and tables[1] != tables[2], (
+                f"rotator {woman.username} never left table {tables[0]}: {tables}"
+            )
+            assert set(tables) == {1, 2}, (
+                f"rotator {woman.username} did not visit both tables: {tables}"
+            )
+
+        # The two women are never at the same table, so both tables keep a
+        # rotator in every round.
+        for rn in range(3):
+            occupied = {
+                QuizRotationSchedule.objects.get(
+                    quiz=quiz_event, round_number=rn, user=w
+                ).table.table_number
+                for w in women
+            }
+            assert occupied == {1, 2}, f"round {rn}: rotators bunched at {occupied}"
+
 
 # ============================================================================
 # API TESTS
@@ -1791,6 +1923,149 @@ class TestQuizAPI:
         assert data["role"] == "anchor"
         assert data["personal_score"] == 0
         assert data["seated"] is True
+
+    def test_my_assignment_fallback_reads_the_current_round(
+        self, quiz_event, quiz_table
+    ):
+        """A player with a membership but no row in the current round is
+        told who the *current round* seats at that table.
+
+        This is the mid-quiz arrival: ``assign_table_on_checkin`` rebuilds
+        from the next round so the room does not move mid-question, which
+        leaves the new player a membership and a round-0 row and nothing
+        for the round in progress. Answering from memberships would hand
+        them the check-in roster — the rotators who have since moved on,
+        and none of the ones who have moved in.
+        """
+        def _player(handle, first_name):
+            u = User.objects.create_user(
+                username=f"{handle}@test.com",
+                email=f"{handle}@test.com",
+                password="test",
+                first_name=first_name,
+            )
+            _grant_consent(u)
+            _create_profile(u)
+            return u
+
+        latecomer = _player("late", "Latecomer")
+        moved_on = _player("movedon", "MovedOn")
+        moved_in = _player("movedin", "MovedIn")
+
+        table_two = QuizTable.objects.create(quiz=quiz_event, table_number=2)
+        # R1 exists only to put R2 at round_number 1 — the quiz has to be
+        # past round 0 for the check-in snapshot and the schedule to differ.
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        next_round = QuizRound.objects.create(
+            quiz=quiz_event, title="R2", sort_order=1
+        )
+        quiz_event.current_round = next_round  # round_number 1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # Check-in roster of table 1: the latecomer plus someone who has
+        # since rotated to table 2 — and the ``quiz_table`` fixture's own
+        # member, who is on no round at all. Neither may be reported.
+        QuizTableMembership.objects.create(table=quiz_table, user=latecomer)
+        QuizTableMembership.objects.create(table=quiz_table, user=moved_on)
+        QuizTableMembership.objects.create(table=table_two, user=moved_in)
+
+        # Round 1 is scheduled — but not for the latecomer.
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=table_two,
+            user=moved_on,
+            role="rotator",
+            rotation_group="A",
+        )
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=quiz_table,
+            user=moved_in,
+            role="rotator",
+            rotation_group="A",
+        )
+        assert quiz_event.get_round_number() == 1
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=1, user=latecomer
+        ).exists()
+
+        client = APIClient()
+        client.force_authenticate(user=latecomer)
+        response = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["seated"] is True
+        assert data["table_number"] == quiz_table.table_number
+        names = {m["display_name"] for m in data["tablemates"]}
+        assert names == {"MovedIn"}, (
+            f"expected the current round's occupants of this table, got {names}"
+        )
+
+    def test_my_assignment_alone_at_a_scheduled_table(self, quiz_event, quiz_table):
+        """Being the only person the round seats here means no tablemates —
+        not a fall back to the check-in roster.
+
+        ``get_table_occupants`` reaches for memberships on an empty result
+        only once it has confirmed the round has no schedule *anywhere*.
+        Treating this table's emptiness as reason enough would answer a
+        player sitting alone with everyone who checked in beside them and
+        has since rotated away.
+        """
+        def _player(handle, first_name):
+            u = User.objects.create_user(
+                username=f"{handle}@test.com",
+                email=f"{handle}@test.com",
+                password="test",
+                first_name=first_name,
+            )
+            _grant_consent(u)
+            _create_profile(u)
+            return u
+
+        loner = _player("loner", "Loner")
+        moved_on = _player("emptied", "MovedOn")
+
+        table_two = QuizTable.objects.create(quiz=quiz_event, table_number=2)
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        next_round = QuizRound.objects.create(
+            quiz=quiz_event, title="R2", sort_order=1
+        )
+        quiz_event.current_round = next_round  # round_number 1
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        # Both checked in at table 1, so its membership roster is not
+        # empty — but round 1 seats nobody there at all: the rotator has
+        # moved to table 2 and the latecomer has no row for this round.
+        QuizTableMembership.objects.create(table=quiz_table, user=loner)
+        QuizTableMembership.objects.create(table=quiz_table, user=moved_on)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=1,
+            table=table_two,
+            user=moved_on,
+            role="rotator",
+            rotation_group="A",
+        )
+        assert quiz_event.get_round_number() == 1
+        assert not QuizRotationSchedule.objects.filter(
+            quiz=quiz_event, round_number=1, table=quiz_table
+        ).exists()
+
+        client = APIClient()
+        client.force_authenticate(user=loner)
+        response = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["seated"] is True
+        assert data["tablemates"] == [], (
+            f"expected nobody at an emptied table, got {data['tablemates']}"
+        )
 
     def test_my_assignment_not_assigned(self, quiz_event):
         """200 with `seated: false`, not 404.
@@ -2793,7 +3068,17 @@ class TestRotationInvariants:
         (7, 7, 3, 3),  # odd counts
         (6, 9, 3, 3),  # women > 2× tables → spillover group C
         (10, 4, 5, 3),  # more anchors than rotators
-        (4, 6, 2, 2),  # 2-table special case
+        (4, 6, 2, 2),  # 2 tables, exactly 2 rotators per table
+        # Two tables with a rotator count that is not a clean 2-per-table
+        # fit. The old 2-table branch packed the first four women into a
+        # single group indexed modulo their own count, so anything but
+        # exactly four seated the same woman at both tables in one round —
+        # which the DB rejects on (quiz, round_number, user) and which left
+        # a real 7-man/2-woman quiz with no rounds past check-in at all.
+        (7, 2, 2, 3),
+        (4, 3, 2, 3),
+        (5, 5, 2, 3),
+        (4, 7, 2, 3),  # 2 tables + spillover group C
     ]
 
     def test_anchor_invariance(self):
@@ -2825,17 +3110,15 @@ class TestRotationInvariants:
         """At most one user per (round, table, rotation_group) for groups
         A and B. Group C is spillover and may double up.
 
-        Skips ``num_tables == 2`` because the algorithm deliberately seats
-        two group-A rotators per table in the 2-table special case (there
-        is no group B; all women are in a single rotating group).
+        Every table count, including 2: the special case that used to seat
+        two group-A rotators per table there is gone, so a 2-table room now
+        fills A and B one deep each like any other size.
         """
         from collections import defaultdict
 
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
         for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
-            if tables_n == 2:
-                continue  # 2-table case intentionally groups 2 women per A-slot
             men = self._mk_users(f"cc_m_c{cfg_idx}_", men_n)
             women = self._mk_users(f"cc_w_c{cfg_idx}_", women_n)
             result = generate_rotation_schedule(
@@ -2856,14 +3139,31 @@ class TestRotationInvariants:
                     f"{key} has {len(users)} rotators: {users}"
                 )
 
-    def test_group_a_visits_every_table(self):
-        """Over N rounds (N = num_tables), every Group-A rotator visits
-        every table exactly once."""
+    def test_rotators_visit_every_table(self):
+        """Over N rounds (N = num_tables), every group-A *and* group-B
+        rotator visits every table exactly once.
+
+        Group B is the half this used to leave untested, and it was
+        broken wherever the table count is even: its old +2 step shares a
+        factor with an even N, so it walked the same-parity tables and
+        skipped the rest — at 4 tables, 1 → 3 → 1 → 3, meeting the same
+        anchors all night. Anchors never move, so a rotator who misses
+        half the tables misses half the people, which is the entire
+        purpose of the evening.
+        """
+        from collections import defaultdict
+
         from crush_lu.services.quiz_rotation import generate_rotation_schedule
 
-        # Use configs where num_rounds == num_tables so the property is
-        # well-formed (after N rounds, every table must have been visited).
-        visit_configs = [(6, 6, 3, 3), (8, 8, 4, 4), (12, 12, 6, 6)]
+        # num_rounds == num_tables so the property is well-formed (after N
+        # rounds, every table must have been visited), and enough women to
+        # fill both groups. Even and odd table counts both represented.
+        visit_configs = [
+            (6, 6, 3, 3),
+            (8, 8, 4, 4),
+            (10, 10, 5, 5),
+            (12, 12, 6, 6),
+        ]
         for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(visit_configs):
             men = self._mk_users(f"v_m_c{cfg_idx}_", men_n)
             women = self._mk_users(f"v_w_c{cfg_idx}_", women_n)
@@ -2871,16 +3171,56 @@ class TestRotationInvariants:
                 men, women, num_rounds=rounds_n, num_tables=tables_n
             )
 
-            visits = {}
+            visits = defaultdict(lambda: defaultdict(set))
             for e in result["schedule"]:
-                if e["role"] == "rotator" and e["rotation_group"] == "A":
-                    visits.setdefault(e["user"].id, set()).add(e["table_number"])
+                if e["role"] == "rotator" and e["rotation_group"] in ("A", "B"):
+                    visits[e["rotation_group"]][e["user"].id].add(e["table_number"])
 
-            for user_id, tables in visits.items():
-                assert tables == set(range(1, tables_n + 1)), (
+            for group in ("A", "B"):
+                assert visits[group], (
                     f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
-                    f"group-A user {user_id} visited {tables}"
+                    f"seated no group-{group} rotators at all"
                 )
+                for user_id, tables in visits[group].items():
+                    assert tables == set(range(1, tables_n + 1)), (
+                        f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                        f"group-{group} user {user_id} visited {tables}"
+                    )
+
+    def test_rotators_move_between_consecutive_rounds(self):
+        """A rotator is at a different table after every rotation.
+
+        The invariant the suite was missing: it checked that anchors hold
+        still, that groups do not collide and that everyone has a seat, so
+        a schedule could satisfy all three while leaving the rotators
+        exactly where they started — which is what a 2-table room did,
+        group B being advanced by +2 tables, a no-op modulo 2.
+        """
+        from collections import defaultdict
+
+        from crush_lu.services.quiz_rotation import generate_rotation_schedule
+
+        for cfg_idx, (men_n, women_n, tables_n, rounds_n) in enumerate(self.CONFIGS):
+            men = self._mk_users(f"mv_m_c{cfg_idx}_", men_n)
+            women = self._mk_users(f"mv_w_c{cfg_idx}_", women_n)
+            result = generate_rotation_schedule(
+                men, women, num_rounds=rounds_n, num_tables=tables_n
+            )
+
+            seats = defaultdict(dict)
+            for e in result["schedule"]:
+                if e["role"] == "rotator":
+                    seats[e["user"].id][e["round_number"]] = e["table_number"]
+
+            for user_id, per_round in seats.items():
+                for rn in range(rounds_n - 1):
+                    if rn not in per_round or rn + 1 not in per_round:
+                        continue
+                    assert per_round[rn] != per_round[rn + 1], (
+                        f"config=({men_n},{women_n},{tables_n},{rounds_n}) "
+                        f"rotator {user_id} sat at table {per_round[rn]} in "
+                        f"both round {rn} and round {rn + 1}"
+                    )
 
     def test_every_user_seated_every_round(self):
         """Every participant appears exactly once in every round."""
