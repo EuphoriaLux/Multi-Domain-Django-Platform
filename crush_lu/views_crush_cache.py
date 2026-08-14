@@ -545,14 +545,24 @@ def _process_station_scan(request, station):
 
 @crush_login_required
 @require_POST
-@ratelimit(key="user", rate="30/m", method="POST")
+@ratelimit(key="user", rate="60/m", method="POST", block=False)
 def cache_position_api(request, event_id):
     """Receive a GPS fix, decide arrival server-side, feed the coach map.
 
     The client never decides "arrived", and for compass/hidden navigation
     modes the response carries distance/bearing only — never raw
     coordinates a player could feed into a map app.
+
+    Rate limit: the client throttles itself to one POST per 3 s (20/min),
+    but the same user with the page open twice (task-switcher reopen,
+    duplicated tab) doubles that — 60/m keeps the brute-force guard
+    without refusing honest players. block=False so a refusal is our own
+    JSON 429 the client backs off from, never django-ratelimit's HTML 403,
+    which players' browsers used to treat as fatal.
     """
+    if getattr(request, "limited", False):
+        return JsonResponse({"ok": False, "error": "rate_limited"}, status=429)
+
     hunt = _get_hunt_or_404(event_id)
     membership = _get_membership(hunt, request.user)
     if membership is None:

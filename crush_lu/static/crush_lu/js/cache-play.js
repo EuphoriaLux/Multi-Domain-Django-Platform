@@ -11,6 +11,13 @@
  * fallback against the state API keeps the game moving when the channel
  * layer is down (HTTP gameplay must never depend on Redis).
  *
+ * Mobile resilience: browsers pause (and sometimes silently kill) a
+ * geolocation watch when the screen locks or the tab is backgrounded,
+ * while orientation events resume on their own — the classic symptom is
+ * a compass that keeps moving over a frozen distance readout. Hence the
+ * screen wake lock, the watch-restart watchdog, the visibilitychange
+ * restart, and the abort timeout on position POSTs.
+ *
  * User-facing strings come from data-msg-* attributes on the root
  * element so templates translate them ({% trans %}); the literals here
  * are English fallbacks only.
@@ -31,8 +38,26 @@ document.addEventListener("alpine:init", function () {
             unlocked: false,
             compassNeedsPermission: false,
             hasAbsoluteHeading: false,
+            // Continuous (never wrapped at 360°) rotation values for the
+            // CSS-transitioned arrow/cone — see _updateArrowRotation().
+            arrowRotation: null,
+            _coneRotation: null,
+            // Heading-source recency (see onGpsCourse): the GPS course only
+            // yields to a compass source that recently produced a *usable*
+            // sample — a sticky boolean here would let a tilt-suppressed
+            // compass block the GPS fallback indefinitely.
+            _lastCompassAt: null,
+            _lastRelativeAt: null,
+            // Relative-alpha fallback bookkeeping: its zero point is
+            // arbitrary, the GPS travel course learns the correction.
+            _lastRelativeRaw: null,
+            _relativeOffset: null,
             watchId: null,
+            lastFixAt: 0,
+            watchdogTimer: null,
+            wakeLock: null,
             lastPostAt: 0,
+            postBackoffUntil: 0,
             posting: false,
             reloading: false,
             map: null,
@@ -59,6 +84,7 @@ document.addEventListener("alpine:init", function () {
                     gpsDenied: root.dataset.msgGpsDenied || "Location permission denied",
                     gpsWaiting: root.dataset.msgGpsWaiting || "Waiting for GPS…",
                     gpsAccuracy: root.dataset.msgGpsAccuracy || "GPS accuracy: ±{n} m",
+                    gpsLost: root.dataset.msgGpsLost || "GPS signal lost — searching…",
                 };
                 try {
                     this.completedStations = JSON.parse(root.dataset.completedStations || "[]");
@@ -68,6 +94,8 @@ document.addEventListener("alpine:init", function () {
 
                 if (this.huntStatus === "live") {
                     this.startWatching();
+                    this.startGpsWatchdog();
+                    this.requestWakeLock();
                     this.connectWebSocket();
                     this.startPolling();
                 }
@@ -77,6 +105,19 @@ document.addEventListener("alpine:init", function () {
                         self.suspendNavigation();
                     }
                 });
+                // Screen unlock / return from another app: the browser may
+                // have silently dropped both the geolocation watch and the
+                // wake lock while the page was hidden — rebuild them the
+                // moment the page is visible again.
+                this._onVisibility = function () {
+                    if (document.visibilityState !== "visible") return;
+                    if (self.huntStatus !== "live" || self.suspended || self.reloading) return;
+                    self.requestWakeLock();
+                    if (self.watchId !== null && !self.gpsDenied) {
+                        self.restartWatching();
+                    }
+                };
+                document.addEventListener("visibilitychange", this._onVisibility);
                 // Pre-unlock AudioContext on first tap anywhere on the page
                 var unlockAudio = function () {
                     try {
@@ -105,6 +146,14 @@ document.addEventListener("alpine:init", function () {
 
             destroy: function () {
                 this.stopWatching();
+                if (this.watchdogTimer !== null) {
+                    clearInterval(this.watchdogTimer);
+                    this.watchdogTimer = null;
+                }
+                if (this._onVisibility) {
+                    document.removeEventListener("visibilitychange", this._onVisibility);
+                }
+                this.releaseWakeLock();
                 if (this.pollTimer !== null) {
                     clearInterval(this.pollTimer);
                 }
@@ -126,7 +175,9 @@ document.addEventListener("alpine:init", function () {
 
             get arrowStyle() {
                 if (this.bearing === null) return "";
-                var rotation = this.bearing - (this.heading || 0);
+                var rotation = this.arrowRotation !== null
+                    ? this.arrowRotation
+                    : this.bearing - (this.heading || 0);
                 return "transform: rotate(" + rotation + "deg)";
             },
 
@@ -142,6 +193,9 @@ document.addEventListener("alpine:init", function () {
                     this.geoSupported = false;
                     return;
                 }
+                // Grace period so the watchdog doesn't restart a watch that
+                // is still acquiring its first fix.
+                this.lastFixAt = Date.now();
                 this.watchId = navigator.geolocation.watchPosition(
                     function (pos) {
                         self.gpsDenied = false;
@@ -164,17 +218,76 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            restartWatching: function () {
+                this.stopWatching();
+                this.startWatching();
+            },
+
+            // A mobile geolocation watch can silently stop delivering fixes
+            // (screen lock, app switch, OS GPS hiccup) and never recovers by
+            // itself — tearing it down and re-registering does. 25 s without
+            // a fix means stalled, not just slow: a healthy watch reports at
+            // least every few seconds outdoors.
+            startGpsWatchdog: function () {
+                var self = this;
+                if (this.watchdogTimer !== null) return;
+                this.watchdogTimer = setInterval(function () {
+                    if (self.suspended || self.reloading || self.gpsDenied) return;
+                    if (self.watchId === null) return;
+                    if (Date.now() - self.lastFixAt > 25000) {
+                        self.gpsStatus = self.msgs.gpsLost;
+                        self.restartWatching();
+                    }
+                }, 10000);
+            },
+
+            // Keep the screen awake while navigating: the screen locking is
+            // what pauses the geolocation watch in the first place (browsers
+            // stop geolocation for hidden pages — the reason app-based hunt
+            // games exist). Best-effort: needs https and a visible page;
+            // browsers without the API simply skip it.
+            requestWakeLock: function () {
+                var self = this;
+                if (!navigator.wakeLock || document.visibilityState !== "visible") return;
+                try {
+                    navigator.wakeLock.request("screen").then(function (lock) {
+                        self.wakeLock = lock;
+                    }).catch(function () {});
+                } catch (e) {}
+            },
+
+            releaseWakeLock: function () {
+                if (!this.wakeLock) return;
+                try {
+                    var res = this.wakeLock.release();
+                    if (res && res.catch) res.catch(function () {});
+                } catch (e) {}
+                this.wakeLock = null;
+            },
+
             onPosition: function (pos) {
                 var lat = pos.coords.latitude;
                 var lng = pos.coords.longitude;
                 var accuracy = pos.coords.accuracy || 0;
                 this.accuracyM = accuracy;
+                this.lastFixAt = Date.now();
 
                 this.updateSelfMarker(lat, lng, accuracy);
                 this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));
 
+                // Travel course from the fix itself: available in every
+                // browser without sensor permissions, and immune to
+                // magnetometer calibration — feeds the heading pipeline
+                // whenever the player is actually walking (>1 m/s).
+                var course = pos.coords.heading;
+                var speed = pos.coords.speed;
+                if (typeof course === "number" && isFinite(course)
+                    && typeof speed === "number" && speed > 1) {
+                    this.onGpsCourse(course);
+                }
+
                 var now = Date.now();
-                if (this.posting || now - this.lastPostAt < 3000) return;
+                if (this.posting || now < this.postBackoffUntil || now - this.lastPostAt < 3000) return;
                 this.lastPostAt = now;
                 this.postPosition(lat, lng, accuracy);
             },
@@ -182,6 +295,19 @@ document.addEventListener("alpine:init", function () {
             postPosition: function (lat, lng, accuracy) {
                 var self = this;
                 this.posting = true;
+                // A request stalled by a network handover must not wedge
+                // `posting` forever (it gates every future POST) — abort it
+                // and let the next fix retry.
+                var controller = window.AbortController ? new AbortController() : null;
+                var abortTimer = controller
+                    ? setTimeout(function () {
+                        try { controller.abort(); } catch (e) {}
+                    }, 10000)
+                    : null;
+                var finish = function () {
+                    self.posting = false;
+                    if (abortTimer !== null) clearTimeout(abortTimer);
+                };
                 fetch(this.positionUrl, {
                     method: "POST",
                     headers: {
@@ -189,9 +315,10 @@ document.addEventListener("alpine:init", function () {
                         "X-CSRFToken": this.getCsrfToken(),
                     },
                     body: JSON.stringify({ lat: lat, lng: lng, accuracy: accuracy }),
+                    signal: controller ? controller.signal : undefined,
                 })
                     .then(function (r) {
-                        if (r.status === 403) {
+                        if (r.status === 403 || r.status === 429) {
                             return r.json()
                                 .catch(function () { return null; })
                                 .then(function (err) {
@@ -200,7 +327,13 @@ document.addEventListener("alpine:init", function () {
                                     if (code === "finished" || code === "not_live" || code === "no_team") {
                                         self.stopAndReload();
                                     } else {
-                                        self.stopWatching();
+                                        // Transient refusal (rate limit
+                                        // burst, CSRF hiccup): back off but
+                                        // keep the watch alive — stopping it
+                                        // here is permanent and turns one bad
+                                        // response into a dead distance
+                                        // readout under a live compass.
+                                        self.postBackoffUntil = Date.now() + 30000;
                                     }
                                     return null;
                                 });
@@ -208,15 +341,18 @@ document.addEventListener("alpine:init", function () {
                         return r.ok ? r.json() : null;
                     })
                     .then(function (data) {
-                        self.posting = false;
+                        finish();
                         if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
-                        if (typeof data.bearing === "number") self.bearing = data.bearing;
+                        if (typeof data.bearing === "number") {
+                            self.bearing = data.bearing;
+                            self._updateArrowRotation();
+                        }
                         if (self.needsGps && (data.arrived || data.unlocked)) {
                             self.celebrateArrival();
                         }
                     })
-                    .catch(function () { self.posting = false; });
+                    .catch(function () { finish(); });
             },
 
             stopAndReload: function () {
@@ -606,6 +742,9 @@ document.addEventListener("alpine:init", function () {
                     }
                     return 0;
                 };
+                // onGpsCourse (outside this closure) needs the live screen
+                // angle to calibrate the relative-alpha offset consistently.
+                self._getScreenAngle = getScreenAngle;
 
                 var lastRawHeading = 0;
                 var updateHeading = function (rawDeg) {
@@ -613,9 +752,7 @@ document.addEventListener("alpine:init", function () {
                         lastRawHeading = rawDeg;
                     }
                     var screenAngle = getScreenAngle();
-                    var adjustedDeg = (lastRawHeading + screenAngle + 360) % 360;
-                    self.heading = adjustedDeg;
-                    self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
+                    self._applyHeading(lastRawHeading + screenAngle);
                 };
 
                 self._updateHeading = updateHeading;
@@ -656,11 +793,33 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
+                // Near-vertical guard for alpha-based headings: 360 − alpha
+                // is the compass direction of the device's top edge projected
+                // onto the ground. Around vertical (beta ≈ 90°) that
+                // projection is numerically unstable, and past vertical it
+                // flips a full 180° — the "arrow points backwards when I lift
+                // the phone" effect. Hold the last heading there; the GPS
+                // course keeps correcting while walking. (iOS's
+                // webkitCompassHeading is tilt-compensated by the OS and
+                // doesn't need this.)
+                var betaUnstable = function (e) {
+                    return typeof e.beta === "number" && e.beta > 70 && e.beta < 110;
+                };
+
                 var handler = function (e) {
                     if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                        self._lastCompassAt = Date.now();
                         updateHeading(e.webkitCompassHeading);
                     } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
-                        updateHeading(360 - e.alpha);
+                        if (betaUnstable(e)) return;
+                        // Relative alpha has an arbitrary zero (whichever way
+                        // the device pointed on page load), so on its own the
+                        // arrow can be off by anything up to 180° — apply the
+                        // offset learned from the GPS course (onGpsCourse).
+                        var raw = 360 - e.alpha;
+                        self._lastRelativeAt = Date.now();
+                        self._lastRelativeRaw = raw;
+                        updateHeading(self._relativeOffset === null ? raw : raw + self._relativeOffset);
                     }
                 };
 
@@ -668,7 +827,14 @@ document.addEventListener("alpine:init", function () {
                 try {
                     window.addEventListener("deviceorientationabsolute", function (e) {
                         if (e.alpha !== null && e.alpha !== undefined) {
+                            // Set before the tilt guard on purpose: while ANY
+                            // absolute source exists, the relative handler
+                            // must stay muted (same alpha, arbitrary zero) —
+                            // but only guard-passing samples count as a live
+                            // compass for onGpsCourse, via _lastCompassAt.
                             self.hasAbsoluteHeading = true;
+                            if (betaUnstable(e)) return;
+                            self._lastCompassAt = Date.now();
                             updateHeading(360 - e.alpha);
                         }
                     }, true);
@@ -684,12 +850,83 @@ document.addEventListener("alpine:init", function () {
                                 var alpha = Math.atan2(2 * (q[3] * q[2] + q[0] * q[1]), 1 - 2 * (q[1] * q[1] + q[2] * q[2]));
                                 var deg = alpha * (180 / Math.PI);
                                 self.hasAbsoluteHeading = true;
+                                self._lastCompassAt = Date.now();
                                 updateHeading(360 - deg);
                             }
                         });
                         sensor.start();
                     } catch (e) {}
                 }
+            },
+
+            // --- Heading pipeline (shared by compass events + GPS course) ---
+
+            // Smooth toward the new heading along the shortest arc: raw
+            // sensor headings jitter by several degrees per event and wrap
+            // at 0/360, and feeding them straight into the CSS transition
+            // makes the arrow tremble and occasionally spin the long way
+            // around.
+            _applyHeading: function (deg) {
+                deg = ((deg % 360) + 360) % 360;
+                if (typeof this.heading !== "number" || isNaN(this.heading)) {
+                    this.heading = deg;
+                } else {
+                    var delta = ((deg - this.heading + 540) % 360) - 180;
+                    this.heading = (((this.heading + delta * 0.35) % 360) + 360) % 360;
+                }
+                if (this._coneRotation === null) {
+                    this._coneRotation = this.heading;
+                } else {
+                    var current = ((this._coneRotation % 360) + 360) % 360;
+                    this._coneRotation += ((this.heading - current + 540) % 360) - 180;
+                }
+                this._updateArrowRotation();
+                this.updateSelfMarker(this.currentLat, this.currentLng, this.accuracyM || 10);
+            },
+
+            // The stored rotation accumulates past ±360° on purpose: CSS
+            // transitions animate through the numeric difference, so jumping
+            // from 359° to 1° would visibly swing the arrow 358° the wrong
+            // way — instead we always add the shortest signed arc.
+            _updateArrowRotation: function () {
+                if (this.bearing === null) return;
+                var target = this.bearing - (this.heading || 0);
+                if (this.arrowRotation === null) {
+                    // First value: shortest arc from the untransformed 0°
+                    // so the initial transition doesn't do a near-full spin.
+                    this.arrowRotation = ((target % 360) + 540) % 360 - 180;
+                    return;
+                }
+                var current = ((this.arrowRotation % 360) + 360) % 360;
+                var normalized = ((target % 360) + 360) % 360;
+                this.arrowRotation += ((normalized - current + 540) % 360) - 180;
+            },
+
+            // Direction of travel from the GPS fix (see onPosition). Yields
+            // to a compass source that delivered a usable sample in the last
+            // 3 s; with only the relative-alpha fallback live it learns that
+            // source's unknown offset; otherwise (no orientation events at
+            // all, or every source tilt-suppressed/silent) it becomes the
+            // heading itself, so an upright-held phone still gets a live
+            // arrow while walking.
+            onGpsCourse: function (course) {
+                var now = Date.now();
+                if (this._lastCompassAt !== null && now - this._lastCompassAt < 3000) {
+                    return;
+                }
+                if (this._lastRelativeAt !== null && now - this._lastRelativeAt < 3000
+                    && typeof this._lastRelativeRaw === "number") {
+                    // The offset is added to the raw (pre-screen-angle)
+                    // heading in the orientation handler, and updateHeading()
+                    // adds the screen angle afterwards — so the screen angle
+                    // must be subtracted while learning it, or a landscape
+                    // device ends up a quarter-turn off after calibration.
+                    var screenAngle = this._getScreenAngle ? this._getScreenAngle() : 0;
+                    this._relativeOffset =
+                        ((course - screenAngle - this._lastRelativeRaw + 540) % 360) - 180;
+                    return;
+                }
+                this._applyHeading(course);
             },
 
             // --- Leaflet map (map navigation mode only) ---
@@ -880,7 +1117,11 @@ document.addEventListener("alpine:init", function () {
                 var validLng = this.currentLng;
                 if (!this.map || !window.L) return;
                 var firstFix = !this.selfMarker;
-                var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
+                // Continuous rotation (never wrapped) so the cone's CSS
+                // transition can't spin the long way around at north.
+                var headingAngle = this._coneRotation !== null
+                    ? this._coneRotation
+                    : (typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0);
 
                 if (!this.selfMarker) {
                     var selfHtml = '<div style="width:24px; height:24px; box-sizing:border-box; border-radius:50%; background:linear-gradient(135deg, #8b5cf6, #ec4899); border:3px solid #ffffff; box-shadow:0 0 12px rgba(139,92,246,0.9); position:relative;" class="crush-player-pulse">' +
