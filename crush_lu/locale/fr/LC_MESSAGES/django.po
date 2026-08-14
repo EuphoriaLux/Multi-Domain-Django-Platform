@@ -16034,6 +16034,10 @@ msgstr "En attente du GPS…"
 msgid "GPS accuracy: ±{n} m"
 msgstr "Précision GPS : ±{n} m"
 
+#: templates/crush_lu/cache/play.html:47
+msgid "GPS signal lost — searching…"
+msgstr "Signal GPS perdu — recherche…"
+
 #: templates/crush_lu/cache/play.html:66
 #, fuzzy
 #| msgid "Event Lobby"
