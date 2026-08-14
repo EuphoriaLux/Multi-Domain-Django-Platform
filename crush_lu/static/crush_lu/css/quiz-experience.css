@@ -476,6 +476,11 @@ button.quiz-choice:hover:not(:disabled) {
 .quiz-media--audio {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
+    /* .quiz-media centers its single child; the audio layout is a two-column
+       row instead, so the body must fill its track. Without this the body
+       shrink-wraps and an embedded player's width:100% has no width to
+       resolve against, collapsing it to the 300px intrinsic iframe size. */
+    justify-items: stretch;
     gap: 1rem;
     min-height: 8rem;
     padding: 1.2rem;
