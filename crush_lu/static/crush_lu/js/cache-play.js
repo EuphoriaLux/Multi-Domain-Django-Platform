@@ -738,6 +738,9 @@ document.addEventListener("alpine:init", function () {
                     }
                     return 0;
                 };
+                // onGpsCourse (outside this closure) needs the live screen
+                // angle to calibrate the relative-alpha offset consistently.
+                self._getScreenAngle = getScreenAngle;
 
                 var lastRawHeading = 0;
                 var updateHeading = function (rawDeg) {
@@ -896,8 +899,15 @@ document.addEventListener("alpine:init", function () {
                 if (this._sawWebkit || this.hasAbsoluteHeading) return;
                 if (this._sawRelative) {
                     if (typeof this._lastRelativeRaw === "number") {
+                        // The offset is added to the raw (pre-screen-angle)
+                        // heading in the orientation handler, and
+                        // updateHeading() adds the screen angle afterwards —
+                        // so the screen angle must be subtracted while
+                        // learning it, or a landscape device ends up a
+                        // quarter-turn off after calibration.
+                        var screenAngle = this._getScreenAngle ? this._getScreenAngle() : 0;
                         this._relativeOffset =
-                            ((course - this._lastRelativeRaw + 540) % 360) - 180;
+                            ((course - screenAngle - this._lastRelativeRaw + 540) % 360) - 180;
                     }
                     return;
                 }
