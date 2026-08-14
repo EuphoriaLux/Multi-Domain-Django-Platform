@@ -543,12 +543,17 @@ reference the portal renders: `{"type": youtube|vimeo|other, "url": …}`. None
 of the behaviour below is in the published schema; all of it was probed against
 the live API on 2026-08-15, because the alternative was shipping blind again.
 
-* **`type: "other"` with a direct `.mp4` URL is accepted** (201) and reads back
-  unchanged — so a file on our own CDN is a valid embed and no YouTube or Vimeo
-  account is needed. The spot lives at
-  `https://cdn.crush.lu/crush-lu-media/marketing/crushlu-spot.mp4`, alongside
-  `branding/social-preview.jpg`, and is served with `Accept-Ranges: bytes` so it
-  streams progressively rather than downloading whole.
+* ⚠️ **A self-hosted `.mp4` is accepted and then ignored.** `type: "other"` with
+  a direct file URL answers 201, stores, and reads back intact — and the
+  listing renders nothing for it. An experience carrying both our
+  `cdn.crush.lu` mp4 and a YouTube entry previewed with a real
+  `youtube.com/embed/…` iframe for the YouTube one and **no `<video>` element at
+  all** for ours. The API reports success either way, so this is invisible from
+  the sync side. **Point `ECHO_LU_VIDEO_URL` at YouTube or Vimeo.**
+  The mp4 is still hosted at
+  `https://cdn.crush.lu/crush-lu-media/marketing/crushlu-spot.mp4` (served with
+  `Accept-Ranges: bytes`, so it streams progressively) — it is simply for our
+  own surfaces, not for echo.lu.
 * **A `PUT` replaces the whole list**, despite the API documenting the field as
   "videos to **add**". Probed on `PUT` specifically, because that is the verb
   `update_experience` uses — a result taken from `PATCH` would not have covered
@@ -567,10 +572,15 @@ the live API on 2026-08-15, because the alternative was shipping blind again.
   syncing, so `build_video_payload()` checks the value locally and sends no
   video rather than a payload echo.lu would reject outright.
 
-⚠️ **Acceptance is not rendering.** `commune` is the precedent: echo.lu took it,
-stored nothing, and cost us discovery rather than an error. Confirm in the
-organiser back office that a player actually appears before treating a stored
-`videos` entry as a published video.
+⚠️ **Acceptance is not rendering**, and this field proved it. `commune` was the
+precedent — taken, stored, ignored. `videos` does the same for `type: "other"`,
+and a stored entry that reads back perfectly is not evidence of anything.
+Check the organiser preview (`…/experiences/<id>/preview`, wizard step 4) for
+an actual player before believing a video is published.
+
+Note the back-office **editor** is not a reliable mirror either: section 2.4
+showed three empty slots for an experience that demonstrably held two stored
+videos. The preview is the instrument, not the form.
 
 **`commune` is required, and gets the town.** It once carried the event's
 `canton`, which is a region rather than a commune. Omitting it looked like the

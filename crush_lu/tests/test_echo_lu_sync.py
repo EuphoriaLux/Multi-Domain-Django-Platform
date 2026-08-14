@@ -755,14 +755,23 @@ class VideoPayloadTests(TestCase):
         self.assertEqual(echo_lu.build_video_payload(), [])
 
     @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
-    def test_an_mp4_on_our_own_cdn_is_a_valid_embed(self):
-        # `other` + a direct .mp4 URL was accepted by the live API (201) and
-        # read back unchanged, which is why hosting the spot ourselves works
-        # and no YouTube/Vimeo account is required.
+    def test_other_is_still_sendable_even_though_echo_ignores_it(self):
+        # `other` + a direct .mp4 URL is accepted by the API (201) and read
+        # back intact, but the listing renders nothing for it — so this stays
+        # possible to configure without being the default. Do not "fix" this
+        # into a rejection: the day echo.lu starts rendering `other`, the only
+        # change needed should be one app setting.
         self.assertEqual(
             echo_lu.build_video_payload(),
             [{"type": "other", "url": self.SPOT}],
         )
+
+    @override_settings(ECHO_LU_VIDEO_URL="https://www.youtube.com/watch?v=abc")
+    def test_the_default_type_is_the_one_that_actually_renders(self):
+        # Not `other`: a self-hosted .mp4 is accepted and then silently ignored
+        # by the frontend, which looks like success. youtube is the only value
+        # observed to produce a real player.
+        self.assertEqual(echo_lu.build_video_payload()[0]["type"], "youtube")
 
     @override_settings(
         ECHO_LU_VIDEO_URL="https://www.youtube.com/watch?v=abc",

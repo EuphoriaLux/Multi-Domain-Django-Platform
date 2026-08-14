@@ -1051,8 +1051,13 @@ def build_video_payload():
     of the following was probed against the live API on 2026-08-15, because
     the schema documents none of it:
 
-    * ``type: "other"`` with a direct ``.mp4`` URL is accepted and stored, so a
-      file on our own CDN is a valid embed and no third-party host is needed.
+    * ⚠️ ``type: "other"`` with a direct ``.mp4`` URL is accepted (201), stored,
+      and read back intact — **and renders nothing.** The organiser preview of
+      an experience holding both a ``.mp4`` on our CDN and a YouTube entry
+      carried a real ``youtube.com/embed/…`` iframe for the latter and no
+      ``<video>`` element at all for the former. So self-hosting the file is
+      not enough for echo.lu, however valid the URL: point this at YouTube or
+      Vimeo. The API cannot tell you this — it reports success either way.
     * ``cover`` is **silently dropped** — sent on create, absent on read back.
       Same accept-then-discard behaviour as ``address.commune``. So it is not
       sent, and a poster image cannot be chosen from here.
