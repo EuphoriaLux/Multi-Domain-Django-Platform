@@ -976,6 +976,33 @@ ECHO_LU_FALLBACK_IMAGE = os.environ.get("ECHO_LU_FALLBACK_IMAGE", "")
 # slugs, layered on top of ECHO_LU_DEFAULT_CATEGORIES. Example:
 #   {"speed_dating": ["rencontres"], "quiz_night": ["jeux"]}
 ECHO_LU_CATEGORY_MAP = os.environ.get("ECHO_LU_CATEGORY_MAP", "")
+# Optional promo video attached to every synced listing.
+#
+# echo.lu's `videos` field is an EMBED, not a file it re-hosts the way
+# `pictures` are — it takes {"type": youtube|vimeo|other, "url": ...}.
+#
+# ⚠️ A self-hosted .mp4 does NOT work, and the API will not tell you so. Probed
+# end to end on 2026-08-15: `type: "other"` with a direct .mp4 URL on
+# cdn.crush.lu is accepted (201), stored, and read back intact — and then the
+# listing renders NOTHING. The organiser preview of that same experience
+# carried a real `youtube.com/embed/...` iframe for the YouTube entry beside it
+# and no <video> element at all for ours. Same accept-then-ignore behaviour as
+# `address.commune`. So the URL here must point at YouTube or Vimeo.
+#
+# Empty URL means no video is sent — and, because the key always travels,
+# clearing this setting actively retracts the video from listings that already
+# carry one. `videos: []` is accepted (200); see services.echo_lu.
+ECHO_LU_VIDEO_URL = os.environ.get("ECHO_LU_VIDEO_URL", "")
+# One of youtube / vimeo / other. Defaults to youtube because that is the only
+# value observed to actually render; `other` is accepted by the API and then
+# ignored by the frontend, which is the worst of both worlds — it looks like it
+# worked. An unknown value is dropped locally with a warning rather than sent:
+# echo.lu answers an unrecognised type with `400 Malformed videos data` and
+# refuses the WHOLE experience, so a typo here would stop every event syncing.
+ECHO_LU_VIDEO_TYPE = os.environ.get("ECHO_LU_VIDEO_TYPE", "youtube")
+# Optional caption shown with the video. echo.lu stores this; it silently drops
+# the `cover` field, so there is no poster-image setting to go with it.
+ECHO_LU_VIDEO_DESCRIPTION = os.environ.get("ECHO_LU_VIDEO_DESCRIPTION", "")
 
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
