@@ -242,6 +242,75 @@ class TestDoorVerificationReject:
         assert profile.is_approved is True
         assert profile.verification_method == "coach_event"
 
+    def test_rejected_profile_cannot_use_existing_verified_event_ticket(
+        self, client, event, coach
+    ):
+        """Rejecting identity revokes previously issued verified-only QRs."""
+        profile, door_reg, _ = _attendee(event, "future_ticket_rejected")
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            verification_status="verified",
+            is_approved=True,
+            verification_method="coach_event",
+            approved_at=timezone.now(),
+        )
+        EventRegistration.objects.filter(pk=door_reg.pk).update(status="attended")
+
+        verified_event = MeetupEvent.objects.create(
+            title="Future verified-only event",
+            description="Existing ticket must recheck verification",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(hours=2),
+            location="Luxembourg",
+            address="2 Test Street",
+            max_participants=30,
+            registration_deadline=timezone.now() + timedelta(hours=1),
+            is_published=True,
+            profile_requirement="approved",
+        )
+        future_reg = EventRegistration.objects.create(
+            event=verified_event,
+            user=profile.user,
+            status="confirmed",
+        )
+
+        client.force_login(coach.user)
+        assert client.post(_reject_url(event, door_reg)).status_code == 200
+
+        token = Signer().sign(f"{future_reg.id}:{verified_event.id}")
+        response = client.post(f"/api/events/checkin/{future_reg.id}/{token}/")
+
+        assert response.status_code == 403
+        assert response.json()["success"] is False
+        future_reg.refresh_from_db()
+        assert future_reg.status == "confirmed"
+
+    def test_stale_full_save_cannot_resurrect_door_rejection(
+        self, client, event, coach
+    ):
+        """Slow photo/OAuth-style saves preserve a newer rejection decision."""
+        profile, reg, _ = _attendee(event, "stale_save_rejected")
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            verification_status="verified",
+            is_approved=True,
+            verification_method="coach_event",
+            approved_at=timezone.now(),
+        )
+        EventRegistration.objects.filter(pk=reg.pk).update(status="attended")
+        stale_profile = CrushProfile.objects.get(pk=profile.pk)
+
+        client.force_login(coach.user)
+        assert client.post(_reject_url(event, reg)).status_code == 200
+
+        stale_profile.location = "Esch-sur-Alzette"
+        stale_profile.save()
+
+        profile.refresh_from_db()
+        assert profile.location == "Esch-sur-Alzette"
+        assert profile.verification_status == "rejected"
+        assert profile.is_approved is False
+        assert profile.approved_at is None
+        assert profile.verification_method == ""
+
     def test_reject_premium_member_other_coach_403(self, client, event, coach):
         """Authorization parity with coach_mark_verified (premium gate).
 

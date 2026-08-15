@@ -311,6 +311,23 @@ def event_checkin_api(request, registration_id, token):
             status=400,
         )
 
+    # A signed ticket proves that this registration once held a seat; it does
+    # not freeze the member's verification forever. A door rejection is an
+    # explicit identity revocation, so a previously issued QR must not admit
+    # that profile to a verified-members-only event later. Keep the registration
+    # (and its payment/history) intact and enforce the current audience rule at
+    # the door instead.
+    if registration.event.profile_requirement == "approved":
+        profile = getattr(registration.user, "crushprofile", None)
+        if profile is None or profile.verification_status != "verified":
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "This event is for currently verified members only.",
+                },
+                status=403,
+            )
+
     # Check-in window, computed here because the already-attended branch below
     # must respect it too: tickets do not expire, so without this a coach could
     # scan a months-old QR and newly approve a pending profile (with referral
