@@ -565,6 +565,38 @@ def test_reprocess_photos_carries_forward_photo_attestation(event, coach):
     assert profile.is_photo_verified is True
 
 
+def test_reprocess_photos_does_not_resurrect_concurrent_revocation(event, coach):
+    """If a profile's attestation is revoked in the DB before reprocess_photos saves,
+    the attestation is wiped and not resurrected on the new key."""
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+    from crush_lu.services.profile_verification import reject_door_verification
+
+    profile, reg = _attendee(event, "reprocessrevoked")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is True
+
+    # Simulate a concurrent revocation landing right before save (e.g. door rejection)
+    def mock_process_and_revoke(*args, **kwargs):
+        # A concurrent door rejection clears attestation in DB
+        reject_door_verification(profile)
+        return ContentFile(b"small_image", name="processed.jpg")
+
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        side_effect=mock_process_and_revoke,
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
+
+
 def test_manual_coach_mark_verified_attests_photo_on_rejected_profile(
     event, coach, client
 ):

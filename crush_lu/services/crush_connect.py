@@ -92,7 +92,6 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
         qs.annotate(
             _has_luxid_native=Exists(luxid_native_subq),
             _has_luxid_oidc=Exists(luxid_oidc_subq),
-            _has_attended_event=Exists(attended_event_subq),
             _has_attended_with_grant=Exists(attended_with_grant_subq),
             _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
         )

@@ -1292,10 +1292,17 @@ class CrushProfile(models.Model):
                     writes_primary_photo and old_photo_key != new_photo_key
                 )
                 if primary_photo_changed:
+                    # Invalidate photo attestation on photo change unless this save
+                    # is carrying forward an attestation from an old photo that was
+                    # verified in the DB up to this write (e.g. reprocess_photos).
                     if (
-                        not self.photo_verification_key
-                        or self.photo_verification_key != new_photo_key
+                        old_photo_key
+                        and old_instance.photo_verification_key == old_photo_key
+                        and self.photo_verification_key == new_photo_key
+                        and self.photo_verified_at is not None
                     ):
+                        pass
+                    else:
                         self.photo_verification_key = ""
                         self.photo_verified_at = None
                     if update_fields is not None:
