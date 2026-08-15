@@ -1020,3 +1020,73 @@ def test_undo_checkin_downgrades_tier_when_points_revoked(event, coach, client):
     attribution.refresh_from_db()
     assert referrer_prof.referral_points == 160
     assert referrer_prof.membership_tier == "basic"  # Successfully restored to basic
+
+
+def test_undo_checkin_transfers_provenance_to_surviving_authenticated_registration(
+    event, coach, client
+):
+    """When reg1 auto-verifies a profile and reg2 is scanned later (leaving checkin_auto_verified=False),
+    undoing reg1 transfers provenance to reg2, so subsequent undo of reg2 correctly demotes the profile.
+    """
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+
+    event2 = MeetupEvent.objects.create(
+        title="Event 2",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now(),
+        location="Luxembourg",
+        address="2 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=1),
+        is_published=True,
+    )
+    event2.coaches.add(coach)
+
+    profile, reg1 = _attendee(event, "multi_undo_user")
+    reg2 = EventRegistration.objects.create(
+        user=profile.user,
+        event=event2,
+        status="confirmed",
+    )
+
+    # Scan 1: auto-verifies member
+    assert _scan(reg1, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    reg1.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert reg1.checkin_auto_verified is True
+
+    # Scan 2: already verified, so checkin_auto_verified is False
+    assert _scan(reg2, event2, as_coach=coach).status_code == 200
+    reg2.refresh_from_db()
+    assert reg2.status == "attended"
+    assert reg2.checkin_auto_verified is False
+
+    # Undo scan 1: reg2 still attended, so profile remains verified, but provenance transferred to reg2
+    client.force_login(coach.user)
+    undo_url_1 = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg1.pk},
+    )
+    resp1 = client.post(undo_url_1)
+    assert resp1.status_code == 200
+
+    profile.refresh_from_db()
+    reg2.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert reg2.checkin_auto_verified is True  # Transferred!
+
+    # Undo scan 2: no remaining coach attendance, profile is demoted to pending
+    undo_url_2 = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event2.pk, "registration_id": reg2.pk},
+    )
+    resp2 = client.post(undo_url_2)
+    assert resp2.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+    assert profile.verification_method == ""

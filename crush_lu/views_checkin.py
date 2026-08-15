@@ -1030,14 +1030,19 @@ def coach_undo_checkin(request, event_id, registration_id):
                 photo_verified_at=None,
             )
 
-        # Revoke auto-verification if this check-in was what verified the profile,
+        # Revoke auto-verification if this check-in provided verification proof,
         # unless independent current proof (e.g. connected LuxID or another coach-authenticated attended event) supersedes it.
         if (
-            registration.checkin_auto_verified
-            and profile is not None
+            profile is not None
+            and profile.verification_status == "verified"
             and profile.verification_method == "coach_event"
+            and (
+                registration.checkin_auto_verified
+                or registration.checkin_granted_coach_id is not None
+                or bool(registration.checkin_attested_photo_key)
+            )
         ):
-            has_other_coach_attendance = (
+            other_coach_attendances = (
                 EventRegistration.objects.filter(
                     user_id=profile.user_id,
                     status="attended",
@@ -1052,8 +1057,8 @@ def coach_undo_checkin(request, event_id, registration_id):
                     )
                 )
                 .exclude(pk=registration.pk)
-                .exists()
             )
+            has_other_coach_attendance = other_coach_attendances.exists()
             if profile.has_luxid_connected:
                 CrushProfile.objects.filter(
                     pk=profile.pk,
@@ -1062,7 +1067,12 @@ def coach_undo_checkin(request, event_id, registration_id):
                 ).update(
                     verification_method="luxid",
                 )
-            elif not has_other_coach_attendance:
+            elif has_other_coach_attendance:
+                # Transfer provenance to surviving coach-authenticated check-in so subsequent undos still know it verified the member
+                other_coach_attendances.filter(checkin_auto_verified=False).update(
+                    checkin_auto_verified=True
+                )
+            else:
                 demoted = transition_unverified_profile(
                     profile,
                     target_status="pending",
