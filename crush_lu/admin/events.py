@@ -9,6 +9,8 @@ Includes:
 """
 
 import logging
+import uuid
+from functools import partial
 
 from django import forms
 from django.conf import settings
@@ -16,6 +18,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Prefetch, Q, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -33,6 +36,7 @@ from crush_lu.models import (
     PresentationQueue,
 )
 from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+from crush_lu.models.payments import PaymentTransaction
 
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
@@ -462,6 +466,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_voting_status",
         "get_presentation_status",
         "get_echo_lu_detail",
+        # Event cancellation has money and notification side effects. It must
+        # go through the canonical action below, never a bare form save.
+        "is_cancelled",
     )
     inlines = [
         QuizEventInline,
@@ -689,10 +696,18 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     get_event_languages.short_description = _("Languages")
 
     def get_revenue(self, obj):
-        """Calculate total revenue from confirmed payments"""
-        confirmed = obj.eventregistration_set.filter(payment_confirmed=True).count()
-        revenue = confirmed * obj.registration_fee
-        return f"€{revenue:.2f} ({confirmed} paid)"
+        """Actual captured cash revenue; credit is not new cash income."""
+        payments = PaymentTransaction.objects.filter(
+            event=obj,
+            provider__in=(
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            ),
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        )
+        totals = payments.aggregate(total=Sum("amount"), count=Count("id"))
+        return f"€{(totals['total'] or 0):.2f} ({totals['count']} paid)"
 
     get_revenue.short_description = _("💰 Revenue")
 
@@ -1113,6 +1128,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # the cancellation that follows has no path left to take it back off
         # their card. Google never polls, so that would be permanent.
         google_profiles = []
+        cancellation_cycle_started_at = timezone.now()
         with transaction.atomic():
             # Use the rows the lock returned, not the ones read before it.
             # Between `list(queryset)` and this line another admin can change
@@ -1124,6 +1140,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             locked = list(
                 MeetupEvent.objects.select_for_update().filter(pk__in=event_ids)
             )
+            transitioning_ids = [event.pk for event in locked if not event.is_cancelled]
             try:
                 google_profiles = self._google_holders_for_cancellation(locked)
             except Exception:
@@ -1138,6 +1155,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             updated = MeetupEvent.objects.filter(pk__in=event_ids).update(
                 is_cancelled=True
             )
+            if transitioning_ids:
+                MeetupEvent.objects.filter(pk__in=transitioning_ids).update(
+                    organiser_cancellation_started_at=cancellation_cycle_started_at
+                )
 
         # Same reason as the wallet refreshes below: .update() emits no signals,
         # so nothing tells echo.lu either. A cancelled event left on the
@@ -1206,6 +1227,154 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
         )
+
+        # Cancellation is one operation: stop the event, compensate every paid
+        # registration, then tell each affected member what was issued and how
+        # to request cash when a SumUp capture exists. Free events naturally
+        # produce an empty issue list.
+        from crush_lu.email_helpers import send_event_cancelled_by_organiser
+        from crush_lu.services.credits import (
+            credit_paid_registrations_for_cancelled_event,
+        )
+
+        credited = 0
+        failed_event_ids = set()
+        for event in events:
+            try:
+                issued = credit_paid_registrations_for_cancelled_event(event)
+                credited += len(
+                    {
+                        credit.source_registration_id
+                        for credit in issued
+                        if credit.source_registration_id
+                    }
+                )
+            except Exception:
+                failed_event_ids.add(event.pk)
+                logger.exception(
+                    "Failed issuing cancellation credit for event %s", event.pk
+                )
+                django_messages.error(
+                    request,
+                    _(
+                        "“{title}” was cancelled but its credit could not be "
+                        "issued. Issue it by hand — the members have not been "
+                        "compensated."
+                    ).format(title=event.title),
+                )
+
+        # Production executes Django tasks inline, so email fan-out cannot be
+        # moved to `.enqueue()` and still leave this request. Send a bounded
+        # batch and use the per-registration marker as a durable cursor. The
+        # action is already idempotent, so a coach can rerun it until the queue
+        # is empty without issuing a second credit.
+        from crush_lu.models.credits import CrushCredit
+
+        cancellation_credits = CrushCredit.objects.filter(
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+        ).order_by("issued_at", "pk")
+        email_limit = max(
+            1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
+        )
+        affected_registration = Q(
+            status__in=("pending", "confirmed", "waitlist", "attended")
+        ) | Q(issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED)
+        candidates = list(
+            EventRegistration.objects.filter(
+                event_id__in=event_ids,
+                organiser_cancellation_notified_at__isnull=True,
+            )
+            .exclude(event_id__in=failed_event_ids)
+            .filter(affected_registration)
+            .select_related("event", "user")
+            .prefetch_related(
+                Prefetch(
+                    "issued_credits",
+                    queryset=cancellation_credits,
+                    to_attr="organiser_cancellation_credits",
+                )
+            )
+            .distinct()
+            .order_by("pk")[:email_limit]
+        )
+        emailed = 0
+        for registration in candidates:
+            # A fully redeemed cancellation award must still receive its
+            # delayed notice. Select the newest payment cycle rather than
+            # filtering on mutable credit status; registration rows can be
+            # reused and therefore carry older cancellation awards too.
+            all_credits = registration.organiser_cancellation_credits
+            cycle_started_at = registration.event.organiser_cancellation_started_at
+            if cycle_started_at:
+                all_credits = [
+                    credit
+                    for credit in all_credits
+                    if credit.issued_at >= cycle_started_at
+                ]
+            if all_credits:
+                latest_credit = all_credits[-1]
+                if latest_credit.source_payment_id:
+                    current_credits = [
+                        credit
+                        for credit in all_credits
+                        if credit.source_payment_id == latest_credit.source_payment_id
+                    ]
+                else:
+                    current_credits = [latest_credit]
+            else:
+                current_credits = []
+            try:
+                emailed += bool(
+                    send_event_cancelled_by_organiser(
+                        registration,
+                        current_credits,
+                        request,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Failed sending organiser cancellation email for registration %s",
+                    registration.pk,
+                )
+                django_messages.error(
+                    request,
+                    _(
+                        "Credit was issued to {email}, but the cancellation "
+                        "email failed. Rerun this action to retry."
+                    ).format(email=registration.user.email),
+                )
+
+        remaining_emails = (
+            EventRegistration.objects.filter(
+                event_id__in=event_ids,
+                organiser_cancellation_notified_at__isnull=True,
+            )
+            .exclude(event_id__in=failed_event_ids)
+            .filter(affected_registration)
+            .distinct()
+            .count()
+        )
+        if remaining_emails:
+            django_messages.warning(
+                request,
+                _(
+                    "Sent {sent} cancellation email(s); {remaining} remain. "
+                    "Rerun this action to continue."
+                ).format(sent=emailed, remaining=remaining_emails),
+            )
+
+        django_messages.success(
+            request,
+            _(
+                "Issued Crush Credit to {count} paid registration(s). Card "
+                "payments remain eligible for a cash refund on request."
+            ).format(count=credited),
+        )
+
+    @admin.action(description=_("💳 Cancel selected events AND credit paid seats"))
+    def cancel_events_and_credit(self, request, queryset):
+        """Backward-compatible alias; the canonical action now always credits."""
+        return self.cancel_events(request, queryset)
 
     @admin.action(description=_("🔔 Send reminders to confirmed attendees"))
     def send_event_reminders(self, request, queryset):
@@ -1408,8 +1577,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # The form each row came from, so a collision is reported against
         # exactly the fields the admin submitted and no others.
         forms_by_instance = {
-            id(saved.instance): saved
-            for saved in getattr(formset, "saved_forms", [])
+            id(saved.instance): saved for saved in getattr(formset, "saved_forms", [])
         }
 
         skipped = []
@@ -1565,7 +1733,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         "event__title",
     )
     autocomplete_fields = ["user", "event"]
-    readonly_fields = ("registered_at", "updated_at")
+    readonly_fields = ("registered_at", "updated_at", "cancelled_at")
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
     actions = ["export_registrations_csv", "confirm_registrations", "move_to_waitlist"]
@@ -1582,7 +1750,10 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             },
         ),
         ("Payment", {"fields": ("payment_confirmed", "payment_date")}),
-        ("Timestamps", {"fields": ("registered_at", "updated_at")}),
+        (
+            "Timestamps",
+            {"fields": ("registered_at", "cancelled_at", "updated_at")},
+        ),
     )
 
     def save_model(self, request, obj, form, change):
@@ -1592,7 +1763,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # KPI, which windows on payment_date, silently drops confirmed-but-undated
         # rows (mirrors the CrushConnect / PremiumMembership admins).
         promoted = False
-        if "payment_confirmed" in form.changed_data:
+        payment_changed = "payment_confirmed" in form.changed_data
+        confirmed_payment_date = obj.payment_date
+        if payment_changed:
             if obj.payment_confirmed:
                 obj.payment_date = obj.payment_date or timezone.now()
                 # Money recorded out of band (bank transfer, cash) has to make
@@ -1604,17 +1777,300 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # row, where staff ticking a box must not conjure a seat.
                 # Promote only "pending" -- staff ticking the box on a
                 # cancelled or waitlisted row must not conjure a seat.
-                if obj.status == "pending":
+                if obj.status == "pending" and not obj.event.is_cancelled:
                     obj.status = "confirmed"
                 # ...but notify for any seat holder. In the cash-at-the-door
                 # flow the attendee is scanned to "attended" BEFORE staff record
                 # the cash, so keying the email off the promotion alone left
                 # exactly that case without the confirmation it was promised.
-                if obj.status in SEAT_HOLDING_STATUSES:
+                if obj.status in SEAT_HOLDING_STATUSES and not obj.event.is_cancelled:
                     promoted = True
             else:
                 obj.payment_date = None
-        super().save_model(request, obj, form, change)
+        with transaction.atomic():
+            # An unchecked manual payment is a correction to the cash ledger,
+            # not merely to the mutable seat flag. Move those rows out of PAID
+            # before touching registrations, preserving the global
+            # PaymentTransaction -> EventRegistration lock order.
+            if payment_changed and not obj.payment_confirmed and obj.pk:
+                current_payment = (
+                    PaymentTransaction.objects.select_for_update()
+                    .filter(
+                        event_registration=obj,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        status=PaymentTransaction.Status.PAID,
+                    )
+                    .order_by("-paid_at", "-created_at", "-pk")
+                    .first()
+                )
+                if (
+                    current_payment
+                    and current_payment.provider == PaymentTransaction.Provider.MANUAL
+                    and current_payment.paid_at == confirmed_payment_date
+                ):
+                    # Older MANUAL captures belong to completed registration
+                    # cycles and remain historical revenue. Reverse only the
+                    # manual receipt whose immutable paid_at matches the
+                    # mutable confirmation being unchecked; a newer SumUp or
+                    # Credit capture means the old manual row is not this cycle.
+                    current_payment.status = PaymentTransaction.Status.CANCELLED
+                    current_payment.failure_reason = (
+                        "Manual payment confirmation removed by staff."
+                    )
+                    current_payment.save(
+                        update_fields=["status", "failure_reason", "updated_at"]
+                    )
+
+            # Confirming by hand does not close the member's still-open SumUp
+            # widget, and refunds on this platform are manual-only: staff
+            # records the cash, the open checkout then captures, and
+            # _apply_paid_checkout's idempotency guard skips an
+            # already-confirmed seat silently — the member has paid twice with
+            # no log and no alert. So every PENDING checkout is deactivated at
+            # SumUp BEFORE the MANUAL capture exists, in the same
+            # PaymentTransaction-before-EventRegistration lock order as the
+            # supersede loop in create_sumup_event_checkout.
+            if payment_changed and obj.payment_confirmed and obj.pk:
+                open_checkouts = list(
+                    PaymentTransaction.objects.select_for_update()
+                    .filter(
+                        event_registration_id=obj.pk,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        status=PaymentTransaction.Status.PENDING,
+                    )
+                    .exclude(sumup_checkout_id="")
+                )
+                all_closed = True
+                if open_checkouts:
+                    from crush_lu.services.sumup import SumUpClient
+
+                    client = SumUpClient()
+                    for open_tx in open_checkouts:
+                        if client.deactivate_checkout(open_tx.sumup_checkout_id):
+                            open_tx.status = PaymentTransaction.Status.CANCELLED
+                            # Deliberately not translated: this field is read
+                            # in the Coach Panel, which is forced to English.
+                            open_tx.failure_reason = (
+                                "Superseded by a manual payment confirmation — "
+                                "staff recorded the money out of band (cash or "
+                                "bank transfer), so this checkout was "
+                                "deactivated at SumUp before any card was "
+                                "charged."
+                            )
+                            open_tx.save(
+                                update_fields=[
+                                    "status",
+                                    "failure_reason",
+                                    "updated_at",
+                                ]
+                            )
+                            logger.info(
+                                "Deactivated SumUp checkout %s before manual "
+                                "payment confirmation of registration %s",
+                                open_tx.sumup_checkout_id,
+                                obj.pk,
+                            )
+                        else:
+                            # SumUp unreachable, or the checkout was just PAID
+                            # and can no longer be cancelled. Leave the row
+                            # PENDING — marking it terminal would hide a
+                            # captured card payment from the webhook and the
+                            # reconciliation sweep.
+                            all_closed = False
+                            logger.warning(
+                                "Could not deactivate SumUp checkout %s for "
+                                "registration %s — manual payment confirmation "
+                                "refused",
+                                open_tx.sumup_checkout_id,
+                                obj.pk,
+                            )
+                if not all_closed:
+                    # Refuse the whole save: a MANUAL capture beside a still
+                    # payable card checkout IS the double charge. Returning
+                    # before super().save_model() leaves the registration row
+                    # untouched; checkouts deactivated above stay CANCELLED,
+                    # which mirrors what is now true at SumUp.
+                    self.message_user(
+                        request,
+                        _(
+                            "NOT saved: this member still has an open SumUp "
+                            "card checkout that could not be closed (SumUp "
+                            "unreachable, or the card payment just went "
+                            "through). Confirming by hand now could charge "
+                            "them twice. Check the payment transactions for "
+                            "this registration and try again."
+                        ),
+                        level=django_messages.ERROR,
+                    )
+                    return
+
+            lock_ids = [obj.pk] if obj.pk else []
+            if obj.resale_source_registration_id:
+                lock_ids.append(obj.resale_source_registration_id)
+            if obj.pk:
+                lock_ids.extend(
+                    EventRegistration.objects.filter(
+                        resale_source_registration_id=obj.pk
+                    ).values_list("pk", flat=True)
+                )
+            locked_registrations = {
+                registration.pk: registration
+                for registration in EventRegistration.objects.select_for_update()
+                .filter(pk__in=lock_ids)
+                .order_by("pk")
+            }
+
+            super().save_model(request, obj, form, change)
+
+            if payment_changed and obj.payment_confirmed:
+                # The registration row is reused after cancellation. Any old
+                # PAID transaction therefore belongs to an earlier booking
+                # cycle and cannot stand in for the cash/bank receipt staff is
+                # recording now. Every false -> true transition gets its own
+                # immutable MANUAL capture.
+                payment = None
+                if obj.event.registration_fee > 0:
+                    payment = PaymentTransaction.objects.create(
+                        transaction_reference=(
+                            f"CRUSH-MANUAL-{obj.pk}-{uuid.uuid4().hex[:8]}"
+                        ),
+                        provider=PaymentTransaction.Provider.MANUAL,
+                        amount=obj.event.registration_fee,
+                        currency="EUR",
+                        status=PaymentTransaction.Status.PAID,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        user=obj.user,
+                        event_registration=obj,
+                        paid_at=obj.payment_date,
+                        raw_response={
+                            "recorded_by_admin_user_id": getattr(
+                                getattr(request, "user", None), "pk", None
+                            ),
+                            "method": "cash_or_bank_transfer",
+                        },
+                    )
+
+                locked_obj = EventRegistration.objects.select_related(
+                    "event", "user", "resale_beneficiary"
+                ).get(pk=obj.pk)
+                previous_locked_obj = locked_registrations.get(locked_obj.pk)
+                cancellation_signal_owns = bool(
+                    previous_locked_obj is not None
+                    and previous_locked_obj.status != "cancelled"
+                    and locked_obj.status == "cancelled"
+                )
+                source = locked_registrations.get(
+                    locked_obj.resale_source_registration_id
+                )
+                resale_replacements = [
+                    registration
+                    for registration in locked_registrations.values()
+                    if registration.pk != locked_obj.pk
+                    and registration.resale_source_registration_id == locked_obj.pk
+                ]
+                from crush_lu.services.credits import (
+                    issue_cancellation_credits,
+                    settle_pending_resale_credit,
+                )
+
+                resale_credits = settle_pending_resale_credit(
+                    locked_obj, source_registration=source
+                )
+                if resale_credits and not locked_obj.event.is_cancelled:
+                    from crush_lu.views_payments import (
+                        _send_member_cancellation_safely,
+                    )
+
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            source or locked_obj,
+                            resale_credits,
+                            recipient_user=resale_credits[0].user,
+                        )
+                    )
+                if (
+                    locked_obj.status == "cancelled"
+                    and not locked_obj.event.is_cancelled
+                    and payment is not None
+                    # A status -> cancelled transition schedules the canonical
+                    # post-save cancellation callback in signals.py. That
+                    # callback sees this MANUAL capture after commit and owns
+                    # promotion, compensation and the one member email. This
+                    # admin branch is only for recording money on a row that
+                    # was already cancelled, where no status signal fires.
+                    and not cancellation_signal_owns
+                ):
+                    from crush_lu.views_payments import (
+                        _send_member_cancellation_safely,
+                    )
+
+                    cancellation_credits = issue_cancellation_credits(
+                        locked_obj, moment=locked_obj.cancelled_at
+                    )
+                    if cancellation_credits:
+                        transaction.on_commit(
+                            partial(
+                                _send_member_cancellation_safely,
+                                locked_obj,
+                                cancellation_credits,
+                            )
+                        )
+                    else:
+                        settled_credits = []
+                        for replacement in resale_replacements:
+                            if replacement.resale_source_payment_id != payment.pk:
+                                replacement.resale_source_payment = payment
+                                replacement.save(
+                                    update_fields=["resale_source_payment"]
+                                )
+                            settled_credits.extend(
+                                settle_pending_resale_credit(
+                                    replacement,
+                                    source_registration=locked_obj,
+                                )
+                            )
+                        transaction.on_commit(
+                            partial(
+                                _send_member_cancellation_safely,
+                                locked_obj,
+                                settled_credits,
+                                awaiting_resale=not bool(settled_credits),
+                            )
+                        )
+                if locked_obj.event.is_cancelled and payment is not None:
+                    from crush_lu.services.credits import (
+                        credit_registration_for_cancelled_event,
+                    )
+                    from crush_lu.views_payments import (
+                        _send_organiser_cancellation_safely,
+                    )
+
+                    if resale_credits:
+                        resale_email_registration = source or locked_obj
+                        resale_recipient = (
+                            None if source is not None else resale_credits[0].user
+                        )
+                        transaction.on_commit(
+                            partial(
+                                _send_organiser_cancellation_safely,
+                                resale_email_registration,
+                                resale_credits,
+                                recipient_user=resale_recipient,
+                                mark_notified=source is not None,
+                            )
+                        )
+                    credits = credit_registration_for_cancelled_event(
+                        locked_obj, payment=payment
+                    )
+                    if credits:
+                        transaction.on_commit(
+                            partial(
+                                _send_organiser_cancellation_safely,
+                                locked_obj,
+                                credits,
+                            )
+                        )
 
         # The payment-pending email promises a confirmation "once payment is
         # received" — that promise has to hold for money recorded by hand, not
@@ -1811,7 +2267,11 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     restored_google_profiles.append(profile)
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
-            status="confirmed"
+            status="confirmed",
+            # QuerySet.update bypasses EventRegistration.save(). A restored
+            # registration is a new cancellation-policy cycle and must not
+            # retain the previous cancellation's timing classification.
+            cancelled_at=None,
         )
 
         # .update() emits no signals, so the per-registration receiver never

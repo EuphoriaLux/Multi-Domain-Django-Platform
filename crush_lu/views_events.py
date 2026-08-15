@@ -5,11 +5,10 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
 from django.db import transaction
+from django.db.models import Q
 from datetime import timedelta
 import json
 import logging
-
-logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile,
@@ -19,14 +18,26 @@ from .models import (
     EventFeedback,
 )
 from .models.event_polls import EventPoll
+from .models.events import SEAT_HOLDING_STATUSES
+from .models.payments import PaymentTransaction
+from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.credits import (
+    available_credit_cents,
+    is_late_cancellation,
+    issue_cancellation_credits,
+    paid_amount_cents,
+    settle_pending_resale_credit,
+)
 from .email_helpers import (
     send_event_payment_pending_notification,
     send_event_registration_confirmation,
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _admitted_status(event, registration=None):
@@ -51,7 +62,133 @@ def _admitted_status(event, registration=None):
     return "pending" if event.registration_fee > 0 else "confirmed"
 
 
-def _promote_from_waitlist(event, cancelled_user=None):
+def _resale_claim_from(source, event):
+    """Return the durable claim carried by one cancelled registration."""
+    if source is None:
+        return None
+
+    # An unpaid replacement carries the original payer's claim. Forward that
+    # first; the intermediary has paid nothing of its own yet.
+    if source.resale_beneficiary_id and (
+        source.resale_source_registration_id or source.resale_source_payment_id
+    ):
+        return (
+            source.resale_source_registration_id,
+            source.resale_source_payment_id,
+            source.resale_beneficiary_id,
+        )
+
+    if (
+        source.status != "cancelled"
+        or source.cancelled_at is None
+        or not is_late_cancellation(event, source.cancelled_at)
+    ):
+        return None
+
+    source_payment = None
+    if source.payment_confirmed:
+        _amount, source_payment = paid_amount_cents(source)
+    else:
+        # The member can cancel while their SumUp widget is still payable.
+        # This pending payment makes the released-seat claim contingent: it is
+        # settled only if both that checkout and the replacement later capture.
+        source_payment = (
+            PaymentTransaction.objects.filter(
+                event_registration=source,
+                provider=PaymentTransaction.Provider.SUMUP,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .order_by("-created_at", "-pk")
+            .first()
+        )
+    if source_payment is not None:
+        return (
+            source.pk,
+            source_payment.pk,
+            source.user_id,
+        )
+    payment_returned = CrushCredit.objects.filter(
+        source_registration=source,
+        reason__in=(
+            CrushCredit.Reason.MEMBER_CANCELLATION,
+            CrushCredit.Reason.SEAT_RESOLD,
+            CrushCredit.Reason.EVENT_CANCELLED,
+        ),
+    ).exists()
+    captured_payment_exists = PaymentTransaction.objects.filter(
+        event_registration=source,
+        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        status=PaymentTransaction.Status.PAID,
+    ).exists()
+    if (
+        not source.payment_confirmed
+        and event.registration_fee > 0
+        and not payment_returned
+        and not captured_payment_exists
+    ):
+        # Cash/bank transfers can be recorded after the member cancelled. Keep
+        # a source-only contingent claim now; settlement waits until an actual
+        # MANUAL capture exists and payment_confirmed becomes true. A captured
+        # or already-returned payment is a completed cycle, not future cash.
+        return (source.pk, None, source.user_id)
+    return None
+
+
+def _set_resale_claim(registration, claim):
+    source_id, payment_id, beneficiary_id = claim
+    registration.resale_source_registration_id = source_id
+    registration.resale_source_payment_id = payment_id
+    registration.resale_beneficiary_id = beneficiary_id
+
+
+def _attach_unclaimed_resale_claim(registration, event):
+    """Attach the oldest released paid seat not already assigned elsewhere.
+
+    The cancellation transaction can have no promotable waitlistee. A later
+    newcomer who directly takes that released seat must still be able to earn
+    the original member's 50% share once they pay.
+    """
+    sources = (
+        EventRegistration.objects.select_for_update()
+        .filter(event=event, status="cancelled")
+        .exclude(pk=registration.pk)
+        .order_by("cancelled_at", "pk")
+    )
+    for source in sources:
+        claim = _resale_claim_from(source, event)
+        if claim is None:
+            continue
+        source_id, payment_id, _beneficiary_id = claim
+        assigned = Q()
+        if source_id:
+            assigned |= Q(resale_source_registration_id=source_id)
+        if payment_id:
+            assigned |= Q(resale_source_payment_id=payment_id)
+        if (source_id or payment_id) and (
+            EventRegistration.objects.filter(
+                event=event, status__in=SEAT_HOLDING_STATUSES
+            )
+            .exclude(pk=registration.pk)
+            # A cancelled, waitlisted, or no-show replacement has released the
+            # seat; only someone currently holding it makes the claim busy.
+            .filter(assigned)
+            .exists()
+        ):
+            continue
+        _set_resale_claim(registration, claim)
+        registration.save(
+            update_fields=[
+                "resale_source_registration",
+                "resale_source_payment",
+                "resale_beneficiary",
+            ]
+        )
+        return source
+    return None
+
+
+def _promote_from_waitlist(event, cancelled_user=None, resale_source_registration=None):
     """
     Promote the best waitlisted candidate to confirmed.
 
@@ -98,14 +235,30 @@ def _promote_from_waitlist(event, cancelled_user=None):
         profile = profiles_by_user.get(reg.user_id)
         return bool(profile and profile.assigned_coach_id)
 
+    def _promote(candidate):
+        candidate.status = _admitted_status(event, candidate)
+        candidate.resale_source_registration = None
+        candidate.resale_source_payment = None
+        candidate.resale_beneficiary = None
+        claim = _resale_claim_from(resale_source_registration, event)
+        if claim is not None:
+            _set_resale_claim(candidate, claim)
+        candidate.save()
+        if claim is None:
+            _attach_unclaimed_resale_claim(candidate, event)
+        # A reused waitlist row can already carry a valid payment. Settle that
+        # rare case now; ordinary paid-event promotions remain pending until
+        # _apply_paid_checkout confirms their replacement payment.
+        if candidate.payment_confirmed:
+            settle_pending_resale_credit(candidate)
+        return candidate
+
     # If gender limits are not active, promote the first in line who still has
     # a seat under their own capacity (general → public, premium → total).
     if not event.gender_limits_active:
         for candidate in waitlisted_list:
             if not event.is_full_for(is_premium=_is_premium(candidate)):
-                candidate.status = _admitted_status(event, candidate)
-                candidate.save()
-                return candidate
+                return _promote(candidate)
         return None
 
     # Gender-aware promotion
@@ -126,9 +279,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
                     if not event.is_full_for(
                         is_premium=_is_premium(candidate)
                     ) and not event.is_gender_pool_full(cand_gender):
-                        candidate.status = _admitted_status(event, candidate)
-                        candidate.save()
-                        return candidate
+                        return _promote(candidate)
 
     # 2. Try any waitlisted user whose pool (and overall capacity) has room
     for candidate in waitlisted_list:
@@ -137,9 +288,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
             continue
         if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
-        candidate.status = _admitted_status(event, candidate)
-        candidate.save()
-        return candidate
+        return _promote(candidate)
 
     return None
 
@@ -478,6 +627,7 @@ def my_events(request):
             return None
         return lobby_cta(request.user, reg.event, registration=reg, now=now)
 
+    credit_balance_cents = available_credit_cents(request.user)
     upcoming_with_meta = [
         {
             "registration": reg,
@@ -487,6 +637,8 @@ def my_events(request):
             "can_cancel": reg.event.date_time > now
             and reg.status in ("pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
+            "has_sufficient_crush_credit": credit_balance_cents
+            >= int(reg.event.registration_fee * 100),
         }
         for reg in upcoming
     ]
@@ -722,6 +874,11 @@ def event_detail(request, event_id):
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
         "event_lobby_cta": event_lobby_cta,
+        "has_sufficient_crush_credit": bool(
+            request.user.is_authenticated
+            and available_credit_cents(request.user)
+            >= int(event.registration_fee * 100)
+        ),
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -1161,6 +1318,9 @@ def event_register(request, event_id):
                     # the event is full). This prevents queue-jumping via
                     # cancel-then-re-register while the event is at capacity.
                     registration.registered_at = timezone.now()
+                    registration.resale_source_registration = None
+                    registration.resale_source_payment = None
+                    registration.resale_beneficiary = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -1214,6 +1374,8 @@ def event_register(request, event_id):
                         )
 
                 registration.save()
+                if registration.status in SEAT_HOLDING_STATUSES:
+                    _attach_unclaimed_resale_claim(registration, locked_event)
 
             try:
                 if registration.status == "confirmed":
@@ -1245,6 +1407,10 @@ def event_register(request, event_id):
                         "event": event,
                         "registration": registration,
                         "waitlist_position": waitlist_position,
+                        "has_sufficient_crush_credit": (
+                            available_credit_cents(request.user)
+                            >= int(event.registration_fee * 100)
+                        ),
                     },
                 )
             return redirect("crush_lu:dashboard")
@@ -1284,15 +1450,50 @@ def event_cancel(request, event_id):
 
     if request.method == "POST":
         promoted = None
+        awaiting_resale = False
 
         with transaction.atomic():
             locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
-            registration = EventRegistration.objects.select_for_update().get(
-                pk=registration.pk
+            lock_ids = [registration.pk] + list(
+                EventRegistration.objects.filter(event=locked_event, status="waitlist")
+                .exclude(pk=registration.pk)
+                .values_list("pk", flat=True)
             )
+            locked_registrations = {
+                row.pk: row
+                for row in EventRegistration.objects.select_for_update()
+                .filter(pk__in=lock_ids)
+                .order_by("pk")
+            }
+            registration = locked_registrations[registration.pk]
             if registration.status in ("cancelled", "no_show"):
                 messages.info(request, _("Your registration was already cancelled."))
                 return redirect("crush_lu:dashboard")
+
+            # Crush.lu has cancelled this event, so there is nothing for the
+            # member to cancel and a great deal for them to lose by trying.
+            #
+            # The organiser-cancellation remedy is a PREMIUM credit plus cash
+            # on request; the member-cancellation remedy is face value at best
+            # and nothing at all inside 48h. Letting this path run turns the
+            # first into the second. The window is real: the admin action
+            # commits `is_cancelled` and then does the echo.lu withdrawal and
+            # the Apple/Google wallet refreshes — network fan-out, seconds of
+            # it — before the credit sweep reaches this member, and the sweep
+            # skips rows that have gone `cancelled` in the meantime. A member
+            # reading the cancellation email and clicking "cancel my place"
+            # lands exactly there.
+            if locked_event.is_cancelled:
+                messages.info(
+                    request,
+                    _(
+                        "This event has been cancelled — you don't need to do "
+                        "anything. Your Crush Credit is on its way, and you can "
+                        "reply to the cancellation email if you would rather "
+                        "have your money back."
+                    ),
+                )
+                return redirect("crush_lu:event_detail", event_id=event_id)
 
             now = timezone.now()
             if registration.status == "attended" or locked_event.end_time <= now:
@@ -1324,18 +1525,55 @@ def event_cancel(request, event_id):
 
             messages.success(request, _("Your registration has been cancelled."))
 
+            # A paid cancellation used to notify nobody and give back nothing:
+            # this view gates on already-cancelled, already-attended and
+            # already-started, and never looked at `payment_confirmed` at all.
+            # Under the credit policy the money now has somewhere to go on its
+            # own. Inside the lock, on the row we just cancelled — the credit
+            # and the `payment_confirmed` it releases have to land together
+            # (see issue_credit's Trap 1 note).
+            credits = issue_cancellation_credits(
+                registration, moment=registration.cancelled_at
+            )
+            _paid_cents, captured_payment = paid_amount_cents(registration)
+            awaiting_resale = bool(
+                not credits
+                and registration.payment_confirmed
+                and captured_payment is not None
+            )
+
             # Gender-aware waitlist promotion (DB only, inside transaction).
             # `accepts_waitlist_promotion` also covers is_cancelled, which this
             # branch previously did not: a member cancelling their place at a
             # cancelled event used to hand the seat to someone on the waitlist
             # and email them a confirmation for it.
             if locked_event.accepts_waitlist_promotion:
-                promoted = _promote_from_waitlist(locked_event, request.user)
+                promoted = _promote_from_waitlist(
+                    locked_event,
+                    request.user,
+                    resale_source_registration=registration,
+                )
+
+            if credits:
+                messages.success(
+                    request,
+                    _(
+                        "We've added €%(amount).2f in Crush Credit to your "
+                        "account — it's ready to use on any Crush.lu event."
+                    )
+                    % {"amount": sum(credit.amount_cents for credit in credits) / 100},
+                )
 
         # Send emails OUTSIDE the transaction so they are only dispatched
         # after a successful commit and don't hold the DB lock during SMTP I/O.
         try:
-            send_event_cancellation_confirmation(request.user, event, request)
+            send_event_cancellation_confirmation(
+                request.user,
+                event,
+                request,
+                credits,
+                awaiting_resale=awaiting_resale,
+            )
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")
 

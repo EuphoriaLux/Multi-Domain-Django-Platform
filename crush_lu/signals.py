@@ -568,18 +568,18 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
 # `canton` is deliberately absent: no wallet surface renders it, so listing it
 # would cost an APNs fan-out that changes nothing on the card.
 _TICKET_PAYLOAD_BASE_FIELDS = (
-    "date_time",      # date/time fields, relevantDate, expirationDate
+    "date_time",  # date/time fields, relevantDate, expirationDate
     "duration_minutes",  # expirationDate
-    "location",       # auxiliary field
-    "address",        # back field — legacy free text, still the fallback
-    "address_street",    # back field, via full_address
-    "address_number",    # back field, via full_address
+    "location",  # auxiliary field
+    "address",  # back field — legacy free text, still the fallback
+    "address_street",  # back field, via full_address
+    "address_number",  # back field, via full_address
     "address_postcode",  # back field, via full_address
-    "address_town",      # back field, via full_address
-    "event_type",     # back field (get_event_type_display)
-    "latitude",       # locations[] lock-screen trigger
+    "address_town",  # back field, via full_address
+    "event_type",  # back field (get_event_type_display)
+    "latitude",  # locations[] lock-screen trigger
     "longitude",
-    "is_cancelled",   # voided
+    "is_cancelled",  # voided
 )
 
 # `title` is registered with django-modeltranslation (see translation.py), so
@@ -620,10 +620,9 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
 # wallet_pass.get_next_event_for_pass, which between them decide both grounds.
 _GOOGLE_PAYLOAD_FIELDS = frozenset(
     ("date_time", "duration_minutes", "is_cancelled")
-    + tuple(
-        f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES
-    )
+    + tuple(f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES)
 )
+
 
 def _google_relevant_changes(previous, instance, changed, now=None):
     """The changed fields that can actually alter the Google member card.
@@ -738,6 +737,49 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
             instance.pk,
             previous.isoformat(),
             instance.date_time.isoformat(),
+            cleared,
+        )
+
+
+@receiver(post_save, sender=MeetupEvent)
+def reset_cancellation_notifications_on_restore(sender, instance, created, **kwargs):
+    """Make a later cancellation notify every attendee again.
+
+    The delivery cursor belongs to one organiser-cancellation cycle. Paid
+    registrations often get it reset while a new remedy is issued, but free,
+    unpaid and waitlisted rows have no credit lifecycle to do that for them.
+    Restoring the event is the boundary that invalidates every old cursor.
+    """
+    previous = getattr(instance, "_previous_ticket_fields", None)
+    if instance.is_cancelled:
+        if instance.organiser_cancellation_started_at is None and (
+            created or (previous and not previous.get("is_cancelled"))
+        ):
+            started_at = timezone.now()
+            MeetupEvent.objects.filter(pk=instance.pk).update(
+                organiser_cancellation_started_at=started_at
+            )
+            instance.organiser_cancellation_started_at = started_at
+        return
+    if created:
+        return
+    if not previous or not previous.get("is_cancelled"):
+        return
+
+    MeetupEvent.objects.filter(pk=instance.pk).update(
+        organiser_cancellation_started_at=None
+    )
+    instance.organiser_cancellation_started_at = None
+    cleared = (
+        EventRegistration.objects.filter(event=instance)
+        .exclude(organiser_cancellation_notified_at__isnull=True)
+        .update(organiser_cancellation_notified_at=None)
+    )
+    if cleared:
+        logger.info(
+            "Event %s restored; cleared organiser-cancellation notification "
+            "markers on %s registration(s)",
+            instance.pk,
             cleared,
         )
 
@@ -962,9 +1004,7 @@ def sync_event_to_echo_lu(sender, instance, created, **kwargs):
     from .tasks import sync_event_to_echo_task
 
     event_id = instance.pk
-    transaction.on_commit(
-        lambda: sync_event_to_echo_task.enqueue(event_id=event_id)
-    )
+    transaction.on_commit(lambda: sync_event_to_echo_task.enqueue(event_id=event_id))
 
 
 _echo_deletions = threading.local()
@@ -3075,9 +3115,7 @@ def cleanup_passkit_registrations_on_registration_delete(sender, instance, **kwa
 
 
 @receiver(post_delete, sender=EventRegistration)
-def refresh_member_pass_on_registration_delete(
-    sender, instance, origin=None, **kwargs
-):
+def refresh_member_pass_on_registration_delete(sender, instance, origin=None, **kwargs):
     """The member card prints the holder's NEXT event, so deleting the row that
     supplied it leaves the card advertising an event they are not going to.
 
@@ -3147,7 +3185,9 @@ def _normalized_member_pass_values(values):
 
 
 @receiver(pre_save, sender=CrushProfile)
-def remember_previous_member_pass_fields(sender, instance, update_fields=None, **kwargs):
+def remember_previous_member_pass_fields(
+    sender, instance, update_fields=None, **kwargs
+):
     """Snapshot the persisted fields both wallet passes are rendered from.
 
     Mirrors remember_previous_user_name, and for the same reason: a bare
@@ -3423,13 +3463,9 @@ def _refresh_user_event_tickets(profile):
             .exclude(apple_wallet_ticket_serial="")
             .values_list("apple_wallet_ticket_serial", flat=True)
         )
-        refresh_ticket_serials(
-            serials, context=f"Profile {profile.pk} identity change"
-        )
+        refresh_ticket_serials(serials, context=f"Profile {profile.pk} identity change")
     except Exception as e:
-        logger.error(
-            f"Error refreshing event tickets for user {profile.user_id}: {e}"
-        )
+        logger.error(f"Error refreshing event tickets for user {profile.user_id}: {e}")
 
 
 @receiver(post_save, sender=CrushProfile)
@@ -3467,9 +3503,7 @@ def trigger_wallet_pass_update_on_profile_change(
         current = _normalized_member_pass_values(
             {name: getattr(instance, name) for name in WALLET_MEMBER_PASS_FIELDS}
         )
-        changed = {
-            name for name, value in current.items() if previous[name] != value
-        }
+        changed = {name for name, value in current.items() if previous[name] != value}
 
     # Tickets are gated on a strictly narrower set than the member pass: the
     # only profile input to a ticket is the attendee name, so a tier bump or a
@@ -3482,9 +3516,7 @@ def trigger_wallet_pass_update_on_profile_change(
     # username), and creating the profile switches display_name to
     # username.split("@")[0]. There is no previous value to compare on that
     # path, so the persisted-value guard alone would suppress it.
-    ticket_identity_changed = created or bool(
-        changed & WALLET_TICKET_IDENTITY_FIELDS
-    )
+    ticket_identity_changed = created or bool(changed & WALLET_TICKET_IDENTITY_FIELDS)
 
     # Event tickets print the holder's name and carry their own evt-* serials,
     # so they must be refreshed BEFORE the two guards below — both of which are
@@ -3517,9 +3549,7 @@ def trigger_wallet_pass_update_on_profile_change(
         trigger_wallet_pass_updates(instance)
     except Exception as e:
         # Don't fail the save if wallet update fails
-        logger.error(
-            f"Error triggering wallet update for user {instance.user_id}: {e}"
-        )
+        logger.error(f"Error triggering wallet update for user {instance.user_id}: {e}")
 
 
 @receiver(pre_save, sender=EventRegistration)
@@ -3576,15 +3606,6 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         return
 
     event = instance.event
-    # Cheap pre-filter only; the authoritative check is inside the callback,
-    # under the event lock. Deliberately does NOT also short-circuit on "no
-    # waitlist right now": that read happens before this transaction commits,
-    # so a registration joining the waitlist in the meantime would find the
-    # seat already given away to nobody, with nothing scheduled to retry.
-    # `_promote_from_waitlist` returns None cheaply when the waitlist is empty.
-    if not event.accepts_waitlist_promotion:
-        return
-
     cancelled_user = instance.user
     event_pk = event.pk
 
@@ -3593,27 +3614,105 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
             send_event_payment_pending_notification,
             send_event_registration_confirmation,
         )
+        from .services.credits import (
+            credit_registration_for_cancelled_event,
+            issue_cancellation_credits,
+            paid_amount_cents,
+        )
+        from .views_payments import _send_member_cancellation_safely
         from .views_events import _promote_from_waitlist
 
+        member_notification = None
         try:
             with transaction.atomic():
                 locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
-                # Re-read eligibility *under the lock*. The checks above ran
-                # before this transaction committed, against a possibly stale
-                # instance: another transaction may have cancelled the event in
-                # between (promoting into it would confirm and email a seat at
-                # a cancelled party), and a registration may have joined the
-                # waitlist since (the early return would have left the freed
-                # seat unfilled indefinitely, because nothing re-runs).
-                if not locked_event.accepts_waitlist_promotion:
+                lock_ids = [instance.pk] + list(
+                    EventRegistration.objects.filter(
+                        event=locked_event, status="waitlist"
+                    )
+                    .exclude(pk=instance.pk)
+                    .values_list("pk", flat=True)
+                )
+                locked_registrations = {
+                    row.pk: row
+                    for row in EventRegistration.objects.select_for_update()
+                    .select_related("event", "user")
+                    .filter(pk__in=lock_ids)
+                    .order_by("pk")
+                }
+                cancelled = locked_registrations.get(instance.pk)
+                if cancelled is None:
                     return
-                promoted = _promote_from_waitlist(locked_event, cancelled_user)
+
+                # A cancellation driven from the ADMIN, a coach or the shell
+                # releases the seat exactly as the member-facing view does, and
+                # used to compensate nobody: this signal only ever reached the
+                # resale helper, which returns immediately for a cancellation
+                # made more than 48h out. So a coach cancelling a paid seat a
+                # week ahead — a supported, ordinary action — left the member
+                # with no credit and `payment_confirmed` still set, which then
+                # reads as "we still owe them a seat" everywhere else.
+                #
+                # issue_cancellation_credit owns the timing rule itself, so
+                # this is not a second policy: inside 48h it declines and
+                # leaves the resale clause below to do its work.
+                #
+                # `event_cancel` sets `_waitlist_promotion_handled`, so the
+                # member path never reaches here and cannot be paid twice.
+                if locked_event.is_cancelled:
+                    credits = credit_registration_for_cancelled_event(cancelled)
+                    if credits:
+                        from .views_payments import (
+                            _send_organiser_cancellation_safely,
+                        )
+
+                        transaction.on_commit(
+                            lambda r=cancelled, c=credits: (
+                                _send_organiser_cancellation_safely(r, c)
+                            )
+                        )
+                else:
+                    credits = issue_cancellation_credits(cancelled)
+                    _paid_cents, captured_payment = paid_amount_cents(cancelled)
+                    member_notification = (
+                        cancelled,
+                        credits,
+                        (
+                            not credits
+                            and cancelled.payment_confirmed
+                            and captured_payment is not None
+                        ),
+                    )
+
+                # Compensation is independent of whether this event can
+                # promote a waitlist. Promotion is optional; paying an early
+                # canceller is not. A late cancellation records the candidate
+                # resale on the promoted row, and the share is issued only
+                # after that replacement's payment completes.
+                promoted = None
+                if (
+                    not locked_event.is_cancelled
+                    and locked_event.accepts_waitlist_promotion
+                ):
+                    promoted = _promote_from_waitlist(
+                        locked_event,
+                        cancelled_user,
+                        resale_source_registration=cancelled,
+                    )
         except Exception:
             logger.exception(
                 "Waitlist promotion failed after cancellation of registration %s",
                 instance.pk,
             )
             return
+
+        if member_notification:
+            cancelled, credits, awaiting_resale = member_notification
+            _send_member_cancellation_safely(
+                cancelled,
+                credits,
+                awaiting_resale=awaiting_resale,
+            )
 
         if not promoted:
             return

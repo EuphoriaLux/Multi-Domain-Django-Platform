@@ -5,6 +5,7 @@ Run with: pytest crush_lu/tests/test_weekly_kpis.py -v
 """
 
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -15,10 +16,13 @@ from django.utils import timezone
 from crush_lu.models import (
     CrushProfile,
     DailyUserActivity,
+    EventRegistration,
+    MeetupEvent,
     ProfileSubmission,
     UserActivity,
     WeeklyMetricsSnapshot,
 )
+from crush_lu.models.payments import PaymentTransaction
 from crush_lu.services.weekly_kpis import (
     compute_weekly_snapshot,
     last_completed_week_start,
@@ -225,6 +229,44 @@ class ComputeWeeklySnapshotTests(TestCase):
         # And the next-week rows are attributed to no in-week "new" bucket.
         self.assertEqual(m["new_connect_optins"], 1)
         self.assertEqual(m["waitlist_new"], 1)
+
+    def test_paid_registration_kpi_uses_immutable_cash_capture_time(self):
+        event = MeetupEvent.objects.create(
+            title="Cash Night",
+            description="event",
+            date_time=_aware(date(2026, 6, 20)),
+            registration_deadline=_aware(date(2026, 6, 19)),
+            location="Luxembourg",
+            address="1 Test St",
+            registration_fee=Decimal("15.50"),
+            max_participants=20,
+        )
+        registration = EventRegistration.objects.create(
+            user=self.in_user,
+            event=event,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=_aware(date(2026, 6, 10)),
+        )
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-MANUAL-KPI",
+            provider=PaymentTransaction.Provider.MANUAL,
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.in_user,
+            event_registration=registration,
+            paid_at=_aware(date(2026, 6, 10)),
+        )
+        # A later reconciliation must not move the sale into the later week.
+        PaymentTransaction.objects.filter(pk=payment.pk).update(
+            updated_at=_aware(date(2026, 6, 20))
+        )
+
+        revenue = compute_weekly_snapshot(WEEK_START)["revenue"]
+
+        self.assertEqual(revenue["paid_event_registrations"], 1)
 
 
 class UpsertIdempotencyTests(TestCase):

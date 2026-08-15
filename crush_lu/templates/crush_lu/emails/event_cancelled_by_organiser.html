@@ -1,0 +1,36 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event cancelled" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Event cancelled" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}We're sorry, but <strong>{{ title }}</strong> won't be going ahead.{% endblocktrans %}</p>
+
+{% if has_credit %}
+<div class="info-box">
+    <p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}We've added {{ amount }} EUR in Crush Credit to your account.{% endblocktrans %}</strong></p>
+    <ul style="margin: 10px 0;">
+        {% for line in credit_lines %}
+        <li>{% blocktrans with amount=line.amount expiry=line.expires_at|date:"DATE_FORMAT" %}{{ amount }} EUR, valid until {{ expiry }}{% endblocktrans %}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% if cash_refund_available %}
+<p>{% trans "Because Crush.lu cancelled the event, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes." %}</p>
+{% elif cash_refund_option_closed %}
+<p>{% trans "The cash-refund option has closed because some or all of the cancellation credit has already been used." %}</p>
+{% else %}
+<p>{% trans "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates. Any additional goodwill credit has a new six-month validity." %}</p>
+{% endif %}
+{% else %}
+<p>{% trans "No payment was recorded for this booking, so there is no payment or credit to return. This email confirms that the event has been cancelled." %}</p>
+{% endif %}
+
+<p><a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}

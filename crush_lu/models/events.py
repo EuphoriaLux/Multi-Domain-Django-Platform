@@ -342,6 +342,14 @@ class MeetupEvent(models.Model):
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
+    organiser_cancellation_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Start of the current organiser-cancellation cycle. Used to keep "
+            "remedy emails from reusing credit issued before an event restore."
+        ),
+    )
 
     # Google Wallet Event Ticket
     google_wallet_event_class_id = models.CharField(
@@ -967,6 +975,15 @@ class EventRegistration(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True
     )
+    cancelled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "When this registration entered cancelled status. Used to apply "
+            "the cancellation policy at the member's actual cancellation time."
+        ),
+    )
 
     # Additional info
     accessibility_needs = models.TextField(
@@ -988,6 +1005,44 @@ class EventRegistration(models.Model):
     # Payment (if applicable)
     payment_confirmed = models.BooleanField(default=False)
     payment_date = models.DateTimeField(null=True, blank=True)
+
+    # A waitlist promotion is only a *candidate* resale until the replacement
+    # actually pays. These links keep that obligation durable across the
+    # redirect/webhook boundary. They are cleared when payment settles or when
+    # this reusable registration row starts a fresh registration cycle.
+    resale_source_registration = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resale_replacements",
+    )
+    resale_source_payment = models.ForeignKey(
+        "crush_lu.PaymentTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resale_replacements",
+    )
+    resale_beneficiary = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="pending_resale_replacements",
+        help_text=_(
+            "The member owed the resale share. Kept separately so account merges "
+            "or source-registration deletion cannot erase the obligation."
+        ),
+    )
+    organiser_cancellation_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the organiser-cancellation remedy email was delivered. Used to "
+            "resume bounded cancellation batches safely."
+        ),
+    )
 
     # QR Check-in
     checkin_token = models.CharField(
@@ -1157,6 +1212,21 @@ class EventRegistration(models.Model):
         return (
             f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
         )
+
+    def save(self, *args, **kwargs):
+        """Keep the cancellation policy timestamp aligned with the status."""
+        update_fields = kwargs.get("update_fields")
+        if self.status == "cancelled" and self.cancelled_at is None:
+            self.cancelled_at = timezone.now()
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+        elif self.status != "cancelled" and self.cancelled_at is not None:
+            # EventRegistration rows are reused on re-registration. A later
+            # cancellation is a new policy decision and needs a fresh time.
+            self.cancelled_at = None
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+        return super().save(*args, **kwargs)
 
     @property
     def can_make_connections(self):

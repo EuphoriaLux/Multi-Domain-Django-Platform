@@ -132,6 +132,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"  created      {tx_obj.created_at:%Y-%m-%d %H:%M:%S %Z}")
         self.stdout.write(f"  purpose      {tx_obj.purpose}")
+        self.stdout.write(f"  paid via     {tx_obj.get_provider_display()}")
         self.stdout.write(f"  checkout id  {tx_obj.sumup_checkout_id or '(none)'}")
         if tx_obj.event_registration_id:
             reg = tx_obj.event_registration
@@ -153,6 +154,16 @@ class Command(BaseCommand):
             )
 
     def _print_remote(self, tx_obj, sync=False):
+        if tx_obj.provider == PaymentTransaction.Provider.CREDIT:
+            # Paid from the member's Crush Credit balance. No checkout was ever
+            # opened at SumUp, so there is nothing to ask about — and asking
+            # would be a lookup on an id that does not exist. Said explicitly
+            # rather than falling through to "(no checkout id recorded)", which
+            # reads like a payment that lost its identifier.
+            self.stdout.write(
+                "  SumUp        n/a — paid with Crush Credit, no checkout exists"
+            )
+            return
         if not tx_obj.sumup_checkout_id:
             self.stdout.write("  SumUp        (no checkout id recorded)")
             return

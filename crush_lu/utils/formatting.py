@@ -1,4 +1,13 @@
+from decimal import Decimal
+
 from django.utils.translation import gettext_lazy as _
+
+
+def format_cents(cents, currency=None):
+    """Format an integer-cent amount consistently without float conversion."""
+    amount = Decimal(int(cents or 0)) / Decimal("100")
+    formatted = f"{amount:.2f}"
+    return f"{formatted} {currency}" if currency else formatted
 
 
 def format_duration(td):

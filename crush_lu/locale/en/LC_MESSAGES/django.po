@@ -26760,31 +26760,45 @@ msgstr ""
 msgid "Private invitation"
 msgstr ""
 
-msgid "No Crush profile is required. Event age and language restrictions still apply."
+msgid ""
+"No Crush profile is required. Event age and language restrictions still "
+"apply."
 msgstr ""
 
-msgid "For verified members, plus pending members whose phone number is verified. Pending members can be verified in person at the event."
+msgid ""
+"For verified members, plus pending members whose phone number is verified. "
+"Pending members can be verified in person at the event."
 msgstr ""
 
 msgid "Only members whose Crush profile is already verified can register."
 msgstr ""
 
-msgid "Any member with a Crush profile can register, unless the profile was rejected."
+msgid ""
+"Any member with a Crush profile can register, unless the profile was "
+"rejected."
 msgstr ""
 
-msgid "Only incomplete or pending Crush profiles can register. Verified and rejected profiles are excluded."
+msgid ""
+"Only incomplete or pending Crush profiles can register. Verified and "
+"rejected profiles are excluded."
 msgstr ""
 
-msgid "Only members with an assigned personal coach can register. This does not check for an active Premium membership."
+msgid ""
+"Only members with an assigned personal coach can register. This does not "
+"check for an active Premium membership."
 msgstr ""
 
-msgid "Only approved invitees can register. Configure the invitation details in the advanced section below."
+msgid ""
+"Only approved invitees can register. Configure the invitation details in the"
+" advanced section below."
 msgstr ""
 
 msgid "Registration audience"
 msgstr ""
 
-msgid "Choose who can register. Standard choices cover the usual event flows; use Advanced only for a specialized audience."
+msgid ""
+"Choose who can register. Standard choices cover the usual event flows; use "
+"Advanced only for a specialized audience."
 msgstr ""
 
 msgid "Select a valid registration audience."
@@ -26793,7 +26807,9 @@ msgstr ""
 msgid "Registration Audience"
 msgstr ""
 
-msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
+msgid ""
+"Choose one audience. The three standard options cover the usual event flows;"
+" specialized access rules are grouped under Advanced."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/coach_quiz_question_form.html
@@ -26841,7 +26857,9 @@ msgid "External media link"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/coach_quiz_question_form.html
-msgid "Paste a watch or share link. Supported links are converted to safe embeds when the question is shown."
+msgid ""
+"Paste a watch or share link. Supported links are converted to safe embeds "
+"when the question is shown."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/coach_quiz_question_form.html
@@ -26853,13 +26871,18 @@ msgid "Describe what players need to perceive"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/coach_quiz_question_form.html
-msgid "Write a concise equivalent for players using a screen reader, especially when identifying the media is part of the question."
+msgid ""
+"Write a concise equivalent for players using a screen reader, especially "
+"when identifying the media is part of the question."
 msgstr ""
 
 msgid "Advanced: Private Invitation Settings"
 msgstr ""
 
-msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
+msgid ""
+"Configure this event as invitation-only. You can invite existing users "
+"directly or send external guest invitations (managed via EventInvitation "
+"inline below)."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/quiz_live.html
@@ -26870,7 +26893,8 @@ msgstr ""
 msgid "Question complete"
 msgstr ""
 
-#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_display.html
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_display.html
 msgid "Final results"
 msgstr ""
 
@@ -26878,15 +26902,21 @@ msgstr ""
 msgid "Next round"
 msgstr ""
 
-#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
 msgid "Loading media"
 msgstr ""
 
-#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
 msgid "Media unavailable"
 msgstr ""
 
-#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
 msgid "Quiz media"
 msgstr ""
 
@@ -26919,7 +26949,9 @@ msgid "Scan to join"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/quiz_display.html
-msgid "Sign in and complete event check-in first. The QR code does not bypass attendance access."
+msgid ""
+"Sign in and complete event check-in first. The QR code does not bypass "
+"attendance access."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/quiz_display.html
@@ -26956,3 +26988,141 @@ msgstr ""
 #, python-format
 msgid "Recap closes in %(remaining)s"
 msgstr ""
+
+msgid "Pay with Crush Credit"
+msgstr "Pay with Crush Credit"
+
+msgid "Invalid payment request."
+msgstr "Invalid payment request."
+
+msgid "Invalid payment method."
+msgstr "Invalid payment method."
+
+msgid ""
+"Your earlier card checkout could not be closed. Please wait and try again."
+msgstr ""
+"Your earlier card checkout could not be closed. Please wait and try again."
+
+msgid "Your Crush Credit balance does not cover this event."
+msgstr "Your Crush Credit balance does not cover this event."
+
+msgid "{title} won't be going ahead — what happens next"
+msgstr "{title} won't be going ahead — what happens next"
+
+msgid "Event cancelled"
+msgstr "Event cancelled"
+
+msgid "We're sorry, but <strong>%(title)s</strong> won't be going ahead."
+msgstr "We're sorry, but <strong>%(title)s</strong> won't be going ahead."
+
+msgid "We've added %(amount)s EUR in Crush Credit to your account."
+msgstr "We've added %(amount)s EUR in Crush Credit to your account."
+
+msgid "%(amount)s EUR, valid until %(expiry)s"
+msgstr "%(amount)s EUR, valid until %(expiry)s"
+
+msgid ""
+"Because Crush.lu cancelled the event, you may ask for a cash refund instead."
+" Reply to this email and we will arrange it. If you spend any of the credit, "
+"the cash option closes."
+msgstr ""
+"Because Crush.lu cancelled the event, you may ask for a cash refund instead."
+" Reply to this email and we will arrange it. If you spend any of the credit, "
+"the cash option closes."
+
+msgid ""
+"This booking was paid with Crush Credit, so its original value has been "
+"restored on its original expiry dates. Any additional goodwill credit has a "
+"new six-month validity."
+msgstr ""
+"This booking was paid with Crush Credit, so its original value has been "
+"restored on its original expiry dates. Any additional goodwill credit has a "
+"new six-month validity."
+
+msgid ""
+"No payment was recorded for this booking, so there is no payment or credit "
+"to return. This email confirms that the event has been cancelled."
+msgstr ""
+"No payment was recorded for this booking, so there is no payment or credit "
+"to return. This email confirms that the event has been cancelled."
+
+msgid ""
+"It is ready to use on any Crush.lu event and keeps the applicable credit "
+"expiry."
+msgstr ""
+"It is ready to use on any Crush.lu event and keeps the applicable credit "
+"expiry."
+
+msgid ""
+"This cancellation is inside 48 hours, so no credit is issued yet. If a "
+"replacement pays for the released seat before the event starts, we'll add "
+"50% of what you paid as Crush Credit."
+msgstr ""
+"This cancellation is inside 48 hours, so no credit is issued yet. If a "
+"replacement pays for the released seat before the event starts, we'll add "
+"50% of what you paid as Crush Credit."
+
+msgid "Cash / bank transfer"
+msgstr "Cash / bank transfer"
+
+msgid "When this transaction first became paid. Never moved later."
+msgstr "When this transaction first became paid. Never moved later."
+
+msgid "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
+msgstr "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
+
+msgid "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
+msgstr "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
+
+msgid "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
+msgstr "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
+
+msgid "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
+msgstr "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "No payment was recorded for this registration, so no Crush Credit is due."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "No payment was recorded for this registration, so no Crush Credit is due."
+
+msgid "For paid events, the following cancellation-credit policy applies:"
+msgstr "For paid events, the following cancellation-credit policy applies:"
+
+msgid "100% of the amount paid is returned as Crush Credit."
+msgstr "100% of the amount paid is returned as Crush Credit."
+
+msgid "48 hours or less before the event:"
+msgstr "48 hours or less before the event:"
+
+msgid ""
+"No credit is issued at cancellation. If a replacement pays for the released "
+"seat before the event starts, 50% of the amount paid is returned as Crush "
+"Credit."
+msgstr ""
+"No credit is issued at cancellation. If a replacement pays for the released "
+"seat before the event starts, 50% of the amount paid is returned as Crush "
+"Credit."
+
+msgid ""
+"Crush Credit is non-transferable, valid only for Crush.lu events, and "
+"expires six months after issue. Credit restored from an earlier credit "
+"payment keeps its original expiry."
+msgstr ""
+"Crush Credit is non-transferable, valid only for Crush.lu events, and "
+"expires six months after issue. Credit restored from an earlier credit "
+"payment keeps its original expiry."
+
+msgid ""
+"If Crush.lu cancels an event, paid registrations receive Crush Credit worth "
+"at least the amount paid, with a 20 EUR premium where that is higher. "
+"Members who paid by card may request a full cash refund instead; using any "
+"of the cancellation credit closes the cash-refund option."
+msgstr ""
+"If Crush.lu cancels an event, paid registrations receive Crush Credit worth "
+"at least the amount paid, with a 20 EUR premium where that is higher. "
+"Members who paid by card may request a full cash refund instead; using any "
+"of the cancellation credit closes the cash-refund option."
+
+msgid "The cash-refund option has closed because some or all of the cancellation credit has already been used."
+msgstr "The cash-refund option has closed because some or all of the cancellation credit has already been used."

@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_GET, require_http_methods
@@ -266,6 +267,92 @@ def delete_crushlu_profile_only(user):
 
     # Delete ProfileSubmissions (in case profile was deleted manually)
     ProfileSubmission.objects.filter(profile__user=user).delete()
+
+    # Close out spendable-only Crush Credit BEFORE the registrations go.
+    #
+    # Credit hangs off User, not CrushProfile, so nothing here cascades it: a
+    # member with a balance would leave it sitting `active` in the ledger on an
+    # account that is now permanently banned from creating a Crush profile and
+    # can never reach an event checkout to spend it. That is worse than either
+    # honest outcome — the ledger would keep reporting a live liability that
+    # cannot be discharged, and any "outstanding credit" figure read off it
+    # would be wrong.
+    #
+    # Voided rather than deleted, with the reason on the row: this is an
+    # append-only ledger, and "the holder deleted their account" is exactly the
+    # kind of thing it exists to still be able to answer a year later.
+    #
+    # One class must survive: an unexpired, wholly unspent organiser-
+    # cancellation award still represents the member's unclaimed cash-refund
+    # right. Profile deletion is not a waiver of that cash remedy. Keep those
+    # rows active in the staff refund queue; the retained/anonymised User and
+    # immutable payment record preserve the financial liability without
+    # keeping the deleted Crush profile.
+    #
+    # Ordered before the registration delete only for tidiness of the log line;
+    # CreditRedemption is SET_NULL on registration, so the spend history
+    # survives either way.
+    from crush_lu.models.credits import CrushCredit
+    from crush_lu.services.credits import void_credit
+
+    # A replacement can still carry a contingent 50% obligation to this user.
+    # Account deletion is an explicit withdrawal from future Crush.lu value:
+    # clear those claims before inspecting active credits so a concurrent
+    # replacement capture either settles first (and is voided below) or sees
+    # no beneficiary after this short row lock commits.
+    with transaction.atomic():
+        pending_replacement_ids = list(
+            EventRegistration.objects.select_for_update()
+            .filter(resale_beneficiary=user)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        if pending_replacement_ids:
+            EventRegistration.objects.filter(pk__in=pending_replacement_ids).update(
+                resale_source_registration=None,
+                resale_source_payment=None,
+                resale_beneficiary=None,
+            )
+    if pending_replacement_ids:
+        logger.info(
+            "Withdrew %s pending resale claim(s) for deleted user %s",
+            len(pending_replacement_ids),
+            user.id,
+        )
+
+    active_credits = CrushCredit.objects.filter(
+        user=user, status=CrushCredit.Status.ACTIVE
+    )
+    preserved_refund_ids = list(
+        active_credits.filter(
+            cash_refund_eligible=True,
+            expires_at__gt=timezone.now(),
+            redemptions__isnull=True,
+        ).values_list("pk", flat=True)
+    )
+    forfeited = active_credits.exclude(pk__in=preserved_refund_ids)
+    forfeited_count = forfeited.count()
+    if forfeited_count:
+        for credit in forfeited:
+            void_credit(
+                credit.pk,
+                note=(
+                    "— voided on Crush.lu account deletion "
+                    f"({timezone.now():%Y-%m-%d})."
+                ),
+                require_unspent=False,
+            )
+        logger.info(
+            "Voided %s active Crush Credit row(s) for deleted user %s",
+            forfeited_count,
+            user.id,
+        )
+    if preserved_refund_ids:
+        logger.info(
+            "Preserved %s unclaimed cash-refund right(s) for deleted user %s",
+            len(preserved_refund_ids),
+            user.id,
+        )
 
     # Delete EventRegistrations
     EventRegistration.objects.filter(user=user).delete()
@@ -1284,6 +1371,83 @@ def export_user_data(request):
             }
             for reg in registrations
         ]
+
+    # Crush Credit
+    #
+    # This endpoint promises "all of your personal data", and a credit ledger
+    # is both personal data and money owed — arguably the single entry a member
+    # is most likely to want a record of. Every field is included except the
+    # staff ``note``: that is an internal free-text field where a coach writes
+    # why goodwill was given, it can name other people and other incidents, and
+    # portability of the member's own data does not extend to it.
+    #
+    # Redemptions are nested under the credit they came off rather than listed
+    # separately, because "what happened to my €20" is only answerable in that
+    # shape. The seat is named where it still exists; a redemption outlives a
+    # deleted registration (SET_NULL), and reads "deleted event registration".
+    from crush_lu.models.credits import CrushCredit
+    from crush_lu.utils.formatting import format_cents
+
+    credits = (
+        CrushCredit.objects.filter(user=user)
+        .prefetch_related("redemptions__event_registration__event")
+        .order_by("issued_at")
+    )
+    credit_rows = list(credits)
+    if credit_rows:
+        exported_credits = []
+        now = timezone.now()
+        for credit in credit_rows:
+            redemptions = list(credit.redemptions.all())
+            redeemed_cents = sum(item.amount_cents for item in redemptions)
+            effectively_expired = (
+                credit.status == CrushCredit.Status.ACTIVE
+                and credit.expires_at <= now
+            )
+            exported_credits.append(
+                {
+                    "amount": format_cents(credit.amount_cents),
+                    "currency": credit.currency,
+                    "reason": credit.get_reason_display(),
+                    "status": (
+                        str(CrushCredit.Status.EXPIRED.label)
+                        if effectively_expired
+                        else credit.get_status_display()
+                    ),
+                    "issued_at": credit.issued_at.isoformat(),
+                    "expires_at": credit.expires_at.isoformat(),
+                    "remaining": format_cents(
+                        0
+                        if effectively_expired
+                        else max(0, credit.amount_cents - redeemed_cents)
+                    ),
+                    # The EFFECTIVE answer, not the issuance flag. Once any of the
+                    # credit is spent — or it expires, or is voided after a cash
+                    # refund has already been paid — the offer is closed, and the
+                    # staff queue treats it as closed. Exporting the raw flag told
+                    # the member they could still ask for money back when they
+                    # could not.
+                    "cash_refund_available_on_request": bool(
+                        credit.cash_refund_eligible
+                        and credit.status == CrushCredit.Status.ACTIVE
+                        and credit.expires_at > now
+                        and not redemptions
+                    ),
+                    "spent_on": [
+                        {
+                            "amount": format_cents(redemption.amount_cents),
+                            "redeemed_at": redemption.redeemed_at.isoformat(),
+                            "event": (
+                                redemption.event_registration.event.title
+                                if redemption.event_registration
+                                else "deleted event registration"
+                            ),
+                        }
+                        for redemption in redemptions
+                    ],
+                }
+            )
+        data["crush_credit"] = exported_credits
 
     # Connections
     connections = EventConnection.objects.filter(

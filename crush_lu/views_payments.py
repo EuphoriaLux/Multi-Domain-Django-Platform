@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from functools import partial
 
 from django.conf import settings
 from django.contrib import messages
@@ -9,8 +10,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import override
@@ -25,6 +28,13 @@ from crush_lu.models.events import (
 )
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
+from crush_lu.services.credits import (
+    credit_registration_for_cancelled_event,
+    credit_transaction_reference,
+    issue_cancellation_credits,
+    redeem_for_registration,
+    settle_pending_resale_credit,
+)
 from crush_lu.services.sumup import SumUpClient, SumUpError
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
@@ -109,8 +119,24 @@ def create_sumup_event_checkout(request, registration_id):
     """
     registration = get_object_or_404(EventRegistration, pk=registration_id)
 
-    if registration.user != request.user and not request.user.is_staff:
-        return JsonResponse({"error": _("Unauthorized access to this registration.")}, status=403)
+    try:
+        payload = (
+            json.loads(request.body or b"{}")
+            if request.content_type == "application/json"
+            else {}
+        )
+    except (TypeError, ValueError):
+        return JsonResponse({"error": _("Invalid payment request.")}, status=400)
+    payment_method = payload.get("payment_method", "card")
+    if payment_method not in {"card", "credit"}:
+        return JsonResponse({"error": _("Invalid payment method.")}, status=400)
+
+    if registration.user != request.user and (
+        not request.user.is_staff or payment_method == "credit"
+    ):
+        return JsonResponse(
+            {"error": _("Unauthorized access to this registration.")}, status=403
+        )
 
     # Every eligibility check lives inside the lock below, on re-read rows --
     # duplicating them out here only invites the two copies to drift.
@@ -173,6 +199,12 @@ def create_sumup_event_checkout(request, registration_id):
             )
 
         client = SumUpClient()
+        # Whether every older checkout is now provably dead. This gates every
+        # replacement payment method below: opening another card widget while
+        # an older one may just have captured exposes the member to two card
+        # charges just as surely as spending credit would expose them to a
+        # card-plus-credit double payment.
+        all_superseded = True
         for old in superseded:
             if client.deactivate_checkout(old.sumup_checkout_id):
                 # CANCELLED, not FAILED. Both are terminal and behave
@@ -209,6 +241,7 @@ def create_sumup_event_checkout(request, registration_id):
                 # captured payment permanently invisible to both the webhook and
                 # the browser return, leaving the member unpaid and chargeable
                 # again on the new checkout.
+                all_superseded = False
                 logger.warning(
                     "Could not deactivate SumUp checkout %s for registration %s "
                     "— left PENDING so reconciliation can still apply it",
@@ -227,6 +260,77 @@ def create_sumup_event_checkout(request, registration_id):
             )
         amount = event.registration_fee
 
+        if not all_superseded:
+            return JsonResponse(
+                {
+                    "error": _(
+                        "Your earlier card checkout could not be closed. "
+                        "Please wait and try again."
+                    )
+                },
+                status=409,
+            )
+
+        # Crush Credit, before SumUp is asked for anything.
+        #
+        # WHOLE SEAT OR NOTHING, on purpose. Either the balance covers the
+        # whole price and no card is charged at all, or the member pays the
+        # full price by card and every cent of their credit is left where it
+        # is. Every event is EUR 15.50, so a split credit/card payment buys
+        # nothing real and costs partial captures, SumUp's minimum-charge
+        # threshold and refunding a part of a capture.
+        #
+        # Deliberately AFTER the supersede loop above, and gated on it having
+        # WORKED. A member sitting on a stale PENDING checkout still holds a
+        # payable widget, and paying with credit must not leave that widget
+        # alive to take a card payment for a seat credit has already bought.
+        #
+        # ``deactivate_checkout`` returning False is not a nuisance case: it
+        # means SumUp was unreachable, or that the checkout could no longer be
+        # cancelled *because it had just been paid*. In the second case the
+        # webhook for it is at this moment blocked on the row lock this request
+        # holds. Spend credit here and the sequence completes as: seat
+        # confirmed against credit, lock released, webhook marks the card
+        # payment PAID — and the member has paid twice for one seat, in two
+        # currencies, with only one of them refundable.
+        #
+        # So when anything failed to deactivate, the shared guard above stops
+        # both methods before either a new widget or a credit spend exists.
+        credit_tx = None
+        if payment_method == "credit":
+            credit_tx = _pay_registration_with_credit(registration, amount)
+            if credit_tx is None:
+                return JsonResponse(
+                    {
+                        "error": _(
+                            "Your Crush Credit balance does not cover this event."
+                        )
+                    },
+                    status=400,
+                )
+
+        if credit_tx is not None:
+            destination = reverse(
+                "crush_lu:event_detail", kwargs={"event_id": registration.event_id}
+            )
+            return JsonResponse(
+                {
+                    "success": True,
+                    "paid_with_credit": True,
+                    "amount": float(amount),
+                    "currency": "EUR",
+                    "transaction_reference": credit_tx.transaction_reference,
+                    "redirect_url": destination,
+                    # Every existing caller does
+                    # `if (data.success && data.widget_url) location = widget_url`,
+                    # so the same key carries the destination here rather than
+                    # a widget URL. `redirect_url` above is the name new
+                    # callers should read; this one keeps the four templates
+                    # and alpine-components.js working untouched.
+                    "widget_url": destination,
+                }
+            )
+
         checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
         description = f"Crush.lu Event: {registration.event.title[:50]}"
         return_url = request.build_absolute_uri(
@@ -244,13 +348,19 @@ def create_sumup_event_checkout(request, registration_id):
         except SumUpError as exc:
             logger.error("Failed to create SumUp event checkout: %s", exc)
             return JsonResponse(
-                {"error": _("Unable to initiate payment at the moment. Please try again later.")},
+                {
+                    "error": _(
+                        "Unable to initiate payment at the moment. Please try again later."
+                    )
+                },
                 status=500,
             )
 
         checkout_id = checkout_data.get("id")
         if not checkout_id:
-            return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+            return JsonResponse(
+                {"error": _("SumUp did not return a valid checkout ID.")}, status=500
+            )
 
         PaymentTransaction.objects.create(
             transaction_reference=checkout_ref,
@@ -265,14 +375,16 @@ def create_sumup_event_checkout(request, registration_id):
             raw_response=checkout_data,
         )
 
-    return JsonResponse({
-        "success": True,
-        "checkout_id": checkout_id,
-        "checkout_reference": checkout_ref,
-        "amount": float(amount),
-        "currency": "EUR",
-        "widget_url": f"/payments/sumup/widget/{checkout_id}/",
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "checkout_id": checkout_id,
+            "checkout_reference": checkout_ref,
+            "amount": float(amount),
+            "currency": "EUR",
+            "widget_url": f"/payments/sumup/widget/{checkout_id}/",
+        }
+    )
 
 
 @login_required
@@ -285,10 +397,14 @@ def create_sumup_premium_checkout(request, membership_id):
     membership = get_object_or_404(PremiumMembership, pk=membership_id)
 
     if membership.user != request.user and not request.user.is_staff:
-        return JsonResponse({"error": _("Unauthorized access to this membership.")}, status=403)
+        return JsonResponse(
+            {"error": _("Unauthorized access to this membership.")}, status=403
+        )
 
     if membership.status != "pending":
-        return JsonResponse({"error": _("This membership is not pending payment.")}, status=400)
+        return JsonResponse(
+            {"error": _("This membership is not pending payment.")}, status=400
+        )
 
     # A captured payment that never became an entitlement leaves this membership
     # PENDING with a PAID transaction against it -- the coach filled up, the
@@ -349,7 +465,9 @@ def create_sumup_premium_checkout(request, membership_id):
 
     checkout_ref = f"CRUSH-PREM-{membership.id}-{uuid.uuid4().hex[:6]}"
     description = f"Crush Connect Premium - Coach {membership.coach}"
-    return_url = request.build_absolute_uri(f"/payments/sumup/return/?ref={checkout_ref}")
+    return_url = request.build_absolute_uri(
+        f"/payments/sumup/return/?ref={checkout_ref}"
+    )
 
     sumup_customer_id = f"crush-user-{request.user.id}"
     client = SumUpClient()
@@ -377,13 +495,19 @@ def create_sumup_premium_checkout(request, membership_id):
     except SumUpError as exc:
         logger.error("Failed to create SumUp premium checkout: %s", exc)
         return JsonResponse(
-            {"error": _("Unable to initiate payment at the moment. Please try again later.")},
+            {
+                "error": _(
+                    "Unable to initiate payment at the moment. Please try again later."
+                )
+            },
             status=500,
         )
 
     checkout_id = checkout_data.get("id")
     if not checkout_id:
-        return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+        return JsonResponse(
+            {"error": _("SumUp did not return a valid checkout ID.")}, status=500
+        )
 
     PaymentTransaction.objects.create(
         transaction_reference=checkout_ref,
@@ -399,14 +523,16 @@ def create_sumup_premium_checkout(request, membership_id):
         raw_response=checkout_data,
     )
 
-    return JsonResponse({
-        "success": True,
-        "checkout_id": checkout_id,
-        "checkout_reference": checkout_ref,
-        "amount": float(amount),
-        "currency": "EUR",
-        "widget_url": f"/payments/sumup/widget/{checkout_id}/",
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "checkout_id": checkout_id,
+            "checkout_reference": checkout_ref,
+            "amount": float(amount),
+            "currency": "EUR",
+            "widget_url": f"/payments/sumup/widget/{checkout_id}/",
+        }
+    )
 
 
 @login_required
@@ -465,7 +591,9 @@ def create_sumup_donation_checkout(request):
         else:
             raw_amount = request.POST.get("amount")
         if raw_amount is None:
-            return JsonResponse({"error": _("Donation amount is required.")}, status=400)
+            return JsonResponse(
+                {"error": _("Donation amount is required.")}, status=400
+            )
         amount = Decimal(str(raw_amount))
     except (TypeError, ValueError, InvalidOperation):
         # Named exceptions, not a bare ``Exception``. The amount is the only
@@ -501,7 +629,9 @@ def create_sumup_donation_checkout(request):
         return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
 
     if amount < DONATION_MIN_EUR:
-        return JsonResponse({"error": _("Minimum donation amount is €2.00.")}, status=400)
+        return JsonResponse(
+            {"error": _("Minimum donation amount is €2.00.")}, status=400
+        )
 
     # The amount is chosen by the member -- the card offers presets but also a
     # free-text field, so a slipped decimal point or a hand-rolled POST can ask
@@ -510,7 +640,9 @@ def create_sumup_donation_checkout(request):
     if amount > DONATION_MAX_EUR:
         return JsonResponse(
             {
-                "error": _("Maximum donation amount is €%(max)s. Please contact us for larger contributions.")
+                "error": _(
+                    "Maximum donation amount is €%(max)s. Please contact us for larger contributions."
+                )
                 % {"max": f"{DONATION_MAX_EUR:.0f}"}
             },
             status=400,
@@ -540,7 +672,9 @@ def create_sumup_donation_checkout(request):
 
     checkout_ref = f"CRUSH-DON-{request.user.id}-{uuid.uuid4().hex[:6]}"
     description = f"Crush.lu Project Support (€{amount:.2f})"
-    return_url = request.build_absolute_uri(f"/payments/sumup/return/?ref={checkout_ref}")
+    return_url = request.build_absolute_uri(
+        f"/payments/sumup/return/?ref={checkout_ref}"
+    )
 
     client = SumUpClient()
     try:
@@ -559,13 +693,19 @@ def create_sumup_donation_checkout(request):
         # status sync in a way that looks like a provider problem.
         logger.error("Failed to create SumUp donation checkout: %s", exc)
         return JsonResponse(
-            {"error": _("Unable to initiate donation checkout. Please try again later.")},
+            {
+                "error": _(
+                    "Unable to initiate donation checkout. Please try again later."
+                )
+            },
             status=500,
         )
 
     checkout_id = checkout_data.get("id")
     if not checkout_id:
-        return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+        return JsonResponse(
+            {"error": _("SumUp did not return a valid checkout ID.")}, status=500
+        )
 
     PaymentTransaction.objects.create(
         transaction_reference=checkout_ref,
@@ -579,14 +719,16 @@ def create_sumup_donation_checkout(request):
         raw_response=checkout_data,
     )
 
-    return JsonResponse({
-        "success": True,
-        "checkout_id": checkout_id,
-        "checkout_reference": checkout_ref,
-        "amount": float(amount),
-        "currency": "EUR",
-        "widget_url": f"/payments/sumup/widget/{checkout_id}/",
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "checkout_id": checkout_id,
+            "checkout_reference": checkout_ref,
+            "amount": float(amount),
+            "currency": "EUR",
+            "widget_url": f"/payments/sumup/widget/{checkout_id}/",
+        }
+    )
 
 
 def _send_registration_confirmation_safely(registration):
@@ -605,6 +747,130 @@ def _send_registration_confirmation_safely(registration):
             registration.id,
             type(exc).__name__,
         )
+
+
+def _send_organiser_cancellation_safely(
+    registration, credits, *, recipient_user=None, mark_notified=True
+):
+    """Tell a captured member about credit and the cash-refund option."""
+    from .email_helpers import send_event_cancelled_by_organiser
+
+    try:
+        send_event_cancelled_by_organiser(
+            registration,
+            credits,
+            recipient_user=recipient_user,
+            mark_notified=mark_notified,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to send organiser-cancellation email for registration %s: %s",
+            registration.id,
+            type(exc).__name__,
+        )
+
+
+def _send_member_cancellation_safely(
+    registration,
+    credits,
+    *,
+    awaiting_resale=False,
+    recipient_user=None,
+):
+    """Tell a cancelled member when credit is issued or remains conditional."""
+    from .email_helpers import send_event_cancellation_confirmation
+
+    user = recipient_user or registration.user
+    try:
+        send_event_cancellation_confirmation(
+            user,
+            registration.event,
+            None,
+            credits,
+            awaiting_resale=awaiting_resale,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to send member-cancellation email for registration %s: %s",
+            registration.id,
+            type(exc).__name__,
+        )
+
+
+class _CreditNotApplied(Exception):
+    """Credit was consumed but the seat did not confirm. Rolls the spend back."""
+
+
+def _pay_registration_with_credit(registration, amount):
+    """Buy this seat with Crush Credit, or leave the credit alone.
+
+    Returns the ``CREDIT`` ``PaymentTransaction`` when the seat is paid and
+    confirmed, or ``None`` when the balance did not cover the price — in which
+    case nothing has been written and the caller charges the card as before.
+
+    The transaction is created **PENDING** and handed to ``_apply_paid_checkout``
+    rather than being written PAID outright. That function early-returns for a
+    row already PAID, so a pre-PAID row would skip the whole confirmation
+    block: no ``payment_confirmed``, no check-in token, no confirmation email —
+    a member holding a seat they cannot scan into. Going through it also means
+    a credit payment confirms a registration by exactly the same code a card
+    payment does, which is the only way the two cannot drift.
+
+    ⚠️ It carries **no** ``sumup_checkout_id`` and provider ``CREDIT``. That is
+    what keeps ``sumup_checkout_status`` and the reconciliation sweep from
+    walking this row and going hunting for a checkout that was never opened.
+
+    The whole thing runs in a savepoint so that a decline inside
+    ``_apply_paid_checkout`` — event cancelled or the fee changed under us
+    between the checks above and here — takes the redemptions and the
+    transaction row back out with it. Credit that has been spent for nothing is
+    money the member cannot get back without a human.
+    """
+    price_cents = int(
+        (amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+    try:
+        with transaction.atomic():
+            redemptions = redeem_for_registration(
+                registration.user, registration, price_cents
+            )
+            if redemptions is None:
+                return None
+
+            tx_obj = PaymentTransaction.objects.create(
+                transaction_reference=credit_transaction_reference(registration),
+                provider=PaymentTransaction.Provider.CREDIT,
+                sumup_checkout_id="",
+                amount=amount,
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                user=registration.user,
+                event_registration=registration,
+                raw_response={
+                    "paid_with": "crush_credit",
+                    "redemptions": [
+                        {"credit_id": r.credit_id, "amount_cents": r.amount_cents}
+                        for r in redemptions
+                    ],
+                },
+            )
+            _apply_paid_checkout(tx_obj, tx_obj.raw_response)
+
+            registration.refresh_from_db()
+            if not registration.payment_confirmed:
+                raise _CreditNotApplied(registration.pk)
+            return tx_obj
+    except _CreditNotApplied:
+        # _apply_paid_checkout has already logged the specific reason at error
+        # level. Returning None puts the member back on the card path with
+        # their balance intact, which is the safe half of a bad situation.
+        logger.error(
+            "Crush Credit payment for registration %s was rolled back — the "
+            "seat did not confirm; credit restored, member sent to card.",
+            registration.pk,
+        )
+        return None
 
 
 def _premium_purchase_refused(membership, *, lock=False):
@@ -690,9 +956,125 @@ def _apply_paid_checkout(tx_obj, data):
             # non-atomic: event_cancel() locks and updates the registration
             # independently, so this could read "pending", block behind that
             # cancellation committing, and then overwrite it with "confirmed".
-            reg = EventRegistration.objects.select_for_update().get(
-                pk=locked.event_registration_id
+            registration_id = locked.event_registration_id
+            snapshot = EventRegistration.objects.only(
+                "resale_source_registration_id"
+            ).get(pk=registration_id)
+            registration_ids = {registration_id}
+            if snapshot.resale_source_registration_id:
+                registration_ids.add(snapshot.resale_source_registration_id)
+            # A checkout can capture after its member cancelled. The waitlist
+            # replacement then carries a contingent claim pointing back to
+            # this registration/payment; lock it in the same ordered batch so
+            # we can settle the claim if the replacement already paid.
+            registration_ids.update(
+                EventRegistration.objects.filter(
+                    Q(resale_source_registration_id=registration_id)
+                    | Q(resale_source_payment_id=locked.pk)
+                ).values_list("pk", flat=True)
             )
+            locked_registrations = {
+                row.pk: row
+                for row in EventRegistration.objects.select_for_update()
+                .select_related("event", "user", "resale_beneficiary")
+                .filter(pk__in=registration_ids)
+                .order_by("pk")
+            }
+            reg = locked_registrations[registration_id]
+            resale_source = locked_registrations.get(reg.resale_source_registration_id)
+            resale_replacements = [
+                row
+                for row in locked_registrations.values()
+                if row.pk != reg.pk
+                and (
+                    row.resale_source_registration_id == reg.pk
+                    or row.resale_source_payment_id == locked.pk
+                )
+            ]
+
+            # The checkout was opened while the event was live, but SumUp
+            # captured it after the organiser cancelled. Keep the PAID audit
+            # row, do not restore the seat, and issue the same premium/cash
+            # remedy as the cancellation sweep. All three writes share this
+            # transaction, so a retry cannot leave paid-without-credit state.
+            if reg.event.is_cancelled:
+                reg.payment_confirmed = True
+                reg.payment_date = timezone.now()
+                reg.save(update_fields=["payment_confirmed", "payment_date"])
+                resale_credits = settle_pending_resale_credit(
+                    reg, source_registration=resale_source
+                )
+                if resale_credits:
+                    resale_email_registration = resale_source or reg
+                    resale_recipient = (
+                        None if resale_source is not None else resale_credits[0].user
+                    )
+                    transaction.on_commit(
+                        partial(
+                            _send_organiser_cancellation_safely,
+                            resale_email_registration,
+                            resale_credits,
+                            recipient_user=resale_recipient,
+                            mark_notified=resale_source is not None,
+                        )
+                    )
+                credits = credit_registration_for_cancelled_event(reg, payment=locked)
+                transaction.on_commit(
+                    lambda r=reg, c=credits: _send_organiser_cancellation_safely(r, c)
+                )
+                logger.error(
+                    "SumUp payment %s completed after event cancellation for "
+                    "registration %s — seat not restored; cancellation remedy issued.",
+                    locked.transaction_reference,
+                    reg.id,
+                )
+                return
+
+            # The member released this seat while the SumUp widget was still
+            # payable. The capture is real, but restoring the seat would undo
+            # their cancellation. Record that we hold their money and apply
+            # the ordinary member-cancellation policy instead: full credit
+            # outside the late window, or a durable 50% claim once the promoted
+            # replacement pays inside it.
+            if reg.status == "cancelled":
+                reg.payment_confirmed = True
+                reg.payment_date = timezone.now()
+                reg.save(update_fields=["payment_confirmed", "payment_date"])
+
+                credits = issue_cancellation_credits(reg, moment=reg.cancelled_at)
+                if credits:
+                    transaction.on_commit(
+                        partial(_send_member_cancellation_safely, reg, credits)
+                    )
+                else:
+                    settled = []
+                    for replacement in resale_replacements:
+                        # The promotion may have recorded an older pending
+                        # checkout. The capture in hand is authoritative.
+                        if replacement.resale_source_payment_id != locked.pk:
+                            replacement.resale_source_payment = locked
+                            replacement.save(update_fields=["resale_source_payment"])
+                        settled.extend(
+                            settle_pending_resale_credit(
+                                replacement, source_registration=reg
+                            )
+                        )
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            reg,
+                            settled,
+                            awaiting_resale=not bool(settled),
+                        )
+                    )
+                logger.error(
+                    "SumUp payment %s completed after member cancellation for "
+                    "registration %s — seat not restored; cancellation policy "
+                    "applied.",
+                    locked.transaction_reference,
+                    reg.id,
+                )
+                return
 
             # Re-validate at completion, not just at checkout creation. A member
             # can open the widget and then cancel (or the organiser can cancel
@@ -709,7 +1091,7 @@ def _apply_paid_checkout(tx_obj, data):
             # would hand a waitlisted member an over-capacity seat or erase a
             # recorded no-show. Only a seat-holding status may be confirmed by
             # a payment ("confirmed" covers legacy unpaid rows).
-            if reg.status not in SEAT_HOLDING_STATUSES or reg.event.is_cancelled:
+            if reg.status not in SEAT_HOLDING_STATUSES:
                 logger.error(
                     "SumUp payment %s completed for registration %s but it "
                     "no longer holds a seat (registration=%s, event_cancelled=%s) "
@@ -752,6 +1134,18 @@ def _apply_paid_checkout(tx_obj, data):
                 if reg.status != "attended":
                     reg.status = "confirmed"
                 reg.save()
+                resale_credits = settle_pending_resale_credit(
+                    reg, source_registration=resale_source
+                )
+                if resale_credits:
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            resale_source or reg,
+                            resale_credits,
+                            recipient_user=resale_credits[0].user,
+                        )
+                    )
                 _generate_checkin_token(reg)
                 logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
 
@@ -1187,7 +1581,9 @@ def _sync_checkout_with_sumup(tx_obj):
         data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
     except SumUpError as exc:
         logger.warning(
-            "SumUp verification failed for checkout %s: %s", tx_obj.sumup_checkout_id, exc
+            "SumUp verification failed for checkout %s: %s",
+            tx_obj.sumup_checkout_id,
+            exc,
         )
         return ""
 
@@ -1346,7 +1742,9 @@ def sumup_webhook(request):
 
     tx_obj = PaymentTransaction.objects.filter(sumup_checkout_id=checkout_id).first()
     if not tx_obj:
-        logger.warning("PaymentTransaction not found for SumUp checkout ID %s", checkout_id)
+        logger.warning(
+            "PaymentTransaction not found for SumUp checkout ID %s", checkout_id
+        )
         return JsonResponse({"status": "ignored", "reason": "transaction not found"})
 
     _sync_checkout_with_sumup(tx_obj)
@@ -1398,12 +1796,18 @@ def sumup_payment_return(request):
     if ref:
         tx_obj = PaymentTransaction.objects.filter(transaction_reference=ref).first()
     elif checkout_id:
-        tx_obj = PaymentTransaction.objects.filter(sumup_checkout_id=checkout_id).first()
+        tx_obj = PaymentTransaction.objects.filter(
+            sumup_checkout_id=checkout_id
+        ).first()
 
     if request.method == "POST":
         if not tx_obj:
-            logger.warning("SumUp return POST for unknown reference %s", ref or checkout_id)
-            return JsonResponse({"status": "ignored", "reason": "transaction not found"})
+            logger.warning(
+                "SumUp return POST for unknown reference %s", ref or checkout_id
+            )
+            return JsonResponse(
+                {"status": "ignored", "reason": "transaction not found"}
+            )
         _sync_checkout_with_sumup(tx_obj)
         return JsonResponse({"status": "ok"})
 
@@ -1420,8 +1824,7 @@ def sumup_payment_return(request):
     # An unowned reference is answered exactly like an unknown one, so this
     # cannot be used to probe which references exist.
     if not tx_obj or (
-        request.user.id not in _payment_owner_ids(tx_obj)
-        and not request.user.is_staff
+        request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff
     ):
         if tx_obj:
             logger.warning(
@@ -1783,6 +2186,8 @@ def sumup_widget_view(request, checkout_id):
         # as it stood before this page existed, so nothing the customer does
         # from here can be inside it.
         "attempt_marker": attempt_marker(tx_obj),
-        "return_url": request.build_absolute_uri(f"/payments/sumup/return/?ref={tx_obj.transaction_reference}"),
+        "return_url": request.build_absolute_uri(
+            f"/payments/sumup/return/?ref={tx_obj.transaction_reference}"
+        ),
     }
     return render(request, "crush_lu/payments/sumup_widget.html", context)

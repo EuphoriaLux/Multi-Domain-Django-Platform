@@ -7,11 +7,13 @@ Handles profile submissions, coach notifications, event registrations, etc.
 import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import override
 from django.core.cache import cache
 from azureproject.email_utils import send_domain_email
 from .utils.i18n import get_user_preferred_language
+from .utils.formatting import format_cents
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +106,7 @@ def get_email_base_urls(user, request):
         "settings_url": get_user_language_url(
             user, "crush_lu:account_settings", request
         ),
-        "terms_url": get_user_language_url(
-            user, "crush_lu:terms_of_service", request
-        ),
+        "terms_url": get_user_language_url(user, "crush_lu:terms_of_service", request),
     }
 
 
@@ -839,7 +839,9 @@ def send_event_payment_pending_notification(registration, request=None):
     )
 
 
-def send_event_cancellation_confirmation(user, event, request):
+def send_event_cancellation_confirmation(
+    user, event, request, credits=None, *, awaiting_resale=False
+):
     """
     Send confirmation email for event cancellation.
 
@@ -863,10 +865,14 @@ def send_event_cancellation_confirmation(user, event, request):
     # Get base footer URLs
     base_urls = get_email_base_urls(user, request)
 
+    credits = list(credits or [])
     context = {
         "user": user,
         "event": event,
         "events_url": events_url,
+        "credit_total": sum(credit.amount_cents for credit in credits) / 100,
+        "credit_issued": bool(credits),
+        "awaiting_resale": awaiting_resale,
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,
@@ -886,8 +892,76 @@ def send_event_cancellation_confirmation(user, event, request):
         html_message=html_message,
         recipient_list=[user.email],
         request=request,
+        domain="crush.lu",
         fail_silently=False,
     )
+
+
+def send_event_cancelled_by_organiser(
+    registration,
+    credits,
+    request=None,
+    *,
+    recipient_user=None,
+    mark_notified=True,
+):
+    """Tell one affected member that the organiser cancelled their event."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    credits = list(credits)
+    user = recipient_user or registration.user
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    cash_refund_available = any(
+        credit.cash_refund_still_available for credit in credits
+    )
+    context = {
+        "user": user,
+        "registration": registration,
+        "event": registration.event,
+        "credits": credits,
+        "has_credit": bool(credits),
+        "credit_lines": [
+            {
+                "amount": format_cents(credit.amount_cents),
+                "expires_at": credit.expires_at,
+            }
+            for credit in credits
+        ],
+        "credit_total": sum(credit.amount_cents for credit in credits) / 100,
+        "cash_refund_available": cash_refund_available,
+        "cash_refund_option_closed": (
+            any(credit.cash_refund_eligible for credit in credits)
+            and not cash_refund_available
+        ),
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+
+    with translation.override(lang):
+        subject = _("{title} won't be going ahead — what happens next").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/event_cancelled_by_organiser.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    sent = send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+    if sent and mark_notified:
+        registration.__class__.objects.filter(pk=registration.pk).update(
+            organiser_cancellation_notified_at=timezone.now()
+        )
+    return sent
 
 
 def send_event_reminder(registration, request=None, days_until_event=1):
@@ -1573,18 +1647,22 @@ def get_users_needing_reminder(reminder_type):
     # profile layer they haven't consented to. Requiring =True also drops users
     # with no data_consent row at all, which is correct — no consent recorded.
     # (Codex P1)
-    users = User.objects.filter(
-        is_active=True,
-        crushprofile__completion_status__in=incomplete_statuses,
-        crushprofile__is_active=True,
-        crushprofile__created_at__gte=min_created,
-        crushprofile__created_at__lte=max_created,
-        data_consent__crushlu_consent_given=True,
-    ).exclude(
-        # Exclude users who already got this reminder type
-        profile_reminders__reminder_type=reminder_type
-    ).exclude(
-        data_consent__crushlu_banned=True,
+    users = (
+        User.objects.filter(
+            is_active=True,
+            crushprofile__completion_status__in=incomplete_statuses,
+            crushprofile__is_active=True,
+            crushprofile__created_at__gte=min_created,
+            crushprofile__created_at__lte=max_created,
+            data_consent__crushlu_consent_given=True,
+        )
+        .exclude(
+            # Exclude users who already got this reminder type
+            profile_reminders__reminder_type=reminder_type
+        )
+        .exclude(
+            data_consent__crushlu_banned=True,
+        )
     )
 
     # For 72h and 7d, require the previous reminder to have been sent AND to
@@ -1795,9 +1873,7 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
     # insert window for a truly simultaneous path. The row is still written only
     # on success, so a crashed run leaves no false "sent" record — the claim
     # (5 min TTL) simply expires and the reminder is retried on the next run.
-    if ProfileReminder.objects.filter(
-        user=user, reminder_type=reminder_type
-    ).exists():
+    if ProfileReminder.objects.filter(user=user, reminder_type=reminder_type).exists():
         logger.info(
             f"{reminder_type} reminder already recorded for {user.email}; skipping"
         )

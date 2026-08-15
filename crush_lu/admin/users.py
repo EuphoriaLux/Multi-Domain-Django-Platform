@@ -14,6 +14,11 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
+from crush_lu.admin.credits import (
+    annotate_credit_balance,
+    credit_balance_column,
+    issue_goodwill_credit,
+)
 from crush_lu.models import CrushProfile, CrushCoach, UserDataConsent
 
 
@@ -219,10 +224,11 @@ class CrushUserAdmin(BaseUserAdmin):
     Shows users with their Crush.lu profiles and provides bidirectional navigation.
     """
     inlines = (UserDataConsentInline, CrushProfileUserInline, CrushCoachUserInline)
-    actions = [ban_users, unban_users]
+    actions = [ban_users, unban_users, issue_goodwill_credit]
     list_display = (
         'username', 'email', 'first_name', 'last_name',
-        'get_crush_profile_link', 'get_consent_status', 'is_coach_status', 'is_active', 'date_joined'
+        'get_crush_profile_link', 'get_crush_credit', 'get_consent_status',
+        'is_coach_status', 'is_active', 'date_joined'
     )
     list_filter = (HasCrushProfileFilter, BannedUserFilter, 'is_active', 'date_joined')
     search_fields = ('username', 'email', 'first_name', 'last_name')
@@ -261,6 +267,15 @@ class CrushUserAdmin(BaseUserAdmin):
         except CrushProfile.DoesNotExist:
             return mark_safe('<span style="color: #999;">No profile</span>')
     get_crush_profile_link.short_description = '💕 Profile'
+
+    def get_queryset(self, request):
+        """Annotate the credit balance once for the page, not once per row."""
+        return annotate_credit_balance(super().get_queryset(request))
+
+    def get_crush_credit(self, obj):
+        """Spendable Crush Credit balance, computed from the ledger."""
+        return credit_balance_column(obj)
+    get_crush_credit.short_description = '💳 Credit'
 
     def is_coach_status(self, obj):
         """Check if user is an active Crush.lu coach"""

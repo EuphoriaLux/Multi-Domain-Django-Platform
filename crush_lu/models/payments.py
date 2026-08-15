@@ -1,6 +1,7 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -12,6 +13,15 @@ class PaymentTransaction(models.Model):
 
     class Provider(models.TextChoices):
         SUMUP = "sumup", _("SumUp")
+        # Crush Credit is a payment *method*, not a payment provider — no money
+        # moves and no checkout exists at anybody's API. It lives here because
+        # this field is what every reader uses to decide how a payment was
+        # made, and because keeping credit payments out of the SumUp value is
+        # what stops `sumup_checkout_status` and the reconciliation sweep
+        # hunting for a checkout that was never opened. A CREDIT row carries an
+        # empty `sumup_checkout_id` for the same reason.
+        CREDIT = "credit", _("Crush Credit")
+        MANUAL = "manual", _("Cash / bank transfer")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -68,7 +78,10 @@ class PaymentTransaction(models.Model):
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        # A captured payment is a financial record. Do not let a hard User
+        # delete erase it; profile-only deletion/anonymisation is the supported
+        # member flow.
+        on_delete=models.PROTECT,
         related_name="payment_transactions",
         null=True,
         blank=True,
@@ -79,6 +92,19 @@ class PaymentTransaction(models.Model):
         null=True,
         blank=True,
         related_name="payment_transactions",
+    )
+    event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        # Captured payments are immutable event revenue. Only PAID/REFUNDED
+        # rows receive this relation (see save), so an abandoned checkout does
+        # not prevent stock-admin event deletion.
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+        help_text=_(
+            "Immutable event attribution, retained if the registration is deleted."
+        ),
     )
     premium_membership = models.ForeignKey(
         "crush_lu.PremiumMembership",
@@ -102,6 +128,12 @@ class PaymentTransaction(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    paid_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When this transaction first became paid. Never moved later."),
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -110,3 +142,21 @@ class PaymentTransaction(models.Model):
 
     def __str__(self):
         return f"{self.provider.upper()} {self.transaction_reference} - {self.amount} {self.currency} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        """Stamp the event and paid transition, including update_fields saves."""
+        if (
+            self.event_id is None
+            and self.event_registration_id
+            and self.status in (self.Status.PAID, self.Status.REFUNDED)
+        ):
+            self.event_id = self.event_registration.event_id
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"event"}
+        if self.status == self.Status.PAID and self.paid_at is None:
+            self.paid_at = timezone.now()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"paid_at"}
+        return super().save(*args, **kwargs)
