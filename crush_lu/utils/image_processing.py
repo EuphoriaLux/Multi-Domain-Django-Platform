@@ -13,6 +13,12 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.translation import gettext_lazy as _
 from PIL import Image, ImageOps
 
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 # Max dimension on longest edge after processing
@@ -42,6 +48,9 @@ def process_uploaded_image(image_file, filename=None):
     """
     Process an uploaded image: fix orientation, strip EXIF, resize.
 
+    Supports JPEG, PNG, WebP, and HEIC/HEIF (Apple iOS photos). Non-JPEG/PNG/WebP
+    formats (such as HEIC) are automatically converted to optimized JPEG (.jpg).
+
     Args:
         image_file: A file-like object (UploadedFile, ContentFile, etc.)
         filename: Optional filename override. If None, uses image_file.name.
@@ -50,7 +59,7 @@ def process_uploaded_image(image_file, filename=None):
         InMemoryUploadedFile with processed image data.
 
     Raises:
-        ValidationError: If the file exceeds MAX_UPLOAD_BYTES.
+        ValidationError: If the file exceeds MAX_UPLOAD_BYTES or is invalid/unsupported.
     """
     size = _file_size(image_file)
     if size > MAX_UPLOAD_BYTES:
@@ -60,13 +69,20 @@ def process_uploaded_image(image_file, filename=None):
         )
 
     image_file.seek(0)
-    img = Image.open(image_file)
+    try:
+        img = Image.open(image_file)
+        # Fix orientation from EXIF before stripping metadata
+        img = ImageOps.exif_transpose(img)
+    except ValidationError:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to decode uploaded image: %s", exc)
+        raise ValidationError(
+            _("The uploaded file is not a valid or supported image.")
+        ) from exc
 
-    # Fix orientation from EXIF before stripping metadata
-    img = ImageOps.exif_transpose(img)
-
-    # Convert RGBA/P to RGB for JPEG output
-    if img.mode in ("RGBA", "P"):
+    # Convert non-RGB/L modes (RGBA, P, CMYK, etc.) to RGB for safe JPEG output
+    if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
 
     # Resize if larger than MAX_DIMENSION on longest edge

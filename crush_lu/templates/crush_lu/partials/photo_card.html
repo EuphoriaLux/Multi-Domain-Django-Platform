@@ -55,7 +55,7 @@
                 <input type="file"
                        name="photo_{{ slot }}"
                        id="id_photo_{{ slot }}"
-                       accept="image/jpeg,image/png,image/webp"
+                       accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                        hx-post="{% url 'api_upload_profile_photo' slot %}"
                        hx-target="#photo-card-{{ slot }}"
                        hx-swap="innerHTML"

@@ -40,7 +40,7 @@ def save_profile_step1(request):
         # Coaches with existing profiles can still edit them
         if created:
             try:
-                coach = CrushCoach.objects.get(user=request.user, is_active=True)
+                CrushCoach.objects.get(user=request.user, is_active=True)
                 # Delete the just-created profile and block
                 profile.delete()
                 return JsonResponse(
@@ -584,7 +584,7 @@ def save_profile_step3(request):
                 return JsonResponse(
                     {
                         "success": False,
-                        "error": "Invalid photo. Please upload a JPEG or PNG under 10MB.",
+                        "error": "Invalid photo. Please upload a JPEG, PNG, WebP, or HEIC image under 10MB.",
                     },
                     status=400,
                 )
