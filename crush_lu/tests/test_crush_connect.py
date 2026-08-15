@@ -2514,24 +2514,6 @@ def test_catalogue_welcome_email_copy_attended_event(rf):
 
 
 @pytest.mark.django_db
-def test_event_lobby_gates_allow_attended_non_luxid_member():
-    from crush_lu.services.event_lobby import (
-        participant_gate,
-        may_learn_lobby_exists,
-        GATE_OK,
-    )
-
-    user = _make_user(username="lobbyattendee", premium=False, has_luxid=False)
-    _mark_attended(user)
-    user.crushprofile.refresh_from_db()
-
-    assert may_learn_lobby_exists(user) is True
-    ok, reason = participant_gate(user)
-    assert ok is True
-    assert reason == GATE_OK
-
-
-@pytest.mark.django_db
 def test_unverified_profile_cannot_use_event_attendance_to_satisfy_identity_verification():
     user = _make_user(username="unverifiedattendee", premium=False, has_luxid=False)
     _mark_attended(user)

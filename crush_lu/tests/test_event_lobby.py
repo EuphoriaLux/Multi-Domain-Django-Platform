@@ -222,7 +222,7 @@ class TestEligibility:
             {"onboarded": False},
             {"excluded": True},
             {"verified": False},
-            {"luxid": False, "verified": False},
+            {"luxid": False},
             {"photo_consent": False},
             {"photo": False},
         ],
@@ -231,7 +231,7 @@ class TestEligibility:
             "not_onboarded",
             "coach_excluded",
             "not_verified",
-            "unverified_no_luxid",
+            "no_luxid",
             "no_photo_consent",
             "no_photo",
         ],
@@ -838,8 +838,8 @@ class TestLobbyPage:
 
     @pytest.mark.parametrize(
         "knobs",
-        [{"membership": False, "verified": False}, {"verified": False}],
-        ids=["non_connect_unapproved", "not_approved"],
+        [{"membership": False, "luxid": False}, {"luxid": False}, {"verified": False}],
+        ids=["non_connect", "no_luxid", "not_approved"],
     )
     def test_non_connect_guest_cannot_learn_lobby_exists(self, client, knobs):
         """§5.3: only a LuxID-capable, approved guest may see the onboarding
@@ -1599,8 +1599,8 @@ class TestLobbyCta:
         _end_event(event, hours_ago=49)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
 
-    def test_unverified_guest_without_luxid_gets_promo_only(self):
-        guest = _make_member("cta_plain", membership=False, luxid=False, verified=False)
+    def test_plain_guest_without_luxid_gets_promo_only(self):
+        guest = _make_member("cta_plain", membership=False, luxid=False)
         event = _make_event()
         _attend(guest, event)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
