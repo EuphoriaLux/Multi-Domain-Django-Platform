@@ -407,9 +407,16 @@ class TestUndoCheckin:
         profile.refresh_from_db()
         assert profile.verification_status == "verified"
 
-    def test_undo_returns_the_gender_bucket(self, client):
-        """The client decrements the live "In the room" split with this — the
-        tile is rendered once and a door shift never reloads."""
+    def test_undo_returns_the_gender_bucket_on_the_row(self, client):
+        """The bucket letter rides the row payload, not the top level.
+
+        It used to be sent twice: once at the top level for a client-side
+        decrement of the live "In the room" split, and once inside ``row``.
+        #710 moved that split onto the summary refetch — every door action,
+        undo included, repaints the tiles from ``gender_checked_in`` on the
+        server's own counts — which left the top-level copy with no reader.
+        The row copy stays: ``_applyRowState`` renders the gender icon from it.
+        """
         coach = _make_coach()
         attendee = _make_attendee()
         event = _make_event()
@@ -420,7 +427,8 @@ class TestUndoCheckin:
 
         payload = client.post(_undo_url(event, registration)).json()
 
-        assert payload["gender"] == "F"
+        assert payload["row"]["gender"] == "F"
+        assert "gender" not in payload
 
     def test_undo_touches_updated_at(self, client):
         """auto_now only writes when the field is named in update_fields."""

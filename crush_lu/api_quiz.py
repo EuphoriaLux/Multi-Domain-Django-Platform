@@ -633,6 +633,7 @@ def mark_attended(request, quiz_id):
             _broadcast_quiz_table_update,
             _get_display_name,
             _get_profile_data,
+            _row_state,
         )
 
         broadcast_payload = {
@@ -645,6 +646,12 @@ def mark_attended(request, quiz_id):
                 else None
             ),
             "profile": _get_profile_data(registration),
+            # Same input every other door broadcast feeds the shared
+            # row-state applier with (#710). Without it `_applyRowState`
+            # bails: the toast fires and the counters converge (summary
+            # refetch), but the row itself never flips — no tick, and the
+            # Check In button stays enabled (#845).
+            "row": _row_state(registration),
         }
         if table_assignment:
             broadcast_payload["table_number"] = table_assignment.get(

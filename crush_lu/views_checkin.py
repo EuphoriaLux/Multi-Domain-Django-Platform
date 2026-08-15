@@ -378,6 +378,9 @@ def event_checkin_api(request, registration_id, token):
             ).get(id=registration_id)
 
         display_name = _get_display_name(registration)
+        # Computed once, used twice: the row payload and the response's own
+        # table fields — `_row_state` no longer re-derives it (#845).
+        table_info = _get_existing_table_assignment(registration)
         response_data = {
             "success": True,
             "already_checked_in": True,
@@ -391,9 +394,8 @@ def event_checkin_api(request, registration_id, token):
             "message": f"{display_name} was already checked in.",
             "profile": _get_profile_data(registration),
             "auto_verified": rescan_verified is not None,
-            "row": _row_state(registration),
+            "row": _row_state(registration, table_assignment=table_info),
         }
-        table_info = _get_existing_table_assignment(registration)
         if table_info:
             response_data.update(table_info)
         if rescan_verified is not None:
@@ -455,6 +457,8 @@ def event_checkin_api(request, registration_id, token):
                 request, registration, now
             )
             display_name = _get_display_name(registration)
+            # Same once-only lookup as the re-scan branch above (#845).
+            table_info = _get_existing_table_assignment(registration)
             response_data = {
                 "success": True,
                 "already_checked_in": True,
@@ -468,9 +472,8 @@ def event_checkin_api(request, registration_id, token):
                 "message": f"{display_name} was already checked in.",
                 "profile": _get_profile_data(registration),
                 "auto_verified": already_verified_profile is not None,
-                "row": _row_state(registration),
+                "row": _row_state(registration, table_assignment=table_info),
             }
-            table_info = _get_existing_table_assignment(registration)
             if table_info:
                 response_data.update(table_info)
             if already_verified_profile is not None:
@@ -555,8 +558,14 @@ def event_checkin_api(request, registration_id, token):
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
         # What the shared row-state applier renders the manual row from, on
-        # this response AND the broadcast of it.
-        "row": _row_state(registration),
+        # this response AND the broadcast of it. The assignment dict built
+        # above is handed over rather than re-derived — when there is none
+        # (no quiz, or a failed assignment) the sentinel lets `_row_state`
+        # fall back to its own lookup, preserving the badge-on-old-
+        # membership behaviour of the failure path.
+        "row": _row_state(
+            registration, table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET
+        ),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -704,6 +713,22 @@ def coach_mark_verified(request, event_id, registration_id):
     _run_post_verification_side_effects(
         registration.user, profile, request, registration.id
     )
+
+    # The response — and the broadcast of it — converges every other
+    # screen's row on this payload, so it must describe committed state.
+    # `registration` is still the instance locked inside the transaction
+    # above: an overlapping door action that committed since (a scan, an
+    # undo) would ride along as stale state and the broadcast would un-check
+    # an already-attended row on every screen. The summary refetch is
+    # sequence-guarded (c65d1136) — the row payload is not, so it is built
+    # from a fresh read, taken as late as possible.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration_id, event_id=event_id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
 
     response_data = {
         "success": True,
@@ -1024,12 +1049,6 @@ def coach_undo_checkin(request, event_id, registration_id):
         # in the expected set — so this cannot be assumed client-side.
         "restored_status": restored_status,
         "coach_cleared": coach_cleared,
-        # The client decrements the live gender split with this. Only the
-        # bucket letter travels — the toast payload would be gratuitous here.
-        "gender": getattr(
-            getattr(registration.user, "crushprofile", None), "gender", ""
-        )
-        or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
         # The full row state the shared applier renders from — status,
         # cleared coach line, table badge — for the local path AND the
@@ -1223,7 +1242,11 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         # it from the identity fields carried here. Coach-only endpoint, so
         # this is also the one row payload allowed to carry the legal
         # name/email search haystack.
-        "row": _row_state(registration, include_search=True),
+        "row": _row_state(
+            registration,
+            include_search=True,
+            table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+        ),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -1239,10 +1262,26 @@ def _get_display_name(registration):
     try:
         return registration.user.crushprofile.display_name
     except Exception:
-        return _("Attendee")
+        # Same fallback the page's rows use (coach_event_checkin.html): a
+        # profileless attendee is their first name, then their username — not
+        # a bare "Attendee", which named no one and degraded every promoted
+        # row's name and search haystack to the same placeholder.
+        user = registration.user
+        return user.first_name or user.username or str(_("Attendee"))
 
 
-def _row_state(registration, include_search=False):
+#: Sentinel distinguishing "the caller has not computed the table assignment"
+#: from "the caller computed it and there is none". ``_row_state`` used to
+#: run ``_get_existing_table_assignment`` unconditionally, so the callers
+#: that had just computed it (the re-scan branches, a fresh
+#: ``assign_table_on_checkin``) paid the quiz/membership/rotation queries
+#: twice per door action on quiz nights.
+_TABLE_ASSIGNMENT_UNSET = object()
+
+
+def _row_state(
+    registration, include_search=False, table_assignment=_TABLE_ASSIGNMENT_UNSET
+):
     """Row-level state for the door page's shared row-state applier (#710).
 
     Every door action returns this under ``row`` and the page applies it with
@@ -1264,6 +1303,11 @@ def _row_state(registration, include_search=False):
     ``user__crushprofile``: the coach grant is written by a signal on its own
     profile instance during ``save()``, so the cached copy predates the very
     field this is asked to report.
+
+    ``table_assignment`` is the caller's already-computed
+    ``_get_existing_table_assignment`` result (or an ``assign_table_on_checkin``
+    dict — only ``table_number`` is read) and spares the duplicate lookup
+    above; leave it unset to have this helper compute it.
     """
     # str() coerces the lazy "Attendee" fallback — it must be a plain string
     # both for the join below and for JsonResponse.
@@ -1275,6 +1319,14 @@ def _row_state(registration, include_search=False):
         "checked_in_at": (
             registration.checked_in_at.isoformat()
             if registration.checked_in_at
+            else None
+        ),
+        # The waitlist is FIFO by this timestamp (the page orders it the same
+        # way in views_coach.py), so restoring an undone promotion at its
+        # queue position — rather than at the end — needs it in the payload.
+        "registered_at": (
+            registration.registered_at.isoformat()
+            if registration.registered_at
             else None
         ),
         "display_name": display_name,
@@ -1312,9 +1364,10 @@ def _row_state(registration, include_search=False):
                 f"{coach_user.first_name} {coach_user.last_name}".strip()
                 or coach_user.username
             )
-    table_info = _get_existing_table_assignment(registration)
-    if table_info:
-        row["table_number"] = table_info["table_number"]
+    if table_assignment is _TABLE_ASSIGNMENT_UNSET:
+        table_assignment = _get_existing_table_assignment(registration)
+    if table_assignment:
+        row["table_number"] = table_assignment["table_number"]
     return row
 
 
@@ -1357,7 +1410,16 @@ def event_checkin_summary(request, event_id):
             gender_checked_in[key] += 1
 
     table_fill = []
-    quiz_event = getattr(event, "quiz", None)
+    # Same gate as the page view (coach_event_checkin in views_coach.py): a
+    # QuizEvent row can exist under an event that is not a quiz night, and
+    # following it here made the refetch disagree with the page that rendered
+    # it — plus the membership queries on every non-quiz refetch.
+    quiz_event = None
+    if event.event_type == "quiz_night":
+        try:
+            quiz_event = event.quiz
+        except Exception:
+            pass
     if quiz_event and quiz_event.num_tables:
         from collections import Counter
 
