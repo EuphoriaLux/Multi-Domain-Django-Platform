@@ -1179,11 +1179,6 @@ def _row_state(registration, include_search=False):
         row["is_approved"] = profile.is_approved
         row["gender"] = profile.gender or ""
         row["age_display"] = profile.age_display or ""
-        if profile.photo_1:
-            row["photo_url"] = reverse(
-                "crush_lu:serve_profile_photo",
-                kwargs={"user_id": registration.user_id, "photo_field": "photo_1"},
-            )
         if profile.assigned_coach_id:
             coach_user = profile.assigned_coach.user
             row["coach_name"] = (

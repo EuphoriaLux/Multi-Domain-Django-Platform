@@ -778,23 +778,29 @@ document.addEventListener("alpine:init", function () {
                     // Undoing a promotion puts the walk-up back where they
                     // came from: out of the confirmed list, into the
                     // waitlist section — which is why that section renders
-                    // even while empty.
+                    // even while empty. The avatar photo is CARRIED OVER
+                    // from the row being removed: no URL is ever read back
+                    // from the payload, so nothing response-derived can
+                    // reach an img.src.
                     var mainRow = document.getElementById("manual-reg-" + regId);
+                    var mainPhoto = this._takeRowPhoto(mainRow);
                     if (mainRow) mainRow.remove();
                     if (
                         !document.getElementById("waitlist-reg-" + regId) &&
                         this._waitlistList()
                     ) {
                         this._waitlistList().appendChild(
-                            this._buildWaitlistRow(row),
+                            this._buildWaitlistRow(row, mainPhoto),
                         );
                     }
                 } else {
                     // A promotion leaves the waitlist on every path. The
                     // row used to survive it on every page but the acting
                     // coach's, leaving an enabled promote button over an
-                    // attended row that answers 409 (#710 finding 2).
+                    // attended row that answers 409 (#710 finding 2). The
+                    // photo rides across the same way as above.
                     var wlRow = document.getElementById("waitlist-reg-" + regId);
+                    var wlPhoto = this._takeRowPhoto(wlRow);
                     if (wlRow) wlRow.remove();
                     var rowEl = document.getElementById("manual-reg-" + regId);
                     if (!rowEl) {
@@ -804,7 +810,7 @@ document.addEventListener("alpine:init", function () {
                         // finding 3).
                         var list = this._attendeeList();
                         if (!list) return;
-                        rowEl = this._buildConfirmedRow(row);
+                        rowEl = this._buildConfirmedRow(row, wlPhoto);
                         list.appendChild(rowEl);
                         var empty = document.getElementById("attendee-empty");
                         if (empty) empty.remove();
@@ -1036,8 +1042,10 @@ document.addEventListener("alpine:init", function () {
 
             // Full row for an attendee the confirmed list never contained —
             // a waitlist walk-up being promoted. Class-identical to the
-            // server-rendered twin in coach_event_checkin.html.
-            _buildConfirmedRow: function (row) {
+            // server-rendered twin in coach_event_checkin.html. The photo,
+            // when there is one, is the <img> node carried over from the
+            // waitlist row this promotion empties.
+            _buildConfirmedRow: function (row, photoImg) {
                 var el = document.createElement("div");
                 el.className = "py-3 flex items-center justify-between gap-3";
                 el.id = "manual-reg-" + row.registration_id;
@@ -1060,19 +1068,9 @@ document.addEventListener("alpine:init", function () {
                 var avatarWrap = document.createElement("div");
                 avatarWrap.className = "relative flex-shrink-0";
                 avatarWrap.setAttribute("data-checkin-avatar", "");
-                var photoUrl = this._safePhotoUrl(row.photo_url);
-                if (photoUrl) {
-                    var img = document.createElement("img");
-                    // Photo URLs are minted server-side by reverse() on a
-                    // same-origin route and narrowed to a site-relative path
-                    // by _safePhotoUrl; the response-body taint CodeQL traces
-                    // here has no attacker-controlled shape.
-                    // lgtm[js/xss]
-                    // lgtm[js/client-side-unvalidated-url-redirection]
-                    img.src = photoUrl;
-                    img.alt = "";
-                    img.className = "w-10 h-10 rounded-full object-cover";
-                    avatarWrap.appendChild(img);
+                if (photoImg) {
+                    photoImg.className = "w-10 h-10 rounded-full object-cover";
+                    avatarWrap.appendChild(photoImg);
                 } else {
                     var initial = document.createElement("div");
                     initial.className =
@@ -1117,7 +1115,7 @@ document.addEventListener("alpine:init", function () {
 
             // Waitlist twin — what an undone promotion returns to. Same
             // classes as the server-rendered rows it sits between.
-            _buildWaitlistRow: function (row) {
+            _buildWaitlistRow: function (row, photoImg) {
                 var self = this;
                 var i18n = window._checkinI18n || {};
                 var el = document.createElement("div");
@@ -1126,16 +1124,10 @@ document.addEventListener("alpine:init", function () {
 
                 var left = document.createElement("div");
                 left.className = "flex items-center gap-3 min-w-0";
-                var waitlistPhotoUrl = this._safePhotoUrl(row.photo_url);
-                if (waitlistPhotoUrl) {
-                    var img = document.createElement("img");
-                    // Same reasoning as the confirmed-row builder above.
-                    // lgtm[js/xss]
-                    // lgtm[js/client-side-unvalidated-url-redirection]
-                    img.src = waitlistPhotoUrl;
-                    img.alt = "";
-                    img.className = "w-10 h-10 rounded-full object-cover flex-shrink-0";
-                    left.appendChild(img);
+                if (photoImg) {
+                    photoImg.className =
+                        "w-10 h-10 rounded-full object-cover flex-shrink-0";
+                    left.appendChild(photoImg);
                 } else {
                     var initial = document.createElement("div");
                     initial.className =
@@ -1196,14 +1188,16 @@ document.addEventListener("alpine:init", function () {
                 return null;
             },
 
-            // The photo URL arrives inside a JSON response body, which is
-            // untrusted input no matter that our own API built it — so only a
-            // site-relative path may reach img.src. Rejects absolute,
-            // protocol-relative and scheme-bearing values outright.
-            _safePhotoUrl: function (url) {
-                if (typeof url !== "string") return null;
-                if (url.charAt(0) !== "/" || url.charAt(1) === "/") return null;
-                return url;
+            // Detach the avatar <img> from a row that is about to be
+            // removed, so the photo survives the row transition without its
+            // URL ever being read back from an API payload — the src stays
+            // whatever the server rendered, which severs the response-body
+            // taint CodeQL traces into img.src.
+            _takeRowPhoto: function (rowEl) {
+                if (!rowEl) return null;
+                var img = rowEl.querySelector("[data-checkin-avatar] img");
+                if (img && img.parentNode) img.parentNode.removeChild(img);
+                return img || null;
             },
 
             _apiUrl: function (action, regId) {
