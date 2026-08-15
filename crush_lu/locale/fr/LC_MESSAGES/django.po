@@ -21025,10 +21025,22 @@ msgstr "Votre statut Crush Connect"
 msgid "LuxID verified — you can join Crush Connect"
 msgstr "LuxID vérifié — vous pouvez rejoindre Crush Connect"
 
+#: templates/crush_lu/crush_connect.html:252
+msgid "Verified by event attendance — you can join Crush Connect"
+msgstr "Vérifié par présence à un événement — vous pouvez rejoindre Crush Connect"
+
+#: templates/crush_lu/crush_connect.html:254
+msgid "Identity verified — you can join Crush Connect"
+msgstr "Identité vérifiée — vous pouvez rejoindre Crush Connect"
+
 #: templates/crush_lu/crush_connect.html:255
 #: templates/crush_lu/partials/_connect_status_strip.html:28
 msgid "Connect LuxID to join Crush Connect"
 msgstr "Connectez LuxID pour rejoindre Crush Connect"
+
+#: templates/crush_lu/crush_connect.html:258
+msgid "Verify your identity to join Crush Connect"
+msgstr "Vérifiez votre identité pour rejoindre Crush Connect"
 
 #: templates/crush_lu/crush_connect.html:263
 msgid ""
@@ -21038,11 +21050,23 @@ msgstr ""
 "Crush Connect a d'abord besoin de votre LuxID vérifiée. C'est gratuit, ça "
 "prend une minute et ça confirme que vous êtes une vraie personne."
 
+#: templates/crush_lu/crush_connect.html:266
+msgid ""
+"Crush Connect requires verified identity to keep matching safe and "
+"authentic. You can verify in two easy ways:"
+msgstr ""
+"Crush Connect nécessite une identité vérifiée pour garantir des rencontres sûres et "
+"authentiques. Vous pouvez vous vérifier de deux manières simples :"
+
 #: templates/crush_lu/crush_connect.html:267
 #: templates/crush_lu/partials/_connect_status_strip.html:33
 #: templates/crush_lu/partials/_verification_options.html:62
 msgid "Connect LuxID"
 msgstr "Connecter LuxID"
+
+#: templates/crush_lu/crush_connect.html:274
+msgid "Attend an Event"
+msgstr "Participer à un événement"
 
 #: templates/crush_lu/crush_connect.html:293
 msgid "Ready to be introduced?"
@@ -23672,6 +23696,22 @@ msgid ""
 msgstr ""
 "Votre LuxID est vérifié et votre histoire est en ligne — un Crush Coach peut"
 " maintenant vous sélectionner à la main comme match pour un membre Premium."
+
+#: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:13
+msgid ""
+"Your in-person event attendance is verified and your story is live — a Crush "
+"Coach can now hand-pick you as a match for a Premium member."
+msgstr ""
+"Votre présence à un événement est vérifiée et votre profil est actif — un "
+"Coach Crush peut désormais vous sélectionner pour un membre Premium."
+
+#: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:15
+msgid ""
+"Your identity is verified and your story is live — a Crush Coach can now "
+"hand-pick you as a match for a Premium member."
+msgstr ""
+"Votre identité est vérifiée et votre profil est actif — un Coach Crush peut "
+"désormais vous sélectionner pour un membre Premium."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:15
 msgid ""
