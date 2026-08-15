@@ -132,7 +132,7 @@ def apply_referral_to_user(request, user):
     return referral
 
 
-def update_membership_tier(profile):
+def update_membership_tier(profile, allow_downgrade=False):
     """Update user's membership tier based on total referral points."""
     thresholds = getattr(
         settings,
@@ -150,17 +150,17 @@ def update_membership_tier(profile):
             new_tier = tier
             break
 
-    # Only upgrade tiers, never downgrade (protect against point redemption)
+    # Only upgrade tiers unless allow_downgrade=True during undo/revocation
     tier_rank = {"basic": 0, "bronze": 1, "silver": 2, "gold": 3}
     current_rank = tier_rank.get(profile.membership_tier, 0)
     new_rank = tier_rank.get(new_tier, 0)
 
-    if new_rank > current_rank:
+    if (allow_downgrade and new_rank != current_rank) or (new_rank > current_rank):
         old_tier = profile.membership_tier
         profile.membership_tier = new_tier
         profile.save(update_fields=["membership_tier"])
         logger.info(
-            "User %s tier upgraded from %s to %s (points: %d)",
+            "Updated membership tier for user %s from %s to %s (points: %d)",
             profile.user_id,
             old_tier,
             new_tier,
@@ -380,8 +380,15 @@ def check_and_apply_profile_approved_reward(profile):
 
     # Apply the bonus
     with transaction.atomic():
+        attribution = ReferralAttribution.objects.select_for_update().get(
+            pk=attribution.pk
+        )
+        if attribution.reward_points >= signup_points + bonus_points:
+            return None
+
         attribution.reward_points = F("reward_points") + bonus_points
-        attribution.save(update_fields=["reward_points"])
+        attribution.reward_applied_at = timezone.now()
+        attribution.save(update_fields=["reward_points", "reward_applied_at"])
 
         CrushProfile.objects.filter(pk=attribution.referrer_id).update(
             referral_points=F("referral_points") + bonus_points
@@ -403,8 +410,10 @@ def check_and_apply_profile_approved_reward(profile):
     return attribution
 
 
-def revoke_profile_approved_reward(profile):
+def revoke_profile_approved_reward(profile, max_age_minutes=20):
     """Reverses the profile_approved bonus points if an auto-verification is undone."""
+    from datetime import timedelta
+
     signup_points = getattr(settings, "REFERRAL_POINTS_PER_SIGNUP", 100)
     bonus_points = getattr(settings, "REFERRAL_POINTS_PER_PROFILE_APPROVED", 50)
 
@@ -423,6 +432,12 @@ def revoke_profile_approved_reward(profile):
         if attribution.reward_points < signup_points + bonus_points:
             return None
 
+        if attribution.reward_applied_at and (
+            timezone.now() - attribution.reward_applied_at
+        ) > timedelta(minutes=max_age_minutes):
+            # The approval bonus was granted by an earlier historical verification; do not revoke on this undo.
+            return None
+
         referrer = CrushProfile.objects.select_for_update().get(
             pk=attribution.referrer_id
         )
@@ -438,7 +453,7 @@ def revoke_profile_approved_reward(profile):
 
         attribution.refresh_from_db()
         attribution.referrer.refresh_from_db()
-        upgraded = update_membership_tier(attribution.referrer)
+        upgraded = update_membership_tier(attribution.referrer, allow_downgrade=True)
         if not upgraded:
             refresh_passes_after_points_change(attribution.referrer)
 

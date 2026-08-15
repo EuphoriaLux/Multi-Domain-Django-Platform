@@ -413,13 +413,14 @@ def event_checkin_api(request, registration_id, token):
         if within_checkin_window:
             with transaction.atomic():
                 locked_registration = (
-                    EventRegistration.objects.select_for_update()
+                    EventRegistration.objects.select_for_update(of=("self",))
                     .select_related("event", "user")
                     .get(id=registration_id)
                 )
-                rescan_verified = _auto_verify_on_attendance(
-                    request, locked_registration, now
-                )
+                if locked_registration.status == "attended":
+                    rescan_verified = _auto_verify_on_attendance(
+                        request, locked_registration, now
+                    )
         if rescan_verified is not None:
             # `registration` was loaded with `user__crushprofile` selected, so
             # its cached profile predates the write above — re-read it or the
@@ -948,7 +949,7 @@ def coach_undo_checkin(request, event_id, registration_id):
     with transaction.atomic():
         try:
             registration = (
-                EventRegistration.objects.select_for_update()
+                EventRegistration.objects.select_for_update(of=("self",))
                 .select_related("event", "user")
                 .get(pk=registration_id, event_id=event_id)
             )
