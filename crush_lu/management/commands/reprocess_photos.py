@@ -145,7 +145,8 @@ class Command(BaseCommand):
                     logger.warning("Could not delete old blob: %s", old_blob_name)
 
             # Save the model to persist the field reference. If this is a verified
-            # primary photo, carry forward the attestation to the new key.
+            # primary photo, carry forward the attestation to the new key only if
+            # the attestation is still intact in the database (not revoked concurrently).
             update_fields = [field_name]
             if (
                 isinstance(obj, CrushProfile)
@@ -153,8 +154,14 @@ class Command(BaseCommand):
                 and obj.photo_verification_key == old_blob_name
                 and obj.photo_verified_at is not None
             ):
-                obj.photo_verification_key = field.name
-                update_fields.extend(["photo_verification_key", "photo_verified_at"])
+                if CrushProfile.objects.filter(
+                    pk=obj.pk,
+                    photo_verification_key=old_blob_name,
+                ).exists():
+                    obj.photo_verification_key = field.name
+                    update_fields.extend(
+                        ["photo_verification_key", "photo_verified_at"]
+                    )
 
             obj.save(update_fields=update_fields)
 

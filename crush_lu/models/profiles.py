@@ -1134,7 +1134,9 @@ class CrushProfile(models.Model):
             and self.photo_verification_key == current_key
         )
 
-    def mark_current_photo_verified(self, *, verified_at=None) -> bool:
+    def mark_current_photo_verified(
+        self, *, verified_at=None, allowed_statuses=("pending", "verified")
+    ) -> bool:
         """Attest the current ``photo_1`` without racing a concurrent upload.
 
         Coach workflows call this only after their own authorization checks.
@@ -1151,7 +1153,7 @@ class CrushProfile(models.Model):
             .objects.filter(
                 pk=self.pk,
                 photo_1=current_key,
-                verification_status__in=("pending", "verified"),
+                verification_status__in=tuple(allowed_statuses),
             )
             .update(
                 photo_verification_key=current_key,

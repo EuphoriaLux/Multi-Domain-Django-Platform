@@ -61,12 +61,16 @@ def transition_unverified_profile(
     ).update(
         is_approved=False,
         verification_status=target_status,
+        photo_verification_key="",
+        photo_verified_at=None,
     )
     if not transitioned:
         return False
 
     profile.is_approved = False
     profile.verification_status = target_status
+    profile.photo_verification_key = ""
+    profile.photo_verified_at = None
     return True
 
 

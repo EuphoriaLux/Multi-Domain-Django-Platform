@@ -246,15 +246,12 @@ def _auto_verify_on_attendance(request, registration, now):
     if profile.verification_status in ("pending", "verified"):
         attested = profile.mark_current_photo_verified(verified_at=now)
         if attested:
-            registration.checkin_attested_photo_key = (
-                getattr(profile.photo_1, "name", "") or ""
-            )
+            attested_key = getattr(profile.photo_1, "name", "") or ""
+            registration.checkin_attested_photo_key = attested_key
             registration.checkin_attested_photo_at = profile.photo_verified_at
-            registration.save(
-                update_fields=[
-                    "checkin_attested_photo_key",
-                    "checkin_attested_photo_at",
-                ]
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                checkin_attested_photo_key=attested_key,
+                checkin_attested_photo_at=profile.photo_verified_at,
             )
 
     if profile.verification_status != "pending":
@@ -269,7 +266,9 @@ def _auto_verify_on_attendance(request, registration, now):
         return None
 
     registration.checkin_auto_verified = True
-    registration.save(update_fields=["checkin_auto_verified"])
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_auto_verified=True,
+    )
 
     logger.info(
         "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
@@ -671,47 +670,52 @@ def coach_mark_verified(request, event_id, registration_id):
         else:
             method = "coach_event"
 
+        # Same workflow the auto-verify on attendance runs, so the two paths
+        # cannot drift apart.
+        already_verified = False
+        if profile.verification_status != "verified":
+            if not _apply_verification(
+                profile, method, coach, now, claim_from=MANUAL_VERIFY_CLAIM_FROM
+            ):
+                # The claim can only fail here because another path verified them
+                # first — every other status is claimable. Report the same
+                # idempotent success as an already-verified profile rather than
+                # running the side effects twice. Reporting this for a still-
+                # unapproved profile would be worse than useless: the client
+                # removes the Verify button on `already_verified`, so the row would
+                # claim verified while the database disagreed.
+                profile.refresh_from_db()
+                if profile.verification_status != "verified":
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": str(
+                                _("Could not verify this profile. Please try again.")
+                            ),
+                        },
+                        status=409,
+                    )
+                already_verified = True
+        else:
+            already_verified = True
+
         # This explicit coach action attests the photo even when member-level
         # identity was already verified through LuxID. The method remains the
         # first verification path; the photo key is a separate, versioned fact.
-        profile.mark_current_photo_verified(verified_at=now)
-
-        if profile.verification_status == "verified":
-            return JsonResponse(
-                {
-                    "success": True,
-                    "already_verified": True,
-                    "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration),
-                    "verification_method": profile.verification_method,
-                    "message": str(_("Already verified.")),
-                    "row": _row_state(registration),
-                }
+        attested = profile.mark_current_photo_verified(
+            verified_at=now,
+            allowed_statuses=("incomplete", "pending", "rejected", "verified"),
+        )
+        if attested:
+            attested_key = getattr(profile.photo_1, "name", "") or ""
+            registration.checkin_attested_photo_key = attested_key
+            registration.checkin_attested_photo_at = profile.photo_verified_at
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                checkin_attested_photo_key=attested_key,
+                checkin_attested_photo_at=profile.photo_verified_at,
             )
 
-        # Same workflow the auto-verify on attendance runs, so the two paths
-        # cannot drift apart.
-        if not _apply_verification(
-            profile, method, coach, now, claim_from=MANUAL_VERIFY_CLAIM_FROM
-        ):
-            # The claim can only fail here because another path verified them
-            # first — every other status is claimable. Report the same
-            # idempotent success as an already-verified profile rather than
-            # running the side effects twice. Reporting this for a still-
-            # unapproved profile would be worse than useless: the client
-            # removes the Verify button on `already_verified`, so the row would
-            # claim verified while the database disagreed.
-            profile.refresh_from_db()
-            if profile.verification_status != "verified":
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": str(
-                            _("Could not verify this profile. Please try again.")
-                        ),
-                    },
-                    status=409,
-                )
+        if already_verified:
             return JsonResponse(
                 {
                     "success": True,
@@ -1009,7 +1013,6 @@ def coach_undo_checkin(request, event_id, registration_id):
             registration.checkin_auto_verified
             and profile is not None
             and profile.verification_method == "coach_event"
-            and profile.approved_at == registration.checked_in_at
         ):
             profile.verification_status = "pending"
             profile.is_approved = False

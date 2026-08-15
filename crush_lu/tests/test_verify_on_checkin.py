@@ -563,3 +563,49 @@ def test_reprocess_photos_carries_forward_photo_attestation(event, coach):
     assert profile.photo_1.name != original_key
     assert profile.photo_verification_key == profile.photo_1.name
     assert profile.is_photo_verified is True
+
+
+def test_manual_coach_mark_verified_attests_photo_on_rejected_profile(
+    event, coach, client
+):
+    """A coach manually verifying a previously rejected profile attests their photo and records provenance."""
+    profile, reg = _attendee(event, "manualrejected")
+    profile.verification_status = "rejected"
+    profile.is_approved = False
+    profile.save(update_fields=["verification_status", "is_approved"])
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+    assert reg.checkin_attested_photo_at == profile.photo_verified_at
+
+
+def test_transition_unverified_profile_clears_photo_attestation():
+    """transition_unverified_profile clears any stale photo attestation."""
+    from crush_lu.services.profile_verification import transition_unverified_profile
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    User = get_user_model()
+    user = User.objects.create_user(username="trans_test", email="trans@example.com")
+    profile = CrushProfile.objects.create(
+        user=user,
+        verification_status="pending",
+        photo_1=SimpleUploadedFile("photo.jpg", b"fake", content_type="image/jpeg"),
+    )
+    assert profile.mark_current_photo_verified() is True
+    assert profile.is_photo_verified is True
+
+    transition_unverified_profile(profile, target_status="rejected")
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "rejected"
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
