@@ -405,3 +405,48 @@ class ImageUploadSizeTests(TestCase):
         raw = io.BytesIO(b"x" * (MAX_UPLOAD_BYTES + 1))
         with self.assertRaises(ValidationError):
             process_uploaded_image(raw)
+
+    def test_heic_image_converted_to_jpeg(self):
+        """HEIC uploads must be decoded and converted to JPEG (.jpg)."""
+        import pillow_heif
+        from PIL import Image
+
+        pillow_heif.register_heif_opener()
+
+        # Create a sample HEIF/HEIC image buffer
+        buffer = io.BytesIO()
+        Image.new("RGB", (800, 600), color="blue").save(buffer, format="HEIF")
+        heic_upload = ContentFile(buffer.getvalue(), name="1001177160.heic")
+
+        processed = process_uploaded_image(heic_upload)
+
+        self.assertEqual(processed.name, "1001177160.jpg")
+        self.assertEqual(processed.content_type, "image/jpeg")
+        self.assertLessEqual(processed.size, MAX_UPLOAD_BYTES)
+
+        # Verify the output image is valid JPEG and readable by PIL
+        processed.seek(0)
+        output_img = Image.open(processed)
+        self.assertEqual(output_img.format, "JPEG")
+        self.assertEqual(output_img.size, (800, 600))
+
+    def test_corrupt_image_raises_validation_error(self):
+        """Corrupt or non-image files under size limit must raise ValidationError."""
+        corrupt_file = ContentFile(b"not an image data at all", name="bad.jpg")
+        with self.assertRaises(ValidationError):
+            process_uploaded_image(corrupt_file)
+
+    def test_truncated_image_with_valid_header_raises_validation_error(self):
+        """Files with valid headers but truncated body (lazy decode) must raise ValidationError."""
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (200, 200), color="green").save(buf, format="JPEG")
+        # Truncate image stream to simulate interrupted mobile upload
+        truncated_bytes = buf.getvalue()[:200]
+        truncated_file = ContentFile(truncated_bytes, name="interrupted.jpg")
+
+        with self.assertRaises(ValidationError):
+            process_uploaded_image(truncated_file)
+
+
