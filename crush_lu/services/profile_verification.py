@@ -89,6 +89,8 @@ def reject_door_verification(
         approved_at=None,
         verification_method="",
         verification_status=target_status,
+        photo_verification_key="",
+        photo_verified_at=None,
     )
     if not updated:
         return False
@@ -97,4 +99,6 @@ def reject_door_verification(
     profile.approved_at = None
     profile.verification_method = ""
     profile.verification_status = target_status
+    profile.photo_verification_key = ""
+    profile.photo_verified_at = None
     return True

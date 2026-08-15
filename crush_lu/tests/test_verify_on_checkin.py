@@ -128,6 +128,8 @@ def test_scan_by_a_coach_verifies_an_ordinary_attendee(event, coach):
     assert profile.verification_status == "verified"
     assert profile.is_approved is True
     assert profile.verification_method == "coach_event"
+    assert profile.is_photo_verified
+    assert profile.photo_verification_key == profile.photo_1.name
 
 
 def test_toast_reports_the_attendee_as_verified(event, coach):
@@ -160,6 +162,9 @@ def test_profile_without_a_photo_is_not_auto_verified(event, coach):
     profile.refresh_from_db()
     assert reg.status == "attended"
     assert profile.verification_status == "pending"
+    profile.photo_1 = "users/1/photos/uploaded-after-checkin.jpg"
+    profile.save(update_fields=["photo_1"])
+    assert not profile.is_photo_verified
 
 
 def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
@@ -174,6 +179,7 @@ def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
     assert reg.status == "attended"  # unchanged behaviour
     assert profile.verification_status == "pending"
     assert profile.is_approved is False
+    assert not profile.is_photo_verified
 
 
 def test_inactive_coach_session_does_not_verify(event, coach):
@@ -196,6 +202,7 @@ def test_already_verified_profile_is_untouched(event, coach):
     profile.refresh_from_db()
     # LuxID verification must not be overwritten with coach_event.
     assert profile.verification_method == "luxid"
+    assert profile.is_photo_verified
 
 
 def test_rejected_profile_is_not_verified_by_attending(event, coach):

@@ -231,7 +231,15 @@ def _auto_verify_on_attendance(request, registration, now):
         return None
 
     profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
-    if profile is None or profile.verification_status != "pending":
+    if profile is None:
+        return None
+    # The coach-authenticated scan attests the exact photo visible at the
+    # door, independently of whether LuxID (or an earlier coach) already won
+    # the member-level verification race. Photoless scans write nothing, so a
+    # later upload cannot inherit this badge.
+    if profile.verification_status in ("pending", "verified"):
+        profile.mark_current_photo_verified(verified_at=now)
+    if profile.verification_status != "pending":
         return None
     if profile.has_active_premium:
         return None
@@ -640,6 +648,11 @@ def coach_mark_verified(request, event_id, registration_id):
             method = "premium_coach"
         else:
             method = "coach_event"
+
+        # This explicit coach action attests the photo even when member-level
+        # identity was already verified through LuxID. The method remains the
+        # first verification path; the photo key is a separate, versioned fact.
+        profile.mark_current_photo_verified(verified_at=now)
 
         if profile.verification_status == "verified":
             return JsonResponse(

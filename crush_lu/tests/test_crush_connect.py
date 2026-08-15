@@ -10,7 +10,6 @@ from datetime import date, timedelta
 import pytest
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 from django.utils import timezone
 
 # View tests use /en/crush-connect/… URLs which only resolve under urls_crush.
@@ -365,17 +364,48 @@ def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
 
 @pytest.mark.django_db
 def test_profile_is_photo_verified():
-    # Issue #540 / Task 4.3: In-person event attendance or coach verification
-    # marks the member's profile photo as physically verified.
+    # Issue #540 / Task 4.3: the badge belongs to the exact file a coach saw,
+    # not to the member's historical attendance or verification method.
     user = _make_user(username="unverified_photo", premium=False, has_luxid=True)
     user.crushprofile.verification_method = "luxid"
     user.crushprofile.save(update_fields=["verification_method"])
     assert not user.crushprofile.is_photo_verified
 
-    # Attending an event marks photo as verified in person
-    _mark_attended(user)
+    assert user.crushprofile.mark_current_photo_verified()
     user.crushprofile.refresh_from_db()
     assert user.crushprofile.is_photo_verified
+
+    user.crushprofile.photo_1 = "users/1/photos/replacement.jpg"
+    user.crushprofile.save(update_fields=["photo_1"])
+    assert not user.crushprofile.is_photo_verified
+    assert user.crushprofile.photo_verification_key == ""
+
+
+@pytest.mark.django_db
+def test_attendance_while_photoless_does_not_badge_a_later_upload():
+    user = _make_user(username="photoless_attendee", premium=False, has_luxid=False)
+    user.crushprofile.photo_1 = ""
+    user.crushprofile.save(update_fields=["photo_1"])
+
+    _mark_attended(user)
+    user.crushprofile.photo_1 = "users/1/photos/uploaded-later.jpg"
+    user.crushprofile.save(update_fields=["photo_1"])
+
+    assert not user.crushprofile.is_photo_verified
+
+
+@pytest.mark.django_db
+def test_stale_full_save_preserves_new_photo_attestation():
+    user = _make_user(username="stale_photo_save", premium=False)
+    stale_profile = CrushProfile.objects.get(pk=user.crushprofile.pk)
+    current_profile = CrushProfile.objects.get(pk=user.crushprofile.pk)
+    assert current_profile.mark_current_photo_verified()
+
+    stale_profile.location = "Esch-sur-Alzette"
+    stale_profile.save()
+
+    current_profile.refresh_from_db()
+    assert current_profile.is_photo_verified
 
 
 @pytest.mark.django_db
@@ -386,7 +416,7 @@ def test_drop_card_renders_photo_verified_badge():
     profile = user.crushprofile
     membership = user.crush_connect_membership
 
-    # Without attendance / coach verification
+    # Without a coach attestation for this exact file.
     profile.verification_method = "luxid"
     profile.save(update_fields=["verification_method"])
     html = render_to_string(
@@ -399,8 +429,9 @@ def test_drop_card_renders_photo_verified_badge():
     )
     assert "Photo Verified" not in html
 
-    # With attendance
+    # A coach-authenticated attendance scan attests the current storage key.
     _mark_attended(user)
+    profile.mark_current_photo_verified()
     profile.refresh_from_db()
     html_verified = render_to_string(
         "crush_lu/crush_connect/_drop_card.html",
@@ -1044,6 +1075,33 @@ def test_home_hides_recipient_who_cleared_photo_after_snapshot(client, settings)
 
 
 @pytest.mark.django_db
+def test_home_hides_attendance_only_recipient_after_checkin_is_undone(client, settings):
+    """Persisted Drops are audit snapshots, not permanent photo access."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    target = _make_user(
+        username="attendance_only",
+        gender="F",
+        preferred_genders=["M"],
+        premium=False,
+        has_luxid=False,
+    )
+    registration = _mark_attended(target)
+    _login_eligible(client, me)
+
+    drop = get_or_create_daily_drop(me)
+    drop.recipients.set([target])
+    assert target.first_name in client.get(CONNECT_HOME_URL).content.decode()
+
+    registration.status = "confirmed"
+    registration.save(update_fields=["status"])
+
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert target.first_name not in body
+    assert drop.recipients.filter(pk=target.pk).exists()
+
+
+@pytest.mark.django_db
 def test_home_renders_empty_state_when_no_pool(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
@@ -1279,6 +1337,24 @@ def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
     assert "in the mix" in body.lower()
     # Consenting member sees the positive "You're in" framing, not the nudge.
     assert "almost in the mix" not in body.lower()
+
+
+@pytest.mark.django_db
+def test_catalogue_status_uses_attendance_copy_without_luxid(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="attendance_candidate",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=False,
+        has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    body = client.get(CATALOGUE_STATUS_URL).content.decode()
+    assert "in-person event attendance is verified" in body
+    assert "LuxID verified" not in body
 
 
 @pytest.mark.django_db

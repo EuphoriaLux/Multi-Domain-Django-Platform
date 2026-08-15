@@ -632,6 +632,22 @@ class CrushProfile(models.Model):
     photo_1 = models.ImageField(
         upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
     )
+    photo_verification_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        editable=False,
+        help_text=_(
+            "Exact photo_1 storage key last verified in person. A different "
+            "current key invalidates the verified-photo badge."
+        ),
+    )
+    photo_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("When the current primary photo was verified in person"),
+    )
     photo_2 = models.ImageField(
         upload_to=user_photo_path, blank=True, null=True, storage=crush_photo_storage
     )
@@ -1073,12 +1089,19 @@ class CrushProfile(models.Model):
 
         if self.verification_status != "verified":
             return False
-        if self.verification_method in ("coach_event", "premium_coach"):
-            return True
 
         qs = EventRegistration.objects.filter(
             user_id=self.user_id,
             status="attended",
+        )
+        if self.verification_method in ("coach_event", "premium_coach"):
+            # The method proves a coach performed the identity check, while
+            # the live registration status proves the attendance still
+            # exists. An undo deliberately leaves member verification intact,
+            # so method alone must not preserve attendance-based Connect access.
+            return qs.exists()
+
+        qs = qs.filter(
             checkin_granted_coach__isnull=False,
         )
         if self.assigned_coach_id is not None:
@@ -1104,17 +1127,53 @@ class CrushProfile(models.Model):
 
     @property
     def is_photo_verified(self) -> bool:
-        """True when the user's profile photo was physically verified in person.
+        """Whether the currently displayed primary photo was attested in person.
 
-        Attested when:
-        1. The user has attended at least 1 in-person event (verified at door check-in scan), OR
-        2. The user was verified by a coach in person / screening call
-           (verification_method in ('coach_event', 'premium_coach')).
+        Attendance and ``verification_method`` describe the member, not a
+        particular file. The badge is therefore valid only while ``photo_1``
+        still has the exact storage key a coach saw at the door.
         """
+        current_key = getattr(self.photo_1, "name", "") or ""
         return bool(
-            self.has_attended_event
-            or self.verification_method in ("coach_event", "premium_coach")
+            current_key
+            and self.photo_verification_key
+            and self.photo_verification_key == current_key
         )
+
+    def mark_current_photo_verified(self, *, verified_at=None) -> bool:
+        """Attest the current ``photo_1`` without racing a concurrent upload.
+
+        Coach workflows call this only after their own authorization checks.
+        Matching the key in the UPDATE means a photo replaced between the read
+        and this write cannot accidentally inherit the badge.
+        """
+        current_key = getattr(self.photo_1, "name", "") or ""
+        if not self.pk or not current_key:
+            return False
+
+        verified_at = verified_at or timezone.now()
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                photo_1=current_key,
+            )
+            .update(
+                photo_verification_key=current_key,
+                photo_verified_at=verified_at,
+            )
+        )
+        if not updated:
+            return False
+
+        self.photo_verification_key = current_key
+        self.photo_verified_at = verified_at
+        self._loaded_photo_verification = (
+            current_key,
+            current_key,
+            verified_at,
+        )
+        return True
 
     @property
     def has_active_premium(self) -> bool:
@@ -1155,6 +1214,17 @@ class CrushProfile(models.Model):
             instance._loaded_verification = tuple(
                 getattr(instance, field) for field in verification_fields
             )
+        photo_verification_fields = (
+            "photo_1",
+            "photo_verification_key",
+            "photo_verified_at",
+        )
+        if all(field in field_names for field in photo_verification_fields):
+            instance._loaded_photo_verification = (
+                getattr(instance.photo_1, "name", "") or "",
+                instance.photo_verification_key,
+                instance.photo_verified_at,
+            )
         return instance
 
     def save(self, *args, **kwargs):
@@ -1165,6 +1235,7 @@ class CrushProfile(models.Model):
         3. Delete old photo blobs when photos are replaced to prevent orphans.
         4. Protect an untouched language choice from stale full-row saves.
         5. Protect an untouched verification decision from stale full-row saves.
+        6. Invalidate photo attestation when the primary photo changes.
         """
         loaded_verification = getattr(self, "_loaded_verification", None)
         verification_fields = (
@@ -1213,6 +1284,46 @@ class CrushProfile(models.Model):
                 if preserve_current_verification:
                     for field in verification_fields:
                         setattr(self, field, getattr(old_instance, field))
+
+                old_photo_key = getattr(old_instance.photo_1, "name", "") or ""
+                new_photo_key = getattr(self.photo_1, "name", "") or ""
+                update_fields = kwargs.get("update_fields")
+                writes_primary_photo = update_fields is None or "photo_1" in set(
+                    update_fields
+                )
+                primary_photo_changed = (
+                    writes_primary_photo and old_photo_key != new_photo_key
+                )
+                if primary_photo_changed:
+                    self.photo_verification_key = ""
+                    self.photo_verified_at = None
+                    if update_fields is not None:
+                        kwargs["update_fields"] = set(update_fields) | {
+                            "photo_verification_key",
+                            "photo_verified_at",
+                        }
+                else:
+                    # A coach may attest the photo while another request holds
+                    # an older profile instance. Preserve that newer decision
+                    # across an unrelated full-row save, just like the profile
+                    # verification tuple above.
+                    loaded_photo_verification = getattr(
+                        self, "_loaded_photo_verification", None
+                    )
+                    current_photo_verification = (
+                        new_photo_key,
+                        self.photo_verification_key,
+                        self.photo_verified_at,
+                    )
+                    if (
+                        update_fields is None
+                        and loaded_photo_verification is not None
+                        and current_photo_verification == loaded_photo_verification
+                    ):
+                        self.photo_verification_key = (
+                            old_instance.photo_verification_key
+                        )
+                        self.photo_verified_at = old_instance.photo_verified_at
 
                 # Preserve a language choice this save never made, for the same
                 # reason and off the same read as the verified phone above.
@@ -1288,6 +1399,11 @@ class CrushProfile(models.Model):
         )
         self._loaded_verification = tuple(
             getattr(self, field) for field in verification_fields
+        )
+        self._loaded_photo_verification = (
+            getattr(self.photo_1, "name", "") or "",
+            self.photo_verification_key,
+            self.photo_verified_at,
         )
 
     def reset_phone_verification(self):
