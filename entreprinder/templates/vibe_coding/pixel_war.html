@@ -447,7 +447,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ csp_nonce }}">
     const CANVAS_CONFIG = {
         id: {{ canvas.id }},
         gridWidth: {{ canvas.width }},
@@ -466,7 +466,7 @@
 {% vite_asset 'pixel-war-app' %}
 
 {% comment %} Pixel War initialization happens automatically via bundled script {% endcomment %}
-<script>
+<script nonce="{{ csp_nonce }}">
     // Ensure mobile classes are available globally for onclick handlers
     // This runs after the bundled script loads
     document.addEventListener('DOMContentLoaded', function() {
@@ -478,7 +478,7 @@
     });
 </script>
 
-<script>
+<script nonce="{{ csp_nonce }}">
     // Setup responsive controls after page loads
     (function() {
         var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;

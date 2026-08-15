@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Login Complete</title>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         (function() {
             // These are injected by the Django context
             const accessToken = "{{ access_token|default_if_none:'' }}";

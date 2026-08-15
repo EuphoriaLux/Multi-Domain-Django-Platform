@@ -13,7 +13,7 @@
 {{ block.super }}
 
 <!-- Breadcrumb Schema -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -35,7 +35,7 @@
 </script>
 
 <!-- AboutPage Schema -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "AboutPage",
@@ -65,7 +65,7 @@
 </script>
 
 <!-- NewsArticle Schema - Virgule.lu -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
@@ -85,7 +85,7 @@
 </script>
 
 <!-- NewsArticle Schema - LuxTimes -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
@@ -105,7 +105,7 @@
 </script>
 
 <!-- NewsArticle Schema - RTL Today -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "NewsArticle",

@@ -130,7 +130,7 @@
 
 {% block extra_js %}
 <script src="{% static 'entreprinder/js/vibe_coding/pixel_war_optimized.js' %}"></script>
-<script>
+<script nonce="{{ csp_nonce }}">
 // Configuration
 const config = {
     width: {{ canvas.width }},

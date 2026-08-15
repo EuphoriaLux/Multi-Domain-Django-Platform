@@ -17,7 +17,7 @@
 {{ block.super }}
 
 <!-- WebSite Schema for sitelinks search box -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -33,7 +33,7 @@
 </script>
 
 <!-- FAQPage Schema for How It Works section -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "FAQPage",

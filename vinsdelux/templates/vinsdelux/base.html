@@ -79,7 +79,7 @@
     </footer>
 
     <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');

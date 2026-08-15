@@ -32,7 +32,7 @@
             {% if slideshow_images %}
             {# Multi-image slideshow with Alpine.js component #}
             {# JSON is passed via a hidden script tag to avoid escaping issues with HTML attributes #}
-            <script type="application/json" id="slideshow-data">{{ slideshow_images_json|safe }}</script>
+            <script nonce="{{ csp_nonce }}" type="application/json" id="slideshow-data">{{ slideshow_images_json|safe }}</script>
             <div x-data="photoSlideshow"
                  data-images-from="slideshow-data"
                  class="slideshow-carousel"
