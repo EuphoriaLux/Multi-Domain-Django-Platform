@@ -266,9 +266,9 @@ def _onboarding_gate(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to join Crush Connect.")
+            request, _("Please upload a profile photo to join Crush Connect.")
         )
         return redirect("crush_lu:edit_profile"), existing, done_url
 
@@ -830,9 +830,9 @@ def crush_connect_hub(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to use Crush Connect.")
+            request, _("Please upload a profile photo to use Crush Connect.")
         )
         return redirect("crush_lu:edit_profile")
 
@@ -922,9 +922,9 @@ def crush_connect_home(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to use Crush Connect.")
+            request, _("Please upload a profile photo to use Crush Connect.")
         )
         return redirect("crush_lu:edit_profile")
 
@@ -969,7 +969,9 @@ def crush_connect_home(request):
             .filter(crush_connect_membership__photo_share_consent=True)
             # Same for the photo itself: clearing photo_1 after being
             # snapshotted must hide the card (mirrors get_eligible_pool).
-            .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
             .select_related("crushprofile", "crush_connect_membership")
             .prefetch_related(
                 "crush_connect_membership__gate_questions__question",
@@ -980,6 +982,15 @@ def crush_connect_home(request):
             )
             .all()
         )
+        # Re-check identity verification at RENDER time (LuxID or verified event attendance):
+        # if a coach corrects/undoes a check-in or LuxID is unlinked after a Drop was
+        # pinned, hide the card so clear photos are not shown to other members.
+        recipients = [
+            r
+            for r in recipients
+            if getattr(r, "crushprofile", None)
+            and r.crushprofile.is_connect_identity_verified
+        ]
 
     # Card CTA state: which of today's cards this user has already answered (the
     # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —
@@ -1417,8 +1428,9 @@ def coach_connect_member(request, user_id: int):
         return redirect("crush_lu:coach_connect_member", user_id=member.pk)
 
     pool = list(
-        get_eligible_pool(member)
-        .select_related("crushprofile", "crush_connect_membership")
+        get_eligible_pool(member).select_related(
+            "crushprofile", "crush_connect_membership"
+        )
         # Event Identity chips render per candidate card — prefetch the taxonomy
         # M2M to keep the pool render N+1-free (spec §7).
         .prefetch_related("crushprofile__interests_new")[:60]

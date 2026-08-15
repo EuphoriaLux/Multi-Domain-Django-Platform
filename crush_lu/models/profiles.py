@@ -1061,22 +1061,36 @@ class CrushProfile(models.Model):
 
     @property
     def has_attended_event(self) -> bool:
-        """True when the user has attended at least one in-person event with verified status.
+        """True when the user has coach-verified in-person event attendance.
 
-        In-person attendance (confirmed by door/event coaches via EventRegistration.status='attended')
-        provides physical identity/age verification, serving as an alternative verification path
-        to LuxID for members without a Luxembourgish digital ID (Issue #539 / Task 4.2).
-        Requires profile verification (verification_status == 'verified') so that self-scanned
-        check-ins without coach verification do not bypass identity verification.
+        In-person attendance confirmed by a coach (recorded via verification_method
+        in ('coach_event', 'premium_coach') or an attended event registration
+        stamped with coach check-in provenance) provides physical identity/age
+        verification, serving as an alternative verification path to LuxID for
+        members without a Luxembourgish digital ID (Issue #539 / Task 4.2).
         """
         from .events import EventRegistration
 
-        return (
-            self.verification_status == "verified"
-            and EventRegistration.objects.filter(
-                user_id=self.user_id, status="attended"
-            ).exists()
+        if self.verification_status != "verified":
+            return False
+        if self.verification_method in ("coach_event", "premium_coach"):
+            return True
+
+        qs = EventRegistration.objects.filter(
+            user_id=self.user_id,
+            status="attended",
+            checkin_granted_coach__isnull=False,
         )
+        if self.assigned_coach_id is not None:
+            return (
+                qs.exists()
+                or EventRegistration.objects.filter(
+                    user_id=self.user_id,
+                    status="attended",
+                    event__coaches=self.assigned_coach,
+                ).exists()
+            )
+        return qs.exists()
 
     @property
     def is_connect_identity_verified(self) -> bool:

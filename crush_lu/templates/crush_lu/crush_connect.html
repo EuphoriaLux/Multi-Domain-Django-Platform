@@ -146,7 +146,7 @@
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "In the Mix — free" %}</h3>
                 <p class="text-gray-600 dark:text-gray-400 mb-4">
-                    {% trans "Verify once with LuxID, answer your 3 questions, and you're discoverable: coaches can pick you, Drops can surface you, Sparks can find you. No subscription, ever." %}
+                    {% trans "Verify once with LuxID or event attendance, answer your 3 questions, and you're discoverable: coaches can pick you, Drops can surface you, Sparks can find you. No subscription, ever." %}
                 </p>
                 <a href="{% url 'crush_lu:crush_connect_experience' 'in-the-mix' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
                     {% trans "Explore" %} <span aria-hidden="true">→</span>
@@ -171,7 +171,7 @@
                     {% include "crush_lu/includes/ghost-story-approved.html" with class="w-20 h-20 ghost-glow" %}
                 </div>
                 <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Verify" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Connect your LuxID — free, one minute, real people only." %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Connect your LuxID or attend an in-person event — free, real people only." %}</p>
             </div>
 
             <!-- Step 2 -->
@@ -270,16 +270,16 @@
                 <p class="text-sm text-gray-700 dark:text-gray-300">
                     {% trans "Crush Connect requires verified identity to keep matching safe and authentic. You can verify in two easy ways:" %}
                 </p>
-                <div class="flex flex-col sm:flex-row gap-3 pt-1">
+                <div class="flex flex-col sm:flex-row justify-center gap-3 pt-1">
                     {% if luxid_connect_url %}
                     <a href="{{ luxid_connect_url }}"
-                       class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold transition-colors">
+                       class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-2">
                         {% trans "Connect LuxID" %}
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                     </a>
                     {% endif %}
                     <a href="{% url 'crush_lu:event_list' %}"
-                       class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-300 text-sm font-semibold hover:bg-pink-100/50 dark:hover:bg-slate-700 transition-colors">
+                       class="btn-crush-outline btn-sm inline-flex items-center justify-center gap-2">
                         {% trans "Attend an Event" %}
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </a>
@@ -310,7 +310,7 @@
             {% trans "Ready to be introduced?" %}
         </h2>
         <p class="text-white/90 text-lg mb-8 animate-on-scroll">
-            {% trans "Crush Connect is live across Luxembourg. Join free with LuxID, or go Premium for your own coach." %}
+            {% trans "Crush Connect is live across Luxembourg. Join free with verified identity, or go Premium for your own coach." %}
         </p>
 
         {% if user.is_authenticated %}

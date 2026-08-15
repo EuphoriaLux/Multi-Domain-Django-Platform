@@ -10,6 +10,7 @@ from datetime import date, timedelta
 import pytest
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.utils import timezone
 
 # View tests use /en/crush-connect/… URLs which only resolve under urls_crush.
@@ -180,6 +181,10 @@ def _set_gate_questions(user, answers=None):
 
 def _mark_attended(user, event=None):
     event = event or _make_event(title=f"Event for {user.username}")
+    profile = getattr(user, "crushprofile", None)
+    if profile:
+        profile.verification_method = "coach_event"
+        profile.save(update_fields=["verification_method"])
     return EventRegistration.objects.create(user=user, event=event, status="attended")
 
 
@@ -2523,3 +2528,77 @@ def test_unverified_profile_cannot_use_event_attendance_to_satisfy_identity_veri
 
     assert user.crushprofile.has_attended_event is False
     assert user.crushprofile.is_connect_identity_verified is False
+
+
+@pytest.mark.django_db
+def test_coach_provenance_required_for_attendance_verification():
+    """A self-scan check-in without coach verification does not satisfy identity verification."""
+    user = _make_user(username="selfscanmember", premium=False, has_luxid=False)
+    event = _make_event(title="Self Scan Event")
+    EventRegistration.objects.create(user=user, event=event, status="attended")
+    user.crushprofile.verification_status = "verified"
+    user.crushprofile.verification_method = "admin"
+    user.crushprofile.save()
+
+    assert user.crushprofile.has_attended_event is False
+    assert user.crushprofile.is_connect_identity_verified is False
+
+    # Once verified by a coach (e.g. coach door scan or manual review)
+    user.crushprofile.verification_method = "coach_event"
+    user.crushprofile.save()
+    assert user.crushprofile.has_attended_event is True
+    assert user.crushprofile.is_connect_identity_verified is True
+
+
+@pytest.mark.django_db
+def test_dashboard_verification_journey_hides_luxid_nudge_for_attended_member(
+    client, settings
+):
+    """An attendance-verified member does not see the 'Connect LuxID to join Crush Connect' secondary nudge."""
+    from django.urls import reverse
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    user = _make_user(username="attendeddash", premium=False, has_luxid=False)
+    _mark_attended(user)
+    _login_eligible(client, user)
+
+    resp = client.get(reverse("crush_lu:dashboard"))
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "Connect LuxID to join Crush Connect" not in html
+
+
+@pytest.mark.django_db
+def test_drop_view_filters_out_candidate_when_checkin_is_undone_at_render_time(
+    client, settings
+):
+    """When a coach undoes checkin for an attendance-verified member, pinned Drops recheck and hide the candidate."""
+    from crush_lu.services.crush_connect import get_or_create_daily_drop
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    viewer = _make_user(username="dropviewer", premium=True, has_luxid=True)
+    candidate = _make_user(
+        username="dropcand", gender="F", premium=False, has_luxid=False
+    )
+    reg = _mark_attended(candidate)
+    _grant_consent(candidate)
+    _set_gate_questions(candidate)
+
+    # Pin the daily drop with the candidate
+    drop = get_or_create_daily_drop(viewer)
+    drop.recipients.set([candidate])
+
+    _login_eligible(client, viewer)
+    resp = client.get("/en/crush-connect/today/")
+    assert resp.status_code == 200
+    assert len(resp.context["recipients"]) == 1
+
+    # Coach undoes checkin
+    reg.status = "registered"
+    reg.save()
+    candidate.crushprofile.verification_method = "admin"
+    candidate.crushprofile.save()
+
+    resp = client.get("/en/crush-connect/today/")
+    assert resp.status_code == 200
+    assert len(resp.context["recipients"]) == 0
