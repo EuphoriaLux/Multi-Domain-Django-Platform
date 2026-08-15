@@ -640,7 +640,36 @@ class NotificationService:
 
 # Convenience functions for common notification types
 def notify_profile_approved(user, profile, coach_notes: str = None, request=None) -> NotificationResult:
-    """Send profile approved notification."""
+    """Send profile approved notification (deduplicated per member).
+
+    A member reaches "verified" exactly once per lifecycle, but the act can
+    be observed by several paths — verify, a door scan, LuxID, or a re-verify
+    after a rejected door decision — and every one of them calls this. The
+    in-app Notification row is the durable record of the first delivery, so
+    when one already exists the repeat call is a duplicate (welcome email,
+    push and bell row) and is skipped rather than sent again.
+    """
+    from .models import Notification
+
+    try:
+        already_notified = Notification.objects.filter(
+            user=user,
+            notification_type=NotificationType.PROFILE_APPROVED.value,
+        ).exists()
+    except Exception as e:
+        # The dedupe guard is best-effort: if the check itself fails, send as
+        # before rather than silently dropping a first-time notification.
+        logger.error(f"Dedupe check failed for profile_approved notification: {e}")
+        already_notified = False
+
+    if already_notified:
+        logger.info(
+            f"Skipping duplicate profile_approved notification for {user.username}"
+        )
+        result = NotificationResult()
+        result.email_skipped_reason = 'duplicate'
+        return result
+
     return NotificationService.notify(
         user=user,
         notification_type=NotificationType.PROFILE_APPROVED,

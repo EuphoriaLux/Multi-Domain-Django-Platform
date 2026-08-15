@@ -98,7 +98,7 @@ MANUAL_VERIFY_CLAIM_FROM = ("incomplete", "pending", "rejected")
 
 
 def _apply_verification(profile, method, coach, now, claim_from=("pending",)):
-    """Persist a verification — fields AND the pending submission.
+    """Persist a verification — fields AND the open/rejected submission.
 
     Shared by the manual Verify button and the auto-verify on attendance so the
     two cannot drift: an earlier version of the auto-verify wrote only the
@@ -124,26 +124,40 @@ def _apply_verification(profile, method, coach, now, claim_from=("pending",)):
     ):
         return False
 
-    # Approve a pending submission opportunistically, gated on the
-    # expired-latest invariant: when the newest row was closed out by the pivot
-    # cleanup (latest_for_profile returns None), the member is a self-serve
-    # case — never resurrect an older pending row.
+    # Approve a pending OR previously-rejected submission opportunistically,
+    # gated on the expired-latest invariant: when the newest row was closed out
+    # by the pivot cleanup (latest_for_profile returns None), the member is a
+    # self-serve case — never resurrect an older pending row.
+    #
+    # A rejected row is reopened because the manual Verify button may claim a
+    # profile the reject endpoint put into "rejected" (e.g. after a photo
+    # mismatch was resolved at the door). Leaving the submission rejected
+    # while the profile says verified is a user-visible split state:
+    # context_processors then serves profile_is_approved=True alongside
+    # profile_status="rejected".
     submission = None
     if ProfileSubmission.latest_for_profile(profile) is not None:
         submission = (
-            ProfileSubmission.objects.filter(profile=profile, status="pending")
+            ProfileSubmission.objects.filter(
+                profile=profile, status__in=("pending", "rejected")
+            )
             .order_by("-submitted_at")
             .first()
         )
     if submission:
+        reopened = submission.status == "rejected"
         submission.status = "approved"
         submission.reviewed_at = now
         submission.review_call_completed = True
         if not submission.coach_id:
             submission.coach = coach
+        note = (
+            "Re-verified in person at event by coach (rejection overturned)"
+            if reopened
+            else "Verified in person at event by coach"
+        )
         submission.coach_notes = (
-            (submission.coach_notes + "\n" if submission.coach_notes else "")
-            + "Verified in person at event by coach"
+            (submission.coach_notes + "\n" if submission.coach_notes else "") + note
         ).strip()
         submission.save(
             update_fields=[
@@ -728,9 +742,11 @@ def coach_reject_verification(request, event_id, registration_id):
     Called when the coach observes that the attendee's profile photo does not match
     the person presenting the ticket at check-in.
     Sets verification_status to 'rejected', is_approved to False, clears verification_method,
-    updates latest ProfileSubmission notes and logs an audit record.
+    updates latest ProfileSubmission notes with a durable structured audit record
+    (actor/timestamp/reason, appended to ``coach_notes``) and logs a warning.
     """
     coach = request.coach
+    now = timezone.now()
 
     with transaction.atomic():
         registration = (
@@ -785,11 +801,26 @@ def coach_reject_verification(request, event_id, registration_id):
                     status=403,
                 )
 
-        reject_door_verification(profile, target_status="rejected")
+        if not reject_door_verification(profile, target_status="rejected"):
+            # The conditional claim failed: another reject already moved the
+            # row to "rejected". Mirror the verify endpoint's claim-failure
+            # 409 — reporting idempotent success here would append a second
+            # rejection note to the submission on every double-click.
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _("This verification has already been rejected.")
+                    ),
+                },
+                status=409,
+            )
 
-        # Update latest submission if one exists
+        # Update latest submission if one exists, and append the durable audit
+        # note (actor/timestamp/reason) to its rejection notes.
         submission = (
             ProfileSubmission.objects.filter(profile=profile)
+            .select_related("coach__user")
             .order_by("-submitted_at")
             .first()
         )
@@ -797,11 +828,33 @@ def coach_reject_verification(request, event_id, registration_id):
             submission.status = "rejected"
             if not submission.coach_id:
                 submission.coach = coach
-            note = f"Door verification rejected by coach {coach}: photo mismatch"
+            note = (
+                f"[{now.isoformat()}] Door verification rejected by coach {coach} "
+                f"(coach_id={coach.pk}, event_id={event_id}): photo mismatch"
+            )
             submission.coach_notes = (
                 (submission.coach_notes + "\n" if submission.coach_notes else "") + note
             ).strip()
             submission.save(update_fields=["status", "coach", "coach_notes"])
+
+        # The atomic QuerySet.update() above bypasses post_save, so re-run the
+        # Outlook contact sync explicitly — the shared-mailbox contact must
+        # observe the revoke, not keep serving "Status: Approved". Same call
+        # the coach-review approve path makes; the Graph work defers to
+        # on_commit, so this is safe inside the transaction.
+        try:
+            from .signals import sync_profile_to_outlook
+
+            sync_profile_to_outlook(
+                sender=CrushProfile,
+                instance=profile,
+                created=False,
+                update_fields=None,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to sync door-rejected profile %s to Outlook", profile.pk
+            )
 
     logger.warning(
         "Coach %s rejected verification for registration %s (user %s) at event %s due to photo mismatch",
@@ -810,6 +863,38 @@ def coach_reject_verification(request, event_id, registration_id):
         registration.user_id,
         event_id,
     )
+
+    # Notify the member. In the photo-mismatch scenario the account owner is
+    # plausibly the impersonation victim — the coach-review path already
+    # notifies, and silence here is the worse failure mode. Best-effort, after
+    # commit: a notification failure must not fail the door action.
+    try:
+        from .notification_service import notify_profile_rejected
+
+        result = notify_profile_rejected(
+            user=registration.user,
+            profile=profile,
+            feedback=str(
+                _(
+                    "Your verification was rejected because the person at the "
+                    "event did not match your profile photos."
+                )
+            ),
+            request=request,
+        )
+        if result.any_delivered:
+            logger.info(
+                "Door rejection notification delivered for user %s: "
+                "push=%s email=%s",
+                registration.user_id,
+                result.push_success,
+                result.email_sent,
+            )
+    except Exception:
+        logger.exception(
+            "Failed to send door rejection notification for registration %s",
+            registration.id,
+        )
 
     display_name = _get_display_name(registration)
     response_data = {
@@ -821,7 +906,9 @@ def coach_reject_verification(request, event_id, registration_id):
         "is_approved": False,
         "message": str(_("Verification rejected for %(name)s (photo mismatch)."))
         % {"name": display_name},
-        "profile": _get_profile_data(registration),
+        # The submission fetched above is passed through so the payload does
+        # not re-run the same latest-submission query.
+        "profile": _get_profile_data(registration, latest_submission=submission),
     }
     _broadcast_checkin(registration.event_id, response_data)
     return JsonResponse(response_data)
@@ -1385,8 +1472,13 @@ def event_checkin_summary(request, event_id):
     )
 
 
-def _get_profile_data(registration):
-    """Build privacy-aware profile card data for check-in toast."""
+def _get_profile_data(registration, latest_submission=None):
+    """Build privacy-aware profile card data for check-in toast.
+
+    ``latest_submission`` lets a caller that already fetched the newest
+    submission (e.g. the reject endpoint, which annotates it) pass it in
+    instead of re-running the same query for the response payload.
+    """
     from .models import ProfileSubmission
 
     try:
@@ -1413,12 +1505,13 @@ def _get_profile_data(registration):
 
     # Include coach info for unverified profiles
     if not profile.is_approved:
-        latest_submission = (
-            ProfileSubmission.objects.filter(profile=profile)
-            .select_related("coach__user")
-            .order_by("-submitted_at")
-            .first()
-        )
+        if latest_submission is None:
+            latest_submission = (
+                ProfileSubmission.objects.filter(profile=profile)
+                .select_related("coach__user")
+                .order_by("-submitted_at")
+                .first()
+            )
         if latest_submission:
             data["submission_status"] = latest_submission.get_status_display()
             if latest_submission.coach:
