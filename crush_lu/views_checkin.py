@@ -1008,24 +1008,29 @@ def coach_undo_checkin(request, event_id, registration_id):
             profile.photo_verified_at = None
             profile.save(update_fields=["photo_verification_key", "photo_verified_at"])
 
-        # Revoke auto-verification if this check-in was what verified the profile
+        # Revoke auto-verification if this check-in was what verified the profile,
+        # unless independent current proof (e.g. connected LuxID) supersedes it.
         if (
             registration.checkin_auto_verified
             and profile is not None
             and profile.verification_method == "coach_event"
         ):
-            profile.verification_status = "pending"
-            profile.is_approved = False
-            profile.approved_at = None
-            profile.verification_method = ""
-            profile.save(
-                update_fields=[
-                    "verification_status",
-                    "is_approved",
-                    "approved_at",
-                    "verification_method",
-                ]
-            )
+            if profile.has_luxid_connected:
+                profile.verification_method = "luxid"
+                profile.save(update_fields=["verification_method"])
+            else:
+                profile.verification_status = "pending"
+                profile.is_approved = False
+                profile.approved_at = None
+                profile.verification_method = ""
+                profile.save(
+                    update_fields=[
+                        "verification_status",
+                        "is_approved",
+                        "approved_at",
+                        "verification_method",
+                    ]
+                )
 
         # Back to whatever the row actually held. A promoted walk-up returns to
         # the waitlist: undoing a mistaken promotion must not leave them

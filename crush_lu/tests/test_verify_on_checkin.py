@@ -505,6 +505,48 @@ def test_undo_checkin_revokes_photo_attestation_and_auto_verification(
     assert profile.photo_verified_at is None
 
 
+def test_undo_checkin_preserves_verification_if_luxid_connected_before_undo(
+    event, coach, client
+):
+    """If a member connects LuxID after an attendance scan but before check-in undo,
+    the undo revokes the photo attestation but preserves member verification via LuxID.
+    """
+    from django.urls import reverse
+    from allauth.socialaccount.models import SocialAccount
+
+    profile, reg = _attendee(event, "undoluxid")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+
+    # User links LuxID before undo
+    SocialAccount.objects.create(
+        user=profile.user,
+        provider="luxid",
+        uid="luxid_undo_test",
+    )
+    assert profile.has_luxid_connected is True
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "verified"
+    assert profile.is_approved is True
+    assert profile.verification_method == "luxid"
+    assert profile.is_photo_verified is False
+
+
 def test_mark_photo_verified_does_not_race_rejected_profile(event, coach):
     """If a profile is rejected (e.g. door mismatch), concurrent/stale mark_current_photo_verified
     is ignored and cannot restore the trust badge."""
