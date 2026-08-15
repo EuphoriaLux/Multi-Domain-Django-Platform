@@ -579,6 +579,27 @@ document.addEventListener("alpine:init", function () {
                             : "") +
                         "</div>";
                 }
+                // Photo mismatch action on toast for verified profiles
+                var rejectBtnHtml = "";
+                if (t.isApproved && t.regId && this.eventId) {
+                    var rejectUrl =
+                        "/api/events/" +
+                        this.eventId +
+                        "/reject-verification/" +
+                        t.regId +
+                        "/";
+                    rejectBtnHtml =
+                        '<div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">' +
+                        '<button type="button" class="toast-reject-btn text-xs text-amber-600 dark:text-amber-400 hover:text-red-600 dark:hover:text-red-400 font-medium flex items-center gap-1 transition-colors" data-reject-url="' +
+                        rejectUrl +
+                        '" data-reg-id="' +
+                        t.regId +
+                        '" data-toast-id="' +
+                        t.id +
+                        '">' +
+                        (i18n.rejectAction || "Photo mismatch") +
+                        "</button></div>";
+                }
                 var div = document.createElement("div");
                 div.className =
                     "checkin-toast pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg dark:shadow-gray-900/40 border " +
@@ -611,7 +632,17 @@ document.addEventListener("alpine:init", function () {
                     "</div>" +
                     interestsHtml +
                     "</div></div>" +
-                    warningHtml;
+                    warningHtml +
+                    rejectBtnHtml;
+
+                var rejectBtn = div.querySelector(".toast-reject-btn");
+                if (rejectBtn) {
+                    var self = this;
+                    rejectBtn.addEventListener("click", function (clickEvent) {
+                        self.rejectVerification(clickEvent);
+                    });
+                }
+
                 container.appendChild(div);
             },
 
@@ -711,6 +742,20 @@ document.addEventListener("alpine:init", function () {
                     delete this.processedIds[regId];
                     return;
                 }
+                if (data.rejected) {
+                    this._markRowUnverified(regId);
+                    return;
+                }
+                // A verification is a genuinely new event about an ID this page
+                // has already seen: the attendee's first (unverified) scan
+                // marked the ID processed, so a later rescan that verifies them
+                // would be suppressed here and this page would keep showing the
+                // amber pill and Verify button until reload. Apply it before
+                // the duplicate check, which exists to stop repeat *check-in*
+                // toasts, not state changes.
+                if (data.auto_verified) {
+                    this._markRowVerified(regId);
+                }
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
                 this.showProfileToast(data);
@@ -734,6 +779,7 @@ document.addEventListener("alpine:init", function () {
 
                 var toastObj = {
                     id: id,
+                    regId: data.registration_id || 0,
                     name: profile.display_name || data.attendee_name || "",
                     genderIcon: genderIcon,
                     ageDisplay: profile.age_display || "",
@@ -1773,6 +1819,55 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
+            rejectVerification: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var url = btn.getAttribute("data-reject-url");
+                var regId = btn.getAttribute("data-reg-id");
+                var toastId = btn.getAttribute("data-toast-id");
+                var i18n = window._checkinI18n || {};
+
+                if (
+                    !window.confirm(
+                        i18n.rejectConfirm ||
+                            "Reject verification for this attendee? Their profile will be marked unverified due to photo mismatch.",
+                    )
+                ) {
+                    return;
+                }
+                btn.disabled = true;
+                btn.textContent = "...";
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            self._markRowUnverified(regId);
+                            if (toastId) {
+                                self.dismissToast(parseInt(toastId, 10));
+                            }
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = i18n.rejectAction || "Photo mismatch";
+                            alert(
+                                data.error ||
+                                    i18n.rejectFailed ||
+                                    "Could not reject verification",
+                            );
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.textContent = i18n.rejectAction || "Photo mismatch";
+                        alert(i18n.networkError || "Network error");
+                    });
+            },
+
             markVerified: function (evt) {
                 var self = this;
                 var btn = evt.currentTarget;
@@ -1810,6 +1905,93 @@ document.addEventListener("alpine:init", function () {
                         btn.textContent = i18n.verifyAction || "Verify";
                         alert(i18n.networkError || "Network error");
                     });
+            },
+
+            _markRowVerified: function (regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var row = document.getElementById("manual-reg-" + regId);
+                if (!row) return;
+                // Swap the amber "Unverified" pill for a green "Verified" pill.
+                var pill = row.querySelector("[data-verify-pill]");
+                if (pill) {
+                    pill.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400";
+                    pill.innerHTML =
+                        '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg> ' +
+                        (i18n.verified || "Verified");
+                }
+                // Remove the verify button.
+                var btn = row.querySelector(".manual-verify-btn");
+                if (btn) btn.remove();
+
+                // Add the Photo Mismatch / reject button if missing
+                var actions = row.querySelector("[data-row-actions]");
+                if (actions && !actions.querySelector(".manual-reject-btn")) {
+                    var rejectUrl =
+                        row.getAttribute("data-reject-url") ||
+                        "/api/events/" +
+                            self.eventId +
+                            "/reject-verification/" +
+                            regId +
+                            "/";
+                    var rejectBtn = document.createElement("button");
+                    rejectBtn.type = "button";
+                    rejectBtn.className =
+                        "manual-reject-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-amber-600 dark:text-amber-400 hover:text-red-600 dark:hover:text-red-400";
+                    rejectBtn.setAttribute("data-reject-url", rejectUrl);
+                    rejectBtn.setAttribute("data-reg-id", regId);
+                    rejectBtn.textContent = i18n.rejectAction || "Photo mismatch";
+                    rejectBtn.addEventListener("click", function (clickEvent) {
+                        self.rejectVerification(clickEvent);
+                    });
+                    actions.insertBefore(rejectBtn, actions.firstChild);
+                }
+            },
+
+            _markRowUnverified: function (regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var row = document.getElementById("manual-reg-" + regId);
+                if (!row) return;
+                // Swap the green "Verified" pill for an amber "Unverified" pill.
+                var pill = row.querySelector(
+                    ".bg-green-100, .dark\\:bg-green-900\\/30, [data-verify-pill]",
+                );
+                if (pill) {
+                    pill.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400";
+                    pill.setAttribute("data-verify-pill", "");
+                    pill.innerHTML =
+                        '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg> ' +
+                        (i18n.unverified || "Unverified");
+                }
+                // Remove the reject button.
+                var rejectBtn = row.querySelector(".manual-reject-btn");
+                if (rejectBtn) rejectBtn.remove();
+
+                // Restore verify button if missing
+                var actions = row.querySelector("[data-row-actions]");
+                if (actions && !actions.querySelector(".manual-verify-btn")) {
+                    var verifyUrl =
+                        row.getAttribute("data-verify-url") ||
+                        "/api/events/" +
+                            self.eventId +
+                            "/verify/" +
+                            regId +
+                            "/";
+                    var verifyBtn = document.createElement("button");
+                    verifyBtn.type = "button";
+                    verifyBtn.className =
+                        "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
+                    verifyBtn.setAttribute("data-verify-url", verifyUrl);
+                    verifyBtn.setAttribute("data-reg-id", regId);
+                    verifyBtn.textContent = i18n.verifyAction || "Verify";
+                    verifyBtn.addEventListener("click", function (clickEvent) {
+                        self.markVerified(clickEvent);
+                    });
+                    actions.insertBefore(verifyBtn, actions.firstChild);
+                }
             },
         };
     });

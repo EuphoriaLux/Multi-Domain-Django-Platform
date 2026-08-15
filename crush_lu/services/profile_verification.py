@@ -68,3 +68,33 @@ def transition_unverified_profile(
     profile.is_approved = False
     profile.verification_status = target_status
     return True
+
+
+def reject_door_verification(
+    profile: CrushProfile,
+    *,
+    target_status: str = "rejected",
+    revert_from: Iterable[str] = ("verified", "pending", "incomplete"),
+) -> bool:
+    """Explicitly reject or revoke verification for a profile (e.g. door photo mismatch).
+
+    Atomically transitions the profile back to an unverified state (`is_approved=False`,
+    `approved_at=None`, `verification_method=""`, `verification_status=target_status`).
+    """
+    updated = CrushProfile.objects.filter(
+        pk=profile.pk,
+        verification_status__in=tuple(revert_from),
+    ).update(
+        is_approved=False,
+        approved_at=None,
+        verification_method="",
+        verification_status=target_status,
+    )
+    if not updated:
+        return False
+
+    profile.is_approved = False
+    profile.approved_at = None
+    profile.verification_method = ""
+    profile.verification_status = target_status
+    return True

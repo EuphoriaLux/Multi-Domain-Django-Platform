@@ -683,11 +683,16 @@ urlpatterns = (
             views_checkin.event_checkin_api,
             name="event_checkin_api",
         ),
-        # Verify an attendee in person at an event (coach action from the scanner)
+        # Verify or reject verification in person at an event (coach actions from the scanner)
         path(
             "api/events/<int:event_id>/verify/<int:registration_id>/",
             views_checkin.coach_mark_verified,
             name="coach_mark_verified",
+        ),
+        path(
+            "api/events/<int:event_id>/reject-verification/<int:registration_id>/",
+            views_checkin.coach_reject_verification,
+            name="coach_reject_verification",
         ),
         # Undo a mis-scan, and check in a waitlisted walk-up (coach actions from the scanner)
         path(

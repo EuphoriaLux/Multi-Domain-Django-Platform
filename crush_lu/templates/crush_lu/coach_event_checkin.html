@@ -201,6 +201,8 @@
              data-attendee-status="{{ reg.status }}"
              data-checkin-url="/api/events/checkin/{{ reg.id }}/{{ reg.checkin_token }}/"
              data-undo-url="/api/events/{{ event.id }}/undo-checkin/{{ reg.id }}/"
+             data-reject-url="/api/events/{{ event.id }}/reject-verification/{{ reg.id }}/"
+             data-verify-url="/api/events/{{ event.id }}/verify/{{ reg.id }}/"
              data-attendee-search="{% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }} {% endif %}{{ reg.user.first_name }} {{ reg.user.last_name }} {{ reg.user.email }}">
             {# Left: avatar + info #}
             <div class="flex items-center gap-3 min-w-0">
@@ -363,6 +365,17 @@
                     Rendering the button anyway would offer a correction that
                     can only answer 409.
                 {% endcomment %}
+                {% if reg.user.crushprofile and reg.user.crushprofile.is_approved %}
+                <button
+                    type="button"
+                    class="manual-reject-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-amber-600 dark:text-amber-400 hover:text-red-600 dark:hover:text-red-400"
+                    data-reject-url="/api/events/{{ event.id }}/reject-verification/{{ reg.id }}/"
+                    data-reg-id="{{ reg.id }}"
+                    @click="rejectVerification"
+                >
+                    {% trans "Photo mismatch" %}
+                </button>
+                {% endif %}
                 {% if reg.checked_in_at %}
                 <button
                     type="button"
@@ -478,6 +491,9 @@ window._checkinI18n = {
     noCoachYet: '{% filter escapejs %}{% trans "No coach yet" %}{% endfilter %}',
     verifyAction: '{% filter escapejs %}{% trans "Verify" %}{% endfilter %}',
     verifyFailed: '{% filter escapejs %}{% trans "Verification failed" %}{% endfilter %}',
+    rejectAction: '{% filter escapejs %}{% trans "Photo mismatch" %}{% endfilter %}',
+    rejectConfirm: '{% filter escapejs %}{% trans "Reject verification for this attendee? Their profile will be marked unverified due to photo mismatch." %}{% endfilter %}',
+    rejectFailed: '{% filter escapejs %}{% trans "Could not reject verification" %}{% endfilter %}',
     torchOn: '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}',
     torchOff: '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}',
     undoAction: '{% filter escapejs %}{% trans "Undo" %}{% endfilter %}',
