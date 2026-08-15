@@ -318,3 +318,27 @@ class UploadPhotoDraftTests(_SiteMixin, TestCase):
         self.assertFalse(data["success"])
         self.assertIn("error", data)
 
+    def test_upload_truncated_photo_draft_returns_400(self):
+        """Interrupted/truncated upload with valid header must return 400, not 500."""
+        import io
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        buf = io.BytesIO()
+        Image.new("RGB", (300, 300), color="yellow").save(buf, format="JPEG")
+        truncated_bytes = buf.getvalue()[:250]
+
+        truncated_file = SimpleUploadedFile(
+            "broken.jpg", truncated_bytes, content_type="image/jpeg"
+        )
+
+        response = self.client.post(
+            "/api/profile/draft/upload-photo/",
+            {"photo": truncated_file, "photo_number": "1"},
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertIn("error", data)
+
+

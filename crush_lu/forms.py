@@ -450,10 +450,13 @@ class CrushProfileForm(forms.ModelForm):
             ]
 
             if mime not in allowed_mimes:
-                raise ValidationError(
-                    f"{field_name} content type ({mime}) does not match allowed image types. "
-                    f"Please upload a genuine JPEG, PNG, WebP, or HEIC image."
-                )
+                # Some older libmagic versions detect HEIC/HEIF as generic application/octet-stream.
+                # Allow it if the extension is .heic/.heif; Pillow verify() below strictly validates.
+                if not (mime == 'application/octet-stream' and ext in ('.heic', '.heif')):
+                    raise ValidationError(
+                        f"{field_name} content type ({mime}) does not match allowed image types. "
+                        f"Please upload a genuine JPEG, PNG, WebP, or HEIC image."
+                    )
         except ImportError:
             # python-magic not installed, skip MIME check
             # This allows graceful degradation in development

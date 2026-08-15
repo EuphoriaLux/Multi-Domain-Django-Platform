@@ -73,6 +73,46 @@ def process_uploaded_image(image_file, filename=None):
         img = Image.open(image_file)
         # Fix orientation from EXIF before stripping metadata
         img = ImageOps.exif_transpose(img)
+
+        # Force decode to catch corrupted/truncated bodies early
+        img.load()
+
+        # Convert non-RGB/L modes (RGBA, P, CMYK, etc.) to RGB for safe JPEG output
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+
+        # Resize if larger than MAX_DIMENSION on longest edge
+        # thumbnail() modifies in-place, preserves aspect ratio, only downsizes
+        img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.LANCZOS)
+
+        # Determine output format
+        original_name = filename or getattr(image_file, "name", "photo.jpg")
+        ext = os.path.splitext(original_name)[1].lower()
+
+        if ext == ".png":
+            output_format = "PNG"
+            content_type = "image/png"
+        elif ext == ".webp":
+            output_format = "WEBP"
+            content_type = "image/webp"
+        else:
+            output_format = "JPEG"
+            content_type = "image/jpeg"
+            # Ensure .jpg extension
+            if ext not in (".jpg", ".jpeg"):
+                original_name = os.path.splitext(original_name)[0] + ".jpg"
+
+        # Save to buffer (Pillow strips EXIF by default on save)
+        buffer = io.BytesIO()
+        save_kwargs = {}
+        if output_format == "JPEG":
+            save_kwargs["quality"] = JPEG_QUALITY
+            save_kwargs["optimize"] = True
+        elif output_format == "WEBP":
+            save_kwargs["quality"] = JPEG_QUALITY
+
+        img.save(buffer, format=output_format, **save_kwargs)
+        buffer.seek(0)
     except ValidationError:
         raise
     except Exception as exc:
@@ -80,43 +120,6 @@ def process_uploaded_image(image_file, filename=None):
         raise ValidationError(
             _("The uploaded file is not a valid or supported image.")
         ) from exc
-
-    # Convert non-RGB/L modes (RGBA, P, CMYK, etc.) to RGB for safe JPEG output
-    if img.mode not in ("RGB", "L"):
-        img = img.convert("RGB")
-
-    # Resize if larger than MAX_DIMENSION on longest edge
-    # thumbnail() modifies in-place, preserves aspect ratio, only downsizes
-    img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.LANCZOS)
-
-    # Determine output format
-    original_name = filename or getattr(image_file, "name", "photo.jpg")
-    ext = os.path.splitext(original_name)[1].lower()
-
-    if ext == ".png":
-        output_format = "PNG"
-        content_type = "image/png"
-    elif ext == ".webp":
-        output_format = "WEBP"
-        content_type = "image/webp"
-    else:
-        output_format = "JPEG"
-        content_type = "image/jpeg"
-        # Ensure .jpg extension
-        if ext not in (".jpg", ".jpeg"):
-            original_name = os.path.splitext(original_name)[0] + ".jpg"
-
-    # Save to buffer (Pillow strips EXIF by default on save)
-    buffer = io.BytesIO()
-    save_kwargs = {}
-    if output_format == "JPEG":
-        save_kwargs["quality"] = JPEG_QUALITY
-        save_kwargs["optimize"] = True
-    elif output_format == "WEBP":
-        save_kwargs["quality"] = JPEG_QUALITY
-
-    img.save(buffer, format=output_format, **save_kwargs)
-    buffer.seek(0)
 
     processed = InMemoryUploadedFile(
         file=buffer,
