@@ -20,6 +20,7 @@ from crush_lu.models.connections import EventConnection, ConnectionMessage
 from crush_lu.models.crush_spark import CrushSpark
 from crush_lu.models.events import MeetupEvent, EventRegistration
 from crush_lu.models.journey import JourneyProgress, ChapterProgress
+from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CallAttempt, CrushCoach, UserActivity, PWADeviceInstallation
 from crush_lu.models.referrals import ReferralAttribution, ReferralCode
 
@@ -30,6 +31,36 @@ def _add_months(d, months):
     year = d.year + month // 12
     month = month % 12 + 1
     return date(year, month, 1)
+
+
+def _paid_registration_count(events):
+    """Paid seats on these events, counted from immutable transaction rows.
+
+    Mirrors what #827 moved ``weekly_kpis`` and ``admin_views`` to: a PAID
+    ``PaymentTransaction`` (SumUp or cash) is the record of a captured
+    payment, while ``EventRegistration.payment_confirmed`` is a mutable seat
+    entitlement that issuing cancellation credit clears — keying this count
+    on the flag let a cancellation that releases a seat retroactively shrink
+    a past month's "paid" figure. Credit-funded seats are excluded on
+    purpose: the money behind them was already counted when it was first
+    captured, so counting them again would book one payment in two months.
+    Distinct registrations, not transactions — a seat with a declined attempt
+    behind its capture (or a re-booked cycle reusing the row) is one seat.
+    """
+    return (
+        PaymentTransaction.objects.filter(
+            provider__in=(
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            ),
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+            event_registration__event__in=events,
+        )
+        .values("event_registration_id")
+        .distinct()
+        .count()
+    )
 
 
 def _fmt_timedelta(td):
@@ -395,7 +426,10 @@ class Command(BaseCommand):
         confirmed_attended = reg_by_status.get("confirmed", 0) + reg_by_status.get("attended", 0)
         attended = reg_by_status.get("attended", 0)
         no_show = reg_by_status.get("no_show", 0)
-        paid_reg = reg_qs.filter(payment_confirmed=True).count()
+        # Paid seats from captured payments, not the mutable seat flag —
+        # issuing cancellation credit clears payment_confirmed, which used to
+        # retroactively shrink this figure (#847).
+        paid_reg = _paid_registration_count(active_events)
 
         # Avg fill rate
         fill_data = active_events.filter(max_participants__gt=0).annotate(
@@ -776,9 +810,9 @@ class Command(BaseCommand):
             attended_count = EventRegistration.objects.filter(
                 event__in=month_events, status="attended",
             ).count()
-            paid_count = EventRegistration.objects.filter(
-                event__in=month_events, payment_confirmed=True,
-            ).count()
+            # Same transaction-row source as the main report: a cancellation
+            # releasing the seat must not shrink a past month's figure (#847).
+            paid_count = _paid_registration_count(month_events)
 
             # Connections
             month_conn = EventConnection.objects.filter(

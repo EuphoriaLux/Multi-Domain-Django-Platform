@@ -829,6 +829,7 @@ def _pay_registration_with_credit(registration, amount):
     price_cents = int(
         (amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     )
+    tx_obj = None
     try:
         with transaction.atomic():
             redemptions = redeem_for_registration(
@@ -865,10 +866,23 @@ def _pay_registration_with_credit(registration, amount):
         # _apply_paid_checkout has already logged the specific reason at error
         # level. Returning None puts the member back on the card path with
         # their balance intact, which is the safe half of a bad situation.
+        #
+        # The savepoint has undone the CREDIT row and the redemptions, so the
+        # database carries no trace that this happened — this log line IS the
+        # audit trail. Its leading marker is one greppable token (issue #847)
+        # that an App Insights alert on the traces table can count:
+        #   traces
+        #   | where message contains "crush_credit_redemption_rollback"
+        # Without it a recurrence hides inside otherwise successful checkouts.
+        # The reference names the would-be transaction — it never existed
+        # anywhere else — and the registration id pairs it with the card
+        # payment that follows.
         logger.error(
-            "Crush Credit payment for registration %s was rolled back — the "
-            "seat did not confirm; credit restored, member sent to card.",
+            "crush_credit_redemption_rollback registration_id=%s "
+            "transaction_reference=%s — Crush Credit payment rolled back: "
+            "the seat did not confirm; credit restored, member sent to card.",
             registration.pk,
+            tx_obj.transaction_reference if tx_obj is not None else "-",
         )
         return None
 
