@@ -2511,3 +2511,33 @@ def test_catalogue_welcome_email_copy_attended_event(rf):
     body = mail.outbox[0].body
     assert "Your in-person event attendance is verified" in body
     assert "Your LuxID is verified" not in body
+
+
+@pytest.mark.django_db
+def test_event_lobby_gates_allow_attended_non_luxid_member():
+    from crush_lu.services.event_lobby import (
+        participant_gate,
+        may_learn_lobby_exists,
+        GATE_OK,
+    )
+
+    user = _make_user(username="lobbyattendee", premium=False, has_luxid=False)
+    _mark_attended(user)
+    user.crushprofile.refresh_from_db()
+
+    assert may_learn_lobby_exists(user) is True
+    ok, reason = participant_gate(user)
+    assert ok is True
+    assert reason == GATE_OK
+
+
+@pytest.mark.django_db
+def test_unverified_profile_cannot_use_event_attendance_to_satisfy_identity_verification():
+    user = _make_user(username="unverifiedattendee", premium=False, has_luxid=False)
+    _mark_attended(user)
+    user.crushprofile.verification_status = "pending"
+    user.crushprofile.is_approved = False
+    user.crushprofile.save(update_fields=["verification_status", "is_approved"])
+
+    assert user.crushprofile.has_attended_event is False
+    assert user.crushprofile.is_connect_identity_verified is False

@@ -147,7 +147,7 @@ def participant_gate(user) -> tuple[bool, str]:
         or profile.verification_status != "verified"
     ):
         return False, GATE_NOT_VERIFIED
-    if not profile.has_luxid_connected:
+    if not profile.is_connect_identity_verified:
         return False, GATE_NO_LUXID
 
     # PROTOTYPE-STUB: §5.1 requires a *versioned* Connect consent that
@@ -167,16 +167,16 @@ def may_learn_lobby_exists(user) -> bool:
 
     Non-Connect guests "cannot infer whether a lobby exists"; only a
     checked-in guest who already passes the Connect *pre-onboarding* gate
-    (approved profile + LuxID — the same condition
+    (approved profile + verified identity — the same condition
     ``views_crush_connect._user_passes_pre_onboarding_gate`` uses) is the
-    "LuxID-capable guest who is not onboarded" the spec says may see the
+    "identity-verified guest who is not onboarded" the spec says may see the
     onboarding CTA. For everyone else the response must stay
     indistinguishable from "this event has no lobby".
     """
     profile = getattr(user, "crushprofile", None)
     if profile is None:
         return False
-    return bool(profile.is_approved and profile.has_luxid_connected)
+    return bool(profile.is_approved and profile.is_connect_identity_verified)
 
 
 def evaluate_participation(registration, source="checkin", now=None):
@@ -363,7 +363,9 @@ def is_recap_admissible(user, event, now=None) -> bool:
     ok, reason = participant_gate(user)
     if ok:
         return True
-    if reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and may_learn_lobby_exists(user):
+    if reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and may_learn_lobby_exists(
+        user
+    ):
         return True
     return False
 
