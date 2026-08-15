@@ -105,6 +105,11 @@ def _resale_claim_from(source, event):
             source_payment.pk,
             source.user_id,
         )
+    if not source.payment_confirmed and event.registration_fee > 0:
+        # Cash/bank transfers can be recorded after the member cancelled. Keep
+        # a source-only contingent claim now; settlement waits until an actual
+        # MANUAL capture exists and payment_confirmed becomes true.
+        return (source.pk, None, source.user_id)
     return None
 
 
@@ -1423,6 +1428,7 @@ def event_cancel(request, event_id):
 
     if request.method == "POST":
         promoted = None
+        awaiting_resale = False
 
         with transaction.atomic():
             locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
@@ -1507,6 +1513,12 @@ def event_cancel(request, event_id):
             credits = issue_cancellation_credits(
                 registration, moment=registration.cancelled_at
             )
+            _paid_cents, captured_payment = paid_amount_cents(registration)
+            awaiting_resale = bool(
+                not credits
+                and registration.payment_confirmed
+                and captured_payment is not None
+            )
 
             # Gender-aware waitlist promotion (DB only, inside transaction).
             # `accepts_waitlist_promotion` also covers is_cancelled, which this
@@ -1538,9 +1550,7 @@ def event_cancel(request, event_id):
                 event,
                 request,
                 credits,
-                awaiting_resale=(
-                    registration.payment_confirmed and event.registration_fee > 0
-                ),
+                awaiting_resale=awaiting_resale,
             )
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")

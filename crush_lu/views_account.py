@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
+from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_GET, require_http_methods
@@ -293,6 +294,31 @@ def delete_crushlu_profile_only(user):
     # survives either way.
     from crush_lu.models.credits import CrushCredit
     from crush_lu.services.credits import void_credit
+
+    # A replacement can still carry a contingent 50% obligation to this user.
+    # Account deletion is an explicit withdrawal from future Crush.lu value:
+    # clear those claims before inspecting active credits so a concurrent
+    # replacement capture either settles first (and is voided below) or sees
+    # no beneficiary after this short row lock commits.
+    with transaction.atomic():
+        pending_replacement_ids = list(
+            EventRegistration.objects.select_for_update()
+            .filter(resale_beneficiary=user)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        if pending_replacement_ids:
+            EventRegistration.objects.filter(pk__in=pending_replacement_ids).update(
+                resale_source_registration=None,
+                resale_source_payment=None,
+                resale_beneficiary=None,
+            )
+    if pending_replacement_ids:
+        logger.info(
+            "Withdrew %s pending resale claim(s) for deleted user %s",
+            len(pending_replacement_ids),
+            user.id,
+        )
 
     active_credits = CrushCredit.objects.filter(
         user=user, status=CrushCredit.Status.ACTIVE

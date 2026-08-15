@@ -10,8 +10,12 @@ def backfill_payment_lifecycle(apps, schema_editor):
     PaymentTransaction = apps.get_model("crush_lu", "PaymentTransaction")
     EventRegistration = apps.get_model("crush_lu", "EventRegistration")
 
+    # ``updated_at`` is mutable: merely reconciling an old SumUp checkout moves
+    # it to today and would make the weekly KPI count that historical payment
+    # again. ``created_at`` is the immutable timestamp available on every
+    # historical transaction and keeps it in its original payment cycle.
     PaymentTransaction.objects.filter(status="paid", paid_at__isnull=True).update(
-        paid_at=models.F("updated_at")
+        paid_at=models.F("created_at")
     )
 
     pending_claims = (

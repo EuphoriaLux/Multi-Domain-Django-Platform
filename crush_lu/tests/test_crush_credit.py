@@ -1651,6 +1651,26 @@ class ReviewRoundThreeTests(CreditFixture):
 class FinalReviewRegressionTests(CreditFixture):
     """The outstanding review threads that close PR #827."""
 
+    def _record_manual_payment(self, registration, staff_email):
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        registration.refresh_from_db()
+        registration.payment_confirmed = True
+        staff = self._user(staff_email)
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        with self.captureOnCommitCallbacks(execute=True):
+            admin_obj.save_model(
+                _admin_request(staff), registration, form, change=True
+            )
+        return registration.payment_transactions.filter(
+            provider=PaymentTransaction.Provider.MANUAL
+        ).latest("pk")
+
     def test_unpublished_event_cancellation_still_compensates(self):
         event = self._event(hours_away=96, max_participants=5, is_published=False)
         registration = self._paid_registration(event, self.user)
@@ -1840,6 +1860,36 @@ class FinalReviewRegressionTests(CreditFixture):
             self.assertIsNotNone(
                 registration.organiser_cancellation_notified_at
             )
+
+    def test_resale_notice_uses_capture_after_the_event_fee_is_zeroed(self):
+        event = self._event(hours_away=30, max_participants=5)
+        self._paid_registration(event, self.user)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            registration_fee=Decimal("0.00")
+        )
+        mail.outbox.clear()
+
+        self._cancel(self.user, event)
+
+        message = next(item for item in mail.outbox if item.to == [self.user.email])
+        self.assertIn("If a replacement pays", message.body)
+        self.assertNotIn("No payment was recorded", message.body)
+
+    def test_staff_cancellation_notice_uses_capture_after_fee_is_zeroed(self):
+        event = self._event(hours_away=30, max_participants=5)
+        registration = self._paid_registration(event, self.user)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            registration_fee=Decimal("0.00")
+        )
+        mail.outbox.clear()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            registration.status = "cancelled"
+            registration.save(update_fields=["status"])
+
+        message = next(item for item in mail.outbox if item.to == [self.user.email])
+        self.assertIn("If a replacement pays", message.body)
+        self.assertNotIn("No payment was recorded", message.body)
 
     def test_signal_cancellation_after_organiser_cancellation_uses_premium(self):
         event = self._event(hours_away=96, max_participants=5, is_cancelled=True)
@@ -2176,6 +2226,90 @@ class FinalReviewRegressionTests(CreditFixture):
         self.assertEqual(old_manual.status, PaymentTransaction.Status.PAID)
         self.assertEqual(current_sumup.status, PaymentTransaction.Status.PAID)
 
+    def test_early_manual_payment_recorded_after_cancellation_is_credited(self):
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._registration(event, self.user, status="pending")
+        self._cancel(self.user, event)
+        mail.outbox.clear()
+
+        manual = self._record_manual_payment(
+            registration, "late-cash-entry@crush.lu"
+        )
+
+        registration.refresh_from_db()
+        credit = self._credits(self.user).get()
+        self.assertEqual(manual.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(credit.source_payment_id, manual.pk)
+        self.assertEqual(credit.amount_cents, FEE_CENTS)
+        self.assertFalse(registration.payment_confirmed)
+        self.assertTrue(
+            any(
+                message.to == [self.user.email]
+                and "We've added 15.50 EUR" in message.body
+                for message in mail.outbox
+            )
+        )
+
+    def test_late_manual_payment_settles_an_already_paid_replacement(self):
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._registration(event, self.user, status="pending")
+        replacement_user = self._user("manual-after-cancel-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(
+            event=event, user=replacement_user
+        )
+        self.assertEqual(replacement.resale_source_registration_id, original.pk)
+        self.assertIsNone(replacement.resale_source_payment_id)
+        self._pay_replacement(replacement)
+        replacement.refresh_from_db()
+        self.assertEqual(replacement.resale_source_registration_id, original.pk)
+        mail.outbox.clear()
+
+        manual = self._record_manual_payment(
+            original, "late-resale-cash-entry@crush.lu"
+        )
+
+        original.refresh_from_db()
+        replacement.refresh_from_db()
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.source_payment_id, manual.pk)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+        self.assertFalse(original.payment_confirmed)
+        self.assertIsNone(replacement.resale_source_registration_id)
+        self.assertIsNone(replacement.resale_source_payment_id)
+        self.assertIsNone(replacement.resale_beneficiary_id)
+        self.assertTrue(
+            any(
+                message.to == [self.user.email]
+                and "We've added 7.75 EUR" in message.body
+                for message in mail.outbox
+            )
+        )
+
+    def test_paid_at_backfill_uses_immutable_transaction_creation_time(self):
+        from django.apps import apps
+        from importlib import import_module
+
+        payment = self.registration.payment_transactions.get()
+        original_time = timezone.now() - timedelta(days=30)
+        rechecked_time = timezone.now()
+        PaymentTransaction.objects.filter(pk=payment.pk).update(
+            created_at=original_time,
+            updated_at=rechecked_time,
+            paid_at=None,
+        )
+
+        migration = import_module(
+            "crush_lu.migrations.0228_credit_payment_lifecycle"
+        )
+        migration.backfill_payment_lifecycle(apps, None)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.paid_at, original_time)
+        self.assertNotEqual(payment.paid_at, rechecked_time)
+
     def test_late_replacement_capture_after_cancellation_compensates_both_payers(self):
         from crush_lu.views_payments import _apply_paid_checkout
 
@@ -2234,6 +2368,35 @@ class FinalReviewRegressionTests(CreditFixture):
         credit = self._credits(keeper).get()
         self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
         self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+
+    @patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))
+    def test_account_deletion_withdraws_a_pending_resale_claim(
+        self, _delete_storage
+    ):
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        event = self._event(hours_away=30, max_participants=1)
+        self._paid_registration(event, self.user)
+        replacement_user = self._user("deleted-claim-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(
+            event=event, user=replacement_user
+        )
+        self.assertEqual(replacement.resale_beneficiary_id, self.user.pk)
+
+        delete_crushlu_profile_only(self.user)
+
+        replacement.refresh_from_db()
+        self.assertIsNone(replacement.resale_source_registration_id)
+        self.assertIsNone(replacement.resale_source_payment_id)
+        self.assertIsNone(replacement.resale_beneficiary_id)
+        mail.outbox.clear()
+        self._pay_replacement(replacement)
+        self.assertEqual(self._credits(self.user).count(), 0)
+        self.assertFalse(
+            any(message.to == [self.user.email] for message in mail.outbox)
+        )
 
     @override_settings(CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT=1)
     def test_admin_cancellation_email_batch_resumes_without_double_credit(self):

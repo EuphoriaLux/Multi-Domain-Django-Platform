@@ -1807,6 +1807,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             lock_ids = [obj.pk] if obj.pk else []
             if obj.resale_source_registration_id:
                 lock_ids.append(obj.resale_source_registration_id)
+            if obj.pk:
+                lock_ids.extend(
+                    EventRegistration.objects.filter(
+                        resale_source_registration_id=obj.pk
+                    ).values_list("pk", flat=True)
+                )
             locked_registrations = {
                 registration.pk: registration
                 for registration in EventRegistration.objects.select_for_update()
@@ -1850,7 +1856,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 source = locked_registrations.get(
                     locked_obj.resale_source_registration_id
                 )
-                from crush_lu.services.credits import settle_pending_resale_credit
+                resale_replacements = [
+                    registration
+                    for registration in locked_registrations.values()
+                    if registration.pk != locked_obj.pk
+                    and registration.resale_source_registration_id == locked_obj.pk
+                ]
+                from crush_lu.services.credits import (
+                    issue_cancellation_credits,
+                    settle_pending_resale_credit,
+                )
 
                 resale_credits = settle_pending_resale_credit(
                     locked_obj, source_registration=source
@@ -1868,6 +1883,48 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                             recipient_user=resale_credits[0].user,
                         )
                     )
+                if (
+                    locked_obj.status == "cancelled"
+                    and not locked_obj.event.is_cancelled
+                    and payment is not None
+                ):
+                    from crush_lu.views_payments import (
+                        _send_member_cancellation_safely,
+                    )
+
+                    cancellation_credits = issue_cancellation_credits(
+                        locked_obj, moment=locked_obj.cancelled_at
+                    )
+                    if cancellation_credits:
+                        transaction.on_commit(
+                            partial(
+                                _send_member_cancellation_safely,
+                                locked_obj,
+                                cancellation_credits,
+                            )
+                        )
+                    else:
+                        settled_credits = []
+                        for replacement in resale_replacements:
+                            if replacement.resale_source_payment_id != payment.pk:
+                                replacement.resale_source_payment = payment
+                                replacement.save(
+                                    update_fields=["resale_source_payment"]
+                                )
+                            settled_credits.extend(
+                                settle_pending_resale_credit(
+                                    replacement,
+                                    source_registration=locked_obj,
+                                )
+                            )
+                        transaction.on_commit(
+                            partial(
+                                _send_member_cancellation_safely,
+                                locked_obj,
+                                settled_credits,
+                                awaiting_resale=not bool(settled_credits),
+                            )
+                        )
                 if locked_obj.event.is_cancelled and payment is not None:
                     from crush_lu.services.credits import (
                         credit_registration_for_cancelled_event,

@@ -3574,6 +3574,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         from .services.credits import (
             credit_registration_for_cancelled_event,
             issue_cancellation_credits,
+            paid_amount_cents,
         )
         from .views_payments import _send_member_cancellation_safely
         from .views_events import _promote_from_waitlist
@@ -3629,13 +3630,14 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                         )
                 else:
                     credits = issue_cancellation_credits(cancelled)
+                    _paid_cents, captured_payment = paid_amount_cents(cancelled)
                     member_notification = (
                         cancelled,
                         credits,
                         (
                             not credits
                             and cancelled.payment_confirmed
-                            and locked_event.registration_fee > 0
+                            and captured_payment is not None
                         ),
                     )
 
