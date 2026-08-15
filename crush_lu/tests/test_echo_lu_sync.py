@@ -462,6 +462,28 @@ class PayloadTests(TestCase):
             f"https://crush.lu/en/events/{event.pk}/",
         )
 
+    def test_the_experience_level_purchase_link_is_sent_too(self):
+        # The date-level link alone leaves the listing with a price, a
+        # "Commander des billets" button and nowhere to buy — seen on the live
+        # portal 2026-08-15. `Ticket` has no link field of its own, so the
+        # top-level `purchaseLink` is the ONLY field that can back that button.
+        # Deleting this assertion silently un-sells every event.
+        event = make_event()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(
+            payload["purchaseLink"], f"https://crush.lu/en/events/{event.pk}/"
+        )
+
+    def test_both_purchase_links_travel_on_every_payload(self):
+        # They are different fields for different jobs — per-occurrence vs
+        # experience-wide — so neither one substitutes for the other. Guard the
+        # pair, because "we already send purchaseLink" is exactly the reading
+        # that let this ship.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertIn("purchaseLink", payload)
+        self.assertIn("purchaseLink", payload["dates"][0])
+        self.assertEqual(payload["purchaseLink"], payload["dates"][0]["purchaseLink"])
+
     @override_settings(ECHO_LU_CONTACT_WEBSITE="https://crush.lu")
     @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_uses_the_configured_organiser_site(self):

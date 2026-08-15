@@ -1144,6 +1144,25 @@ def build_experience_payload(event, venue_ids=None):
         "venues": list(venue_ids or []),
         "location": {"address": address_payload(event)},
         "tickets": _build_tickets(event),
+        # The experience-level purchase link, and the one that actually backs
+        # the "Commander des billets" button. This is NOT a duplicate of the
+        # `dates[].purchaseLink` above, and sending only that one is what left
+        # every listing with a price, a buy button and nowhere to buy — found
+        # on the live portal 2026-08-15.
+        #
+        # The schema settles which field wins. Top-level `purchaseLink` is
+        # documented as "url of the ticketing page **if not present in the
+        # Tickets**" / "in case if any of tickets don't have link to the
+        # purchase page, this will be used" — and `Ticket` carries **no link
+        # field at all** (title, price, currency, quantity, salesStart,
+        # salesEnd, and nothing else). So the fallback is not a fallback: it is
+        # the only place an experience-wide purchase URL can live.
+        #
+        # `dates[].purchaseLink` stays. It is the per-occurrence link, which
+        # the docs describe for the recurring case ("a direct link to the
+        # repeating events from the rrule"); it is right for a multi-date
+        # experience and simply never reaches the main buy button.
+        "purchaseLink": event_url,
     }
 
     tags = _setting_list("ECHO_LU_DEFAULT_TAGS")
