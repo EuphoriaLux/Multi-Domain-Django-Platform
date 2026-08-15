@@ -39490,3 +39490,6 @@ msgstr ""
 " höher ist. Mitglieder, die per Karte bezahlt haben, können stattdessen eine"
 " vollständige Rückzahlung verlangen; mit der Nutzung eines Teils des "
 "Stornierungsguthabens entfällt diese Option."
+
+msgid "The cash-refund option has closed because some or all of the cancellation credit has already been used."
+msgstr "Die Option auf eine Rückerstattung ist nicht mehr verfügbar, da das Stornierungsguthaben bereits ganz oder teilweise verwendet wurde."

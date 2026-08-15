@@ -915,6 +915,9 @@ def send_event_cancelled_by_organiser(
 
     user = recipient_user or registration.user
     lang = get_user_preferred_language(user=user, request=request, default="en")
+    cash_refund_available = any(
+        credit.cash_refund_still_available for credit in credits
+    )
     context = {
         "user": user,
         "registration": registration,
@@ -928,7 +931,11 @@ def send_event_cancelled_by_organiser(
             for credit in credits
         ],
         "credit_total": sum(credit.amount_cents for credit in credits) / 100,
-        "cash_refund_available": any(credit.cash_refund_eligible for credit in credits),
+        "cash_refund_available": cash_refund_available,
+        "cash_refund_option_closed": (
+            any(credit.cash_refund_eligible for credit in credits)
+            and not cash_refund_available
+        ),
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **get_email_base_urls(user, request),

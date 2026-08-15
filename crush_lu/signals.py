@@ -3573,10 +3573,12 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         )
         from .services.credits import (
             credit_registration_for_cancelled_event,
-            issue_cancellation_credit,
+            issue_cancellation_credits,
         )
+        from .views_payments import _send_member_cancellation_safely
         from .views_events import _promote_from_waitlist
 
+        member_notification = None
         try:
             with transaction.atomic():
                 locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
@@ -3626,7 +3628,16 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                             )
                         )
                 else:
-                    issue_cancellation_credit(cancelled)
+                    credits = issue_cancellation_credits(cancelled)
+                    member_notification = (
+                        cancelled,
+                        credits,
+                        (
+                            not credits
+                            and cancelled.payment_confirmed
+                            and locked_event.registration_fee > 0
+                        ),
+                    )
 
                 # Compensation is independent of whether this event can
                 # promote a waitlist. Promotion is optional; paying an early
@@ -3649,6 +3660,14 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 instance.pk,
             )
             return
+
+        if member_notification:
+            cancelled, credits, awaiting_resale = member_notification
+            _send_member_cancellation_safely(
+                cancelled,
+                credits,
+                awaiting_resale=awaiting_resale,
+            )
 
         if not promoted:
             return

@@ -27118,3 +27118,6 @@ msgstr ""
 "at least the amount paid, with a 20 EUR premium where that is higher. "
 "Members who paid by card may request a full cash refund instead; using any "
 "of the cancellation credit closes the cash-refund option."
+
+msgid "The cash-refund option has closed because some or all of the cancellation credit has already been used."
+msgstr "The cash-refund option has closed because some or all of the cancellation credit has already been used."

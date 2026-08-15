@@ -766,6 +766,33 @@ def _send_organiser_cancellation_safely(
         )
 
 
+def _send_member_cancellation_safely(
+    registration,
+    credits,
+    *,
+    awaiting_resale=False,
+    recipient_user=None,
+):
+    """Tell a cancelled member when credit is issued or remains conditional."""
+    from .email_helpers import send_event_cancellation_confirmation
+
+    user = recipient_user or registration.user
+    try:
+        send_event_cancellation_confirmation(
+            user,
+            registration.event,
+            None,
+            credits,
+            awaiting_resale=awaiting_resale,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to send member-cancellation email for registration %s: %s",
+            registration.id,
+            type(exc).__name__,
+        )
+
+
 class _CreditNotApplied(Exception):
     """Credit was consumed but the seat did not confirm. Rolls the spend back."""
 
@@ -1038,7 +1065,18 @@ def _apply_paid_checkout(tx_obj, data):
                 if reg.status != "attended":
                     reg.status = "confirmed"
                 reg.save()
-                settle_pending_resale_credit(reg, source_registration=resale_source)
+                resale_credits = settle_pending_resale_credit(
+                    reg, source_registration=resale_source
+                )
+                if resale_credits:
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            resale_source or reg,
+                            resale_credits,
+                            recipient_user=resale_credits[0].user,
+                        )
+                    )
                 _generate_checkin_token(reg)
                 logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
 

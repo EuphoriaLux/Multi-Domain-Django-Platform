@@ -1264,7 +1264,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
         cancellation_credits = CrushCredit.objects.filter(
             reason=CrushCredit.Reason.EVENT_CANCELLED,
-            status=CrushCredit.Status.ACTIVE,
         ).order_by("issued_at", "pk")
         email_limit = max(
             1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
@@ -1274,7 +1273,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
                 issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
-                issued_credits__status=CrushCredit.Status.ACTIVE,
             )
             .select_related("event", "user")
             .prefetch_related(
@@ -1289,11 +1287,25 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         )
         emailed = 0
         for registration in candidates:
+            # A fully redeemed cancellation award must still receive its
+            # delayed notice. Select the newest payment cycle rather than
+            # filtering on mutable credit status; registration rows can be
+            # reused and therefore carry older cancellation awards too.
+            all_credits = registration.organiser_cancellation_credits
+            latest_credit = all_credits[-1]
+            if latest_credit.source_payment_id:
+                current_credits = [
+                    credit
+                    for credit in all_credits
+                    if credit.source_payment_id == latest_credit.source_payment_id
+                ]
+            else:
+                current_credits = [latest_credit]
             try:
                 emailed += bool(
                     send_event_cancelled_by_organiser(
                         registration,
-                        registration.organiser_cancellation_credits,
+                        current_credits,
                         request,
                     )
                 )
@@ -1315,7 +1327,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
                 issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
-                issued_credits__status=CrushCredit.Status.ACTIVE,
             )
             .distinct()
             .count()
@@ -1755,15 +1766,27 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # before touching registrations, preserving the global
             # PaymentTransaction -> EventRegistration lock order.
             if payment_changed and not obj.payment_confirmed and obj.pk:
-                PaymentTransaction.objects.select_for_update().filter(
-                    event_registration=obj,
-                    provider=PaymentTransaction.Provider.MANUAL,
-                    status=PaymentTransaction.Status.PAID,
-                ).update(
-                    status=PaymentTransaction.Status.CANCELLED,
-                    failure_reason="Manual payment confirmation removed by staff.",
-                    updated_at=timezone.now(),
+                latest_manual = (
+                    PaymentTransaction.objects.select_for_update()
+                    .filter(
+                        event_registration=obj,
+                        provider=PaymentTransaction.Provider.MANUAL,
+                        status=PaymentTransaction.Status.PAID,
+                    )
+                    .order_by("-created_at")
+                    .first()
                 )
+                if latest_manual:
+                    # Older MANUAL captures belong to completed registration
+                    # cycles and remain historical revenue. The checkbox only
+                    # corrects the newest cycle represented by the mutable row.
+                    latest_manual.status = PaymentTransaction.Status.CANCELLED
+                    latest_manual.failure_reason = (
+                        "Manual payment confirmation removed by staff."
+                    )
+                    latest_manual.save(
+                        update_fields=["status", "failure_reason", "updated_at"]
+                    )
 
             lock_ids = [obj.pk] if obj.pk else []
             if obj.resale_source_registration_id:
@@ -1778,12 +1801,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             super().save_model(request, obj, form, change)
 
             if payment_changed and obj.payment_confirmed:
-                payment = PaymentTransaction.objects.filter(
-                    event_registration=obj,
-                    purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                    status=PaymentTransaction.Status.PAID,
-                ).first()
-                if payment is None and obj.event.registration_fee > 0:
+                # The registration row is reused after cancellation. Any old
+                # PAID transaction therefore belongs to an earlier booking
+                # cycle and cannot stand in for the cash/bank receipt staff is
+                # recording now. Every false -> true transition gets its own
+                # immutable MANUAL capture.
+                payment = None
+                if obj.event.registration_fee > 0:
                     payment = PaymentTransaction.objects.create(
                         transaction_reference=(
                             f"CRUSH-MANUAL-{obj.pk}-{uuid.uuid4().hex[:8]}"
@@ -1815,6 +1839,19 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 resale_credits = settle_pending_resale_credit(
                     locked_obj, source_registration=source
                 )
+                if resale_credits and not locked_obj.event.is_cancelled:
+                    from crush_lu.views_payments import (
+                        _send_member_cancellation_safely,
+                    )
+
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            source or locked_obj,
+                            resale_credits,
+                            recipient_user=resale_credits[0].user,
+                        )
+                    )
                 if locked_obj.event.is_cancelled and payment is not None:
                     from crush_lu.services.credits import (
                         credit_registration_for_cancelled_event,

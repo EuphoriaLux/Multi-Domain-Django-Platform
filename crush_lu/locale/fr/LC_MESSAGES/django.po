@@ -39625,3 +39625,6 @@ msgstr ""
 "montant est supérieur. Les membres ayant payé par carte peuvent demander un "
 "remboursement intégral à la place ; l’utilisation d’une partie du crédit "
 "d’annulation met fin à cette option."
+
+msgid "The cash-refund option has closed because some or all of the cancellation credit has already been used."
+msgstr "L’option de remboursement en espèces n’est plus disponible, car tout ou partie du crédit d’annulation a déjà été utilisé."
