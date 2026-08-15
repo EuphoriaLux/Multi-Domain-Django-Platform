@@ -364,6 +364,56 @@ def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
 
 
 @pytest.mark.django_db
+def test_profile_is_photo_verified():
+    # Issue #540 / Task 4.3: In-person event attendance or coach verification
+    # marks the member's profile photo as physically verified.
+    user = _make_user(username="unverified_photo", premium=False, has_luxid=True)
+    user.crushprofile.verification_method = "luxid"
+    user.crushprofile.save(update_fields=["verification_method"])
+    assert not user.crushprofile.is_photo_verified
+
+    # Attending an event marks photo as verified in person
+    _mark_attended(user)
+    user.crushprofile.refresh_from_db()
+    assert user.crushprofile.is_photo_verified
+
+
+@pytest.mark.django_db
+def test_drop_card_renders_photo_verified_badge():
+    from django.template.loader import render_to_string
+
+    user = _make_user(username="target_badge", gender="F")
+    profile = user.crushprofile
+    membership = user.crush_connect_membership
+
+    # Without attendance / coach verification
+    profile.verification_method = "luxid"
+    profile.save(update_fields=["verification_method"])
+    html = render_to_string(
+        "crush_lu/crush_connect/_drop_card.html",
+        {
+            "target": user,
+            "target_profile": profile,
+            "target_membership": membership,
+        },
+    )
+    assert "Photo Verified" not in html
+
+    # With attendance
+    _mark_attended(user)
+    profile.refresh_from_db()
+    html_verified = render_to_string(
+        "crush_lu/crush_connect/_drop_card.html",
+        {
+            "target": user,
+            "target_profile": profile,
+            "target_membership": membership,
+        },
+    )
+    assert "Photo Verified" in html_verified
+
+
+@pytest.mark.django_db
 def test_pool_empty_when_requester_not_premium_even_with_luxid():
     # LuxID alone never unlocks receiving drops — that stays premium-only.
     me = _make_user(username="luxonly", premium=False, has_luxid=True)

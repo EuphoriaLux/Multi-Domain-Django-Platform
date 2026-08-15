@@ -1103,6 +1103,20 @@ class CrushProfile(models.Model):
         return self.has_luxid_connected or self.has_attended_event
 
     @property
+    def is_photo_verified(self) -> bool:
+        """True when the user's profile photo was physically verified in person.
+
+        Attested when:
+        1. The user has attended at least 1 in-person event (verified at door check-in scan), OR
+        2. The user was verified by a coach in person / screening call
+           (verification_method in ('coach_event', 'premium_coach')).
+        """
+        return bool(
+            self.has_attended_event
+            or self.verification_method in ("coach_event", "premium_coach")
+        )
+
+    @property
     def has_active_premium(self) -> bool:
         """True when the user holds an ACTIVE ``PremiumMembership``.
 
