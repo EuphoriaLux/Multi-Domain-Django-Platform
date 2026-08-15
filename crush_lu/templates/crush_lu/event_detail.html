@@ -19,12 +19,12 @@
 
 {% block structured_data %}
 {{ block.super }}
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {{ event_jsonld|safe }}
 </script>
 
 <!-- Breadcrumb Schema -->
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {{ breadcrumb_jsonld|safe }}
 </script>
 {% endblock %}

@@ -11,7 +11,7 @@
 
 {% block structured_data %}
 {{ block.super }}
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

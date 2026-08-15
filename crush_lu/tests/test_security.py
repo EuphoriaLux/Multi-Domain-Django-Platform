@@ -8,7 +8,10 @@ Tests for:
 - Permissions-Policy headers
 - PII masking in logs
 """
-from django.test import Client, TestCase
+import re
+from datetime import date
+
+from django.test import Client, TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
@@ -111,6 +114,87 @@ class TestCSPHeaders(SiteTestCase):
         response = self.client.get('/healthz/')
         # Health check returns plain text, no CSP needed
         self.assertEqual(response.status_code, 200)
+
+
+class TestCSPInlineScriptNonces(SiteTestCase):
+    """Regression tests for the Task 7.2 CSP violation flood.
+
+    script-src lists CSP.NONCE, and a nonce in the policy makes browsers
+    ignore 'unsafe-inline'. Every inline <script> — including JSON-LD
+    data blocks — must therefore carry a non-empty nonce, or each page
+    view logs one script-src-elem blocked=inline report to /csp-report/
+    (9,911 Sev-2 records / 24h on /dashboard/ and /signup/ before this).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client = Client()
+
+    def _assert_all_inline_scripts_nonced(self, response, path):
+        self.assertEqual(response.status_code, 200, f'{path} should render')
+        content = response.content.decode()
+        csp = (
+            response.get('Content-Security-Policy-Report-Only')
+            or response.get('Content-Security-Policy')
+            or ''
+        )
+        header_nonce = re.search(r"'nonce-([^']+)'", csp)
+        inline_tag_attrs = [
+            m.group(1)
+            for m in re.finditer(r'<script\b([^>]*)>', content)
+            if 'src=' not in m.group(1)
+        ]
+        # A page with no inline scripts makes every assertion below vacuous.
+        self.assertTrue(
+            inline_tag_attrs,
+            f'{path} rendered no inline scripts — the test is not exercising the page'
+        )
+        nonces = set()
+        for attrs in inline_tag_attrs:
+            match = re.search(r'nonce="([^"]*)"', attrs)
+            self.assertIsNotNone(
+                match,
+                f'{path}: inline <script{attrs}> lacks nonce="{{{{ csp_nonce }}}}"'
+            )
+            self.assertTrue(match.group(1), f'{path}: rendered an empty CSP nonce')
+            nonces.add(match.group(1))
+        self.assertEqual(len(nonces), 1, f'{path}: inline scripts carry different nonces')
+        if header_nonce:
+            self.assertIn(
+                header_nonce.group(1), nonces,
+                f'{path}: inline script nonces do not match the CSP header nonce'
+            )
+
+    @override_settings(ROOT_URLCONF='azureproject.urls_crush')
+    def test_signup_inline_scripts_carry_nonce(self):
+        """The signup page's inline scripts must not flood /csp-report/."""
+        response = self.client.get('/en/signup/')
+        self._assert_all_inline_scripts_nonced(response, '/en/signup/')
+
+    @override_settings(ROOT_URLCONF='azureproject.urls_crush')
+    def test_dashboard_inline_scripts_carry_nonce(self):
+        """The dashboard's inline scripts must not flood /csp-report/."""
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
+        user = User.objects.create_user(
+            username='csp-nonce@test.com',
+            email='csp-nonce@test.com',
+            password='testpass123',
+        )
+        UserDataConsent.objects.update_or_create(
+            user=user, defaults={'crushlu_consent_given': True},
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1995, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            preferred_language='en',
+        )
+        self.client.force_login(user)
+        response = self.client.get('/en/dashboard/')
+        self._assert_all_inline_scripts_nonced(response, '/en/dashboard/')
 
 
 class TestPermissionsPolicy(SiteTestCase):
