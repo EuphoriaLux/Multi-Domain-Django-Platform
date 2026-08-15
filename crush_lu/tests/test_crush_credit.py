@@ -2587,6 +2587,33 @@ class FinalReviewRegressionTests(CreditFixture):
         self.assertEqual(payment.paid_at, original_time)
         self.assertNotEqual(payment.paid_at, rechecked_time)
 
+    def test_cancellation_cycle_backfill_prefers_the_first_remedy_time(self):
+        from django.apps import apps
+        from importlib import import_module
+
+        MeetupEvent.objects.filter(pk=self.event.pk).update(is_cancelled=True)
+        credit = credit_paid_registrations_for_cancelled_event(self.event)[0]
+        later_edit = credit.issued_at + timedelta(days=7)
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            updated_at=later_edit,
+            organiser_cancellation_started_at=None,
+        )
+
+        migration = import_module(
+            "crush_lu.migrations.0231_meetupevent_cancellation_cycle"
+        )
+        migration.backfill_cancellation_cycles(apps, None)
+
+        self.event.refresh_from_db()
+        self.assertEqual(
+            self.event.organiser_cancellation_started_at,
+            credit.issued_at,
+        )
+        self.assertNotEqual(
+            self.event.organiser_cancellation_started_at,
+            later_edit,
+        )
+
     def test_late_replacement_capture_after_cancellation_compensates_both_payers(self):
         from crush_lu.views_payments import _apply_paid_checkout
 
