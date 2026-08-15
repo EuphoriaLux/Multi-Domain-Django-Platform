@@ -65,7 +65,7 @@
 {% vite_preload_deps %}
 {% vite_asset 'pixel-war-pixi' %}
 
-<script type="module">
+<script nonce="{{ csp_nonce }}" type="module">
 class PixelWarPixi {
     constructor(containerId, config) {
         this.config = config;

@@ -171,6 +171,33 @@ class TestCSPInlineScriptNonces(SiteTestCase):
         response = self.client.get('/en/signup/')
         self._assert_all_inline_scripts_nonced(response, '/en/signup/')
 
+    def test_entreprinder_login_complete_inline_scripts_carry_nonce(self):
+        """Every routed domain shares one CSP policy (Codex review on #851):
+        the Entreprinder OAuth callback must nonce its token-injecting
+        inline script or it reports the same script-src-elem violation.
+
+        DomainURLRoutingMiddleware picks the urlconf from the Host header,
+        so the real production host is used rather than a ROOT_URLCONF
+        override (which the middleware would override right back).
+        """
+        client = Client(HTTP_HOST='entreprinder.lu')
+        response = client.get('/login_complete/')
+        self._assert_all_inline_scripts_nonced(response, '/login_complete/')
+
+    def test_power_up_finops_dashboard_inline_scripts_carry_nonce(self):
+        """Power Up FinOps dashboard renders config as JSON data blocks —
+        data blocks are script elements and need the nonce too."""
+        staff_user = User.objects.create_user(
+            username='csp-finops@test.com',
+            email='csp-finops@test.com',
+            password='testpass123',
+            is_staff=True,
+        )
+        client = Client(HTTP_HOST='power-up.lu')
+        client.force_login(staff_user)
+        response = client.get('/finops/')
+        self._assert_all_inline_scripts_nonced(response, '/finops/')
+
     @override_settings(ROOT_URLCONF='azureproject.urls_crush')
     def test_dashboard_inline_scripts_carry_nonce(self):
         """The dashboard's inline scripts must not flood /csp-report/."""
