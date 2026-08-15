@@ -593,6 +593,9 @@ def dashboard(request):
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,
             "has_luxid_connected": has_luxid_connected,
+            "is_identity_verified": bool(
+                profile and profile.is_connect_identity_verified
+            ),
             "luxid_connect_url": luxid_connect_url,
             "connect_onboarded": bool(
                 connect_membership and connect_membership.is_onboarded

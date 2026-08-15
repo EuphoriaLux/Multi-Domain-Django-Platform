@@ -2026,13 +2026,15 @@ def send_crush_connect_catalogue_welcome(user, request):
             user, "crush_lu:premium_choose_coach", request
         )
         dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
-
+        profile = getattr(user, "crushprofile", None)
         context = get_email_context_with_unsubscribe(
             user,
             request,
             first_name=user.first_name,
             premium_url=premium_url,
             dashboard_url=dashboard_url,
+            has_luxid_connected=bool(profile and profile.has_luxid_connected),
+            has_attended_event=bool(profile and profile.has_attended_event),
         )
 
         with translation.override(lang):

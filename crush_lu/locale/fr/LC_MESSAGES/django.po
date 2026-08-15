@@ -21025,10 +21025,23 @@ msgstr "Votre statut Crush Connect"
 msgid "LuxID verified — you can join Crush Connect"
 msgstr "LuxID vérifié — vous pouvez rejoindre Crush Connect"
 
+#: templates/crush_lu/crush_connect.html:252
+msgid "Verified by event attendance — you can join Crush Connect"
+msgstr ""
+"Vérifié par présence à un événement — vous pouvez rejoindre Crush Connect"
+
+#: templates/crush_lu/crush_connect.html:254
+msgid "Identity verified — you can join Crush Connect"
+msgstr "Identité vérifiée — vous pouvez rejoindre Crush Connect"
+
 #: templates/crush_lu/crush_connect.html:255
 #: templates/crush_lu/partials/_connect_status_strip.html:28
 msgid "Connect LuxID to join Crush Connect"
 msgstr "Connectez LuxID pour rejoindre Crush Connect"
+
+#: templates/crush_lu/crush_connect.html:258
+msgid "Verify your identity to join Crush Connect"
+msgstr "Vérifiez votre identité pour rejoindre Crush Connect"
 
 #: templates/crush_lu/crush_connect.html:263
 msgid ""
@@ -21038,11 +21051,23 @@ msgstr ""
 "Crush Connect a d'abord besoin de votre LuxID vérifiée. C'est gratuit, ça "
 "prend une minute et ça confirme que vous êtes une vraie personne."
 
+#: templates/crush_lu/crush_connect.html:266
+msgid ""
+"Crush Connect requires verified identity to keep matching safe and "
+"authentic. You can verify in two easy ways:"
+msgstr ""
+"Crush Connect nécessite une identité vérifiée pour garantir des rencontres "
+"sûres et authentiques. Vous pouvez vous vérifier de deux manières simples :"
+
 #: templates/crush_lu/crush_connect.html:267
 #: templates/crush_lu/partials/_connect_status_strip.html:33
 #: templates/crush_lu/partials/_verification_options.html:62
 msgid "Connect LuxID"
 msgstr "Connecter LuxID"
+
+#: templates/crush_lu/crush_connect.html:274
+msgid "Attend an Event"
+msgstr "Participer à un événement"
 
 #: templates/crush_lu/crush_connect.html:293
 msgid "Ready to be introduced?"
@@ -23672,6 +23697,22 @@ msgid ""
 msgstr ""
 "Votre LuxID est vérifié et votre histoire est en ligne — un Crush Coach peut"
 " maintenant vous sélectionner à la main comme match pour un membre Premium."
+
+#: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:13
+msgid ""
+"Your in-person event attendance is verified and your story is live — a Crush"
+" Coach can now hand-pick you as a match for a Premium member."
+msgstr ""
+"Votre présence à un événement est vérifiée et votre profil est actif — un "
+"Coach Crush peut désormais vous sélectionner pour un membre Premium."
+
+#: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:15
+msgid ""
+"Your identity is verified and your story is live — a Crush Coach can now "
+"hand-pick you as a match for a Premium member."
+msgstr ""
+"Votre identité est vérifiée et votre profil est actif — un Coach Crush peut "
+"désormais vous sélectionner pour un membre Premium."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:15
 msgid ""
@@ -39507,8 +39548,8 @@ msgstr "Mode de paiement invalide."
 msgid ""
 "Your earlier card checkout could not be closed. Please wait and try again."
 msgstr ""
-"Votre précédent paiement par carte n’a pas pu être fermé. Veuillez patienter "
-"et réessayer."
+"Votre précédent paiement par carte n’a pas pu être fermé. Veuillez patienter"
+" et réessayer."
 
 msgid "Your Crush Credit balance does not cover this event."
 msgstr "Votre solde Crush Credit ne couvre pas cet événement."
@@ -39530,13 +39571,12 @@ msgstr "%(amount)s EUR, valable jusqu’au %(expiry)s"
 
 msgid ""
 "Because Crush.lu cancelled the event, you may ask for a cash refund instead."
-" Reply to this email and we will arrange it. If you spend any of the credit, "
-"the cash option closes."
+" Reply to this email and we will arrange it. If you spend any of the credit,"
+" the cash option closes."
 msgstr ""
 "Comme Crush.lu a annulé l’événement, vous pouvez demander un remboursement à"
 " la place. Répondez à cet e-mail afin que nous l’organisions. Si vous "
-"utilisez une partie du crédit, l’option de "
-"remboursement prend fin."
+"utilisez une partie du crédit, l’option de remboursement prend fin."
 
 msgid ""
 "This booking was paid with Crush Credit, so its original value has been "
@@ -39575,22 +39615,45 @@ msgid "Cash / bank transfer"
 msgstr "Espèces / virement bancaire"
 
 msgid "When this transaction first became paid. Never moved later."
-msgstr "Date à laquelle cette transaction a été payée pour la première fois. Elle n’est jamais déplacée ensuite."
+msgstr ""
+"Date à laquelle cette transaction a été payée pour la première fois. Elle "
+"n’est jamais déplacée ensuite."
 
-msgid "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
-msgstr "Le membre auquel revient la part de revente. Conservé séparément afin qu’une fusion de comptes ou la suppression de l’inscription d’origine n’efface pas l’obligation."
+msgid ""
+"The member owed the resale share. Kept separately so account merges or "
+"source-registration deletion cannot erase the obligation."
+msgstr ""
+"Le membre auquel revient la part de revente. Conservé séparément afin qu’une"
+" fusion de comptes ou la suppression de l’inscription d’origine n’efface pas"
+" l’obligation."
 
-msgid "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
-msgstr "Date d’envoi de l’e-mail de compensation après annulation par l’organisateur. Permet de reprendre en toute sécurité les envois par lots limités."
+msgid ""
+"When the organiser-cancellation remedy email was delivered. Used to resume "
+"bounded cancellation batches safely."
+msgstr ""
+"Date d’envoi de l’e-mail de compensation après annulation par "
+"l’organisateur. Permet de reprendre en toute sécurité les envois par lots "
+"limités."
 
-msgid "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
-msgstr "Le crédit de {email} a été émis, mais l’e-mail d’annulation n’a pas pu être envoyé. Relancez cette action pour réessayer."
+msgid ""
+"Credit was issued to {email}, but the cancellation email failed. Rerun this "
+"action to retry."
+msgstr ""
+"Le crédit de {email} a été émis, mais l’e-mail d’annulation n’a pas pu être "
+"envoyé. Relancez cette action pour réessayer."
 
-msgid "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
-msgstr "{sent} e-mail(s) d’annulation envoyé(s) ; il en reste {remaining}. Relancez cette action pour continuer."
+msgid ""
+"Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to "
+"continue."
+msgstr ""
+"{sent} e-mail(s) d’annulation envoyé(s) ; il en reste {remaining}. Relancez "
+"cette action pour continuer."
 
-msgid "No payment was recorded for this registration, so no Crush Credit is due."
-msgstr "Aucun paiement n’a été enregistré pour cette inscription ; aucun Crush Credit n’est donc dû."
+msgid ""
+"No payment was recorded for this registration, so no Crush Credit is due."
+msgstr ""
+"Aucun paiement n’a été enregistré pour cette inscription ; aucun Crush "
+"Credit n’est donc dû."
 
 msgid "For paid events, the following cancellation-credit policy applies:"
 msgstr ""
@@ -39633,5 +39696,65 @@ msgstr ""
 "remboursement intégral à la place ; l’utilisation d’une partie du crédit "
 "d’annulation met fin à cette option."
 
-msgid "The cash-refund option has closed because some or all of the cancellation credit has already been used."
-msgstr "L’option de remboursement en espèces n’est plus disponible, car tout ou partie du crédit d’annulation a déjà été utilisé."
+msgid ""
+"The cash-refund option has closed because some or all of the cancellation "
+"credit has already been used."
+msgstr ""
+"L’option de remboursement en espèces n’est plus disponible, car tout ou "
+"partie du crédit d’annulation a déjà été utilisé."
+
+msgid ""
+"Verified members can be hand-picked by a Crush Coach as a match for Premium "
+"members — free, no subscription needed."
+msgstr ""
+"Les membres vérifiés peuvent être sélectionnés à la main par un Coach Crush "
+"comme match pour des membres Premium — gratuit, sans abonnement requis."
+
+msgid ""
+"Verify once with LuxID or event attendance, answer your 3 questions, and "
+"you're discoverable: coaches can pick you, Drops can surface you, Sparks can"
+" find you. No subscription, ever."
+msgstr ""
+"Vérifiez-vous une fois avec LuxID ou votre participation à un événement, "
+"répondez à 3 questions, et vous êtes découvrable : les coachs peuvent vous "
+"sélectionner, les Drops vous révéler, les Sparks vous trouver. Aucun "
+"abonnement, jamais."
+
+msgid ""
+"Connect your LuxID or attend an in-person event — free, real people only."
+msgstr ""
+"Connectez votre LuxID ou participez à un événement en personne — gratuit, "
+"personnes réelles uniquement."
+
+msgid ""
+"Verified and discoverable — receive and answer Sparks, no subscription."
+msgstr ""
+"Vérifié et découvrable — recevez et répondez aux Sparks, sans abonnement."
+
+msgid ""
+"Crush Connect is live across Luxembourg. Join free with verified identity, "
+"or go Premium for your own coach."
+msgstr ""
+"Crush Connect est disponible dans tout le Luxembourg. Rejoignez gratuitement"
+" avec une identité vérifiée, ou passez Premium pour votre propre coach."
+
+msgid ""
+"In the Mix is Crush Connect's free track. Verify once with LuxID or in-"
+"person event attendance, answer your 3 questions, and you're discoverable: "
+"coaches can pick you for a Premium member's week, Drops can surface you, "
+"Sparks can find you. No subscription — identity verification is what keeps "
+"Crush Connect real people only."
+msgstr ""
+"In the Mix est le parcours gratuit de Crush Connect. Vérifiez-vous une fois "
+"avec LuxID ou une participation à un événement, répondez à 3 questions, et "
+"vous êtes découvrable : les coachs peuvent vous sélectionner pour la semaine"
+" d'un membre Premium, les Drops vous révéler, les Sparks vous trouver. Aucun"
+" abonnement — la vérification d'identité garantit que seuls de vrais profils"
+" participent à Crush Connect."
+
+msgid ""
+"Verify your identity with LuxID or in-person event attendance — free, "
+"confirms you're a real person."
+msgstr ""
+"Vérifiez votre identité avec LuxID ou lors d'un événement en personne — "
+"gratuit, confirme que vous êtes une vraie personne."

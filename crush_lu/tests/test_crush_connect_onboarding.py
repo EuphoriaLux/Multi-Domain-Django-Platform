@@ -721,7 +721,6 @@ def test_premium_without_luxid_blocked_from_onboarding(client, settings):
         premium=True,
         has_luxid=False,
     )
-    _mark_attended(me)
     _login_eligible(client, me)
 
     resp = client.get(_step_url(1))
@@ -730,6 +729,24 @@ def test_premium_without_luxid_blocked_from_onboarding(client, settings):
     assert "/onboarding/" not in resp.url
     # They can't opt in, so onboarding never starts for them.
     assert CrushConnectMembership.objects.get(user=me).onboarded_at is None
+
+
+@pytest.mark.django_db
+def test_premium_with_attended_event_can_onboard(client, settings):
+    """Option B (#539): Premium member without LuxID CAN onboard once they have attended an event."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="attended_prem",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=True,
+        has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(_step_url(1))
+    assert resp.status_code == 200
 
 
 @pytest.mark.django_db
@@ -772,7 +789,7 @@ def test_onboarded_member_without_luxid_grandfathered(client, settings):
 @pytest.mark.django_db
 def test_premium_without_luxid_sees_teaser_not_redirect_loop(client, settings):
     """Regression: a launched-Connect Premium member without LuxID and not
-    onboarded must land on the teaser (with the Connect-LuxID CTA), not bounce
+    onboarded must land on the teaser (with the verification CTAs), not bounce
     in a teaser <-> onboarding redirect loop."""
     from django.urls import reverse
 
@@ -784,13 +801,36 @@ def test_premium_without_luxid_sees_teaser_not_redirect_loop(client, settings):
         premium=True,
         has_luxid=False,
     )
-    _mark_attended(me)
     _login_eligible(client, me)
 
     resp = client.get(reverse("crush_lu:crush_connect_teaser"))
     assert resp.status_code == 200  # renders the teaser — no redirect loop
     assert resp.context["profile_approved"] is True
     assert resp.context["has_luxid_connected"] is False
+    assert resp.context["is_identity_verified"] is False
+
+
+@pytest.mark.django_db
+def test_premium_with_attended_event_redirected_to_onboarding_from_teaser(
+    client, settings
+):
+    """Option B (#539): An attended member visiting the teaser is fast-pathed straight into onboarding."""
+    from django.urls import reverse
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="attended_me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=True,
+        has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(reverse("crush_lu:crush_connect_teaser"))
+    assert resp.status_code == 302
+    assert resp.url.endswith("/crush-connect/onboarding/")
 
 
 @pytest.mark.django_db

@@ -10,6 +10,7 @@ from datetime import date, timedelta
 import pytest
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.utils import timezone
 
 # View tests use /en/crush-connect/… URLs which only resolve under urls_crush.
@@ -31,7 +32,6 @@ from crush_lu.services.crush_connect import (
     get_eligible_pool,
     get_or_create_daily_drop,
 )
-
 
 User = get_user_model()
 
@@ -181,6 +181,10 @@ def _set_gate_questions(user, answers=None):
 
 def _mark_attended(user, event=None):
     event = event or _make_event(title=f"Event for {user.username}")
+    profile = getattr(user, "crushprofile", None)
+    if profile:
+        profile.verification_method = "coach_event"
+        profile.save(update_fields=["verification_method"])
     return EventRegistration.objects.create(user=user, event=event, status="attended")
 
 
@@ -207,7 +211,9 @@ def test_seed_prompts_loaded():
 
 @pytest.mark.django_db
 def test_pool_empty_when_requester_has_no_profile():
-    user = User.objects.create_user(username="noprof", email="np@example.com", password="x")
+    user = User.objects.create_user(
+        username="noprof", email="np@example.com", password="x"
+    )
     assert list(get_eligible_pool(user)) == []
 
 
@@ -303,15 +309,58 @@ def test_receiver_eligibility_requires_active_membership():
 
 
 @pytest.mark.django_db
-def test_pool_excludes_targets_without_luxid():
-    # LuxID is mandatory for the candidate catalogue — even premium members
-    # drop out of OTHERS' pools until they link LuxID.
+def test_pool_excludes_targets_without_luxid_and_without_events():
+    # Identity verification is mandatory for the candidate catalogue — members
+    # with neither LuxID nor attended in-person events drop out of pools.
     me = _make_user(username="me", preferred_genders=["F", "M"])
     no_luxid_premium = _make_user(username="noluxprem", premium=True, has_luxid=False)
     no_luxid_free = _make_user(username="noluxfree", premium=False, has_luxid=False)
     pool = get_eligible_pool(me)
     assert no_luxid_premium not in pool
     assert no_luxid_free not in pool
+
+
+@pytest.mark.django_db
+def test_pool_includes_attended_event_targets_without_luxid():
+    # Option B (Issue #539 / Task 4.2): Members without LuxID (e.g. cross-border commuters)
+    # qualify for the candidate catalogue once they have attended at least 1 in-person event.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    attended_target = _make_user(
+        username="attended_nolux", premium=False, has_luxid=False
+    )
+    _mark_attended(attended_target)
+    assert attended_target in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_excludes_unattended_event_targets_without_luxid():
+    # A registered, cancelled, or waitlisted event registration does NOT satisfy
+    # in-person identity verification.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    target = _make_user(username="unattended_nolux", premium=False, has_luxid=False)
+    event = _make_event(title="Some event")
+    EventRegistration.objects.create(user=target, event=event, status="registered")
+    assert target not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
+    from crush_lu.views_crush_connect import (
+        _user_is_connect_candidate_eligible,
+        _user_passes_pre_onboarding_gate,
+    )
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    user = _make_user(username="candidate_event", premium=False, has_luxid=False)
+    assert not _user_is_connect_candidate_eligible(user)
+    assert not _user_passes_pre_onboarding_gate(user)
+    assert not is_catalogue_eligible(user)
+
+    _mark_attended(user)
+    user.crushprofile.refresh_from_db()
+    assert _user_is_connect_candidate_eligible(user)
+    assert _user_passes_pre_onboarding_gate(user)
+    assert is_catalogue_eligible(user)
 
 
 @pytest.mark.django_db
@@ -405,9 +454,7 @@ def test_pool_filters_by_target_gender_preference():
     )
     _mark_attended(she_prefers_men)
     # She has no preference (empty list) — included
-    she_no_pref = _make_user(
-        username="she_no_pref", gender="F", preferred_genders=[]
-    )
+    she_no_pref = _make_user(username="she_no_pref", gender="F", preferred_genders=[])
     _mark_attended(she_no_pref)
 
     pool = list(get_eligible_pool(me))
@@ -450,17 +497,23 @@ def test_pool_excludes_targets_outside_requester_age_range():
     _mark_attended(me)
 
     too_young = _make_user(
-        username="young", gender="F", dob=today.replace(year=today.year - 22),
+        username="young",
+        gender="F",
+        dob=today.replace(year=today.year - 22),
         preferred_genders=["M"],
     )
     _mark_attended(too_young)
     in_range = _make_user(
-        username="in_range", gender="F", dob=today.replace(year=today.year - 30),
+        username="in_range",
+        gender="F",
+        dob=today.replace(year=today.year - 30),
         preferred_genders=["M"],
     )
     _mark_attended(in_range)
     too_old = _make_user(
-        username="old", gender="F", dob=today.replace(year=today.year - 50),
+        username="old",
+        gender="F",
+        dob=today.replace(year=today.year - 50),
         preferred_genders=["M"],
     )
     _mark_attended(too_old)
@@ -488,9 +541,7 @@ def test_pool_empty_when_requester_not_onboarded():
 
 @pytest.mark.django_db
 def test_pool_empty_when_requester_coach_excluded():
-    me = _make_user(
-        username="me", preferred_genders=["F", "M"], excluded_by_coach=True
-    )
+    me = _make_user(username="me", preferred_genders=["F", "M"], excluded_by_coach=True)
     _mark_attended(me)
     her = _make_user(username="her", gender="F", preferred_genders=["M"])
     _mark_attended(her)
@@ -825,9 +876,7 @@ def test_dev_card_preview_renders_without_questions(client):
         username="staffer2", email="staffer2@example.com", password="x", is_staff=True
     )
     _grant_consent(staff)
-    target = _make_user(
-        username="target_noq", gender="F", preferred_genders=["M"]
-    )
+    target = _make_user(username="target_noq", gender="F", preferred_genders=["M"])
     _mark_attended(target)
     # Membership exists but no gate questions picked — card still renders.
 
@@ -889,9 +938,7 @@ def test_home_redirects_to_onboarding_when_user_not_onboarded(client, settings):
 @pytest.mark.django_db
 def test_home_redirects_to_teaser_when_user_coach_excluded(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", preferred_genders=["F"], excluded_by_coach=True
-    )
+    me = _make_user(username="me", preferred_genders=["F"], excluded_by_coach=True)
     _mark_attended(me)
     _login_eligible(client, me)
 
@@ -1133,7 +1180,9 @@ def test_teaser_waitlist_position_renders_in_german(client, settings):
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     from crush_lu.models.crush_connect import CrushConnectWaitlist
 
-    me = _make_user(username="dewaiter", premium=False, has_luxid=False, onboarded=False)
+    me = _make_user(
+        username="dewaiter", premium=False, has_luxid=False, onboarded=False
+    )
     CrushConnectWaitlist.objects.create(user=me)
     _login_eligible(client, me)
 
@@ -1635,9 +1684,7 @@ def test_spark_compose_rejected_when_not_surfaced(client, settings):
     her = _make_user(username="her", gender="F", premium=False)
     _login_eligible(client, me)
 
-    resp = client.post(
-        f"/en/crush-connect/spark/{her.pk}/", data={"message": "hi"}
-    )
+    resp = client.post(f"/en/crush-connect/spark/{her.pk}/", data={"message": "hi"})
     assert resp.status_code in (302, 301)
     assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
 
@@ -1722,9 +1769,7 @@ def test_answered_state_scoped_to_current_questions(client, settings):
     # her re-picks a DIFFERENT 3 questions from this week's set.
     week = get_or_create_question_week()
     new_qs = list(
-        week.questions.filter(is_active=True).exclude(
-            id__in=[q.id for q in old_qs]
-        )[:3]
+        week.questions.filter(is_active=True).exclude(id__in=[q.id for q in old_qs])[:3]
     )
     her.crush_connect_membership.gate_questions.all().delete()
     for i, q in enumerate(new_qs, start=1):
@@ -1815,9 +1860,7 @@ def test_can_send_spark_rechecks_recipient_eligibility():
     _surface_in_drop(me, rejected)
     rejected.crushprofile.is_approved = False
     rejected.crushprofile.verification_status = "rejected"
-    rejected.crushprofile.save(
-        update_fields=["is_approved", "verification_status"]
-    )
+    rejected.crushprofile.save(update_fields=["is_approved", "verification_status"])
     assert can_send_spark(me, rejected) == (False, "recipient_unavailable")
 
     # LuxID unlinked after surfacing
@@ -2175,8 +2218,11 @@ def test_pick_hidden_and_unacceptable_after_coach_reassignment():
         username="coach2", email="coach2@example.com", password="x"
     )
     new_coach = CrushCoach.objects.create(
-        user=new_coach_user, bio="b", specializations="g",
-        phone_number="+352999999", is_active=True,
+        user=new_coach_user,
+        bio="b",
+        specializations="g",
+        phone_number="+352999999",
+        is_active=True,
     )
     member.crushprofile.assigned_coach = new_coach
     member.crushprofile.save(update_fields=["assigned_coach"])
@@ -2200,7 +2246,10 @@ def test_stale_decline_recorded_but_ex_coach_not_notified():
         user=User.objects.create_user(
             username="coach2", email="coach2@example.com", password="x"
         ),
-        bio="b", specializations="g", phone_number="+352999998", is_active=True,
+        bio="b",
+        specializations="g",
+        phone_number="+352999998",
+        is_active=True,
     )
     member.crushprofile.assigned_coach = new_coach
     member.crushprofile.save(update_fields=["assigned_coach"])
@@ -2432,3 +2481,124 @@ def test_pool_excludes_a_shared_crush_in_both_directions():
 
     assert admirer not in get_eligible_pool(me)
     assert me not in get_eligible_pool(admirer)
+
+
+@pytest.mark.django_db
+def test_catalogue_welcome_email_copy_luxid(rf):
+    from django.core import mail
+    from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
+
+    user = _make_user(username="welcomelux", has_luxid=True)
+    request = rf.get("/connect/")
+    mail.outbox.clear()
+
+    sent = send_crush_connect_catalogue_welcome(user, request)
+    assert sent == 1
+    assert len(mail.outbox) == 1
+    body = mail.outbox[0].body
+    assert "Your LuxID is verified" in body
+    assert "Your in-person event attendance is verified" not in body
+
+
+@pytest.mark.django_db
+def test_catalogue_welcome_email_copy_attended_event(rf):
+    from django.core import mail
+    from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
+
+    user = _make_user(username="welcomeevent", has_luxid=False)
+    _mark_attended(user)
+    request = rf.get("/connect/")
+    mail.outbox.clear()
+
+    sent = send_crush_connect_catalogue_welcome(user, request)
+    assert sent == 1
+    assert len(mail.outbox) == 1
+    body = mail.outbox[0].body
+    assert "Your in-person event attendance is verified" in body
+    assert "Your LuxID is verified" not in body
+
+
+@pytest.mark.django_db
+def test_unverified_profile_cannot_use_event_attendance_to_satisfy_identity_verification():
+    user = _make_user(username="unverifiedattendee", premium=False, has_luxid=False)
+    _mark_attended(user)
+    user.crushprofile.verification_status = "pending"
+    user.crushprofile.is_approved = False
+    user.crushprofile.save(update_fields=["verification_status", "is_approved"])
+
+    assert user.crushprofile.has_attended_event is False
+    assert user.crushprofile.is_connect_identity_verified is False
+
+
+@pytest.mark.django_db
+def test_coach_provenance_required_for_attendance_verification():
+    """A self-scan check-in without coach verification does not satisfy identity verification."""
+    user = _make_user(username="selfscanmember", premium=False, has_luxid=False)
+    event = _make_event(title="Self Scan Event")
+    EventRegistration.objects.create(user=user, event=event, status="attended")
+    user.crushprofile.verification_status = "verified"
+    user.crushprofile.verification_method = "admin"
+    user.crushprofile.save()
+
+    assert user.crushprofile.has_attended_event is False
+    assert user.crushprofile.is_connect_identity_verified is False
+
+    # Once verified by a coach (e.g. coach door scan or manual review)
+    user.crushprofile.verification_method = "coach_event"
+    user.crushprofile.save()
+    assert user.crushprofile.has_attended_event is True
+    assert user.crushprofile.is_connect_identity_verified is True
+
+
+@pytest.mark.django_db
+def test_dashboard_verification_journey_hides_luxid_nudge_for_attended_member(
+    client, settings
+):
+    """An attendance-verified member does not see the 'Connect LuxID to join Crush Connect' secondary nudge."""
+    from django.urls import reverse
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    user = _make_user(username="attendeddash", premium=False, has_luxid=False)
+    _mark_attended(user)
+    _login_eligible(client, user)
+
+    resp = client.get(reverse("crush_lu:dashboard"))
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert "Connect LuxID to join Crush Connect" not in html
+
+
+@pytest.mark.django_db
+def test_drop_view_filters_out_candidate_when_checkin_is_undone_at_render_time(
+    client, settings
+):
+    """When a coach undoes checkin for an attendance-verified member, pinned Drops recheck and hide the candidate."""
+    from crush_lu.services.crush_connect import get_or_create_daily_drop
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    viewer = _make_user(username="dropviewer", premium=True, has_luxid=True)
+    candidate = _make_user(
+        username="dropcand", gender="F", premium=False, has_luxid=False
+    )
+    reg = _mark_attended(candidate)
+    _grant_consent(candidate)
+    _set_gate_questions(candidate)
+
+    # Pin the daily drop with the candidate
+    drop = get_or_create_daily_drop(viewer)
+    drop.recipients.set([candidate])
+
+    _login_eligible(client, viewer)
+    resp = client.get("/en/crush-connect/today/")
+    assert resp.status_code == 200
+    assert len(resp.context["recipients"]) == 1
+
+    # Coach undoes checkin
+    reg.status = "registered"
+    reg.save()
+    candidate.crushprofile.verification_method = "admin"
+    candidate.crushprofile.save()
+
+    resp = client.get("/en/crush-connect/today/")
+    assert resp.status_code == 200
+    assert len(resp.context["recipients"]) == 0

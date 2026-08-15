@@ -8,7 +8,15 @@
 {% block content %}
 <h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
 
-<p><strong>{% trans "You've opted in to Crush Connect." %}</strong> {% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}</p>
+<p><strong>{% trans "You've opted in to Crush Connect." %}</strong>
+{% if has_luxid_connected or user.crushprofile.has_luxid_connected %}
+{% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}
+{% elif has_attended_event or user.crushprofile.has_attended_event %}
+{% trans "Your in-person event attendance is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}
+{% else %}
+{% trans "Your identity is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}
+{% endif %}
+</p>
 
 <p><strong>{% trans "What this means:" %}</strong></p>
 <ul>

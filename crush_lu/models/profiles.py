@@ -563,12 +563,16 @@ class CrushProfile(models.Model):
     bio = models.TextField(
         max_length=500,
         blank=True,
-        help_text=_("DEPRECATED (Event Identity redesign): legacy free-text bio, coach-visible only"),
+        help_text=_(
+            "DEPRECATED (Event Identity redesign): legacy free-text bio, coach-visible only"
+        ),
     )
     interests = models.TextField(
         max_length=300,
         blank=True,
-        help_text=_("DEPRECATED (Event Identity redesign): legacy free-text interests, coach-visible only"),
+        help_text=_(
+            "DEPRECATED (Event Identity redesign): legacy free-text interests, coach-visible only"
+        ),
     )
     # Ideal Crush Preferences (optional)
     preferred_age_min = models.PositiveSmallIntegerField(
@@ -1056,6 +1060,49 @@ class CrushProfile(models.Model):
         return native.exists() or oidc_token.exists()
 
     @property
+    def has_attended_event(self) -> bool:
+        """True when the user has coach-verified in-person event attendance.
+
+        In-person attendance confirmed by a coach (recorded via verification_method
+        in ('coach_event', 'premium_coach') or an attended event registration
+        stamped with coach check-in provenance) provides physical identity/age
+        verification, serving as an alternative verification path to LuxID for
+        members without a Luxembourgish digital ID (Issue #539 / Task 4.2).
+        """
+        from .events import EventRegistration
+
+        if self.verification_status != "verified":
+            return False
+        if self.verification_method in ("coach_event", "premium_coach"):
+            return True
+
+        qs = EventRegistration.objects.filter(
+            user_id=self.user_id,
+            status="attended",
+            checkin_granted_coach__isnull=False,
+        )
+        if self.assigned_coach_id is not None:
+            return (
+                qs.exists()
+                or EventRegistration.objects.filter(
+                    user_id=self.user_id,
+                    status="attended",
+                    event__coaches=self.assigned_coach,
+                ).exists()
+            )
+        return qs.exists()
+
+    @property
+    def is_connect_identity_verified(self) -> bool:
+        """True when the user meets Crush Connect identity & age verification criteria.
+
+        Satisfied by:
+        1. LuxID connected (cryptographic government digital ID / DOB), OR
+        2. In-person event attendance (physically verified at door check-in by coaches).
+        """
+        return self.has_luxid_connected or self.has_attended_event
+
+    @property
     def has_active_premium(self) -> bool:
         """True when the user holds an ACTIVE ``PremiumMembership``.
 
@@ -1205,9 +1252,7 @@ class CrushProfile(models.Model):
                     == loaded_language
                 ):
                     self.preferred_language = old_instance.preferred_language
-                    self.language_explicitly_set = (
-                        old_instance.language_explicitly_set
-                    )
+                    self.language_explicitly_set = old_instance.language_explicitly_set
 
                 # Clean up old photo blobs when replaced or cleared
                 for field_name in ("photo_1", "photo_2", "photo_3"):

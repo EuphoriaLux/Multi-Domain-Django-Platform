@@ -102,33 +102,33 @@ def _user_can_receive_now(user) -> bool:
 
 
 def _user_is_connect_candidate_eligible(user) -> bool:
-    """Verified profile + LuxID linked: may opt in to the candidate catalogue.
+    """Verified profile + identity verified (LuxID or in-person event attended): may opt in to candidate catalogue.
 
-    LuxID is the ticket into the catalogue — members verified at an event
-    stay verified for events/connections but must link LuxID before they
-    can be picked for a Premium member's Drop.
+    LuxID or verified in-person event attendance is the ticket into the catalogue.
+    Members without LuxID (e.g. cross-border attendees) qualify once they have attended
+    at least 1 in-person event where their identity/age was verified (Issue #539).
     """
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
-    return profile.has_luxid_connected
+    return profile.is_connect_identity_verified
 
 
 def _user_passes_pre_onboarding_gate(user) -> bool:
-    """LuxID-first: a verified profile with LuxID connected may opt in.
+    """Identity-verified first: a verified profile with LuxID or attended event may opt in.
 
-    LuxID is the entry requirement for collecting ANY extended Crush Connect
-    data — both tracks (Premium receivers and candidate-only members) must
-    connect LuxID before they can start the onboarding wizard. The Premium-
-    coach distinction only decides where a finished member lands afterwards
-    (Today's Drop vs. catalogue status) — see ``_connect_done_url`` /
-    ``_connect_access_blocker``. Already-onboarded members are grandfathered
-    by the callers (they completed opt-in under the rules that applied then).
+    Identity verification is the entry requirement for collecting ANY extended Crush Connect
+    data — both tracks (Premium receivers and candidate-only members) must have verified identity
+    (LuxID connected or at least 1 in-person event attended) before starting the onboarding wizard.
+    The Premium distinction only decides where a finished member lands afterwards
+    (Today's Drop vs. catalogue status) — see ``_connect_done_url`` / ``_connect_access_blocker``.
+    Already-onboarded members are grandfathered by the callers (they completed opt-in under
+    the rules that applied then).
     """
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
-    return profile.has_luxid_connected
+    return profile.is_connect_identity_verified
 
 
 def _connect_access_blocker(user):
@@ -266,9 +266,9 @@ def _onboarding_gate(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to join Crush Connect.")
+            request, _("Please upload a profile photo to join Crush Connect.")
         )
         return redirect("crush_lu:edit_profile"), existing, done_url
 
@@ -830,9 +830,9 @@ def crush_connect_hub(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to use Crush Connect.")
+            request, _("Please upload a profile photo to use Crush Connect.")
         )
         return redirect("crush_lu:edit_profile")
 
@@ -922,9 +922,9 @@ def crush_connect_home(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         from django.contrib import messages
+
         messages.warning(
-            request,
-            _("Please upload a profile photo to use Crush Connect.")
+            request, _("Please upload a profile photo to use Crush Connect.")
         )
         return redirect("crush_lu:edit_profile")
 
@@ -969,7 +969,9 @@ def crush_connect_home(request):
             .filter(crush_connect_membership__photo_share_consent=True)
             # Same for the photo itself: clearing photo_1 after being
             # snapshotted must hide the card (mirrors get_eligible_pool).
-            .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+            .exclude(
+                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
+            )
             .select_related("crushprofile", "crush_connect_membership")
             .prefetch_related(
                 "crush_connect_membership__gate_questions__question",
@@ -980,6 +982,15 @@ def crush_connect_home(request):
             )
             .all()
         )
+        # Re-check identity verification at RENDER time (LuxID or verified event attendance):
+        # if a coach corrects/undoes a check-in or LuxID is unlinked after a Drop was
+        # pinned, hide the card so clear photos are not shown to other members.
+        recipients = [
+            r
+            for r in recipients
+            if getattr(r, "crushprofile", None)
+            and r.crushprofile.is_connect_identity_verified
+        ]
 
     # Card CTA state: which of today's cards this user has already answered (the
     # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —
@@ -1417,8 +1428,9 @@ def coach_connect_member(request, user_id: int):
         return redirect("crush_lu:coach_connect_member", user_id=member.pk)
 
     pool = list(
-        get_eligible_pool(member)
-        .select_related("crushprofile", "crush_connect_membership")
+        get_eligible_pool(member).select_related(
+            "crushprofile", "crush_connect_membership"
+        )
         # Event Identity chips render per candidate card — prefetch the taxonomy
         # M2M to keep the pool render N+1-free (spec §7).
         .prefetch_related("crushprofile__interests_new")[:60]
