@@ -1054,8 +1054,12 @@ def upload_profile_photo(request, slot):
         photo_field_name = f"photo_{slot}"
         if temp_form.fields.get(photo_field_name):
             try:
-                cleaned_photo = temp_form.fields[photo_field_name].clean(photo_file)
-                setattr(profile, photo_field_name, cleaned_photo)
+                from .utils.image_processing import process_uploaded_image
+
+                processed_photo = process_uploaded_image(
+                    photo_file, filename=photo_file.name
+                )
+                setattr(profile, photo_field_name, processed_photo)
                 profile.save(update_fields=[photo_field_name])
 
                 logger.info(f"Photo {slot} uploaded for user {request.user.id}")
@@ -1068,6 +1072,21 @@ def upload_profile_photo(request, slot):
                         "photo": getattr(profile, photo_field_name),
                         "is_main": slot == 1,
                         "just_uploaded": True,
+                        "social_photos": social_photos,
+                    },
+                )
+            except ValidationError as e:
+                logger.warning(f"Photo validation failed: {e}")
+                return render(
+                    request,
+                    "crush_lu/partials/photo_card.html",
+                    {
+                        "slot": slot,
+                        "photo": getattr(profile, photo_field_name),
+                        "is_main": slot == 1,
+                        "error": " ".join(e.messages)
+                        if hasattr(e, "messages")
+                        else str(e),
                         "social_photos": social_photos,
                     },
                 )

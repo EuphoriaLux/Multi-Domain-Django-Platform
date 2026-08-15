@@ -342,3 +342,40 @@ class UploadPhotoDraftTests(_SiteMixin, TestCase):
         self.assertIn("error", data)
 
 
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class UploadProfilePhotoHtmxTests(_SiteMixin, TestCase):
+    """The HTMX upload-photo slot endpoint (/api/profile/upload-photo/<slot>/) must convert HEIC to JPEG."""
+
+    def setUp(self):
+        self.client, self.user = _make_logged_in_client()
+
+    def test_upload_heic_photo_slot_converts_to_jpeg(self):
+        import io
+        import pillow_heif
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pillow_heif.register_heif_opener()
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (500, 500), color="cyan").save(buffer, format="HEIF")
+        uploaded_heic = SimpleUploadedFile(
+            "my_avatar.heic", buffer.getvalue(), content_type="image/heic"
+        )
+
+        response = self.client.post(
+            "/api/profile/upload-photo/1/",
+            {"photo_1": uploaded_heic},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        profile = CrushProfile.objects.get(user=self.user)
+        self.assertTrue(profile.photo_1)
+        self.assertTrue(profile.photo_1.name.endswith(".jpg"))
+
+        # Verify the partial rendered without error
+        self.assertContains(response, "photo-preview")
+        self.assertNotContains(response, "Photo validation failed")
+
+
+
