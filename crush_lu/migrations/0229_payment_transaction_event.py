@@ -11,6 +11,7 @@ def backfill_payment_events(apps, schema_editor):
         PaymentTransaction.objects.filter(
             event__isnull=True,
             event_registration__isnull=False,
+            status__in=("paid", "refunded"),
         )
         .select_related("event_registration")
         .order_by("pk")

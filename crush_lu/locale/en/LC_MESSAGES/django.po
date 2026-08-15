@@ -27040,6 +27040,13 @@ msgstr ""
 "new six-month validity."
 
 msgid ""
+"No payment was recorded for this booking, so there is no payment or credit "
+"to return. This email confirms that the event has been cancelled."
+msgstr ""
+"No payment was recorded for this booking, so there is no payment or credit "
+"to return. This email confirms that the event has been cancelled."
+
+msgid ""
 "It is ready to use on any Crush.lu event and keeps the applicable credit "
 "expiry."
 msgstr ""

@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
 from django.db import transaction
+from django.db.models import Q
 from datetime import timedelta
 import json
 import logging
@@ -17,6 +18,7 @@ from .models import (
     EventFeedback,
 )
 from .models.event_polls import EventPoll
+from .models.events import SEAT_HOLDING_STATUSES
 from .models.payments import PaymentTransaction
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
@@ -57,6 +59,106 @@ def _admitted_status(event, registration=None):
     if registration is not None and registration.payment_confirmed:
         return "confirmed"
     return "pending" if event.registration_fee > 0 else "confirmed"
+
+
+def _resale_claim_from(source, event):
+    """Return the durable claim carried by one cancelled registration."""
+    if source is None:
+        return None
+
+    # An unpaid replacement carries the original payer's claim. Forward that
+    # first; the intermediary has paid nothing of its own yet.
+    if source.resale_source_payment_id and source.resale_beneficiary_id:
+        return (
+            source.resale_source_registration_id,
+            source.resale_source_payment_id,
+            source.resale_beneficiary_id,
+        )
+
+    if (
+        source.status != "cancelled"
+        or source.cancelled_at is None
+        or not is_late_cancellation(event, source.cancelled_at)
+    ):
+        return None
+
+    source_payment = None
+    if source.payment_confirmed:
+        _amount, source_payment = paid_amount_cents(source)
+    else:
+        # The member can cancel while their SumUp widget is still payable.
+        # This pending payment makes the released-seat claim contingent: it is
+        # settled only if both that checkout and the replacement later capture.
+        source_payment = (
+            PaymentTransaction.objects.filter(
+                event_registration=source,
+                provider=PaymentTransaction.Provider.SUMUP,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .order_by("-created_at", "-pk")
+            .first()
+        )
+    if source_payment is not None:
+        return (
+            source.pk,
+            source_payment.pk,
+            source.user_id,
+        )
+    return None
+
+
+def _set_resale_claim(registration, claim):
+    source_id, payment_id, beneficiary_id = claim
+    registration.resale_source_registration_id = source_id
+    registration.resale_source_payment_id = payment_id
+    registration.resale_beneficiary_id = beneficiary_id
+
+
+def _attach_unclaimed_resale_claim(registration, event):
+    """Attach the oldest released paid seat not already assigned elsewhere.
+
+    The cancellation transaction can have no promotable waitlistee. A later
+    newcomer who directly takes that released seat must still be able to earn
+    the original member's 50% share once they pay.
+    """
+    sources = (
+        EventRegistration.objects.select_for_update()
+        .filter(event=event, status="cancelled")
+        .exclude(pk=registration.pk)
+        .order_by("cancelled_at", "pk")
+    )
+    for source in sources:
+        claim = _resale_claim_from(source, event)
+        if claim is None:
+            continue
+        source_id, payment_id, _beneficiary_id = claim
+        assigned = Q()
+        if source_id:
+            assigned |= Q(resale_source_registration_id=source_id)
+        if payment_id:
+            assigned |= Q(resale_source_payment_id=payment_id)
+        if (source_id or payment_id) and (
+            EventRegistration.objects.filter(
+                event=event, status__in=SEAT_HOLDING_STATUSES
+            )
+            .exclude(pk=registration.pk)
+            # A cancelled, waitlisted, or no-show replacement has released the
+            # seat; only someone currently holding it makes the claim busy.
+            .filter(assigned)
+            .exists()
+        ):
+            continue
+        _set_resale_claim(registration, claim)
+        registration.save(
+            update_fields=[
+                "resale_source_registration",
+                "resale_source_payment",
+                "resale_beneficiary",
+            ]
+        )
+        return source
+    return None
 
 
 def _promote_from_waitlist(event, cancelled_user=None, resale_source_registration=None):
@@ -111,67 +213,12 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
         candidate.resale_source_registration = None
         candidate.resale_source_payment = None
         candidate.resale_beneficiary = None
-        if (
-            resale_source_registration is not None
-            and resale_source_registration.status == "cancelled"
-            and is_late_cancellation(event)
-        ):
-            source_payment = None
-            if resale_source_registration.payment_confirmed:
-                _amount, source_payment = paid_amount_cents(resale_source_registration)
-            else:
-                # The member can cancel while their SumUp widget is still
-                # payable. Preserve a contingent resale claim now; if the
-                # checkout later captures, the callback can settle it even
-                # when the replacement paid first.
-                source_payment = (
-                    PaymentTransaction.objects.filter(
-                        event_registration=resale_source_registration,
-                        provider=PaymentTransaction.Provider.SUMUP,
-                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                        status=PaymentTransaction.Status.PENDING,
-                    )
-                    .order_by("-created_at", "-pk")
-                    .first()
-                )
-            if source_payment is not None:
-                candidate.resale_source_registration = resale_source_registration
-                candidate.resale_source_payment = source_payment
-                candidate.resale_beneficiary = resale_source_registration.user
-            elif (
-                resale_source_registration.resale_source_payment_id
-                and resale_source_registration.resale_beneficiary_id
-            ):
-                # This unpaid member was itself a replacement. Forward the
-                # original payer's contingent claim to the next candidate.
-                candidate.resale_source_registration_id = (
-                    resale_source_registration.resale_source_registration_id
-                )
-                candidate.resale_source_payment_id = (
-                    resale_source_registration.resale_source_payment_id
-                )
-                candidate.resale_beneficiary_id = (
-                    resale_source_registration.resale_beneficiary_id
-                )
-        elif (
-            resale_source_registration is not None
-            and resale_source_registration.resale_source_payment_id
-            and resale_source_registration.resale_beneficiary_id
-        ):
-            # An unpaid promoted member can cancel before completing payment.
-            # Forward the original obligation to the next candidate instead of
-            # replacing it with the unpaid intermediary, which has no payment
-            # of its own to share back.
-            candidate.resale_source_registration_id = (
-                resale_source_registration.resale_source_registration_id
-            )
-            candidate.resale_source_payment_id = (
-                resale_source_registration.resale_source_payment_id
-            )
-            candidate.resale_beneficiary_id = (
-                resale_source_registration.resale_beneficiary_id
-            )
+        claim = _resale_claim_from(resale_source_registration, event)
+        if claim is not None:
+            _set_resale_claim(candidate, claim)
         candidate.save()
+        if claim is None:
+            _attach_unclaimed_resale_claim(candidate, event)
         # A reused waitlist row can already carry a valid payment. Settle that
         # rare case now; ordinary paid-event promotions remain pending until
         # _apply_paid_checkout confirms their replacement payment.
@@ -1300,6 +1347,8 @@ def event_register(request, event_id):
                         )
 
                 registration.save()
+                if registration.status in SEAT_HOLDING_STATUSES:
+                    _attach_unclaimed_resale_claim(registration, locked_event)
 
             try:
                 if registration.status == "confirmed":
@@ -1455,7 +1504,9 @@ def event_cancel(request, event_id):
             # own. Inside the lock, on the row we just cancelled — the credit
             # and the `payment_confirmed` it releases have to land together
             # (see issue_credit's Trap 1 note).
-            credits = issue_cancellation_credits(registration)
+            credits = issue_cancellation_credits(
+                registration, moment=registration.cancelled_at
+            )
 
             # Gender-aware waitlist promotion (DB only, inside transaction).
             # `accepts_waitlist_promotion` also covers is_cancelled, which this

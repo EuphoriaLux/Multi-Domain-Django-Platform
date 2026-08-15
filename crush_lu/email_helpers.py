@@ -905,14 +905,11 @@ def send_event_cancelled_by_organiser(
     recipient_user=None,
     mark_notified=True,
 ):
-    """Explain the organiser-cancellation remedy to one paid member."""
+    """Tell one affected member that the organiser cancelled their event."""
     from django.utils import translation
     from django.utils.translation import gettext as _
 
     credits = list(credits)
-    if not credits:
-        return 0
-
     user = recipient_user or registration.user
     lang = get_user_preferred_language(user=user, request=request, default="en")
     cash_refund_available = any(
@@ -923,6 +920,7 @@ def send_event_cancelled_by_organiser(
         "registration": registration,
         "event": registration.event,
         "credits": credits,
+        "has_credit": bool(credits),
         "credit_lines": [
             {
                 "amount": format_cents(credit.amount_cents),

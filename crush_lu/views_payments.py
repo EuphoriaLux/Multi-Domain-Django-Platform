@@ -1041,7 +1041,7 @@ def _apply_paid_checkout(tx_obj, data):
                 reg.payment_date = timezone.now()
                 reg.save(update_fields=["payment_confirmed", "payment_date"])
 
-                credits = issue_cancellation_credits(reg)
+                credits = issue_cancellation_credits(reg, moment=reg.cancelled_at)
                 if credits:
                     transaction.on_commit(
                         partial(_send_member_cancellation_safely, reg, credits)

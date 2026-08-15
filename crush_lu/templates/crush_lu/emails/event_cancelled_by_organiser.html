@@ -9,6 +9,7 @@
 
 <p>{% blocktrans with title=event.title %}We're sorry, but <strong>{{ title }}</strong> won't be going ahead.{% endblocktrans %}</p>
 
+{% if has_credit %}
 <div class="info-box">
     <p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}We've added {{ amount }} EUR in Crush Credit to your account.{% endblocktrans %}</strong></p>
     <ul style="margin: 10px 0;">
@@ -24,6 +25,9 @@
 <p>{% trans "The cash-refund option has closed because some or all of the cancellation credit has already been used." %}</p>
 {% else %}
 <p>{% trans "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates. Any additional goodwill credit has a new six-month validity." %}</p>
+{% endif %}
+{% else %}
+<p>{% trans "No payment was recorded for this booking, so there is no payment or credit to return. This email confirms that the event has been cancelled." %}</p>
 {% endif %}
 
 <p><a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a></p>

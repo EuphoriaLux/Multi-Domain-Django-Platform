@@ -967,6 +967,15 @@ class EventRegistration(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True
     )
+    cancelled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "When this registration entered cancelled status. Used to apply "
+            "the cancellation policy at the member's actual cancellation time."
+        ),
+    )
 
     # Additional info
     accessibility_needs = models.TextField(
@@ -1195,6 +1204,21 @@ class EventRegistration(models.Model):
         return (
             f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
         )
+
+    def save(self, *args, **kwargs):
+        """Keep the cancellation policy timestamp aligned with the status."""
+        update_fields = kwargs.get("update_fields")
+        if self.status == "cancelled" and self.cancelled_at is None:
+            self.cancelled_at = timezone.now()
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+        elif self.status != "cancelled" and self.cancelled_at is not None:
+            # EventRegistration rows are reused on re-registration. A later
+            # cancellation is a new policy decision and needs a fresh time.
+            self.cancelled_at = None
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+        return super().save(*args, **kwargs)
 
     @property
     def can_make_connections(self):

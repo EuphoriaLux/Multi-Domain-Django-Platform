@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Prefetch, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -1268,12 +1268,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         email_limit = max(
             1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
         )
+        affected_registration = Q(
+            status__in=("pending", "confirmed", "waitlist", "attended")
+        ) | Q(issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED)
         candidates = list(
             EventRegistration.objects.filter(
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
-                issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
             )
+            .filter(affected_registration)
             .select_related("event", "user")
             .prefetch_related(
                 Prefetch(
@@ -1292,15 +1295,18 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             # filtering on mutable credit status; registration rows can be
             # reused and therefore carry older cancellation awards too.
             all_credits = registration.organiser_cancellation_credits
-            latest_credit = all_credits[-1]
-            if latest_credit.source_payment_id:
-                current_credits = [
-                    credit
-                    for credit in all_credits
-                    if credit.source_payment_id == latest_credit.source_payment_id
-                ]
+            if all_credits:
+                latest_credit = all_credits[-1]
+                if latest_credit.source_payment_id:
+                    current_credits = [
+                        credit
+                        for credit in all_credits
+                        if credit.source_payment_id == latest_credit.source_payment_id
+                    ]
+                else:
+                    current_credits = [latest_credit]
             else:
-                current_credits = [latest_credit]
+                current_credits = []
             try:
                 emailed += bool(
                     send_event_cancelled_by_organiser(
@@ -1326,8 +1332,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             EventRegistration.objects.filter(
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
-                issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
             )
+            .filter(affected_registration)
             .distinct()
             .count()
         )
@@ -1710,7 +1716,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         "event__title",
     )
     autocomplete_fields = ["user", "event"]
-    readonly_fields = ("registered_at", "updated_at")
+    readonly_fields = ("registered_at", "updated_at", "cancelled_at")
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
     actions = ["export_registrations_csv", "confirm_registrations", "move_to_waitlist"]
@@ -1727,7 +1733,10 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             },
         ),
         ("Payment", {"fields": ("payment_confirmed", "payment_date")}),
-        ("Timestamps", {"fields": ("registered_at", "updated_at")}),
+        (
+            "Timestamps",
+            {"fields": ("registered_at", "cancelled_at", "updated_at")},
+        ),
     )
 
     def save_model(self, request, obj, form, change):
@@ -1738,6 +1747,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # rows (mirrors the CrushConnect / PremiumMembership admins).
         promoted = False
         payment_changed = "payment_confirmed" in form.changed_data
+        confirmed_payment_date = obj.payment_date
         if payment_changed:
             if obj.payment_confirmed:
                 obj.payment_date = obj.payment_date or timezone.now()
@@ -1766,25 +1776,31 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # before touching registrations, preserving the global
             # PaymentTransaction -> EventRegistration lock order.
             if payment_changed and not obj.payment_confirmed and obj.pk:
-                latest_manual = (
+                current_payment = (
                     PaymentTransaction.objects.select_for_update()
                     .filter(
                         event_registration=obj,
-                        provider=PaymentTransaction.Provider.MANUAL,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
                         status=PaymentTransaction.Status.PAID,
                     )
-                    .order_by("-created_at")
+                    .order_by("-paid_at", "-created_at", "-pk")
                     .first()
                 )
-                if latest_manual:
+                if (
+                    current_payment
+                    and current_payment.provider == PaymentTransaction.Provider.MANUAL
+                    and current_payment.paid_at == confirmed_payment_date
+                ):
                     # Older MANUAL captures belong to completed registration
-                    # cycles and remain historical revenue. The checkbox only
-                    # corrects the newest cycle represented by the mutable row.
-                    latest_manual.status = PaymentTransaction.Status.CANCELLED
-                    latest_manual.failure_reason = (
+                    # cycles and remain historical revenue. Reverse only the
+                    # manual receipt whose immutable paid_at matches the
+                    # mutable confirmation being unchecked; a newer SumUp or
+                    # Credit capture means the old manual row is not this cycle.
+                    current_payment.status = PaymentTransaction.Status.CANCELLED
+                    current_payment.failure_reason = (
                         "Manual payment confirmation removed by staff."
                     )
-                    latest_manual.save(
+                    current_payment.save(
                         update_fields=["status", "failure_reason", "updated_at"]
                     )
 

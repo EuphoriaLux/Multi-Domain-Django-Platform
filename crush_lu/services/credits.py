@@ -425,7 +425,11 @@ def issue_cancellation_credits(registration, *, moment=None):
     if amount_cents <= 0:
         return []
 
-    if is_late_cancellation(registration.event, moment):
+    # A SumUp callback can arrive hours or days after the member released the
+    # seat. Classify the policy at that durable cancellation time, never at the
+    # callback/reconciliation time.
+    policy_moment = moment or getattr(registration, "cancelled_at", None)
+    if is_late_cancellation(registration.event, policy_moment):
         logger.info(
             "Registration %s cancelled inside the late window — no credit now; "
             "50%% follows if the replacement pays before the event starts.",

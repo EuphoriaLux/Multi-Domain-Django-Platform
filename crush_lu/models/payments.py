@@ -95,9 +95,9 @@ class PaymentTransaction(models.Model):
     )
     event = models.ForeignKey(
         "crush_lu.MeetupEvent",
-        # Captured payments are immutable event revenue. Protect the event row
-        # just as ``user`` protects the payer: deleting or merging the mutable
-        # registration must never erase what the payment bought.
+        # Captured payments are immutable event revenue. Only PAID/REFUNDED
+        # rows receive this relation (see save), so an abandoned checkout does
+        # not prevent stock-admin event deletion.
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -145,7 +145,11 @@ class PaymentTransaction(models.Model):
 
     def save(self, *args, **kwargs):
         """Stamp the event and paid transition, including update_fields saves."""
-        if self.event_id is None and self.event_registration_id:
+        if (
+            self.event_id is None
+            and self.event_registration_id
+            and self.status in (self.Status.PAID, self.Status.REFUNDED)
+        ):
             self.event_id = self.event_registration.event_id
             update_fields = kwargs.get("update_fields")
             if update_fields is not None:

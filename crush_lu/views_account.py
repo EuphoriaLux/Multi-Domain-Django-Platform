@@ -1374,16 +1374,26 @@ def export_user_data(request):
         for credit in credit_rows:
             redemptions = list(credit.redemptions.all())
             redeemed_cents = sum(item.amount_cents for item in redemptions)
+            effectively_expired = (
+                credit.status == CrushCredit.Status.ACTIVE
+                and credit.expires_at <= now
+            )
             exported_credits.append(
                 {
                     "amount": format_cents(credit.amount_cents),
                     "currency": credit.currency,
                     "reason": credit.get_reason_display(),
-                    "status": credit.get_status_display(),
+                    "status": (
+                        str(CrushCredit.Status.EXPIRED.label)
+                        if effectively_expired
+                        else credit.get_status_display()
+                    ),
                     "issued_at": credit.issued_at.isoformat(),
                     "expires_at": credit.expires_at.isoformat(),
                     "remaining": format_cents(
-                        max(0, credit.amount_cents - redeemed_cents)
+                        0
+                        if effectively_expired
+                        else max(0, credit.amount_cents - redeemed_cents)
                     ),
                     # The EFFECTIVE answer, not the issuance flag. Once any of the
                     # credit is spent — or it expires, or is voided after a cash

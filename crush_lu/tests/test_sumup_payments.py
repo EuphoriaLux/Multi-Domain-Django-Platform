@@ -1081,15 +1081,19 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
 
     def test_early_capture_after_member_cancellation_issues_credit_not_a_seat(self):
-        """A delayed capture gets the normal remedy without restoring the seat."""
+        """The remedy is fixed when the seat was released, not at capture."""
         from crush_lu.views_payments import _apply_paid_checkout
 
         tx = self._tx("CANCELREG")
-        self.event.date_time = timezone.now() + timezone.timedelta(days=4)
-        self.event.registration_deadline = timezone.now() + timezone.timedelta(days=3)
-        self.event.save(update_fields=["date_time", "registration_deadline"])
         self.registration.status = "cancelled"
         self.registration.save()
+        # The event is two days away when SumUp calls back, but it was four
+        # days away when the member cancelled. A callback-time classification
+        # would wrongly turn this full remedy into a contingent resale claim.
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            cancelled_at=timezone.now() - timezone.timedelta(days=2)
+        )
+        self.registration.refresh_from_db()
 
         with self.captureOnCommitCallbacks(execute=True):
             _apply_paid_checkout(tx, {"status": "PAID"})
