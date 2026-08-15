@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -213,26 +214,6 @@ def _evaluate_lobby_participation(registration):
             "Event lobby participation evaluation failed for registration %s",
             registration.id,
         )
-
-
-def _auto_verify_on_attendance(request, registration, now):
-    """Verify a `pending` profile because a coach checked them in at the door.
-
-    Attending the event *is* the verification for the ordinary walk-in, so the
-    coach should not have to tap a second button. Two deliberate exceptions keep
-    their own explicit action (the Verify button stays visible for exactly
-    these):
-
-    * **Premium members** — the "only their own coach may verify" rule is
-      intentional for paying members, so it is left to that coach.
-    * **Profiles with no photo** — since the fast-track change (PR #650) a
-      member can complete their profile without one, and a scan cannot confirm
-      an identity there is nothing on screen to compare. Verification would be
-      asserting something nobody checked.
-
-    Returns the verified profile (so the caller can run the side effects once
-    the transaction commits), or ``None``.
-    """
 
 
 def _attest_and_record_photo(
@@ -743,18 +724,12 @@ def coach_mark_verified(request, event_id, registration_id):
         # This explicit coach action attests the photo even when member-level
         # identity was already verified through LuxID. The method remains the
         # first verification path; the photo key is a separate, versioned fact.
-        attested = profile.mark_current_photo_verified(
-            verified_at=now,
+        _attest_and_record_photo(
+            profile,
+            registration,
+            now,
             allowed_statuses=("incomplete", "pending", "rejected", "verified"),
         )
-        if attested:
-            attested_key = getattr(profile.photo_1, "name", "") or ""
-            registration.checkin_attested_photo_key = attested_key
-            registration.checkin_attested_photo_at = profile.photo_verified_at
-            EventRegistration.objects.filter(pk=registration.pk).update(
-                checkin_attested_photo_key=attested_key,
-                checkin_attested_photo_at=profile.photo_verified_at,
-            )
 
         if already_verified:
             return JsonResponse(
@@ -1055,16 +1030,25 @@ def coach_undo_checkin(request, event_id, registration_id):
             )
 
         # Revoke auto-verification if this check-in was what verified the profile,
-        # unless independent current proof (e.g. connected LuxID or another attended event) supersedes it.
+        # unless independent current proof (e.g. connected LuxID or another coach-authenticated attended event) supersedes it.
         if (
             registration.checkin_auto_verified
             and profile is not None
             and profile.verification_method == "coach_event"
         ):
-            has_other_attendance = (
+            has_other_coach_attendance = (
                 EventRegistration.objects.filter(
                     user_id=profile.user_id,
                     status="attended",
+                )
+                .filter(
+                    Q(checkin_granted_coach_id__isnull=False)
+                    | ~Q(checkin_attested_photo_key="")
+                    | (
+                        Q(event__coaches=profile.assigned_coach)
+                        if profile.assigned_coach_id
+                        else Q()
+                    )
                 )
                 .exclude(pk=registration.pk)
                 .exists()
@@ -1077,21 +1061,22 @@ def coach_undo_checkin(request, event_id, registration_id):
                 ).update(
                     verification_method="luxid",
                 )
-            elif not has_other_attendance:
-                transition_unverified_profile(
+            elif not has_other_coach_attendance:
+                demoted = transition_unverified_profile(
                     profile,
                     target_status="pending",
                     transition_from=("verified",),
                 )
-                try:
-                    from .referrals import revoke_profile_approved_reward
+                if demoted:
+                    try:
+                        from .referrals import revoke_profile_approved_reward
 
-                    revoke_profile_approved_reward(profile)
-                except Exception:
-                    logger.warning(
-                        "Could not revoke referral reward on checkin undo for %s",
-                        profile.pk,
-                    )
+                        revoke_profile_approved_reward(profile)
+                    except Exception:
+                        logger.warning(
+                            "Could not revoke referral reward on checkin undo for %s",
+                            profile.pk,
+                        )
 
         # Back to whatever the row actually held. A promoted walk-up returns to
         # the waitlist: undoing a mistaken promotion must not leave them

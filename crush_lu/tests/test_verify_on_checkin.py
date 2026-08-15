@@ -711,6 +711,7 @@ def test_undo_checkin_preserves_verification_if_other_event_attended(
         user=profile.user,
         event=other_event,
         status="attended",
+        checkin_granted_coach=coach,
     )
 
     assert _scan(reg, event, as_coach=coach).status_code == 200
@@ -826,3 +827,102 @@ def test_reprocess_photos_updates_registration_provenance_for_undo(
     assert profile.is_photo_verified is False
     assert profile.photo_verification_key == ""
     assert profile.verification_status == "pending"
+
+
+def test_undo_checkin_unauthenticated_attendance_does_not_preserve_verification(
+    event, coach, client
+):
+    """An unauthenticated self-scanned attended registration without coach provenance
+    does not preserve profile verification when the coach check-in is undone."""
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+
+    other_event = MeetupEvent.objects.create(
+        title="Self Scan Event",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() - timedelta(days=7),
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=8),
+        is_published=True,
+    )
+    profile, reg = _attendee(event, "unauthattendee")
+    # Registration with status='attended' but no coach provenance
+    EventRegistration.objects.create(
+        user=profile.user,
+        event=other_event,
+        status="attended",
+        checkin_granted_coach=None,
+        checkin_attested_photo_key="",
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # Coach undoes the verified check-in
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+    assert profile.verification_method == ""
+
+
+def test_undo_checkin_spent_referral_points_does_not_underflow(event, coach, client):
+    """If a referrer spent their bonus points before the undo, referral points do not go negative."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+    from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+    referrer_user = get_user_model().objects.create_user(
+        username="spent_referrer", email="spent@example.com"
+    )
+    referrer_prof = CrushProfile.objects.create(user=referrer_user, referral_points=0)
+    ref_code = ReferralCode.objects.create(code="SPENTREF", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "spentattendee")
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_points=100,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    check_and_apply_profile_approved_reward(profile)
+    attribution.refresh_from_db()
+    referrer_prof.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 50
+
+    # Referrer spends points before undo
+    referrer_prof.referral_points = 10
+    referrer_prof.save(update_fields=["referral_points"])
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 100
+    assert referrer_prof.referral_points == 0  # Deducted 10, did not underflow to -40

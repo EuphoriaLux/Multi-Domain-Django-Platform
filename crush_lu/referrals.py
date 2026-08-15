@@ -405,26 +405,36 @@ def check_and_apply_profile_approved_reward(profile):
 
 def revoke_profile_approved_reward(profile):
     """Reverses the profile_approved bonus points if an auto-verification is undone."""
-    attribution = ReferralAttribution.objects.filter(
-        referred_user=profile.user,
-        status=ReferralAttribution.Status.CONVERTED,
-    ).first()
-    if not attribution:
-        return None
-
     signup_points = getattr(settings, "REFERRAL_POINTS_PER_SIGNUP", 100)
     bonus_points = getattr(settings, "REFERRAL_POINTS_PER_PROFILE_APPROVED", 50)
 
-    if attribution.reward_points < signup_points + bonus_points:
-        return None
-
     with transaction.atomic():
+        attribution = (
+            ReferralAttribution.objects.select_for_update()
+            .filter(
+                referred_user=profile.user,
+                status=ReferralAttribution.Status.CONVERTED,
+            )
+            .first()
+        )
+        if not attribution:
+            return None
+
+        if attribution.reward_points < signup_points + bonus_points:
+            return None
+
+        referrer = CrushProfile.objects.select_for_update().get(
+            pk=attribution.referrer_id
+        )
+
         attribution.reward_points = F("reward_points") - bonus_points
         attribution.save(update_fields=["reward_points"])
 
-        CrushProfile.objects.filter(pk=attribution.referrer_id).update(
-            referral_points=F("referral_points") - bonus_points
-        )
+        points_to_deduct = min(referrer.referral_points, bonus_points)
+        if points_to_deduct > 0:
+            CrushProfile.objects.filter(pk=referrer.pk).update(
+                referral_points=F("referral_points") - points_to_deduct
+            )
 
         attribution.refresh_from_db()
         attribution.referrer.refresh_from_db()
