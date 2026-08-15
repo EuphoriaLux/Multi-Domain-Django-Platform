@@ -1853,6 +1853,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 locked_obj = EventRegistration.objects.select_related(
                     "event", "user", "resale_beneficiary"
                 ).get(pk=obj.pk)
+                previous_locked_obj = locked_registrations.get(locked_obj.pk)
+                cancellation_signal_owns = bool(
+                    previous_locked_obj is not None
+                    and previous_locked_obj.status != "cancelled"
+                    and locked_obj.status == "cancelled"
+                )
                 source = locked_registrations.get(
                     locked_obj.resale_source_registration_id
                 )
@@ -1887,6 +1893,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     locked_obj.status == "cancelled"
                     and not locked_obj.event.is_cancelled
                     and payment is not None
+                    # A status -> cancelled transition schedules the canonical
+                    # post-save cancellation callback in signals.py. That
+                    # callback sees this MANUAL capture after commit and owns
+                    # promotion, compensation and the one member email. This
+                    # admin branch is only for recording money on a row that
+                    # was already cancelled, where no status signal fires.
+                    and not cancellation_signal_owns
                 ):
                     from crush_lu.views_payments import (
                         _send_member_cancellation_safely,

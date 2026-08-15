@@ -41,6 +41,7 @@ from crush_lu.notification_service import (
     notify_profile_rejected,
     notify_profile_revision,
 )
+from crush_lu.admin.credits import issue_goodwill_credit
 from .filters import (
     ReviewTimeFilter,
     SubmissionWorkflowFilter,
@@ -506,6 +507,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
         "draft_expires_at",
     )
     actions = [
+        issue_goodwill_credit,
         "promote_to_coach",
         "approve_profiles",
         "deactivate_profiles",

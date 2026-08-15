@@ -742,6 +742,35 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=MeetupEvent)
+def reset_cancellation_notifications_on_restore(sender, instance, created, **kwargs):
+    """Make a later cancellation notify every attendee again.
+
+    The delivery cursor belongs to one organiser-cancellation cycle. Paid
+    registrations often get it reset while a new remedy is issued, but free,
+    unpaid and waitlisted rows have no credit lifecycle to do that for them.
+    Restoring the event is the boundary that invalidates every old cursor.
+    """
+    if created or instance.is_cancelled:
+        return
+    previous = getattr(instance, "_previous_ticket_fields", None)
+    if not previous or not previous.get("is_cancelled"):
+        return
+
+    cleared = (
+        EventRegistration.objects.filter(event=instance)
+        .exclude(organiser_cancellation_notified_at__isnull=True)
+        .update(organiser_cancellation_notified_at=None)
+    )
+    if cleared:
+        logger.info(
+            "Event %s restored; cleared organiser-cancellation notification "
+            "markers on %s registration(s)",
+            instance.pk,
+            cleared,
+        )
+
+
+@receiver(post_save, sender=MeetupEvent)
 def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     """Refresh installed wallet passes when the EVENT itself changes.
 

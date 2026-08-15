@@ -449,7 +449,11 @@ def issue_goodwill_credit(modeladmin, request, queryset):
     if not modeladmin.has_change_permission(request):
         raise PermissionDenied
 
-    users = list(queryset)
+    selected = list(queryset)
+    # The action is exposed on both the hidden autocomplete-only User admin
+    # and the visible CrushProfile member list. Keep the money workflow in one
+    # function while mapping profile rows to their owning users.
+    users = [getattr(row, "user", row) for row in selected]
     if "cancel" in request.POST:
         # Returning None sends the admin back to the changelist having done
         # nothing, which is what the Cancel button has to mean on a page whose
@@ -509,7 +513,10 @@ def issue_goodwill_credit(modeladmin, request, queryset):
             "users": users,
             "form": form,
             "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
-            "queryset": queryset,
+            # Preserve the selected model rows for Django's action checkbox
+            # round-trip. On CrushProfileAdmin these ids are profile ids even
+            # though the displayed/credited objects above are users.
+            "queryset": selected,
             "opts": modeladmin.model._meta,
             "media": modeladmin.media + form.media,
         },

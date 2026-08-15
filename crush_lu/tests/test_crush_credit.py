@@ -1199,7 +1199,7 @@ class CreditAdminSurfaceTests(CreditFixture):
         self.assertEqual(derived, 1500)
 
 
-def _admin_request(user):
+def _admin_request(user, data=None):
     """A request an admin action can call ``message_user`` on.
 
     ``message_user`` goes through the real messages framework, so the request
@@ -1209,7 +1209,7 @@ def _admin_request(user):
     from django.contrib.messages.storage.fallback import FallbackStorage
     from django.test import RequestFactory
 
-    request = RequestFactory().post("/crush-admin/")
+    request = RequestFactory().post("/crush-admin/", data=data or {})
     request.user = user
     request.session = {}
     request._messages = FallbackStorage(request)
@@ -1860,6 +1860,107 @@ class FinalReviewRegressionTests(CreditFixture):
             self.assertIsNotNone(
                 registration.organiser_cancellation_notified_at
             )
+
+    def test_combined_admin_cancel_and_manual_payment_sends_one_credit_email(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._registration(event, self.user, status="pending")
+        registration.status = "cancelled"
+        registration.payment_confirmed = True
+        staff = self._user("combined-cancel-payment@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        form = type(
+            "F", (), {"changed_data": ["status", "payment_confirmed"]}
+        )()
+        mail.outbox.clear()
+
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        with self.captureOnCommitCallbacks(execute=True):
+            admin_obj.save_model(
+                _admin_request(staff), registration, form, change=True
+            )
+
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.amount_cents, FEE_CENTS)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("We've added 15.50 EUR", mail.outbox[0].body)
+        self.assertNotIn("No payment was recorded", mail.outbox[0].body)
+
+    def test_goodwill_action_is_visible_and_works_on_the_profile_list(self):
+        from crush_lu.admin.profiles import CrushProfileAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        staff = self._user("visible-goodwill-admin@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        request = _admin_request(
+            staff,
+            {
+                "apply": "1",
+                "amount_eur": "12.34",
+                "reason": "Service recovery for a cancelled venue booking.",
+            },
+        )
+        admin_obj = CrushProfileAdmin(CrushProfile, crush_admin_site)
+
+        actions = admin_obj.get_actions(request)
+        self.assertIn("issue_goodwill_credit", actions)
+        action = actions["issue_goodwill_credit"][0]
+        response = action(
+            admin_obj,
+            request,
+            CrushProfile.objects.filter(user=self.user),
+        )
+
+        self.assertIsNone(response)
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.GOODWILL)
+        self.assertEqual(credit.amount_cents, 1234)
+
+    def test_restoring_event_resets_free_attendee_cancellation_cursor(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        event = self._event(
+            hours_away=96,
+            fee=Decimal("0.00"),
+            max_participants=5,
+        )
+        registration = self._registration(event, self.user, status="confirmed")
+        staff = self._user("restore-event-organiser@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        admin_obj = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        request = _admin_request(staff)
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+        registration.refresh_from_db()
+        self.assertIsNotNone(registration.organiser_cancellation_notified_at)
+
+        event.refresh_from_db()
+        event.is_cancelled = False
+        event.save(update_fields=["is_cancelled"])
+        registration.refresh_from_db()
+        self.assertIsNone(registration.organiser_cancellation_notified_at)
+        mail.outbox.clear()
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+
+        registration.refresh_from_db()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIsNotNone(registration.organiser_cancellation_notified_at)
 
     def test_resale_notice_uses_capture_after_the_event_fee_is_zeroed(self):
         event = self._event(hours_away=30, max_participants=5)
