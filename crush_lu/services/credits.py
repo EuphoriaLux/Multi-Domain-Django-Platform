@@ -30,6 +30,7 @@ reading, not by running. Two rules keep this module out of the cycle:
 
 import logging
 import uuid
+from datetime import timezone as dt_timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
@@ -37,6 +38,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.payments import PaymentTransaction
@@ -470,6 +472,69 @@ def issue_cancellation_credit(registration, *, moment=None):
     return credits[0] if credits else None
 
 
+def _replacement_capture_moment(promoted_registration):
+    """``(moment, payment)`` — when the replacement's money was CAPTURED.
+
+    Captures are allowed to PROCESS after door time (``_apply_paid_checkout``
+    handles a webhook or reconciliation sweep arriving hours late), so the
+    moment settlement code runs says nothing about when the member paid.
+    Evidence, in order of preference:
+
+    1. the latest SUCCESSFUL/PAID attempt's ``timestamp`` in the stored SumUp
+       checkout payload — the provider's own capture clock, and the only source
+       that survives a late webhook (``paid_at`` is stamped when *we* process
+       the capture, not when the card was charged);
+    2. ``paid_at`` — right for MANUAL captures, where staff backdate it via
+       ``payment_date``, and for rows processed promptly;
+    3. ``created_at`` — a capture always postdates its own row, so this can
+       only misclassify a payment as EARLIER, never later;
+    4. no attributable payment at all (legacy hand-confirmed rows): the
+       registration's own ``payment_date``, then ``timezone.now()``.
+
+    The payment is read **unlocked**, deliberately — attribution reads never
+    lock ``PaymentTransaction`` (see the module docstring).
+    """
+    payment = (
+        PaymentTransaction.objects.filter(
+            event_registration_id=promoted_registration.pk,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if payment is None:
+        return promoted_registration.payment_date or timezone.now(), None
+
+    # Defensive about shape throughout: this is a live provider payload.
+    raw = payment.raw_response if isinstance(payment.raw_response, dict) else {}
+    transactions = raw.get("transactions")
+    captured = []
+    if isinstance(transactions, list):
+        for attempt in transactions:
+            if not isinstance(attempt, dict):
+                continue
+            if (attempt.get("status") or "").upper() not in ("SUCCESSFUL", "PAID"):
+                continue
+            stamp = attempt.get("timestamp")
+            if not isinstance(stamp, str):
+                continue
+            try:
+                parsed = parse_datetime(stamp)
+            except ValueError:
+                continue
+            if parsed is None:
+                continue
+            if timezone.is_naive(parsed):
+                # SumUp stamps UTC; a payload that drops the offset still
+                # means UTC, not the server's local zone.
+                parsed = parsed.replace(tzinfo=dt_timezone.utc)
+            captured.append(parsed)
+    if captured:
+        return max(captured), payment
+    return payment.paid_at or payment.created_at, payment
+
+
 def maybe_issue_resale_credits(
     cancelled_registration,
     promoted_registration,
@@ -477,7 +542,14 @@ def maybe_issue_resale_credits(
     source_payment=None,
     beneficiary=None,
 ):
-    """Issue the resale share only after the replacement has actually paid."""
+    """Issue the resale share only after the replacement has actually paid.
+
+    Returns the credits issued. ``[]`` means nothing is due — the claim is
+    settled, void, or was never valid. ``None`` means the timing gate refused
+    but the obligation still stands: the caller must KEEP any durable
+    ``resale_source_*`` links so the claim stays discoverable and manually
+    settleable.
+    """
     if promoted_registration is None:
         return []
     if not promoted_registration.payment_confirmed:
@@ -491,9 +563,40 @@ def maybe_issue_resale_credits(
         return []
 
     event = promoted_registration.event
-    now = timezone.now()
-    if event.date_time <= now or not is_late_cancellation(event, now):
-        return []
+    # The clause is "a replacement PAYS before the event starts" — judged on
+    # when the money was CAPTURED, never on when this settlement code runs.
+    # Captures are allowed to process after door time, and the original
+    # canceller must not forfeit the 50% share to our own processing latency.
+    capture_moment, replacement_payment = _replacement_capture_moment(
+        promoted_registration
+    )
+    declined_reason = None
+    if event.date_time <= capture_moment:
+        declined_reason = "the replacement's payment was captured after the start"
+    elif not is_late_cancellation(event, timezone.now()):
+        # Still judged on the wall clock, on purpose: after the start this
+        # clause can never fire, so it only refuses BEFORE an event that is
+        # somehow more than the window away again — i.e. it was postponed
+        # after the late cancellation. The original payer may then be owed
+        # 100% against the new date, so refusing the smaller automatic share
+        # and keeping the claim for a human is the safe side.
+        declined_reason = "settlement ran outside the late-cancellation window"
+    if declined_reason is not None:
+        logger.warning(
+            "Resale share NOT issued: %s. Claim preserved for manual "
+            "settlement (source registration=%s, source payment=%s, "
+            "replacement registration=%s, replacement payment=%s, event=%s, "
+            "capture=%s, event start=%s).",
+            declined_reason,
+            getattr(cancelled_registration, "pk", None),
+            getattr(source_payment, "pk", None),
+            promoted_registration.pk,
+            getattr(replacement_payment, "pk", None),
+            event.pk,
+            capture_moment,
+            event.date_time,
+        )
+        return None
 
     if source_payment is not None:
         if (
@@ -547,6 +650,11 @@ def settle_pending_resale_credit(promoted_registration, *, source_registration=N
     superior organiser-cancellation remedy instead of the smaller resale share.
     ``resale_beneficiary`` keeps the obligation attached to the right person
     even if account merging removed the original registration row.
+
+    The ``resale_source_*`` links are cleared only when the claim was settled
+    (credit issued, or provably already issued) — a timing refusal from
+    :func:`maybe_issue_resale_credits` keeps them, because they are the only
+    record a human can still settle from.
     """
     source_id = promoted_registration.resale_source_registration_id
     payment_id = promoted_registration.resale_source_payment_id
@@ -626,6 +734,13 @@ def settle_pending_resale_credit(promoted_registration, *, source_registration=N
             promoted_registration.pk,
             payment_id,
         )
+
+    if issued is None:
+        # The timing gate refused, but the obligation is not void. Clearing
+        # the links here is what used to make a withheld share unfindable:
+        # nothing retries, so the ``resale_source_*`` fields are the only
+        # record staff can settle from. The gate has already logged a warning.
+        return []
 
     promoted_registration.resale_source_registration = None
     promoted_registration.resale_source_payment = None

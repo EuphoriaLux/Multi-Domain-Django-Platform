@@ -46,6 +46,7 @@ from crush_lu.services.credits import (
     issue_credit,
     maybe_issue_resale_credits,
     redeem_for_registration,
+    settle_pending_resale_credit,
 )
 
 User = get_user_model()
@@ -505,6 +506,132 @@ class ResaleClauseTests(CreditFixture):
             ),
             "the original attendee must hear when the promised share arrives",
         )
+
+    def _started_event_claim(self, email, *, raw_response, paid_at=None):
+        """A late-cancelled claim on an event that has since started.
+
+        The original cancelled inside the window while the event was still
+        ahead; by the time settlement runs, door time has passed. What the
+        replacement's capture evidence says is up to the caller.
+        """
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._paid_registration(event, self.user)
+        EventRegistration.objects.filter(pk=original.pk).update(
+            status="cancelled", cancelled_at=timezone.now()
+        )
+        replacement_user = self._user(email)
+        replacement = EventRegistration.objects.create(
+            event=event,
+            user=replacement_user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+            resale_source_registration_id=original.pk,
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-late-settle-{replacement.pk}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK-LATE-SETTLE-{replacement.pk}",
+            amount=event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=replacement_user,
+            event_registration=replacement,
+            paid_at=paid_at,
+            raw_response=raw_response,
+        )
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=5)
+        )
+        # Re-fetch rather than refresh: refresh_from_db keeps the cached
+        # ``event`` relation holding the pre-update start time, and the gate
+        # reads ``date_time`` through that relation.
+        original = EventRegistration.objects.get(pk=original.pk)
+        replacement = EventRegistration.objects.get(pk=replacement.pk)
+        return event, original, replacement
+
+    def test_a_capture_before_the_start_survives_settling_after_it(self):
+        """The gate judges the CAPTURE time, not when settlement code runs.
+
+        Captures are allowed to PROCESS after door time, so a replacement who
+        paid before the start must still earn the original late canceller the
+        50% share when the webhook lands late.
+        """
+        capture = timezone.now() - timedelta(minutes=30)
+        event, original, replacement = self._started_event_claim(
+            "late-webhook@crush.lu",
+            raw_response={
+                "status": "PAID",
+                "transactions": [
+                    {"status": "SUCCESSFUL", "timestamp": capture.isoformat()}
+                ],
+            },
+        )
+
+        issued = settle_pending_resale_credit(
+            replacement, source_registration=original
+        )
+
+        self.assertEqual(len(issued), 1)
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+        replacement.refresh_from_db()
+        self.assertIsNone(replacement.resale_source_registration_id)
+        original.refresh_from_db()
+        self.assertFalse(original.payment_confirmed)
+
+    def test_a_bare_payload_falls_back_to_paid_at_for_the_capture_time(self):
+        """Without provider timestamps, ``paid_at`` is the next best evidence."""
+        event, original, replacement = self._started_event_claim(
+            "late-manual-entry@crush.lu",
+            raw_response={"status": "PAID"},
+            paid_at=timezone.now() - timedelta(minutes=30),
+        )
+
+        issued = settle_pending_resale_credit(
+            replacement, source_registration=original
+        )
+
+        self.assertEqual(len(issued), 1)
+        self.assertEqual(
+            self._credits(self.user).get().amount_cents, FEE_CENTS // 2
+        )
+
+    def test_a_capture_after_the_start_keeps_the_claim_discoverable(self):
+        """A genuinely-late capture earns nothing, but must stay findable.
+
+        Clearing the ``resale_source_*`` links on refusal erased the
+        obligation: nothing retried, and staff had nothing left to settle
+        from in the admin.
+        """
+        capture = timezone.now()
+        event, original, replacement = self._started_event_claim(
+            "after-door-capture@crush.lu",
+            raw_response={
+                "status": "PAID",
+                "transactions": [
+                    {"status": "SUCCESSFUL", "timestamp": capture.isoformat()}
+                ],
+            },
+        )
+
+        with self.assertLogs("crush_lu.services.credits", level="WARNING") as logs:
+            issued = settle_pending_resale_credit(
+                replacement, source_registration=original
+            )
+
+        self.assertEqual(issued, [])
+        self.assertEqual(self._credits(self.user).count(), 0)
+        replacement.refresh_from_db()
+        self.assertEqual(replacement.resale_source_registration_id, original.pk)
+        original.refresh_from_db()
+        self.assertTrue(original.payment_confirmed)
+        joined = "\n".join(logs.output)
+        self.assertIn("preserved", joined)
+        self.assertIn(f"replacement registration={replacement.pk}", joined)
+        self.assertIn(f"event={event.pk}", joined)
 
 
 # ---------------------------------------------------------------------------
@@ -2417,6 +2544,114 @@ class FinalReviewRegressionTests(CreditFixture):
                 for message in mail.outbox
             )
         )
+
+    def _open_checkout(self, registration, checkout_id):
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-{checkout_id}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=checkout_id,
+            amount=registration.event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=registration.user,
+            event_registration=registration,
+        )
+
+    def test_manual_confirmation_first_closes_every_open_sumup_checkout(self):
+        """Recording cash must kill the member's still-payable card widget.
+
+        Without the supersede, the open checkout captures after staff
+        confirms, and _apply_paid_checkout's idempotency guard skips the
+        already-confirmed seat silently — a double charge with no log, on a
+        platform where refunds are manual-only.
+        """
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._registration(event, self.user, status="pending")
+        first = self._open_checkout(registration, "CHK-OPEN-WIDGET-1")
+        second = self._open_checkout(registration, "CHK-OPEN-WIDGET-2")
+        registration.payment_confirmed = True
+        staff = self._user("cash-supersede-coach@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.deactivate_checkout",
+            return_value=True,
+        ) as deactivate:
+            with self.captureOnCommitCallbacks(execute=True):
+                admin_obj.save_model(
+                    _admin_request(staff), registration, form, change=True
+                )
+
+        self.assertEqual(
+            {call.args[0] for call in deactivate.call_args_list},
+            {"CHK-OPEN-WIDGET-1", "CHK-OPEN-WIDGET-2"},
+        )
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(second.status, PaymentTransaction.Status.CANCELLED)
+        manual = registration.payment_transactions.get(
+            provider=PaymentTransaction.Provider.MANUAL
+        )
+        self.assertEqual(manual.status, PaymentTransaction.Status.PAID)
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+        self.assertTrue(registration.payment_confirmed)
+
+    def test_manual_confirmation_is_refused_when_a_checkout_will_not_close(self):
+        """deactivate_checkout returning False can mean the card JUST paid.
+
+        Recording the cash anyway is the double charge, so the whole save is
+        refused: no MANUAL row, the registration untouched, the checkout left
+        PENDING for reconciliation, and staff told why.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages import ERROR
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._registration(event, self.user, status="pending")
+        open_tx = self._open_checkout(registration, "CHK-STUCK-WIDGET")
+        registration.payment_confirmed = True
+        staff = self._user("cash-refusal-coach@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = _admin_request(staff)
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        mail.outbox.clear()
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.deactivate_checkout",
+            return_value=False,
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                admin_obj.save_model(request, registration, form, change=True)
+
+        registration = EventRegistration.objects.get(pk=registration.pk)
+        self.assertFalse(registration.payment_confirmed)
+        self.assertIsNone(registration.payment_date)
+        self.assertEqual(registration.status, "pending")
+        self.assertFalse(
+            registration.payment_transactions.filter(
+                provider=PaymentTransaction.Provider.MANUAL
+            ).exists()
+        )
+        open_tx.refresh_from_db()
+        self.assertEqual(open_tx.status, PaymentTransaction.Status.PENDING)
+        errors = [m for m in request._messages if m.level == ERROR]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("could not be closed", str(errors[0]))
+        self.assertEqual(mail.outbox, [], "no confirmation email for a refused save")
 
     def test_manual_payment_creates_a_new_capture_for_a_reused_registration(self):
         from django.contrib.admin.sites import AdminSite

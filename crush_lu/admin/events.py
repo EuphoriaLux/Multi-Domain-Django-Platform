@@ -1821,6 +1821,89 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                         update_fields=["status", "failure_reason", "updated_at"]
                     )
 
+            # Confirming by hand does not close the member's still-open SumUp
+            # widget, and refunds on this platform are manual-only: staff
+            # records the cash, the open checkout then captures, and
+            # _apply_paid_checkout's idempotency guard skips an
+            # already-confirmed seat silently — the member has paid twice with
+            # no log and no alert. So every PENDING checkout is deactivated at
+            # SumUp BEFORE the MANUAL capture exists, in the same
+            # PaymentTransaction-before-EventRegistration lock order as the
+            # supersede loop in create_sumup_event_checkout.
+            if payment_changed and obj.payment_confirmed and obj.pk:
+                open_checkouts = list(
+                    PaymentTransaction.objects.select_for_update()
+                    .filter(
+                        event_registration_id=obj.pk,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        status=PaymentTransaction.Status.PENDING,
+                    )
+                    .exclude(sumup_checkout_id="")
+                )
+                all_closed = True
+                if open_checkouts:
+                    from crush_lu.services.sumup import SumUpClient
+
+                    client = SumUpClient()
+                    for open_tx in open_checkouts:
+                        if client.deactivate_checkout(open_tx.sumup_checkout_id):
+                            open_tx.status = PaymentTransaction.Status.CANCELLED
+                            # Deliberately not translated: this field is read
+                            # in the Coach Panel, which is forced to English.
+                            open_tx.failure_reason = (
+                                "Superseded by a manual payment confirmation — "
+                                "staff recorded the money out of band (cash or "
+                                "bank transfer), so this checkout was "
+                                "deactivated at SumUp before any card was "
+                                "charged."
+                            )
+                            open_tx.save(
+                                update_fields=[
+                                    "status",
+                                    "failure_reason",
+                                    "updated_at",
+                                ]
+                            )
+                            logger.info(
+                                "Deactivated SumUp checkout %s before manual "
+                                "payment confirmation of registration %s",
+                                open_tx.sumup_checkout_id,
+                                obj.pk,
+                            )
+                        else:
+                            # SumUp unreachable, or the checkout was just PAID
+                            # and can no longer be cancelled. Leave the row
+                            # PENDING — marking it terminal would hide a
+                            # captured card payment from the webhook and the
+                            # reconciliation sweep.
+                            all_closed = False
+                            logger.warning(
+                                "Could not deactivate SumUp checkout %s for "
+                                "registration %s — manual payment confirmation "
+                                "refused",
+                                open_tx.sumup_checkout_id,
+                                obj.pk,
+                            )
+                if not all_closed:
+                    # Refuse the whole save: a MANUAL capture beside a still
+                    # payable card checkout IS the double charge. Returning
+                    # before super().save_model() leaves the registration row
+                    # untouched; checkouts deactivated above stay CANCELLED,
+                    # which mirrors what is now true at SumUp.
+                    self.message_user(
+                        request,
+                        _(
+                            "NOT saved: this member still has an open SumUp "
+                            "card checkout that could not be closed (SumUp "
+                            "unreachable, or the card payment just went "
+                            "through). Confirming by hand now could charge "
+                            "them twice. Check the payment transactions for "
+                            "this registration and try again."
+                        ),
+                        level=django_messages.ERROR,
+                    )
+                    return
+
             lock_ids = [obj.pk] if obj.pk else []
             if obj.resale_source_registration_id:
                 lock_ids.append(obj.resale_source_registration_id)
