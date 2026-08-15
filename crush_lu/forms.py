@@ -428,11 +428,11 @@ class CrushProfileForm(forms.ModelForm):
             )
 
         # Check file extension
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp']
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']
         ext = os.path.splitext(photo.name)[1].lower()
         if ext not in allowed_extensions:
             raise ValidationError(
-                f"{field_name} must be a JPEG, PNG, or WebP image. You uploaded: {ext}"
+                f"{field_name} must be a JPEG, PNG, WebP, or HEIC image. You uploaded: {ext}"
             )
 
         # Verify MIME type matches actual content (prevents disguised malicious files)
@@ -443,13 +443,20 @@ class CrushProfileForm(forms.ModelForm):
             photo.seek(0)  # Reset file pointer
 
             mime = magic.from_buffer(file_header, mime=True)
-            allowed_mimes = ['image/jpeg', 'image/png', 'image/webp']
+            allowed_mimes = [
+                'image/jpeg', 'image/png', 'image/webp',
+                'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
+                'image/x-heic', 'image/x-heif',
+            ]
 
             if mime not in allowed_mimes:
-                raise ValidationError(
-                    f"{field_name} content type ({mime}) does not match allowed image types. "
-                    f"Please upload a genuine JPEG, PNG, or WebP image."
-                )
+                # Some older libmagic versions detect HEIC/HEIF as generic application/octet-stream.
+                # Allow it if the extension is .heic/.heif; Pillow verify() below strictly validates.
+                if not (mime == 'application/octet-stream' and ext in ('.heic', '.heif')):
+                    raise ValidationError(
+                        f"{field_name} content type ({mime}) does not match allowed image types. "
+                        f"Please upload a genuine JPEG, PNG, WebP, or HEIC image."
+                    )
         except ImportError:
             # python-magic not installed, skip MIME check
             # This allows graceful degradation in development

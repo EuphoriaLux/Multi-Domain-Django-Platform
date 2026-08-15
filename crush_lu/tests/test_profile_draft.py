@@ -266,3 +266,116 @@ class WizardResumePositionTests(_SiteMixin, TestCase):
     def test_incomplete_basics_resumes_on_step1(self):
         profile = self._profile(gender="")
         self.assertEqual(profile.wizard_step, 1)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class UploadPhotoDraftTests(_SiteMixin, TestCase):
+    """The wizard's upload-photo endpoint must handle HEIC uploads and gracefully reject corrupt files."""
+
+    def setUp(self):
+        self.client, self.user = _make_logged_in_client()
+
+    def test_upload_heic_photo_draft_success(self):
+        import io
+        import pillow_heif
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pillow_heif.register_heif_opener()
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (600, 600), color="purple").save(buffer, format="HEIF")
+        uploaded_heic = SimpleUploadedFile(
+            "1001177160.heic", buffer.getvalue(), content_type="image/heic"
+        )
+
+        response = self.client.post(
+            "/api/profile/draft/upload-photo/",
+            {"photo": uploaded_heic, "photo_number": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["photo_number"], 1)
+
+        profile = CrushProfile.objects.get(user=self.user)
+        self.assertTrue(profile.photo_1)
+        self.assertTrue(profile.photo_1.name.endswith(".jpg"))
+
+    def test_upload_corrupt_photo_draft_returns_400(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        corrupt_file = SimpleUploadedFile(
+            "fake.jpg", b"corrupt-non-image-data", content_type="image/jpeg"
+        )
+
+        response = self.client.post(
+            "/api/profile/draft/upload-photo/",
+            {"photo": corrupt_file, "photo_number": "1"},
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertIn("error", data)
+
+    def test_upload_truncated_photo_draft_returns_400(self):
+        """Interrupted/truncated upload with valid header must return 400, not 500."""
+        import io
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        buf = io.BytesIO()
+        Image.new("RGB", (300, 300), color="yellow").save(buf, format="JPEG")
+        truncated_bytes = buf.getvalue()[:250]
+
+        truncated_file = SimpleUploadedFile(
+            "broken.jpg", truncated_bytes, content_type="image/jpeg"
+        )
+
+        response = self.client.post(
+            "/api/profile/draft/upload-photo/",
+            {"photo": truncated_file, "photo_number": "1"},
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertIn("error", data)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class UploadProfilePhotoHtmxTests(_SiteMixin, TestCase):
+    """The HTMX upload-photo slot endpoint (/api/profile/upload-photo/<slot>/) must convert HEIC to JPEG."""
+
+    def setUp(self):
+        self.client, self.user = _make_logged_in_client()
+
+    def test_upload_heic_photo_slot_converts_to_jpeg(self):
+        import io
+        import pillow_heif
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pillow_heif.register_heif_opener()
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (500, 500), color="cyan").save(buffer, format="HEIF")
+        uploaded_heic = SimpleUploadedFile(
+            "my_avatar.heic", buffer.getvalue(), content_type="image/heic"
+        )
+
+        response = self.client.post(
+            "/api/profile/upload-photo/1/",
+            {"photo_1": uploaded_heic},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        profile = CrushProfile.objects.get(user=self.user)
+        self.assertTrue(profile.photo_1)
+        self.assertTrue(profile.photo_1.name.endswith(".jpg"))
+
+        # Verify the partial rendered without error
+        self.assertContains(response, "photo-preview")
+        self.assertNotContains(response, "Photo validation failed")
+
+
+
