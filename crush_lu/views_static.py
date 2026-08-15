@@ -232,16 +232,16 @@ def crush_connect_teaser(request):
                     # also requires being a selected tester; other Premium members
                     # fall through to the candidate catalogue below.
                     return redirect("crush_lu:crush_connect_home")
-                if onboarded and profile.has_luxid_connected:
-                    # Onboarded candidate (LuxID) → catalogue status.
+                if onboarded and profile.is_connect_identity_verified:
+                    # Onboarded candidate (LuxID or attended event) → catalogue status.
                     return redirect("crush_lu:crush_connect_catalogue_status")
-                if not onboarded and profile.has_luxid_connected:
-                    # Eligible to opt in (LuxID-first) → into the wizard.
+                if not onboarded and profile.is_connect_identity_verified:
+                    # Eligible to opt in (identity verified) → into the wizard.
                     return redirect("crush_lu:crush_connect_onboarding")
-                # Otherwise — a Premium/candidate member WITHOUT LuxID, or an
-                # onboarded member who unlinked it — fall through and render the
-                # teaser so they see the "Connect LuxID" CTA. Never redirect
-                # them, or they'd loop teaser ⇄ onboarding against the gate.
+                # Otherwise — a member WITHOUT verified identity (neither LuxID
+                # nor attended event) — fall through and render the teaser so they
+                # see the verification options (Connect LuxID or attend event).
+                # Never redirect them, or they'd loop teaser ⇄ onboarding against the gate.
 
     context = {
         "on_waitlist": False,
@@ -251,6 +251,8 @@ def crush_connect_teaser(request):
         "profile_approved": False,
         "is_premium": False,
         "has_luxid_connected": False,
+        "has_attended_event": False,
+        "is_identity_verified": False,
         "luxid_connect_url": None,
         "selected_as_tester": False,
         "tester_payment_confirmed": False,
@@ -273,8 +275,13 @@ def crush_connect_teaser(request):
         context["has_luxid_connected"] = bool(
             _profile and _profile.has_luxid_connected
         )
-        # LuxID is the entry requirement for opting into Crush Connect — offer a
-        # "Connect LuxID" CTA to approved members who haven't linked it yet.
+        context["has_attended_event"] = bool(
+            _profile and _profile.has_attended_event
+        )
+        context["is_identity_verified"] = bool(
+            _profile and _profile.is_connect_identity_verified
+        )
+        # Offer a "Connect LuxID" CTA to approved members who haven't verified identity yet.
         if context["profile_approved"] and not context["has_luxid_connected"]:
             from crush_lu.luxid import get_luxid_connect_url
 

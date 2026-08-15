@@ -303,15 +303,56 @@ def test_receiver_eligibility_requires_active_membership():
 
 
 @pytest.mark.django_db
-def test_pool_excludes_targets_without_luxid():
-    # LuxID is mandatory for the candidate catalogue — even premium members
-    # drop out of OTHERS' pools until they link LuxID.
+def test_pool_excludes_targets_without_luxid_and_without_events():
+    # Identity verification is mandatory for the candidate catalogue — members
+    # with neither LuxID nor attended in-person events drop out of pools.
     me = _make_user(username="me", preferred_genders=["F", "M"])
     no_luxid_premium = _make_user(username="noluxprem", premium=True, has_luxid=False)
     no_luxid_free = _make_user(username="noluxfree", premium=False, has_luxid=False)
     pool = get_eligible_pool(me)
     assert no_luxid_premium not in pool
     assert no_luxid_free not in pool
+
+
+@pytest.mark.django_db
+def test_pool_includes_attended_event_targets_without_luxid():
+    # Option B (Issue #539 / Task 4.2): Members without LuxID (e.g. cross-border commuters)
+    # qualify for the candidate catalogue once they have attended at least 1 in-person event.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    attended_target = _make_user(username="attended_nolux", premium=False, has_luxid=False)
+    _mark_attended(attended_target)
+    assert attended_target in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_excludes_unattended_event_targets_without_luxid():
+    # A registered, cancelled, or waitlisted event registration does NOT satisfy
+    # in-person identity verification.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    target = _make_user(username="unattended_nolux", premium=False, has_luxid=False)
+    event = _make_event(title="Some event")
+    EventRegistration.objects.create(user=target, event=event, status="registered")
+    assert target not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
+    from crush_lu.views_crush_connect import (
+        _user_is_connect_candidate_eligible,
+        _user_passes_pre_onboarding_gate,
+    )
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    user = _make_user(username="candidate_event", premium=False, has_luxid=False)
+    assert not _user_is_connect_candidate_eligible(user)
+    assert not _user_passes_pre_onboarding_gate(user)
+    assert not is_catalogue_eligible(user)
+
+    _mark_attended(user)
+    user.crushprofile.refresh_from_db()
+    assert _user_is_connect_candidate_eligible(user)
+    assert _user_passes_pre_onboarding_gate(user)
+    assert is_catalogue_eligible(user)
 
 
 @pytest.mark.django_db

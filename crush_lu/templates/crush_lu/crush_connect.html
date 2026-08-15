@@ -241,32 +241,49 @@
         </h2>
 
         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 space-y-4 animate-on-scroll">
-            <!-- LuxID verified (entry requirement) -->
+            <!-- Identity verification (entry requirement) -->
             <div class="flex items-center gap-3">
-                {% if has_luxid_connected %}
+                {% if is_identity_verified %}
                 <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
                     <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 </div>
-                <span class="text-gray-900 dark:text-white font-medium">{% trans "LuxID verified — you can join Crush Connect" %}</span>
+                <span class="text-gray-900 dark:text-white font-medium">
+                    {% if has_luxid_connected %}
+                        {% trans "LuxID verified — you can join Crush Connect" %}
+                    {% elif has_attended_event %}
+                        {% trans "Verified by event attendance — you can join Crush Connect" %}
+                    {% else %}
+                        {% trans "Identity verified — you can join Crush Connect" %}
+                    {% endif %}
+                </span>
                 {% else %}
                 <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
                 </div>
-                <span class="text-gray-500 dark:text-gray-400">{% trans "Connect LuxID to join Crush Connect" %}</span>
+                <span class="text-gray-500 dark:text-gray-400">{% trans "Verify your identity to join Crush Connect" %}</span>
                 {% endif %}
             </div>
 
-            {% if profile_approved and not has_luxid_connected and luxid_connect_url %}
-            <!-- LuxID is required before opting in — offer the connect CTA -->
-            <div class="rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 p-4">
-                <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                    {% trans "Crush Connect needs your LuxID verified first. It's free, takes a minute, and confirms you're a real person." %}
+            {% if profile_approved and not is_identity_verified %}
+            <!-- Verification is required before opting in — offer LuxID or Event Attendance CTAs -->
+            <div class="rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 p-4 space-y-3">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    {% trans "Crush Connect requires verified identity to keep matching safe and authentic. You can verify in two easy ways:" %}
                 </p>
-                <a href="{{ luxid_connect_url }}"
-                   class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-semibold transition-colors">
-                    {% trans "Connect LuxID" %}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                </a>
+                <div class="flex flex-col sm:flex-row gap-3 pt-1">
+                    {% if luxid_connect_url %}
+                    <a href="{{ luxid_connect_url }}"
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-sm font-semibold transition-colors">
+                        {% trans "Connect LuxID" %}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'crush_lu:event_list' %}"
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-300 text-sm font-semibold hover:bg-pink-100/50 dark:hover:bg-slate-700 transition-colors">
+                        {% trans "Attend an Event" %}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </a>
+                </div>
             </div>
             {% endif %}
 

@@ -1056,6 +1056,30 @@ class CrushProfile(models.Model):
         return native.exists() or oidc_token.exists()
 
     @property
+    def has_attended_event(self) -> bool:
+        """True when the user has attended at least one in-person event.
+
+        In-person attendance (confirmed by door/event coaches via EventRegistration.status='attended')
+        provides physical identity/age verification, serving as an alternative verification path
+        to LuxID for members without a Luxembourgish digital ID (Issue #539 / Task 4.2).
+        """
+        from .events import EventRegistration
+
+        return EventRegistration.objects.filter(
+            user_id=self.user_id, status="attended"
+        ).exists()
+
+    @property
+    def is_connect_identity_verified(self) -> bool:
+        """True when the user meets Crush Connect identity & age verification criteria.
+
+        Satisfied by:
+        1. LuxID connected (cryptographic government digital ID / DOB), OR
+        2. In-person event attendance (physically verified at door check-in by coaches).
+        """
+        return self.has_luxid_connected or self.has_attended_event
+
+    @property
     def has_active_premium(self) -> bool:
         """True when the user holds an ACTIVE ``PremiumMembership``.
 

@@ -177,7 +177,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     gender-preference step below — point lookups ("is X in the pool?") must use
     it, otherwise the whole pool is materialized just to check one row.
     """
-    from crush_lu.models import CrushProfile, EventConnection
+    from crush_lu.models import CrushProfile, EventConnection, EventRegistration
     from crush_lu.services.blocking import block_exists_subquery
 
     # --- Requester self-eligibility -----------------------------------------
@@ -218,14 +218,15 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         )
     )
 
-    # LuxID is mandatory for the candidate catalogue. SocialAccount is the
-    # authoritative store — verification_method only records the FIRST
-    # verification path, so coach-verified members who linked LuxID later
-    # would be missed by a method check. Generic openid_connect accounts only
-    # count when scoped to the LuxID SocialApp (the provider is shared with
-    # non-LuxID apps) — see CrushProfile.luxid_account_querysets.
+    # LuxID OR attended in-person event satisfies identity verification for the candidate
+    # catalogue (Option B / Issue #539). SocialAccount is the authoritative store for LuxID.
+    # EventRegistration with status="attended" verifies in-person door attendance.
     luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
         OuterRef("pk")
+    )
+    attended_event_subq = EventRegistration.objects.filter(
+        user_id=OuterRef("pk"),
+        status="attended",
     )
 
     qs = (
@@ -249,10 +250,15 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
             _has_block=block_exists_subquery(user),
             _has_luxid_native=Exists(luxid_native_subq),
             _has_luxid_oidc=Exists(luxid_oidc_subq),
+            _has_attended_event=Exists(attended_event_subq),
         )
         .filter(_has_connection=False)
         .filter(_has_block=False)
-        .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
+        .filter(
+            Q(_has_luxid_native=True)
+            | Q(_has_luxid_oidc=True)
+            | Q(_has_attended_event=True)
+        )
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
@@ -607,7 +613,7 @@ def is_catalogue_eligible(user) -> bool:
         profile is not None
         and profile.verification_status == "verified"
         and profile.photo_1
-        and profile.has_luxid_connected
+        and profile.is_connect_identity_verified
         and membership is not None
         and membership.is_onboarded
         and membership.photo_share_consent
