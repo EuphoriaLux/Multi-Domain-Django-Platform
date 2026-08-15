@@ -39393,13 +39393,12 @@ msgstr "%(amount)s EUR, gültig bis %(expiry)s"
 
 msgid ""
 "Because Crush.lu cancelled the event, you may ask for a cash refund instead."
-" Reply to this email within 14 days and we will arrange it. If you spend any"
-" of the credit, the cash option closes."
+" Reply to this email and we will arrange it. If you spend any of the credit, "
+"the cash option closes."
 msgstr ""
 "Da Crush.lu das Event abgesagt hat, kannst du stattdessen eine Rückzahlung "
-"verlangen. Antworte innerhalb von 14 Tagen auf diese E-Mail, damit wir sie "
-"veranlassen. Sobald du einen Teil des Guthabens verwendest, entfällt die "
-"Rückzahlungsoption."
+"verlangen. Antworte auf diese E-Mail, damit wir sie veranlassen. Sobald du "
+"einen Teil des Guthabens verwendest, entfällt die Rückzahlungsoption."
 
 msgid ""
 "This booking was paid with Crush Credit, so its original value has been "
@@ -39426,6 +39425,30 @@ msgstr ""
 " Guthaben ausgestellt. Bezahlt vor Eventbeginn eine Ersatzperson den frei "
 "gewordenen Platz, schreiben wir dir 50 % deines gezahlten Betrags als Crush "
 "Credit gut."
+
+msgid "Cash / bank transfer"
+msgstr "Barzahlung / Banküberweisung"
+
+msgid "When this transaction first became paid. Never moved later."
+msgstr "Zeitpunkt, zu dem diese Transaktion erstmals bezahlt wurde. Wird später nie verschoben."
+
+msgid "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
+msgstr "Das Mitglied, dem der Wiederverkaufsanteil zusteht. Separat gespeichert, damit Kontozusammenführungen oder das Löschen der ursprünglichen Anmeldung die Verpflichtung nicht entfernen."
+
+msgid "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
+msgstr "Zeitpunkt, zu dem die E-Mail zur Entschädigung nach einer Absage durch den Veranstalter zugestellt wurde. Dient zur sicheren Fortsetzung begrenzter Versandläufe."
+
+msgid "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
+msgstr "Das Guthaben für {email} wurde ausgestellt, aber die Absage-E-Mail konnte nicht gesendet werden. Führe diese Aktion erneut aus."
+
+msgid "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
+msgstr "{sent} Absage-E-Mail(s) gesendet; {remaining} stehen noch aus. Führe diese Aktion erneut aus, um fortzufahren."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "Für diese Anmeldung wurde keine Zahlung erfasst, daher ist kein Crush Credit fällig."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "Für diese Anmeldung wurde keine Zahlung erfasst, daher ist kein Crush Credit fällig."
 
 msgid "For paid events, the following cancellation-credit policy applies:"
 msgstr ""

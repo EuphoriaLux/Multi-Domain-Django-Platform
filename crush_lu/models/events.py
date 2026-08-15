@@ -1007,6 +1007,25 @@ class EventRegistration(models.Model):
         blank=True,
         related_name="resale_replacements",
     )
+    resale_beneficiary = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="pending_resale_replacements",
+        help_text=_(
+            "The member owed the resale share. Kept separately so account merges "
+            "or source-registration deletion cannot erase the obligation."
+        ),
+    )
+    organiser_cancellation_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the organiser-cancellation remedy email was delivered. Used to "
+            "resume bounded cancellation batches safely."
+        ),
+    )
 
     # QR Check-in
     checkin_token = models.CharField(

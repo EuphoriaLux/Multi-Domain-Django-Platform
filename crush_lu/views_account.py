@@ -289,6 +289,7 @@ def delete_crushlu_profile_only(user):
     # CreditRedemption is SET_NULL on registration, so the spend history
     # survives either way.
     from crush_lu.models.credits import CrushCredit
+    from crush_lu.services.credits import void_credit
 
     forfeited = CrushCredit.objects.filter(
         user=user, status=CrushCredit.Status.ACTIVE
@@ -296,12 +297,14 @@ def delete_crushlu_profile_only(user):
     forfeited_count = forfeited.count()
     if forfeited_count:
         for credit in forfeited:
-            credit.status = CrushCredit.Status.VOID
-            credit.note = (
-                f"{credit.note}\n— voided on Crush.lu account deletion "
-                f"({timezone.now():%Y-%m-%d})."
-            ).strip()
-            credit.save(update_fields=["status", "note"])
+            void_credit(
+                credit.pk,
+                note=(
+                    "— voided on Crush.lu account deletion "
+                    f"({timezone.now():%Y-%m-%d})."
+                ),
+                require_unspent=False,
+            )
         logger.info(
             "Voided %s active Crush Credit row(s) for deleted user %s",
             forfeited_count,
@@ -1340,46 +1343,58 @@ def export_user_data(request):
     # shape. The seat is named where it still exists; a redemption outlives a
     # deleted registration (SET_NULL), and reads "deleted event registration".
     from crush_lu.models.credits import CrushCredit
+    from crush_lu.utils.formatting import format_cents
 
     credits = (
         CrushCredit.objects.filter(user=user)
         .prefetch_related("redemptions__event_registration__event")
         .order_by("issued_at")
     )
-    if credits.exists():
-        data["crush_credit"] = [
-            {
-                "amount": f"{credit.amount_cents / 100:.2f}",
-                "currency": credit.currency,
-                "reason": credit.get_reason_display(),
-                "status": credit.get_status_display(),
-                "issued_at": credit.issued_at.isoformat(),
-                "expires_at": credit.expires_at.isoformat(),
-                "remaining": f"{credit.remaining_cents / 100:.2f}",
-                # The EFFECTIVE answer, not the issuance flag. Once any of the
-                # credit is spent — or it expires, or is voided after a cash
-                # refund has already been paid — the offer is closed, and the
-                # staff queue treats it as closed. Exporting the raw flag told
-                # the member they could still ask for money back when they
-                # could not.
-                "cash_refund_available_on_request": (
-                    credit.cash_refund_still_available
-                ),
-                "spent_on": [
-                    {
-                        "amount": f"{redemption.amount_cents / 100:.2f}",
-                        "redeemed_at": redemption.redeemed_at.isoformat(),
-                        "event": (
-                            redemption.event_registration.event.title
-                            if redemption.event_registration
-                            else "deleted event registration"
-                        ),
-                    }
-                    for redemption in credit.redemptions.all()
-                ],
-            }
-            for credit in credits
-        ]
+    credit_rows = list(credits)
+    if credit_rows:
+        exported_credits = []
+        now = timezone.now()
+        for credit in credit_rows:
+            redemptions = list(credit.redemptions.all())
+            redeemed_cents = sum(item.amount_cents for item in redemptions)
+            exported_credits.append(
+                {
+                    "amount": format_cents(credit.amount_cents),
+                    "currency": credit.currency,
+                    "reason": credit.get_reason_display(),
+                    "status": credit.get_status_display(),
+                    "issued_at": credit.issued_at.isoformat(),
+                    "expires_at": credit.expires_at.isoformat(),
+                    "remaining": format_cents(
+                        max(0, credit.amount_cents - redeemed_cents)
+                    ),
+                    # The EFFECTIVE answer, not the issuance flag. Once any of the
+                    # credit is spent — or it expires, or is voided after a cash
+                    # refund has already been paid — the offer is closed, and the
+                    # staff queue treats it as closed. Exporting the raw flag told
+                    # the member they could still ask for money back when they
+                    # could not.
+                    "cash_refund_available_on_request": bool(
+                        credit.cash_refund_eligible
+                        and credit.status == CrushCredit.Status.ACTIVE
+                        and credit.expires_at > now
+                        and not redemptions
+                    ),
+                    "spent_on": [
+                        {
+                            "amount": format_cents(redemption.amount_cents),
+                            "redeemed_at": redemption.redeemed_at.isoformat(),
+                            "event": (
+                                redemption.event_registration.event.title
+                                if redemption.event_registration
+                                else "deleted event registration"
+                            ),
+                        }
+                        for redemption in redemptions
+                    ],
+                }
+            )
+        data["crush_credit"] = exported_credits
 
     # Connections
     connections = EventConnection.objects.filter(

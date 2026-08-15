@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from functools import partial
 
 from django.conf import settings
 from django.contrib import messages
@@ -128,7 +129,9 @@ def create_sumup_event_checkout(request, registration_id):
     if payment_method not in {"card", "credit"}:
         return JsonResponse({"error": _("Invalid payment method.")}, status=400)
 
-    if registration.user != request.user and not request.user.is_staff:
+    if registration.user != request.user and (
+        not request.user.is_staff or payment_method == "credit"
+    ):
         return JsonResponse(
             {"error": _("Unauthorized access to this registration.")}, status=403
         )
@@ -742,12 +745,19 @@ def _send_registration_confirmation_safely(registration):
         )
 
 
-def _send_organiser_cancellation_safely(registration, credits):
+def _send_organiser_cancellation_safely(
+    registration, credits, *, recipient_user=None, mark_notified=True
+):
     """Tell a captured member about credit and the cash-refund option."""
     from .email_helpers import send_event_cancelled_by_organiser
 
     try:
-        send_event_cancelled_by_organiser(registration, credits)
+        send_event_cancelled_by_organiser(
+            registration,
+            credits,
+            recipient_user=recipient_user,
+            mark_notified=mark_notified,
+        )
     except Exception as exc:
         logger.error(
             "Failed to send organiser-cancellation email for registration %s: %s",
@@ -915,11 +925,22 @@ def _apply_paid_checkout(tx_obj, data):
             # non-atomic: event_cancel() locks and updates the registration
             # independently, so this could read "pending", block behind that
             # cancellation committing, and then overwrite it with "confirmed".
-            reg = (
-                EventRegistration.objects.select_for_update()
-                .select_related("event", "user")
-                .get(pk=locked.event_registration_id)
-            )
+            registration_id = locked.event_registration_id
+            snapshot = EventRegistration.objects.only(
+                "resale_source_registration_id"
+            ).get(pk=registration_id)
+            registration_ids = [registration_id]
+            if snapshot.resale_source_registration_id:
+                registration_ids.append(snapshot.resale_source_registration_id)
+            locked_registrations = {
+                row.pk: row
+                for row in EventRegistration.objects.select_for_update()
+                .select_related("event", "user", "resale_beneficiary")
+                .filter(pk__in=registration_ids)
+                .order_by("pk")
+            }
+            reg = locked_registrations[registration_id]
+            resale_source = locked_registrations.get(reg.resale_source_registration_id)
 
             # The checkout was opened while the event was live, but SumUp
             # captured it after the organiser cancelled. Keep the PAID audit
@@ -930,6 +951,23 @@ def _apply_paid_checkout(tx_obj, data):
                 reg.payment_confirmed = True
                 reg.payment_date = timezone.now()
                 reg.save(update_fields=["payment_confirmed", "payment_date"])
+                resale_credits = settle_pending_resale_credit(
+                    reg, source_registration=resale_source
+                )
+                if resale_credits:
+                    resale_email_registration = resale_source or reg
+                    resale_recipient = (
+                        None if resale_source is not None else resale_credits[0].user
+                    )
+                    transaction.on_commit(
+                        partial(
+                            _send_organiser_cancellation_safely,
+                            resale_email_registration,
+                            resale_credits,
+                            recipient_user=resale_recipient,
+                            mark_notified=resale_source is not None,
+                        )
+                    )
                 credits = credit_registration_for_cancelled_event(reg, payment=locked)
                 transaction.on_commit(
                     lambda r=reg, c=credits: _send_organiser_cancellation_safely(r, c)
@@ -1000,7 +1038,7 @@ def _apply_paid_checkout(tx_obj, data):
                 if reg.status != "attended":
                     reg.status = "confirmed"
                 reg.save()
-                settle_pending_resale_credit(reg)
+                settle_pending_resale_credit(reg, source_registration=resale_source)
                 _generate_checkin_token(reg)
                 logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
 

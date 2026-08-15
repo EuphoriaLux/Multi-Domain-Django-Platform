@@ -1,6 +1,7 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -20,6 +21,7 @@ class PaymentTransaction(models.Model):
         # hunting for a checkout that was never opened. A CREDIT row carries an
         # empty `sumup_checkout_id` for the same reason.
         CREDIT = "credit", _("Crush Credit")
+        MANUAL = "manual", _("Cash / bank transfer")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -113,6 +115,12 @@ class PaymentTransaction(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    paid_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When this transaction first became paid. Never moved later."),
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -121,3 +129,12 @@ class PaymentTransaction(models.Model):
 
     def __str__(self):
         return f"{self.provider.upper()} {self.transaction_reference} - {self.amount} {self.currency} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        """Stamp the paid transition once, including update_fields saves."""
+        if self.status == self.Status.PAID and self.paid_at is None:
+            self.paid_at = timezone.now()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"paid_at"}
+        return super().save(*args, **kwargs)

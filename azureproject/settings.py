@@ -851,6 +851,13 @@ CRUSH_CREDIT_EVENT_CANCELLED_PREMIUM_CENTS = int(
     os.environ.get("CRUSH_CREDIT_EVENT_CANCELLED_PREMIUM_CENTS", "2000")
 )
 
+# Organiser cancellation sends run inside the admin request because production
+# has no asynchronous task worker. Keep each invocation bounded; rerunning the
+# same idempotent admin action resumes registrations whose email marker is empty.
+CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT = int(
+    os.environ.get("CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", "50")
+)
+
 # ============================================================================
 # ECHO.LU EVENT SYNC
 # ============================================================================

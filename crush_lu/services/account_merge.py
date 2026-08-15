@@ -10,6 +10,7 @@ handling unique constraints and bidirectional relationships.
 
 import logging
 from django.db import transaction
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,27 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         log.append(f"Updated {updated} referral attribution(s) pointing to duplicate")
 
     # 5. EventRegistrations (unique_together: event, user)
-    for reg in EventRegistration.objects.filter(user=duplicate_user):
+    #
+    # A late-cancellation resale claim is deliberately carried on the
+    # replacement registration as well as on the original payment. Move its
+    # beneficiary before deleting either account's duplicate registration;
+    # otherwise the source-registration SET_NULL is survivable but the money
+    # is still addressed to the deactivated account.
+    affected_registrations = list(
+        EventRegistration.objects.select_for_update()
+        .filter(Q(user=duplicate_user) | Q(resale_beneficiary=duplicate_user))
+        .select_related("event")
+        .order_by("pk")
+    )
+    moved_resale_claims = EventRegistration.objects.filter(
+        resale_beneficiary=duplicate_user
+    ).update(resale_beneficiary=keeper_user)
+    if moved_resale_claims:
+        log.append(f"Moved {moved_resale_claims} pending resale claim(s) to keeper")
+
+    for reg in affected_registrations:
+        if reg.user_id != duplicate_user.pk:
+            continue
         if not EventRegistration.objects.filter(
             event=reg.event, user=keeper_user
         ).exists():

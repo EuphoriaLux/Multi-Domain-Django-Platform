@@ -41,8 +41,10 @@ from crush_lu.models.profiles import CrushProfile, UserDataConsent
 from crush_lu.services.credits import (
     available_credit_cents,
     credit_paid_registrations_for_cancelled_event,
+    funding_tranches,
     issue_cancellation_credits,
     issue_credit,
+    maybe_issue_resale_credits,
     redeem_for_registration,
 )
 
@@ -145,6 +147,23 @@ class CreditFixture(TestCase):
 
     def _credits(self, user):
         return CrushCredit.objects.filter(user=user).order_by("id")
+
+    def _pay_replacement(self, registration):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-replacement-{registration.pk}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK-REPLACEMENT-{registration.pk}",
+            amount=registration.event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=registration.user,
+            event_registration=registration,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
 
 
 # ---------------------------------------------------------------------------
@@ -359,8 +378,6 @@ class ResaleClauseTests(CreditFixture):
 
     def test_a_second_promotion_does_not_issue_a_second_credit(self):
         """AC4, second half. At most once per cancelled seat."""
-        from crush_lu.services.credits import maybe_issue_resale_credit
-
         waiter = self._user("waiter@crush.lu", gender="F")
         self._registration(self.event, waiter, status="waitlist")
         self._cancel(self.user, self.event)
@@ -373,7 +390,7 @@ class ResaleClauseTests(CreditFixture):
         other = self._user("other@crush.lu", gender="F")
         promoted_again = self._registration(self.event, other, status="confirmed")
         self.registration.refresh_from_db()
-        maybe_issue_resale_credit(self.registration, promoted_again)
+        maybe_issue_resale_credits(self.registration, promoted_again)
 
         self.assertEqual(self._credits(self.user).count(), 1)
 
@@ -420,8 +437,6 @@ class ResaleClauseTests(CreditFixture):
 
     def test_promotion_after_the_event_started_earns_nothing(self):
         """ "Before the event starts" is part of the clause."""
-        from crush_lu.services.credits import maybe_issue_resale_credit
-
         self.registration.status = "cancelled"
         self.registration.save(update_fields=["status"])
         MeetupEvent.objects.filter(pk=self.event.pk).update(
@@ -432,13 +447,11 @@ class ResaleClauseTests(CreditFixture):
         other = self._user("late@crush.lu")
         promoted = self._registration(self.event, other, status="confirmed")
 
-        self.assertIsNone(maybe_issue_resale_credit(self.registration, promoted))
+        self.assertEqual(maybe_issue_resale_credits(self.registration, promoted), [])
         self.assertEqual(self._credits(self.user).count(), 0)
 
     def test_a_full_credit_cancellation_cannot_also_earn_the_resale_share(self):
         """A >48h cancellation is settled in full; the seat cannot pay twice."""
-        from crush_lu.services.credits import maybe_issue_resale_credit
-
         early_event = self._event(hours_away=72, max_participants=1)
         early_reg = self._paid_registration(early_event, self.user)
         waiter = self._user("early-waiter@crush.lu")
@@ -454,7 +467,7 @@ class ResaleClauseTests(CreditFixture):
         promoted = self._registration(
             early_event, self._user("second@crush.lu"), status="confirmed"
         )
-        self.assertIsNone(maybe_issue_resale_credit(early_reg, promoted))
+        self.assertEqual(maybe_issue_resale_credits(early_reg, promoted), [])
         self.assertEqual(self._credits(self.user).count(), 1)
 
     def test_signal_path_credits_an_admin_driven_late_cancellation(self):
@@ -917,8 +930,6 @@ class LedgerIntegrityRegressionTests(CreditFixture):
 
     def test_a_duplicate_resale_credit_for_one_payment_is_refused_quietly(self):
         """The constraint still guards the real case, and never propagates."""
-        from crush_lu.services.credits import maybe_issue_resale_credit
-
         event = self._event(hours_away=30, max_participants=2)
         registration = self._paid_registration(event, self.user)
         promoted = self._registration(
@@ -929,16 +940,16 @@ class LedgerIntegrityRegressionTests(CreditFixture):
         registration.status = "cancelled"
         registration.save()
 
-        first = maybe_issue_resale_credit(registration, promoted)
-        self.assertIsNotNone(first)
+        first = maybe_issue_resale_credits(registration, promoted)
+        self.assertTrue(first)
 
         # Force the guard open again without a new payment, as a concurrent
         # second promotion would.
         registration.payment_confirmed = True
         registration.save(update_fields=["payment_confirmed"])
-        second = maybe_issue_resale_credit(registration, promoted)
+        second = maybe_issue_resale_credits(registration, promoted)
 
-        self.assertIsNone(second, "one credit per captured payment")
+        self.assertEqual(second, [], "one credit per captured payment")
         self.assertEqual(self._credits(self.user).count(), 1)
 
     def test_deleting_a_registration_does_not_refill_a_spent_credit(self):
@@ -1259,8 +1270,6 @@ class ReviewRoundThreeTests(CreditFixture):
         pays by CARD, must get a fresh six months — not the long-dead expiry of
         the credit they spent on the earlier booking.
         """
-        from crush_lu.services.credits import inherited_expiry
-
         event = self._event(hours_away=96, max_participants=5)
         seat = self._registration(event, self.user, status="pending")
 
@@ -1284,14 +1293,13 @@ class ReviewRoundThreeTests(CreditFixture):
             event_registration=seat,
         )
 
-        self.assertIsNone(
-            inherited_expiry(card_payment),
+        self.assertEqual(
+            funding_tranches(card_payment),
+            [],
             "a card payment inherits nothing — real money went in",
         )
 
     def test_a_credit_payment_still_carries_its_expiry_forward(self):
-        from crush_lu.services.credits import inherited_expiry
-
         event = self._event(hours_away=96, max_participants=5)
         seat = self._registration(event, self.user, status="pending")
         credit = issue_credit(self.user, FEE_CENTS, CrushCredit.Reason.GOODWILL)
@@ -1300,7 +1308,7 @@ class ReviewRoundThreeTests(CreditFixture):
 
         payment = self._credit_payment(seat, [credit.pk])
 
-        self.assertEqual(inherited_expiry(payment), soon)
+        self.assertEqual(funding_tranches(payment)[0][0].expires_at, soon)
 
     def test_a_member_cannot_cancel_into_a_worse_remedy_at_a_cancelled_event(self):
         """The organiser remedy is a premium plus cash; don't let it be lost."""
@@ -1477,7 +1485,7 @@ class ReviewRoundThreeTests(CreditFixture):
 
         src = inspect.getsource(account_merge.merge_accounts)
         self.assertLess(
-            src.index("EventRegistration.objects.filter(user=duplicate_user)"),
+            src.index("affected_registrations ="),
             src.index("CrushCredit.objects.filter(user=duplicate_user)"),
             "credit must be transferred AFTER registrations, never before",
         )
@@ -1663,6 +1671,277 @@ class FinalReviewRegressionTests(CreditFixture):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("what happens next", mail.outbox[0].subject)
 
+    def test_signal_cancellation_after_organiser_cancellation_uses_premium(self):
+        event = self._event(hours_away=96, max_participants=5, is_cancelled=True)
+        registration = self._paid_registration(event, self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            registration.status = "cancelled"
+            registration.save(update_fields=["status"])
+
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.EVENT_CANCELLED)
+        self.assertEqual(credit.amount_cents, 2000)
+        self.assertTrue(credit.cash_refund_eligible)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_organiser_cancellation_does_not_credit_a_free_registration(self):
+        event = self._event(
+            hours_away=96,
+            fee=Decimal("0.00"),
+            max_participants=5,
+            is_cancelled=True,
+        )
+        EventRegistration.objects.create(
+            event=event,
+            user=self.user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+
+        issued = credit_paid_registrations_for_cancelled_event(event)
+
+        self.assertEqual(issued, [])
+        self.assertEqual(self._credits(self.user).count(), 0)
+
+    def test_unpaid_replacement_forwards_the_original_resale_claim(self):
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._paid_registration(event, self.user)
+        first = self._user("first-unpaid@crush.lu")
+        second = self._user("second-payer@crush.lu")
+        self._registration(event, first, status="waitlist")
+        self._registration(event, second, status="waitlist")
+
+        self._cancel(self.user, event)
+        first_registration = EventRegistration.objects.get(event=event, user=first)
+        self._cancel(first, event)
+        second_registration = EventRegistration.objects.get(event=event, user=second)
+
+        first_registration.refresh_from_db()
+        self.assertEqual(first_registration.status, "cancelled")
+        self.assertEqual(second_registration.resale_source_registration_id, original.pk)
+        self.assertEqual(second_registration.resale_beneficiary_id, self.user.pk)
+
+        self._pay_replacement(second_registration)
+
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+
+    def test_staff_cannot_spend_a_members_credit(self):
+        staff = self._user("staff-credit@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._registration(event, self.user, status="pending")
+        issue_credit(self.user, FEE_CENTS, CrushCredit.Reason.GOODWILL)
+        self.client.force_login(staff)
+
+        response = self.client.post(
+            reverse(
+                "sumup_create_event_checkout",
+                kwargs={"registration_id": registration.pk},
+            ),
+            data=json.dumps({"payment_method": "credit"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(available_credit_cents(self.user), FEE_CENTS)
+        self.assertFalse(
+            PaymentTransaction.objects.filter(
+                event_registration=registration,
+                provider=PaymentTransaction.Provider.CREDIT,
+            ).exists()
+        )
+
+    def test_cash_refund_voids_the_source_payment_too(self):
+        from crush_lu.services.credits import void_credit
+
+        event = self._event(hours_away=96, max_participants=5, is_cancelled=True)
+        registration = self._paid_registration(event, self.user)
+        payment = registration.payment_transactions.get()
+        credit = credit_paid_registrations_for_cancelled_event(event)[0]
+
+        _credit, outcome = void_credit(
+            credit.pk,
+            note="Cash refund completed.",
+            mark_source_payment_refunded=True,
+        )
+
+        payment.refresh_from_db()
+        self.assertEqual(outcome, "voided")
+        self.assertEqual(payment.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_paid_at_is_immutable_when_a_transaction_is_rechecked(self):
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-paid-at",
+            provider=PaymentTransaction.Provider.SUMUP,
+            amount=FEE,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+        )
+        payment.status = PaymentTransaction.Status.PAID
+        payment.save(update_fields=["status", "updated_at"])
+        first_paid_at = payment.paid_at
+
+        PaymentTransaction.objects.filter(pk=payment.pk).update(
+            updated_at=timezone.now() + timedelta(days=2)
+        )
+        payment.refresh_from_db()
+
+        self.assertEqual(payment.paid_at, first_paid_at)
+        self.assertGreater(payment.updated_at, payment.paid_at)
+
+    def test_credit_button_only_appears_when_the_whole_seat_is_covered(self):
+        event = self._event(hours_away=96, max_participants=5)
+        self._registration(event, self.user, status="pending")
+        issue_credit(self.user, 100, CrushCredit.Reason.GOODWILL)
+        self.client.force_login(self.user)
+        url = reverse("crush_lu:event_detail", kwargs={"event_id": event.pk})
+
+        response = self.client.get(url)
+        self.assertNotContains(response, 'data-payment-method="credit"')
+
+        issue_credit(self.user, FEE_CENTS - 100, CrushCredit.Reason.GOODWILL)
+        response = self.client.get(url)
+        self.assertContains(response, 'data-payment-method="credit"')
+
+    def test_manual_payment_settles_a_pending_resale_claim(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._paid_registration(event, self.user)
+        replacement_user = self._user("manual-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(event=event, user=replacement_user)
+        replacement.payment_confirmed = True
+        staff = self._user("cash-coach@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = _admin_request(staff)
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        with self.captureOnCommitCallbacks(execute=True):
+            admin_obj.save_model(request, replacement, form, change=True)
+
+        manual = PaymentTransaction.objects.get(
+            event_registration=replacement,
+            provider=PaymentTransaction.Provider.MANUAL,
+        )
+        original.refresh_from_db()
+        replacement.refresh_from_db()
+        self.assertEqual(manual.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(manual.paid_at, replacement.payment_date)
+        self.assertFalse(original.payment_confirmed)
+        self.assertIsNone(replacement.resale_source_payment_id)
+        self.assertEqual(self._credits(self.user).get().amount_cents, FEE_CENTS // 2)
+
+    def test_late_replacement_capture_after_cancellation_compensates_both_payers(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        event = self._event(hours_away=30, max_participants=1)
+        self._paid_registration(event, self.user)
+        replacement_user = self._user("late-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(event=event, user=replacement_user)
+        MeetupEvent.objects.filter(pk=event.pk).update(is_cancelled=True)
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-late-replacement",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-LATE-REPLACEMENT",
+            amount=FEE,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=replacement_user,
+            event_registration=replacement,
+        )
+        mail.outbox.clear()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(payment, {"status": "PAID"})
+
+        original_credit = self._credits(self.user).get()
+        replacement_credit = self._credits(replacement_user).get()
+        self.assertEqual(original_credit.reason, CrushCredit.Reason.EVENT_CANCELLED)
+        self.assertEqual(replacement_credit.reason, CrushCredit.Reason.EVENT_CANCELLED)
+        self.assertEqual(original_credit.amount_cents, 2000)
+        self.assertEqual(replacement_credit.amount_cents, 2000)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_account_merge_preserves_claim_when_source_registration_is_deleted(self):
+        from crush_lu.services.account_merge import merge_accounts
+
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._paid_registration(event, self.user)
+        replacement_user = self._user("merge-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(event=event, user=replacement_user)
+        keeper = self._user("merge-keeper@crush.lu")
+        EventRegistration.objects.create(event=event, user=keeper, status="cancelled")
+
+        merge_accounts(keeper, self.user)
+
+        replacement.refresh_from_db()
+        self.assertFalse(EventRegistration.objects.filter(pk=original.pk).exists())
+        self.assertIsNone(replacement.resale_source_registration_id)
+        self.assertIsNotNone(replacement.resale_source_payment_id)
+        self.assertEqual(replacement.resale_beneficiary_id, keeper.pk)
+
+        self._pay_replacement(replacement)
+        credit = self._credits(keeper).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+
+    @override_settings(CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT=1)
+    def test_admin_cancellation_email_batch_resumes_without_double_credit(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        event = self._event(hours_away=96, max_participants=5)
+        self._paid_registration(event, self.user)
+        other = self._user("second-cancelled@crush.lu")
+        self._paid_registration(event, other)
+        staff = self._user("batch-organiser@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        request = _admin_request(staff)
+        admin_obj = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(request, MeetupEvent.objects.filter(pk=event.pk))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(
+            CrushCredit.objects.filter(
+                source_registration__event=event,
+                reason=CrushCredit.Reason.EVENT_CANCELLED,
+            ).count(),
+            2,
+        )
+
+        request = _admin_request(staff)
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(request, MeetupEvent.objects.filter(pk=event.pk))
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(
+            CrushCredit.objects.filter(
+                source_registration__event=event,
+                reason=CrushCredit.Reason.EVENT_CANCELLED,
+            ).count(),
+            2,
+        )
+
 
 class CreditLockOrderTests(TestCase):
     """Trap 2, pinned structurally because it cannot be pinned at runtime.
@@ -1701,7 +1980,9 @@ class CreditLockOrderTests(TestCase):
 
         from crush_lu.services import credits
 
-        src = inspect.getsource(credits)
+        src = inspect.getsource(credits).replace(
+            inspect.getsource(credits.void_credit), ""
+        )
         for forbidden in (
             "PaymentTransaction.objects.select_for_update",
             "CrushProfile.objects.select_for_update",

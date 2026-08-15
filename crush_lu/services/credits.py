@@ -14,11 +14,10 @@ everywhere in this codebase, and ``_apply_paid_checkout`` /
 so **no test here can catch a violation** — the ordering is maintained by
 reading, not by running. Two rules keep this module out of the cycle:
 
-1. It never takes a lock on ``PaymentTransaction`` or ``CrushProfile``. The
-   source payment is read unlocked, for attribution only. ``event_cancel``
-   holds ``MeetupEvent`` → ``EventRegistration`` when it calls in here, so
-   locking a payment at that point would be exactly the ABBA against a webhook
-   for those rows that the checkout path is commented to death about.
+1. Attribution reads never lock ``PaymentTransaction`` or ``CrushProfile``.
+   The one reconciliation exception is :func:`void_credit`, which locks the
+   source payment **before** the credit and touches no registration. That is the
+   same PaymentTransaction → CrushCredit direction as checkout.
 2. ``CrushCredit`` is always locked **last**. :func:`redeem_for_registration`
    is the only code anywhere that locks it, and it runs with the
    ``PaymentTransaction`` and ``EventRegistration`` locks for those very rows
@@ -35,7 +34,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import F, Min, Sum, Value
+from django.db.models import F, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -115,6 +114,60 @@ def available_credit_cents(user):
     return sum(credit._remaining for credit in spendable_credits(user))
 
 
+def void_credit(
+    credit_id,
+    *,
+    note,
+    require_unspent=True,
+    mark_source_payment_refunded=False,
+):
+    """Void one ledger row through the same guarded lifecycle door.
+
+    Returns ``(credit, outcome)`` where outcome is ``voided``, ``spent`` or
+    ``inactive``. When staff confirms a cash refund, the captured SumUp payment
+    is locked first and moved to ``REFUNDED`` in the same transaction so revenue
+    reporting and the payment ledger agree with the credit ledger.
+    """
+    snapshot = CrushCredit.objects.only("source_payment_id").get(pk=credit_id)
+    payment_id = snapshot.source_payment_id if mark_source_payment_refunded else None
+
+    with transaction.atomic():
+        source_payment = None
+        if payment_id:
+            source_payment = (
+                PaymentTransaction.objects.select_for_update()
+                .filter(pk=payment_id)
+                .first()
+            )
+
+        credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
+        if credit.status != CrushCredit.Status.ACTIVE:
+            return credit, "inactive"
+        if require_unspent and credit.redeemed_cents:
+            return credit, "spent"
+
+        credit.status = CrushCredit.Status.VOID
+        credit.note = f"{credit.note}\n{note}".strip()
+        credit.save(update_fields=["status", "note"])
+
+        if (
+            mark_source_payment_refunded
+            and credit.cash_refund_eligible
+            and source_payment is not None
+            and source_payment.provider == PaymentTransaction.Provider.SUMUP
+            and source_payment.status == PaymentTransaction.Status.PAID
+        ):
+            source_payment.status = PaymentTransaction.Status.REFUNDED
+            source_payment.failure_reason = (
+                "Full cash refund reconciled through the Crush Credit queue."
+            )
+            source_payment.save(
+                update_fields=["status", "failure_reason", "updated_at"]
+            )
+
+    return credit, "voided"
+
+
 def paid_amount_cents(registration):
     """``(cents, payment)`` — what this member actually paid for this seat.
 
@@ -143,6 +196,15 @@ def paid_amount_cents(registration):
     return int((fee * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)), None
 
 
+def payment_amount_cents(payment):
+    """The immutable amount captured by one payment, as integer cents."""
+    if payment is None:
+        return 0
+    return int(
+        (payment.amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+
+
 def _percent_of(amount_cents, percent):
     """``percent`` of ``amount_cents``, rounded half-up (the member's way)."""
     return int(
@@ -166,47 +228,6 @@ def is_late_cancellation(event, moment=None):
 # ---------------------------------------------------------------------------
 # Issuing
 # ---------------------------------------------------------------------------
-
-
-def inherited_expiry(payment):
-    """The expiry a credit-funded seat's credit must keep when given back.
-
-    Cancelling a seat that was bought with credit gives the credit back — it
-    does not mint new money, and it must not restart the clock. Without this,
-    a member sitting on credit about to expire could book any eligible future
-    event, cancel it more than 48h out, and walk away with a fresh six months,
-    repeating for as long as they liked. Expiry is deferred revenue turning
-    into real revenue; an expiry that can be rolled forward indefinitely is no
-    expiry at all.
-
-    ⚠️ Keyed on the **payment**, not on the registration, and that distinction
-    is the same one that made ``one_resale_credit_per_registration`` crash a
-    member-facing cancel. ``EventRegistration`` rows are reused across
-    re-registrations, so redemptions from a *previous* credit-funded booking of
-    the same event stay attached to the row forever. Reading them by
-    registration meant a later seat, paid for by CARD, inherited the expiry of
-    credit spent months earlier — frequently a date already in the past, so the
-    member's cancellation credit was issued dead on arrival. The redemptions
-    that belong to *this* purchase are the ones recorded on the CREDIT
-    transaction that paid for it, and nothing else.
-
-    Returns the EARLIEST expiry among the credits actually spent on this seat
-    (a seat can be paid from several), so the member is never better off for
-    having cycled it. ``None`` for a card payment — that gets an ordinary fresh
-    six months, which is right, because real money went in.
-    """
-    if payment is None or payment.provider != PaymentTransaction.Provider.CREDIT:
-        return None
-    credit_ids = [
-        entry.get("credit_id")
-        for entry in (payment.raw_response or {}).get("redemptions", [])
-        if isinstance(entry, dict) and entry.get("credit_id")
-    ]
-    if not credit_ids:
-        return None
-    return CrushCredit.objects.filter(id__in=credit_ids).aggregate(
-        first=Min("expires_at")
-    )["first"]
 
 
 def funding_tranches(payment):
@@ -321,7 +342,7 @@ def issue_credit(
             restored_from_credit=restored_from_credit,
             # Falsy leaves the model's own save() to compute a fresh six
             # months. Passed only when giving credit BACK, where restarting the
-            # clock would be a gift (see inherited_expiry).
+            # clock would be a gift (see funding_tranches).
             expires_at=expires_at,
         )
 
@@ -352,6 +373,7 @@ def _issue_payment_return_credits(
     *,
     cash_refund_eligible=False,
     note="",
+    user=None,
 ):
     """Return value from a payment while preserving each funding expiry.
 
@@ -359,10 +381,14 @@ def _issue_payment_return_credits(
     exact tranches it consumed, each on its original clock. This avoids the
     old earliest-expiry collapse, which unfairly shortened later tranches.
     """
+    user = user or (registration.user if registration is not None else None)
+    if user is None:
+        return []
+
     tranches = funding_tranches(payment)
     if not tranches:
         credit = issue_credit(
-            registration.user,
+            user,
             amount_cents,
             reason,
             registration=registration,
@@ -375,7 +401,7 @@ def _issue_payment_return_credits(
     issued = []
     for original_credit, tranche_cents in _allocate_to_tranches(tranches, amount_cents):
         credit = issue_credit(
-            registration.user,
+            user,
             tranche_cents,
             reason,
             registration=registration,
@@ -441,153 +467,187 @@ def issue_cancellation_credit(registration, *, moment=None):
 
 
 def maybe_issue_resale_credits(
-    cancelled_registration, promoted_registration, *, source_payment=None
+    cancelled_registration,
+    promoted_registration,
+    *,
+    source_payment=None,
+    beneficiary=None,
 ):
     """Issue the resale share only after the replacement has actually paid."""
-    if promoted_registration is None or cancelled_registration is None:
+    if promoted_registration is None:
         return []
     if not promoted_registration.payment_confirmed:
         return []
-    if cancelled_registration.status != "cancelled":
-        return []
-    if not cancelled_registration.payment_confirmed:
+    if cancelled_registration is not None:
+        if cancelled_registration.status != "cancelled":
+            return []
+        if not cancelled_registration.payment_confirmed:
+            return []
+    elif source_payment is None:
         return []
 
-    event = cancelled_registration.event
+    event = promoted_registration.event
     now = timezone.now()
     if event.date_time <= now or not is_late_cancellation(event, now):
         return []
 
-    amount_cents, payment = paid_amount_cents(cancelled_registration)
-    if source_payment is not None and (
-        payment is None or payment.pk != source_payment.pk
-    ):
+    if source_payment is not None:
+        if (
+            source_payment.status != PaymentTransaction.Status.PAID
+            or source_payment.purpose != PaymentTransaction.Purpose.EVENT_REGISTRATION
+        ):
+            return []
+        amount_cents, payment = payment_amount_cents(source_payment), source_payment
+    else:
+        amount_cents, payment = paid_amount_cents(cancelled_registration)
+
+    beneficiary = beneficiary or (
+        cancelled_registration.user
+        if cancelled_registration is not None
+        else payment.user
+    )
+    if beneficiary is None:
         return []
     share = getattr(
         settings, "CRUSH_CREDIT_RESALE_SHARE_PERCENT", DEFAULT_RESALE_SHARE_PERCENT
     )
-    return _issue_payment_return_credits(
-        cancelled_registration,
-        payment,
-        _percent_of(amount_cents, share),
-        CrushCredit.Reason.SEAT_RESOLD,
-        note=(
-            f"Seat released by a late cancellation was paid for by registration "
-            f"{promoted_registration.pk} before the event started — "
-            f"{share}% shared back."
-        ),
-    )
-
-
-def maybe_issue_resale_credit(cancelled_registration, promoted_registration):
-    """§4.1, the resale clause: share the seat back when it is actually resold.
-
-    "Costs nothing you didn't collect twice." A member who cancels 30 hours out
-    gets nothing *and* watches their seat go to the waitlist — Crush.lu
-    collects €31 for one chair, which is defensible on paper and indefensible
-    in an inbox. So: 50%, if and only if the seat is refilled before the event
-    starts.
-
-    Hung on the replacement **payment succeeding**, not on promotion or the
-    cancellation. Promotion reserves the released chair, but no second value
-    has been collected until that member pays. Gender-pool rules can also mean
-    no candidate is promoted at all; in both cases no credit is due yet.
-
-    Every guard here is load-bearing:
-
-    * ``promoted_registration`` is None → nobody took the seat.
-    * the promoted row is not paid → the seat is reserved, not resold.
-    * the row is no longer ``cancelled`` → they re-registered in the meantime
-      and hold the seat again; there is nothing to give back.
-    * ``payment_confirmed`` is False → either they never paid, or credit has
-      already been issued against this seat. This is the at-most-once guard,
-      and it is the same fact that :func:`issue_credit` clears, so the two
-      cannot disagree. The unique constraint on the model backs it up under
-      concurrency.
-    * not a late cancellation → a >48h cancellation was already paid out in
-      full by ``event_cancel``. Re-checked here rather than assumed because
-      this is also reachable from the signal path, which fires for admin and
-      shell cancellations that never went past the 48h branch at all.
-    * the event has started → the clause is explicitly "before the event
-      starts".
-
-    Returns the ``CrushCredit`` issued, or ``None``.
-    """
     try:
-        credits = maybe_issue_resale_credits(
-            cancelled_registration, promoted_registration
-        )
+        # The savepoint is load-bearing when this runs inside a checkout's
+        # outer transaction: catching IntegrityError without one leaves that
+        # transaction poisoned and prevents the durable link being cleared.
+        with transaction.atomic():
+            return _issue_payment_return_credits(
+                cancelled_registration,
+                payment,
+                _percent_of(amount_cents, share),
+                CrushCredit.Reason.SEAT_RESOLD,
+                note=(
+                    "Seat released by a late cancellation was paid for by "
+                    f"registration {promoted_registration.pk} before the event "
+                    f"started — {share}% shared back."
+                ),
+                user=beneficiary,
+            )
     except IntegrityError:
-        # ``one_resale_credit_per_payment`` already has a row for this capture,
-        # so this seat has been shared back once and is done. Treated as
-        # "already credited" rather than allowed to propagate: this runs inside
-        # ``event_cancel``'s transaction, where an escaping IntegrityError
-        # would 500 the member AND roll back the cancellation they asked for —
-        # and inside the promotion signal, where the bare handler would swallow
-        # the waitlist promotion along with it. ``issue_credit`` opens its own
-        # atomic block, so the failed INSERT is confined to that savepoint and
-        # the surrounding transaction stays usable.
         logger.info(
-            "Resale credit already exists for registration %s payment %s — "
-            "not issuing a second one.",
-            cancelled_registration.pk,
-            None,
+            "Resale credit already exists for source payment %s",
+            payment.pk if payment else None,
         )
-        return None
-    credit = credits[0] if credits else None
-    if credit:
-        logger.info(
-            "Resale credit %s issued: registration %s refilled by registration %s",
-            credit.pk,
-            cancelled_registration.pk,
-            promoted_registration.pk,
-        )
-    return credit
+        return []
 
 
-def settle_pending_resale_credit(promoted_registration):
-    """Settle and clear the durable resale link after replacement payment."""
+def settle_pending_resale_credit(promoted_registration, *, source_registration=None):
+    """Settle and clear a durable resale obligation after replacement payment.
+
+    If the organiser has cancelled the event, the original payer receives the
+    superior organiser-cancellation remedy instead of the smaller resale share.
+    ``resale_beneficiary`` keeps the obligation attached to the right person
+    even if account merging removed the original registration row.
+    """
     source_id = promoted_registration.resale_source_registration_id
     payment_id = promoted_registration.resale_source_payment_id
-    if not source_id or not promoted_registration.payment_confirmed:
+    beneficiary_id = promoted_registration.resale_beneficiary_id
+    if not promoted_registration.payment_confirmed:
+        return []
+    if not source_id and not payment_id:
         return []
 
     from crush_lu.models.events import EventRegistration
 
-    source = (
-        EventRegistration.objects.select_for_update()
-        .select_related("event", "user")
-        .filter(pk=source_id)
-        .first()
-    )
+    source = source_registration
+    if source is None and source_id:
+        source = (
+            EventRegistration.objects.select_for_update()
+            .select_related("event", "user")
+            .filter(pk=source_id)
+            .first()
+        )
     source_payment = (
         PaymentTransaction.objects.filter(pk=payment_id).first() if payment_id else None
     )
+    beneficiary = None
+    if beneficiary_id:
+        beneficiary = promoted_registration.resale_beneficiary
+    elif source is not None:
+        beneficiary = source.user
+    elif source_payment is not None:
+        beneficiary = source_payment.user
+
     try:
-        issued = maybe_issue_resale_credits(
-            source, promoted_registration, source_payment=source_payment
-        )
+        if promoted_registration.event.is_cancelled:
+            already_settled = bool(
+                source_payment
+                and CrushCredit.objects.filter(
+                    source_payment=source_payment,
+                    reason=CrushCredit.Reason.EVENT_CANCELLED,
+                ).exists()
+            )
+            if already_settled or (source is not None and not source.payment_confirmed):
+                issued = []
+            else:
+                issued = _issue_cancelled_event_remedy(
+                    beneficiary,
+                    promoted_registration.event,
+                    registration=source,
+                    payment=source_payment,
+                    note=(
+                        "Replacement payment settled after the organiser cancelled "
+                        f"{promoted_registration.event}."
+                    ),
+                )
+        else:
+            issued = maybe_issue_resale_credits(
+                source,
+                promoted_registration,
+                source_payment=source_payment,
+                beneficiary=beneficiary,
+            )
     except IntegrityError:
         issued = []
         logger.info(
-            "Resale credit already settled for replacement registration %s",
+            "Resale obligation already settled for replacement registration %s "
+            "and payment %s",
             promoted_registration.pk,
+            payment_id,
         )
 
     promoted_registration.resale_source_registration = None
     promoted_registration.resale_source_payment = None
+    promoted_registration.resale_beneficiary = None
     promoted_registration.save(
-        update_fields=["resale_source_registration", "resale_source_payment"]
+        update_fields=[
+            "resale_source_registration",
+            "resale_source_payment",
+            "resale_beneficiary",
+        ]
     )
     return issued
 
 
-def credit_registration_for_cancelled_event(registration, *, payment=None, note=""):
-    """Issue the organiser-cancellation remedy for one locked paid seat."""
-    if not registration.payment_confirmed:
+def _issue_cancelled_event_remedy(
+    beneficiary, event, *, registration=None, payment=None, note=""
+):
+    """Issue the organiser remedy to its durable beneficiary."""
+    if beneficiary is None:
         return []
-    paid_cents, attributed_payment = paid_amount_cents(registration)
-    payment = payment or attributed_payment
+
+    if payment is not None:
+        paid_cents = payment_amount_cents(payment)
+    elif registration is not None:
+        paid_cents, payment = paid_amount_cents(registration)
+    else:
+        return []
+    if paid_cents <= 0:
+        return []
+
+    if registration is not None:
+        # Registration rows can be reused if an event is restored and paid
+        # again. A fresh remedy needs a fresh delivery cursor; otherwise the
+        # bounded admin sender mistakes the old cycle's email for this one.
+        registration.__class__.objects.filter(pk=registration.pk).update(
+            organiser_cancellation_notified_at=None
+        )
+        registration.organiser_cancellation_notified_at = None
     award = max(event_cancelled_premium_cents(), paid_cents)
     refundable = (
         payment is not None
@@ -598,13 +658,13 @@ def credit_registration_for_cancelled_event(registration, *, payment=None, note=
     tranches = funding_tranches(payment)
     if not tranches:
         credit = issue_credit(
-            registration.user,
+            beneficiary,
             award,
             CrushCredit.Reason.EVENT_CANCELLED,
             registration=registration,
             payment=payment,
             cash_refund_eligible=refundable,
-            note=note or f"Crush.lu cancelled {registration.event}.",
+            note=note or f"Crush.lu cancelled {event}.",
         )
         return [credit] if credit else []
 
@@ -615,21 +675,35 @@ def credit_registration_for_cancelled_event(registration, *, payment=None, note=
         payment,
         min(award, paid_cents),
         CrushCredit.Reason.EVENT_CANCELLED,
-        note=note or f"Crush.lu cancelled {registration.event}.",
+        note=note or f"Crush.lu cancelled {event}.",
+        user=beneficiary,
     )
     bonus = award - paid_cents
     if bonus > 0:
         credit = issue_credit(
-            registration.user,
+            beneficiary,
             bonus,
             CrushCredit.Reason.EVENT_CANCELLED,
             registration=registration,
             payment=payment,
-            note=note or f"Crush.lu cancelled {registration.event}: premium bonus.",
+            note=note or f"Crush.lu cancelled {event}: premium bonus.",
         )
         if credit:
             issued.append(credit)
     return issued
+
+
+def credit_registration_for_cancelled_event(registration, *, payment=None, note=""):
+    """Issue the organiser-cancellation remedy for one locked paid seat."""
+    if not registration.payment_confirmed:
+        return []
+    return _issue_cancelled_event_remedy(
+        registration.user,
+        registration.event,
+        registration=registration,
+        payment=payment,
+        note=note,
+    )
 
 
 def event_cancelled_premium_cents():
@@ -694,11 +768,27 @@ def credit_paid_registrations_for_cancelled_event(event, *, note=""):
         # A >48h canceller is already excluded correctly, because issuing their
         # 100% credit cleared the flag. Nobody is credited twice.
         registrations = list(
-            EventRegistration.objects.select_for_update().filter(
-                event=event, payment_confirmed=True
-            )
+            EventRegistration.objects.select_for_update()
+            .filter(event=event, payment_confirmed=True)
+            .order_by("pk")
         )
+
+        # Resolve replacement obligations before clearing any replacement's
+        # payment flag. On an organiser-cancelled event this deliberately gives
+        # the original payer the superior organiser remedy, not the smaller
+        # resale share. All rows for the event are already locked in pk order,
+        # so this cannot invert the checkout path's registration lock order.
         for registration in registrations:
+            if (
+                registration.resale_source_registration_id
+                or registration.resale_source_payment_id
+            ):
+                issued.extend(settle_pending_resale_credit(registration))
+
+        for registration in registrations:
+            registration.refresh_from_db(fields=["payment_confirmed"])
+            if not registration.payment_confirmed:
+                continue
             issued.extend(
                 credit_registration_for_cancelled_event(
                     registration, note=note or f"Crush.lu cancelled {event}."
@@ -784,7 +874,7 @@ def redeem_for_registration(user, registration, price_cents):
                 amount_cents=take,
             )
         )
-        if credit.remaining_cents <= 0:
+        if credit._remaining - take <= 0:
             credit.status = CrushCredit.Status.CONSUMED
             credit.save(update_fields=["status"])
 

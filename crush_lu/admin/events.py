@@ -9,6 +9,8 @@ Includes:
 """
 
 import logging
+import uuid
+from functools import partial
 
 from django import forms
 from django.conf import settings
@@ -16,7 +18,7 @@ from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.core.exceptions import FieldDoesNotExist
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Prefetch, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -694,10 +696,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     get_event_languages.short_description = _("Languages")
 
     def get_revenue(self, obj):
-        """Actual captured card revenue; credit is not new cash income."""
+        """Actual captured cash revenue; credit is not new cash income."""
         payments = PaymentTransaction.objects.filter(
             event_registration__event=obj,
-            provider=PaymentTransaction.Provider.SUMUP,
+            provider__in=(
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            ),
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
             status=PaymentTransaction.Status.PAID,
         )
@@ -1230,30 +1235,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         for event in events:
             try:
                 issued = credit_paid_registrations_for_cancelled_event(event)
-                by_registration = {}
-                for credit in issued:
-                    by_registration.setdefault(credit.source_registration, []).append(
-                        credit
-                    )
-                credited += len(by_registration)
-                for registration, credits in by_registration.items():
-                    try:
-                        send_event_cancelled_by_organiser(
-                            registration, credits, request
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed sending organiser cancellation email for "
-                            "registration %s",
-                            registration.pk,
-                        )
-                        django_messages.error(
-                            request,
-                            _(
-                                "Credit was issued to {email}, but the "
-                                "cancellation email failed. Contact them by hand."
-                            ).format(email=registration.user.email),
-                        )
+                credited += len(
+                    {
+                        credit.source_registration_id
+                        for credit in issued
+                        if credit.source_registration_id
+                    }
+                )
             except Exception:
                 logger.exception(
                     "Failed issuing cancellation credit for event %s", event.pk
@@ -1266,6 +1254,80 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                         "compensated."
                     ).format(title=event.title),
                 )
+
+        # Production executes Django tasks inline, so email fan-out cannot be
+        # moved to `.enqueue()` and still leave this request. Send a bounded
+        # batch and use the per-registration marker as a durable cursor. The
+        # action is already idempotent, so a coach can rerun it until the queue
+        # is empty without issuing a second credit.
+        from crush_lu.models.credits import CrushCredit
+
+        cancellation_credits = CrushCredit.objects.filter(
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+            status=CrushCredit.Status.ACTIVE,
+        ).order_by("issued_at", "pk")
+        email_limit = max(
+            1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
+        )
+        candidates = list(
+            EventRegistration.objects.filter(
+                event_id__in=event_ids,
+                organiser_cancellation_notified_at__isnull=True,
+                issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
+                issued_credits__status=CrushCredit.Status.ACTIVE,
+            )
+            .select_related("event", "user")
+            .prefetch_related(
+                Prefetch(
+                    "issued_credits",
+                    queryset=cancellation_credits,
+                    to_attr="organiser_cancellation_credits",
+                )
+            )
+            .distinct()
+            .order_by("pk")[:email_limit]
+        )
+        emailed = 0
+        for registration in candidates:
+            try:
+                emailed += bool(
+                    send_event_cancelled_by_organiser(
+                        registration,
+                        registration.organiser_cancellation_credits,
+                        request,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Failed sending organiser cancellation email for registration %s",
+                    registration.pk,
+                )
+                django_messages.error(
+                    request,
+                    _(
+                        "Credit was issued to {email}, but the cancellation "
+                        "email failed. Rerun this action to retry."
+                    ).format(email=registration.user.email),
+                )
+
+        remaining_emails = (
+            EventRegistration.objects.filter(
+                event_id__in=event_ids,
+                organiser_cancellation_notified_at__isnull=True,
+                issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED,
+                issued_credits__status=CrushCredit.Status.ACTIVE,
+            )
+            .distinct()
+            .count()
+        )
+        if remaining_emails:
+            django_messages.warning(
+                request,
+                _(
+                    "Sent {sent} cancellation email(s); {remaining} remain. "
+                    "Rerun this action to continue."
+                ).format(sent=emailed, remaining=remaining_emails),
+            )
 
         django_messages.success(
             request,
@@ -1664,7 +1726,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # KPI, which windows on payment_date, silently drops confirmed-but-undated
         # rows (mirrors the CrushConnect / PremiumMembership admins).
         promoted = False
-        if "payment_confirmed" in form.changed_data:
+        payment_changed = "payment_confirmed" in form.changed_data
+        if payment_changed:
             if obj.payment_confirmed:
                 obj.payment_date = obj.payment_date or timezone.now()
                 # Money recorded out of band (bank transfer, cash) has to make
@@ -1676,17 +1739,115 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # row, where staff ticking a box must not conjure a seat.
                 # Promote only "pending" -- staff ticking the box on a
                 # cancelled or waitlisted row must not conjure a seat.
-                if obj.status == "pending":
+                if obj.status == "pending" and not obj.event.is_cancelled:
                     obj.status = "confirmed"
                 # ...but notify for any seat holder. In the cash-at-the-door
                 # flow the attendee is scanned to "attended" BEFORE staff record
                 # the cash, so keying the email off the promotion alone left
                 # exactly that case without the confirmation it was promised.
-                if obj.status in SEAT_HOLDING_STATUSES:
+                if obj.status in SEAT_HOLDING_STATUSES and not obj.event.is_cancelled:
                     promoted = True
             else:
                 obj.payment_date = None
-        super().save_model(request, obj, form, change)
+        with transaction.atomic():
+            # An unchecked manual payment is a correction to the cash ledger,
+            # not merely to the mutable seat flag. Move those rows out of PAID
+            # before touching registrations, preserving the global
+            # PaymentTransaction -> EventRegistration lock order.
+            if payment_changed and not obj.payment_confirmed and obj.pk:
+                PaymentTransaction.objects.select_for_update().filter(
+                    event_registration=obj,
+                    provider=PaymentTransaction.Provider.MANUAL,
+                    status=PaymentTransaction.Status.PAID,
+                ).update(
+                    status=PaymentTransaction.Status.CANCELLED,
+                    failure_reason="Manual payment confirmation removed by staff.",
+                    updated_at=timezone.now(),
+                )
+
+            lock_ids = [obj.pk] if obj.pk else []
+            if obj.resale_source_registration_id:
+                lock_ids.append(obj.resale_source_registration_id)
+            locked_registrations = {
+                registration.pk: registration
+                for registration in EventRegistration.objects.select_for_update()
+                .filter(pk__in=lock_ids)
+                .order_by("pk")
+            }
+
+            super().save_model(request, obj, form, change)
+
+            if payment_changed and obj.payment_confirmed:
+                payment = PaymentTransaction.objects.filter(
+                    event_registration=obj,
+                    purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                    status=PaymentTransaction.Status.PAID,
+                ).first()
+                if payment is None and obj.event.registration_fee > 0:
+                    payment = PaymentTransaction.objects.create(
+                        transaction_reference=(
+                            f"CRUSH-MANUAL-{obj.pk}-{uuid.uuid4().hex[:8]}"
+                        ),
+                        provider=PaymentTransaction.Provider.MANUAL,
+                        amount=obj.event.registration_fee,
+                        currency="EUR",
+                        status=PaymentTransaction.Status.PAID,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        user=obj.user,
+                        event_registration=obj,
+                        paid_at=obj.payment_date,
+                        raw_response={
+                            "recorded_by_admin_user_id": getattr(
+                                getattr(request, "user", None), "pk", None
+                            ),
+                            "method": "cash_or_bank_transfer",
+                        },
+                    )
+
+                locked_obj = EventRegistration.objects.select_related(
+                    "event", "user", "resale_beneficiary"
+                ).get(pk=obj.pk)
+                source = locked_registrations.get(
+                    locked_obj.resale_source_registration_id
+                )
+                from crush_lu.services.credits import settle_pending_resale_credit
+
+                resale_credits = settle_pending_resale_credit(
+                    locked_obj, source_registration=source
+                )
+                if locked_obj.event.is_cancelled and payment is not None:
+                    from crush_lu.services.credits import (
+                        credit_registration_for_cancelled_event,
+                    )
+                    from crush_lu.views_payments import (
+                        _send_organiser_cancellation_safely,
+                    )
+
+                    if resale_credits:
+                        resale_email_registration = source or locked_obj
+                        resale_recipient = (
+                            None if source is not None else resale_credits[0].user
+                        )
+                        transaction.on_commit(
+                            partial(
+                                _send_organiser_cancellation_safely,
+                                resale_email_registration,
+                                resale_credits,
+                                recipient_user=resale_recipient,
+                                mark_notified=source is not None,
+                            )
+                        )
+                    credits = credit_registration_for_cancelled_event(
+                        locked_obj, payment=payment
+                    )
+                    if credits:
+                        transaction.on_commit(
+                            partial(
+                                _send_organiser_cancellation_safely,
+                                locked_obj,
+                                credits,
+                            )
+                        )
 
         # The payment-pending email promises a confirmation "once payment is
         # received" — that promise has to hold for money recorded by hand, not

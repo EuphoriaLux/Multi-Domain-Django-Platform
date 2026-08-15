@@ -7,11 +7,13 @@ Handles profile submissions, coach notifications, event registrations, etc.
 import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import override
 from django.core.cache import cache
 from azureproject.email_utils import send_domain_email
 from .utils.i18n import get_user_preferred_language
+from .utils.formatting import format_cents
 
 logger = logging.getLogger(__name__)
 
@@ -837,7 +839,9 @@ def send_event_payment_pending_notification(registration, request=None):
     )
 
 
-def send_event_cancellation_confirmation(user, event, request, credits=None):
+def send_event_cancellation_confirmation(
+    user, event, request, credits=None, *, awaiting_resale=False
+):
     """
     Send confirmation email for event cancellation.
 
@@ -868,6 +872,7 @@ def send_event_cancellation_confirmation(user, event, request, credits=None):
         "events_url": events_url,
         "credit_total": sum(credit.amount_cents for credit in credits) / 100,
         "credit_issued": bool(credits),
+        "awaiting_resale": awaiting_resale,
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,
@@ -892,7 +897,14 @@ def send_event_cancellation_confirmation(user, event, request, credits=None):
     )
 
 
-def send_event_cancelled_by_organiser(registration, credits, request=None):
+def send_event_cancelled_by_organiser(
+    registration,
+    credits,
+    request=None,
+    *,
+    recipient_user=None,
+    mark_notified=True,
+):
     """Explain the organiser-cancellation remedy to one paid member."""
     from django.utils import translation
     from django.utils.translation import gettext as _
@@ -901,7 +913,7 @@ def send_event_cancelled_by_organiser(registration, credits, request=None):
     if not credits:
         return 0
 
-    user = registration.user
+    user = recipient_user or registration.user
     lang = get_user_preferred_language(user=user, request=request, default="en")
     context = {
         "user": user,
@@ -910,7 +922,7 @@ def send_event_cancelled_by_organiser(registration, credits, request=None):
         "credits": credits,
         "credit_lines": [
             {
-                "amount": f"{credit.amount_cents / 100:.2f}",
+                "amount": format_cents(credit.amount_cents),
                 "expires_at": credit.expires_at,
             }
             for credit in credits
@@ -931,7 +943,7 @@ def send_event_cancelled_by_organiser(registration, credits, request=None):
         )
         plain_message = strip_tags(html_message)
 
-    return send_domain_email(
+    sent = send_domain_email(
         subject=subject,
         message=plain_message,
         html_message=html_message,
@@ -940,6 +952,11 @@ def send_event_cancelled_by_organiser(registration, credits, request=None):
         domain="crush.lu",
         fail_silently=False,
     )
+    if sent and mark_notified:
+        registration.__class__.objects.filter(pk=registration.pk).update(
+            organiser_cancellation_notified_at=timezone.now()
+        )
+    return sent
 
 
 def send_event_reminder(registration, request=None, days_until_event=1):

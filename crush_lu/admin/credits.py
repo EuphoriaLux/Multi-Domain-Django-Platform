@@ -31,7 +31,8 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
-from crush_lu.services.credits import available_credit_cents, issue_credit
+from crush_lu.services.credits import available_credit_cents, issue_credit, void_credit
+from crush_lu.utils.formatting import format_cents
 
 _STATUS_COLOURS = {
     CrushCredit.Status.ACTIVE: ("#28a745", "💳"),
@@ -85,7 +86,9 @@ class CashRefundQueueFilter(admin.SimpleListFilter):
         if self.value() == "open":
             return self._open(queryset)
         if self.value() == "settled":
-            return queryset.exclude(pk__in=self._open(queryset).values("pk"))
+            return queryset.filter(cash_refund_eligible=True).exclude(
+                pk__in=self._open(queryset).values("pk")
+            )
         return queryset
 
 
@@ -205,7 +208,7 @@ class CrushCreditAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return (
+        queryset = (
             super()
             .get_queryset(request)
             .select_related("user", "source_registration__event", "source_payment")
@@ -213,6 +216,7 @@ class CrushCreditAdmin(admin.ModelAdmin):
                 _redeemed=Coalesce(Sum("redemptions__amount_cents"), Value(0)),
             )
         )
+        return annotate_credit_balance(queryset, user_path="user_id")
 
     @admin.display(description="Member", ordering="user__email")
     def get_member(self, obj):
@@ -220,21 +224,21 @@ class CrushCreditAdmin(admin.ModelAdmin):
 
     @admin.display(description="Issued", ordering="amount_cents")
     def amount_display(self, obj):
-        return f"{obj.amount_cents / 100:.2f} {obj.currency}"
+        return format_cents(obj.amount_cents, obj.currency)
 
     @admin.display(description="Redeemed")
     def redeemed_display(self, obj):
         redeemed = getattr(obj, "_redeemed", None)
         if redeemed is None:
             redeemed = obj.redeemed_cents
-        return f"{redeemed / 100:.2f}"
+        return format_cents(redeemed)
 
     @admin.display(description="Left")
     def remaining_display(self, obj):
         redeemed = getattr(obj, "_redeemed", None)
         if redeemed is None:
             redeemed = obj.redeemed_cents
-        return f"{max(0, obj.amount_cents - redeemed) / 100:.2f}"
+        return format_cents(max(0, obj.amount_cents - redeemed))
 
     @admin.display(description="Status", ordering="status")
     def get_status_badge(self, obj):
@@ -256,7 +260,12 @@ class CrushCreditAdmin(admin.ModelAdmin):
     @admin.display(description="Member balance")
     def get_member_balance(self, obj):
         """This member's whole spendable balance, not just this row."""
-        return f"{available_credit_cents(obj.user) / 100:.2f} EUR"
+        issued = getattr(obj, "_credit_issued", None)
+        if issued is None:
+            cents = available_credit_cents(obj.user)
+        else:
+            cents = max(0, issued - getattr(obj, "_credit_redeemed", 0))
+        return format_cents(cents, "EUR")
 
     @admin.display(description="Cash?", boolean=True)
     def get_cash_refund_flag(self, obj):
@@ -295,20 +304,19 @@ class CrushCreditAdmin(admin.ModelAdmin):
 
         voided = spent = skipped = 0
         for pk in list(queryset.values_list("pk", flat=True)):
-            with transaction.atomic():
-                credit = CrushCredit.objects.select_for_update().get(pk=pk)
-                if credit.status != CrushCredit.Status.ACTIVE:
-                    skipped += 1
-                    continue
-                if credit.redeemed_cents:
-                    spent += 1
-                    continue
-                credit.status = CrushCredit.Status.VOID
-                credit.note = (
-                    f"{credit.note}\n— voided by "
-                    f"{request.user.email or request.user}: settled in cash instead."
-                ).strip()
-                credit.save(update_fields=["status", "note"])
+            _credit, outcome = void_credit(
+                pk,
+                note=(
+                    f"— voided by {request.user.email or request.user}: "
+                    "settled in cash instead."
+                ),
+                mark_source_payment_refunded=True,
+            )
+            if outcome == "spent":
+                spent += 1
+            elif outcome == "inactive":
+                skipped += 1
+            else:
                 voided += 1
 
         if voided:
@@ -383,7 +391,7 @@ class CreditRedemptionAdmin(admin.ModelAdmin):
 
     @admin.display(description="Amount", ordering="amount_cents")
     def amount_display(self, obj):
-        return f"{obj.amount_cents / 100:.2f} EUR"
+        return format_cents(obj.amount_cents, "EUR")
 
     def has_add_permission(self, request):
         return False
@@ -485,7 +493,7 @@ def issue_goodwill_credit(modeladmin, request, queryset):
                         issued += 1
             modeladmin.message_user(
                 request,
-                f"Issued {amount_cents / 100:.2f} EUR of Crush Credit to "
+                f"Issued {format_cents(amount_cents, 'EUR')} of Crush Credit to "
                 f"{issued} member(s).",
                 level=messages.SUCCESS,
             )
@@ -569,5 +577,5 @@ def credit_balance_column(obj):
     if not cents:
         return mark_safe('<span style="color: #999;">—</span>')
     return format_html(
-        '<strong style="color: #28a745;">{} EUR</strong>', f"{cents / 100:.2f}"
+        '<strong style="color: #28a745;">{}</strong>', format_cents(cents, "EUR")
     )

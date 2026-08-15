@@ -27025,12 +27025,12 @@ msgstr "%(amount)s EUR, valid until %(expiry)s"
 
 msgid ""
 "Because Crush.lu cancelled the event, you may ask for a cash refund instead."
-" Reply to this email within 14 days and we will arrange it. If you spend any"
-" of the credit, the cash option closes."
+" Reply to this email and we will arrange it. If you spend any of the credit, "
+"the cash option closes."
 msgstr ""
 "Because Crush.lu cancelled the event, you may ask for a cash refund instead."
-" Reply to this email within 14 days and we will arrange it. If you spend any"
-" of the credit, the cash option closes."
+" Reply to this email and we will arrange it. If you spend any of the credit, "
+"the cash option closes."
 
 msgid ""
 "This booking was paid with Crush Credit, so its original value has been "
@@ -27056,6 +27056,30 @@ msgstr ""
 "This cancellation is inside 48 hours, so no credit is issued yet. If a "
 "replacement pays for the released seat before the event starts, we'll add "
 "50% of what you paid as Crush Credit."
+
+msgid "Cash / bank transfer"
+msgstr "Cash / bank transfer"
+
+msgid "When this transaction first became paid. Never moved later."
+msgstr "When this transaction first became paid. Never moved later."
+
+msgid "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
+msgstr "The member owed the resale share. Kept separately so account merges or source-registration deletion cannot erase the obligation."
+
+msgid "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
+msgstr "When the organiser-cancellation remedy email was delivered. Used to resume bounded cancellation batches safely."
+
+msgid "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
+msgstr "Credit was issued to {email}, but the cancellation email failed. Rerun this action to retry."
+
+msgid "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
+msgstr "Sent {sent} cancellation email(s); {remaining} remain. Rerun this action to continue."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "No payment was recorded for this registration, so no Crush Credit is due."
+
+msgid "No payment was recorded for this registration, so no Crush Credit is due."
+msgstr "No payment was recorded for this registration, so no Crush Credit is due."
 
 msgid "For paid events, the following cancellation-credit policy applies:"
 msgstr "For paid events, the following cancellation-credit policy applies:"

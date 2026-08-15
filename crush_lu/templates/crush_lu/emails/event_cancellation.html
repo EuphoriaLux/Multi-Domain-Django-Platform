@@ -22,8 +22,10 @@
 {% if credit_issued %}
 <p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}We've added {{ amount }} EUR in Crush Credit to your account.{% endblocktrans %}</strong></p>
 <p>{% trans "It is ready to use on any Crush.lu event and keeps the applicable credit expiry." %}</p>
-{% else %}
+{% elif awaiting_resale %}
 <p>{% trans "This cancellation is inside 48 hours, so no credit is issued yet. If a replacement pays for the released seat before the event starts, we'll add 50% of what you paid as Crush Credit." %}</p>
+{% else %}
+<p>{% trans "No payment was recorded for this registration, so no Crush Credit is due." %}</p>
 {% endif %}
 <p><a href="{{ terms_url }}#tos-events" style="color: #9B59B6;">{% trans "Read the cancellation policy" %}</a></p>
 

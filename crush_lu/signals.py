@@ -3572,6 +3572,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
             send_event_registration_confirmation,
         )
         from .services.credits import (
+            credit_registration_for_cancelled_event,
             issue_cancellation_credit,
         )
         from .views_events import _promote_from_waitlist
@@ -3579,12 +3580,21 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         try:
             with transaction.atomic():
                 locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
-                cancelled = (
-                    EventRegistration.objects.select_for_update()
-                    .select_related("event", "user")
-                    .filter(pk=instance.pk)
-                    .first()
+                lock_ids = [instance.pk] + list(
+                    EventRegistration.objects.filter(
+                        event=locked_event, status="waitlist"
+                    )
+                    .exclude(pk=instance.pk)
+                    .values_list("pk", flat=True)
                 )
+                locked_registrations = {
+                    row.pk: row
+                    for row in EventRegistration.objects.select_for_update()
+                    .select_related("event", "user")
+                    .filter(pk__in=lock_ids)
+                    .order_by("pk")
+                }
+                cancelled = locked_registrations.get(instance.pk)
                 if cancelled is None:
                     return
 
@@ -3603,7 +3613,20 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 #
                 # `event_cancel` sets `_waitlist_promotion_handled`, so the
                 # member path never reaches here and cannot be paid twice.
-                issue_cancellation_credit(cancelled)
+                if locked_event.is_cancelled:
+                    credits = credit_registration_for_cancelled_event(cancelled)
+                    if credits:
+                        from .views_payments import (
+                            _send_organiser_cancellation_safely,
+                        )
+
+                        transaction.on_commit(
+                            lambda r=cancelled, c=credits: (
+                                _send_organiser_cancellation_safely(r, c)
+                            )
+                        )
+                else:
+                    issue_cancellation_credit(cancelled)
 
                 # Compensation is independent of whether this event can
                 # promote a waitlist. Promotion is optional; paying an early
@@ -3611,7 +3634,10 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 # resale on the promoted row, and the share is issued only
                 # after that replacement's payment completes.
                 promoted = None
-                if locked_event.accepts_waitlist_promotion:
+                if (
+                    not locked_event.is_cancelled
+                    and locked_event.accepts_waitlist_promotion
+                ):
                     promoted = _promote_from_waitlist(
                         locked_event,
                         cancelled_user,

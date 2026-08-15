@@ -20,8 +20,9 @@ from .credits import (
     credit_paid_registrations_for_cancelled_event,
     issue_cancellation_credit,
     issue_credit,
-    maybe_issue_resale_credit,
     redeem_for_registration,
+    settle_pending_resale_credit,
+    void_credit,
 )
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
 from .crush_leads import call_by, coach_action_queue, reminder_due
@@ -65,7 +66,8 @@ __all__ = [
     'available_credit_cents',
     'issue_credit',
     'issue_cancellation_credit',
-    'maybe_issue_resale_credit',
+    'settle_pending_resale_credit',
+    'void_credit',
     'credit_paid_registrations_for_cancelled_event',
     'redeem_for_registration',
 ]

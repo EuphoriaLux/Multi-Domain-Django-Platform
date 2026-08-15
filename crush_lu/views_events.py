@@ -20,6 +20,7 @@ from .models.event_polls import EventPoll
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.credits import (
+    available_credit_cents,
     issue_cancellation_credits,
     paid_amount_cents,
     settle_pending_resale_credit,
@@ -107,6 +108,7 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
         candidate.status = _admitted_status(event, candidate)
         candidate.resale_source_registration = None
         candidate.resale_source_payment = None
+        candidate.resale_beneficiary = None
         if (
             resale_source_registration is not None
             and resale_source_registration.status == "cancelled"
@@ -115,6 +117,25 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
             _amount, source_payment = paid_amount_cents(resale_source_registration)
             candidate.resale_source_registration = resale_source_registration
             candidate.resale_source_payment = source_payment
+            candidate.resale_beneficiary = resale_source_registration.user
+        elif (
+            resale_source_registration is not None
+            and resale_source_registration.resale_source_payment_id
+            and resale_source_registration.resale_beneficiary_id
+        ):
+            # An unpaid promoted member can cancel before completing payment.
+            # Forward the original obligation to the next candidate instead of
+            # replacing it with the unpaid intermediary, which has no payment
+            # of its own to share back.
+            candidate.resale_source_registration_id = (
+                resale_source_registration.resale_source_registration_id
+            )
+            candidate.resale_source_payment_id = (
+                resale_source_registration.resale_source_payment_id
+            )
+            candidate.resale_beneficiary_id = (
+                resale_source_registration.resale_beneficiary_id
+            )
         candidate.save()
         # A reused waitlist row can already carry a valid payment. Settle that
         # rare case now; ordinary paid-event promotions remain pending until
@@ -497,6 +518,7 @@ def my_events(request):
             return None
         return lobby_cta(request.user, reg.event, registration=reg, now=now)
 
+    credit_balance_cents = available_credit_cents(request.user)
     upcoming_with_meta = [
         {
             "registration": reg,
@@ -506,6 +528,8 @@ def my_events(request):
             "can_cancel": reg.event.date_time > now
             and reg.status in ("pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
+            "has_sufficient_crush_credit": credit_balance_cents
+            >= int(reg.event.registration_fee * 100),
         }
         for reg in upcoming
     ]
@@ -741,6 +765,11 @@ def event_detail(request, event_id):
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
         "event_lobby_cta": event_lobby_cta,
+        "has_sufficient_crush_credit": bool(
+            request.user.is_authenticated
+            and available_credit_cents(request.user)
+            >= int(event.registration_fee * 100)
+        ),
     }
     return render(request, "crush_lu/event_detail.html", context)
 
@@ -1182,6 +1211,7 @@ def event_register(request, event_id):
                     registration.registered_at = timezone.now()
                     registration.resale_source_registration = None
                     registration.resale_source_payment = None
+                    registration.resale_beneficiary = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event
@@ -1266,6 +1296,10 @@ def event_register(request, event_id):
                         "event": event,
                         "registration": registration,
                         "waitlist_position": waitlist_position,
+                        "has_sufficient_crush_credit": (
+                            available_credit_cents(request.user)
+                            >= int(event.registration_fee * 100)
+                        ),
                     },
                 )
             return redirect("crush_lu:dashboard")
@@ -1308,9 +1342,18 @@ def event_cancel(request, event_id):
 
         with transaction.atomic():
             locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
-            registration = EventRegistration.objects.select_for_update().get(
-                pk=registration.pk
+            lock_ids = [registration.pk] + list(
+                EventRegistration.objects.filter(event=locked_event, status="waitlist")
+                .exclude(pk=registration.pk)
+                .values_list("pk", flat=True)
             )
+            locked_registrations = {
+                row.pk: row
+                for row in EventRegistration.objects.select_for_update()
+                .filter(pk__in=lock_ids)
+                .order_by("pk")
+            }
+            registration = locked_registrations[registration.pk]
             if registration.status in ("cancelled", "no_show"):
                 messages.info(request, _("Your registration was already cancelled."))
                 return redirect("crush_lu:dashboard")
@@ -1404,7 +1447,15 @@ def event_cancel(request, event_id):
         # Send emails OUTSIDE the transaction so they are only dispatched
         # after a successful commit and don't hold the DB lock during SMTP I/O.
         try:
-            send_event_cancellation_confirmation(request.user, event, request, credits)
+            send_event_cancellation_confirmation(
+                request.user,
+                event,
+                request,
+                credits,
+                awaiting_resale=(
+                    registration.payment_confirmed and event.registration_fee > 0
+                ),
+            )
         except Exception as e:
             logger.error(f"Failed to send event cancellation email: {e}")
 

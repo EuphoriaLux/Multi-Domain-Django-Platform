@@ -33,6 +33,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from crush_lu.utils.formatting import format_cents
+
 # How long an issued credit stays spendable. Settable so the policy can move
 # without a migration; the published Terms say 6 months.
 DEFAULT_EXPIRY_MONTHS = 6
@@ -181,24 +183,27 @@ class CrushCredit(models.Model):
             # NULL ``source_payment`` (a legacy row with no attributable
             # capture) does not collide in Postgres, so this is a backstop, not
             # the guard. The guard is ``payment_confirmed``, read under lock —
-            # and ``maybe_issue_resale_credit`` also catches IntegrityError, so
+            # and ``maybe_issue_resale_credits`` also catches IntegrityError, so
             # no path here can 500 a member trying to cancel.
             models.UniqueConstraint(
-                fields=["source_registration", "source_payment", "reason"],
+                fields=["source_payment", "reason"],
                 condition=models.Q(
-                    reason="seat_resold", restored_from_credit__isnull=True
+                    reason="seat_resold",
+                    restored_from_credit__isnull=True,
+                    source_payment__isnull=False,
                 ),
                 name="one_resale_credit_per_payment",
             ),
             models.UniqueConstraint(
                 fields=[
-                    "source_registration",
                     "source_payment",
                     "reason",
                     "restored_from_credit",
                 ],
                 condition=models.Q(
-                    reason="seat_resold", restored_from_credit__isnull=False
+                    reason="seat_resold",
+                    restored_from_credit__isnull=False,
+                    source_payment__isnull=False,
                 ),
                 name="one_resale_restore_per_tranche",
             ),
@@ -209,7 +214,7 @@ class CrushCredit(models.Model):
 
     def __str__(self):
         return (
-            f"{self.amount_cents / 100:.2f} {self.currency} "
+            f"{format_cents(self.amount_cents, self.currency)} "
             f"({self.get_reason_display()}) → {self.user}"
         )
 
@@ -320,6 +325,6 @@ class CreditRedemption(models.Model):
 
     def __str__(self):
         return (
-            f"{self.amount_cents / 100:.2f} EUR off credit #{self.credit_id} "
+            f"{format_cents(self.amount_cents, 'EUR')} off credit #{self.credit_id} "
             f"→ registration {self.event_registration_id}"
         )
