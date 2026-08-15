@@ -54,9 +54,7 @@ class Command(BaseCommand):
         # Process CrushProfile photos
         stats = {"processed": 0, "skipped": 0, "errors": 0}
 
-        profiles = CrushProfile.objects.exclude(
-            photo_1="", photo_2="", photo_3=""
-        )
+        profiles = CrushProfile.objects.exclude(photo_1="", photo_2="", photo_3="")
         if user_id:
             profiles = profiles.filter(user_id=user_id)
 
@@ -72,9 +70,7 @@ class Command(BaseCommand):
                 if not field:
                     continue
 
-                self._process_photo(
-                    profile, field_name, field, dry_run, stats
-                )
+                self._process_photo(profile, field_name, field, dry_run, stats)
 
         # Process CrushCoach photos
         if options["include_coaches"]:
@@ -87,9 +83,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"\nFound {coach_count} coach photos to process")
 
             for coach in coaches.iterator():
-                self._process_photo(
-                    coach, "photo", coach.photo, dry_run, stats
-                )
+                self._process_photo(coach, "photo", coach.photo, dry_run, stats)
 
         # Summary
         self.stdout.write("")
@@ -150,8 +144,19 @@ class Command(BaseCommand):
                 except Exception:
                     logger.warning("Could not delete old blob: %s", old_blob_name)
 
-            # Save the model to persist the field reference
-            obj.save(update_fields=[field_name])
+            # Save the model to persist the field reference. If this is a verified
+            # primary photo, carry forward the attestation to the new key.
+            update_fields = [field_name]
+            if (
+                isinstance(obj, CrushProfile)
+                and field_name == "photo_1"
+                and obj.photo_verification_key == old_blob_name
+                and obj.photo_verified_at is not None
+            ):
+                obj.photo_verification_key = field.name
+                update_fields.extend(["photo_verification_key", "photo_verified_at"])
+
+            obj.save(update_fields=update_fields)
 
             self.stdout.write(
                 f"  Processed {obj_label}: "
@@ -162,7 +167,11 @@ class Command(BaseCommand):
         except (FileNotFoundError, Exception) as e:
             # Catch Azure ResourceNotFoundError (blob missing from storage)
             err_str = str(e)
-            if "BlobNotFound" in err_str or "does not exist" in err_str or isinstance(e, FileNotFoundError):
+            if (
+                "BlobNotFound" in err_str
+                or "does not exist" in err_str
+                or isinstance(e, FileNotFoundError)
+            ):
                 self.stdout.write(
                     self.style.WARNING(
                         f"  Skipped {obj_label}: file not found in storage"

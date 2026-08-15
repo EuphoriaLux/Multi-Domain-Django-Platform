@@ -102,14 +102,11 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
         .filter(
             Q(_has_luxid_native=True)
             | Q(_has_luxid_oidc=True)
-            | (
-                Q(
-                    crushprofile__verification_method__in=(
-                        "coach_event",
-                        "premium_coach",
-                    )
+            | Q(
+                crushprofile__verification_method__in=(
+                    "coach_event",
+                    "premium_coach",
                 )
-                & Q(_has_attended_event=True)
             )
             | Q(_has_attended_with_grant=True)
             | Q(_has_attended_with_assigned_coach=True)

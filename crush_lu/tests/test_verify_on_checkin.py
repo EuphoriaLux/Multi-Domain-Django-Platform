@@ -465,3 +465,101 @@ def test_existing_coach_is_never_reassigned_by_a_scan(event, coach):
 
     profile.refresh_from_db()
     assert profile.assigned_coach_id == coach.id
+
+
+def test_undo_checkin_revokes_photo_attestation_and_auto_verification(
+    event, coach, client
+):
+    """When a coach undoes checkin for a mis-scanned badge, the photo attestation
+    and auto-verification created by that scan are revoked."""
+    from django.urls import reverse
+
+    profile, reg = _attendee(event, "undomisscan")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+    assert reg.checkin_auto_verified is True
+
+    # Coach undoes the check-in
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "pending"
+    assert profile.is_approved is False
+    assert profile.verification_method == ""
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
+
+
+def test_mark_photo_verified_does_not_race_rejected_profile(event, coach):
+    """If a profile is rejected (e.g. door mismatch), concurrent/stale mark_current_photo_verified
+    is ignored and cannot restore the trust badge."""
+    profile, reg = _attendee(event, "rejectedprofile")
+    profile.verification_status = "rejected"
+    profile.is_approved = False
+    profile.save(update_fields=["verification_status", "is_approved"])
+
+    assert profile.mark_current_photo_verified() is False
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+
+
+def test_manual_coach_mark_verified_on_confirmed_seat_grants_connect_identity(
+    event, coach, client
+):
+    """When a coach manually verifies a member at an event whose registration is still confirmed,
+    is_connect_identity_verified must be True immediately."""
+    profile, reg = _attendee(event, "manualverifyconnect")
+    assert reg.status == "confirmed"
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert profile.is_connect_identity_verified is True
+    assert profile.is_photo_verified is True
+
+
+def test_reprocess_photos_carries_forward_photo_attestation(event, coach):
+    """Running reprocess_photos on a verified photo carries the attestation forward to the newly generated key."""
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+
+    profile, reg = _attendee(event, "reprocessmember")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is True
+    original_key = profile.photo_verification_key
+    assert original_key == profile.photo_1.name
+
+    # Mock process_uploaded_image to return smaller data so it is not skipped
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        return_value=ContentFile(b"small_image", name="processed.jpg"),
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    assert profile.photo_1.name != original_key
+    assert profile.photo_verification_key == profile.photo_1.name
+    assert profile.is_photo_verified is True

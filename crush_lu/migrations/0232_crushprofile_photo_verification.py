@@ -33,4 +33,37 @@ class Migration(migrations.Migration):
                 null=True,
             ),
         ),
+        migrations.AddField(
+            model_name="eventregistration",
+            name="checkin_attested_photo_key",
+            field=models.CharField(
+                blank=True,
+                default="",
+                editable=False,
+                help_text=(
+                    "Photo key verified during this check-in. Cleared on undo to revoke "
+                    "the in-person photo trust badge."
+                ),
+                max_length=255,
+            ),
+        ),
+        migrations.AddField(
+            model_name="eventregistration",
+            name="checkin_attested_photo_at",
+            field=models.DateTimeField(
+                blank=True,
+                editable=False,
+                help_text="When the photo was attested during this check-in.",
+                null=True,
+            ),
+        ),
+        migrations.AddField(
+            model_name="eventregistration",
+            name="checkin_auto_verified",
+            field=models.BooleanField(
+                default=False,
+                editable=False,
+                help_text="True if this check-in auto-verified a previously pending profile.",
+            ),
+        ),
     ]

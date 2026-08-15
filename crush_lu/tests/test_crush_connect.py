@@ -1095,6 +1095,9 @@ def test_home_hides_attendance_only_recipient_after_checkin_is_undone(client, se
 
     registration.status = "confirmed"
     registration.save(update_fields=["status"])
+    target.crushprofile.verification_method = ""
+    target.crushprofile.verification_status = "pending"
+    target.crushprofile.save()
 
     body = client.get(CONNECT_HOME_URL).content.decode()
     assert target.first_name not in body

@@ -53,7 +53,7 @@ def _scanning_coach(request):
 
 
 #: Fields every check-in write names. `updated_at` is `auto_now`, so it is only
-#: written when listed; the three `checkin_*` provenance fields are what makes
+#: written when listed; the provenance fields are what makes
 #: the undo reversible without guessing (see `_record_checkin_provenance`).
 _CHECKIN_UPDATE_FIELDS = [
     "status",
@@ -61,6 +61,9 @@ _CHECKIN_UPDATE_FIELDS = [
     "checkin_prior_status",
     "checkin_granted_coach",
     "checkin_granted_coach_at",
+    "checkin_attested_photo_key",
+    "checkin_attested_photo_at",
+    "checkin_auto_verified",
     "updated_at",
 ]
 
@@ -87,6 +90,9 @@ def _record_checkin_provenance(registration):
     registration.checkin_prior_status = registration.status
     registration.checkin_granted_coach = None
     registration.checkin_granted_coach_at = None
+    registration.checkin_attested_photo_key = ""
+    registration.checkin_attested_photo_at = None
+    registration.checkin_auto_verified = False
 
 
 #: Statuses the manual Verify button may transition from. The endpoint has
@@ -238,7 +244,19 @@ def _auto_verify_on_attendance(request, registration, now):
     # the member-level verification race. Photoless scans write nothing, so a
     # later upload cannot inherit this badge.
     if profile.verification_status in ("pending", "verified"):
-        profile.mark_current_photo_verified(verified_at=now)
+        attested = profile.mark_current_photo_verified(verified_at=now)
+        if attested:
+            registration.checkin_attested_photo_key = (
+                getattr(profile.photo_1, "name", "") or ""
+            )
+            registration.checkin_attested_photo_at = profile.photo_verified_at
+            registration.save(
+                update_fields=[
+                    "checkin_attested_photo_key",
+                    "checkin_attested_photo_at",
+                ]
+            )
+
     if profile.verification_status != "pending":
         return None
     if profile.has_active_premium:
@@ -249,6 +267,10 @@ def _auto_verify_on_attendance(request, registration, now):
     if not _apply_verification(profile, "coach_event", coach, now):
         # Another path (e.g. a concurrent LuxID callback) verified them first.
         return None
+
+    registration.checkin_auto_verified = True
+    registration.save(update_fields=["checkin_auto_verified"])
+
     logger.info(
         "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
         profile.pk,
@@ -968,6 +990,40 @@ def coach_undo_checkin(request, event_id, registration_id):
             profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
             coach_cleared = True
 
+        # Revoke scan-created photo attestation if the profile still holds the exact key and timestamp
+        attested_key = registration.checkin_attested_photo_key
+        attested_at = registration.checkin_attested_photo_at
+        if (
+            attested_key
+            and attested_at
+            and profile is not None
+            and profile.photo_verification_key == attested_key
+            and profile.photo_verified_at == attested_at
+        ):
+            profile.photo_verification_key = ""
+            profile.photo_verified_at = None
+            profile.save(update_fields=["photo_verification_key", "photo_verified_at"])
+
+        # Revoke auto-verification if this check-in was what verified the profile
+        if (
+            registration.checkin_auto_verified
+            and profile is not None
+            and profile.verification_method == "coach_event"
+            and profile.approved_at == registration.checked_in_at
+        ):
+            profile.verification_status = "pending"
+            profile.is_approved = False
+            profile.approved_at = None
+            profile.verification_method = ""
+            profile.save(
+                update_fields=[
+                    "verification_status",
+                    "is_approved",
+                    "approved_at",
+                    "verification_method",
+                ]
+            )
+
         # Back to whatever the row actually held. A promoted walk-up returns to
         # the waitlist: undoing a mistaken promotion must not leave them
         # holding a confirmed seat nobody gave them, which is what event
@@ -988,6 +1044,9 @@ def coach_undo_checkin(request, event_id, registration_id):
         registration.checkin_prior_status = ""
         registration.checkin_granted_coach = None
         registration.checkin_granted_coach_at = None
+        registration.checkin_attested_photo_key = ""
+        registration.checkin_attested_photo_at = None
+        registration.checkin_auto_verified = False
         # Tells handle_event_ticket_on_registration_change that this really is
         # an attended -> confirmed transition. The same idiom as
         # _checkin_coach: the signal cannot tell a transition from any other

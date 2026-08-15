@@ -1090,18 +1090,12 @@ class CrushProfile(models.Model):
         if self.verification_status != "verified":
             return False
 
+        if self.verification_method in ("coach_event", "premium_coach"):
+            return True
+
         qs = EventRegistration.objects.filter(
             user_id=self.user_id,
             status="attended",
-        )
-        if self.verification_method in ("coach_event", "premium_coach"):
-            # The method proves a coach performed the identity check, while
-            # the live registration status proves the attendance still
-            # exists. An undo deliberately leaves member verification intact,
-            # so method alone must not preserve attendance-based Connect access.
-            return qs.exists()
-
-        qs = qs.filter(
             checkin_granted_coach__isnull=False,
         )
         if self.assigned_coach_id is not None:
@@ -1157,6 +1151,7 @@ class CrushProfile(models.Model):
             .objects.filter(
                 pk=self.pk,
                 photo_1=current_key,
+                verification_status__in=("pending", "verified"),
             )
             .update(
                 photo_verification_key=current_key,
@@ -1295,8 +1290,12 @@ class CrushProfile(models.Model):
                     writes_primary_photo and old_photo_key != new_photo_key
                 )
                 if primary_photo_changed:
-                    self.photo_verification_key = ""
-                    self.photo_verified_at = None
+                    if (
+                        not self.photo_verification_key
+                        or self.photo_verification_key != new_photo_key
+                    ):
+                        self.photo_verification_key = ""
+                        self.photo_verified_at = None
                     if update_fields is not None:
                         kwargs["update_fields"] = set(update_fields) | {
                             "photo_verification_key",
