@@ -517,7 +517,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window._applyAttendeeFilters = function () {};
     var searchInput = document.getElementById('attendee-search');
     if (searchInput) {
-        var attendeeRows = document.querySelectorAll('[data-attendee-search]');
         var searchEmpty = document.getElementById('attendee-search-empty');
         var outstandingOnly = document.getElementById('outstanding-only');
 
@@ -525,7 +524,13 @@ document.addEventListener('DOMContentLoaded', function() {
             var query = searchInput.value.trim().toLowerCase();
             var onlyMissing = outstandingOnly && outstandingOnly.checked;
             var visibleCount = 0;
-            attendeeRows.forEach(function(row) {
+            var rowCount = 0;
+            // The rows are RE-QUERIED each pass, not captured at page load:
+            // the row-state applier inserts promoted attendees later, and a
+            // static NodeList would never visit them — their search haystack
+            // and status would be invisible to an active filter.
+            document.querySelectorAll('[data-attendee-search]').forEach(function(row) {
+                rowCount++;
                 var haystack = (row.getAttribute('data-attendee-search') || '').toLowerCase();
                 // Read the attribute each pass, not a cached value: undo and
                 // check-in both rewrite it while the filter is on.
@@ -535,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (matches) visibleCount++;
             });
             if (searchEmpty) {
-                searchEmpty.style.display = visibleCount === 0 && attendeeRows.length > 0 ? '' : 'none';
+                searchEmpty.style.display = visibleCount === 0 && rowCount > 0 ? '' : 'none';
             }
         };
 

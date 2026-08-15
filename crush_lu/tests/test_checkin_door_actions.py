@@ -1626,6 +1626,24 @@ class TestRowStatePayload:
         assert row["coach_name"] == "Cam"
         assert row["has_profile"] is True
 
+    def test_a_scan_row_carries_no_legal_name_or_email(self, client):
+        """`event_checkin_api` needs no coach session — the signed QR is the
+        credential and a member may POST their own check-in URL — so its
+        response must not include the search haystack. Only the coach-only
+        promotion payload carries it, because only that row is rebuilt
+        client-side."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        row = _scan(client, event, registration).json()["row"]
+
+        assert "search" not in row
+
     def test_a_rescan_row_still_travels(self, client):
         """The already-attended branch is the one a remote coach's page most
         often sees (a re-scan that verifies) — it must carry the row too."""

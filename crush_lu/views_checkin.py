@@ -1093,8 +1093,10 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
         # The confirmed list never contained this row, so the applier builds
-        # it from the identity fields carried here.
-        "row": _row_state(registration),
+        # it from the identity fields carried here. Coach-only endpoint, so
+        # this is also the one row payload allowed to carry the legal
+        # name/email search haystack.
+        "row": _row_state(registration, include_search=True),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -1113,7 +1115,7 @@ def _get_display_name(registration):
         return _("Attendee")
 
 
-def _row_state(registration):
+def _row_state(registration, include_search=False):
     """Row-level state for the door page's shared row-state applier (#710).
 
     Every door action returns this under ``row`` and the page applies it with
@@ -1123,6 +1125,13 @@ def _row_state(registration):
     time, which table badge to render, the permanent-coach line, the
     verification pill — plus the identity fields a promoted row needs,
     because the confirmed list never contained it.
+
+    ``include_search`` adds the legal-name/email search haystack, and is set
+    ONLY by ``coach_promote_from_waitlist`` — the one action whose row the
+    page has to rebuild from scratch. ``event_checkin_api`` authenticates on
+    the signed QR alone (an attendee can POST their own check-in URL), so its
+    response must not hand them the account's legal name and email under a
+    key nothing on that path needs.
 
     The profile is re-read rather than taken from the registration's cached
     ``user__crushprofile``: the coach grant is written by a signal on its own
@@ -1142,10 +1151,15 @@ def _row_state(registration):
             else None
         ),
         "display_name": display_name,
+        "has_profile": False,
+        "is_approved": False,
+        "coach_name": None,
+    }
+    if include_search:
         # The client-side search haystack a rebuilt row carries — matches the
         # template's: a guest at the door gives the name on their ID or the
         # email they booked with, neither of which need match display_name.
-        "search": " ".join(
+        row["search"] = " ".join(
             part
             for part in (
                 display_name,
@@ -1154,11 +1168,7 @@ def _row_state(registration):
                 registration.user.email,
             )
             if part
-        ),
-        "has_profile": False,
-        "is_approved": False,
-        "coach_name": None,
-    }
+        )
     profile = (
         CrushProfile.objects.select_related("assigned_coach__user")
         .filter(user_id=registration.user_id)

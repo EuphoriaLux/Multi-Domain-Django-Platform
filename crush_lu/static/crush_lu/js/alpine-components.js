@@ -451,6 +451,10 @@ document.addEventListener("alpine:init", function () {
             // Deduplication
             processedIds: {},
 
+            // Monotonic sequence for _refetchSummary: only the latest fetch
+            // may apply its response (out-of-order arrival guard).
+            _summarySeq: 0,
+
             init: function () {
                 this.eventId = parseInt(this.$el.getAttribute("data-event-id")) || 0;
                 if (this.eventId) {
@@ -980,12 +984,19 @@ document.addEventListener("alpine:init", function () {
                     }
                     // The check-in most worth undoing is the one just made,
                     // so the button appears with the row, not on the next
-                    // page load.
-                    var undoUrl =
-                        rowEl.getAttribute("data-undo-url") ||
-                        this._apiUrl("undo-checkin", regId);
-                    var undoBtn = this._buildUndoButton(undoUrl, regId);
-                    if (undoBtn) wrap.appendChild(undoBtn);
+                    // page load. Gated on checked_in_at like the
+                    // server-rendered twin: an attendance recorded without a
+                    // timestamp (admin-entered, or older than this flow) has
+                    // no undo window and the endpoint refuses it — rendering
+                    // the button would offer a correction that can only
+                    // answer 409.
+                    if (row.checked_in_at) {
+                        var undoUrl =
+                            rowEl.getAttribute("data-undo-url") ||
+                            this._apiUrl("undo-checkin", regId);
+                        var undoBtn = this._buildUndoButton(undoUrl, regId);
+                        if (undoBtn) wrap.appendChild(undoBtn);
+                    }
                 } else {
                     if (row.has_profile && !row.is_approved) {
                         var verifyBtn = document.createElement("button");
@@ -1049,9 +1060,10 @@ document.addEventListener("alpine:init", function () {
                 var avatarWrap = document.createElement("div");
                 avatarWrap.className = "relative flex-shrink-0";
                 avatarWrap.setAttribute("data-checkin-avatar", "");
-                if (row.photo_url) {
+                var photoUrl = this._safePhotoUrl(row.photo_url);
+                if (photoUrl) {
                     var img = document.createElement("img");
-                    img.src = row.photo_url;
+                    img.src = photoUrl;
                     img.alt = "";
                     img.className = "w-10 h-10 rounded-full object-cover";
                     avatarWrap.appendChild(img);
@@ -1108,9 +1120,10 @@ document.addEventListener("alpine:init", function () {
 
                 var left = document.createElement("div");
                 left.className = "flex items-center gap-3 min-w-0";
-                if (row.photo_url) {
+                var waitlistPhotoUrl = this._safePhotoUrl(row.photo_url);
+                if (waitlistPhotoUrl) {
                     var img = document.createElement("img");
-                    img.src = row.photo_url;
+                    img.src = waitlistPhotoUrl;
                     img.alt = "";
                     img.className = "w-10 h-10 rounded-full object-cover flex-shrink-0";
                     left.appendChild(img);
@@ -1174,6 +1187,16 @@ document.addEventListener("alpine:init", function () {
                 return null;
             },
 
+            // The photo URL arrives inside a JSON response body, which is
+            // untrusted input no matter that our own API built it — so only a
+            // site-relative path may reach img.src. Rejects absolute,
+            // protocol-relative and scheme-bearing values outright.
+            _safePhotoUrl: function (url) {
+                if (typeof url !== "string") return null;
+                if (url.charAt(0) !== "/" || url.charAt(1) === "/") return null;
+                return url;
+            },
+
             _apiUrl: function (action, regId) {
                 return (
                     "/api/events/" + this.eventId + "/" + action + "/" + regId + "/"
@@ -1190,6 +1213,12 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var url = this.$el.getAttribute("data-summary-url");
                 if (!url) return;
+                // Sequence guard: two door actions close together start two
+                // fetches, and the older read can land LAST — without this,
+                // it would apply a snapshot that predates the newer action
+                // and roll the counters back. Only the most recently started
+                // fetch may render.
+                var seq = ++this._summarySeq;
                 // A failed refetch keeps the current numbers: the door must
                 // not blank its counters because a phone lost signal.
                 fetch(url, { headers: { Accept: "application/json" } })
@@ -1197,6 +1226,7 @@ document.addEventListener("alpine:init", function () {
                         return r.json();
                     })
                     .then(function (summary) {
+                        if (seq !== self._summarySeq) return;
                         if (summary && summary.success) {
                             self._applySummary(summary);
                         }
