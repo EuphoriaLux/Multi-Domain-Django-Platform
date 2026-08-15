@@ -451,6 +451,10 @@ document.addEventListener("alpine:init", function () {
             // Deduplication
             processedIds: {},
 
+            // Monotonic sequence for _refetchSummary: only the latest fetch
+            // may apply its response (out-of-order arrival guard).
+            _summarySeq: 0,
+
             init: function () {
                 this.eventId = parseInt(this.$el.getAttribute("data-event-id")) || 0;
                 if (this.eventId) {
@@ -689,21 +693,33 @@ document.addEventListener("alpine:init", function () {
 
             handleRemoteCheckin: function (data) {
                 var regId = data.registration_id;
-                // A verification is a genuinely new event about an ID this page
-                // has already seen: the attendee's first (unverified) scan
-                // marked the ID processed, so a later rescan that verifies them
-                // would be suppressed here and this page would keep showing the
-                // amber pill and Verify button until reload. Apply it before
-                // the duplicate check, which exists to stop repeat *check-in*
-                // toasts, not state changes.
-                if (data.auto_verified) {
-                    this._markRowVerified(regId);
+                // Row state and counters run on EVERY path, before the
+                // dedupe guard: the guard exists to stop repeat check-in
+                // toasts, not state changes. That ordering failure is what
+                // made an undo broadcast from another coach read as an
+                // arrival here, incrementing attendance for a correction
+                // (#710 finding 1).
+                this._applyRowState(data.row);
+                this._refetchSummary();
+                if (data.undone) {
+                    // A correction is not an arrival: take the row out of
+                    // Recent Check-ins instead of celebrating it.
+                    this._removeRecentCheckin(regId);
+                    // And clear the dedupe entry — mirroring the acting
+                    // coach's local undo path — so a legitimate re-check-in
+                    // after the undo isn't swallowed by the guard below.
+                    delete this.processedIds[regId];
+                    return;
                 }
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
-
                 this.showProfileToast(data);
-                this._updateCheckinUI(data);
+                // Only a fresh arrival enters Recent Check-ins: a re-scan
+                // (already_checked_in) and a verification (no such flag at
+                // all) must not.
+                if (data.already_checked_in === false) {
+                    this._pushRecentCheckin(data);
+                }
             },
 
             // --- Toast management ---
@@ -750,22 +766,523 @@ document.addEventListener("alpine:init", function () {
                 if (el) el.remove();
             },
 
-            // --- Shared UI update logic ---
-            _updateCheckinUI: function (data) {
-                var regId = data.registration_id;
-                // Attending now verifies the profile, so the row must stop
-                // showing the amber "Unverified" pill and its Verify button —
-                // otherwise the toast and the DB say verified while the list
-                // still invites a redundant (and now pointless) verification.
-                // Before the already_checked_in early return: a re-scan is
-                // exactly when a previously self-scanned attendee gets verified.
-                if (data.auto_verified) {
-                    this._markRowVerified(regId);
-                }
-                if (data.already_checked_in) return;
+            // --- Shared row-state applier + summary refetch (#710) ---
+            //
+            // ONE applier for every path — local fetch callback and
+            // WebSocket broadcast alike — fed by the `row` object each
+            // action's own response carries. No handler patches its own
+            // subset of the DOM any more; that is what drifted across ~20
+            // hand-maintained update sites and left the 3-actions-x-2-paths
+            // matrix with two broken cells.
+            _applyRowState: function (row) {
+                if (!row || !row.registration_id) return;
+                var regId = row.registration_id;
 
-                // Add to recent checkins list
+                if (row.status === "waitlist") {
+                    // Undoing a promotion puts the walk-up back where they
+                    // came from: out of the confirmed list, into the
+                    // waitlist section — which is why that section renders
+                    // even while empty. The avatar photo is CARRIED OVER
+                    // from the row being removed: no URL is ever read back
+                    // from the payload, so nothing response-derived can
+                    // reach an img.src.
+                    var mainRow = document.getElementById("manual-reg-" + regId);
+                    var mainPhoto = this._takeRowPhoto(mainRow);
+                    if (mainRow) mainRow.remove();
+                    if (
+                        !document.getElementById("waitlist-reg-" + regId) &&
+                        this._waitlistList()
+                    ) {
+                        this._waitlistList().appendChild(
+                            this._buildWaitlistRow(row, mainPhoto),
+                        );
+                    }
+                } else {
+                    // A promotion leaves the waitlist on every path. The
+                    // row used to survive it on every page but the acting
+                    // coach's, leaving an enabled promote button over an
+                    // attended row that answers 409 (#710 finding 2). The
+                    // photo rides across the same way as above.
+                    var wlRow = document.getElementById("waitlist-reg-" + regId);
+                    var wlPhoto = this._takeRowPhoto(wlRow);
+                    if (wlRow) wlRow.remove();
+                    var rowEl = document.getElementById("manual-reg-" + regId);
+                    if (!rowEl) {
+                        // The confirmed list never contained this attendee:
+                        // build the whole row, undo button included, so a
+                        // mistaken promotion is correctable at once (#710
+                        // finding 3).
+                        var list = this._attendeeList();
+                        if (!list) return;
+                        rowEl = this._buildConfirmedRow(row, wlPhoto);
+                        list.appendChild(rowEl);
+                        var empty = document.getElementById("attendee-empty");
+                        if (empty) empty.remove();
+                    }
+                    rowEl.setAttribute("data-attendee-status", row.status);
+                    this._applyRowInterior(rowEl, row);
+                }
+                // The "not arrived" filter re-reads the status attribute,
+                // so a row checked in under it leaves the list now rather
+                // than at the next keystroke (#710 finding 4).
+                if (window._applyAttendeeFilters) window._applyAttendeeFilters();
+            },
+
+            _attendeeList: function () {
+                return document.getElementById("attendee-list");
+            },
+
+            _waitlistList: function () {
+                return document.getElementById("waitlist-list");
+            },
+
+            // Rewrite everything an action can change on an existing
+            // confirmed-list row. Static identity (name, gender, age, avatar
+            // image) is only built by _buildConfirmedRow.
+            _applyRowInterior: function (rowEl, row) {
+                var attended = row.status === "attended";
+
+                // Green overlay tick: add or remove, never toggle, so both
+                // the server-rendered and the JS-injected badge come off on
+                // undo (#710 finding 7).
+                var avatarWrap = rowEl.querySelector("[data-checkin-avatar]");
+                if (avatarWrap) {
+                    var overlay = avatarWrap.querySelector(
+                        ".checkin-overlay-badge",
+                    );
+                    if (attended && !overlay) {
+                        avatarWrap.appendChild(this._buildOverlayBadge());
+                    } else if (!attended && overlay) {
+                        overlay.remove();
+                    }
+                }
+
+                // Verification pill — all three variants carry the tag.
+                var nameLine = rowEl.querySelector("[data-name-line]");
+                var pill = nameLine && nameLine.querySelector("[data-verify-pill]");
+                if (pill && pill.parentNode) {
+                    pill.parentNode.replaceChild(this._buildVerifyPill(row), pill);
+                }
+
+                // Coach line and arrival time are dropped and re-added in
+                // order, so every path lands on the same DOM whatever the
+                // server-rendered starting point (#710 findings 7 and 9): a
+                // walk-in granted a coach by this very scan gets their line
+                // now, and an undo takes the tick AND the time back off.
+                var oldCoach = rowEl.querySelector("[data-coach-line]");
+                if (oldCoach) oldCoach.remove();
+                var oldTime = rowEl.querySelector("[data-arrival-time]");
+                if (oldTime) oldTime.remove();
+                var meta = nameLine ? nameLine.parentNode : null;
+                if (meta) {
+                    if (row.coach_name || attended) {
+                        meta.appendChild(this._buildCoachLine(row, attended));
+                    }
+                    if (attended && row.checked_in_at) {
+                        meta.appendChild(
+                            this._buildArrivalTime(row.checked_in_at),
+                        );
+                    }
+                }
+
+                var actions = rowEl.querySelector("[data-row-actions]");
+                var newActions = this._buildActions(rowEl, row);
+                if (actions) {
+                    actions.replaceWith(newActions);
+                } else {
+                    rowEl.appendChild(newActions);
+                }
+            },
+
+            _buildOverlayBadge: function () {
+                var badge = document.createElement("span");
+                badge.className =
+                    "checkin-overlay-badge absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center";
+                badge.innerHTML =
+                    '<svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+                return badge;
+            },
+
+            _buildVerifyPill: function (row) {
+                var i18n = window._checkinI18n || {};
+                var span = document.createElement("span");
+                span.setAttribute("data-verify-pill", "");
+                var icon;
+                var label;
+                if (!row.has_profile) {
+                    span.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-400";
+                    icon =
+                        '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-8-4a1 1 0 00-1 1v3a1 1 0 002 0V7a1 1 0 00-1-1zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>';
+                    label = i18n.noProfile || "No profile";
+                } else if (row.is_approved) {
+                    span.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400";
+                    icon =
+                        '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+                    label = i18n.verified || "Verified";
+                } else {
+                    span.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400";
+                    icon =
+                        '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+                    label = i18n.unverifiedPill || "Unverified";
+                }
+                span.innerHTML = icon + this._esc(label);
+                return span;
+            },
+
+            _buildCoachLine: function (row, attended) {
+                var i18n = window._checkinI18n || {};
+                var p = document.createElement("p");
+                p.setAttribute("data-coach-line", "");
+                if (row.coach_name) {
+                    p.className =
+                        "text-xs text-crush-purple/70 dark:text-purple-400/70 mt-0.5";
+                    p.textContent =
+                        (i18n.coach || "Coach") + ": " + row.coach_name;
+                } else {
+                    p.className = "text-xs text-amber-600 dark:text-amber-400 mt-0.5";
+                    p.textContent = i18n.noCoachYet || "No coach yet";
+                }
+                return p;
+            },
+
+            _buildArrivalTime: function (iso) {
+                var p = document.createElement("p");
+                p.className = "text-xs text-gray-400 dark:text-gray-500 mt-0.5";
+                p.setAttribute("data-arrival-time", "");
+                p.textContent = this._formatArrivalTime(iso);
+                return p;
+            },
+
+            _formatArrivalTime: function (iso) {
+                var d = new Date(iso);
+                if (isNaN(d.getTime())) return "";
+                return d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+            },
+
+            // The action buttons for a row's current state. Built fresh and
+            // swapped in whole, so no transition path can leave a stale
+            // button behind.
+            _buildActions: function (rowEl, row) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var regId = row.registration_id;
+                var wrap = document.createElement("div");
+                wrap.className = "flex-shrink-0 flex items-center gap-2";
+                wrap.setAttribute("data-row-actions", "");
+                // Verify sits outside the status split, exactly like the
+                // server-rendered twin: attended does not imply verified.
+                // _auto_verify_on_attendance deliberately declines coach-less
+                // self-scans, premium members and photo-less profiles, so the
+                // button has to survive the check-in for exactly those rows.
+                if (row.has_profile && !row.is_approved) {
+                    wrap.appendChild(this._buildVerifyButton(regId));
+                }
+                if (row.status === "attended") {
+                    var checkedSpan = document.createElement("span");
+                    checkedSpan.className =
+                        "px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
+                    checkedSpan.textContent = i18n.checkedIn || "Checked In";
+                    wrap.appendChild(checkedSpan);
+                    if (row.table_number) {
+                        var tableBadge = document.createElement("span");
+                        // `manual-table-badge` is what a later state change
+                        // clears along with the seat — without it an undone
+                        // check-in left its "T3" on screen.
+                        tableBadge.className =
+                            "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
+                        tableBadge.setAttribute("data-user-id", row.user_id);
+                        tableBadge.textContent = "T" + row.table_number;
+                        wrap.appendChild(tableBadge);
+                    }
+                    // The check-in most worth undoing is the one just made,
+                    // so the button appears with the row, not on the next
+                    // page load. Gated on checked_in_at like the
+                    // server-rendered twin: an attendance recorded without a
+                    // timestamp (admin-entered, or older than this flow) has
+                    // no undo window and the endpoint refuses it — rendering
+                    // the button would offer a correction that can only
+                    // answer 409.
+                    if (row.checked_in_at) {
+                        var undoUrl =
+                            rowEl.getAttribute("data-undo-url") ||
+                            this._apiUrl("undo-checkin", regId);
+                        var undoBtn = this._buildUndoButton(undoUrl, regId);
+                        if (undoBtn) wrap.appendChild(undoBtn);
+                    }
+                } else {
+                    var checkinUrl = rowEl.getAttribute("data-checkin-url");
+                    if (checkinUrl) {
+                        var checkinBtn = document.createElement("button");
+                        checkinBtn.type = "button";
+                        checkinBtn.className =
+                            "manual-checkin-btn btn-crush-solid btn-sm text-white";
+                        checkinBtn.setAttribute("data-checkin-url", checkinUrl);
+                        checkinBtn.setAttribute("data-reg-id", regId);
+                        checkinBtn.textContent = i18n.checkIn || "Check In";
+                        checkinBtn.addEventListener("click", function (clickEvent) {
+                            self.manualCheckin(clickEvent);
+                        });
+                        wrap.appendChild(checkinBtn);
+                    }
+                }
+                return wrap;
+            },
+
+            // Full row for an attendee the confirmed list never contained —
+            // a waitlist walk-up being promoted. Class-identical to the
+            // server-rendered twin in coach_event_checkin.html. The photo,
+            // when there is one, is the <img> node carried over from the
+            // waitlist row this promotion empties.
+            _buildConfirmedRow: function (row, photoImg) {
+                var el = document.createElement("div");
+                el.className = "py-3 flex items-center justify-between gap-3";
+                el.id = "manual-reg-" + row.registration_id;
+                el.setAttribute("data-attendee-status", row.status);
+                // Undo and verify are addressed by id — no signed token
+                // involved — so a row that was waitlist-only until now can
+                // still carry them.
+                el.setAttribute(
+                    "data-undo-url",
+                    this._apiUrl("undo-checkin", row.registration_id),
+                );
+                el.setAttribute(
+                    "data-attendee-search",
+                    this._escAttr(row.search || row.display_name || ""),
+                );
+
+                var left = document.createElement("div");
+                left.className = "flex items-center gap-3 min-w-0";
+
+                var avatarWrap = document.createElement("div");
+                avatarWrap.className = "relative flex-shrink-0";
+                avatarWrap.setAttribute("data-checkin-avatar", "");
+                if (photoImg) {
+                    photoImg.className = "w-10 h-10 rounded-full object-cover";
+                    avatarWrap.appendChild(photoImg);
+                } else {
+                    var initial = document.createElement("div");
+                    initial.className =
+                        "w-10 h-10 rounded-full bg-crush-purple/20 flex items-center justify-center text-crush-purple font-semibold text-sm";
+                    initial.textContent = (row.display_name || "?")
+                        .charAt(0)
+                        .toUpperCase();
+                    avatarWrap.appendChild(initial);
+                }
+                left.appendChild(avatarWrap);
+
+                var meta = document.createElement("div");
+                meta.className = "min-w-0";
+                var nameLine = document.createElement("div");
+                nameLine.className =
+                    "flex flex-wrap items-center gap-x-2 gap-y-0.5";
+                nameLine.setAttribute("data-name-line", "");
+                var name = document.createElement("span");
+                name.className = "font-medium text-sm dark:text-white truncate";
+                name.textContent = row.display_name || "";
+                nameLine.appendChild(name);
+                var genderIcon = this._genderIcon(row.gender);
+                if (genderIcon) {
+                    var g = document.createElement("span");
+                    g.className = genderIcon.cls + " text-xs";
+                    if (genderIcon.title) g.title = genderIcon.title;
+                    g.textContent = genderIcon.char;
+                    nameLine.appendChild(g);
+                }
+                if (row.age_display) {
+                    var age = document.createElement("span");
+                    age.className = "text-xs text-gray-500 dark:text-gray-400";
+                    age.textContent = row.age_display;
+                    nameLine.appendChild(age);
+                }
+                nameLine.appendChild(this._buildVerifyPill(row));
+                meta.appendChild(nameLine);
+                left.appendChild(meta);
+                el.appendChild(left);
+                return el;
+            },
+
+            // Waitlist twin — what an undone promotion returns to. Same
+            // classes as the server-rendered rows it sits between.
+            _buildWaitlistRow: function (row, photoImg) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var el = document.createElement("div");
+                el.className = "py-3 flex items-center justify-between gap-3";
+                el.id = "waitlist-reg-" + row.registration_id;
+
+                var left = document.createElement("div");
+                left.className = "flex items-center gap-3 min-w-0";
+                if (photoImg) {
+                    photoImg.className =
+                        "w-10 h-10 rounded-full object-cover flex-shrink-0";
+                    left.appendChild(photoImg);
+                } else {
+                    var initial = document.createElement("div");
+                    initial.className =
+                        "w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-700 dark:text-amber-400 font-semibold text-sm flex-shrink-0";
+                    initial.textContent = (row.display_name || "?")
+                        .charAt(0)
+                        .toUpperCase();
+                    left.appendChild(initial);
+                }
+                var meta = document.createElement("div");
+                meta.className = "min-w-0";
+                var name = document.createElement("span");
+                name.className = "font-medium text-sm dark:text-white truncate block";
+                name.textContent = row.display_name || "";
+                meta.appendChild(name);
+                var sub = [];
+                var genderIcon = this._genderIcon(row.gender);
+                if (genderIcon) sub.push(genderIcon.char);
+                if (row.age_display) sub.push(row.age_display);
+                if (sub.length) {
+                    var subSpan = document.createElement("span");
+                    subSpan.className = "text-xs text-gray-500 dark:text-gray-400";
+                    subSpan.textContent = " " + sub.join(" ");
+                    meta.appendChild(subSpan);
+                }
+                left.appendChild(meta);
+                el.appendChild(left);
+
+                var promoteBtn = document.createElement("button");
+                promoteBtn.type = "button";
+                promoteBtn.className =
+                    "waitlist-promote-btn flex-shrink-0 btn-crush-solid btn-sm bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 text-white";
+                promoteBtn.setAttribute(
+                    "data-promote-url",
+                    this._apiUrl("promote", row.registration_id),
+                );
+                promoteBtn.setAttribute("data-reg-id", row.registration_id);
+                promoteBtn.textContent = i18n.promoteAction || "Check in";
+                promoteBtn.addEventListener("click", function (clickEvent) {
+                    self.promoteFromWaitlist(clickEvent);
+                });
+                el.appendChild(promoteBtn);
+                return el;
+            },
+
+            _genderIcon: function (gender) {
+                if (gender === "M")
+                    return { char: "\u2642", cls: "text-blue-500", title: "Male" };
+                if (gender === "F")
+                    return { char: "\u2640", cls: "text-pink-500", title: "Female" };
+                if (gender === "NB")
+                    return {
+                        char: "\u26A4",
+                        cls: "text-purple-500",
+                        title: "Non-binary",
+                    };
+                if (gender) return { char: "\u26A7", cls: "text-gray-400", title: "" };
+                return null;
+            },
+
+            // Detach the avatar <img> from a row that is about to be
+            // removed, so the photo survives the row transition without its
+            // URL ever being read back from an API payload — the src stays
+            // whatever the server rendered, which severs the response-body
+            // taint CodeQL traces into img.src.
+            _takeRowPhoto: function (rowEl) {
+                if (!rowEl) return null;
+                var img = rowEl.querySelector("[data-checkin-avatar] img");
+                if (img && img.parentNode) img.parentNode.removeChild(img);
+                return img || null;
+            },
+
+            _apiUrl: function (action, regId) {
+                return (
+                    "/api/events/" + this.eventId + "/" + action + "/" + regId + "/"
+                );
+            },
+
+            // --- Summary refetch (#710) ---
+            //
+            // The counters are never bumped by hand any more: every
+            // successful door action refetches this read-only summary, so a
+            // path that forgets a tile can only be late, never wrong — and
+            // both coaches' pages converge on the server's numbers.
+            _refetchSummary: function () {
+                var self = this;
+                var url = this.$el.getAttribute("data-summary-url");
+                if (!url) return;
+                // Sequence guard: two door actions close together start two
+                // fetches, and the older read can land LAST — without this,
+                // it would apply a snapshot that predates the newer action
+                // and roll the counters back. Only the most recently started
+                // fetch may render.
+                var seq = ++this._summarySeq;
+                // A failed refetch keeps the current numbers: the door must
+                // not blank its counters because a phone lost signal.
+                fetch(url, { headers: { Accept: "application/json" } })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (summary) {
+                        if (seq !== self._summarySeq) return;
+                        if (summary && summary.success) {
+                            self._applySummary(summary);
+                        }
+                    })
+                    .catch(function () {});
+            },
+
+            _applySummary: function (s) {
+                this._setCount("attended-count", s.attended_count);
+                this._setCount("outstanding-count", s.outstanding_count);
+                this._setCount("expected-count", s.expected_count);
+                // Numerator AND denominator, all three buckets — the
+                // endpoint always sends them, so a promotion can no longer
+                // render a tile as "6 / 5" (#710 finding 5).
+                var buckets = [
+                    ["f", "F"],
+                    ["m", "M"],
+                    ["other", "other"],
+                ];
+                for (var i = 0; i < buckets.length; i++) {
+                    var elKey = buckets[i][0];
+                    var dataKey = buckets[i][1];
+                    this._setCount(
+                        "gender-" + elKey + "-count",
+                        (s.gender_checked_in || {})[dataKey],
+                    );
+                    this._setCount(
+                        "gender-" + elKey + "-expected",
+                        (s.gender_expected || {})[dataKey],
+                    );
+                }
+                // Waitlist badge and section visibility follow the count
+                // (#710 finding 6) — including the empty-rendered section an
+                // undone promotion has to be able to come back to.
+                this._setCount("waitlist-count-badge", s.waitlist_count);
+                var card = document.getElementById("waitlist-card");
+                if (card) {
+                    card.style.display = s.waitlist_count > 0 ? "" : "none";
+                }
+                var fill = s.table_fill || [];
+                for (var t = 0; t < fill.length; t++) {
+                    this._setCount(
+                        "table-fill-" + fill[t].number,
+                        fill[t].count,
+                    );
+                }
+            },
+
+            _setCount: function (id, value) {
+                var el = document.getElementById(id);
+                if (el && typeof value === "number") el.textContent = value;
+            },
+
+            // --- Recent check-ins ---
+            _pushRecentCheckin: function (data) {
                 this.checkins.unshift({
+                    // regId is what lets an undo take its entry back out
+                    // (#710 finding 8).
+                    regId: data.registration_id,
                     name: data.attendee_name,
                     table: data.table_number || 0,
                     hasTable: !!data.table_number,
@@ -776,120 +1293,22 @@ document.addEventListener("alpine:init", function () {
                     }),
                 });
                 this._renderCheckins();
-
-                // Update attended counter
-                var counter = document.getElementById("attended-count");
-                if (counter) {
-                    counter.textContent = parseInt(counter.textContent) + 1;
-                }
-                // A scan moves someone from "expected but not here" to "here",
-                // so outstanding drops. A PROMOTION does not: a waitlisted row
-                // was never in the expected set (views_coach counts only
-                // confirmed/attended), so on reload both expected and attended
-                // grow by one and outstanding is unchanged. Decrementing it
-                // here would understate exactly the number the coach is using
-                // to decide whether to keep promoting.
-                this._bumpCounter(
-                    data.promoted ? "expected-count" : "outstanding-count",
-                    data.promoted ? 1 : -1,
-                );
-                this._bumpGenderSplit(data.profile && data.profile.gender, 1);
-
-                // Update table fill display
-                if (data.table_number) {
-                    var fillEl = document.getElementById(
-                        "table-fill-" + data.table_number,
-                    );
-                    if (fillEl) {
-                        fillEl.textContent = parseInt(fillEl.textContent) + 1;
-                    }
-                }
-
-                // Update manual check-in row
-                var row = document.getElementById("manual-reg-" + regId);
-                if (row) {
-                    // Keeps the "not arrived" filter honest for rows checked
-                    // in after the page loaded.
-                    row.setAttribute("data-attendee-status", "attended");
-                    // Inject green overlay badge on the avatar (new layout)
-                    var avatarWrap = row.querySelector("[data-checkin-avatar]");
-                    if (
-                        avatarWrap &&
-                        !avatarWrap.querySelector(".checkin-overlay-badge")
-                    ) {
-                        var badge = document.createElement("span");
-                        badge.className =
-                            "checkin-overlay-badge absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center";
-                        badge.innerHTML =
-                            '<svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
-                        avatarWrap.appendChild(badge);
-                    }
-                    // Legacy fallback: plain circle indicator (pre-avatar layout)
-                    var circle = row.querySelector(
-                        ".border-gray-300, .border-gray-600",
-                    );
-                    if (circle) {
-                        circle.outerHTML =
-                            '<svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
-                    }
-                    var btn = row.querySelector(".manual-checkin-btn");
-                    if (btn) {
-                        var i18n = window._checkinI18n || {};
-                        var wrap = document.createElement("div");
-                        wrap.className = "flex items-center gap-2";
-
-                        var checkedSpan = document.createElement("span");
-                        checkedSpan.className =
-                            "px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
-                        checkedSpan.textContent = i18n.checkedIn || "Checked In";
-                        wrap.appendChild(checkedSpan);
-
-                        if (data.table_number) {
-                            var tableBadge = document.createElement("span");
-                            // `manual-table-badge` is what _updateUndoUI
-                            // removes. Without it, undoing a check-in made in
-                            // this same session cleared the seat server-side
-                            // but left its "T3" on screen — the server-rendered
-                            // twin in coach_event_checkin.html carries the
-                            // class, so only the freshest badge got stranded.
-                            tableBadge.className =
-                                "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
-                            tableBadge.textContent = "T" + data.table_number;
-                            wrap.appendChild(tableBadge);
-                        }
-
-                        // The check-in most worth undoing is the one just
-                        // made, so the button has to appear now — not only on
-                        // the next page load, which is what a coach at the
-                        // door is least able to afford.
-                        var undoBtn = this._buildUndoButton(row, regId);
-                        if (undoBtn) wrap.appendChild(undoBtn);
-
-                        btn.replaceWith(wrap);
-                    }
-                }
             },
 
-            _bumpCounter: function (elementId, delta) {
-                var el = document.getElementById(elementId);
-                if (!el) return;
-                var current = parseInt(el.textContent, 10);
-                if (isNaN(current)) return;
-                el.textContent = Math.max(0, current + delta);
+            _removeRecentCheckin: function (regId) {
+                if (!regId) return;
+                for (var i = 0; i < this.checkins.length; i++) {
+                    if (this.checkins[i].regId === regId) {
+                        this.checkins.splice(i, 1);
+                        break;
+                    }
+                }
+                this._renderCheckins();
             },
 
-            _bumpGenderSplit: function (gender, delta) {
-                // The "In the room" tile is what the waitlist decision leans
-                // on, and a door shift runs for hours without a reload — a
-                // render-time-only count would be wrong from the first scan.
-                var key = gender === "F" || gender === "M" ? gender : "other";
-                this._bumpCounter("gender-" + key.toLowerCase() + "-count", delta);
-            },
-
-            _buildUndoButton: function (row, regId) {
+            _buildUndoButton: function (undoUrl, regId) {
                 var self = this;
                 var i18n = window._checkinI18n || {};
-                var undoUrl = row.getAttribute("data-undo-url");
                 if (!undoUrl) return null;
                 var undoBtn = document.createElement("button");
                 undoBtn.type = "button";
@@ -908,6 +1327,29 @@ document.addEventListener("alpine:init", function () {
                     self.undoCheckin(clickEvent);
                 });
                 return undoBtn;
+            },
+
+            _buildVerifyButton: function (regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var verifyBtn = document.createElement("button");
+                verifyBtn.type = "button";
+                // Must stay identical to the server-rendered twin in
+                // coach_event_checkin.html — see _buildUndoButton.
+                verifyBtn.className =
+                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
+                verifyBtn.setAttribute(
+                    "data-verify-url",
+                    this._apiUrl("verify", regId),
+                );
+                verifyBtn.setAttribute("data-reg-id", regId);
+                verifyBtn.textContent = i18n.verifyAction || "Verify";
+                // Bound directly rather than with x-on — Alpine only wires
+                // directives present when it walked the tree.
+                verifyBtn.addEventListener("click", function (clickEvent) {
+                    self.markVerified(clickEvent);
+                });
+                return verifyBtn;
             },
 
             // --- Scanner ---
@@ -1143,7 +1585,13 @@ document.addEventListener("alpine:init", function () {
                                 self.processedIds[data.registration_id] = true;
                             }
                             self.showProfileToast(data);
-                            self._updateCheckinUI(data);
+                            self._applyRowState(data.row);
+                            self._refetchSummary();
+                            // Only a fresh arrival enters Recent Check-ins —
+                            // a re-scan of an already-attended badge must not.
+                            if (data.already_checked_in === false) {
+                                self._pushRecentCheckin(data);
+                            }
                         } else {
                             self.success = false;
                             self.errorState = true;
@@ -1194,7 +1642,11 @@ document.addEventListener("alpine:init", function () {
                                 self.processedIds[data.registration_id] = true;
                             }
                             self.showProfileToast(data);
-                            self._updateCheckinUI(data);
+                            self._applyRowState(data.row);
+                            self._refetchSummary();
+                            if (data.already_checked_in === false) {
+                                self._pushRecentCheckin(data);
+                            }
                         } else {
                             btn.disabled = false;
                             var i18n = window._checkinI18n || {};
@@ -1246,7 +1698,17 @@ document.addEventListener("alpine:init", function () {
                             // again — otherwise the dedupe set silently
                             // swallows the corrected check-in.
                             delete self.processedIds[regId];
-                            self._updateUndoUI(data, regId);
+                            // One applier, fed by the row the undo response
+                            // carries: it moves the row to whatever
+                            // `restored_status` says (confirmed list or back
+                            // onto the waitlist), clears the tick, the time
+                            // and the table badge, and rebuilds the Check In
+                            // path.
+                            self._applyRowState(data.row);
+                            self._removeRecentCheckin(
+                                data.registration_id || regId,
+                            );
+                            self._refetchSummary();
                         } else {
                             btn.disabled = false;
                             btn.textContent = i18n.undoAction || "Undo";
@@ -1258,115 +1720,6 @@ document.addEventListener("alpine:init", function () {
                         btn.textContent = i18n.undoAction || "Undo";
                         alert(i18n.networkError || "Network error");
                     });
-            },
-
-            _updateUndoUI: function (data, regId) {
-                var self = this;
-                var i18n = window._checkinI18n || {};
-                var id = data.registration_id || regId;
-                var row = document.getElementById("manual-reg-" + id);
-                // An undo returns the row to whatever it actually held before
-                // the check-in, which the server now records rather than
-                // assumes: undoing a mistaken promotion puts the walk-up back
-                // on the waitlist instead of leaving them a confirmed seat.
-                var toWaitlist = data.restored_status === "waitlist";
-
-                this._bumpCounter("attended-count", -1);
-                // Exact inverse of what the check-in bumped. A promotion grew
-                // the expected set (views_coach counts confirmed + attended,
-                // and a waitlisted row is in neither), so undoing it shrinks
-                // that set again — outstanding was never touched either way.
-                this._bumpCounter(
-                    toWaitlist ? "expected-count" : "outstanding-count",
-                    toWaitlist ? -1 : 1,
-                );
-                this._bumpGenderSplit(data.gender, -1);
-
-                // Give the chair back on the table-fill grid. The server sends
-                // this under its own key rather than `table_number`: an undo
-                // broadcast still reaches other coaches through
-                // _updateCheckinUI, which would read the arrival key and count
-                // the seat *up* (#710, finding 1). Which is also why this only
-                // corrects the acting coach's page — the remote one is put
-                // right by the redesign, not here.
-                // A list, because the seat model's uniqueness is only
-                // (table, user) — one person can hold chairs at two tables of
-                // the same quiz, and the grid counts both.
-                var releasedTables = data.released_table_numbers || [];
-                for (var ti = 0; ti < releasedTables.length; ti++) {
-                    var fillEl = document.getElementById(
-                        "table-fill-" + releasedTables[ti],
-                    );
-                    if (fillEl) {
-                        var fill = parseInt(fillEl.textContent, 10);
-                        if (!isNaN(fill)) {
-                            fillEl.textContent = Math.max(0, fill - 1);
-                        }
-                    }
-                }
-                if (!row) return;
-
-                if (toWaitlist) {
-                    // The confirmed list only ever renders confirmed and
-                    // attended rows, so a waitlisted one does not belong in
-                    // it — and rebuilding its Check In button would post to
-                    // event_checkin_api, which refuses anything but
-                    // `confirmed`. The waitlist section below is rebuilt on
-                    // the next page load (see #710).
-                    row.remove();
-                    return;
-                }
-
-                row.setAttribute("data-attendee-status", "confirmed");
-                var badge = row.querySelector(".checkin-overlay-badge");
-                if (badge) badge.remove();
-
-                // The coach line only ever showed a coach this attendance may
-                // have granted, so reflect the server's answer rather than
-                // guessing.
-                if (data.coach_cleared) {
-                    var coachLine = row.querySelector("[data-coach-line]");
-                    if (coachLine) coachLine.remove();
-                }
-
-                // Rebuild the Check In button the check-in flow replaced.
-                var actions = row.querySelector("[data-row-actions]");
-                if (actions) {
-                    var checkinUrl = row.getAttribute("data-checkin-url");
-                    Array.prototype.forEach.call(
-                        actions.querySelectorAll(
-                            ".manual-undo-btn, .manual-table-badge",
-                        ),
-                        function (el) {
-                            el.remove();
-                        },
-                    );
-                    Array.prototype.forEach.call(
-                        actions.querySelectorAll("span"),
-                        function (el) {
-                            if (el.textContent === (i18n.checkedIn || "Checked In")) {
-                                el.remove();
-                            }
-                        },
-                    );
-                    var newBtn = document.createElement("button");
-                    newBtn.type = "button";
-                    // Keep in sync with the server-rendered twin in
-                    // coach_event_checkin.html (see _buildUndoButton).
-                    newBtn.className =
-                        "manual-checkin-btn btn-crush-solid btn-sm text-white";
-                    newBtn.setAttribute("data-checkin-url", checkinUrl || "");
-                    newBtn.setAttribute("data-reg-id", id);
-                    newBtn.textContent = i18n.checkIn || "Check In";
-                    // Bound directly, not via x-on: Alpine only wires
-                    // directives it saw when it walked the tree, so a button
-                    // created here would render enabled and do nothing —
-                    // exactly the trap the undo exists to get out of.
-                    newBtn.addEventListener("click", function (clickEvent) {
-                        self.manualCheckin(clickEvent);
-                    });
-                    actions.appendChild(newBtn);
-                }
             },
 
             promoteFromWaitlist: function (evt) {
@@ -1397,13 +1750,14 @@ document.addEventListener("alpine:init", function () {
                                 self.processedIds[data.registration_id] = true;
                             }
                             self.showProfileToast(data);
-                            self._updateCheckinUI(data);
-                            // The row lives in the waitlist section, which the
-                            // confirmed-list update above does not know about.
-                            var wlRow = document.getElementById(
-                                "waitlist-reg-" + (data.registration_id || regId),
-                            );
-                            if (wlRow) wlRow.remove();
+                            // The applier takes the waitlist row away AND
+                            // builds the attended row in the confirmed list —
+                            // undo button included, so a mistaken promotion
+                            // is correctable at once instead of after a
+                            // reload (#710 finding 3).
+                            self._applyRowState(data.row);
+                            self._refetchSummary();
+                            self._pushRecentCheckin(data);
                         } else {
                             btn.disabled = false;
                             btn.textContent = i18n.checkIn || "Check In";
@@ -1437,7 +1791,10 @@ document.addEventListener("alpine:init", function () {
                     })
                     .then(function (data) {
                         if (data.success) {
-                            self._markRowVerified(regId);
+                            // Same applier as every other action: the row's
+                            // pill swaps to verified and the Verify button
+                            // leaves with the rebuilt actions.
+                            self._applyRowState(data.row);
                         } else {
                             btn.disabled = false;
                             btn.textContent = i18n.verifyAction || "Verify";
@@ -1453,22 +1810,6 @@ document.addEventListener("alpine:init", function () {
                         btn.textContent = i18n.verifyAction || "Verify";
                         alert(i18n.networkError || "Network error");
                     });
-            },
-
-            _markRowVerified: function (regId) {
-                var i18n = window._checkinI18n || {};
-                var row = document.getElementById("manual-reg-" + regId);
-                if (!row) return;
-                // Swap the amber "Unverified" pill for a green "Verified" pill.
-                var pill = row.querySelector("[data-verify-pill]");
-                if (pill) {
-                    pill.className =
-                        "inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400";
-                    pill.textContent = i18n.verified || "Verified";
-                }
-                // Remove the verify button.
-                var btn = row.querySelector(".manual-verify-btn");
-                if (btn) btn.remove();
             },
         };
     });
