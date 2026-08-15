@@ -975,7 +975,7 @@ def _apply_paid_checkout(tx_obj, data):
             )
             locked_registrations = {
                 row.pk: row
-                for row in EventRegistration.objects.select_for_update()
+                for row in EventRegistration.objects.select_for_update(of=("self",))
                 .select_related("event", "user", "resale_beneficiary")
                 .filter(pk__in=registration_ids)
                 .order_by("pk")

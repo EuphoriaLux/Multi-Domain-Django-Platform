@@ -74,6 +74,8 @@ def backfill_payment_lifecycle(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
+    atomic = False  # adding db_index and FK fields alongside RunPython on PostgreSQL
+
     dependencies = [
         ("crush_lu", "0227_credit_resale_settlement_and_retention"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

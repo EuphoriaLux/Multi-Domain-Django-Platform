@@ -29,6 +29,8 @@ def backfill_payment_events(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
+    atomic = False  # adding ForeignKey event alongside RunPython on PostgreSQL
+
     dependencies = [
         ("crush_lu", "0228_credit_payment_lifecycle"),
     ]

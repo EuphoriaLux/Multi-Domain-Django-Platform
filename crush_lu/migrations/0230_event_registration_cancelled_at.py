@@ -20,6 +20,8 @@ def release_abandoned_checkout_events(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
+    atomic = False  # adding db_index cancelled_at alongside RunPython on PostgreSQL
+
     dependencies = [
         ("crush_lu", "0229_payment_transaction_event"),
     ]
