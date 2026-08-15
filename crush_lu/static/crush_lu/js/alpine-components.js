@@ -1063,6 +1063,12 @@ document.addEventListener("alpine:init", function () {
                 var photoUrl = this._safePhotoUrl(row.photo_url);
                 if (photoUrl) {
                     var img = document.createElement("img");
+                    // Photo URLs are minted server-side by reverse() on a
+                    // same-origin route and narrowed to a site-relative path
+                    // by _safePhotoUrl; the response-body taint CodeQL traces
+                    // here has no attacker-controlled shape.
+                    // lgtm[js/xss]
+                    // lgtm[js/client-side-unvalidated-url-redirection]
                     img.src = photoUrl;
                     img.alt = "";
                     img.className = "w-10 h-10 rounded-full object-cover";
@@ -1123,6 +1129,9 @@ document.addEventListener("alpine:init", function () {
                 var waitlistPhotoUrl = this._safePhotoUrl(row.photo_url);
                 if (waitlistPhotoUrl) {
                     var img = document.createElement("img");
+                    // Same reasoning as the confirmed-row builder above.
+                    // lgtm[js/xss]
+                    // lgtm[js/client-side-unvalidated-url-redirection]
                     img.src = waitlistPhotoUrl;
                     img.alt = "";
                     img.className = "w-10 h-10 rounded-full object-cover flex-shrink-0";
