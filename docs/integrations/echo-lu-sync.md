@@ -525,7 +525,8 @@ row says so; the recovery is:
 | `title` / `description` | `title_en` / `description_en`, falling back through the other languages |
 | `subtitle` | `get_event_type_display()` |
 | `dates[0].from` / `.to` | `date_time` / `end_time`, RFC 3339 in UTC |
-| `dates[0].purchaseLink` | the event detail page |
+| `dates[0].purchaseLink` | the event detail page — the *per-occurrence* link |
+| `purchaseLink` (top level) | the event detail page — the **experience-wide** link, and the one that backs the "Commander des billets" button. Not a duplicate of the date-level field: `Ticket` has no link of its own, so this is the only place an experience-wide purchase URL can live. Sending only the date-level one leaves the listing with a price, a buy button and nowhere to buy (seen live 2026-08-15). |
 | `venues` | `location` (venue name) |
 | `location.address` | `address_street` / `address_number` / `address_postcode` / `address_town`; `commune` gets the town too |
 | `location.address.latitude/longitude` | `latitude` / `longitude`, as strings, omitted when unset |
