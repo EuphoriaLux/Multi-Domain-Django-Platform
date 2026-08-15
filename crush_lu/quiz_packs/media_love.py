@@ -9,16 +9,28 @@ See ``crush_lu.quiz_packs`` for the pack schema and the two shapes the optional
 
 Media provenance
 ----------------
-Every embed URL below was resolved through YouTube's oEmbed endpoint on
-**2026-08-11** and pointed at the channel named in its comment. Two things the
-validator cannot check for you, because both are invisible to oEmbed:
+Every embed URL below was **loaded in a real iframe from an http origin** on
+**2026-08-11** and confirmed to play. That is the only check that works — three
+cheaper-looking methods all lie:
 
-* the owner may disable embedding at any time, and
-* a video can be geo-blocked in Luxembourg even while it resolves elsewhere.
+* oEmbed succeeds for embed-blocked videos (it only proves the video exists);
+* the YouTube IFrame Player API fires ``onReady`` for embed-blocked videos too,
+  because the 101/150 error only arrives on a play attempt;
+* opening ``youtube-nocookie.com/embed/<id>`` as a top-level page returns
+  ``Error 153`` for *every* video, working ones included.
 
-So the URLs are load-bearing but not immortal. Play the media round on the
-projector once before the doors open; a coach can swap any URL through the quiz
-authoring UI without touching this file.
+Record labels disable embedding on essentially all of their own uploads. An
+earlier revision of this pack pointed the whole music round at VEVO and official
+artist channels; 5 of its 6 clips turned out to be embed-blocked when the pack
+was first test-driven. The surviving sources here are broadcasters (BBC, INA),
+one official-artist *live* upload, and two third-party re-uploads. Film studios,
+by contrast, allow embedding: every Round 1 trailer works.
+
+Two things no check can rule out: the owner may disable embedding at any time,
+and a video can be geo-blocked in Luxembourg while it plays elsewhere. So the
+URLs are load-bearing but not immortal. Play the media round on the projector
+once before the doors open; a coach can swap any URL through the quiz authoring
+UI without touching this file.
 
 Round 3 carries no URLs at all: the embed allowlist serves the four video/audio
 providers only, so the couple photographs seed media-less and come back as a
@@ -287,12 +299,13 @@ _ROUND_LOVE_SONGS = {
                 {"text": "Love Me Tender", "is_correct": False},
             ],
             "media": {
-                "kind": "audio",
-                # ElvisPresleyVEVO — official audio, no on-screen title
-                "url": "https://www.youtube.com/watch?v=vGJTaP6anOU",
+                "kind": "video",
+                # 7clouds lyric video. The ElvisPresleyVEVO official audio
+                # (vGJTaP6anOU) is embed-blocked — see the provenance note above.
+                "url": "https://www.youtube.com/watch?v=MqazV4hbu8E",
                 "description": (
-                    'Audio of Elvis Presley singing "Can\'t Help Falling in Love", a '
-                    "slow ballad with strings and backing vocals."
+                    "Lyric video for Elvis Presley's \"Can't Help Falling in Love\", "
+                    "a slow ballad with strings and backing vocals."
                 ),
             },
         },
@@ -323,11 +336,12 @@ _ROUND_LOVE_SONGS = {
                 {"text": "Whitney Houston elle-même", "is_correct": False},
             ],
             "media": {
-                "kind": "audio",
-                # whitneyhoustonVEVO — official audio
-                "url": "https://www.youtube.com/watch?v=T9Ybsvw_0p4",
+                "kind": "video",
+                # Remastered live performance. Every whitneyhoustonVEVO and lyric
+                # upload of this song is embed-blocked (9 checked).
+                "url": "https://www.youtube.com/watch?v=xXomfXQeA0Y",
                 "description": (
-                    'Audio of Whitney Houston singing "I Will Always Love You", '
+                    'Whitney Houston performing "I Will Always Love You" live, '
                     "opening a cappella before the full band enters."
                 ),
             },
@@ -359,11 +373,12 @@ _ROUND_LOVE_SONGS = {
                 {"text": "Dans les années 1970", "is_correct": False},
             ],
             "media": {
-                "kind": "audio",
-                # Edith Piaf Officiel — official audio
-                "url": "https://www.youtube.com/watch?v=-0KvBnIvTFs",
+                "kind": "video",
+                # Edith Piaf Officiel — live version. The channel's studio audio
+                # upload (-0KvBnIvTFs) is embed-blocked; this one is not.
+                "url": "https://www.youtube.com/watch?v=rzeLynj1GYM",
                 "description": (
-                    'Audio of Édith Piaf singing "La vie en rose", a French chanson '
+                    'Édith Piaf performing "La vie en rose" live, a French chanson '
                     "with accordion and orchestra."
                 ),
             },
@@ -396,11 +411,12 @@ _ROUND_LOVE_SONGS = {
             ],
             "media": {
                 "kind": "video",
-                # Ed Sheeran (official channel)
-                "url": "https://www.youtube.com/watch?v=2Vv-BfVoq4g",
+                # BBC Radio 1 Live Lounge. Ed Sheeran's own official music video
+                # (2Vv-BfVoq4g) is embed-blocked; the BBC upload is not.
+                "url": "https://www.youtube.com/watch?v=qxbS8qbBL0c",
                 "description": (
-                    'Official music video for Ed Sheeran\'s "Perfect", filmed in the '
-                    "snow-covered Austrian Alps."
+                    'Ed Sheeran performing "Perfect" acoustically in the BBC Radio 1 '
+                    "Live Lounge, accompanying himself on guitar."
                 ),
             },
         },
@@ -468,10 +484,13 @@ _ROUND_LOVE_SONGS = {
             ],
             "media": {
                 "kind": "video",
-                # Silbermond (official channel)
-                "url": "https://www.youtube.com/watch?v=LyYAQHDMqfA",
+                # Audience recording, Linzer Kronefest 2016. The official
+                # Silbermond video (LyYAQHDMqfA) and every lyric/broadcast upload
+                # checked are embed-blocked. This is the weakest clip in the pack —
+                # amateur audio. Swap it if a better embeddable source appears.
+                "url": "https://www.youtube.com/watch?v=zcAlhddo5d8",
                 "description": (
-                    'Official music video for Silbermond\'s "Das Beste", a German '
+                    'Silbermond performing "Das Beste" live at a festival, a German '
                     "pop-rock love song."
                 ),
             },
