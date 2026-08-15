@@ -141,8 +141,8 @@ class TestCSPInlineScriptNonces(SiteTestCase):
         header_nonce = re.search(r"'nonce-([^']+)'", csp)
         inline_tag_attrs = [
             m.group(1)
-            for m in re.finditer(r'<script\b([^>]*)>', content)
-            if 'src=' not in m.group(1)
+            for m in re.finditer(r'<script\b([^>]*)>', content, re.IGNORECASE)
+            if 'src=' not in m.group(1).lower()
         ]
         # A page with no inline scripts makes every assertion below vacuous.
         self.assertTrue(
@@ -151,7 +151,7 @@ class TestCSPInlineScriptNonces(SiteTestCase):
         )
         nonces = set()
         for attrs in inline_tag_attrs:
-            match = re.search(r'nonce="([^"]*)"', attrs)
+            match = re.search(r'nonce="([^"]*)"', attrs, re.IGNORECASE)
             self.assertIsNotNone(
                 match,
                 f'{path}: inline <script{attrs}> lacks nonce="{{{{ csp_nonce }}}}"'
