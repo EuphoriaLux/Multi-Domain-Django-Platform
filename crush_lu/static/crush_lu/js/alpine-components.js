@@ -705,6 +705,10 @@ document.addEventListener("alpine:init", function () {
                     // A correction is not an arrival: take the row out of
                     // Recent Check-ins instead of celebrating it.
                     this._removeRecentCheckin(regId);
+                    // And clear the dedupe entry — mirroring the acting
+                    // coach's local undo path — so a legitimate re-check-in
+                    // after the undo isn't swallowed by the guard below.
+                    delete this.processedIds[regId];
                     return;
                 }
                 if (this.processedIds[regId]) return;
@@ -971,6 +975,14 @@ document.addEventListener("alpine:init", function () {
                 var wrap = document.createElement("div");
                 wrap.className = "flex-shrink-0 flex items-center gap-2";
                 wrap.setAttribute("data-row-actions", "");
+                // Verify sits outside the status split, exactly like the
+                // server-rendered twin: attended does not imply verified.
+                // _auto_verify_on_attendance deliberately declines coach-less
+                // self-scans, premium members and photo-less profiles, so the
+                // button has to survive the check-in for exactly those rows.
+                if (row.has_profile && !row.is_approved) {
+                    wrap.appendChild(this._buildVerifyButton(regId));
+                }
                 if (row.status === "attended") {
                     var checkedSpan = document.createElement("span");
                     checkedSpan.className =
@@ -1004,24 +1016,6 @@ document.addEventListener("alpine:init", function () {
                         if (undoBtn) wrap.appendChild(undoBtn);
                     }
                 } else {
-                    if (row.has_profile && !row.is_approved) {
-                        var verifyBtn = document.createElement("button");
-                        verifyBtn.type = "button";
-                        verifyBtn.className =
-                            "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
-                        verifyBtn.setAttribute(
-                            "data-verify-url",
-                            this._apiUrl("verify", regId),
-                        );
-                        verifyBtn.setAttribute("data-reg-id", regId);
-                        verifyBtn.textContent = i18n.verifyAction || "Verify";
-                        // Bound directly rather than with x-on — Alpine only
-                        // wires directives present when it walked the tree.
-                        verifyBtn.addEventListener("click", function (clickEvent) {
-                            self.markVerified(clickEvent);
-                        });
-                        wrap.appendChild(verifyBtn);
-                    }
                     var checkinUrl = rowEl.getAttribute("data-checkin-url");
                     if (checkinUrl) {
                         var checkinBtn = document.createElement("button");
@@ -1333,6 +1327,29 @@ document.addEventListener("alpine:init", function () {
                     self.undoCheckin(clickEvent);
                 });
                 return undoBtn;
+            },
+
+            _buildVerifyButton: function (regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var verifyBtn = document.createElement("button");
+                verifyBtn.type = "button";
+                // Must stay identical to the server-rendered twin in
+                // coach_event_checkin.html — see _buildUndoButton.
+                verifyBtn.className =
+                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
+                verifyBtn.setAttribute(
+                    "data-verify-url",
+                    this._apiUrl("verify", regId),
+                );
+                verifyBtn.setAttribute("data-reg-id", regId);
+                verifyBtn.textContent = i18n.verifyAction || "Verify";
+                // Bound directly rather than with x-on — Alpine only wires
+                // directives present when it walked the tree.
+                verifyBtn.addEventListener("click", function (clickEvent) {
+                    self.markVerified(clickEvent);
+                });
+                return verifyBtn;
             },
 
             // --- Scanner ---
