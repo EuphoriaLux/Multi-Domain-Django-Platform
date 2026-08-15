@@ -46,21 +46,37 @@ def _paid_registration_count(events):
     captured, so counting them again would book one payment in two months.
     Distinct registrations, not transactions — a seat with a declined attempt
     behind its capture (or a re-booked cycle reusing the row) is one seat.
+
+    Attribution runs through ``PaymentTransaction.event``, the immutable copy
+    stamped on the PAID transition (and backfilled by 0229), NOT through
+    ``event_registration__event``. Deleting an account deletes its
+    EventRegistration rows (``views_account.py``), and the FK is SET_NULL — so
+    joining through the registration drops those captured payments and shrinks
+    a past month all over again, which is the very failure this function
+    exists to end.
     """
-    return (
-        PaymentTransaction.objects.filter(
-            provider__in=(
-                PaymentTransaction.Provider.SUMUP,
-                PaymentTransaction.Provider.MANUAL,
-            ),
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            status=PaymentTransaction.Status.PAID,
-            event_registration__event__in=events,
-        )
+    paid = PaymentTransaction.objects.filter(
+        provider__in=(
+            PaymentTransaction.Provider.SUMUP,
+            PaymentTransaction.Provider.MANUAL,
+        ),
+        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        status=PaymentTransaction.Status.PAID,
+        event__in=events,
+    )
+    # Seats whose registration still exists, deduped by it.
+    linked = (
+        paid.filter(event_registration__isnull=False)
         .values("event_registration_id")
         .distinct()
         .count()
     )
+    # Plus one seat per row whose registration was deleted. These are counted
+    # separately rather than folded into the DISTINCT above, where every NULL
+    # would collapse into a single group and a whole event's worth of deleted
+    # accounts would report as one paid seat.
+    orphaned = paid.filter(event_registration__isnull=True).count()
+    return linked + orphaned
 
 
 def _fmt_timedelta(td):

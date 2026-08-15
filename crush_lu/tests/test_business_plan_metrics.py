@@ -238,3 +238,51 @@ class MonthlyPaidSeatsTests(BusinessPlanMetricsFixture):
         monthly = self._monthly(date(2026, 5, 1), date(2026, 7, 1))
         self.assertEqual(monthly["2026-05"]["paid_reg"], 1)
         self.assertEqual(monthly["2026-06"]["paid_reg"], 1)
+
+
+class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
+    """A deleted account must not shrink a past month either.
+
+    ``views_account.py`` deletes a departing member's EventRegistration rows,
+    and ``PaymentTransaction.event_registration`` is SET_NULL — so attributing
+    seats through ``event_registration__event`` drops those captured payments
+    exactly the way the ``payment_confirmed`` flag used to. The money was
+    taken; the seat was sold; the report must still say so. Attribution runs
+    through the immutable ``PaymentTransaction.event`` instead.
+    """
+
+    def test_paid_seat_survives_the_registration_being_deleted(self):
+        event = self._event(date(2026, 5, 14))
+        registration = self._paid_seat(event, self.member)
+
+        registration.delete()
+
+        report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(report["event_activity"]["paid_registrations"], 1)
+
+    def test_several_deleted_accounts_do_not_collapse_into_one_seat(self):
+        """The NULL group trap: every orphaned row shares event_registration
+        _id=NULL, so a DISTINCT over that column reports a whole event's worth
+        of departed members as a single paid seat."""
+        event = self._event(date(2026, 5, 14))
+        for i in range(3):
+            user = User.objects.create_user(
+                username=f"gone{i}@crush.lu", email=f"gone{i}@crush.lu", password="x"
+            )
+            self._paid_seat(event, user).delete()
+
+        report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(report["event_activity"]["paid_registrations"], 3)
+
+    def test_deleted_account_still_counts_in_its_own_month(self):
+        may_event = self._event(date(2026, 5, 14), title="May Event")
+        june_event = self._event(date(2026, 6, 11), title="June Event")
+        self._paid_seat(may_event, self.member).delete()
+        other = User.objects.create_user(
+            username="other@crush.lu", email="other@crush.lu", password="x"
+        )
+        self._paid_seat(june_event, other)
+
+        monthly = self._monthly(date(2026, 5, 1), date(2026, 7, 1))
+        self.assertEqual(monthly["2026-05"]["paid_reg"], 1)
+        self.assertEqual(monthly["2026-06"]["paid_reg"], 1)
