@@ -5,6 +5,7 @@ URL configuration for Crush.lu dating platform.
 This is the URL config used when requests come from crush.lu domain.
 Supports internationalization with language-prefixed URLs (/en/, /de/, /fr/).
 """
+
 from django.contrib import admin
 from django.urls import path, include, reverse
 from django.conf import settings
@@ -22,11 +23,26 @@ from hub.views_whatsapp import WhatsAppWebhookView
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
-from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft, views_event_polls
+from crush_lu import (
+    admin_views,
+    views,
+    views_phone_verification,
+    views_profile,
+    views_profile_draft,
+    views_event_polls,
+)
 from crush_lu.views_language import LanguageScopedJavaScriptCatalog
-from crush_lu.admin.poll_analytics import poll_analytics_dashboard, poll_analytics_detail
+from crush_lu.admin.poll_analytics import (
+    poll_analytics_dashboard,
+    poll_analytics_detail,
+)
 from crush_lu.admin import campaign_dashboard as campaign_dashboard_views
-from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api, daily_active_users_api
+from crush_lu.admin_views import (
+    signup_trend_api,
+    verification_trend_api,
+    cumulative_growth_api,
+    daily_active_users_api,
+)
 from crush_lu.admin_views import (
     email_template_manager,
     email_template_user_search,
@@ -38,7 +54,32 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_events, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications, views_payments
+from crush_lu import (
+    api_views,
+    api_push,
+    api_coach_push,
+    api_pwa,
+    api_ios_app,
+    api_android_app,
+    views_oauth_popup,
+    api_journey,
+    views_wallet,
+    api_referral,
+    api_admin_sync,
+    api_admin_hybrid,
+    api_admin_metrics,
+    api_admin_events,
+    api_admin_campaigns,
+    api_admin_changelog,
+    views_crush_spark,
+    views_checkin,
+    api_crush_connect,
+    views_coach,
+    api_quiz,
+    views_quiz,
+    views_notifications,
+    views_payments,
+)
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
@@ -52,8 +93,8 @@ def redirect_profile_to_dashboard(request):
     LOGIN_REDIRECT_URL is set globally to /profile/ but Crush.lu uses /dashboard/.
     This redirect handles the non-prefixed URL and sends users to the localized dashboard.
     """
-    lang = get_language() or 'en'
-    return redirect(f'/{lang}/dashboard/')
+    lang = get_language() or "en"
+    return redirect(f"/{lang}/dashboard/")
 
 
 _QUIZ_REDIRECT_LANGS = frozenset(code for code, _ in settings.LANGUAGES)
@@ -71,432 +112,1017 @@ def quiz_display_language_redirect(request, event_id):
     built by Django's URL system (which enforces the ``<int:event_id>`` shape)
     rather than f-string concatenation — closes a CodeQL open-redirect alert.
     """
-    raw_lang = get_language() or 'en'
-    lang = raw_lang if raw_lang in _QUIZ_REDIRECT_LANGS else 'en'
+    raw_lang = get_language() or "en"
+    lang = raw_lang if raw_lang in _QUIZ_REDIRECT_LANGS else "en"
     with override(lang):
-        target = reverse('quiz_table_display', kwargs={'event_id': event_id})
+        target = reverse("quiz_table_display", kwargs={"event_id": event_id})
     return redirect(target)
 
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
-urlpatterns = [
-    # Redirect bare allauth account pages to the styled crush.lu settings page
-    path('accounts/', lambda req: redirect('/account/settings/')),
-    path('accounts/email/', lambda req: redirect('/account/settings/')),
-    # Redirect allauth's generic signup to the crush.lu signup view so GDPR
-    # consent (crushlu_consent / marketing_consent) is always captured
-    path('accounts/signup/', lambda req: redirect('/signup/')),
-] + base_patterns + api_patterns + [
-    # Dev: Ghost SVG showcase (no auth needed)
-    path('ghost-showcase/', TemplateView.as_view(template_name='crush_lu/ghost_showcase.html'), name='ghost_showcase'),
-
-    # SEO: robots.txt and sitemap.xml (must be at root, no language prefix)
-    path('robots.txt', robots_txt, name='robots_txt'),
-    path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
-
-    # JavaScript i18n catalog (must be language-neutral for JavaScript to access).
-    # Prefer the <lang> route from templates: on this unprefixed path
-    # LocaleMiddleware negotiates from the cookie/Accept-Language, which can
-    # disagree with the language prefix of the page doing the fetching.
-    path('jsi18n/<str:lang>/', LanguageScopedJavaScriptCatalog.as_view(packages=['crush_lu']), name='javascript-catalog-lang'),
-    path('jsi18n/', JavaScriptCatalog.as_view(packages=['crush_lu']), name='javascript-catalog'),
-
-    # PWA: Service Worker, Manifest, and Offline page (must be at root for scope)
-    # These CANNOT be inside i18n_patterns because browsers block redirected scripts
-    # Note: Use {% url 'pwa_manifest' %} instead of {% url 'crush_lu:manifest' %} in templates
-    path('sw-workbox.js', views.service_worker_view, name='pwa_service_worker'),
-    path('manifest.json', views.manifest_view, name='pwa_manifest'),
-    path('offline/', views.offline_view, name='pwa_offline'),
-    # Android App Links verification for PWA
-    path('.well-known/assetlinks.json', views.assetlinks_view, name='assetlinks'),
-    # Apple Universal Links / Associated Domains for the native iOS app
-    path('.well-known/apple-app-site-association', views.apple_app_site_association_view, name='apple_app_site_association'),
-    path('apple-app-site-association', views.apple_app_site_association_view, name='apple_app_site_association_root'),
-
-    # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
-    path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
-    path('api/phone/check-available/', views_phone_verification.check_phone_available, name='api_phone_check_available'),
-    path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
-    path('api/phone/whatsapp/send/', views_phone_verification.send_whatsapp_otp, name='api_phone_whatsapp_send'),
-    path('api/phone/whatsapp/verify/', views_phone_verification.verify_whatsapp_otp, name='api_phone_whatsapp_verify'),
-
-    # ============================================================================
-    # LANGUAGE-NEUTRAL API ENDPOINTS
-    # These APIs are called from external JavaScript files with hardcoded paths.
-    # They must NOT be inside i18n_patterns to avoid 404 errors for non-English users.
-    # ============================================================================
-
-    # Push Notifications API (called from push-notifications.js, pwa-detector.js)
-    # In-app notifications (bell)
-    path('api/notifications/', views_notifications.api_notifications_list, name='api_notifications_list'),
-    path('api/notifications/<int:notification_id>/read/', views_notifications.api_notification_mark_read, name='api_notification_mark_read'),
-    path('api/notifications/mark-all-read/', views_notifications.api_notifications_mark_all_read, name='api_notifications_mark_all_read'),
-
-    path('api/push/vapid-public-key/', api_push.get_vapid_public_key, name='api_vapid_public_key'),
-    path('api/push/subscribe/', api_push.subscribe_push, name='api_subscribe_push'),
-    path('api/push/refresh-subscription/', api_push.refresh_subscription, name='api_refresh_push_subscription'),
-    path('api/push/validate-subscription/', api_push.validate_subscription, name='api_validate_push_subscription'),
-    path('api/push/unsubscribe/', api_push.unsubscribe_push, name='api_unsubscribe_push'),
-    path('api/push/delete-subscription/', api_push.delete_push_subscription, name='api_delete_push_subscription'),
-    path('api/push/subscriptions/', api_push.list_subscriptions, name='api_list_subscriptions'),
-    path('api/push/preferences/', api_push.update_subscription_preferences, name='api_update_push_preferences'),
-    path('api/push/test/', api_push.send_test_push, name='api_send_test_push'),
-    path('api/push/mark-pwa-user/', api_push.mark_pwa_user, name='api_mark_pwa_user'),
-    path('api/push/pwa-status/', api_push.get_pwa_status, name='api_pwa_status'),
-    path('api/push/health-check/', api_push.run_subscription_health_check, name='api_push_health_check'),
-
-    # Email Preferences API (called from alpine-components.js emailPreferences component)
-    path('api/email/preferences/', views.api_update_email_preference, name='api_update_email_preference'),
-
-    # PWA Device Registration API (called from pwa-detector.js)
-    path('api/pwa/register-installation/', api_pwa.register_pwa_installation, name='api_pwa_register_installation'),
-
-    # Native iOS app API (WKWebView shell + APNS)
-    path('api/mobile/ios/config/', api_ios_app.ios_app_config, name='api_ios_app_config'),
-    path('api/mobile/ios/auth/handoff/', api_ios_app.ios_auth_handoff, name='api_ios_auth_handoff'),
-    path('api/mobile/ios/auth/complete/<str:code>/', api_ios_app.ios_auth_complete, name='api_ios_auth_complete'),
-    path('api/mobile/ios/devices/', api_ios_app.list_ios_devices, name='api_ios_devices'),
-    path('api/mobile/ios/devices/register/', api_ios_app.register_ios_device, name='api_ios_device_register'),
-    path('api/mobile/ios/devices/unregister/', api_ios_app.unregister_ios_device, name='api_ios_device_unregister'),
-    path('api/mobile/ios/devices/preferences/', api_ios_app.update_ios_device_preferences, name='api_ios_device_preferences'),
-    path('api/mobile/android/config/', api_android_app.android_app_config, name='api_android_app_config'),
-    path('api/mobile/android/auth/handoff/', api_android_app.android_auth_handoff, name='api_android_auth_handoff'),
-    path('api/mobile/android/auth/complete/<str:code>/', api_android_app.android_auth_complete, name='api_android_auth_complete'),
-    path('api/mobile/android/devices/', api_android_app.list_android_devices, name='api_android_devices'),
-    path('api/mobile/android/devices/register/', api_android_app.register_android_device, name='api_android_device_register'),
-    path('api/mobile/android/devices/unregister/', api_android_app.unregister_android_device, name='api_android_device_unregister'),
-    path('api/mobile/android/devices/preferences/', api_android_app.update_android_device_preferences, name='api_android_device_preferences'),
-
-    # Coach Push Notifications API (called from alpine-components.js)
-    path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),
-    path('api/coach/push/subscribe/', api_coach_push.subscribe_push, name='api_coach_subscribe_push'),
-    path('api/coach/push/unsubscribe/', api_coach_push.unsubscribe_push, name='api_coach_unsubscribe_push'),
-    path('api/coach/push/delete-subscription/', api_coach_push.delete_push_subscription, name='api_coach_delete_push_subscription'),
-    path('api/coach/push/subscriptions/', api_coach_push.list_subscriptions, name='api_coach_list_subscriptions'),
-    path('api/coach/push/preferences/', api_coach_push.update_subscription_preferences, name='api_coach_update_push_preferences'),
-    path('api/coach/push/test/', api_coach_push.send_test_push, name='api_coach_send_test_push'),
-
-    # Coach Team Stats API (called from alpine-components.js coachTeamStats)
-    path('api/coach/team/claim/', views_coach.api_coach_claim_submission, name='api_coach_claim_submission'),
-
-    # Auth Status API (called from oauth-popup.js, auth.html templates)
-    path('api/auth/status/', views_oauth_popup.check_auth_status, name='check_auth_status'),
-
-    # Event Voting API (called from event-voting.js)
-    path('api/events/<int:event_id>/voting/status/', api_views.voting_status_api, name='voting_status_api'),
-    path('api/events/<int:event_id>/voting/submit/', api_views.submit_vote_api, name='submit_vote_api'),
-    path('api/events/<int:event_id>/voting/results/', api_views.voting_results_api, name='voting_results_api'),
-
-    # Event Presentations API (called from coach_presentation_control.html and event_presentations.html)
-    path('api/events/<int:event_id>/presentations/current/', views.get_current_presenter_api, name='get_current_presenter_api'),
-
-    # Speed Dating TV Display data endpoint (language-neutral, polled by the display page)
-    path('api/events/<int:event_id>/tv-display-data/', views.speed_dating_tv_display_data, name='speed_dating_tv_display_data'),
-
-    # Event Poll API (language-neutral for JS calls)
-    path('api/polls/<int:poll_id>/vote/', views_event_polls.poll_vote, name='api_poll_vote'),
-    path('api/polls/<int:poll_id>/results/', views_event_polls.poll_results_api, name='api_poll_results'),
-
-    # Crush Spark API (language-neutral for JS polling)
-    path('api/sparks/<int:spark_id>/status/', views_crush_spark.api_spark_status, name='api_spark_status'),
-
-    # Payments (SumUp)
-    path('payments/sumup/create-event-checkout/<int:registration_id>/', views_payments.create_sumup_event_checkout, name='sumup_create_event_checkout'),
-    path('payments/sumup/create-premium-checkout/<int:membership_id>/', views_payments.create_sumup_premium_checkout, name='sumup_create_premium_checkout'),
-    path('payments/sumup/create-donation-checkout/', views_payments.create_sumup_donation_checkout, name='sumup_create_donation_checkout'),
-    path('payments/sumup/widget/<str:checkout_id>/', views_payments.sumup_widget_view, name='sumup_widget'),
-    path('payments/sumup/widget/<str:checkout_id>/status/', views_payments.sumup_widget_status, name='sumup_widget_status'),
-    path('payments/sumup/widget/<str:checkout_id>/failed/', views_payments.report_sumup_widget_failure, name='sumup_widget_failure'),
-    path('payments/sumup/return/', views_payments.sumup_payment_return, name='sumup_payment_return'),
-    path('payments/sumup/webhook/', views_payments.sumup_webhook, name='sumup_webhook'),
-
-    # Crush Connect Waitlist API (language-neutral for JS calls)
-    path('api/crush-connect/join/', api_crush_connect.join_waitlist, name='crush_connect_join'),
-    path('api/crush-connect/status/', api_crush_connect.waitlist_status, name='crush_connect_status'),
-
-    # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
-    path('api/journey/unlock-puzzle-piece/', api_journey.unlock_puzzle_piece, name='api_unlock_puzzle_piece'),
-    path('api/journey/reward-progress/<int:reward_id>/', api_journey.get_reward_progress, name='api_get_reward_progress'),
-
-    # PassKit Web Service (Apple Wallet)
-    path(
-        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>',
-        passkit_service.device_registration,
-        name='passkit_device_registration',
-    ),
-    path(
-        'wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>',
-        passkit_service.list_device_registrations,
-        name='passkit_list_registrations',
-    ),
-    path(
-        'wallet/v1/passes/<str:pass_type_identifier>/<str:serial_number>',
-        passkit_service.get_latest_pass,
-        name='passkit_get_pass',
-    ),
-    path(
-        'wallet/v1/log',
-        passkit_service.log_endpoint,
-        name='passkit_log',
-    ),
-
-    # --- Legacy doubled-version compatibility (Apple Wallet) ---------------
-    # Every pass installed before the webServiceURL fix carries the versioned
-    # root "https://crush.lu/wallet/v1". Apple appends its own protocol version
-    # to whatever a pass advertises, so those devices request
-    # /wallet/v1/v1/... — which matched nothing and 404'd.
-    #
-    # Correcting the embedded root only helps passes built AFTER the fix. An
-    # already-installed pass can only receive the corrected package by fetching
-    # it, and the only address it will ever use is this doubled one; an APNs
-    # push just sends the device back to the same 404. Without these aliases
-    # every existing holder would have to delete and re-add their pass by hand.
-    #
-    # Serving them from the same views is enough to self-heal: get_latest_pass
-    # rebuilds through resolve_web_service_url, and build_web_service_url uses
-    # an absolute base path, so the package handed back over this legacy route
-    # carries the CORRECT unversioned root. One fetch and the device moves to
-    # /wallet/v1/... on its own.
-    path(
-        'wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>',
-        passkit_service.device_registration,
-        name='passkit_device_registration_legacy',
-    ),
-    path(
-        'wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>',
-        passkit_service.list_device_registrations,
-        name='passkit_list_registrations_legacy',
-    ),
-    path(
-        'wallet/v1/v1/passes/<str:pass_type_identifier>/<str:serial_number>',
-        passkit_service.get_latest_pass,
-        name='passkit_get_pass_legacy',
-    ),
-    path(
-        'wallet/v1/v1/log',
-        passkit_service.log_endpoint,
-        name='passkit_log_legacy',
-    ),
-
-    # CSRF Token Refresh (called from alpine-components.js before final form submit)
-    path('api/csrf-token/', views_profile.get_csrf_token, name='csrf_token_refresh'),
-
-    # Onboarding /welcome/ intent probe (called from welcome.html via hx-post)
-    path('api/welcome/intent/', views_profile.welcome_intent_api, name='api_welcome_intent'),
-
-    # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
-    path('api/profile/save-step1/', views_profile.save_profile_step1, name='api_save_profile_step1'),
-    path('api/profile/save-step2/', views_profile.save_profile_step2, name='api_save_profile_step2'),
-    path('api/profile/save-step3/', views_profile.save_profile_step3, name='api_save_profile_step3'),
-    path('api/profile/save-preferences/', views_profile.save_profile_preferences, name='api_save_profile_preferences'),
-    path('api/profile/progress/', views_profile.get_profile_progress, name='api_get_profile_progress'),
-
-    # Profile Draft APIs (auto-save and draft recovery)
-    path('api/profile/draft/save/', views_profile_draft.save_draft, name='api_save_draft'),
-    path('api/profile/draft/get/', views_profile_draft.get_draft, name='api_get_draft'),
-    path('api/profile/draft/clear/', views_profile_draft.clear_draft, name='api_clear_draft'),
-    path('api/profile/draft/upload-photo/', views_profile.upload_photo_draft, name='api_upload_photo_draft'),
-    path('api/profile/draft/delete-photo/', views_profile.delete_photo_draft, name='api_delete_photo_draft'),
-
-    # Social Photo Import APIs (called from alpine-components.js with hardcoded paths)
-    path('api/profile/social-photos/', views_profile.get_social_photos_api, name='api_get_social_photos'),
-    path('api/profile/import-social-photo/', views_profile.import_social_photo, name='api_import_social_photo'),
-
-    # Profile Photo Upload/Delete APIs (called from alpine-components.js with hardcoded paths)
-    path('api/profile/upload-photo/<int:slot>/', views_profile.upload_profile_photo, name='api_upload_profile_photo'),
-    path('api/profile/delete-photo/<int:slot>/', views_profile.delete_profile_photo, name='api_delete_profile_photo'),
-    path('api/profile/settings/', views.api_profile_settings_autosave, name='api_profile_settings_autosave'),
-
-    # Profile Completion API (called from alpine-components.js with hardcoded paths)
-    path('api/profile/complete/', views_profile.complete_profile_submission, name='api_complete_profile_submission'),
-
-    # Submission status polling and candidate note (called from profile_submitted.html)
-    path('api/submission/status/', views.api_submission_status, name='api_submission_status'),
-    path('api/submission/note/', views.api_submission_note, name='api_submission_note'),
-
-    # Event Check-In API (language-neutral - called from QR codes and scanner)
-    path('api/events/checkin/<int:registration_id>/<str:token>/', views_checkin.event_checkin_api, name='event_checkin_api'),
-
-    # Verify an attendee in person at an event (coach action from the scanner)
-    path('api/events/<int:event_id>/verify/<int:registration_id>/', views_checkin.coach_mark_verified, name='coach_mark_verified'),
-
-    # Undo a mis-scan, and check in a waitlisted walk-up (coach actions from the scanner)
-    path('api/events/<int:event_id>/undo-checkin/<int:registration_id>/', views_checkin.coach_undo_checkin, name='coach_undo_checkin'),
-    path('api/events/<int:event_id>/promote/<int:registration_id>/', views_checkin.coach_promote_from_waitlist, name='coach_promote_from_waitlist'),
-
-    # Wallet passes (language-neutral for platform-specific clients)
-    path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
-    path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),
-    path('wallet/google/event-ticket/<int:registration_id>/jwt/', views_wallet.google_event_ticket_jwt, name='event_ticket_jwt'),
-    path('wallet/apple/event-ticket/<int:registration_id>/pass/', views_wallet.apple_event_ticket_pass, name='apple_event_ticket_pass'),
-
-    # Google Wallet callback (called by Google when users save/delete passes)
-    path('wallet/google/callback/', google_callback.google_wallet_callback, name='wallet_google_callback'),
-
-    # Referral API (called from dashboard with hardcoded paths)
-    path('api/referral/me/', api_referral.referral_me, name='api_referral_me'),
-    path('api/referral/redeem/', api_referral.redeem_points, name='api_referral_redeem'),
-
-    # Admin Sync API (called by Azure Functions for scheduled tasks)
-    path('api/admin/sync-contacts/', api_admin_sync.sync_contacts_endpoint, name='api_admin_sync_contacts'),
-    path('api/admin/sync-contacts/delete-all/', api_admin_sync.delete_all_contacts_endpoint, name='api_admin_delete_all_contacts'),
-    path('api/admin/sync-contacts/health/', api_admin_sync.sync_contacts_health, name='api_admin_sync_contacts_health'),
-
-    # Hybrid Coach Review System + pre-screening cron (Azure Functions call these)
-    # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
-    path('api/admin/hybrid-coach-sla-sweep/', api_admin_hybrid.sla_sweep, name='api_admin_sla_sweep'),
-    path('api/admin/pre-screening-invites/', api_admin_hybrid.pre_screening_invites, name='api_admin_pre_screening_invites'),
-    path('api/admin/crush-lead-reminders/', api_admin_hybrid.crush_lead_reminders, name='api_admin_crush_lead_reminders'),
-
-    # Weekly KPI digest (WeeklyKPIs Azure Function timer calls this on Mondays).
-    # Language-neutral path so the Function App can hardcode it.
-    path('api/admin/weekly-kpis/', api_admin_metrics.weekly_kpis_sweep, name='api_admin_weekly_kpis'),
-
-    # Weekly Crush Connect question rotation (RotateConnectQuestions Function
-    # timer calls this on Mondays). Language-neutral so the Function can hardcode it.
-    path('api/admin/rotate-connect-questions/', api_admin_metrics.rotate_connect_questions_sweep, name='api_admin_rotate_connect_questions'),
-
-    # Daily profile-completion reminders (ProfileReminders Function timer).
-    # Language-neutral so the Function App can hardcode it.
-    path('api/admin/profile-reminders/', api_admin_metrics.profile_reminders_sweep, name='api_admin_profile_reminders'),
-
-    # Weekly GDPR data-minimization retention sweep (GdprRetention Function
-    # timer). Language-neutral so the Function App can hardcode it.
-    path('api/admin/gdpr-retention/', api_admin_metrics.gdpr_retention_sweep, name='api_admin_gdpr_retention'),
-
-    # Event email lifecycle (EventReminders / EventRecaps / EventFeedback Function
-    # timers). Language-neutral so the Function App can hardcode them. Before these
-    # existed the three send_event_* commands had no scheduler of any kind.
-    path('api/admin/event-reminders/', api_admin_events.event_reminders_sweep, name='api_admin_event_reminders'),
-    path('api/admin/event-recaps/', api_admin_events.event_recaps_sweep, name='api_admin_event_recaps'),
-    path('api/admin/event-feedback/', api_admin_events.event_feedback_sweep, name='api_admin_event_feedback'),
-    path('api/admin/echo-sync/', api_admin_events.echo_lu_sync_sweep, name='api_admin_echo_sync'),
-
-    # Changelog ingest (called by the Claude Code changelog routine on PR merge).
-    # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
-    path('api/admin/changelog/ingest/', api_admin_changelog.ingest_changelog, name='api_admin_changelog_ingest'),
-
-    # Campaign dispatch tick (CampaignDispatch Azure Function timer, every 5 min).
-    # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
-    path('api/admin/campaigns/dispatch/', api_admin_campaigns.dispatch_campaigns_endpoint, name='api_admin_campaign_dispatch'),
-
-
-    # Live Quiz API (called from quiz-live.js WebSocket fallback)
-    path('api/quiz/<int:quiz_id>/state/', api_quiz.quiz_state, name='api_quiz_state'),
-    path('api/quiz/<int:quiz_id>/tables/', api_quiz.quiz_tables, name='api_quiz_tables'),
-    path('api/quiz/<int:quiz_id>/my-assignment/', api_quiz.my_assignment, name='api_quiz_my_assignment'),
-    path('api/quiz/<int:quiz_id>/score-table/', api_quiz.score_table, name='api_quiz_score_table'),
-    path('api/quiz/<int:quiz_id>/mark-attended/', api_quiz.mark_attended, name='api_quiz_mark_attended'),
-    path('api/quiz/<int:quiz_id>/consolidate-tables/', api_quiz.consolidate_tables_view, name='api_quiz_consolidate_tables'),
-    path('api/quiz/<int:quiz_id>/assign-table/', api_quiz.assign_table_view, name='api_quiz_assign_table'),
-
-    # Quiz table display — redirect legacy /quiz/<id>/display/ to language-prefixed URL
-    # The actual view lives in i18n_patterns below so Django's LocaleMiddleware sets
-    # request.LANGUAGE_CODE before the view renders the template.
-    path('quiz/<int:event_id>/display/', quiz_display_language_redirect, name='quiz_table_display_redirect'),
-    path('api/quiz/<int:event_id>/display-data/', views_quiz.quiz_table_display_data, name='quiz_table_display_data'),
-    path('api/quiz/<int:event_id>/verify-pin/', views_quiz.quiz_display_verify_pin, name='quiz_display_verify_pin'),
-    path('api/quiz/photo/<int:user_id>/', views_quiz.quiz_display_photo, name='quiz_display_photo'),
-
-    # Referral redirect (language-neutral for wallet passes and sharing)
-    # This allows https://crush.lu/r/CODE/ to work without language prefix
-    # Users will be redirected to the home page in their browser's preferred language
-    path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
-
-    # Campaign click-tracking redirect (language-neutral: the URL is embedded
-    # in emails / WhatsApp / push payloads sent by the campaign dashboard)
-    path('c/<str:token>/', campaign_click_redirect, name='campaign_click_redirect'),
-
-    # ============================================================================
-    # LOGIN REDIRECT COMPATIBILITY
-    # LOGIN_REDIRECT_URL is set globally to /profile/ but Crush.lu uses /dashboard/.
-    # This redirect handles the non-prefixed URL from login and sends users to the
-    # localized dashboard. Without this, users would get a 404 after login.
-    # ============================================================================
-    path('profile/', redirect_profile_to_dashboard, name='profile_redirect'),
-
-    # ============================================================================
-    # ADMIN PANELS (language-neutral - always accessible without language prefix)
-    # These are moved outside i18n_patterns to avoid 404 errors when admins
-    # manually change the URL language prefix.
-    # ============================================================================
-
-    # Dedicated Crush.lu Admin Panel (Coach Panel)
-    # Note: Dashboard must come BEFORE admin site to avoid path matching issues
-    path('crush-admin/dashboard/', admin_views.crush_admin_dashboard, name='crush_admin_dashboard'),
-    path('crush-admin/pre-screening/export.csv', admin_views.export_pre_screening_csv, name='crush_admin_pre_screening_csv'),
-    path('crush-admin/api/signup-trend/', signup_trend_api, name='crush_admin_signup_trend'),
-    path('crush-admin/api/verification-trend/', verification_trend_api, name='crush_admin_verification_trend'),
-    path('crush-admin/api/cumulative-growth/', cumulative_growth_api, name='crush_admin_cumulative_growth'),
-    path('crush-admin/api/daily-active-users/', daily_active_users_api, name='crush_admin_daily_active_users'),
-    path('crush-admin/user-segments/', user_segments_dashboard, name='user_segments_dashboard'),
-    path('crush-admin/user-segments/<str:segment_key>/', segment_detail, name='segment_detail'),
-    path('crush-admin/profile-reminders/', profile_reminders_panel, name='profile_reminders_panel'),
-
-    # Email Template Manager
-    path('crush-admin/email-templates/', email_template_manager, name='email_template_manager'),
-    path('crush-admin/email-templates/search-users/', email_template_user_search, name='email_template_user_search'),
-    path('crush-admin/email-templates/preview/', email_template_preview, name='email_template_preview'),
-    path('crush-admin/email-templates/send/', email_template_send, name='email_template_send'),
-    path('crush-admin/email-templates/create-draft/', email_template_create_draft, name='email_template_create_draft'),
-    path('crush-admin/email-templates/load-events/', email_template_load_events, name='email_template_load_events'),
-    path('crush-admin/email-templates/load-connections/', email_template_load_connections, name='email_template_load_connections'),
-    path('crush-admin/email-templates/load-invitations/', email_template_load_invitations, name='email_template_load_invitations'),
-    path('crush-admin/email-templates/load-gifts/', email_template_load_gifts, name='email_template_load_gifts'),
-
-    # Account Merge Tool
-    path('crush-admin/merge-accounts/', admin_views.merge_accounts_confirm, name='merge_accounts_confirm'),
-
-    # Poll Analytics
-    path('crush-admin/poll-analytics/', poll_analytics_dashboard, name='poll_analytics_dashboard'),
-    path('crush-admin/poll-analytics/<int:poll_id>/', poll_analytics_detail, name='poll_analytics_detail'),
-
-    # Campaign & Remarketing Dashboard (unified multi-channel campaigns)
-    path('crush-admin/campaigns/', campaign_dashboard_views.campaign_dashboard, name='campaign_dashboard'),
-    path('crush-admin/campaigns/new/', campaign_dashboard_views.campaign_composer, name='campaign_new'),
-    path('crush-admin/campaigns/create/', campaign_dashboard_views.campaign_create, name='campaign_create'),
-    path('crush-admin/campaigns/estimate/', campaign_dashboard_views.campaign_estimate, name='campaign_estimate'),
-    path('crush-admin/campaigns/preview/', campaign_dashboard_views.campaign_preview, name='campaign_preview'),
-    path('crush-admin/campaigns/<int:campaign_id>/', campaign_dashboard_views.campaign_detail, name='campaign_detail'),
-    path('crush-admin/campaigns/<int:campaign_id>/cancel/', campaign_dashboard_views.campaign_cancel, name='campaign_cancel'),
-    path('crush-admin/campaigns/<int:campaign_id>/launch/', campaign_dashboard_views.campaign_launch, name='campaign_launch'),
-    path('crush-admin/campaigns/<int:campaign_id>/status/', campaign_dashboard_views.campaign_status_partial, name='campaign_status_partial'),
-    path('crush-admin/api/campaign-overview/', campaign_dashboard_views.campaign_overview_api, name='campaign_overview_api'),
-    path('crush-admin/api/campaign-clicks/<int:campaign_id>/', campaign_dashboard_views.campaign_clicks_api, name='campaign_clicks_api'),
-    path('crush-admin/api/reminders-funnel/', campaign_dashboard_views.reminders_funnel_api, name='reminders_funnel_api'),
-
-    path('crush-admin/', crush_admin_site.urls),
-
-    # Standard Django Admin (all platforms)
-    path('admin/', admin.site.urls),
-
-    # Hub API for the CRM SPA (Codex_Marketing_CRM) hosted at hub.crush.lu.
-    # Mounted on crush.lu / test.crush.lu since the SPA's preview env can't
-    # have its own subdomain — it uses test.crush.lu directly. Language-neutral.
-    path('hub/', include('hub.urls')),
-
-    # WhatsApp webhook — public, signature-verified. Mounted here because
-    # api.crush.lu is not a bound custom domain on the production App Service slot.
-    path('api/webhooks/whatsapp/', WhatsAppWebhookView.as_view(), name='whatsapp_webhook_crush'),
-
-    # Session→JWT bounce for the hub SPA. Lives on crush.lu because that's
-    # where the allauth session cookie is set; mints a single-use code that
-    # the SPA exchanges at api.crush.lu/api/token/exchange-code/.
-    path('api/auth/spa-callback/', spa_session_callback, name='spa_session_callback'),
-]
+urlpatterns = (
+    [
+        # Redirect bare allauth account pages to the styled crush.lu settings page
+        path("accounts/", lambda req: redirect("/account/settings/")),
+        path("accounts/email/", lambda req: redirect("/account/settings/")),
+        # Redirect allauth's generic signup to the crush.lu signup view so GDPR
+        # consent (crushlu_consent / marketing_consent) is always captured
+        path("accounts/signup/", lambda req: redirect("/signup/")),
+    ]
+    + base_patterns
+    + api_patterns
+    + [
+        # Dev: Ghost SVG showcase (no auth needed)
+        path(
+            "ghost-showcase/",
+            TemplateView.as_view(template_name="crush_lu/ghost_showcase.html"),
+            name="ghost_showcase",
+        ),
+        # SEO: robots.txt and sitemap.xml (must be at root, no language prefix)
+        path("robots.txt", robots_txt, name="robots_txt"),
+        path(
+            "sitemap.xml",
+            sitemap,
+            {"sitemaps": crush_sitemaps},
+            name="django.contrib.sitemaps.views.sitemap",
+        ),
+        # JavaScript i18n catalog (must be language-neutral for JavaScript to access).
+        # Prefer the <lang> route from templates: on this unprefixed path
+        # LocaleMiddleware negotiates from the cookie/Accept-Language, which can
+        # disagree with the language prefix of the page doing the fetching.
+        path(
+            "jsi18n/<str:lang>/",
+            LanguageScopedJavaScriptCatalog.as_view(packages=["crush_lu"]),
+            name="javascript-catalog-lang",
+        ),
+        path(
+            "jsi18n/",
+            JavaScriptCatalog.as_view(packages=["crush_lu"]),
+            name="javascript-catalog",
+        ),
+        # PWA: Service Worker, Manifest, and Offline page (must be at root for scope)
+        # These CANNOT be inside i18n_patterns because browsers block redirected scripts
+        # Note: Use {% url 'pwa_manifest' %} instead of {% url 'crush_lu:manifest' %} in templates
+        path("sw-workbox.js", views.service_worker_view, name="pwa_service_worker"),
+        path("manifest.json", views.manifest_view, name="pwa_manifest"),
+        path("offline/", views.offline_view, name="pwa_offline"),
+        # Android App Links verification for PWA
+        path(".well-known/assetlinks.json", views.assetlinks_view, name="assetlinks"),
+        # Apple Universal Links / Associated Domains for the native iOS app
+        path(
+            ".well-known/apple-app-site-association",
+            views.apple_app_site_association_view,
+            name="apple_app_site_association",
+        ),
+        path(
+            "apple-app-site-association",
+            views.apple_app_site_association_view,
+            name="apple_app_site_association_root",
+        ),
+        # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
+        path(
+            "api/phone/mark-verified/",
+            views_phone_verification.mark_phone_verified,
+            name="api_phone_mark_verified",
+        ),
+        path(
+            "api/phone/check-available/",
+            views_phone_verification.check_phone_available,
+            name="api_phone_check_available",
+        ),
+        path(
+            "api/phone/status/",
+            views_phone_verification.phone_verification_status,
+            name="api_phone_status",
+        ),
+        path(
+            "api/phone/whatsapp/send/",
+            views_phone_verification.send_whatsapp_otp,
+            name="api_phone_whatsapp_send",
+        ),
+        path(
+            "api/phone/whatsapp/verify/",
+            views_phone_verification.verify_whatsapp_otp,
+            name="api_phone_whatsapp_verify",
+        ),
+        # ============================================================================
+        # LANGUAGE-NEUTRAL API ENDPOINTS
+        # These APIs are called from external JavaScript files with hardcoded paths.
+        # They must NOT be inside i18n_patterns to avoid 404 errors for non-English users.
+        # ============================================================================
+        # Push Notifications API (called from push-notifications.js, pwa-detector.js)
+        # In-app notifications (bell)
+        path(
+            "api/notifications/",
+            views_notifications.api_notifications_list,
+            name="api_notifications_list",
+        ),
+        path(
+            "api/notifications/<int:notification_id>/read/",
+            views_notifications.api_notification_mark_read,
+            name="api_notification_mark_read",
+        ),
+        path(
+            "api/notifications/mark-all-read/",
+            views_notifications.api_notifications_mark_all_read,
+            name="api_notifications_mark_all_read",
+        ),
+        path(
+            "api/push/vapid-public-key/",
+            api_push.get_vapid_public_key,
+            name="api_vapid_public_key",
+        ),
+        path("api/push/subscribe/", api_push.subscribe_push, name="api_subscribe_push"),
+        path(
+            "api/push/refresh-subscription/",
+            api_push.refresh_subscription,
+            name="api_refresh_push_subscription",
+        ),
+        path(
+            "api/push/validate-subscription/",
+            api_push.validate_subscription,
+            name="api_validate_push_subscription",
+        ),
+        path(
+            "api/push/unsubscribe/",
+            api_push.unsubscribe_push,
+            name="api_unsubscribe_push",
+        ),
+        path(
+            "api/push/delete-subscription/",
+            api_push.delete_push_subscription,
+            name="api_delete_push_subscription",
+        ),
+        path(
+            "api/push/subscriptions/",
+            api_push.list_subscriptions,
+            name="api_list_subscriptions",
+        ),
+        path(
+            "api/push/preferences/",
+            api_push.update_subscription_preferences,
+            name="api_update_push_preferences",
+        ),
+        path("api/push/test/", api_push.send_test_push, name="api_send_test_push"),
+        path(
+            "api/push/mark-pwa-user/", api_push.mark_pwa_user, name="api_mark_pwa_user"
+        ),
+        path("api/push/pwa-status/", api_push.get_pwa_status, name="api_pwa_status"),
+        path(
+            "api/push/health-check/",
+            api_push.run_subscription_health_check,
+            name="api_push_health_check",
+        ),
+        # Email Preferences API (called from alpine-components.js emailPreferences component)
+        path(
+            "api/email/preferences/",
+            views.api_update_email_preference,
+            name="api_update_email_preference",
+        ),
+        # PWA Device Registration API (called from pwa-detector.js)
+        path(
+            "api/pwa/register-installation/",
+            api_pwa.register_pwa_installation,
+            name="api_pwa_register_installation",
+        ),
+        # Native iOS app API (WKWebView shell + APNS)
+        path(
+            "api/mobile/ios/config/",
+            api_ios_app.ios_app_config,
+            name="api_ios_app_config",
+        ),
+        path(
+            "api/mobile/ios/auth/handoff/",
+            api_ios_app.ios_auth_handoff,
+            name="api_ios_auth_handoff",
+        ),
+        path(
+            "api/mobile/ios/auth/complete/<str:code>/",
+            api_ios_app.ios_auth_complete,
+            name="api_ios_auth_complete",
+        ),
+        path(
+            "api/mobile/ios/devices/",
+            api_ios_app.list_ios_devices,
+            name="api_ios_devices",
+        ),
+        path(
+            "api/mobile/ios/devices/register/",
+            api_ios_app.register_ios_device,
+            name="api_ios_device_register",
+        ),
+        path(
+            "api/mobile/ios/devices/unregister/",
+            api_ios_app.unregister_ios_device,
+            name="api_ios_device_unregister",
+        ),
+        path(
+            "api/mobile/ios/devices/preferences/",
+            api_ios_app.update_ios_device_preferences,
+            name="api_ios_device_preferences",
+        ),
+        path(
+            "api/mobile/android/config/",
+            api_android_app.android_app_config,
+            name="api_android_app_config",
+        ),
+        path(
+            "api/mobile/android/auth/handoff/",
+            api_android_app.android_auth_handoff,
+            name="api_android_auth_handoff",
+        ),
+        path(
+            "api/mobile/android/auth/complete/<str:code>/",
+            api_android_app.android_auth_complete,
+            name="api_android_auth_complete",
+        ),
+        path(
+            "api/mobile/android/devices/",
+            api_android_app.list_android_devices,
+            name="api_android_devices",
+        ),
+        path(
+            "api/mobile/android/devices/register/",
+            api_android_app.register_android_device,
+            name="api_android_device_register",
+        ),
+        path(
+            "api/mobile/android/devices/unregister/",
+            api_android_app.unregister_android_device,
+            name="api_android_device_unregister",
+        ),
+        path(
+            "api/mobile/android/devices/preferences/",
+            api_android_app.update_android_device_preferences,
+            name="api_android_device_preferences",
+        ),
+        # Coach Push Notifications API (called from alpine-components.js)
+        path(
+            "api/coach/push/vapid-public-key/",
+            api_coach_push.get_vapid_public_key,
+            name="api_coach_vapid_public_key",
+        ),
+        path(
+            "api/coach/push/subscribe/",
+            api_coach_push.subscribe_push,
+            name="api_coach_subscribe_push",
+        ),
+        path(
+            "api/coach/push/unsubscribe/",
+            api_coach_push.unsubscribe_push,
+            name="api_coach_unsubscribe_push",
+        ),
+        path(
+            "api/coach/push/delete-subscription/",
+            api_coach_push.delete_push_subscription,
+            name="api_coach_delete_push_subscription",
+        ),
+        path(
+            "api/coach/push/subscriptions/",
+            api_coach_push.list_subscriptions,
+            name="api_coach_list_subscriptions",
+        ),
+        path(
+            "api/coach/push/preferences/",
+            api_coach_push.update_subscription_preferences,
+            name="api_coach_update_push_preferences",
+        ),
+        path(
+            "api/coach/push/test/",
+            api_coach_push.send_test_push,
+            name="api_coach_send_test_push",
+        ),
+        # Coach Team Stats API (called from alpine-components.js coachTeamStats)
+        path(
+            "api/coach/team/claim/",
+            views_coach.api_coach_claim_submission,
+            name="api_coach_claim_submission",
+        ),
+        # Auth Status API (called from oauth-popup.js, auth.html templates)
+        path(
+            "api/auth/status/",
+            views_oauth_popup.check_auth_status,
+            name="check_auth_status",
+        ),
+        # Event Voting API (called from event-voting.js)
+        path(
+            "api/events/<int:event_id>/voting/status/",
+            api_views.voting_status_api,
+            name="voting_status_api",
+        ),
+        path(
+            "api/events/<int:event_id>/voting/submit/",
+            api_views.submit_vote_api,
+            name="submit_vote_api",
+        ),
+        path(
+            "api/events/<int:event_id>/voting/results/",
+            api_views.voting_results_api,
+            name="voting_results_api",
+        ),
+        # Event Presentations API (called from coach_presentation_control.html and event_presentations.html)
+        path(
+            "api/events/<int:event_id>/presentations/current/",
+            views.get_current_presenter_api,
+            name="get_current_presenter_api",
+        ),
+        # Speed Dating TV Display data endpoint (language-neutral, polled by the display page)
+        path(
+            "api/events/<int:event_id>/tv-display-data/",
+            views.speed_dating_tv_display_data,
+            name="speed_dating_tv_display_data",
+        ),
+        # Event Poll API (language-neutral for JS calls)
+        path(
+            "api/polls/<int:poll_id>/vote/",
+            views_event_polls.poll_vote,
+            name="api_poll_vote",
+        ),
+        path(
+            "api/polls/<int:poll_id>/results/",
+            views_event_polls.poll_results_api,
+            name="api_poll_results",
+        ),
+        # Crush Spark API (language-neutral for JS polling)
+        path(
+            "api/sparks/<int:spark_id>/status/",
+            views_crush_spark.api_spark_status,
+            name="api_spark_status",
+        ),
+        # Payments (SumUp)
+        path(
+            "payments/sumup/create-event-checkout/<int:registration_id>/",
+            views_payments.create_sumup_event_checkout,
+            name="sumup_create_event_checkout",
+        ),
+        path(
+            "payments/sumup/create-premium-checkout/<int:membership_id>/",
+            views_payments.create_sumup_premium_checkout,
+            name="sumup_create_premium_checkout",
+        ),
+        path(
+            "payments/sumup/create-donation-checkout/",
+            views_payments.create_sumup_donation_checkout,
+            name="sumup_create_donation_checkout",
+        ),
+        path(
+            "payments/sumup/widget/<str:checkout_id>/",
+            views_payments.sumup_widget_view,
+            name="sumup_widget",
+        ),
+        path(
+            "payments/sumup/widget/<str:checkout_id>/status/",
+            views_payments.sumup_widget_status,
+            name="sumup_widget_status",
+        ),
+        path(
+            "payments/sumup/widget/<str:checkout_id>/failed/",
+            views_payments.report_sumup_widget_failure,
+            name="sumup_widget_failure",
+        ),
+        path(
+            "payments/sumup/return/",
+            views_payments.sumup_payment_return,
+            name="sumup_payment_return",
+        ),
+        path(
+            "payments/sumup/webhook/",
+            views_payments.sumup_webhook,
+            name="sumup_webhook",
+        ),
+        # Crush Connect Waitlist API (language-neutral for JS calls)
+        path(
+            "api/crush-connect/join/",
+            api_crush_connect.join_waitlist,
+            name="crush_connect_join",
+        ),
+        path(
+            "api/crush-connect/status/",
+            api_crush_connect.waitlist_status,
+            name="crush_connect_status",
+        ),
+        # Journey Reward APIs (called from photo_reveal.html with hardcoded paths)
+        path(
+            "api/journey/unlock-puzzle-piece/",
+            api_journey.unlock_puzzle_piece,
+            name="api_unlock_puzzle_piece",
+        ),
+        path(
+            "api/journey/reward-progress/<int:reward_id>/",
+            api_journey.get_reward_progress,
+            name="api_get_reward_progress",
+        ),
+        # PassKit Web Service (Apple Wallet)
+        path(
+            "wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>",
+            passkit_service.device_registration,
+            name="passkit_device_registration",
+        ),
+        path(
+            "wallet/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>",
+            passkit_service.list_device_registrations,
+            name="passkit_list_registrations",
+        ),
+        path(
+            "wallet/v1/passes/<str:pass_type_identifier>/<str:serial_number>",
+            passkit_service.get_latest_pass,
+            name="passkit_get_pass",
+        ),
+        path(
+            "wallet/v1/log",
+            passkit_service.log_endpoint,
+            name="passkit_log",
+        ),
+        # --- Legacy doubled-version compatibility (Apple Wallet) ---------------
+        # Every pass installed before the webServiceURL fix carries the versioned
+        # root "https://crush.lu/wallet/v1". Apple appends its own protocol version
+        # to whatever a pass advertises, so those devices request
+        # /wallet/v1/v1/... — which matched nothing and 404'd.
+        #
+        # Correcting the embedded root only helps passes built AFTER the fix. An
+        # already-installed pass can only receive the corrected package by fetching
+        # it, and the only address it will ever use is this doubled one; an APNs
+        # push just sends the device back to the same 404. Without these aliases
+        # every existing holder would have to delete and re-add their pass by hand.
+        #
+        # Serving them from the same views is enough to self-heal: get_latest_pass
+        # rebuilds through resolve_web_service_url, and build_web_service_url uses
+        # an absolute base path, so the package handed back over this legacy route
+        # carries the CORRECT unversioned root. One fetch and the device moves to
+        # /wallet/v1/... on its own.
+        path(
+            "wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>",
+            passkit_service.device_registration,
+            name="passkit_device_registration_legacy",
+        ),
+        path(
+            "wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>",
+            passkit_service.list_device_registrations,
+            name="passkit_list_registrations_legacy",
+        ),
+        path(
+            "wallet/v1/v1/passes/<str:pass_type_identifier>/<str:serial_number>",
+            passkit_service.get_latest_pass,
+            name="passkit_get_pass_legacy",
+        ),
+        path(
+            "wallet/v1/v1/log",
+            passkit_service.log_endpoint,
+            name="passkit_log_legacy",
+        ),
+        # CSRF Token Refresh (called from alpine-components.js before final form submit)
+        path(
+            "api/csrf-token/", views_profile.get_csrf_token, name="csrf_token_refresh"
+        ),
+        # Onboarding /welcome/ intent probe (called from welcome.html via hx-post)
+        path(
+            "api/welcome/intent/",
+            views_profile.welcome_intent_api,
+            name="api_welcome_intent",
+        ),
+        # Profile Step-by-Step Saving APIs (called from alpine-components.js with hardcoded paths)
+        path(
+            "api/profile/save-step1/",
+            views_profile.save_profile_step1,
+            name="api_save_profile_step1",
+        ),
+        path(
+            "api/profile/save-step2/",
+            views_profile.save_profile_step2,
+            name="api_save_profile_step2",
+        ),
+        path(
+            "api/profile/save-step3/",
+            views_profile.save_profile_step3,
+            name="api_save_profile_step3",
+        ),
+        path(
+            "api/profile/save-preferences/",
+            views_profile.save_profile_preferences,
+            name="api_save_profile_preferences",
+        ),
+        path(
+            "api/profile/progress/",
+            views_profile.get_profile_progress,
+            name="api_get_profile_progress",
+        ),
+        # Profile Draft APIs (auto-save and draft recovery)
+        path(
+            "api/profile/draft/save/",
+            views_profile_draft.save_draft,
+            name="api_save_draft",
+        ),
+        path(
+            "api/profile/draft/get/",
+            views_profile_draft.get_draft,
+            name="api_get_draft",
+        ),
+        path(
+            "api/profile/draft/clear/",
+            views_profile_draft.clear_draft,
+            name="api_clear_draft",
+        ),
+        path(
+            "api/profile/draft/upload-photo/",
+            views_profile.upload_photo_draft,
+            name="api_upload_photo_draft",
+        ),
+        path(
+            "api/profile/draft/delete-photo/",
+            views_profile.delete_photo_draft,
+            name="api_delete_photo_draft",
+        ),
+        # Social Photo Import APIs (called from alpine-components.js with hardcoded paths)
+        path(
+            "api/profile/social-photos/",
+            views_profile.get_social_photos_api,
+            name="api_get_social_photos",
+        ),
+        path(
+            "api/profile/import-social-photo/",
+            views_profile.import_social_photo,
+            name="api_import_social_photo",
+        ),
+        # Profile Photo Upload/Delete APIs (called from alpine-components.js with hardcoded paths)
+        path(
+            "api/profile/upload-photo/<int:slot>/",
+            views_profile.upload_profile_photo,
+            name="api_upload_profile_photo",
+        ),
+        path(
+            "api/profile/delete-photo/<int:slot>/",
+            views_profile.delete_profile_photo,
+            name="api_delete_profile_photo",
+        ),
+        path(
+            "api/profile/settings/",
+            views.api_profile_settings_autosave,
+            name="api_profile_settings_autosave",
+        ),
+        # Profile Completion API (called from alpine-components.js with hardcoded paths)
+        path(
+            "api/profile/complete/",
+            views_profile.complete_profile_submission,
+            name="api_complete_profile_submission",
+        ),
+        # Submission status polling and candidate note (called from profile_submitted.html)
+        path(
+            "api/submission/status/",
+            views.api_submission_status,
+            name="api_submission_status",
+        ),
+        path(
+            "api/submission/note/",
+            views.api_submission_note,
+            name="api_submission_note",
+        ),
+        # Event Check-In API (language-neutral - called from QR codes and scanner)
+        path(
+            "api/events/checkin/<int:registration_id>/<str:token>/",
+            views_checkin.event_checkin_api,
+            name="event_checkin_api",
+        ),
+        # Verify an attendee in person at an event (coach action from the scanner)
+        path(
+            "api/events/<int:event_id>/verify/<int:registration_id>/",
+            views_checkin.coach_mark_verified,
+            name="coach_mark_verified",
+        ),
+        # Undo a mis-scan, and check in a waitlisted walk-up (coach actions from the scanner)
+        path(
+            "api/events/<int:event_id>/undo-checkin/<int:registration_id>/",
+            views_checkin.coach_undo_checkin,
+            name="coach_undo_checkin",
+        ),
+        path(
+            "api/events/<int:event_id>/promote/<int:registration_id>/",
+            views_checkin.coach_promote_from_waitlist,
+            name="coach_promote_from_waitlist",
+        ),
+        # Read-only door counters, refetched by the scanner after every door action (#710)
+        path(
+            "api/events/<int:event_id>/checkin-summary/",
+            views_checkin.event_checkin_summary,
+            name="event_checkin_summary",
+        ),
+        # Wallet passes (language-neutral for platform-specific clients)
+        path(
+            "wallet/apple/pass/",
+            views_wallet.apple_wallet_pass,
+            name="wallet_apple_pass",
+        ),
+        path(
+            "wallet/google/jwt/",
+            views_wallet.google_wallet_jwt,
+            name="wallet_google_jwt",
+        ),
+        path(
+            "wallet/google/event-ticket/<int:registration_id>/jwt/",
+            views_wallet.google_event_ticket_jwt,
+            name="event_ticket_jwt",
+        ),
+        path(
+            "wallet/apple/event-ticket/<int:registration_id>/pass/",
+            views_wallet.apple_event_ticket_pass,
+            name="apple_event_ticket_pass",
+        ),
+        # Google Wallet callback (called by Google when users save/delete passes)
+        path(
+            "wallet/google/callback/",
+            google_callback.google_wallet_callback,
+            name="wallet_google_callback",
+        ),
+        # Referral API (called from dashboard with hardcoded paths)
+        path("api/referral/me/", api_referral.referral_me, name="api_referral_me"),
+        path(
+            "api/referral/redeem/",
+            api_referral.redeem_points,
+            name="api_referral_redeem",
+        ),
+        # Admin Sync API (called by Azure Functions for scheduled tasks)
+        path(
+            "api/admin/sync-contacts/",
+            api_admin_sync.sync_contacts_endpoint,
+            name="api_admin_sync_contacts",
+        ),
+        path(
+            "api/admin/sync-contacts/delete-all/",
+            api_admin_sync.delete_all_contacts_endpoint,
+            name="api_admin_delete_all_contacts",
+        ),
+        path(
+            "api/admin/sync-contacts/health/",
+            api_admin_sync.sync_contacts_health,
+            name="api_admin_sync_contacts_health",
+        ),
+        # Hybrid Coach Review System + pre-screening cron (Azure Functions call these)
+        # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+        path(
+            "api/admin/hybrid-coach-sla-sweep/",
+            api_admin_hybrid.sla_sweep,
+            name="api_admin_sla_sweep",
+        ),
+        path(
+            "api/admin/pre-screening-invites/",
+            api_admin_hybrid.pre_screening_invites,
+            name="api_admin_pre_screening_invites",
+        ),
+        path(
+            "api/admin/crush-lead-reminders/",
+            api_admin_hybrid.crush_lead_reminders,
+            name="api_admin_crush_lead_reminders",
+        ),
+        # Weekly KPI digest (WeeklyKPIs Azure Function timer calls this on Mondays).
+        # Language-neutral path so the Function App can hardcode it.
+        path(
+            "api/admin/weekly-kpis/",
+            api_admin_metrics.weekly_kpis_sweep,
+            name="api_admin_weekly_kpis",
+        ),
+        # Weekly Crush Connect question rotation (RotateConnectQuestions Function
+        # timer calls this on Mondays). Language-neutral so the Function can hardcode it.
+        path(
+            "api/admin/rotate-connect-questions/",
+            api_admin_metrics.rotate_connect_questions_sweep,
+            name="api_admin_rotate_connect_questions",
+        ),
+        # Daily profile-completion reminders (ProfileReminders Function timer).
+        # Language-neutral so the Function App can hardcode it.
+        path(
+            "api/admin/profile-reminders/",
+            api_admin_metrics.profile_reminders_sweep,
+            name="api_admin_profile_reminders",
+        ),
+        # Weekly GDPR data-minimization retention sweep (GdprRetention Function
+        # timer). Language-neutral so the Function App can hardcode it.
+        path(
+            "api/admin/gdpr-retention/",
+            api_admin_metrics.gdpr_retention_sweep,
+            name="api_admin_gdpr_retention",
+        ),
+        # Event email lifecycle (EventReminders / EventRecaps / EventFeedback Function
+        # timers). Language-neutral so the Function App can hardcode them. Before these
+        # existed the three send_event_* commands had no scheduler of any kind.
+        path(
+            "api/admin/event-reminders/",
+            api_admin_events.event_reminders_sweep,
+            name="api_admin_event_reminders",
+        ),
+        path(
+            "api/admin/event-recaps/",
+            api_admin_events.event_recaps_sweep,
+            name="api_admin_event_recaps",
+        ),
+        path(
+            "api/admin/event-feedback/",
+            api_admin_events.event_feedback_sweep,
+            name="api_admin_event_feedback",
+        ),
+        path(
+            "api/admin/echo-sync/",
+            api_admin_events.echo_lu_sync_sweep,
+            name="api_admin_echo_sync",
+        ),
+        # Changelog ingest (called by the Claude Code changelog routine on PR merge).
+        # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
+        path(
+            "api/admin/changelog/ingest/",
+            api_admin_changelog.ingest_changelog,
+            name="api_admin_changelog_ingest",
+        ),
+        # Campaign dispatch tick (CampaignDispatch Azure Function timer, every 5 min).
+        # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+        path(
+            "api/admin/campaigns/dispatch/",
+            api_admin_campaigns.dispatch_campaigns_endpoint,
+            name="api_admin_campaign_dispatch",
+        ),
+        # Live Quiz API (called from quiz-live.js WebSocket fallback)
+        path(
+            "api/quiz/<int:quiz_id>/state/", api_quiz.quiz_state, name="api_quiz_state"
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/tables/",
+            api_quiz.quiz_tables,
+            name="api_quiz_tables",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/my-assignment/",
+            api_quiz.my_assignment,
+            name="api_quiz_my_assignment",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/score-table/",
+            api_quiz.score_table,
+            name="api_quiz_score_table",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/mark-attended/",
+            api_quiz.mark_attended,
+            name="api_quiz_mark_attended",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/consolidate-tables/",
+            api_quiz.consolidate_tables_view,
+            name="api_quiz_consolidate_tables",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/assign-table/",
+            api_quiz.assign_table_view,
+            name="api_quiz_assign_table",
+        ),
+        # Quiz table display — redirect legacy /quiz/<id>/display/ to language-prefixed URL
+        # The actual view lives in i18n_patterns below so Django's LocaleMiddleware sets
+        # request.LANGUAGE_CODE before the view renders the template.
+        path(
+            "quiz/<int:event_id>/display/",
+            quiz_display_language_redirect,
+            name="quiz_table_display_redirect",
+        ),
+        path(
+            "api/quiz/<int:event_id>/display-data/",
+            views_quiz.quiz_table_display_data,
+            name="quiz_table_display_data",
+        ),
+        path(
+            "api/quiz/<int:event_id>/verify-pin/",
+            views_quiz.quiz_display_verify_pin,
+            name="quiz_display_verify_pin",
+        ),
+        path(
+            "api/quiz/photo/<int:user_id>/",
+            views_quiz.quiz_display_photo,
+            name="quiz_display_photo",
+        ),
+        # Referral redirect (language-neutral for wallet passes and sharing)
+        # This allows https://crush.lu/r/CODE/ to work without language prefix
+        # Users will be redirected to the home page in their browser's preferred language
+        path(
+            "r/<str:code>/", views.referral_redirect, name="referral_redirect_neutral"
+        ),
+        # Campaign click-tracking redirect (language-neutral: the URL is embedded
+        # in emails / WhatsApp / push payloads sent by the campaign dashboard)
+        path("c/<str:token>/", campaign_click_redirect, name="campaign_click_redirect"),
+        # ============================================================================
+        # LOGIN REDIRECT COMPATIBILITY
+        # LOGIN_REDIRECT_URL is set globally to /profile/ but Crush.lu uses /dashboard/.
+        # This redirect handles the non-prefixed URL from login and sends users to the
+        # localized dashboard. Without this, users would get a 404 after login.
+        # ============================================================================
+        path("profile/", redirect_profile_to_dashboard, name="profile_redirect"),
+        # ============================================================================
+        # ADMIN PANELS (language-neutral - always accessible without language prefix)
+        # These are moved outside i18n_patterns to avoid 404 errors when admins
+        # manually change the URL language prefix.
+        # ============================================================================
+        # Dedicated Crush.lu Admin Panel (Coach Panel)
+        # Note: Dashboard must come BEFORE admin site to avoid path matching issues
+        path(
+            "crush-admin/dashboard/",
+            admin_views.crush_admin_dashboard,
+            name="crush_admin_dashboard",
+        ),
+        path(
+            "crush-admin/pre-screening/export.csv",
+            admin_views.export_pre_screening_csv,
+            name="crush_admin_pre_screening_csv",
+        ),
+        path(
+            "crush-admin/api/signup-trend/",
+            signup_trend_api,
+            name="crush_admin_signup_trend",
+        ),
+        path(
+            "crush-admin/api/verification-trend/",
+            verification_trend_api,
+            name="crush_admin_verification_trend",
+        ),
+        path(
+            "crush-admin/api/cumulative-growth/",
+            cumulative_growth_api,
+            name="crush_admin_cumulative_growth",
+        ),
+        path(
+            "crush-admin/api/daily-active-users/",
+            daily_active_users_api,
+            name="crush_admin_daily_active_users",
+        ),
+        path(
+            "crush-admin/user-segments/",
+            user_segments_dashboard,
+            name="user_segments_dashboard",
+        ),
+        path(
+            "crush-admin/user-segments/<str:segment_key>/",
+            segment_detail,
+            name="segment_detail",
+        ),
+        path(
+            "crush-admin/profile-reminders/",
+            profile_reminders_panel,
+            name="profile_reminders_panel",
+        ),
+        # Email Template Manager
+        path(
+            "crush-admin/email-templates/",
+            email_template_manager,
+            name="email_template_manager",
+        ),
+        path(
+            "crush-admin/email-templates/search-users/",
+            email_template_user_search,
+            name="email_template_user_search",
+        ),
+        path(
+            "crush-admin/email-templates/preview/",
+            email_template_preview,
+            name="email_template_preview",
+        ),
+        path(
+            "crush-admin/email-templates/send/",
+            email_template_send,
+            name="email_template_send",
+        ),
+        path(
+            "crush-admin/email-templates/create-draft/",
+            email_template_create_draft,
+            name="email_template_create_draft",
+        ),
+        path(
+            "crush-admin/email-templates/load-events/",
+            email_template_load_events,
+            name="email_template_load_events",
+        ),
+        path(
+            "crush-admin/email-templates/load-connections/",
+            email_template_load_connections,
+            name="email_template_load_connections",
+        ),
+        path(
+            "crush-admin/email-templates/load-invitations/",
+            email_template_load_invitations,
+            name="email_template_load_invitations",
+        ),
+        path(
+            "crush-admin/email-templates/load-gifts/",
+            email_template_load_gifts,
+            name="email_template_load_gifts",
+        ),
+        # Account Merge Tool
+        path(
+            "crush-admin/merge-accounts/",
+            admin_views.merge_accounts_confirm,
+            name="merge_accounts_confirm",
+        ),
+        # Poll Analytics
+        path(
+            "crush-admin/poll-analytics/",
+            poll_analytics_dashboard,
+            name="poll_analytics_dashboard",
+        ),
+        path(
+            "crush-admin/poll-analytics/<int:poll_id>/",
+            poll_analytics_detail,
+            name="poll_analytics_detail",
+        ),
+        # Campaign & Remarketing Dashboard (unified multi-channel campaigns)
+        path(
+            "crush-admin/campaigns/",
+            campaign_dashboard_views.campaign_dashboard,
+            name="campaign_dashboard",
+        ),
+        path(
+            "crush-admin/campaigns/new/",
+            campaign_dashboard_views.campaign_composer,
+            name="campaign_new",
+        ),
+        path(
+            "crush-admin/campaigns/create/",
+            campaign_dashboard_views.campaign_create,
+            name="campaign_create",
+        ),
+        path(
+            "crush-admin/campaigns/estimate/",
+            campaign_dashboard_views.campaign_estimate,
+            name="campaign_estimate",
+        ),
+        path(
+            "crush-admin/campaigns/preview/",
+            campaign_dashboard_views.campaign_preview,
+            name="campaign_preview",
+        ),
+        path(
+            "crush-admin/campaigns/<int:campaign_id>/",
+            campaign_dashboard_views.campaign_detail,
+            name="campaign_detail",
+        ),
+        path(
+            "crush-admin/campaigns/<int:campaign_id>/cancel/",
+            campaign_dashboard_views.campaign_cancel,
+            name="campaign_cancel",
+        ),
+        path(
+            "crush-admin/campaigns/<int:campaign_id>/launch/",
+            campaign_dashboard_views.campaign_launch,
+            name="campaign_launch",
+        ),
+        path(
+            "crush-admin/campaigns/<int:campaign_id>/status/",
+            campaign_dashboard_views.campaign_status_partial,
+            name="campaign_status_partial",
+        ),
+        path(
+            "crush-admin/api/campaign-overview/",
+            campaign_dashboard_views.campaign_overview_api,
+            name="campaign_overview_api",
+        ),
+        path(
+            "crush-admin/api/campaign-clicks/<int:campaign_id>/",
+            campaign_dashboard_views.campaign_clicks_api,
+            name="campaign_clicks_api",
+        ),
+        path(
+            "crush-admin/api/reminders-funnel/",
+            campaign_dashboard_views.reminders_funnel_api,
+            name="reminders_funnel_api",
+        ),
+        path("crush-admin/", crush_admin_site.urls),
+        # Standard Django Admin (all platforms)
+        path("admin/", admin.site.urls),
+        # Hub API for the CRM SPA (Codex_Marketing_CRM) hosted at hub.crush.lu.
+        # Mounted on crush.lu / test.crush.lu since the SPA's preview env can't
+        # have its own subdomain — it uses test.crush.lu directly. Language-neutral.
+        path("hub/", include("hub.urls")),
+        # WhatsApp webhook — public, signature-verified. Mounted here because
+        # api.crush.lu is not a bound custom domain on the production App Service slot.
+        path(
+            "api/webhooks/whatsapp/",
+            WhatsAppWebhookView.as_view(),
+            name="whatsapp_webhook_crush",
+        ),
+        # Session→JWT bounce for the hub SPA. Lives on crush.lu because that's
+        # where the allauth session cookie is set; mints a single-use code that
+        # the SPA exchanges at api.crush.lu/api/token/exchange-code/.
+        path(
+            "api/auth/spa-callback/", spa_session_callback, name="spa_session_callback"
+        ),
+    ]
+)
 
 # Language-prefixed patterns (all user-facing pages)
 # URLs will be: /en/events/, /de/events/, /fr/events/, etc.
 urlpatterns += i18n_patterns(
     # Crush.lu app URLs
-    path('', include('crush_lu.urls', namespace='crush_lu')),
-
+    path("", include("crush_lu.urls", namespace="crush_lu")),
     # Quiz projector display — language-prefixed so Django's LocaleMiddleware activates
     # the correct language before the template renders {% trans %} strings.
     # /en/quiz/<id>/display/ | /fr/quiz/<id>/display/ | /de/quiz/<id>/display/
-    path('quiz/<int:event_id>/display/', views_quiz.quiz_table_display, name='quiz_table_display'),
-
+    path(
+        "quiz/<int:event_id>/display/",
+        views_quiz.quiz_table_display,
+        name="quiz_table_display",
+    ),
     # Include /en/ prefix even for default language
     prefix_default_language=True,
 )

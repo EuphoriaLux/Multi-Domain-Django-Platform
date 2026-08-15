@@ -5,7 +5,12 @@
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
-<div x-data="coachCheckin" data-event-id="{{ event.id }}">
+{% comment %}
+    data-summary-url is what every door action refetches after it succeeds,
+    local or broadcast (#710): the counters are re-rendered wholesale from the
+    response instead of being bumped by whichever handler knew about them.
+{% endcomment %}
+<div x-data="coachCheckin" data-event-id="{{ event.id }}" data-summary-url="/api/events/{{ event.id }}/checkin-summary/">
 
 {# Profile Toast Cards (fixed top-right) #}
 <div class="fixed top-4 right-4 z-50 space-y-3 pointer-events-none" style="max-width: 320px;">
@@ -55,6 +60,10 @@
 {% comment %}
     Live gender split of who is in the room. This is what the waitlist
     decision at the door depends on, and it was previously invisible here.
+    Numerator and denominator are both tagged, and all three buckets render
+    unconditionally: the summary endpoint always sends all three, and a
+    handler-side bump of a numerator whose denominator was render-time-only
+    is what could show "6 / 5" (#710 finding 5).
 {% endcomment %}
 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 px-4 py-3 mb-6 flex items-center justify-between gap-4 text-sm">
     <span class="text-gray-500 dark:text-gray-400">{% trans "In the room" %}</span>
@@ -62,20 +71,18 @@
         <span class="inline-flex items-baseline gap-1">
             <span class="text-pink-500">&#9792;</span>
             <span class="font-semibold dark:text-white" id="gender-f-count">{{ gender_checked_in.F }}</span>
-            <span class="text-xs text-gray-400">/ {{ gender_expected.F }}</span>
+            <span class="text-xs text-gray-400">/ <span id="gender-f-expected">{{ gender_expected.F }}</span></span>
         </span>
         <span class="inline-flex items-baseline gap-1">
             <span class="text-blue-500">&#9794;</span>
             <span class="font-semibold dark:text-white" id="gender-m-count">{{ gender_checked_in.M }}</span>
-            <span class="text-xs text-gray-400">/ {{ gender_expected.M }}</span>
+            <span class="text-xs text-gray-400">/ <span id="gender-m-expected">{{ gender_expected.M }}</span></span>
         </span>
-        {% if gender_expected.other %}
         <span class="inline-flex items-baseline gap-1">
             <span class="text-purple-500">&#9895;</span>
             <span class="font-semibold dark:text-white" id="gender-other-count">{{ gender_checked_in.other }}</span>
-            <span class="text-xs text-gray-400">/ {{ gender_expected.other }}</span>
+            <span class="text-xs text-gray-400">/ <span id="gender-other-expected">{{ gender_expected.other }}</span></span>
         </span>
-        {% endif %}
     </div>
 </div>
 
@@ -176,7 +183,8 @@
     </div>
     {% endif %}
 
-    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+    {# Tagged because the row-state applier inserts promoted attendees here — rows that were waitlist-only until their promotion #}
+    <div class="divide-y divide-gray-100 dark:divide-gray-700" id="attendee-list">
         {% for reg in registrations %}
         {% comment %}
             Filter haystack: the display name shown in the row plus the legal
@@ -208,9 +216,9 @@
                         </div>
                         {% endwith %}
                     {% endif %}
-                    {# Small check-in badge overlay #}
+                    {# Small check-in badge overlay. Carries checkin-overlay-badge like the JS-injected twin, so the shared applier can remove either with one selector (#710 finding 7) #}
                     {% if reg.status == 'attended' %}
-                    <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <span class="checkin-overlay-badge absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                         <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
@@ -220,7 +228,8 @@
 
                 {# Name + meta #}
                 <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {# data-name-line anchors the row-state applier's pill swap (#710) #}
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5" data-name-line>
                         <span class="font-medium text-sm dark:text-white truncate">
                             {% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}
                         </span>
@@ -237,9 +246,9 @@
                             {% if reg.user.crushprofile.age_display %}
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ reg.user.crushprofile.age_display }}</span>
                             {% endif %}
-                            {# Verification badge #}
+                            {# Verification badge. All three variants carry data-verify-pill so the applier can swap whichever is rendered #}
                             {% if reg.user.crushprofile.is_approved %}
-                            <span class="inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                            <span data-verify-pill class="inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                                 {% trans "Verified" %}
                             </span>
@@ -260,7 +269,7 @@
                             nothing to verify, and the in-person Verify button
                             below is correctly absent for the same reason.
                             {% endcomment %}
-                            <span class="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
+                            <span data-verify-pill class="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-8-4a1 1 0 00-1 1v3a1 1 0 002 0V7a1 1 0 00-1-1zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                                 {% trans "No profile" %}
                             </span>
@@ -282,9 +291,9 @@
                         {% trans "No coach yet" %}
                     </p>
                     {% endif %}
-                    {# Check-in time #}
+                    {# Check-in time. Tagged so the row-state applier can rewrite or drop it when an undo un-attends the row #}
                     {% if reg.checked_in_at %}
-                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ reg.checked_in_at|date:"g:i A" }}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5" data-arrival-time>{{ reg.checked_in_at|date:"g:i A" }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -369,29 +378,35 @@
             </div>
         </div>
         {% empty %}
-        <p class="text-sm text-gray-500 dark:text-gray-400 py-4">{% trans "No confirmed registrations for this event." %}</p>
+        {# id'd so the applier can drop it the moment a promoted row makes the list non-empty #}
+        <p class="text-sm text-gray-500 dark:text-gray-400 py-4" id="attendee-empty">{% trans "No confirmed registrations for this event." %}</p>
         {% endfor %}
     </div>
 </div>
 
-{% if waitlisted %}
 {% comment %}
     Waitlisted walk-ups. Until now the scanner never received these rows, so
     the single most common door move on a night with no-shows — someone from
     the waitlist turns up — meant leaving the scanner for the event management
     page and coming back. Collapsed by default so it never competes with the
     confirmed list.
+
+    Rendered unconditionally and hidden while empty (the summary refetch
+    toggles it): undoing a mistaken promotion must be able to put a row BACK
+    here, which it cannot if the section only existed server-side (#710
+    findings 2 and 6).
 {% endcomment %}
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mt-6">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mt-6" id="waitlist-card"{% if not waitlisted %} style="display: none;"{% endif %}>
     <details>
         <summary class="cursor-pointer font-semibold text-lg dark:text-white marker:text-gray-400">
             {% trans "Waitlist" %}
-            <span class="ml-1 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">{{ waitlist_count }}</span>
+            {# id'd so the summary refetch keeps this honest as rows leave and return #}
+            <span class="ml-1 inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400" id="waitlist-count-badge">{{ waitlist_count }}</span>
         </summary>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-3 mb-4">
             {% trans "Checking someone in from here takes their seat immediately. Capacity and gender limits are not re-checked — the counts above are the guide." %}
         </p>
-        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        <div class="divide-y divide-gray-100 dark:divide-gray-700" id="waitlist-list">
             {% for reg in waitlisted %}
             <div class="py-3 flex items-center justify-between gap-3" id="waitlist-reg-{{ reg.id }}">
                 <div class="flex items-center gap-3 min-w-0">
@@ -432,7 +447,6 @@
         </div>
     </details>
 </div>
-{% endif %}
 
 </div>{# end x-data="coachCheckin" #}
 
@@ -456,8 +470,12 @@ window._checkinI18n = {
     checkinFailed: '{% filter escapejs %}{% trans "Check-in failed" %}{% endfilter %}',
     networkError: '{% filter escapejs %}{% trans "Network error" %}{% endfilter %}',
     verified: '{% filter escapejs %}{% trans "Verified" %}{% endfilter %}',
+    unverifiedPill: '{% filter escapejs %}{% trans "Unverified" %}{% endfilter %}',
+    noProfile: '{% filter escapejs %}{% trans "No profile" %}{% endfilter %}',
+    promoteAction: '{% filter escapejs %}{% trans "Check in" %}{% endfilter %}',
     unverified: '{% filter escapejs %}{% trans "Unverified Profile" %}{% endfilter %}',
     coach: '{% filter escapejs %}{% trans "Coach" %}{% endfilter %}',
+    noCoachYet: '{% filter escapejs %}{% trans "No coach yet" %}{% endfilter %}',
     verifyAction: '{% filter escapejs %}{% trans "Verify" %}{% endfilter %}',
     verifyFailed: '{% filter escapejs %}{% trans "Verification failed" %}{% endfilter %}',
     torchOn: '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}',
@@ -492,6 +510,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Client-side attendee filter — hide/show the server-rendered rows.
     // Name/email search and the "not arrived" toggle compose: both must pass.
+    // Exposed as window._applyAttendeeFilters so the row-state applier can
+    // reapply it after any status change: a row checked in while "only who
+    // has not arrived" is on must leave the list immediately, not at the
+    // next keystroke (#710 finding 4).
+    window._applyAttendeeFilters = function () {};
     var searchInput = document.getElementById('attendee-search');
     if (searchInput) {
         var attendeeRows = document.querySelectorAll('[data-attendee-search]');
@@ -520,6 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (outstandingOnly) {
             outstandingOnly.addEventListener('change', applyFilters);
         }
+        window._applyAttendeeFilters = applyFilters;
     }
 });
 </script>

@@ -17,9 +17,10 @@ from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import coach_required
 from .models import CrushProfile, EventRegistration, ProfileSubmission
@@ -370,6 +371,7 @@ def event_checkin_api(request, registration_id, token):
             "message": f"{display_name} was already checked in.",
             "profile": _get_profile_data(registration),
             "auto_verified": rescan_verified is not None,
+            "row": _row_state(registration),
         }
         table_info = _get_existing_table_assignment(registration)
         if table_info:
@@ -446,6 +448,7 @@ def event_checkin_api(request, registration_id, token):
                 "message": f"{display_name} was already checked in.",
                 "profile": _get_profile_data(registration),
                 "auto_verified": already_verified_profile is not None,
+                "row": _row_state(registration),
             }
             table_info = _get_existing_table_assignment(registration)
             if table_info:
@@ -531,6 +534,9 @@ def event_checkin_api(request, registration_id, token):
         # just verified.
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
+        # What the shared row-state applier renders the manual row from, on
+        # this response AND the broadcast of it.
+        "row": _row_state(registration),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -624,6 +630,7 @@ def coach_mark_verified(request, event_id, registration_id):
                     "attendee_name": _get_display_name(registration),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
+                    "row": _row_state(registration),
                 }
             )
 
@@ -658,6 +665,7 @@ def coach_mark_verified(request, event_id, registration_id):
                     "attendee_name": _get_display_name(registration),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
+                    "row": _row_state(registration),
                 }
             )
 
@@ -686,6 +694,7 @@ def coach_mark_verified(request, event_id, registration_id):
         "message": str(_("%(name)s is now verified."))
         % {"name": _get_display_name(registration)},
         "profile": _get_profile_data(registration),
+        "row": _row_state(registration),
     }
     _broadcast_checkin(registration.event_id, response_data)
     return JsonResponse(response_data)
@@ -895,6 +904,10 @@ def coach_undo_checkin(request, event_id, registration_id):
         )
         or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
+        # The full row state the shared applier renders from — status,
+        # cleared coach line, table badge — for the local path AND the
+        # broadcast, which used to have no undo branch at all (#710).
+        "row": _row_state(registration),
     }
     # The *membership* table, not the current one. The door page's table-fill
     # grid is rendered from QuizTableMembership (views_coach.py), so it counts
@@ -902,14 +915,12 @@ def coach_undo_checkin(request, event_id, registration_id):
     # moved them — decrementing the current table would leave that tile short
     # and the round-0 tile still holding a seat nobody occupies.
     #
-    # Under its own key, never `table_number`: handleRemoteCheckin has no
-    # `undone` branch yet (#710), so an undo payload is still read as an
-    # arrival, and the arrival key would make the other coaches' pages count
-    # the freed seat *up*. `_updateUndoUI` reads this one, which only the
-    # acting coach runs — so the door page that issued the correction fixes
-    # its own table-fill grid, and no other page is misled into a bump. The
-    # quiz table group is a different channel, carries the current table, and
-    # reaches the players.
+    # Under its own key, never `table_number`: this payload is broadcast to
+    # every coach page, and the arrival key is what the check-in path reads.
+    # The door grid itself is put right by the summary refetch every path now
+    # runs; this key is what the acting coach's page and the tests name the
+    # freed seats by. The quiz table group is a different channel, carries
+    # the current table, and reaches the players.
     if released_table and released_table.get("membership_table_numbers"):
         response_data["released_table_numbers"] = released_table[
             "membership_table_numbers"
@@ -1081,6 +1092,9 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         % {"name": display_name},
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
+        # The confirmed list never contained this row, so the applier builds
+        # it from the identity fields carried here.
+        "row": _row_state(registration),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -1097,6 +1111,146 @@ def _get_display_name(registration):
         return registration.user.crushprofile.display_name
     except Exception:
         return _("Attendee")
+
+
+def _row_state(registration):
+    """Row-level state for the door page's shared row-state applier (#710).
+
+    Every door action returns this under ``row`` and the page applies it with
+    one ``_applyRowState`` on BOTH the local and the broadcast path, so no
+    handler patches its own subset of the DOM. It carries exactly what the
+    applier cannot know or derive: the status after the action, the arrival
+    time, which table badge to render, the permanent-coach line, the
+    verification pill — plus the identity fields a promoted row needs,
+    because the confirmed list never contained it.
+
+    The profile is re-read rather than taken from the registration's cached
+    ``user__crushprofile``: the coach grant is written by a signal on its own
+    profile instance during ``save()``, so the cached copy predates the very
+    field this is asked to report.
+    """
+    # str() coerces the lazy "Attendee" fallback — it must be a plain string
+    # both for the join below and for JsonResponse.
+    display_name = str(_get_display_name(registration))
+    row = {
+        "registration_id": registration.id,
+        "user_id": registration.user_id,
+        "status": registration.status,
+        "checked_in_at": (
+            registration.checked_in_at.isoformat()
+            if registration.checked_in_at
+            else None
+        ),
+        "display_name": display_name,
+        # The client-side search haystack a rebuilt row carries — matches the
+        # template's: a guest at the door gives the name on their ID or the
+        # email they booked with, neither of which need match display_name.
+        "search": " ".join(
+            part
+            for part in (
+                display_name,
+                registration.user.first_name,
+                registration.user.last_name,
+                registration.user.email,
+            )
+            if part
+        ),
+        "has_profile": False,
+        "is_approved": False,
+        "coach_name": None,
+    }
+    profile = (
+        CrushProfile.objects.select_related("assigned_coach__user")
+        .filter(user_id=registration.user_id)
+        .first()
+    )
+    if profile is not None:
+        row["has_profile"] = True
+        row["is_approved"] = profile.is_approved
+        row["gender"] = profile.gender or ""
+        row["age_display"] = profile.age_display or ""
+        if profile.photo_1:
+            row["photo_url"] = reverse(
+                "crush_lu:serve_profile_photo",
+                kwargs={"user_id": registration.user_id, "photo_field": "photo_1"},
+            )
+        if profile.assigned_coach_id:
+            coach_user = profile.assigned_coach.user
+            row["coach_name"] = (
+                f"{coach_user.first_name} {coach_user.last_name}".strip()
+                or coach_user.username
+            )
+    table_info = _get_existing_table_assignment(registration)
+    if table_info:
+        row["table_number"] = table_info["table_number"]
+    return row
+
+
+@coach_required
+@require_GET
+def event_checkin_summary(request, event_id):
+    """Read-only door counters, refetched by the page after every door action.
+
+    The check-in page used to maintain its tiles by bumping whichever counter
+    each handler knew about, which drifted on the first unhandled path and
+    could render a gender tile as ``6 / 5``. This endpoint is the single
+    source: the page refetches it after any scan, promote, undo or verify —
+    local or broadcast — and re-renders the counters wholesale (#710).
+
+    Mirrors the arithmetic of ``coach_event_checkin`` (views_coach.py) on
+    purpose: the tiles must not change their meaning between page load and
+    the first refetch. All three gender buckets are always present, so the
+    client can write numerators AND denominators without probing the DOM.
+    """
+    from .models import MeetupEvent
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+
+    registrations = (
+        EventRegistration.objects.filter(event=event)
+        .exclude(status="cancelled")
+        .select_related("user__crushprofile")
+    )
+    confirmed = [r for r in registrations if r.status in SEAT_HOLDING_STATUSES]
+    attended_count = sum(1 for r in confirmed if r.status == "attended")
+    waitlist_count = sum(1 for r in registrations if r.status == "waitlist")
+
+    gender_checked_in = {"F": 0, "M": 0, "other": 0}
+    gender_expected = {"F": 0, "M": 0, "other": 0}
+    for reg in confirmed:
+        gender = getattr(getattr(reg.user, "crushprofile", None), "gender", None)
+        key = gender if gender in ("F", "M") else "other"
+        gender_expected[key] += 1
+        if reg.status == "attended":
+            gender_checked_in[key] += 1
+
+    table_fill = []
+    quiz_event = getattr(event, "quiz", None)
+    if quiz_event and quiz_event.num_tables:
+        from collections import Counter
+
+        from .models.quiz import QuizTableMembership
+
+        fill_counts = Counter(
+            QuizTableMembership.objects.filter(table__quiz=quiz_event).values_list(
+                "table__table_number", flat=True
+            )
+        )
+        for number in range(1, quiz_event.num_tables + 1):
+            table_fill.append({"number": number, "count": fill_counts.get(number, 0)})
+
+    return JsonResponse(
+        {
+            "success": True,
+            "attended_count": attended_count,
+            "expected_count": len(confirmed),
+            "outstanding_count": len(confirmed) - attended_count,
+            "waitlist_count": waitlist_count,
+            "gender_checked_in": gender_checked_in,
+            "gender_expected": gender_expected,
+            "table_fill": table_fill,
+        }
+    )
 
 
 def _get_profile_data(registration):
