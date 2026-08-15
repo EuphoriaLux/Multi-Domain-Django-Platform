@@ -24,7 +24,10 @@ from django.views.decorators.http import require_POST
 from .decorators import coach_required
 from .models import CrushProfile, EventRegistration, ProfileSubmission
 from .models.events import SEAT_HOLDING_STATUSES
-from .services.profile_verification import claim_profile_verification
+from .services.profile_verification import (
+    claim_profile_verification,
+    reject_door_verification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -685,6 +688,81 @@ def coach_mark_verified(request, event_id, registration_id):
         "verification_method": method,
         "message": str(_("%(name)s is now verified."))
         % {"name": _get_display_name(registration)},
+        "profile": _get_profile_data(registration),
+    }
+    _broadcast_checkin(registration.event_id, response_data)
+    return JsonResponse(response_data)
+
+
+@coach_required
+@require_POST
+def coach_reject_verification(request, event_id, registration_id):
+    """Explicitly reject or revoke verification for an attendee at the door (photo mismatch).
+
+    Called when the coach observes that the attendee's profile photo does not match
+    the person presenting the ticket at check-in.
+    Sets verification_status to 'rejected', is_approved to False, clears verification_method,
+    updates latest ProfileSubmission notes and logs an audit record.
+    """
+    coach = request.coach
+
+    with transaction.atomic():
+        registration = (
+            EventRegistration.objects.select_for_update(of=("self",))
+            .select_related("user", "event")
+            .filter(id=registration_id, event_id=event_id)
+            .first()
+        )
+        if registration is None:
+            return JsonResponse(
+                {"success": False, "error": str(_("Registration not found."))},
+                status=404,
+            )
+
+        try:
+            profile = registration.user.crushprofile
+        except Exception:
+            return JsonResponse(
+                {"success": False, "error": str(_("Attendee has no profile."))},
+                status=404,
+            )
+
+        reject_door_verification(profile, target_status="rejected")
+
+        # Update latest submission if one exists
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .order_by("-submitted_at")
+            .first()
+        )
+        if submission:
+            submission.status = "rejected"
+            if not submission.coach_id:
+                submission.coach = coach
+            note = f"Door verification rejected by coach {coach}: photo mismatch"
+            submission.coach_notes = (
+                (submission.coach_notes + "\n" if submission.coach_notes else "") + note
+            ).strip()
+            submission.save(update_fields=["status", "coach", "coach_notes"])
+
+    logger.warning(
+        "Coach %s rejected verification for registration %s (user %s) at event %s due to photo mismatch",
+        coach,
+        registration.id,
+        registration.user_id,
+        event_id,
+    )
+
+    display_name = _get_display_name(registration)
+    response_data = {
+        "success": True,
+        "rejected": True,
+        "registration_id": registration.id,
+        "attendee_name": display_name,
+        "verification_status": "rejected",
+        "is_approved": False,
+        "message": str(_("Verification rejected for %(name)s (photo mismatch)."))
+        % {"name": display_name},
         "profile": _get_profile_data(registration),
     }
     _broadcast_checkin(registration.event_id, response_data)
