@@ -705,6 +705,12 @@ urlpatterns = (
             views_checkin.coach_promote_from_waitlist,
             name="coach_promote_from_waitlist",
         ),
+        # Read-only door counters, refetched by the scanner after every door action (#710)
+        path(
+            "api/events/<int:event_id>/checkin-summary/",
+            views_checkin.event_checkin_summary,
+            name="event_checkin_summary",
+        ),
         # Wallet passes (language-neutral for platform-specific clients)
         path(
             "wallet/apple/pass/",

@@ -1279,8 +1279,11 @@ class TestSeatLockOrder:
         src = inspect.getsource(inspect.unwrap(fn))
         return [
             m.group(1)
-            for m in re.finditer(r"(QuizEvent|QuizTable)\.objects[\s\S]{0,120}?"
-                                 r"select_for_update\(\)", src)
+            for m in re.finditer(
+                r"(QuizEvent|QuizTable)\.objects[\s\S]{0,120}?"
+                r"select_for_update\(\)",
+                src,
+            )
         ]
 
     def test_the_release_takes_the_quiz_row_before_the_tables(self):
@@ -1356,9 +1359,7 @@ class TestSeatReleaseEdges:
         _scan(client, event, registration)
         # A second chair, as only the admin can create.
         spare = quiz.tables.exclude(
-            pk=QuizTableMembership.objects.get(
-                table__quiz=quiz, user=attendee
-            ).table_id
+            pk=QuizTableMembership.objects.get(table__quiz=quiz, user=attendee).table_id
         ).first()
         QuizTableMembership.objects.create(table=spare, user=attendee)
 
@@ -1434,3 +1435,319 @@ class TestSeatReleaseEdges:
             _broadcast_quiz_leaderboard(event)
 
         assert sent == [(f"quiz_{quiz.id}", "quiz.leaderboard")]
+
+
+def _summary_url(event):
+    event_id = getattr(event, "pk", event)
+    return reverse("event_checkin_summary", kwargs={"event_id": event_id})
+
+
+class TestCheckinSummary:
+    """`event_checkin_summary` — the read-only counters the door page refetches
+    after every door action, local or broadcast (#710).
+
+    The page used to bump these tiles by hand from whichever handler knew
+    about them; the endpoint makes the server the single source, so a path
+    that forgets a tile can only be late, never wrong."""
+
+    def test_anonymous_requests_are_sent_to_login(self, client):
+        response = client.get(_summary_url(_make_event()))
+        assert response.status_code == 302
+        assert "login" in response["Location"]
+
+    def test_non_coaches_do_not_get_counters(self, client):
+        plain = _make_attendee("plain@example.com")
+        client.force_login(plain)
+        response = client.get(_summary_url(_make_event()))
+        assert response.status_code == 302
+        assert response["Location"] == reverse("crush_lu:dashboard")
+
+    def test_unknown_event_is_a_404(self, client):
+        coach = _make_coach()
+        client.force_login(coach.user)
+        assert client.get(_summary_url(999999)).status_code == 404
+
+    def test_counts_split_arrived_outstanding_and_waitlist(self, client):
+        coach = _make_coach()
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event,
+            user=_make_attendee("here@example.com"),
+            status="attended",
+            checked_in_at=timezone.now(),
+        )
+        EventRegistration.objects.create(
+            event=event,
+            user=_make_attendee("missing@example.com"),
+            status="confirmed",
+        )
+        EventRegistration.objects.create(
+            event=event, user=_make_attendee("wait@example.com"), status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["success"] is True
+        assert summary["attended_count"] == 1
+        assert summary["expected_count"] == 2
+        assert summary["outstanding_count"] == 1
+        assert summary["waitlist_count"] == 1
+
+    def test_cancelled_rows_count_nowhere_and_pending_seats_count_as_expected(
+        self, client
+    ):
+        """Mirrors the page's arithmetic exactly: a Pending Payment seat is
+        scannable at the door, so it is expected; a cancelled row is nothing
+        the door cares about."""
+        coach = _make_coach()
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event, user=_make_attendee("unpaid@example.com"), status="pending"
+        )
+        EventRegistration.objects.create(
+            event=event, user=_make_attendee("gone@example.com"), status="cancelled"
+        )
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["expected_count"] == 1
+        assert summary["outstanding_count"] == 1
+        assert summary["attended_count"] == 0
+        assert summary["waitlist_count"] == 0
+
+    def test_all_three_gender_buckets_are_always_present(self, client):
+        """The client writes numerators AND denominators for all three tiles,
+        so the endpoint may never omit a bucket — the render-time
+        `{% if gender_expected.other %}` guard is what let a promotion show
+        `6 / 5` (#710 finding 5)."""
+        coach = _make_coach()
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event,
+            user=_make_attendee("she@example.com"),
+            status="attended",
+            checked_in_at=timezone.now(),
+        )
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["gender_checked_in"] == {"F": 1, "M": 0, "other": 0}
+        assert summary["gender_expected"] == {"F": 1, "M": 0, "other": 0}
+
+    def test_the_gender_split_counts_only_seat_holders_who_arrived(self, client):
+        coach = _make_coach()
+        event = _make_event()
+        here = _make_attendee("she@example.com")
+        waiting = _make_attendee("waiting@example.com")
+        waiting.crushprofile.gender = "M"
+        waiting.crushprofile.save(update_fields=["gender"])
+        EventRegistration.objects.create(
+            event=event, user=here, status="attended", checked_in_at=timezone.now()
+        )
+        EventRegistration.objects.create(event=event, user=waiting, status="waitlist")
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["gender_checked_in"]["F"] == 1
+        # A waitlisted walk-up is not in the room yet.
+        assert summary["gender_expected"]["M"] == 0
+
+    def test_quiz_nights_carry_the_table_fill_grid(self, client):
+        from crush_lu.models.quiz import QuizEvent, QuizTableMembership
+
+        coach = _make_coach()
+        event = _make_event()
+        event.event_type = "quiz_night"
+        event.save(update_fields=["event_type"])
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach.user, num_tables=2
+        )
+        quiz.ensure_tables()
+        attendee = _make_attendee()
+        EventRegistration.objects.create(
+            event=event, user=attendee, status="attended", checked_in_at=timezone.now()
+        )
+        QuizTableMembership.objects.create(
+            table=quiz.tables.get(table_number=2), user=attendee
+        )
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["table_fill"] == [
+            {"number": 1, "count": 0},
+            {"number": 2, "count": 1},
+        ]
+
+    def test_ordinary_events_send_no_table_fill(self, client):
+        coach = _make_coach()
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event, user=_make_attendee(), status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        summary = client.get(_summary_url(event)).json()
+
+        assert summary["table_fill"] == []
+
+    def test_post_is_refused(self, client):
+        coach = _make_coach()
+        client.force_login(coach.user)
+        response = client.post(_summary_url(_make_event()))
+        assert response.status_code == 405
+
+
+class TestRowStatePayload:
+    """Every door action now carries `row` — the input to the page's single
+    row-state applier, on the local response AND the broadcast of it (#710).
+    No handler may patch its own subset of the DOM any more."""
+
+    def test_a_scan_row_reports_the_coach_this_scan_granted(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        row = _scan(client, event, registration).json()["row"]
+
+        assert row["registration_id"] == registration.pk
+        assert row["status"] == "attended"
+        assert row["checked_in_at"] is not None
+        # The grant happens in a signal during the save; the row must report
+        # it, not the pre-scan cache — this is the line finding 9 fixed.
+        assert row["coach_name"] == "Cam"
+        assert row["has_profile"] is True
+
+    def test_a_scan_row_carries_no_legal_name_or_email(self, client):
+        """`event_checkin_api` needs no coach session — the signed QR is the
+        credential and a member may POST their own check-in URL — so its
+        response must not include the search haystack. Only the coach-only
+        promotion payload carries it, because only that row is rebuilt
+        client-side."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        row = _scan(client, event, registration).json()["row"]
+
+        assert "search" not in row
+
+    def test_a_rescan_row_still_travels(self, client):
+        """The already-attended branch is the one a remote coach's page most
+        often sees (a re-scan that verifies) — it must carry the row too."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+
+        payload = _scan(client, event, registration).json()
+
+        assert payload["already_checked_in"] is True
+        assert payload["row"]["status"] == "attended"
+
+    def test_an_attendee_with_no_profile_is_flagged(self, client):
+        coach = _make_coach()
+        bare = User.objects.create_user(
+            username="bare@example.com", email="bare@example.com", password="pass12345"
+        )
+        _grant_consent(bare)
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=bare, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        row = _scan(client, event, registration).json()["row"]
+
+        assert row["has_profile"] is False
+        assert row["is_approved"] is False
+        assert row["coach_name"] is None
+
+    def test_a_promotion_row_carries_what_the_confirmed_list_never_had(self, client):
+        """A promoted walk-up was never in the confirmed list, so the applier
+        builds their row from the payload — identity fields included (#710
+        finding 3)."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        row = client.post(_promote_url(event, registration)).json()["row"]
+
+        assert row["status"] == "attended"
+        assert row["checked_in_at"] is not None
+        assert row["coach_name"] == "Cam"
+        assert row["gender"] == "F"
+        assert row["age_display"]
+        assert "ada@example.com" in row["search"]
+
+    def test_an_undone_promotion_row_goes_back_to_the_waitlist(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+        client.post(_promote_url(event, registration))
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["restored_status"] == "waitlist"
+        assert payload["row"]["status"] == "waitlist"
+        assert payload["row"]["checked_in_at"] is None
+        # The undo cleared the coach this promotion granted; the row the
+        # waitlist rebuild renders from must not still name them.
+        assert payload["row"]["coach_name"] is None
+
+    def test_an_undone_scan_row_returns_to_confirmed(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["row"]["status"] == "confirmed"
+        assert payload["row"]["checked_in_at"] is None
+        assert payload["row"]["coach_name"] is None
+
+    def test_a_verify_row_swaps_the_pill(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        url = reverse(
+            "coach_mark_verified",
+            kwargs={"event_id": event.pk, "registration_id": registration.pk},
+        )
+        row = client.post(url).json()["row"]
+
+        assert row["is_approved"] is True

@@ -14,3 +14,11 @@ class CrushLuConfig(AppConfig):
         # This fixes Android PWA OAuth issue where OAuth opens in system browser
         from crush_lu.oauth_statekit import patch_allauth_statekit
         patch_allauth_statekit()
+
+        # Register HEIF/HEIC decoder in Pillow for Apple/iOS photo uploads
+        try:
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+        except ImportError:
+            pass
+

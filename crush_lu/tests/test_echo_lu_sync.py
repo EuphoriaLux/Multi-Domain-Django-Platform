@@ -462,6 +462,28 @@ class PayloadTests(TestCase):
             f"https://crush.lu/en/events/{event.pk}/",
         )
 
+    def test_the_experience_level_purchase_link_is_sent_too(self):
+        # The date-level link alone leaves the listing with a price, a
+        # "Commander des billets" button and nowhere to buy — seen on the live
+        # portal 2026-08-15. `Ticket` has no link field of its own, so the
+        # top-level `purchaseLink` is the ONLY field that can back that button.
+        # Deleting this assertion silently un-sells every event.
+        event = make_event()
+        payload = echo_lu.build_experience_payload(event)
+        self.assertEqual(
+            payload["purchaseLink"], f"https://crush.lu/en/events/{event.pk}/"
+        )
+
+    def test_both_purchase_links_travel_on_every_payload(self):
+        # They are different fields for different jobs — per-occurrence vs
+        # experience-wide — so neither one substitutes for the other. Guard the
+        # pair, because "we already send purchaseLink" is exactly the reading
+        # that let this ship.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertIn("purchaseLink", payload)
+        self.assertIn("purchaseLink", payload["dates"][0])
+        self.assertEqual(payload["purchaseLink"], payload["dates"][0]["purchaseLink"])
+
     @override_settings(ECHO_LU_CONTACT_WEBSITE="https://crush.lu")
     @override_settings(ECHO_LU_CONTACT_PHONE="+352123456")
     def test_contact_website_uses_the_configured_organiser_site(self):
@@ -738,6 +760,120 @@ class UnsendablePayloadTests(TestCase):
         event.save()
         payload = echo_lu.build_experience_payload(event)
         self.assertEqual(payload["title"], "Titre français")
+
+
+@override_settings(**ENABLED)
+class VideoPayloadTests(TestCase):
+    """`videos` is an embed reference, and every rule here was probed live.
+
+    See :func:`echo_lu.build_video_payload` — the schema documents almost none
+    of this, and two of the rules (a write replaces the list; `videos: []` is
+    accepted) are what make sending the key on every sync safe.
+    """
+
+    SPOT = "https://cdn.crush.lu/crush-lu-media/marketing/crushlu-spot.mp4"
+
+    def test_no_video_is_configured_by_default(self):
+        self.assertEqual(echo_lu.build_video_payload(), [])
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
+    def test_other_is_still_sendable_even_though_echo_ignores_it(self):
+        # `other` + a direct .mp4 URL is accepted by the API (201) and read
+        # back intact, but the listing renders nothing for it — so this stays
+        # possible to configure without being the default. Do not "fix" this
+        # into a rejection: the day echo.lu starts rendering `other`, the only
+        # change needed should be one app setting.
+        self.assertEqual(
+            echo_lu.build_video_payload(),
+            [{"type": "other", "url": self.SPOT}],
+        )
+
+    @override_settings(ECHO_LU_VIDEO_URL="https://www.youtube.com/watch?v=abc")
+    def test_the_default_type_is_the_one_that_actually_renders(self):
+        # Not `other`: a self-hosted .mp4 is accepted and then silently ignored
+        # by the frontend, which looks like success. youtube is the only value
+        # observed to produce a real player.
+        self.assertEqual(echo_lu.build_video_payload()[0]["type"], "youtube")
+
+    @override_settings(
+        ECHO_LU_VIDEO_URL="https://www.youtube.com/watch?v=abc",
+        ECHO_LU_VIDEO_TYPE="youtube",
+    )
+    def test_a_youtube_embed_is_the_same_code_path(self):
+        # Switching hosts must stay a settings change, never a deploy.
+        self.assertEqual(
+            echo_lu.build_video_payload(),
+            [{"type": "youtube", "url": "https://www.youtube.com/watch?v=abc"}],
+        )
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="  OTHER  ")
+    def test_the_type_is_normalised(self):
+        # An app setting typed by hand in the Azure portal picks up whitespace
+        # and capitals, and echo.lu matches the enum exactly.
+        self.assertEqual(echo_lu.build_video_payload()[0]["type"], "other")
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="tiktok")
+    def test_an_unknown_type_costs_the_video_not_the_whole_listing(self):
+        # echo.lu answers an unrecognised type with `400 Malformed videos data`
+        # and refuses the ENTIRE experience — so a typo in one app setting
+        # would stop every event syncing. Degrade to no video instead.
+        self.assertEqual(echo_lu.build_video_payload(), [])
+
+    @override_settings(ECHO_LU_VIDEO_URL="   ", ECHO_LU_VIDEO_TYPE="other")
+    def test_a_blank_url_is_not_a_video(self):
+        self.assertEqual(echo_lu.build_video_payload(), [])
+
+    @override_settings(
+        ECHO_LU_VIDEO_URL=SPOT,
+        ECHO_LU_VIDEO_TYPE="other",
+        ECHO_LU_VIDEO_DESCRIPTION="Crush.lu in 10 seconds",
+    )
+    def test_the_description_rides_along_when_set(self):
+        self.assertEqual(
+            echo_lu.build_video_payload()[0]["description"], "Crush.lu in 10 seconds"
+        )
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
+    def test_no_cover_is_sent(self):
+        # echo.lu accepts `cover` and silently discards it — the same
+        # accept-then-drop behaviour as address.commune. Sending a field that
+        # provably does nothing is noise that reads as a working poster image.
+        self.assertNotIn("cover", echo_lu.build_video_payload()[0])
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
+    def test_the_experience_payload_carries_the_video(self):
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertEqual(payload["videos"], [{"type": "other", "url": self.SPOT}])
+
+    def test_the_key_travels_even_with_no_video_so_clearing_retracts(self):
+        # A PUT REPLACES the stored list, so omitting the key would strand a
+        # previously-published video on the listing forever. `videos: []` is
+        # accepted on both verbs (200 on PUT, 201 on POST), which makes
+        # emptying the setting the retraction path — and makes this shape, the
+        # one every slot sends until a video is configured, safe on create.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertIn("videos", payload)
+        self.assertEqual(payload["videos"], [])
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
+    def test_adding_a_video_changes_the_fingerprint(self):
+        # Otherwise configuring the spot would publish nothing: the sweep skips
+        # any event whose payload hashes to what was last sent.
+        with_video = echo_lu.payload_fingerprint(
+            echo_lu.build_experience_payload(make_event())
+        )
+        with override_settings(ECHO_LU_VIDEO_URL=""):
+            without = echo_lu.payload_fingerprint(
+                echo_lu.build_experience_payload(make_event())
+            )
+        self.assertNotEqual(with_video, without)
+
+    @override_settings(ECHO_LU_VIDEO_URL=SPOT, ECHO_LU_VIDEO_TYPE="other")
+    def test_a_video_does_not_make_a_payload_unsendable(self):
+        # `videos` is not a required field; it must never appear in the
+        # local pre-flight that blocks a send.
+        payload = echo_lu.build_experience_payload(make_event())
+        self.assertNotIn("videos", echo_lu.missing_required_fields(payload))
 
 
 class FingerprintTests(TestCase):

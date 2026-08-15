@@ -1038,6 +1038,67 @@ def missing_required_fields(payload):
     return [field for field in REQUIRED_EXPERIENCE_FIELDS if not payload.get(field)]
 
 
+# The whole enum. echo.lu answers anything else with `400 Malformed videos
+# data` and refuses the entire experience, so this is checked locally.
+ECHO_VIDEO_TYPES = ("youtube", "vimeo", "other")
+
+
+def build_video_payload():
+    """The ``videos`` list for every synced listing — ``[]`` when unconfigured.
+
+    ``videos`` is an **embed**, not an upload: unlike ``pictures``, which
+    echo.lu fetches and re-hosts, this is a reference the portal renders. All
+    of the following was probed against the live API on 2026-08-15, because
+    the schema documents none of it:
+
+    * ⚠️ ``type: "other"`` with a direct ``.mp4`` URL is accepted (201), stored,
+      and read back intact — **and renders nothing.** The organiser preview of
+      an experience holding both a ``.mp4`` on our CDN and a YouTube entry
+      carried a real ``youtube.com/embed/…`` iframe for the latter and no
+      ``<video>`` element at all for the former. So self-hosting the file is
+      not enough for echo.lu, however valid the URL: point this at YouTube or
+      Vimeo. The API cannot tell you this — it reports success either way.
+    * ``cover`` is **silently dropped** — sent on create, absent on read back.
+      Same accept-then-discard behaviour as ``address.commune``. So it is not
+      sent, and a poster image cannot be chosen from here.
+    * A **PUT replaces** the whole list, despite the API documenting the field
+      as "videos to add". Probed on PUT specifically because that is the verb
+      :meth:`EchoLuClient.update_experience` uses — a finding taken from PATCH
+      would not have covered the update path. This is what makes it safe for
+      the hourly sweep to re-send the same entry on every pass.
+    * ``videos: []`` is accepted on **both** verbs — 200 on PUT (and it clears
+      a stored video), 201 on POST. That matters in both directions: it is why
+      emptying ``ECHO_LU_VIDEO_URL`` retracts a video rather than stranding it,
+      and why an unconfigured deployment — every slot on the day this ships —
+      can send the key on create without the whole experience being refused.
+
+    An unrecognised type degrades to no video rather than riding along: echo.lu
+    rejects the *entire* experience over it, so a typo in one app setting would
+    silently stop every event from syncing.
+    """
+    url = (getattr(settings, "ECHO_LU_VIDEO_URL", "") or "").strip()
+    if not url:
+        return []
+
+    video_type = (
+        (getattr(settings, "ECHO_LU_VIDEO_TYPE", "") or "other").strip().lower()
+    )
+    if video_type not in ECHO_VIDEO_TYPES:
+        logger.warning(
+            "[ECHO] ECHO_LU_VIDEO_TYPE=%r is not one of %s; sending no video "
+            "rather than a payload echo.lu would reject outright",
+            video_type,
+            ", ".join(ECHO_VIDEO_TYPES),
+        )
+        return []
+
+    video = {"type": video_type, "url": url}
+    description = (getattr(settings, "ECHO_LU_VIDEO_DESCRIPTION", "") or "").strip()
+    if description:
+        video["description"] = description
+    return [video]
+
+
 def build_experience_payload(event, venue_ids=None):
     """Map a MeetupEvent onto the echo.lu experience schema.
 
@@ -1083,6 +1144,25 @@ def build_experience_payload(event, venue_ids=None):
         "venues": list(venue_ids or []),
         "location": {"address": address_payload(event)},
         "tickets": _build_tickets(event),
+        # The experience-level purchase link, and the one that actually backs
+        # the "Commander des billets" button. This is NOT a duplicate of the
+        # `dates[].purchaseLink` above, and sending only that one is what left
+        # every listing with a price, a buy button and nowhere to buy — found
+        # on the live portal 2026-08-15.
+        #
+        # The schema settles which field wins. Top-level `purchaseLink` is
+        # documented as "url of the ticketing page **if not present in the
+        # Tickets**" / "in case if any of tickets don't have link to the
+        # purchase page, this will be used" — and `Ticket` carries **no link
+        # field at all** (title, price, currency, quantity, salesStart,
+        # salesEnd, and nothing else). So the fallback is not a fallback: it is
+        # the only place an experience-wide purchase URL can live.
+        #
+        # `dates[].purchaseLink` stays. It is the per-occurrence link, which
+        # the docs describe for the recurring case ("a direct link to the
+        # repeating events from the rrule"); it is right for a multi-date
+        # experience and simply never reaches the main buy button.
+        "purchaseLink": event_url,
     }
 
     tags = _setting_list("ECHO_LU_DEFAULT_TAGS")
@@ -1150,6 +1230,11 @@ def build_experience_payload(event, venue_ids=None):
         # Set unconditionally: all four are required, so an empty list has to
         # travel and be reported as missing rather than silently vanish.
         payload[facet] = values
+
+    # Also unconditional, for a different reason: a write replaces the stored
+    # list, so an absent key would leave a previously-sent video in place
+    # forever. Sending `[]` is how clearing the setting retracts it.
+    payload["videos"] = build_video_payload()
 
     return payload
 
