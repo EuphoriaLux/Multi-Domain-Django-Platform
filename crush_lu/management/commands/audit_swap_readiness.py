@@ -163,6 +163,12 @@ class Command(BaseCommand):
             .order_by("-cnt")
         )
 
+        tx_by_purpose = dict(
+            PaymentTransaction.objects.values_list("purpose")
+            .annotate(cnt=Count("id"))
+            .order_by("-cnt")
+        )
+
         successful_filter = Q(status="paid") | Q(status="PAID")
         if "manual" in tx_by_provider or "MANUAL" in tx_by_provider:
             successful_filter |= Q(provider="manual") | Q(provider="MANUAL")
@@ -172,13 +178,16 @@ class Command(BaseCommand):
         successful_tx = PaymentTransaction.objects.filter(successful_filter)
         successful_total = successful_tx.count()
 
+        event_tx = successful_tx.filter(purpose="event_registration")
+        event_tx_total = event_tx.count()
+
         successful_with_paid_at = (
             successful_tx.filter(paid_at__isnull=False).count()
             if has_paid_at
             else "N/A (migration pending)"
         )
-        successful_with_event = (
-            successful_tx.filter(event__isnull=False).count()
+        event_tx_with_event = (
+            event_tx.filter(event__isnull=False).count()
             if has_tx_event
             else "N/A (migration pending)"
         )
@@ -187,9 +196,11 @@ class Command(BaseCommand):
             "total": total_tx,
             "by_provider": tx_by_provider,
             "by_status": tx_by_status,
+            "by_purpose": tx_by_purpose,
             "successful_total": successful_total,
             "successful_with_paid_at": successful_with_paid_at,
-            "successful_with_event": successful_with_event,
+            "event_purpose_total": event_tx_total,
+            "event_purpose_with_event": event_tx_with_event,
             "schema": {
                 "has_paid_at_column": has_paid_at,
                 "has_event_id_column": has_tx_event,
@@ -201,10 +212,10 @@ class Command(BaseCommand):
                 report["anomalies"].append(
                     f"{successful_total - successful_with_paid_at} successful transaction(s) missing paid_at timestamp."
                 )
-        if has_tx_event and isinstance(successful_with_event, int):
-            if successful_total - successful_with_event > 0:
+        if has_tx_event and isinstance(event_tx_with_event, int):
+            if event_tx_total - event_tx_with_event > 0:
                 report["anomalies"].append(
-                    f"{successful_total - successful_with_event} successful transaction(s) missing event link."
+                    f"{event_tx_total - event_tx_with_event} event_registration transaction(s) missing event link."
                 )
 
         # -------------------------------------------------------------
@@ -400,9 +411,11 @@ class Command(BaseCommand):
         self.stdout.write(f"   Total transactions: {t['total']}")
         self.stdout.write(f"   By Provider: {t['by_provider']}")
         self.stdout.write(f"   By Status: {t['by_status']}")
+        self.stdout.write(f"   By Purpose: {t['by_purpose']}")
         self.stdout.write(
             f"   Successful: {t['successful_total']} "
-            f"(with paid_at: {t['successful_with_paid_at']}, with event: {t['successful_with_event']})\n"
+            f"(with paid_at: {t['successful_with_paid_at']}) | "
+            f"Event Registrations: {t['event_purpose_total']} (with event FK: {t['event_purpose_with_event']})\n"
         )
 
         # Crush Credit Ledger
