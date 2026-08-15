@@ -96,5 +96,5 @@
 </div>
 
 <!-- JSON config for finops_dashboard.js -->
-<script id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
+<script nonce="{{ csp_nonce }}" id="finops-config" type="application/json">{{ finops_json_config|safe }}</script>
 {% endblock %}

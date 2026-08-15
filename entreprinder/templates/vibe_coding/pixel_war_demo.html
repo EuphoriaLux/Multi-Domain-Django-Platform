@@ -234,7 +234,7 @@
 {% csrf_token %}
 
 <!-- Canvas Configuration -->
-<script>
+<script nonce="{{ csp_nonce }}">
     window.CANVAS_CONFIG = {
         id: {{ canvas.id }},
         gridWidth: {{ canvas.width }},
@@ -262,7 +262,7 @@
 <script type="text/babel" src="{% static 'entreprinder/js/vibe_coding/react/enhanced-pixel-wars-mobile.jsx' %}"></script>
 
 <!-- Demo Logic - Use text/babel to ensure components are loaded -->
-<script type="text/babel">
+<script nonce="{{ csp_nonce }}" type="text/babel">
     let desktopRoot = null;
     let mobileRoot = null;
 
@@ -390,7 +390,7 @@
 </script>
 
 <!-- Performance monitoring -->
-<script>
+<script nonce="{{ csp_nonce }}">
     // Monitor performance
     if ('performance' in window) {
         window.addEventListener('load', function() {

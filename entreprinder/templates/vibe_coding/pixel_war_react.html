@@ -92,7 +92,7 @@
 {% csrf_token %}
 
 <!-- React Configuration -->
-<script>
+<script nonce="{{ csp_nonce }}">
     const CANVAS_CONFIG = {
         id: {{ canvas.id }},
         gridWidth: {{ canvas.width }},
@@ -119,7 +119,7 @@
 <script type="text/babel" src="{% static 'entreprinder/js/vibe_coding/react/pixel-wars-react.jsx' %}"></script>
 
 <!-- Error handling and initialization -->
-<script>
+<script nonce="{{ csp_nonce }}">
     // Error boundary for React app
     class ErrorBoundary extends React.Component {
         constructor(props) {

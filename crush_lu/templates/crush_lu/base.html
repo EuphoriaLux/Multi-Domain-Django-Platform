@@ -63,7 +63,7 @@
 
     <!-- Schema.org Structured Data (JSON-LD) -->
     {% block structured_data %}
-    <script type="application/ld+json">
+    <script nonce="{{ csp_nonce }}" type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": ["Organization", "LocalBusiness"],
