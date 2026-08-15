@@ -24,7 +24,7 @@
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
-    "@upstash/context7-mcp": "^3.2.5",
+    "@upstash/context7-mcp": "^4.0.2",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.1.18"
