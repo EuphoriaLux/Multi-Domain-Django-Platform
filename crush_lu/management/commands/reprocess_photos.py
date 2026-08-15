@@ -158,6 +158,14 @@ class Command(BaseCommand):
             ):
                 obj.photo_verification_key = field.name
                 update_fields.extend(["photo_verification_key", "photo_verified_at"])
+                from crush_lu.models import EventRegistration
+
+                EventRegistration.objects.filter(
+                    user_id=obj.user_id,
+                    checkin_attested_photo_key=old_blob_name,
+                ).update(
+                    checkin_attested_photo_key=field.name,
+                )
 
             obj.save(update_fields=update_fields)
 

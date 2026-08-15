@@ -683,3 +683,146 @@ def test_transition_unverified_profile_clears_photo_attestation():
     assert profile.is_photo_verified is False
     assert profile.photo_verification_key == ""
     assert profile.photo_verified_at is None
+
+
+def test_undo_checkin_preserves_verification_if_other_event_attended(
+    event, coach, client
+):
+    """If an attendee already has another attended event, undoing this event's check-in
+    revokes this event's photo attestation but preserves profile verification."""
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+    from django.utils import timezone
+    from datetime import timedelta
+
+    other_event = MeetupEvent.objects.create(
+        title="Other Event",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() - timedelta(days=7),
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=8),
+        is_published=True,
+    )
+    profile, reg = _attendee(event, "multiattendee")
+    EventRegistration.objects.create(
+        user=profile.user,
+        event=other_event,
+        status="attended",
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is True
+
+    # Coach undoes this checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is False
+
+
+def test_undo_checkin_revokes_referral_approval_reward(event, coach, client):
+    """Undoing check-in for an auto-verified referred member reverses the referrer's bonus points."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+    from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+    referrer_user = get_user_model().objects.create_user(
+        username="referrer_user", email="referrer@example.com"
+    )
+    referrer_prof = CrushProfile.objects.create(user=referrer_user, referral_points=100)
+    ref_code = ReferralCode.objects.create(code="REF123", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "referredattendee")
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_points=100,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # Simulate referral side effect
+    check_and_apply_profile_approved_reward(profile)
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 150
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 100
+    assert referrer_prof.referral_points == 100
+
+
+def test_reprocess_photos_updates_registration_provenance_for_undo(
+    event, coach, client
+):
+    """When reprocess_photos carries forward attestation, registration provenance follows it
+    so a subsequent undo cleanly revokes the reprocessed key."""
+    from django.urls import reverse
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+
+    profile, reg = _attendee(event, "reprocessundo")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        return_value=ContentFile(b"small_image", name="processed.jpg"),
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+
+    # Coach undoes checkin after reprocessing
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.verification_status == "pending"

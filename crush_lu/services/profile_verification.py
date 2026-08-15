@@ -60,6 +60,8 @@ def transition_unverified_profile(
         verification_status__in=tuple(transition_from),
     ).update(
         is_approved=False,
+        approved_at=None,
+        verification_method="",
         verification_status=target_status,
         photo_verification_key="",
         photo_verified_at=None,
@@ -68,6 +70,8 @@ def transition_unverified_profile(
         return False
 
     profile.is_approved = False
+    profile.approved_at = None
+    profile.verification_method = ""
     profile.verification_status = target_status
     profile.photo_verification_key = ""
     profile.photo_verified_at = None
