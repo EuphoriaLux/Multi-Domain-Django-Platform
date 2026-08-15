@@ -1230,8 +1230,25 @@ class EventRegistration(models.Model):
 
     @property
     def can_make_connections(self):
-        """Only attendees can make post-event connections"""
-        return self.status == "attended"
+        """May this member use the post-event connection features?
+
+        Attendance alone is not enough: a profile door-rejected by a coach
+        (photo mismatch, #713) must lose the named attendee roster, connection
+        requests and responses the moment the rejection lands. Every caller of
+        this property (all in views_connections.py) gates the ACTING member's
+        own access, so the verification re-check lives here — the single door —
+        mirroring the read-time re-check the Event Lobby already does
+        (services/event_lobby.py::eligible_participations) and the invariant
+        documented at context_processors.py (verification gates Connect
+        surfaces). ``verification_status`` is the single source of truth
+        (``save()`` syncs the legacy ``is_approved`` flag into it).
+
+        Members with no CrushProfile are denied, never crashed on.
+        """
+        if self.status != "attended":
+            return False
+        profile = getattr(self.user, "crushprofile", None)
+        return profile is not None and profile.verification_status == "verified"
 
 
 class EventInvitation(models.Model):

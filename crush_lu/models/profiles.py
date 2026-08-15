@@ -1084,6 +1084,16 @@ class CrushProfile(models.Model):
                 instance.preferred_language,
                 instance.language_explicitly_set,
             )
+        verification_fields = (
+            "is_approved",
+            "verification_status",
+            "approved_at",
+            "verification_method",
+        )
+        if all(field in field_names for field in verification_fields):
+            instance._loaded_verification = tuple(
+                getattr(instance, field) for field in verification_fields
+            )
         return instance
 
     def save(self, *args, **kwargs):
@@ -1093,7 +1103,22 @@ class CrushProfile(models.Model):
         2. Enforce phone verification protection at model level.
         3. Delete old photo blobs when photos are replaced to prevent orphans.
         4. Protect an untouched language choice from stale full-row saves.
+        5. Protect an untouched verification decision from stale full-row saves.
         """
+        loaded_verification = getattr(self, "_loaded_verification", None)
+        verification_fields = (
+            "is_approved",
+            "verification_status",
+            "approved_at",
+            "verification_method",
+        )
+        preserve_current_verification = (
+            kwargs.get("update_fields") is None
+            and loaded_verification is not None
+            and tuple(getattr(self, field) for field in verification_fields)
+            == loaded_verification
+        )
+
         # Sync legacy is_approved → verification_status (backward compat while
         # old code still writes is_approved directly).
         if self.is_approved and self.verification_status != "verified":
@@ -1116,6 +1141,17 @@ class CrushProfile(models.Model):
                     self.phone_verified = old_instance.phone_verified
                     self.phone_verified_at = old_instance.phone_verified_at
                     self.phone_verification_uid = old_instance.phone_verification_uid
+
+                # A social-photo download or OAuth/profile request can hold a
+                # profile instance for seconds before calling a bare save(). If
+                # a coach rejects that profile meanwhile, writing the stale
+                # verification columns here would silently resurrect access.
+                # Preserve the database decision only when this caller left the
+                # entire verification tuple untouched since loading. Explicit
+                # verification transitions change that tuple and still save.
+                if preserve_current_verification:
+                    for field in verification_fields:
+                        setattr(self, field, getattr(old_instance, field))
 
                 # Preserve a language choice this save never made, for the same
                 # reason and off the same read as the verified phone above.
@@ -1190,6 +1226,9 @@ class CrushProfile(models.Model):
         self._loaded_language = (
             self.preferred_language,
             self.language_explicitly_set,
+        )
+        self._loaded_verification = tuple(
+            getattr(self, field) for field in verification_fields
         )
 
     def reset_phone_verification(self):
