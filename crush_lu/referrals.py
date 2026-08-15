@@ -373,8 +373,8 @@ def check_and_apply_profile_approved_reward(profile):
     # We'll use the reward_points field to check if bonus was already given
     signup_points = getattr(settings, "REFERRAL_POINTS_PER_SIGNUP", 100)
     bonus_points = getattr(settings, "REFERRAL_POINTS_PER_PROFILE_APPROVED", 50)
-
-    if attribution.reward_points >= signup_points + bonus_points:
+    target_points = signup_points + bonus_points
+    if attribution.reward_points >= target_points:
         # Bonus already applied
         return None
 
@@ -383,15 +383,16 @@ def check_and_apply_profile_approved_reward(profile):
         attribution = ReferralAttribution.objects.select_for_update().get(
             pk=attribution.pk
         )
-        if attribution.reward_points >= signup_points + bonus_points:
+        if attribution.reward_points >= target_points:
             return None
 
-        attribution.reward_points = F("reward_points") + bonus_points
+        points_to_add = target_points - attribution.reward_points
+        attribution.reward_points = F("reward_points") + points_to_add
         attribution.reward_applied_at = timezone.now()
         attribution.save(update_fields=["reward_points", "reward_applied_at"])
 
         CrushProfile.objects.filter(pk=attribution.referrer_id).update(
-            referral_points=F("referral_points") + bonus_points
+            referral_points=F("referral_points") + points_to_add
         )
 
         attribution.refresh_from_db()
@@ -403,7 +404,7 @@ def check_and_apply_profile_approved_reward(profile):
 
         logger.info(
             "Awarded %d bonus points to user %s for referred profile approval",
-            bonus_points,
+            points_to_add,
             attribution.referrer.user_id,
         )
 
@@ -429,7 +430,7 @@ def revoke_profile_approved_reward(profile, max_age_minutes=20):
         if not attribution:
             return None
 
-        if attribution.reward_points < signup_points + bonus_points:
+        if attribution.reward_points <= signup_points:
             return None
 
         if attribution.reward_applied_at and (
@@ -442,24 +443,23 @@ def revoke_profile_approved_reward(profile, max_age_minutes=20):
             pk=attribution.referrer_id
         )
 
-        attribution.reward_points = F("reward_points") - bonus_points
-        attribution.save(update_fields=["reward_points"])
-
         points_to_deduct = min(referrer.referral_points, bonus_points)
         if points_to_deduct > 0:
+            attribution.reward_points = F("reward_points") - points_to_deduct
+            attribution.save(update_fields=["reward_points"])
             CrushProfile.objects.filter(pk=referrer.pk).update(
                 referral_points=F("referral_points") - points_to_deduct
             )
 
         attribution.refresh_from_db()
-        attribution.referrer.refresh_from_db()
-        upgraded = update_membership_tier(attribution.referrer, allow_downgrade=True)
+        referrer.refresh_from_db()
+        upgraded = update_membership_tier(referrer, allow_downgrade=True)
         if not upgraded:
-            refresh_passes_after_points_change(attribution.referrer)
+            refresh_passes_after_points_change(referrer)
 
         logger.info(
             "Revoked %d bonus points from user %s for undone profile approval",
-            bonus_points,
+            points_to_deduct,
             attribution.referrer.user_id,
         )
     return attribution

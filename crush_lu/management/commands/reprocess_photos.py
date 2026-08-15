@@ -9,6 +9,7 @@ import logging
 
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from crush_lu.models import CrushProfile, CrushCoach
 from crush_lu.utils.image_processing import process_uploaded_image
@@ -149,25 +150,28 @@ class Command(BaseCommand):
             # CrushProfile.save validates that the old key was still verified
             # in the database, preventing resurrection of concurrent revocations.
             update_fields = [field_name]
-            if (
-                isinstance(obj, CrushProfile)
-                and field_name == "photo_1"
-                and old_blob_name
-                and obj.photo_verification_key == old_blob_name
-                and obj.photo_verified_at is not None
-            ):
-                obj.photo_verification_key = field.name
-                update_fields.extend(["photo_verification_key", "photo_verified_at"])
-                from crush_lu.models import EventRegistration
+            with transaction.atomic():
+                if (
+                    isinstance(obj, CrushProfile)
+                    and field_name == "photo_1"
+                    and old_blob_name
+                    and obj.photo_verification_key == old_blob_name
+                    and obj.photo_verified_at is not None
+                ):
+                    obj.photo_verification_key = field.name
+                    update_fields.extend(
+                        ["photo_verification_key", "photo_verified_at"]
+                    )
+                    from crush_lu.models import EventRegistration
 
-                EventRegistration.objects.filter(
-                    user_id=obj.user_id,
-                    checkin_attested_photo_key=old_blob_name,
-                ).update(
-                    checkin_attested_photo_key=field.name,
-                )
+                    EventRegistration.objects.filter(
+                        user_id=obj.user_id,
+                        checkin_attested_photo_key=old_blob_name,
+                    ).update(
+                        checkin_attested_photo_key=field.name,
+                    )
 
-            obj.save(update_fields=update_fields)
+                obj.save(update_fields=update_fields)
 
             self.stdout.write(
                 f"  Processed {obj_label}: "

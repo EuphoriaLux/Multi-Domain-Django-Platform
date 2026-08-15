@@ -261,7 +261,11 @@ def _auto_verify_on_attendance(request, registration, now):
     if coach is None:
         return None
 
-    profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
+    profile = (
+        CrushProfile.objects.select_for_update()
+        .filter(user_id=registration.user_id)
+        .first()
+    )
     if profile is None:
         return None
     # The coach-authenticated scan attests the exact photo visible at the
@@ -997,7 +1001,11 @@ def coach_undo_checkin(request, event_id, registration_id):
         # A member who arrived with a coach records no grant at all and is
         # untouched, as before.
         coach_cleared = False
-        profile = getattr(registration.user, "crushprofile", None)
+        profile = (
+            CrushProfile.objects.select_for_update()
+            .filter(user_id=registration.user_id)
+            .first()
+        )
         granted_coach_id = registration.checkin_granted_coach_id
         granted_at = registration.checkin_granted_coach_at
         if (

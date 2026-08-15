@@ -924,8 +924,15 @@ def test_undo_checkin_spent_referral_points_does_not_underflow(event, coach, cli
 
     referrer_prof.refresh_from_db()
     attribution.refresh_from_db()
-    assert attribution.reward_points == 100
+    assert attribution.reward_points == 140  # Revoked exactly the 10 unspent points
     assert referrer_prof.referral_points == 0  # Deducted 10, did not underflow to -40
+
+    # Profile is re-approved later: only remaining 10 points are credited, not double awarding
+    check_and_apply_profile_approved_reward(profile)
+    attribution.refresh_from_db()
+    referrer_prof.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 10
 
 
 def test_undo_checkin_does_not_revoke_historical_referral_reward(event, coach, client):
