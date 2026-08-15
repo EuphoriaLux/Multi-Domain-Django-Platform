@@ -534,6 +534,53 @@ row says so; the recovery is:
 | `contact` | the `ECHO_LU_CONTACT_*` settings; `website` is the event page |
 | `languages` | `languages` |
 | `categories` / `audiences` / `formats` / `environments` / `tags` | the `ECHO_LU_DEFAULT_*` settings |
+| `videos` | the `ECHO_LU_VIDEO_*` settings — one promo video on every listing |
+
+### `videos` is an embed, not an upload
+
+Unlike `pictures`, which echo.lu fetches and **re-hosts**, `videos` is a
+reference the portal renders: `{"type": youtube|vimeo|other, "url": …}`. None
+of the behaviour below is in the published schema; all of it was probed against
+the live API on 2026-08-15, because the alternative was shipping blind again.
+
+* ⚠️ **A self-hosted `.mp4` is accepted and then ignored.** `type: "other"` with
+  a direct file URL answers 201, stores, and reads back intact — and the
+  listing renders nothing for it. An experience carrying both our
+  `cdn.crush.lu` mp4 and a YouTube entry previewed with a real
+  `youtube.com/embed/…` iframe for the YouTube one and **no `<video>` element at
+  all** for ours. The API reports success either way, so this is invisible from
+  the sync side. **Point `ECHO_LU_VIDEO_URL` at YouTube or Vimeo.**
+  The mp4 is still hosted at
+  `https://cdn.crush.lu/crush-lu-media/marketing/crushlu-spot.mp4` (served with
+  `Accept-Ranges: bytes`, so it streams progressively) — it is simply for our
+  own surfaces, not for echo.lu.
+* **A `PUT` replaces the whole list**, despite the API documenting the field as
+  "videos to **add**". Probed on `PUT` specifically, because that is the verb
+  `update_experience` uses — a result taken from `PATCH` would not have covered
+  the update path. This is what makes it safe for the hourly sweep to re-send
+  the same entry every pass; nothing accumulates.
+* **`videos: []` is accepted on both verbs** — 200 on `PUT`, where it clears a
+  stored video, and 201 on `POST`. So the key travels on every payload: it is
+  how emptying `ECHO_LU_VIDEO_URL` *retracts* a video instead of stranding it,
+  and it means a deployment with no video configured — every slot on the day
+  this shipped — creates events without the experience being refused.
+* **`cover` is silently dropped** — sent on create, absent on read back, the
+  same accept-then-discard behaviour as `address.commune`. There is therefore no
+  poster-image setting, and a `type: "other"` embed has no thumbnail to offer.
+* **An unrecognised `type` is a `400 Malformed videos data` that refuses the
+  ENTIRE experience.** A typo in one app setting would stop every event
+  syncing, so `build_video_payload()` checks the value locally and sends no
+  video rather than a payload echo.lu would reject outright.
+
+⚠️ **Acceptance is not rendering**, and this field proved it. `commune` was the
+precedent — taken, stored, ignored. `videos` does the same for `type: "other"`,
+and a stored entry that reads back perfectly is not evidence of anything.
+Check the organiser preview (`…/experiences/<id>/preview`, wizard step 4) for
+an actual player before believing a video is published.
+
+Note the back-office **editor** is not a reliable mirror either: section 2.4
+showed three empty slots for an experience that demonstrably held two stored
+videos. The preview is the instrument, not the form.
 
 **`commune` is required, and gets the town.** It once carried the event's
 `canton`, which is a region rather than a commune. Omitting it looked like the
