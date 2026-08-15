@@ -1962,6 +1962,182 @@ class FinalReviewRegressionTests(CreditFixture):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIsNotNone(registration.organiser_cancellation_notified_at)
 
+    def test_recancelling_restored_unpaid_cycle_does_not_reuse_old_credit(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._paid_registration(event, self.user)
+        staff = self._user("recancel-restored-event@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        admin_obj = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        request = _admin_request(staff)
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+        first_credit = self._credits(self.user).get()
+        self.assertTrue(first_credit.cash_refund_eligible)
+
+        event.refresh_from_db()
+        first_cycle = event.organiser_cancellation_started_at
+        event.is_cancelled = False
+        event.save(update_fields=["is_cancelled"])
+        mail.outbox.clear()
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+
+        event.refresh_from_db()
+        registration.refresh_from_db()
+        self.assertGreater(event.organiser_cancellation_started_at, first_cycle)
+        self.assertEqual(self._credits(self.user).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("No payment was recorded", mail.outbox[0].body)
+        self.assertNotIn("We've added", mail.outbox[0].body)
+        self.assertNotIn("cash refund", mail.outbox[0].body.lower())
+
+    def test_credit_failure_leaves_cancellation_email_retryable(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        event = self._event(hours_away=96, max_participants=5)
+        registration = self._paid_registration(event, self.user)
+        staff = self._user("failed-credit-organiser@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        admin_obj = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+        request = _admin_request(staff)
+        mail.outbox.clear()
+
+        with (
+            patch("crush_lu.admin.events._enqueue_echo_sync"),
+            patch(
+                "crush_lu.services.credits."
+                "credit_paid_registrations_for_cancelled_event",
+                side_effect=RuntimeError("simulated issuance failure"),
+            ),
+        ):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+
+        registration.refresh_from_db()
+        self.assertEqual(self._credits(self.user).count(), 0)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertIsNone(registration.organiser_cancellation_notified_at)
+
+        with patch("crush_lu.admin.events._enqueue_echo_sync"):
+            admin_obj.cancel_events(
+                request, MeetupEvent.objects.filter(pk=event.pk)
+            )
+
+        registration.refresh_from_db()
+        self.assertEqual(self._credits(self.user).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("We've added", mail.outbox[0].body)
+        self.assertIsNotNone(registration.organiser_cancellation_notified_at)
+
+    def test_source_only_claim_survives_an_unpaid_intermediary(self):
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._registration(event, self.user, status="pending")
+        first = self._user("source-only-first@crush.lu")
+        second = self._user("source-only-second@crush.lu")
+        self._registration(event, first, status="waitlist")
+        self._registration(event, second, status="waitlist")
+
+        self._cancel(self.user, event)
+        first_registration = EventRegistration.objects.get(event=event, user=first)
+        self.assertEqual(first_registration.resale_source_registration_id, original.pk)
+        self.assertIsNone(first_registration.resale_source_payment_id)
+
+        self._cancel(first, event)
+        second_registration = EventRegistration.objects.get(event=event, user=second)
+        self.assertEqual(second_registration.resale_source_registration_id, original.pk)
+        self.assertEqual(second_registration.resale_beneficiary_id, self.user.pk)
+        self.assertIsNone(second_registration.resale_source_payment_id)
+
+        self._record_manual_payment(original, "source-only-cash@crush.lu")
+        self._pay_replacement(second_registration)
+
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+
+    def test_settled_late_cancellation_is_not_a_new_manual_claim(self):
+        from crush_lu.views_events import _resale_claim_from
+
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._paid_registration(event, self.user)
+        replacement_user = self._user("settled-claim-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(
+            event=event, user=replacement_user
+        )
+        self._pay_replacement(replacement)
+        original.refresh_from_db()
+
+        self.assertFalse(original.payment_confirmed)
+        self.assertEqual(self._credits(self.user).count(), 1)
+        self.assertIsNone(_resale_claim_from(original, event))
+
+    def test_bulk_confirm_clears_the_previous_cancellation_time(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+
+        event = self._event(hours_away=30, max_participants=5)
+        old_cancellation = timezone.now() - timedelta(days=5)
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=self.user,
+            status="cancelled",
+            cancelled_at=old_cancellation,
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-bulk-confirm-cycle",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-BULK-CONFIRM-CYCLE",
+            amount=event.registration_fee,
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=registration,
+        )
+        staff = self._user("bulk-confirm-cycle@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+
+        admin_obj.confirm_registrations(
+            _admin_request(staff),
+            EventRegistration.objects.filter(pk=registration.pk),
+        )
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+        self.assertIsNone(registration.cancelled_at)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            registration.status = "cancelled"
+            registration.save(update_fields=["status"])
+
+        registration.refresh_from_db()
+        self.assertGreater(registration.cancelled_at, old_cancellation)
+        self.assertEqual(self._credits(self.user).count(), 0)
+
     def test_resale_notice_uses_capture_after_the_event_fee_is_zeroed(self):
         event = self._event(hours_away=30, max_participants=5)
         self._paid_registration(event, self.user)

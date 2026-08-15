@@ -342,6 +342,14 @@ class MeetupEvent(models.Model):
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
+    organiser_cancellation_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Start of the current organiser-cancellation cycle. Used to keep "
+            "remedy emails from reusing credit issued before an event restore."
+        ),
+    )
 
     # Google Wallet Event Ticket
     google_wallet_event_class_id = models.CharField(

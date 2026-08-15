@@ -20,6 +20,7 @@ from .models import (
 from .models.event_polls import EventPoll
 from .models.events import SEAT_HOLDING_STATUSES
 from .models.payments import PaymentTransaction
+from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.credits import (
@@ -68,7 +69,9 @@ def _resale_claim_from(source, event):
 
     # An unpaid replacement carries the original payer's claim. Forward that
     # first; the intermediary has paid nothing of its own yet.
-    if source.resale_source_payment_id and source.resale_beneficiary_id:
+    if source.resale_beneficiary_id and (
+        source.resale_source_registration_id or source.resale_source_payment_id
+    ):
         return (
             source.resale_source_registration_id,
             source.resale_source_payment_id,
@@ -105,10 +108,29 @@ def _resale_claim_from(source, event):
             source_payment.pk,
             source.user_id,
         )
-    if not source.payment_confirmed and event.registration_fee > 0:
+    payment_returned = CrushCredit.objects.filter(
+        source_registration=source,
+        reason__in=(
+            CrushCredit.Reason.MEMBER_CANCELLATION,
+            CrushCredit.Reason.SEAT_RESOLD,
+            CrushCredit.Reason.EVENT_CANCELLED,
+        ),
+    ).exists()
+    captured_payment_exists = PaymentTransaction.objects.filter(
+        event_registration=source,
+        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        status=PaymentTransaction.Status.PAID,
+    ).exists()
+    if (
+        not source.payment_confirmed
+        and event.registration_fee > 0
+        and not payment_returned
+        and not captured_payment_exists
+    ):
         # Cash/bank transfers can be recorded after the member cancelled. Keep
         # a source-only contingent claim now; settlement waits until an actual
-        # MANUAL capture exists and payment_confirmed becomes true.
+        # MANUAL capture exists and payment_confirmed becomes true. A captured
+        # or already-returned payment is a completed cycle, not future cash.
         return (source.pk, None, source.user_id)
     return None
 

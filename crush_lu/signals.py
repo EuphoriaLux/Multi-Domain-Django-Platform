@@ -750,12 +750,26 @@ def reset_cancellation_notifications_on_restore(sender, instance, created, **kwa
     unpaid and waitlisted rows have no credit lifecycle to do that for them.
     Restoring the event is the boundary that invalidates every old cursor.
     """
-    if created or instance.is_cancelled:
-        return
     previous = getattr(instance, "_previous_ticket_fields", None)
+    if instance.is_cancelled:
+        if instance.organiser_cancellation_started_at is None and (
+            created or (previous and not previous.get("is_cancelled"))
+        ):
+            started_at = timezone.now()
+            MeetupEvent.objects.filter(pk=instance.pk).update(
+                organiser_cancellation_started_at=started_at
+            )
+            instance.organiser_cancellation_started_at = started_at
+        return
+    if created:
+        return
     if not previous or not previous.get("is_cancelled"):
         return
 
+    MeetupEvent.objects.filter(pk=instance.pk).update(
+        organiser_cancellation_started_at=None
+    )
+    instance.organiser_cancellation_started_at = None
     cleared = (
         EventRegistration.objects.filter(event=instance)
         .exclude(organiser_cancellation_notified_at__isnull=True)

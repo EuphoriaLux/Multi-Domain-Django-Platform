@@ -1128,6 +1128,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # the cancellation that follows has no path left to take it back off
         # their card. Google never polls, so that would be permanent.
         google_profiles = []
+        cancellation_cycle_started_at = timezone.now()
         with transaction.atomic():
             # Use the rows the lock returned, not the ones read before it.
             # Between `list(queryset)` and this line another admin can change
@@ -1139,6 +1140,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             locked = list(
                 MeetupEvent.objects.select_for_update().filter(pk__in=event_ids)
             )
+            transitioning_ids = [event.pk for event in locked if not event.is_cancelled]
             try:
                 google_profiles = self._google_holders_for_cancellation(locked)
             except Exception:
@@ -1153,6 +1155,10 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             updated = MeetupEvent.objects.filter(pk__in=event_ids).update(
                 is_cancelled=True
             )
+            if transitioning_ids:
+                MeetupEvent.objects.filter(pk__in=transitioning_ids).update(
+                    organiser_cancellation_started_at=cancellation_cycle_started_at
+                )
 
         # Same reason as the wallet refreshes below: .update() emits no signals,
         # so nothing tells echo.lu either. A cancelled event left on the
@@ -1232,6 +1238,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         )
 
         credited = 0
+        failed_event_ids = set()
         for event in events:
             try:
                 issued = credit_paid_registrations_for_cancelled_event(event)
@@ -1243,6 +1250,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     }
                 )
             except Exception:
+                failed_event_ids.add(event.pk)
                 logger.exception(
                     "Failed issuing cancellation credit for event %s", event.pk
                 )
@@ -1276,6 +1284,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
             )
+            .exclude(event_id__in=failed_event_ids)
             .filter(affected_registration)
             .select_related("event", "user")
             .prefetch_related(
@@ -1295,6 +1304,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             # filtering on mutable credit status; registration rows can be
             # reused and therefore carry older cancellation awards too.
             all_credits = registration.organiser_cancellation_credits
+            cycle_started_at = registration.event.organiser_cancellation_started_at
+            if cycle_started_at:
+                all_credits = [
+                    credit
+                    for credit in all_credits
+                    if credit.issued_at >= cycle_started_at
+                ]
             if all_credits:
                 latest_credit = all_credits[-1]
                 if latest_credit.source_payment_id:
@@ -1333,6 +1349,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 event_id__in=event_ids,
                 organiser_cancellation_notified_at__isnull=True,
             )
+            .exclude(event_id__in=failed_event_ids)
             .filter(affected_registration)
             .distinct()
             .count()
@@ -2167,7 +2184,11 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     restored_google_profiles.append(profile)
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
-            status="confirmed"
+            status="confirmed",
+            # QuerySet.update bypasses EventRegistration.save(). A restored
+            # registration is a new cancellation-policy cycle and must not
+            # retain the previous cancellation's timing classification.
+            cancelled_at=None,
         )
 
         # .update() emits no signals, so the per-registration receiver never
