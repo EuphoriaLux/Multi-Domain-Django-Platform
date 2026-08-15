@@ -573,6 +573,18 @@ def settle_pending_resale_credit(promoted_registration, *, source_registration=N
     elif source_payment is not None:
         beneficiary = source_payment.user
 
+    # A waitlist replacement may pay before the cancelled member's still-open
+    # SumUp checkout captures. Keep the contingent links intact until that
+    # checkout reaches a terminal paid state; clearing them here would make a
+    # later capture impossible to compensate automatically.
+    if (
+        source_payment is not None
+        and source_payment.status != PaymentTransaction.Status.PAID
+    ):
+        return []
+    if source_payment is None and source is not None and not source.payment_confirmed:
+        return []
+
     try:
         if promoted_registration.event.is_cancelled:
             already_settled = bool(

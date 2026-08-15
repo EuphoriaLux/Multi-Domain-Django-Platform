@@ -698,7 +698,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     def get_revenue(self, obj):
         """Actual captured cash revenue; credit is not new cash income."""
         payments = PaymentTransaction.objects.filter(
-            event_registration__event=obj,
+            event=obj,
             provider__in=(
                 PaymentTransaction.Provider.SUMUP,
                 PaymentTransaction.Provider.MANUAL,

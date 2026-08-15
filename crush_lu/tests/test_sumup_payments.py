@@ -9,6 +9,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone, translation
 
+from crush_lu.models.credits import CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
@@ -1079,11 +1080,14 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
             event_registration=self.registration,
         )
 
-    def test_payment_on_a_cancelled_registration_does_not_restore_the_seat(self):
-        """A seat the member released must not come back because money landed."""
+    def test_early_capture_after_member_cancellation_issues_credit_not_a_seat(self):
+        """A delayed capture gets the normal remedy without restoring the seat."""
         from crush_lu.views_payments import _apply_paid_checkout
 
         tx = self._tx("CANCELREG")
+        self.event.date_time = timezone.now() + timezone.timedelta(days=4)
+        self.event.registration_deadline = timezone.now() + timezone.timedelta(days=3)
+        self.event.save(update_fields=["date_time", "registration_deadline"])
         self.registration.status = "cancelled"
         self.registration.save()
 
@@ -1094,9 +1098,10 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
         tx.refresh_from_db()
         self.assertEqual(self.registration.status, "cancelled")
         self.assertFalse(self.registration.payment_confirmed)
-        # The money is real and already captured -- the record must survive so
-        # staff can refund it.
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        credit = CrushCredit.objects.get(user=self.user)
+        self.assertEqual(credit.amount_cents, 1500)
+        self.assertEqual(credit.reason, CrushCredit.Reason.MEMBER_CANCELLATION)
 
     def test_payment_on_a_cancelled_event_does_not_confirm(self):
         from crush_lu.views_payments import _apply_paid_checkout
@@ -1929,25 +1934,19 @@ class SupersedeCheckoutTests(SiteTestMixin, TestCase):
 
     @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_unreachable_deactivation_does_not_block_the_new_checkout(
+    def test_unreachable_deactivation_blocks_the_new_checkout(
         self, mock_create_checkout, mock_deactivate
     ):
-        """Best-effort by design — a member must not be stuck unable to pay.
-
-        _apply_paid_checkout stays idempotent and payment_confirmed still guards
-        a second attempt, so a payment slipping through is handled.
-        """
-        mock_create_checkout.side_effect = [
-            {"id": "CHK_1", "status": "PENDING"},
-            {"id": "CHK_2", "status": "PENDING"},
-        ]
+        """An older payable widget must not be followed by a second charge."""
+        mock_create_checkout.return_value = {"id": "CHK_1", "status": "PENDING"}
         mock_deactivate.return_value = False
 
         self.client.post(self.url)
         second = self.client.post(self.url)
 
-        self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.json()["checkout_id"], "CHK_2")
+        self.assertEqual(second.status_code, 409)
+        self.assertIn("could not be closed", second.json()["error"])
+        mock_create_checkout.assert_called_once()
 
     @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")

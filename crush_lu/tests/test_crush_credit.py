@@ -1273,7 +1273,9 @@ class ReviewRoundThreeTests(CreditFixture):
             reverse("sumup_create_event_checkout", kwargs={"registration_id": seat.pk})
         )
 
-        self.assertEqual(response.json().get("checkout_id"), "CHK_SURVIVOR")
+        self.assertEqual(response.status_code, 409)
+        self.assertIsNone(response.json().get("checkout_id"))
+        mock_create_checkout.assert_not_called()
         self.assertFalse(CreditRedemption.objects.exists())
         self.assertEqual(
             available_credit_cents(buyer),
@@ -1281,6 +1283,61 @@ class ReviewRoundThreeTests(CreditFixture):
             "the balance must be untouched — that is the half reconciliation "
             "cannot repair afterwards",
         )
+
+    def test_replacement_paid_before_late_original_capture_keeps_resale_claim(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        event = self._event(hours_away=30, max_participants=1)
+        original = self._registration(event, self.user, status="pending")
+        original_payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-original-pending",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-ORIGINAL-PENDING",
+            amount=FEE,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=original,
+        )
+        replacement_user = self._user("pending-capture-replacement@crush.lu")
+        self._registration(event, replacement_user, status="waitlist")
+
+        self._cancel(self.user, event)
+        replacement = EventRegistration.objects.get(event=event, user=replacement_user)
+        self.assertEqual(replacement.resale_source_payment_id, original_payment.pk)
+
+        replacement_payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-replacement-first",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-REPLACEMENT-FIRST",
+            amount=FEE,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=replacement_user,
+            event_registration=replacement,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(replacement_payment, {"status": "PAID"})
+        replacement.refresh_from_db()
+        self.assertEqual(
+            replacement.resale_source_payment_id,
+            original_payment.pk,
+            "a replacement capture must retain the contingent claim while the "
+            "original checkout is still pending",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(original_payment, {"status": "PAID"})
+
+        original.refresh_from_db()
+        replacement.refresh_from_db()
+        credit = self._credits(self.user).get()
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RESOLD)
+        self.assertEqual(credit.amount_cents, FEE_CENTS // 2)
+        self.assertFalse(original.payment_confirmed)
+        self.assertIsNone(replacement.resale_source_payment_id)
 
     def test_stale_redemptions_on_a_reused_row_do_not_poison_a_card_credit(self):
         """``EventRegistration`` rows are reused; redemptions stay attached.
@@ -1365,6 +1422,24 @@ class ReviewRoundThreeTests(CreditFixture):
         self.assertEqual(credit.status, CrushCredit.Status.VOID)
         self.assertIn("account deletion", credit.note)
         self.assertEqual(available_credit_cents(self.user), 0)
+
+    @patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))
+    def test_account_deletion_preserves_an_unclaimed_cash_refund(self, _delete_storage):
+        """Deleting a profile is not a waiver of an organiser cash remedy."""
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        credit = issue_credit(
+            self.user,
+            2000,
+            CrushCredit.Reason.EVENT_CANCELLED,
+            cash_refund_eligible=True,
+        )
+
+        delete_crushlu_profile_only(self.user)
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+        self.assertTrue(credit.cash_refund_still_available)
 
     def test_the_data_export_includes_the_credit_ledger(self):
         """It promises all personal data, and this is money."""

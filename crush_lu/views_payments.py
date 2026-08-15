@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,6 +31,7 @@ from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.credits import (
     credit_registration_for_cancelled_event,
     credit_transaction_reference,
+    issue_cancellation_credits,
     redeem_for_registration,
     settle_pending_resale_credit,
 )
@@ -197,8 +199,11 @@ def create_sumup_event_checkout(request, registration_id):
             )
 
         client = SumUpClient()
-        # Whether every older checkout is now provably dead. Gates the credit
-        # branch below -- see the comment there.
+        # Whether every older checkout is now provably dead. This gates every
+        # replacement payment method below: opening another card widget while
+        # an older one may just have captured exposes the member to two card
+        # charges just as surely as spending credit would expose them to a
+        # card-plus-credit double payment.
         all_superseded = True
         for old in superseded:
             if client.deactivate_checkout(old.sumup_checkout_id):
@@ -255,6 +260,17 @@ def create_sumup_event_checkout(request, registration_id):
             )
         amount = event.registration_fee
 
+        if not all_superseded:
+            return JsonResponse(
+                {
+                    "error": _(
+                        "Your earlier card checkout could not be closed. "
+                        "Please wait and try again."
+                    )
+                },
+                status=409,
+            )
+
         # Crush Credit, before SumUp is asked for anything.
         #
         # WHOLE SEAT OR NOTHING, on purpose. Either the balance covers the
@@ -278,22 +294,10 @@ def create_sumup_event_checkout(request, registration_id):
         # payment PAID — and the member has paid twice for one seat, in two
         # currencies, with only one of them refundable.
         #
-        # So when anything failed to deactivate, fall through to the card path.
-        # That path is no worse than it is today, and it leaves the member's
-        # balance untouched, which is the half that cannot be put right by
-        # reconciliation afterwards.
+        # So when anything failed to deactivate, the shared guard above stops
+        # both methods before either a new widget or a credit spend exists.
         credit_tx = None
         if payment_method == "credit":
-            if not all_superseded:
-                return JsonResponse(
-                    {
-                        "error": _(
-                            "Your earlier card checkout could not be closed. "
-                            "No credit was spent; please try again."
-                        )
-                    },
-                    status=409,
-                )
             credit_tx = _pay_registration_with_credit(registration, amount)
             if credit_tx is None:
                 return JsonResponse(
@@ -956,9 +960,19 @@ def _apply_paid_checkout(tx_obj, data):
             snapshot = EventRegistration.objects.only(
                 "resale_source_registration_id"
             ).get(pk=registration_id)
-            registration_ids = [registration_id]
+            registration_ids = {registration_id}
             if snapshot.resale_source_registration_id:
-                registration_ids.append(snapshot.resale_source_registration_id)
+                registration_ids.add(snapshot.resale_source_registration_id)
+            # A checkout can capture after its member cancelled. The waitlist
+            # replacement then carries a contingent claim pointing back to
+            # this registration/payment; lock it in the same ordered batch so
+            # we can settle the claim if the replacement already paid.
+            registration_ids.update(
+                EventRegistration.objects.filter(
+                    Q(resale_source_registration_id=registration_id)
+                    | Q(resale_source_payment_id=locked.pk)
+                ).values_list("pk", flat=True)
+            )
             locked_registrations = {
                 row.pk: row
                 for row in EventRegistration.objects.select_for_update()
@@ -968,6 +982,15 @@ def _apply_paid_checkout(tx_obj, data):
             }
             reg = locked_registrations[registration_id]
             resale_source = locked_registrations.get(reg.resale_source_registration_id)
+            resale_replacements = [
+                row
+                for row in locked_registrations.values()
+                if row.pk != reg.pk
+                and (
+                    row.resale_source_registration_id == reg.pk
+                    or row.resale_source_payment_id == locked.pk
+                )
+            ]
 
             # The checkout was opened while the event was live, but SumUp
             # captured it after the organiser cancelled. Keep the PAID audit
@@ -1002,6 +1025,52 @@ def _apply_paid_checkout(tx_obj, data):
                 logger.error(
                     "SumUp payment %s completed after event cancellation for "
                     "registration %s — seat not restored; cancellation remedy issued.",
+                    locked.transaction_reference,
+                    reg.id,
+                )
+                return
+
+            # The member released this seat while the SumUp widget was still
+            # payable. The capture is real, but restoring the seat would undo
+            # their cancellation. Record that we hold their money and apply
+            # the ordinary member-cancellation policy instead: full credit
+            # outside the late window, or a durable 50% claim once the promoted
+            # replacement pays inside it.
+            if reg.status == "cancelled":
+                reg.payment_confirmed = True
+                reg.payment_date = timezone.now()
+                reg.save(update_fields=["payment_confirmed", "payment_date"])
+
+                credits = issue_cancellation_credits(reg)
+                if credits:
+                    transaction.on_commit(
+                        partial(_send_member_cancellation_safely, reg, credits)
+                    )
+                else:
+                    settled = []
+                    for replacement in resale_replacements:
+                        # The promotion may have recorded an older pending
+                        # checkout. The capture in hand is authoritative.
+                        if replacement.resale_source_payment_id != locked.pk:
+                            replacement.resale_source_payment = locked
+                            replacement.save(update_fields=["resale_source_payment"])
+                        settled.extend(
+                            settle_pending_resale_credit(
+                                replacement, source_registration=reg
+                            )
+                        )
+                    transaction.on_commit(
+                        partial(
+                            _send_member_cancellation_safely,
+                            reg,
+                            settled,
+                            awaiting_resale=not bool(settled),
+                        )
+                    )
+                logger.error(
+                    "SumUp payment %s completed after member cancellation for "
+                    "registration %s — seat not restored; cancellation policy "
+                    "applied.",
                     locked.transaction_reference,
                     reg.id,
                 )

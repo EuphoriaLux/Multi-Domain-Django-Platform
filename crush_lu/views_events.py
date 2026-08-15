@@ -17,10 +17,12 @@ from .models import (
     EventFeedback,
 )
 from .models.event_polls import EventPoll
+from .models.payments import PaymentTransaction
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.credits import (
     available_credit_cents,
+    is_late_cancellation,
     issue_cancellation_credits,
     paid_amount_cents,
     settle_pending_resale_credit,
@@ -112,12 +114,45 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
         if (
             resale_source_registration is not None
             and resale_source_registration.status == "cancelled"
-            and resale_source_registration.payment_confirmed
+            and is_late_cancellation(event)
         ):
-            _amount, source_payment = paid_amount_cents(resale_source_registration)
-            candidate.resale_source_registration = resale_source_registration
-            candidate.resale_source_payment = source_payment
-            candidate.resale_beneficiary = resale_source_registration.user
+            source_payment = None
+            if resale_source_registration.payment_confirmed:
+                _amount, source_payment = paid_amount_cents(resale_source_registration)
+            else:
+                # The member can cancel while their SumUp widget is still
+                # payable. Preserve a contingent resale claim now; if the
+                # checkout later captures, the callback can settle it even
+                # when the replacement paid first.
+                source_payment = (
+                    PaymentTransaction.objects.filter(
+                        event_registration=resale_source_registration,
+                        provider=PaymentTransaction.Provider.SUMUP,
+                        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                        status=PaymentTransaction.Status.PENDING,
+                    )
+                    .order_by("-created_at", "-pk")
+                    .first()
+                )
+            if source_payment is not None:
+                candidate.resale_source_registration = resale_source_registration
+                candidate.resale_source_payment = source_payment
+                candidate.resale_beneficiary = resale_source_registration.user
+            elif (
+                resale_source_registration.resale_source_payment_id
+                and resale_source_registration.resale_beneficiary_id
+            ):
+                # This unpaid member was itself a replacement. Forward the
+                # original payer's contingent claim to the next candidate.
+                candidate.resale_source_registration_id = (
+                    resale_source_registration.resale_source_registration_id
+                )
+                candidate.resale_source_payment_id = (
+                    resale_source_registration.resale_source_payment_id
+                )
+                candidate.resale_beneficiary_id = (
+                    resale_source_registration.resale_beneficiary_id
+                )
         elif (
             resale_source_registration is not None
             and resale_source_registration.resale_source_payment_id

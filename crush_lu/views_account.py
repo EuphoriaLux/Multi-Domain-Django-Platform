@@ -267,7 +267,7 @@ def delete_crushlu_profile_only(user):
     # Delete ProfileSubmissions (in case profile was deleted manually)
     ProfileSubmission.objects.filter(profile__user=user).delete()
 
-    # Close out any Crush Credit BEFORE the registrations go.
+    # Close out spendable-only Crush Credit BEFORE the registrations go.
     #
     # Credit hangs off User, not CrushProfile, so nothing here cascades it: a
     # member with a balance would leave it sitting `active` in the ledger on an
@@ -279,11 +279,14 @@ def delete_crushlu_profile_only(user):
     #
     # Voided rather than deleted, with the reason on the row: this is an
     # append-only ledger, and "the holder deleted their account" is exactly the
-    # kind of thing it exists to still be able to answer a year later. Credit
-    # is non-transferable and never convertible to cash (policy §7.3), and the
-    # deletion is member-initiated, so forfeiture is the defensible reading —
-    # but it is a POLICY choice, and this is the one place to change it if
-    # Crush.lu would rather pay out first.
+    # kind of thing it exists to still be able to answer a year later.
+    #
+    # One class must survive: an unexpired, wholly unspent organiser-
+    # cancellation award still represents the member's unclaimed cash-refund
+    # right. Profile deletion is not a waiver of that cash remedy. Keep those
+    # rows active in the staff refund queue; the retained/anonymised User and
+    # immutable payment record preserve the financial liability without
+    # keeping the deleted Crush profile.
     #
     # Ordered before the registration delete only for tidiness of the log line;
     # CreditRedemption is SET_NULL on registration, so the spend history
@@ -291,9 +294,17 @@ def delete_crushlu_profile_only(user):
     from crush_lu.models.credits import CrushCredit
     from crush_lu.services.credits import void_credit
 
-    forfeited = CrushCredit.objects.filter(
+    active_credits = CrushCredit.objects.filter(
         user=user, status=CrushCredit.Status.ACTIVE
     )
+    preserved_refund_ids = list(
+        active_credits.filter(
+            cash_refund_eligible=True,
+            expires_at__gt=timezone.now(),
+            redemptions__isnull=True,
+        ).values_list("pk", flat=True)
+    )
+    forfeited = active_credits.exclude(pk__in=preserved_refund_ids)
     forfeited_count = forfeited.count()
     if forfeited_count:
         for credit in forfeited:
@@ -308,6 +319,12 @@ def delete_crushlu_profile_only(user):
         logger.info(
             "Voided %s active Crush Credit row(s) for deleted user %s",
             forfeited_count,
+            user.id,
+        )
+    if preserved_refund_ids:
+        logger.info(
+            "Preserved %s unclaimed cash-refund right(s) for deleted user %s",
+            len(preserved_refund_ids),
             user.id,
         )
 

@@ -26999,11 +26999,9 @@ msgid "Invalid payment method."
 msgstr "Invalid payment method."
 
 msgid ""
-"Your earlier card checkout could not be closed. No credit was spent; please "
-"try again."
+"Your earlier card checkout could not be closed. Please wait and try again."
 msgstr ""
-"Your earlier card checkout could not be closed. No credit was spent; please "
-"try again."
+"Your earlier card checkout could not be closed. Please wait and try again."
 
 msgid "Your Crush Credit balance does not cover this event."
 msgstr "Your Crush Credit balance does not cover this event."

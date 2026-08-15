@@ -361,6 +361,47 @@ class TestMergeEventRegistrations:
         assert EventRegistration.objects.filter(user=keeper_user).count() == 1
         assert not EventRegistration.objects.filter(user=duplicate_user).exists()
 
+    def test_deleted_duplicate_keeps_payment_event_revenue(
+        self, keeper_user, duplicate_user, merge_event
+    ):
+        from decimal import Decimal
+
+        from django.contrib.admin.sites import AdminSite
+
+        from crush_lu.admin.events import MeetupEventAdmin
+        from crush_lu.models import EventRegistration, PaymentTransaction
+
+        EventRegistration.objects.create(
+            event=merge_event, user=keeper_user, status="confirmed"
+        )
+        duplicate_registration = EventRegistration.objects.create(
+            event=merge_event,
+            user=duplicate_user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-MERGE-REVENUE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-MERGE-REVENUE",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=duplicate_user,
+            event_registration=duplicate_registration,
+        )
+        assert payment.event == merge_event
+
+        merge_accounts(keeper_user, duplicate_user)
+
+        payment.refresh_from_db()
+        assert payment.event_registration is None
+        assert payment.event == merge_event
+        admin_obj = MeetupEventAdmin(type(merge_event), AdminSite())
+        assert admin_obj.get_revenue(merge_event) == "€10.00 (1 paid)"
+
 
 class TestMergeConnections:
     def test_moves_connection_as_requester(self, keeper_user, duplicate_user, merge_event):

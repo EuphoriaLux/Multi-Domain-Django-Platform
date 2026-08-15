@@ -85,6 +85,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         "status",
         "purpose",
         "user",
+        "event",
         "event_registration",
         "premium_membership",
         "failure_reason",
@@ -122,7 +123,12 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         (
             "Who and what",
             {
-                "fields": ("user", "event_registration", "premium_membership"),
+                "fields": (
+                    "user",
+                    "event",
+                    "event_registration",
+                    "premium_membership",
+                ),
             },
         ),
         (
@@ -162,6 +168,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             .get_queryset(request)
             .select_related(
                 "user",
+                "event",
                 "event_registration__user",
                 "event_registration__event",
                 "premium_membership__user",
@@ -199,8 +206,8 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
     @admin.display(description="For")
     def get_bought(self, obj):
-        if obj.event_registration_id:
-            return f"Event: {obj.event_registration.event.title}"
+        if obj.event_id:
+            return f"Event: {obj.event.title}"
         if obj.premium_membership_id:
             return f"Premium #{obj.premium_membership_id}"
         return "—"

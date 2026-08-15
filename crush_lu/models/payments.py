@@ -93,6 +93,19 @@ class PaymentTransaction(models.Model):
         blank=True,
         related_name="payment_transactions",
     )
+    event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        # Captured payments are immutable event revenue. Protect the event row
+        # just as ``user`` protects the payer: deleting or merging the mutable
+        # registration must never erase what the payment bought.
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+        help_text=_(
+            "Immutable event attribution, retained if the registration is deleted."
+        ),
+    )
     premium_membership = models.ForeignKey(
         "crush_lu.PremiumMembership",
         on_delete=models.SET_NULL,
@@ -131,7 +144,12 @@ class PaymentTransaction(models.Model):
         return f"{self.provider.upper()} {self.transaction_reference} - {self.amount} {self.currency} ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
-        """Stamp the paid transition once, including update_fields saves."""
+        """Stamp the event and paid transition, including update_fields saves."""
+        if self.event_id is None and self.event_registration_id:
+            self.event_id = self.event_registration.event_id
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"event"}
         if self.status == self.Status.PAID and self.paid_at is None:
             self.paid_at = timezone.now()
             update_fields = kwargs.get("update_fields")
