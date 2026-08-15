@@ -28,6 +28,7 @@ from crush_lu.models import (
     CrushProfile,
     EventRegistration,
     MeetupEvent,
+    PremiumMembership,
     ProfileSubmission,
     UserDataConsent,
 )
@@ -240,3 +241,204 @@ class TestDoorVerificationReject:
         assert profile.verification_status == "verified"
         assert profile.is_approved is True
         assert profile.verification_method == "coach_event"
+
+    def test_reject_premium_member_other_coach_403(self, client, event, coach):
+        """Authorization parity with coach_mark_verified (premium gate).
+
+        A premium member's verification belongs to their assigned coach. The
+        verify endpoint 403s any other coach trying to restore it, so the same
+        coach must not be able to destroy it either — reject is destructive
+        without a restore path for them.
+        """
+        profile, reg, submission = _attendee(event, "premium_member")
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            verification_status="verified",
+            is_approved=True,
+            verification_method="coach_event",
+            approved_at=timezone.now(),
+        )
+
+        # Active premium membership with a DIFFERENT assigned coach.
+        other_coach_user = User.objects.create_user(
+            username="othercoach@t.test",
+            email="othercoach@t.test",
+            password="pw12345678",
+            first_name="Olga",
+        )
+        other_coach = CrushCoach.objects.create(
+            user=other_coach_user, bio="Coach Olga", is_active=True
+        )
+        PremiumMembership.objects.create(
+            user=profile.user, coach=other_coach, status="active"
+        )
+        CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=other_coach)
+
+        client.force_login(coach.user)
+        resp = client.post(_reject_url(event, reg))
+
+        assert resp.status_code == 403
+        data = resp.json()
+        assert data["success"] is False
+        assert "coach" in data["error"].lower()
+
+        # Profile and submission are untouched.
+        profile.refresh_from_db()
+        submission.refresh_from_db()
+        assert profile.verification_status == "verified"
+        assert profile.is_approved is True
+        assert profile.verification_method == "coach_event"
+        assert profile.approved_at is not None
+        assert submission.status == "pending"
+        assert submission.coach_notes in ("", None)
+
+    def test_reject_non_seat_holding_registration_400(self, client, event, coach):
+        """Authorization parity with coach_mark_verified (seat-holding gate).
+
+        A cancelled registration holds no seat at the door, so it can be
+        neither verified nor rejected there.
+        """
+        profile, reg, submission = _attendee(event, "cancelled_reg")
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            verification_status="verified",
+            is_approved=True,
+            verification_method="coach_event",
+            approved_at=timezone.now(),
+        )
+        EventRegistration.objects.filter(pk=reg.pk).update(status="cancelled")
+
+        client.force_login(coach.user)
+        resp = client.post(_reject_url(event, reg))
+
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["success"] is False
+
+        # Profile and submission are untouched.
+        profile.refresh_from_db()
+        submission.refresh_from_db()
+        assert profile.verification_status == "verified"
+        assert profile.is_approved is True
+        assert profile.verification_method == "coach_event"
+        assert submission.status == "pending"
+        assert submission.coach_notes in ("", None)
+
+
+@pytest.fixture
+def past_event():
+    """An event that ended a few hours ago — inside the post-event
+    connection window (end_time + 48h by default)."""
+    now = timezone.now()
+    return MeetupEvent.objects.create(
+        title="Ended Event",
+        description="Event that has ended, connection window still open",
+        event_type="mixer",
+        date_time=now - timedelta(hours=5),  # default duration 120min -> ended 3h ago
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=now - timedelta(hours=6),
+        is_published=True,
+    )
+
+
+def _attendees_url(event):
+    return f"/en/events/{event.id}/attendees/"
+
+
+def _connect_url(event, user_id):
+    return f"/en/events/{event.id}/connect/{user_id}/"
+
+
+def _verified_attendee(event, name):
+    """An attended + verified member (the post-rejection revocation baseline)."""
+    profile, reg, submission = _attendee(event, name)
+    EventRegistration.objects.filter(pk=reg.pk).update(status="attended")
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="verified",
+        is_approved=True,
+        verification_method="coach_event",
+        approved_at=timezone.now(),
+    )
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    return profile, reg, submission
+
+
+class TestRejectionRevokesConnectionAccess:
+    """A door-rejected member must lose the post-event connection surfaces
+    (named roster, connection requests) — attendance alone is not enough."""
+
+    def test_verified_attendee_keeps_access(self, client, past_event):
+        profile, reg, _ = _verified_attendee(past_event, "verified_member")
+        _verified_attendee(past_event, "verified_peer")
+        assert reg.can_make_connections is True
+
+        client.force_login(profile.user)
+        resp = client.get(_attendees_url(past_event))
+        assert resp.status_code == 200
+
+        peer = User.objects.get(email="verified_peer@t.test")
+        resp = client.get(_connect_url(past_event, peer.id))
+        assert resp.status_code == 200
+
+    def test_door_rejected_member_loses_access(self, client, past_event, coach):
+        profile, reg, _ = _verified_attendee(past_event, "soon_rejected")
+        _verified_attendee(past_event, "other_member")
+        peer = User.objects.get(email="other_member@t.test")
+
+        # Baseline: while verified, both surfaces are reachable.
+        client.force_login(profile.user)
+        assert client.get(_attendees_url(past_event)).status_code == 200
+        assert client.get(_connect_url(past_event, peer.id)).status_code == 200
+
+        # Coach door-rejects the member (photo mismatch).
+        client.force_login(coach.user)
+        reject_resp = client.post(_reject_url(past_event, reg))
+        assert reject_resp.status_code == 200
+        profile.refresh_from_db()
+        reg.refresh_from_db()
+        assert profile.verification_status == "rejected"
+        assert reg.status == "attended"  # attendance record stays honest
+        assert reg.can_make_connections is False
+
+        # Same denial shape those views use for non-attendees: redirect away
+        # with an error message, no roster and no request form.
+        client.force_login(profile.user)
+        attendees_resp = client.get(_attendees_url(past_event))
+        assert attendees_resp.status_code == 302
+        assert f"/events/{past_event.id}/" in attendees_resp.url
+
+        connect_resp = client.get(_connect_url(past_event, peer.id))
+        assert connect_resp.status_code == 302
+        assert f"/events/{past_event.id}/" in connect_resp.url
+
+        connect_post = client.post(
+            _connect_url(past_event, peer.id), {"note": "hello"}
+        )
+        assert connect_post.status_code == 302
+        assert f"/events/{past_event.id}/" in connect_post.url
+
+    def test_attended_member_without_profile_denied_not_500(self, client, past_event):
+        user = User.objects.create_user(
+            username="noprofile_conn@t.test",
+            email="noprofile_conn@t.test",
+            password="pw12345678",
+            first_name="Nop",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=user, defaults={"crushlu_consent_given": True}
+        )
+        reg = EventRegistration.objects.create(
+            event=past_event, user=user, status="attended"
+        )
+        _verified_attendee(past_event, "profile_peer")
+        peer = User.objects.get(email="profile_peer@t.test")
+
+        assert reg.can_make_connections is False
+
+        client.force_login(user)
+        attendees_resp = client.get(_attendees_url(past_event))
+        assert attendees_resp.status_code == 302
+
+        connect_resp = client.get(_connect_url(past_event, peer.id))
+        assert connect_resp.status_code == 302

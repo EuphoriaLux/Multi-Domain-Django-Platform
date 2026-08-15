@@ -718,6 +718,21 @@ def coach_reject_verification(request, event_id, registration_id):
                 {"success": False, "error": str(_("Registration not found."))},
                 status=404,
             )
+        # Same seat-holding gate as coach_mark_verified: rejecting at the door
+        # only makes sense for someone actually holding a seat at this event.
+        if registration.status not in SEAT_HOLDING_STATUSES:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _(
+                            "Only confirmed or checked-in attendees can have "
+                            "their verification rejected."
+                        )
+                    ),
+                },
+                status=400,
+            )
 
         try:
             profile = registration.user.crushprofile
@@ -726,6 +741,23 @@ def coach_reject_verification(request, event_id, registration_id):
                 {"success": False, "error": str(_("Attendee has no profile."))},
                 status=404,
             )
+
+        # Authorization parity with coach_mark_verified: a premium member's
+        # verification belongs to their own assigned coach. Reject is
+        # destructive without a restore path for anyone else — a coach whom
+        # the verify endpoint's 403 stops from restoring verification must be
+        # stopped from destroying it too.
+        if profile.has_active_premium:
+            if profile.assigned_coach_id and profile.assigned_coach_id != coach.id:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(
+                            _("This premium member is verified by their own coach.")
+                        ),
+                    },
+                    status=403,
+                )
 
         reject_door_verification(profile, target_status="rejected")
 
