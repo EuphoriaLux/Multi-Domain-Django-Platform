@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from channels.db import database_sync_to_async
@@ -5,10 +6,9 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db.models import Sum
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
-
-
 from crush_lu.models.quiz import parse_choices as _parse_choices
+
+logger = logging.getLogger(__name__)
 
 _QUIZ_LANGUAGES = ("en", "de", "fr")
 
@@ -84,7 +84,52 @@ def _build_round_data(round_obj):
     return data
 
 
-class QuizConsumer(AsyncJsonWebsocketConsumer):
+class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
+    """Base WebSocket consumer with defensive channel group discard."""
+
+    DISCARD_TIMEOUT_SECONDS: float = 2.0
+
+    async def _safe_group_discard(
+        self, group_name: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+    ) -> None:
+        """Discard single group membership safely without crashing disconnect on Redis hiccup."""
+        if not group_name or not getattr(self, "channel_layer", None):
+            return
+        try:
+            await asyncio.wait_for(
+                self.channel_layer.group_discard(group_name, self.channel_name),
+                timeout=timeout,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to discard group %s for channel %s during teardown: %s",
+                group_name,
+                getattr(self, "channel_name", "unknown"),
+                exc,
+            )
+
+    async def _safe_group_discards(
+        self, *group_names: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+    ) -> None:
+        """Concurrently discard multiple groups bounded by a single timeout window.
+
+        Running discards concurrently ensures all active groups are attempted even if one
+        fails or times out, while capping total teardown latency to a single timeout window (~2s)
+        so ASGI server shutdown thresholds are never exceeded.
+        """
+        valid_groups = [g for g in group_names if g]
+        if not valid_groups or not getattr(self, "channel_layer", None):
+            return
+        await asyncio.gather(
+            *(
+                self._safe_group_discard(group, timeout=timeout)
+                for group in valid_groups
+            ),
+            return_exceptions=True,
+        )
+
+
+class QuizConsumer(BaseCrushWebsocketConsumer):
     """WebSocket consumer for live quiz during Crush.lu events."""
 
     async def connect(self):
@@ -279,16 +324,12 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 await self.send_json({"type": "quiz.my_assignment", "data": assignment})
 
     async def disconnect(self, close_code):
-        if hasattr(self, "quiz_group"):
-            await self.channel_layer.group_discard(self.quiz_group, self.channel_name)
-        if getattr(self, "display_group", None):
-            await self.channel_layer.group_discard(
-                self.display_group, self.channel_name
-            )
-        if getattr(self, "table_group", None):
-            await self.channel_layer.group_discard(self.table_group, self.channel_name)
-        if getattr(self, "host_group", None):
-            await self.channel_layer.group_discard(self.host_group, self.channel_name)
+        await self._safe_group_discards(
+            getattr(self, "quiz_group", None),
+            getattr(self, "display_group", None),
+            getattr(self, "table_group", None),
+            getattr(self, "host_group", None),
+        )
 
     async def receive_json(self, content):
         # Display connections are read-only (projector view)
@@ -737,6 +778,10 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 new_group = f"quiz_{self.quiz_id}_table_{new_table_id}"
                 if new_group != self.table_group:
                     if self.table_group:
+                        # Deliberately call channel_layer.group_discard directly rather than
+                        # _safe_group_discard: during active rotation, leaving the old table
+                        # MUST succeed before joining the new one; failing loud prevents
+                        # a split-brain state where the member remains subscribed to both tables.
                         await self.channel_layer.group_discard(
                             self.table_group, self.channel_name
                         )
@@ -822,7 +867,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.table_dissolved", "data": event["data"]})
 
     async def quiz_tables_consolidated(self, event):
-        await self.send_json({"type": "quiz.tables_consolidated", "data": event["data"]})
+        await self.send_json(
+            {"type": "quiz.tables_consolidated", "data": event["data"]}
+        )
 
     # --- Database helpers ---
 
@@ -1187,7 +1234,9 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # the rotate_tables flow (which enforces "all tables scored"). Only
         # no-op re-selection of the already-current round is accepted.
         if quiz.current_round_id != round_obj.id:
-            return {"error": "Rounds advance automatically — direct selection is disabled."}
+            return {
+                "error": "Rounds advance automatically — direct selection is disabled."
+            }
 
         # Block round changes during active play with a current question
         if (
@@ -1908,9 +1957,7 @@ def build_leaderboard(quiz_id):
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
             name = profile.display_name
             has_photo = bool(getattr(profile, "photo_1", None))
-            photo_url = (
-                f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
-            )
+            photo_url = f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
         except CrushProfile.DoesNotExist:
             name = "Anonymous"
             photo_url = None
@@ -1932,7 +1979,7 @@ def build_leaderboard(quiz_id):
     }
 
 
-class CheckinConsumer(AsyncJsonWebsocketConsumer):
+class CheckinConsumer(BaseCrushWebsocketConsumer):
     """WebSocket consumer for live check-in updates during events.
 
     Read-only consumer: coaches receive broadcasts when attendees are checked in.
@@ -1956,10 +2003,7 @@ class CheckinConsumer(AsyncJsonWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        if hasattr(self, "checkin_group"):
-            await self.channel_layer.group_discard(
-                self.checkin_group, self.channel_name
-            )
+        await self._safe_group_discards(getattr(self, "checkin_group", None))
 
     async def receive_json(self, content):
         pass
@@ -1975,7 +2019,7 @@ class CheckinConsumer(AsyncJsonWebsocketConsumer):
         return CrushCoach.objects.filter(user=user, is_active=True).exists()
 
 
-class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
+class CacheHuntConsumer(BaseCrushWebsocketConsumer):
     """WebSocket consumer for live Crush Cache hunt updates.
 
     Read-mostly relay (like CheckinConsumer): all mutations flow through
@@ -2014,14 +2058,10 @@ class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "state", "data": state})
 
     async def disconnect(self, close_code):
-        if hasattr(self, "cache_group"):
-            await self.channel_layer.group_discard(
-                self.cache_group, self.channel_name
-            )
-        if hasattr(self, "cache_coach_group"):
-            await self.channel_layer.group_discard(
-                self.cache_coach_group, self.channel_name
-            )
+        await self._safe_group_discards(
+            getattr(self, "cache_group", None),
+            getattr(self, "cache_coach_group", None),
+        )
 
     async def receive_json(self, content):
         pass
