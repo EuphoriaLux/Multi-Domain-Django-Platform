@@ -23,6 +23,7 @@ from crush_lu.push_notifications import (
     send_new_connection_notification,
     send_new_message_notification,
     send_profile_approved_notification,
+    send_profile_rejected_notification,
     send_profile_revision_notification,
     send_test_notification,
 )
@@ -193,11 +194,22 @@ def sample_event(db):
 
 @pytest.fixture
 def mock_vapid_settings():
-    """Mock VAPID settings for push notifications."""
+    """Mock VAPID settings for push notifications.
+
+    This replaces the whole settings object, so every setting the sender reads
+    has to be present here with a usable type — an unset attribute on a
+    MagicMock is another MagicMock, which sails past `getattr(..., default)`
+    and only fails further in (a MagicMock slice bound raises TypeError, not
+    AttributeError). The fan-out bounds are set generously so tests exercise
+    delivery rather than the cap; the cap has its own tests.
+    """
     with patch('crush_lu.push_notifications.settings') as mock_settings:
         mock_settings.VAPID_PRIVATE_KEY = 'test_vapid_private_key'
         mock_settings.VAPID_PUBLIC_KEY = 'test_vapid_public_key'
         mock_settings.VAPID_ADMIN_EMAIL = 'admin@crush.lu'
+        mock_settings.CRUSH_PUSH_FANOUT_LIMIT = 100
+        mock_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 3600.0
+        mock_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 10.0
         yield mock_settings
 
 
@@ -1077,3 +1089,109 @@ class TestThreadSafety:
 
         # Should be restored to English
         assert get_language() == 'en'
+
+
+# =============================================================================
+# TESTS FOR send_profile_rejected_notification()
+# =============================================================================
+
+class TestSendProfileRejectedNotification:
+    """Tests for send_profile_rejected_notification function.
+
+    This is the only *active* alert a web-push-only member gets when a coach
+    rejects their verification at the door — `_send_push` previously had no
+    PROFILE_REJECTED branch at all, so they learned of it from the bell row on
+    their next visit.
+    """
+
+    def test_does_not_send_when_no_subscriptions(self, user_with_profile):
+        """Does not send when user has no subscriptions."""
+        result = send_profile_rejected_notification(
+            user_with_profile, "photo mismatch"
+        )
+        assert result is None
+
+    def test_does_not_send_when_profile_updates_disabled(self, push_subscription):
+        """Rides the same coach-decision channel as approval and revision, so a
+        member who muted those has muted this."""
+        push_subscription.notify_profile_updates = False
+        push_subscription.save()
+
+        result = send_profile_rejected_notification(
+            push_subscription.user, "photo mismatch"
+        )
+        assert result is None
+
+    @patch('crush_lu.push_notifications.send_push_notification')
+    @patch('crush_lu.push_notifications.reverse')
+    def test_sends_rejection_notification_with_reason(
+        self, mock_reverse, mock_send_push, push_subscription
+    ):
+        """Sends notification carrying the rejection reason."""
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        mock_reverse.return_value = '/dashboard/'
+
+        send_profile_rejected_notification(
+            push_subscription.user,
+            "the person at the event did not match your profile photos",
+        )
+
+        mock_send_push.assert_called_once()
+        call_kwargs = mock_send_push.call_args[1]
+
+        assert call_kwargs['tag'] == 'profile-rejected'
+        assert 'did not match your profile photos' in call_kwargs['body']
+
+    @patch('crush_lu.push_notifications.send_push_notification')
+    @patch('crush_lu.push_notifications.reverse')
+    def test_truncates_long_reason(
+        self, mock_reverse, mock_send_push, push_subscription
+    ):
+        """Truncates the reason to 120 characters in the notification body."""
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        mock_reverse.return_value = '/dashboard/'
+
+        send_profile_rejected_notification(push_subscription.user, "x" * 400)
+
+        call_kwargs = mock_send_push.call_args[1]
+        assert len(call_kwargs['body']) <= 120
+
+    @patch('crush_lu.push_notifications.send_push_notification')
+    @patch('crush_lu.push_notifications.reverse')
+    def test_accepts_a_lazy_reason(
+        self, mock_reverse, mock_send_push, push_subscription
+    ):
+        """The door passes a lazy gettext proxy so the email and bell row can
+        render it in the member's language; slicing one raises unless it is
+        coerced first."""
+        from django.utils.translation import gettext_lazy
+
+        mock_send_push.return_value = {'success': 1, 'failed': 0, 'total': 1}
+        mock_reverse.return_value = '/dashboard/'
+
+        send_profile_rejected_notification(
+            push_subscription.user, gettext_lazy("photo mismatch")
+        )
+
+        assert 'photo mismatch' in mock_send_push.call_args[1]['body']
+
+
+class TestSendPushDispatchesRejection:
+    """The dispatcher branch that routes PROFILE_REJECTED to the sender."""
+
+    @patch('crush_lu.push_notifications.send_profile_rejected_notification')
+    def test_send_push_routes_rejection(self, mock_sender, user_with_profile):
+        from crush_lu.notification_service import (
+            NotificationService,
+            NotificationType,
+        )
+
+        mock_sender.return_value = {'success': 1}
+        NotificationService._send_push(
+            user_with_profile,
+            NotificationType.PROFILE_REJECTED,
+            {'profile': user_with_profile.crushprofile, 'feedback': 'photo mismatch'},
+        )
+
+        mock_sender.assert_called_once()
+        assert mock_sender.call_args[0][1] == 'photo mismatch'

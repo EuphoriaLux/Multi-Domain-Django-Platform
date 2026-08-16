@@ -1538,6 +1538,34 @@ PASSKIT_BULK_PUSH_LIMIT = int(os.getenv("PASSKIT_BULK_PUSH_LIMIT", "20"))
 PASSKIT_BULK_PUSH_BUDGET_SECONDS = float(
     os.getenv("PASSKIT_BULK_PUSH_BUDGET_SECONDS", "5")
 )
+# How many devices ONE member notification may push to synchronously, per
+# channel. Same trap as PASSKIT_BULK_PUSH_LIMIT above: DJANGO_TASKS_BACKEND is
+# unset in production, so NotificationService.notify fans out inside the
+# request that triggered it. The caller that matters is the door — a coach
+# rejecting a verification has already committed the decision by the time the
+# notify runs, so an overrun costs them a failed response on a change that
+# stuck, and the retry 409s. Typical members have 1-3 subscriptions; this cap
+# is sized to be generous for a real person and to bound an accumulated pile of
+# stale endpoints, not to ration normal delivery.
+CRUSH_PUSH_FANOUT_LIMIT = int(os.getenv("CRUSH_PUSH_FANOUT_LIMIT", "10"))
+# The count above is not itself a bound on the work: each send is an HTTP call
+# to a third-party push service that can hang for its full timeout, so 10 dead
+# endpoints is 10 × that timeout. This wall-clock budget is what actually keeps
+# the fan-out inside the 120s gunicorn window. Applied per channel (web / iOS /
+# Android), so a member subscribed on all three has a worst case of 3× this
+# before email is attempted. Anything skipped is logged, never dropped
+# silently — the in-app bell row is still written, so the member sees it there.
+CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
+    os.getenv("CRUSH_PUSH_FANOUT_BUDGET_SECONDS", "10")
+)
+# Per-send ceiling for web push. The budget above only bounds the loop if each
+# send inside it is bounded too — pywebpush defaults to timeout=None, so a
+# single unresponsive endpoint could otherwise hang past the budget by an
+# arbitrary amount. Clamped to whatever is left of the budget at call time.
+# The native channels already carry their own (httpx 10s / requests 10s).
+CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
+    os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
+)
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

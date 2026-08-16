@@ -786,6 +786,7 @@ def crush_connect_catalogue_status(request):
         "crush_lu/crush_connect/catalogue_status.html",
         {
             "membership": membership,
+            "profile": getattr(user, "crushprofile", None),
             "pending_sparks_count": pending_sparks_count,
             "gate_stat_rows": _gate_stat_rows(user, membership),
             "connect_launched": connect_launched,
@@ -952,13 +953,16 @@ def crush_connect_home(request):
     #     after the snapshot was pinned (the door assigns one on first
     #     attendance, so this lands on ordinary event nights)
     from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
+    from crush_lu.services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        filter_connect_identity_verified,
+    )
 
     drop = None
     recipients = []
     if not coach_pick:
         drop = get_or_create_daily_drop(user)
-        recipients = list(
+        current_recipients = (
             exclude_assigned_coach_pairs(drop.recipients, user, field="id")
             .exclude(id__in=blocked_user_ids(user))
             .exclude(crush_connect_membership__excluded_by_coach=True)
@@ -972,6 +976,12 @@ def crush_connect_home(request):
             .exclude(
                 Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
             )
+        )
+        # Re-check the current LuxID-or-coach-attendance predicate too. In
+        # particular, undoing a member's only coach check-in revokes the
+        # attendance arm immediately even though the Drop snapshot remains.
+        recipients = list(
+            filter_connect_identity_verified(current_recipients)
             .select_related("crushprofile", "crush_connect_membership")
             .prefetch_related(
                 "crush_connect_membership__gate_questions__question",
@@ -982,15 +992,6 @@ def crush_connect_home(request):
             )
             .all()
         )
-        # Re-check identity verification at RENDER time (LuxID or verified event attendance):
-        # if a coach corrects/undoes a check-in or LuxID is unlinked after a Drop was
-        # pinned, hide the card so clear photos are not shown to other members.
-        recipients = [
-            r
-            for r in recipients
-            if getattr(r, "crushprofile", None)
-            and r.crushprofile.is_connect_identity_verified
-        ]
 
     # Card CTA state: which of today's cards this user has already answered (the
     # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —

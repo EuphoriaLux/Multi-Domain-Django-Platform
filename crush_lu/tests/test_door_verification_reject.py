@@ -127,6 +127,7 @@ class TestDoorVerificationReject:
         assert profile.is_approved is True
         assert profile.verification_method == "coach_event"
         assert profile.approved_at is not None
+        assert profile.is_photo_verified
         assert submission.status == "approved"
 
         # 2. Coach spots photo mismatch -> rejects verification
@@ -149,6 +150,8 @@ class TestDoorVerificationReject:
         assert profile.is_approved is False
         assert profile.approved_at is None
         assert profile.verification_method == ""
+        assert not profile.is_photo_verified
+        assert profile.photo_verification_key == ""
 
         assert submission.status == "rejected"
         assert "photo mismatch" in submission.coach_notes.lower()
@@ -563,9 +566,7 @@ class TestRejectionRevokesConnectionAccess:
         assert connect_resp.status_code == 302
         assert f"/events/{past_event.id}/" in connect_resp.url
 
-        connect_post = client.post(
-            _connect_url(past_event, peer.id), {"note": "hello"}
-        )
+        connect_post = client.post(_connect_url(past_event, peer.id), {"note": "hello"})
         assert connect_post.status_code == 302
         assert f"/events/{past_event.id}/" in connect_post.url
 
