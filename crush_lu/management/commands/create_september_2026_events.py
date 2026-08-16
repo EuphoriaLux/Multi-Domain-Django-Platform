@@ -169,8 +169,10 @@ QN_DESCRIPTION = {
     ),
 }
 
-# The four Wednesdays (Speed Dating) and Thursdays (Quiz Night) of September
-# 2026: Sep 2, 9, 16, 23 are Wednesdays; Sep 3, 10, 17, 24 are Thursdays.
+# The Wednesdays (Speed Dating) and Thursdays (Quiz Night) of September 2026.
+# Sep 2026 has FIVE Wednesdays (2, 9, 16, 23, 30); the programme deliberately
+# covers the first four so the month does not end on a quiz-week language
+# imbalance — Sep 30 is left free (school-holiday tail, venue planning).
 # Language weeks alternate exactly like August: DE/LU, FR, DE/LU, FR.
 # The DE/LU speed datings ran 25–42 in August, the FR ones 25–38.
 # Quiz packs rotate so consecutive evenings never replay the same questions.
@@ -190,6 +192,9 @@ SD_DURATION = 120
 QN_DURATION = 160
 SD_MAX = 14
 QN_MAX = 24
+# 24 seats in teams of 4 → 6 tables, matching create_quiz_night_event's
+# table bootstrap (the readiness check requires at least 2).
+QN_TABLES = 6
 # Balanced speed dating: 7 men / 7 women / 0 NB of the 14 total. Pass
 # --no-gender-caps to leave the caps blank (total-only) instead.
 SD_GENDER_CAPS = (7, 7, 0)
@@ -257,7 +262,11 @@ class Command(BaseCommand):
             type=int,
             default=None,
             metavar="EVENT_ID",
-            help="Reuse the banner image of an existing event (e.g. August's 15).",
+            help=(
+                "Reuse the banner image of an existing event, applied ONLY to "
+                "new events of the same event_type (e.g. --banner-from 15 for "
+                "the August Speed Dating artwork)."
+            ),
         )
         parser.add_argument(
             "--quiz-owner",
@@ -277,17 +286,28 @@ class Command(BaseCommand):
             "address_postcode": options["address_postcode"].replace("L-", "").replace("l-", ""),
             "address_town": options["address_town"],
         }
-        if publish and not (
-            address["address_street"].strip()
-            and address["address_postcode"].strip()
-            and address["address_town"].strip()
-        ):
-            raise CommandError(
-                "--publish needs the full venue address: --address-street, "
-                "--address-postcode, --address-town (and --location for the "
-                "venue name). Without --publish the events are created as "
-                "drafts and the address is filled in the admin."
-            )
+        if publish:
+            missing = [
+                name
+                for name in ("location", "address_street", "address_postcode", "address_town")
+                if not address[name].strip()
+            ]
+            if missing:
+                raise CommandError(
+                    "--publish needs the full venue address: "
+                    + ", ".join(f"--{name.replace('_', '-')}" for name in missing)
+                    + " (drafts skip this: fill the address in the admin)."
+                )
+            # Same rule the model's echo.lu gate enforces (unmet_publish_
+            # requirements): a four-digit postcode. Validated here because
+            # objects.create() never runs field validators or clean().
+            import re
+
+            if not re.fullmatch(r"[0-9]{4}", address["address_postcode"]):
+                raise CommandError(
+                    "--address-postcode must be exactly four digits "
+                    f"(got '{options['address_postcode']}')."
+                )
 
         banner_event = None
         if options["banner_from"] is not None:
@@ -304,6 +324,14 @@ class Command(BaseCommand):
 
         quiz_owner = self._quiz_owner(options["quiz_owner"])
 
+        if options["premium_seats"] > min(SD_MAX, QN_MAX):
+            raise CommandError(
+                f"--premium-seats ({options['premium_seats']}) cannot exceed the "
+                f"smallest event capacity ({min(SD_MAX, QN_MAX)}): reserved "
+                "seats are held WITHIN the total, and above it every regular "
+                "member would land on the waitlist."
+            )
+
         created, skipped, quizzes = [], [], []
         for day, event_type, languages, min_age, max_age, pack in PROGRAMME:
             exists = MeetupEvent.objects.filter(
@@ -311,12 +339,22 @@ class Command(BaseCommand):
                 date_time=_local(YEAR, MONTH, day, 19),
             ).exists()
             label = f"Sep {day} {'Speed Dating' if event_type == 'speed_dating' else 'Quiz Night'} [{'/'.join(languages)}]"
+            is_sd = event_type == "speed_dating"
             if exists:
+                # The event row is there but its quiz may not be (e.g. a first
+                # run without a superuser). Repair that in place rather than
+                # telling the operator to re-run into a wall of skips.
+                event = MeetupEvent.objects.get(
+                    event_type=event_type,
+                    date_time=_local(YEAR, MONTH, day, 19),
+                )
+                self._seed_quiz_if_missing(
+                    event, pack, quiz_owner, dry_run, quizzes
+                )
                 skipped.append(label)
                 self.stdout.write(f"= {label}: already exists, skipped")
                 continue
 
-            is_sd = event_type == "speed_dating"
             event_kwargs = {
                 "event_type": event_type,
                 "title": (SD_TITLE if is_sd else QN_TITLE)["en"],
@@ -346,7 +384,9 @@ class Command(BaseCommand):
                 event_kwargs["max_participants_f"] = SD_GENDER_CAPS[1]
                 event_kwargs["max_participants_nb"] = SD_GENDER_CAPS[2]
             event_kwargs.update(address)
-            if banner_event is not None:
+            if banner_event is not None and banner_event.event_type == event_type:
+                # Same-type artwork only: a Speed Dating banner on a Quiz
+                # Night (or the reverse) misleads the public listing.
                 event_kwargs["image"] = banner_event.image.name
 
             if dry_run:
@@ -360,24 +400,9 @@ class Command(BaseCommand):
 
             with transaction.atomic():
                 event = MeetupEvent.objects.create(**event_kwargs)
-                if pack and quiz_owner is not None:
-                    quiz = QuizEvent.objects.create(
-                        event=event, created_by=quiz_owner
-                    )
-                    from crush_lu.management.commands.generate_crush_quiz import (
-                        populate_quiz,
-                    )
-
-                    result = populate_quiz(quiz, pack=pack)
-                    quizzes.append(
-                        (
-                            event,
-                            pack,
-                            result.rounds_created,
-                            result.questions_created,
-                            result.pending_uploads,
-                        )
-                    )
+                self._seed_quiz_if_missing(
+                    event, pack, quiz_owner, dry_run, quizzes
+                )
 
             suffix = ""
             if pack:
@@ -426,6 +451,44 @@ class Command(BaseCommand):
                 "Events are drafts. Fill the venue address + banner + coaches "
                 "in the admin, then publish (bulk action checks the echo.lu gate)."
             )
+
+    def _seed_quiz_if_missing(self, event, pack, quiz_owner, dry_run, quizzes):
+        """Create the QuizEvent + pack for a quiz night, if not already there.
+
+        Also backfills quizzes on re-runs over existing events (a first run
+        without a superuser creates the MeetupEvents but no quizzes), and
+        bootstraps the QN_TABLES physical tables the readiness check and the
+        live rotation need — mirroring create_quiz_night_event.
+        """
+        if not pack:
+            return
+        if dry_run:
+            return
+        if quiz_owner is None:
+            return
+        if QuizEvent.objects.filter(event=event).exists():
+            return
+        with transaction.atomic():
+            quiz = QuizEvent.objects.create(
+                event=event,
+                created_by=quiz_owner,
+                num_tables=QN_TABLES,
+            )
+            quiz.ensure_tables()
+            from crush_lu.management.commands.generate_crush_quiz import (
+                populate_quiz,
+            )
+
+            result = populate_quiz(quiz, pack=pack)
+        quizzes.append(
+            (
+                event,
+                pack,
+                result.rounds_created,
+                result.questions_created,
+                result.pending_uploads,
+            )
+        )
 
     def _quiz_owner(self, username):
         User = get_user_model()

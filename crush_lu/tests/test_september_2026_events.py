@@ -143,6 +143,15 @@ class QuizSeedingTest(TestCase):
             self.assertGreaterEqual(rounds, 5)
             self.assertGreaterEqual(questions, 30)
 
+    def test_quiz_tables_bootstrapped(self):
+        from crush_lu.models.quiz import QuizTable
+
+        for quiz in QuizEvent.objects.all():
+            self.assertEqual(quiz.num_tables, 6)
+            self.assertEqual(
+                QuizTable.objects.filter(quiz=quiz).count(), 6
+            )
+
     def test_consecutive_evenings_use_different_questions(self):
         def texts(day):
             quiz = QuizEvent.objects.get(event__date_time=_sep(day, 19))
@@ -254,6 +263,82 @@ class IdempotencyAndFlagsTest(TestCase):
             call_command(
                 "create_september_2026_events", "--banner-from", "99999"
             )
+
+    def test_premium_seats_above_capacity_rejected(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "create_september_2026_events", "--premium-seats", "15"
+            )
+
+    def test_publish_rejects_invalid_postcode(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "create_september_2026_events",
+                "--publish",
+                "--location", "ATMOS",
+                "--address-street", "place de la Gare",
+                "--address-postcode", "foo",
+                "--address-town", "Luxembourg",
+            )
+
+    def test_publish_rejects_missing_location(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "create_september_2026_events",
+                "--publish",
+                "--address-street", "place de la Gare",
+                "--address-postcode", "1616",
+                "--address-town", "Luxembourg",
+            )
+
+    def test_banner_only_applies_to_matching_event_type(self):
+        august_sd = MeetupEvent.objects.create(
+            title="August SD",
+            description="x",
+            event_type="speed_dating",
+            location="V",
+            address="a",
+            date_time=datetime(2026, 8, 19, 19, tzinfo=TZ),
+            duration_minutes=120,
+            registration_deadline=datetime(2026, 8, 19, 18, tzinfo=TZ),
+        )
+        # Set the banner path without an upload (the command only ever reads
+        # image.name and passes the string on — no storage round-trip).
+        MeetupEvent.objects.filter(pk=august_sd.pk).update(
+            image="events/banners/august-sd.png"
+        )
+        august_sd.refresh_from_db()
+        call_command(
+            "create_september_2026_events",
+            "--quiz-owner", "quiz-owner",
+            "--banner-from", str(august_sd.pk),
+        )
+        # Speed datings carry the reused banner, quiz nights do not.
+        for day in (2, 9, 16, 23):
+            sd = MeetupEvent.objects.get(date_time=_sep(day, 19))
+            self.assertEqual(sd.image, "events/banners/august-sd.png")
+        for day in (3, 10, 17, 24):
+            qn = MeetupEvent.objects.get(date_time=_sep(day, 19))
+            self.assertFalse(qn.image)
+
+
+class QuizBackfillOnRerunTest(TestCase):
+    """A first run without a superuser leaves quiz nights without quizzes;
+    the documented re-run with --quiz-owner repairs them."""
+
+    def test_rerun_with_owner_backfills_missing_quizzes(self):
+        call_command("create_september_2026_events")  # no superuser exists
+        self.assertEqual(MeetupEvent.objects.count(), 8)
+        self.assertEqual(QuizEvent.objects.count(), 0)
+
+        User.objects.create_superuser(
+            username="quiz-owner", email="q@example.com", password="x"
+        )
+        call_command("create_september_2026_events", "--quiz-owner", "quiz-owner")
+        self.assertEqual(MeetupEvent.objects.count(), 8)  # no duplicates
+        self.assertEqual(QuizEvent.objects.count(), 4)  # all backfilled
+        for quiz in QuizEvent.objects.all():
+            self.assertGreaterEqual(quiz.rounds.count(), 5)
 
 
 class NoSuperuserQuizSkippedTest(TestCase):
