@@ -238,7 +238,11 @@ class Order(models.Model):
     guest = models.ForeignKey(Guest, related_name="orders", on_delete=models.CASCADE)
     tab = models.ForeignKey(Tab, related_name="orders", on_delete=models.CASCADE)
     venue = models.ForeignKey(Venue, related_name="orders", on_delete=models.CASCADE)
-    short_code = models.CharField(max_length=8, db_index=True)
+    # 12, not 8: "T" + table.label[:3] + "-" + order_number formatted `:02d`
+    # (a *minimum* width, not a cap) needs room for order_number to grow
+    # past 3 digits over a venue's lifetime without truncating/erroring —
+    # 1 + 3 + 1 + up to 4 digits = 9 already exceeded the old max_length=8.
+    short_code = models.CharField(max_length=12, db_index=True)
     alias_snapshot = models.CharField(max_length=32)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="placed")
     note = models.TextField(blank=True, default="")

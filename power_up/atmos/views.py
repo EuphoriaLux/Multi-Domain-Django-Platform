@@ -27,7 +27,8 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core import signing
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -120,6 +121,20 @@ def _clamp_qty(raw, default=1) -> int:
     return max(1, min(MAX_ITEM_QTY, qty))
 
 
+def _resolve_menu_item(guest, item_id):
+    """Look up a MenuItem scoped to the guest's venue, the same way
+    `_create_order_atomic`'s `available` query does. Returns None for a
+    missing, unavailable, wrong-venue, *or malformed* id — a UUIDField
+    lookup raises ValidationError (not DoesNotExist) on a non-UUID string,
+    which `get_object_or_404` does not catch, so callers must go through
+    here rather than filtering on a raw POSTed id directly.
+    """
+    try:
+        return MenuItem.objects.get(pk=item_id, category__venue=guest.venue, is_available=True)
+    except (MenuItem.DoesNotExist, ValidationError, ValueError):
+        return None
+
+
 # ---------------------------------------------------------------- guest zone
 
 
@@ -183,17 +198,39 @@ def guest_join(request):
             # be ordered onto the new table under the new persona.
             request.session[CART_SESSION_KEY] = {}
 
-            guest = Guest.objects.create(tab=tab, venue=tab.venue, alias=alias, display_name=display_name)
-            response = redirect("atmos:guest_menu")
-            response.set_cookie(
-                GUEST_COOKIE,
-                signing.dumps(str(guest.id)),
-                max_age=GUEST_COOKIE_MAX_AGE,
-                httponly=True,
-                samesite="Lax",
-                secure=not settings.DEBUG,
-            )
-            return response
+            # `active` above is a snapshot read once at the top of this POST
+            # — two concurrent joins can both pass the in-memory checks
+            # above with the same alias. `uniq_active_alias_per_venue` is
+            # the real backstop for that, and violating it raises
+            # IntegrityError, not something `.create()` callers normally
+            # expect. Retry a bounded number of times against a *fresh* DB
+            # read instead of letting a genuine collision 500. Each attempt
+            # gets its own savepoint so a failed one can't poison a wider
+            # transaction if this view is ever called from inside one.
+            guest = None
+            for _attempt in range(3):
+                try:
+                    with transaction.atomic():
+                        guest = Guest.objects.create(
+                            tab=tab, venue=tab.venue, alias=alias, display_name=display_name
+                        )
+                    break
+                except IntegrityError:
+                    alias = random_persona(exclude=_active_aliases(tab.venue))
+
+            if guest is None:
+                error = "This table's crowded with ghosts — try again."
+            else:
+                response = redirect("atmos:guest_menu")
+                response.set_cookie(
+                    GUEST_COOKIE,
+                    signing.dumps(str(guest.id)),
+                    max_age=GUEST_COOKIE_MAX_AGE,
+                    httponly=True,
+                    samesite="Lax",
+                    secure=not settings.DEBUG,
+                )
+                return response
 
     rolled_alias = random_persona(exclude=_active_aliases(tab.venue))
     return render(request, "atmos/join.html", {"tab": tab, "rolled_alias": rolled_alias, "error": error})
@@ -216,9 +253,9 @@ def cart_add(request):
     guest = _get_guest(request)
     if not guest or request.method != "POST":
         return render(request, "atmos/no_session.html")
-    item = get_object_or_404(
-        MenuItem, pk=request.POST.get("item_id"), category__venue=guest.venue, is_available=True
-    )
+    item = _resolve_menu_item(guest, request.POST.get("item_id"))
+    if item is None:
+        raise Http404("Menu item not found.")
     qty = _clamp_qty(request.POST.get("quantity", 1))
     cart = request.session.get(CART_SESSION_KEY, {})
     # Clamp the running total too, not just this add — repeated adds must
@@ -239,8 +276,16 @@ def cart_update(request):
         qty = 0
     cart = request.session.get(CART_SESSION_KEY, {})
     if qty <= 0:
+        # A pop needs no validation — it can't crash and can't smuggle
+        # anything in, unlike the qty > 0 branch below.
         cart.pop(item_id, None)
     else:
+        # Unlike cart_add, this id didn't come from a rendered menu button —
+        # validate it the same way, or a forged id (garbage, or a real
+        # MenuItem from a *different* venue) lands straight in the session
+        # cart and crashes or leaks through the next `pk__in` lookup.
+        if _resolve_menu_item(guest, item_id) is None:
+            return redirect("atmos:cart_detail")
         cart[item_id] = min(MAX_ITEM_QTY, qty)
     request.session[CART_SESSION_KEY] = cart
     return redirect("atmos:cart_detail")
@@ -252,7 +297,15 @@ def cart_detail(request):
         return render(request, "atmos/no_session.html")
     cart = request.session.get(CART_SESSION_KEY, {})
     lines, total = [], Decimal("0.00")
-    for item in MenuItem.objects.filter(pk__in=cart.keys()):
+    # Same venue + availability scoping _create_order_atomic's `available`
+    # query uses — without it, a total(s) can promise more than order_place
+    # will actually charge (e.g. staff 86's an item while the guest is
+    # sitting on this page), with no warning shown before the guest taps
+    # "Send Round to Bar".
+    items = MenuItem.objects.filter(
+        pk__in=cart.keys(), category__venue=guest.venue, is_available=True
+    )
+    for item in items:
         qty = cart.get(str(item.id), 0)
         if qty <= 0:
             continue
