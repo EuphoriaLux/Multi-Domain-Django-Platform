@@ -41,7 +41,10 @@ from crush_lu.notification_service import (
     notify_profile_rejected,
     notify_profile_revision,
 )
-from crush_lu.admin.credits import issue_goodwill_credit
+from crush_lu.admin.credits import (
+    GoodwillCreditPermissionMixin,
+    issue_goodwill_credit,
+)
 from .filters import (
     ReviewTimeFilter,
     SubmissionWorkflowFilter,
@@ -390,7 +393,7 @@ class CrushProfileAdminForm(forms.ModelForm):
         return cleaned
 
 
-class CrushProfileAdmin(admin.ModelAdmin):
+class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
     form = CrushProfileAdminForm
     # Kept to the 10 highest-signal columns so the changelist stays fast and
     # scannable. Everything removed is still one click away: location via
