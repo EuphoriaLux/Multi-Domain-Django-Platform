@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from channels.db import database_sync_to_async
@@ -5,10 +6,9 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.db.models import Sum
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
-
-
 from crush_lu.models.quiz import parse_choices as _parse_choices
+
+logger = logging.getLogger(__name__)
 
 _QUIZ_LANGUAGES = ("en", "de", "fr")
 
@@ -87,13 +87,28 @@ def _build_round_data(round_obj):
 class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
     """Base WebSocket consumer with defensive channel group discard."""
 
-    async def _safe_group_discard(self, group_name: str | None) -> None:
-        """Discard group membership safely without crashing disconnect on Redis hiccup."""
+    DISCARD_TIMEOUT_SECONDS: float = 2.0
+
+    async def _safe_group_discard(
+        self, group_name: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+    ) -> None:
+        """Discard group membership safely without crashing disconnect on Redis hiccup.
+
+        Bounds cleanup with a short timeout and halts subsequent discards on the
+        same consumer instance if Redis is unresponsive, preventing chained teardown
+        delays from exceeding ASGI server cancellation thresholds.
+        """
         if not group_name or not getattr(self, "channel_layer", None):
             return
+        if getattr(self, "_channel_layer_unresponsive", False):
+            return
         try:
-            await self.channel_layer.group_discard(group_name, self.channel_name)
+            await asyncio.wait_for(
+                self.channel_layer.group_discard(group_name, self.channel_name),
+                timeout=timeout,
+            )
         except Exception as exc:
+            self._channel_layer_unresponsive = True
             logger.warning(
                 "Failed to discard group %s for channel %s during teardown: %s",
                 group_name,

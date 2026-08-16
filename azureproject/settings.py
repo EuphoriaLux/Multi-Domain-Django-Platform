@@ -272,7 +272,7 @@ CHANNEL_LAYER_HEALTH_CHECK_INTERVAL = 15
 
 def channel_layer_hosts(url):
     """Channel-layer host config with a read timeout that outlives BRPOP and
-    connection resilience settings (keepalive, health-check ping, retries).
+    connection resilience settings (keepalive, health-check ping).
 
     Scoped to the channel layer on purpose: CACHES shares this Redis URL, and
     raising the timeout there too would slow how fast a wedged Redis surfaces
@@ -281,16 +281,18 @@ def channel_layer_hosts(url):
 
     Resilience settings:
     - socket_timeout: outlives channels-redis BRPOP (5s).
-    - socket_connect_timeout: bounds connection establishment.
-    - health_check_interval: proactively pings idle pooled connections to discard
+    - socket_connect_timeout: bounds connection establishment (5s).
+    - health_check_interval: proactively pings idle pooled connections (15s) to discard
       dead/reset sockets before executing commands.
     - socket_keepalive: sends TCP keepalives to prevent Azure idle drops.
-    - retry / retry_on_error: automatically retries transient connection resets.
-    """
-    import redis.exceptions
-    from redis.asyncio.retry import Retry
-    from redis.backoff import ExponentialBackoff
 
+    Note: Connection-level command retries (e.g. `retry` / `retry_on_timeout`)
+    are deliberately omitted here. `channels-redis` receives messages using
+    destructive operations (`BZPOPMIN`/`BRPOP`). Retrying at the client connection
+    level after a network reset during a receive could rerun the pop on a message
+    already consumed, causing silent message loss instead of cleanly surfacing
+    the connection failure and reconnecting.
+    """
     return [
         {
             "address": url,
@@ -298,13 +300,6 @@ def channel_layer_hosts(url):
             "socket_connect_timeout": CHANNEL_LAYER_SOCKET_CONNECT_TIMEOUT,
             "health_check_interval": CHANNEL_LAYER_HEALTH_CHECK_INTERVAL,
             "socket_keepalive": True,
-            "retry_on_timeout": True,
-            "retry_on_error": [
-                redis.exceptions.ConnectionError,
-                redis.exceptions.TimeoutError,
-                ConnectionResetError,
-            ],
-            "retry": Retry(ExponentialBackoff(cap=2, base=0.1), 3),
         }
     ]
 
