@@ -544,6 +544,19 @@ def event_checkin_api(request, registration_id, token):
         registration.event_id,
     )
 
+    # Same fresh read the coach endpoints take before broadcasting: the
+    # instance above was locked inside the check-in transaction, and an
+    # overlapping door action committed since (a second scanner, an undo)
+    # would otherwise ride along as stale state on the payload every screen
+    # converges its row on.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration.id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
+
     response_data = {
         "success": True,
         "already_checked_in": False,

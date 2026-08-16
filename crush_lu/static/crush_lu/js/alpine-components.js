@@ -842,9 +842,9 @@ document.addEventListener("alpine:init", function () {
                         // Appended, so an undone promotion returns the member
                         // to the end of the waitlist rather than the position
                         // they signed up in. Restoring the true FIFO slot
-                        // needs registered_at on the rendered rows — the
-                        // payload now carries it, but neither this builder nor
-                        // the server template writes the attribute yet.
+                        // needs registered_at both in the row payload and as
+                        // an attribute on the rendered rows (this builder and
+                        // the server template) — none of the three carry it.
                         this._waitlistList().appendChild(
                             this._buildWaitlistRow(row, mainPhoto),
                         );
