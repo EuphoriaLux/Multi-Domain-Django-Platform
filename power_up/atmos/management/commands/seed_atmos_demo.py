@@ -11,9 +11,24 @@ from __future__ import annotations
 import secrets
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 
-from power_up.atmos.models import MenuCategory, MenuItem, Table, Venue
+from power_up.atmos.models import (
+    Guest,
+    MenuCategory,
+    MenuItem,
+    Order,
+    OrderItem,
+    Table,
+    Tab,
+    Venue,
+)
+
+# Every Atmos model the seeded account should be able to administer —
+# nothing outside this app. Used to scope permissions below.
+_ATMOS_MODELS = [Venue, Table, MenuCategory, MenuItem, Tab, Guest, Order, OrderItem]
 
 ## (name, price, description, contains_alcohol)
 MENU = {
@@ -70,28 +85,45 @@ class Command(BaseCommand):
                 )
 
         User = get_user_model()
-        if not User.objects.filter(is_staff=True).exists():
+        # Checking for *any* is_staff user (the original guard) is wrong on
+        # this platform: test.power-up.lu is a shared multi-domain DB, so
+        # crush_lu/crm/other apps' staff accounts already exist there long
+        # before Atmos ever runs — that guard would see them and silently
+        # skip creating atmos_staff altogether. Check for this specific
+        # account instead.
+        if not User.objects.filter(username="atmos_staff").exists():
             # A fixed password here would be a fixed, public credential —
             # this repo, and this command's own output, are both visible to
-            # anyone. On staging (test.power-up.lu) that's a real superuser
+            # anyone. On staging (test.power-up.lu) that's a real account
             # with a guessable password reachable over the network, not a
             # local-only convenience. Generated fresh per run and printed
             # once; if it scrolls off, reset it with `changepassword` or
             # Django admin rather than re-running this (the `if not exists`
             # guard means a second run won't print it again).
             password = secrets.token_urlsafe(12)
-            User.objects.create_user(
+            # Deliberately NOT is_superuser: this login is bar/KDS staff on
+            # a shared multi-domain platform. A superuser credential handed
+            # to bar staff (or leaked from a table-side device) would reach
+            # every other app's customer, CRM, and operational data, not
+            # just Atmos. is_staff is enough for @staff_member_required
+            # (the KDS's only gate); explicit Atmos-model permissions are
+            # enough for admin CRUD on power_up_admin_site.
+            staff_user = User.objects.create_user(
                 username="atmos_staff",
                 email="atmos-staff@example.com",
                 password=password,
                 is_staff=True,
-                is_superuser=True,
             )
+            permissions = Permission.objects.filter(
+                content_type__in=ContentType.objects.get_for_models(*_ATMOS_MODELS).values(),
+                codename__regex=r"^(add|change|delete|view)_",
+            )
+            staff_user.user_permissions.add(*permissions)
             self.stdout.write(self.style.WARNING(
                 f"Created staff login: atmos_staff / {password}  (save this — shown once)"
             ))
         else:
-            self.stdout.write("A staff user already exists — not creating another.")
+            self.stdout.write("atmos_staff already exists — not recreating.")
 
         self.stdout.write(self.style.SUCCESS("Atmos demo data ready."))
         for table in venue.tables.all():

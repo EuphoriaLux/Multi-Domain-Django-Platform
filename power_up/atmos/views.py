@@ -59,10 +59,15 @@ _CHRONICLES: dict[str, Chronicle] = {}
 
 
 def _chronicle_for(venue: Venue) -> Chronicle:
-    chronicle = _CHRONICLES.get(str(venue.id))
+    # Keyed by (venue, local date), not just venue: this dict is process-
+    # global and never explicitly cleared, so a worker that survives past
+    # midnight would otherwise hand the first orders of a new service night
+    # a chronicle still full of last night's personas and events.
+    key = f"{venue.id}:{timezone.localdate().isoformat()}"
+    chronicle = _CHRONICLES.get(key)
     if chronicle is None:
         chronicle = Chronicle(venue.name, max_events=12)
-        _CHRONICLES[str(venue.id)] = chronicle
+        _CHRONICLES[key] = chronicle
     return chronicle
 
 
@@ -330,11 +335,37 @@ def _cart_lines(guest, cart):
     return lines, total
 
 
+def _prune_orphaned_cart_keys(request, guest, cart):
+    """`_cart_lines` shows a stale-but-still-real MenuItem as a removable
+    "unavailable" line — but a key can also be *orphaned*: the row was
+    deleted outright, or its category moved to a different venue. Neither
+    case resolves to anything under this venue at all, so there's nothing
+    to render or let the guest act on, and `_create_order_atomic` would
+    keep rejecting placement over it forever. Cross-venue ids must stay
+    invisible (never reveal another venue's item), so silently dropping the
+    key is the only safe option, not surfacing it.
+    """
+    if not cart:
+        return cart
+    real_ids = {
+        str(i)
+        for i in MenuItem.objects.filter(pk__in=cart.keys(), category__venue=guest.venue).values_list(
+            "id", flat=True
+        )
+    }
+    orphaned = [item_id for item_id in cart if item_id not in real_ids]
+    if orphaned:
+        for item_id in orphaned:
+            cart.pop(item_id, None)
+        request.session[CART_SESSION_KEY] = cart
+    return cart
+
+
 def cart_detail(request):
     guest = _get_guest(request)
     if not guest:
         return render(request, "atmos/no_session.html")
-    cart = request.session.get(CART_SESSION_KEY, {})
+    cart = _prune_orphaned_cart_keys(request, guest, request.session.get(CART_SESSION_KEY, {}))
     lines, total = _cart_lines(guest, cart)
     return render(request, "atmos/cart.html", {"guest": guest, "lines": lines, "total": total})
 
@@ -369,7 +400,7 @@ def _create_order_atomic(request, guest, expected_total=None):
     if not tab_is_open:
         return "tab_closed"
 
-    cart = request.session.get(CART_SESSION_KEY, {})
+    cart = _prune_orphaned_cart_keys(request, guest, request.session.get(CART_SESSION_KEY, {}))
     available = {
         str(i.id): i
         for i in MenuItem.objects.select_for_update().filter(
@@ -405,12 +436,15 @@ def _create_order_atomic(request, guest, expected_total=None):
     if expected_total is None or total != expected_total:
         return "price_changed", expected_total, total
 
-    # `short_code` has no uniqueness constraint, and this count-then-use
-    # sequence isn't atomic on its own — two concurrent placements at the
-    # same venue could previously read the same count before either
-    # committed and produce duplicate delivery codes. The venue lock above
-    # now serializes this too.
-    order_number = Order.objects.filter(venue=venue).count() + 1
+    # `short_code` has no uniqueness constraint. A `count()`-derived number
+    # used to work here (the venue lock above serializes it against other
+    # concurrent placements), but it isn't monotonic: OrderAdmin permits
+    # deleting orders, and a deletion moves the count backwards, so a later
+    # order can reissue an already-used code. `next_order_number` only ever
+    # increments, under the same lock, so deletions can't cause a collision.
+    order_number = venue.next_order_number
+    venue.next_order_number += 1
+    venue.save(update_fields=["next_order_number"])
     short_code = f"T{guest.tab.table.label.upper()[:3]}-{order_number:02d}"
 
     order = Order.objects.create(
@@ -427,6 +461,7 @@ def _create_order_atomic(request, guest, expected_total=None):
             menu_item=item,
             name_snapshot=item.name,
             unit_price_snapshot=item.price,
+            contains_alcohol_snapshot=item.contains_alcohol,
             quantity=qty,
         )
 
@@ -485,7 +520,13 @@ def order_place(request):
     event = ChronicleEvent(
         at=timezone.localtime(order.placed_at),
         table_label=guest.tab.table.label,
-        persona=order.alias_snapshot,
+        # `guest.alias` (the noir persona), not `order.alias_snapshot` — the
+        # snapshot can be a guest-typed personal name, and this event both
+        # joins the venue-wide chronicle (so a *different* guest's fallback
+        # vignette can reference it later) and, when a model provider is
+        # configured, leaves the prompt/completion at that external
+        # provider. Neither destination should ever see a personal name.
+        persona=guest.alias,
         drinks=tuple(DrinkLine(item.name, qty) for item, qty in lines),
         ticket_code=order.short_code,
     )

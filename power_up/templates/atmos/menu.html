@@ -22,6 +22,7 @@
             {% if item.contains_alcohol %}<span class="tag-badge-ghost" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px;">18+</span>{% endif %}
           </div>
           {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
+          {% if item.allergens %}<div class="item-desc" style="color: var(--muted);">⚠️ Contains: {{ item.allergens }}</div>{% endif %}
         </div>
         <form method="post" action="{% url 'atmos:cart_add' %}" class="qty-form">
           {% csrf_token %}

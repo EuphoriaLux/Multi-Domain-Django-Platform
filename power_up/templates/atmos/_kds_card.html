@@ -53,6 +53,21 @@
   </form>
   {% endif %}
 
+  {% if order.status == "placed" or order.status == "accepted" or order.status == "preparing" %}
+  <!-- Order.transition_to() supports cancelled from every active status
+       (spec §4.10) but nothing in this UI could reach it before — the
+       admin's status field is readonly (on purpose, see admin.py), so a
+       mistaken or impossible order had no application path to cancel
+       through, only shell/crafted-request access. -->
+  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}" style="margin-top: 0.4rem;">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="cancelled">
+    <button class="btn btn-ghost btn-small" type="submit" style="padding: 0.45rem 0.8rem; font-size: 0.78rem; color: #fca5a5;">
+      ✕ Cancel Order
+    </button>
+  </form>
+  {% endif %}
+
   {% if order.vignette %}
   <div class="kds-vignette">
     <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">

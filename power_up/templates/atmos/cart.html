@@ -28,6 +28,7 @@
   <div class="item-row">
     <div class="item-info">
       <div class="item-name">{{ line.item.name }}</div>
+      {% if line.item.allergens %}<div class="muted" style="font-size: 0.78rem;">⚠️ Contains: {{ line.item.allergens }}</div>{% endif %}
       {% if not line.is_orderable %}
       <div style="color: #fca5a5; font-size: 0.8rem; margin-top: 0.25rem;">Unavailable — set quantity to 0 to remove</div>
       {% endif %}
@@ -50,7 +51,7 @@
 </div>
 
 <div style="background: rgba(212, 175, 55, 0.06); border: 1px solid var(--line-gold); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.45;">
-  🍸 <strong>Pay on delivery:</strong> Drinks will be mixed and printed at the bar immediately. Pay your server when served or settle the table tab at the counter.
+  🍸 <strong>Pay on delivery:</strong> Your round goes straight to the bar's screen and the team starts mixing right away. Pay your server when served or settle the table tab at the counter.
 </div>
 
 <form method="post" action="{% url 'atmos:order_place' %}">

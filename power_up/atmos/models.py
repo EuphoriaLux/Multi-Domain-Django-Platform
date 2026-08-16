@@ -55,6 +55,13 @@ class Venue(models.Model):
     guest_window_minutes = models.PositiveSmallIntegerField(
         default=120, help_text="Reserved for the window mechanic (not yet enforced)."
     )
+    # `Order.objects.filter(venue=venue).count() + 1` used to derive the
+    # next order_number — but OrderAdmin allows deleting orders, and a
+    # deleted row moves the count backwards, so a later order can reuse an
+    # already-issued short_code. A monotonic counter, incremented under the
+    # same venue-row lock _create_order_atomic already holds, can't go
+    # backwards regardless of what gets deleted afterward.
+    next_order_number = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -206,6 +213,15 @@ class Guest(models.Model):
     def __str__(self) -> str:
         return self.display
 
+    def save(self, *args, **kwargs):
+        # Same reasoning as Tab.save() above: GuestAdmin exposes `tab` and
+        # this denormalised `venue` as independent fields with no
+        # cross-check, so a guest at venue-A's tab with venue set to B would
+        # get a cookie serving B's menu while its orders (and KDS delivery)
+        # stay tied to A's tab. Always derive it.
+        self.venue_id = self.tab.venue_id
+        super().save(*args, **kwargs)
+
     @property
     def display(self) -> str:
         """What staff see and shout — spec §3.7."""
@@ -267,9 +283,12 @@ class Order(models.Model):
     @property
     def contains_alcohol(self) -> bool:
         """Spec §8.5: flag alcohol-containing orders so staff check at
-        delivery. Callers should `.prefetch_related("items__menu_item")`
+        delivery. Reads each OrderItem's own snapshot, not the live
+        MenuItem — staff editing or repurposing a menu item after an order
+        is placed must not silently add or clear the warning on an order
+        already in flight. Callers should `.prefetch_related("items")`
         first — this still works without it, just at N+1 query cost."""
-        return any(i.menu_item.contains_alcohol for i in self.items.all())
+        return any(i.contains_alcohol_snapshot for i in self.items.all())
 
     def transition_to(self, new_status: str) -> None:
         allowed = self._TRANSITIONS.get(self.status, set())
@@ -290,6 +309,9 @@ class OrderItem(models.Model):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.PROTECT)
     name_snapshot = models.CharField(max_length=160)
     unit_price_snapshot = models.DecimalField(max_digits=7, decimal_places=2)
+    # Snapshotted at placement time — see Order.contains_alcohol's docstring
+    # for why this can't just read menu_item.contains_alcohol live.
+    contains_alcohol_snapshot = models.BooleanField(default=False)
     quantity = models.PositiveSmallIntegerField(default=1)
     note = models.CharField(max_length=160, blank=True, default="")
     line_total = models.DecimalField(max_digits=9, decimal_places=2)

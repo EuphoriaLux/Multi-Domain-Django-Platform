@@ -15,6 +15,8 @@
 <p class="tag" style="margin-bottom: 1.5rem;">
   {% if order.status == "served" %}
     Your drinks have been delivered to your table. Cheers!
+  {% elif order.status == "cancelled" %}
+    This order was cancelled — no drinks are on their way. Head back to the menu to start a new round.
   {% elif order.status == "preparing" %}
     The barkeeper is currently crafting your round.
   {% elif order.status == "accepted" %}
@@ -24,6 +26,15 @@
   {% endif %}
 </p>
 
+{% if order.status == "cancelled" %}
+<!-- Cancelled is a terminal state outside the normal 4-stage flow — showing
+     the stepper here would leave every step looking un-started, implying
+     the order never began rather than that it was stopped. -->
+<div class="card" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; text-align: center;">
+  <div style="font-size: 1.5rem; margin-bottom: 0.35rem;">✕</div>
+  <div style="font-weight: 700; color: #fca5a5;">Order Cancelled</div>
+</div>
+{% else %}
 <!-- 4-Stage Progress Stepper -->
 <div class="progress-stepper">
   <div class="step-node {% if order.status == 'placed' %}active{% elif order.status == 'accepted' or order.status == 'preparing' or order.status == 'served' %}complete{% endif %}">
@@ -43,6 +54,7 @@
     <div class="step-label">Served</div>
   </div>
 </div>
+{% endif %}
 
 <!-- Speakeasy Event Experience Mission Card -->
 {% if mission %}
