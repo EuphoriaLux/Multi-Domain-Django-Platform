@@ -399,3 +399,28 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
 
         report = self._report(date(2026, 5, 1), date(2026, 6, 1))
         self.assertEqual(report["event_activity"]["paid_registrations"], 1)
+
+    def test_unparseable_orphan_is_counted_and_reported(self):
+        """An orphan we cannot attribute is counted alone AND logged.
+
+        `transaction_reference` defaults to a bare uuid4, so a row created
+        without an explicit reference cannot be tied back to its seat once the
+        registration is deleted. Counting it alone is the safe direction — it
+        never merges two members — but two such captures of one re-booked seat
+        would inflate the event, so the case has to be visible rather than
+        drifting quietly.
+        """
+        event = self._event(date(2026, 5, 14))
+        registration = EventRegistration.objects.create(
+            event=event, user=self.member, status="confirmed",
+            payment_confirmed=True, payment_date=timezone.now(),
+        )
+        self._tx(registration, reference="legacy-bare-uuid-reference")
+        with self.assertLogs(
+            "crush_lu.management.commands.business_plan_metrics", level="WARNING"
+        ) as logs:
+            registration.delete()
+            report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+
+        self.assertEqual(report["event_activity"]["paid_registrations"], 1)
+        assert any("could not be attributed" in line for line in logs.output)

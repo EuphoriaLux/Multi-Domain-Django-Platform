@@ -8,6 +8,7 @@ Supports --since / --until date filters and --monthly breakdown.
 """
 
 import json
+import logging
 import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -25,6 +26,9 @@ from crush_lu.models.journey import JourneyProgress, ChapterProgress
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CallAttempt, CrushCoach, UserActivity, PWADeviceInstallation
 from crush_lu.models.referrals import ReferralAttribution, ReferralCode
+
+
+logger = logging.getLogger(__name__)
 
 
 def _add_months(d, months):
@@ -97,14 +101,35 @@ def _paid_seat_counts_by_event(events):
     ).values_list("event_id", "event_registration_id", "transaction_reference", "pk")
 
     seats = defaultdict(set)
+    unattributable = []
     for event_id, registration_id, reference, pk in rows.iterator(chunk_size=2000):
         if registration_id is None:
             registration_id = _registration_id_from_reference(reference)
         if registration_id is not None:
             identity = ("registration", registration_id)
         else:
+            # Orphaned AND unparseable: nothing ties this capture to its seat.
+            # `transaction_reference` defaults to a bare uuid4, so a row created
+            # without an explicit reference — no current event-payment path does
+            # that, but history is not bound by current paths — lands here. Two
+            # such captures of ONE re-booked seat would count as two.
             identity = ("transaction", pk)
+            unattributable.append((pk, reference))
         seats[event_id].add(identity)
+
+    if unattributable:
+        # Say so rather than letting the figure drift quietly: this is the
+        # "report changes when nobody touched anything relevant" failure the
+        # transaction-row rewrite exists to end, and it would otherwise only
+        # appear once the account was already gone.
+        logger.warning(
+            "business_plan_metrics: %s paid capture(s) could not be attributed "
+            "to a registration and were counted individually; a re-booked seat "
+            "among them inflates its event's paid count. References: %s",
+            len(unattributable),
+            ", ".join(f"{pk}:{ref!r}" for pk, ref in unattributable[:20]),
+        )
+
     return {event_id: len(found) for event_id, found in seats.items()}
 
 
