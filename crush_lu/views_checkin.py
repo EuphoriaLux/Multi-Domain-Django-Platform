@@ -947,9 +947,11 @@ def coach_undo_checkin(request, event_id, registration_id):
         )
 
     # Lock the registration so an undo cannot race another coach scanning or
-    # editing the same attendee at the door. `crushprofile` is not locked here
-    # (that would risk cross-table deadlocks with async auth callbacks); it is
-    # checked under the registration lock using provenance timestamps.
+    # editing the same attendee at the door, then the profile, so the
+    # verification decision below is serialised against a concurrent door
+    # rejection or LuxID callback. The order is registration → crushprofile and
+    # must stay that way: every other writer that takes both takes them in this
+    # order, and reversing it here is how a door deadlock gets built.
     with transaction.atomic():
         try:
             registration = (
@@ -1038,18 +1040,30 @@ def coach_undo_checkin(request, event_id, registration_id):
                 photo_verified_at=None,
             )
 
-        # Revoke auto-verification if this check-in provided verification proof,
-        # unless independent current proof (e.g. connected LuxID or another coach-authenticated attended event) supersedes it.
+        # Revoke auto-verification only when this check-in is what carries the
+        # member's verification, unless independent current proof (a connected
+        # LuxID, or another coach-authenticated attended event) supersedes it.
+        #
+        # `checkin_auto_verified` is that fact and the only one: a coach grant is
+        # revoked above, a photo attestation is revoked directly above that, and
+        # neither is evidence this scan verified the *member*. A coach who used
+        # the Verify button before the scan (`coach_mark_verified`) leaves an
+        # attested photo on the row while the later scan sets no
+        # `checkin_auto_verified` — that independent decision must survive
+        # undoing the scan. The transfer branch below keeps the flag set on a
+        # surviving coach-authenticated registration, so a chain of undos still
+        # ends in a demotion.
         if (
             profile is not None
+            and registration.checkin_auto_verified
             and profile.verification_status == "verified"
             and profile.verification_method == "coach_event"
-            and (
-                registration.checkin_auto_verified
-                or registration.checkin_granted_coach_id is not None
-                or bool(registration.checkin_attested_photo_key)
-            )
         ):
+            # The grant cleared above is gone from the database but still set on
+            # this in-memory `profile` (the clear was a raw UPDATE). Read it back
+            # as absent rather than counting the coach we just revoked as
+            # ongoing evidence of coach-authenticated attendance.
+            surviving_coach_id = None if coach_cleared else profile.assigned_coach_id
             other_coach_attendances = (
                 EventRegistration.objects.filter(
                     user_id=profile.user_id,
@@ -1059,14 +1073,20 @@ def coach_undo_checkin(request, event_id, registration_id):
                     Q(checkin_granted_coach_id__isnull=False)
                     | ~Q(checkin_attested_photo_key="")
                     | (
-                        Q(event__coaches=profile.assigned_coach)
-                        if profile.assigned_coach_id
+                        Q(event__coaches=surviving_coach_id)
+                        if surviving_coach_id
                         else Q()
                     )
                 )
                 .exclude(pk=registration.pk)
             )
-            has_other_coach_attendance = other_coach_attendances.exists()
+            # Materialise once. `.exists()` does not populate the result cache,
+            # so branching on it and then re-filtering the same queryset would
+            # issue the whole three-way OR (including the coaches m2m join)
+            # twice on the door's undo path.
+            surviving_pks = list(
+                other_coach_attendances.values_list("pk", flat=True).distinct()
+            )
             if profile.has_luxid_connected:
                 CrushProfile.objects.filter(
                     pk=profile.pk,
@@ -1075,11 +1095,12 @@ def coach_undo_checkin(request, event_id, registration_id):
                 ).update(
                     verification_method="luxid",
                 )
-            elif has_other_coach_attendance:
+            elif surviving_pks:
                 # Transfer provenance to surviving coach-authenticated check-in so subsequent undos still know it verified the member
-                other_coach_attendances.filter(checkin_auto_verified=False).update(
-                    checkin_auto_verified=True
-                )
+                EventRegistration.objects.filter(
+                    pk__in=surviving_pks,
+                    checkin_auto_verified=False,
+                ).update(checkin_auto_verified=True)
             else:
                 demoted = transition_unverified_profile(
                     profile,
@@ -1092,7 +1113,12 @@ def coach_undo_checkin(request, event_id, registration_id):
 
                         revoke_profile_approved_reward(profile)
                     except Exception:
-                        logger.warning(
+                        # Broad on purpose: the coach is correcting a mis-scan at
+                        # the door and the undo itself must still commit — raising
+                        # here would roll the whole correction back. `exception`
+                        # rather than `warning` so the traceback survives for the
+                        # manual reconciliation this leaves behind.
+                        logger.exception(
                             "Could not revoke referral reward on checkin undo for %s",
                             profile.pk,
                         )

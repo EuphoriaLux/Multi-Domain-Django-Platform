@@ -638,6 +638,57 @@ def test_reprocess_photos_does_not_resurrect_concurrent_revocation(event, coach)
     assert profile.photo_verification_key == ""
     assert profile.photo_verified_at is None
 
+    # The registration's provenance must not be repointed at the new key
+    # either. A `checkin_attested_photo_key` matching the member's current
+    # photo reads as coach attendance in `coach_undo_checkin`, so resurrecting
+    # a revoked attestation there would preserve a verification it never earned.
+    reg.refresh_from_db()
+    assert reg.checkin_attested_photo_key != profile.photo_1.name
+
+
+def test_undo_checkin_preserves_a_verification_the_coach_made_before_the_scan(
+    event, coach, client
+):
+    """The manual Verify button outlives an undo of a later scan.
+
+    `coach_mark_verified` on a still-confirmed seat verifies the member and
+    attests their photo. The scan that follows finds them already verified, so
+    it records no `checkin_auto_verified` — it only re-attests the photo. Undoing
+    that scan must revoke what the scan did and nothing more: demoting the member
+    to `pending` would strip Connect access a coach granted independently.
+    """
+    from django.urls import reverse
+
+    profile, reg = _attendee(event, "manualthenscan")
+
+    client.force_login(coach.user)
+    assert client.post(f"/api/events/{event.id}/verify/{reg.id}/").status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    reg.refresh_from_db()
+    # The scan attested the photo but claimed no member-level verification.
+    assert reg.checkin_attested_photo_key
+    assert reg.checkin_auto_verified is False
+
+    resp = client.post(
+        reverse(
+            "coach_undo_checkin",
+            kwargs={"event_id": event.pk, "registration_id": reg.pk},
+        )
+    )
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    # The scan's own photo attestation is still revoked — that part was this
+    # check-in's, and the badge asserts a coach saw the photo at this door.
+    assert profile.is_photo_verified is False
+
 
 def test_manual_coach_mark_verified_attests_photo_on_rejected_profile(
     event, coach, client

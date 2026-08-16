@@ -70,6 +70,16 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
     This is shared by new-pool selection and persisted-Drop rendering. A Drop
     is an immutable audit snapshot, but it must not keep exposing a member who
     has since unlinked LuxID or had their only attendance check-in undone.
+
+    The attendance arm deliberately requires **coach-authenticated** attendance
+    — a door grant, or an event whose coaches include the member's assigned
+    coach — and not merely ``status="attended"``. Connect's identity gate is a
+    claim that somebody looked at this person, and a bare ``attended`` row can
+    be written by a self-scan (the attendee holds their own QR code), which
+    attests nothing. This mirrors ``CrushProfile.has_attended_event``, which
+    applies the same coach-provenance requirement. The narrowing excludes an
+    admin/legacy-verified member whose only attendance was self-scanned; see
+    ``test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate``.
     """
     from crush_lu.models import CrushProfile, EventRegistration
 

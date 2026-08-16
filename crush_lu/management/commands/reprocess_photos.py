@@ -150,27 +150,25 @@ class Command(BaseCommand):
             # CrushProfile.save validates that the old key was still verified
             # in the database, preventing resurrection of concurrent revocations.
             update_fields = [field_name]
-            with transaction.atomic():
-                if (
-                    isinstance(obj, CrushProfile)
-                    and field_name == "photo_1"
-                    and old_blob_name
-                    and obj.photo_verification_key == old_blob_name
-                    and obj.photo_verified_at is not None
-                ):
-                    obj.photo_verification_key = field.name
-                    update_fields.extend(
-                        ["photo_verification_key", "photo_verified_at"]
+            carries_attestation = (
+                isinstance(obj, CrushProfile)
+                and field_name == "photo_1"
+                and old_blob_name
+                and obj.photo_verification_key == old_blob_name
+                and obj.photo_verified_at is not None
+            )
+            if carries_attestation:
+                obj.photo_verification_key = field.name
+                update_fields.extend(["photo_verification_key", "photo_verified_at"])
+                # Only the carry-forward needs the save and the provenance
+                # repoint to land together; a plain reprocess (the overwhelming
+                # majority of a backfill) must not pay a BEGIN/COMMIT per photo.
+                with transaction.atomic():
+                    obj.save(update_fields=update_fields)
+                    self._carry_forward_registration_attestation(
+                        obj, old_blob_name, field.name
                     )
-                    from crush_lu.models import EventRegistration
-
-                    EventRegistration.objects.filter(
-                        user_id=obj.user_id,
-                        checkin_attested_photo_key=old_blob_name,
-                    ).update(
-                        checkin_attested_photo_key=field.name,
-                    )
-
+            else:
                 obj.save(update_fields=update_fields)
 
             self.stdout.write(
@@ -199,6 +197,32 @@ class Command(BaseCommand):
                 )
                 logger.exception("Error reprocessing %s", obj_label)
                 stats["errors"] += 1
+
+    def _carry_forward_registration_attestation(self, profile, old_key, new_key):
+        """Repoint door check-in provenance at the reprocessed photo.
+
+        Call *after* ``profile.save()``. ``CrushProfile.save`` is the authority
+        on whether the attestation survived: it re-reads the row and clears the
+        attestation when a revocation (a door rejection, a check-in undo) landed
+        while this command was reprocessing the image. Reading that decision
+        back out of the database — rather than trusting the in-memory copy this
+        command wrote just before saving — is what stops a revoked attestation
+        being resurrected on the registration under a key nobody ever verified,
+        where `coach_undo_checkin` would later read it as coach attendance.
+        """
+        from crush_lu.models import EventRegistration
+
+        carried_forward = CrushProfile.objects.filter(
+            pk=profile.pk,
+            photo_verification_key=new_key,
+        ).exists()
+        if not carried_forward:
+            return
+
+        EventRegistration.objects.filter(
+            user_id=profile.user_id,
+            checkin_attested_photo_key=old_key,
+        ).update(checkin_attested_photo_key=new_key)
 
     def _get_label(self, obj, field_name):
         """Get a human-readable label for logging."""

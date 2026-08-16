@@ -343,6 +343,39 @@ def test_pool_excludes_unattended_event_targets_without_luxid():
 
 
 @pytest.mark.django_db
+def test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate():
+    """A bare ``attended`` row is not identity proof.
+
+    The attendee holds their own QR code, so a check-in can be self-posted.
+    Connect's identity gate therefore requires coach-authenticated attendance —
+    a door grant, or an event whose coaches include the member's assigned coach
+    — which is the same standard ``CrushProfile.has_attended_event`` applies.
+    This deliberately excludes an admin/legacy-verified member whose only
+    attendance was self-scanned.
+    """
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    user = _make_user(username="selfscanned", premium=False, has_luxid=False)
+    profile = user.crushprofile
+    profile.verification_status = "verified"
+    profile.verification_method = "admin"
+    profile.save(update_fields=["verification_status", "verification_method"])
+
+    registration = EventRegistration.objects.create(
+        user=user, event=_make_event(title="Self-scanned"), status="attended"
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is False
+    assert not filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+    # The same attendance, scanned by a coach, does satisfy the gate.
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_granted_coach=_get_coach()
+    )
+    assert filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+
+@pytest.mark.django_db
 def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
     from crush_lu.views_crush_connect import (
         _user_is_connect_candidate_eligible,
