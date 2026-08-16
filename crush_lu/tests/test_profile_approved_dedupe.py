@@ -23,6 +23,7 @@ from crush_lu.models import CrushProfile, Notification
 from crush_lu.notification_service import (
     NotificationType,
     notify_profile_approved,
+    notify_profile_rejected,
 )
 
 User = get_user_model()
@@ -62,7 +63,8 @@ def test_first_approval_creates_the_inapp_row(member):
 
 
 @pytest.mark.django_db
-def test_second_approval_is_skipped(member):
+def test_second_approval_with_no_rejection_between_is_skipped(member):
+    """A repeat observation of the same transition — the case the guard is for."""
     notify_profile_approved(user=member, profile=member.crushprofile)
 
     result = notify_profile_approved(user=member, profile=member.crushprofile)
@@ -71,3 +73,40 @@ def test_second_approval_is_skipped(member):
     assert not result.any_delivered
     # No second bell row for the same one-time transition.
     assert _approved_rows(member).count() == 1
+
+
+@pytest.mark.django_db
+def test_re_approval_after_a_rejection_is_delivered(member):
+    """The sequence the door reject/re-verify path actually produces.
+
+    Member verified, coach door-rejects on a photo mismatch, coach resolves it
+    in person and re-verifies. An unscoped guard finds the *first* approval row
+    and silently skips — so the member who was just told they were rejected is
+    never told it was overturned. A rejection ends the lifecycle; the approval
+    that follows it is a new transition, not a duplicate.
+    """
+    notify_profile_approved(user=member, profile=member.crushprofile)
+    notify_profile_rejected(
+        user=member, profile=member.crushprofile, feedback="photo mismatch"
+    )
+
+    result = notify_profile_approved(user=member, profile=member.crushprofile)
+
+    assert result.email_skipped_reason != "duplicate"
+    assert _approved_rows(member).count() == 2
+
+
+@pytest.mark.django_db
+def test_a_third_approval_after_that_is_skipped_again(member):
+    """The reopened lifecycle closes again — one delivery per lifecycle, not
+    one per rejection ever recorded."""
+    notify_profile_approved(user=member, profile=member.crushprofile)
+    notify_profile_rejected(
+        user=member, profile=member.crushprofile, feedback="photo mismatch"
+    )
+    notify_profile_approved(user=member, profile=member.crushprofile)
+
+    result = notify_profile_approved(user=member, profile=member.crushprofile)
+
+    assert result.email_skipped_reason == "duplicate"
+    assert _approved_rows(member).count() == 2

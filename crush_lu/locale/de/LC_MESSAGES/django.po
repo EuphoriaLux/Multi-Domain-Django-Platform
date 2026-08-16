@@ -39628,3 +39628,11 @@ msgid ""
 msgstr ""
 "Verifiziere deine Identität mit LuxID oder durch persönliche Event-Teilnahme"
 " — kostenlos, bestätigt, dass du eine echte Person bist."
+
+#: views_checkin.py:899
+msgid ""
+"Your verification was rejected because the person at the event did not match"
+" your profile photos."
+msgstr ""
+"Deine Verifizierung wurde abgelehnt, weil die Person beim Event nicht zu "
+"deinen Profilfotos passte."

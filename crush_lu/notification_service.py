@@ -315,8 +315,16 @@ class NotificationService:
 
             if notification_type == NotificationType.PROFILE_REJECTED:
                 return {
+                    # str() inside the override: a caller may pass a lazy
+                    # gettext proxy as the reason (the door rejection does, so
+                    # the email renders it in the member's language), and the
+                    # bell row is written by Notification.objects.create long
+                    # after this override has exited — resolving it there would
+                    # pick up whichever locale the acting coach was using.
                     "title": _("Profile not approved"),
-                    "body": context.get('feedback') or context.get('coach_notes', '') or "",
+                    "body": str(
+                        context.get('feedback') or context.get('coach_notes', '') or ""
+                    ),
                     "link_url": get_user_language_url(user, 'crush_lu:dashboard', request),
                 }
 
@@ -640,22 +648,43 @@ class NotificationService:
 
 # Convenience functions for common notification types
 def notify_profile_approved(user, profile, coach_notes: str = None, request=None) -> NotificationResult:
-    """Send profile approved notification (deduplicated per member).
+    """Send profile approved notification (once per verification lifecycle).
 
-    A member reaches "verified" exactly once per lifecycle, but the act can
-    be observed by several paths — verify, a door scan, LuxID, or a re-verify
-    after a rejected door decision — and every one of them calls this. The
-    in-app Notification row is the durable record of the first delivery, so
-    when one already exists the repeat call is a duplicate (welcome email,
-    push and bell row) and is skipped rather than sent again.
+    Reaching "verified" is observed by several paths — the Verify button, a
+    door scan, LuxID — and each of them calls this, so a repeat observation of
+    the *same* transition must not resend the welcome email, push and bell row.
+    The in-app Notification row is the durable record of the first delivery.
+
+    A rejection ends that lifecycle. When a coach door-rejects a member and
+    later overturns it in person, the second approval is a genuinely new
+    transition and MUST be delivered: the member has just been told they were
+    rejected, and leaving them to discover the reversal on their own is a
+    worse silence than the duplicate this guard exists to prevent. So an
+    approval is suppressed only when no rejection notice followed the last one.
+
+    Best-effort in one direction: the door's rejection notify is itself wrapped
+    in try/except, so a failure there leaves no rejected row and the following
+    re-approval is suppressed. That is strictly rarer than notifying nobody at
+    all, which is what an unscoped guard did on every overturned rejection.
     """
     from .models import Notification
 
     try:
-        already_notified = Notification.objects.filter(
-            user=user,
-            notification_type=NotificationType.PROFILE_APPROVED.value,
-        ).exists()
+        last_approved = (
+            Notification.objects.filter(
+                user=user,
+                notification_type=NotificationType.PROFILE_APPROVED.value,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        already_notified = last_approved is not None and not (
+            Notification.objects.filter(
+                user=user,
+                notification_type=NotificationType.PROFILE_REJECTED.value,
+                created_at__gt=last_approved.created_at,
+            ).exists()
+        )
     except Exception as e:
         # The dedupe guard is best-effort: if the check itself fails, send as
         # before rather than silently dropping a first-time notification.

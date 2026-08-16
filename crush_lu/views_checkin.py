@@ -825,7 +825,17 @@ def coach_reject_verification(request, event_id, registration_id):
             .first()
         )
         if submission:
-            submission.status = "rejected"
+            # An expired row keeps its terminal status. `latest_for_profile`
+            # reads "expired latest" as no submission at all — the cleanup
+            # closed out that whole coach-review story — so flipping it to
+            # "rejected" would launder it back into a live state that
+            # `_apply_verification`'s claim query now selects and approves,
+            # resurrecting exactly the record the cleanup retired. The audit
+            # note is still appended: what happened at the door is worth
+            # recording even on a row nothing will reopen.
+            expired = submission.status == "expired"
+            if not expired:
+                submission.status = "rejected"
             if not submission.coach_id:
                 submission.coach = coach
             note = (
@@ -835,7 +845,12 @@ def coach_reject_verification(request, event_id, registration_id):
             submission.coach_notes = (
                 (submission.coach_notes + "\n" if submission.coach_notes else "") + note
             ).strip()
-            submission.save(update_fields=["status", "coach", "coach_notes"])
+            fields = ["coach", "coach_notes"] if expired else [
+                "status",
+                "coach",
+                "coach_notes",
+            ]
+            submission.save(update_fields=fields)
 
         # The atomic QuerySet.update() above bypasses post_save, so re-run the
         # Outlook contact sync explicitly — the shared-mailbox contact must
@@ -874,11 +889,15 @@ def coach_reject_verification(request, event_id, registration_id):
         result = notify_profile_rejected(
             user=registration.user,
             profile=profile,
-            feedback=str(
-                _(
-                    "Your verification was rejected because the person at the "
-                    "event did not match your profile photos."
-                )
+            # Deliberately NOT str()-ed: `_` is gettext_lazy, and forcing it
+            # here resolves the string under the *coach's* active locale.
+            # Passed lazily, the email renders it inside
+            # send_profile_rejected_notification's translation.override(lang)
+            # and the bell row inside _render_inapp_payload's — both in the
+            # member's own language.
+            feedback=_(
+                "Your verification was rejected because the person at the "
+                "event did not match your profile photos."
             ),
             request=request,
         )
