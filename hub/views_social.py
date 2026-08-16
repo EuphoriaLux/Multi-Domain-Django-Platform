@@ -604,10 +604,62 @@ class SocialPostDetailView(APIView):
             updated_post.save(update_fields=["status_history"])
 
         if new_status == SocialPost.Status.SCHEDULED and new_status != old_status:
+            profile_platforms = dict(updated_post.buffer_profile_platforms or {})
+            selected_ids = updated_post.buffer_profile_ids or []
+            unresolved_ids = [
+                profile_id
+                for profile_id in selected_ids
+                if profile_id not in profile_platforms
+            ]
+            if unresolved_ids:
+                # The common case: multiple channels, no explicit mapping --
+                # the frontend never sends buffer_profile_platforms today, so
+                # this is where most scheduled posts land (the validation
+                # block above already resolves the single-declared-platform
+                # case into updated_post.buffer_profile_platforms before we
+                # get here, so unresolved_ids is never that case). Ask Buffer
+                # which service each channel actually is so
+                # _create_channel_post still has a platform to key off (e.g.
+                # the Facebook post-type metadata this fallback exists to
+                # attach) -- this is more reliable than assuming a single
+                # post-level platform applies to every selected channel
+                # anyway. A lookup failure must not block scheduling --
+                # that's exactly the pre-fix behaviour, just without the
+                # metadata.
+                #
+                # This runs inside the row lock this view already holds for
+                # create_buffer_update below (patch() is transaction.atomic
+                # over a select_for_update() row) -- doubling worst-case lock
+                # time under a slow Buffer API rather than adding a new class
+                # of risk. Only previously-broken schedule requests (the ones
+                # this fix targets) pay for the extra call.
+                try:
+                    known_services = {
+                        profile["id"]: profile.get("service", "")
+                        for profile in list_buffer_profiles()
+                    }
+                except BufferServiceError:
+                    logger.warning(
+                        "Could not resolve Buffer channel platforms for "
+                        "post %s; scheduling without platform-specific "
+                        "metadata.",
+                        updated_post.pk,
+                    )
+                    known_services = {}
+                for profile_id in unresolved_ids:
+                    service = known_services.get(profile_id)
+                    if service:
+                        profile_platforms[profile_id] = service
+                # Persist what was actually resolved -- dispatched_platforms
+                # below (and any later anti-abuse re-validation of this post)
+                # reads updated_post.buffer_profile_platforms, not the local
+                # dict, so the resolution must land on the instance too.
+                updated_post.buffer_profile_platforms = profile_platforms
             try:
                 result = create_buffer_update(
                     text=updated_post.content,
                     profile_ids=updated_post.buffer_profile_ids or [],
+                    profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
                 )
@@ -638,6 +690,7 @@ class SocialPostDetailView(APIView):
                     update_fields=[
                         "status",
                         "buffer_id",
+                        "buffer_profile_platforms",
                         "dispatched_platforms",
                         "status_history",
                     ]
@@ -683,7 +736,13 @@ class SocialPostDetailView(APIView):
                     if profile_id in updated_post.buffer_profile_platforms
                 )
             )
-            updated_post.save(update_fields=["buffer_id", "dispatched_platforms"])
+            updated_post.save(
+                update_fields=[
+                    "buffer_id",
+                    "buffer_profile_platforms",
+                    "dispatched_platforms",
+                ]
+            )
 
         return Response({"post": SocialPostSerializer(updated_post).data})
 
