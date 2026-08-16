@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import F, Q
 
 
 class HubProfile(models.Model):
@@ -113,6 +115,123 @@ class HubTimelineEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} @ {self.occurred_at:%Y-%m-%d}"
+
+
+class Location(models.Model):
+    class EventType(models.TextChoices):
+        COOKING_WORKSHOP = "Cooking workshop", "Cooking workshop"
+        WINE_TASTING = "Wine tasting", "Wine tasting"
+        SPEED_DATING = "Speed dating", "Speed dating"
+        OUTDOOR_ACTIVITY = "Outdoor activity", "Outdoor activity"
+        QUIZ_NIGHT = "Quiz night", "Quiz night"
+
+    class PartnershipStage(models.TextChoices):
+        PROSPECT = "Prospect", "Prospect"
+        NEGOTIATING = "Negotiating", "Negotiating"
+        ACTIVE = "Active", "Active"
+        PAUSED = "Paused", "Paused"
+        ARCHIVED = "Archived", "Archived"
+
+    name = models.CharField(max_length=255)
+    address = models.TextField()
+    city = models.CharField(max_length=255)
+    country = models.CharField(max_length=100, default="Luxembourg")
+
+    max_capacity = models.PositiveIntegerField()
+    seated_capacity = models.PositiveIntegerField(blank=True, null=True)
+    has_outdoor_space = models.BooleanField(default=False)
+    has_kitchen = models.BooleanField(default=False)
+    has_private_room = models.BooleanField(default=False)
+    has_sound_system = models.BooleanField(default=False)
+    compatible_event_types = models.JSONField(default=list, blank=True)
+
+    partnership_stage = models.CharField(
+        max_length=20,
+        choices=PartnershipStage.choices,
+        default=PartnershipStage.PROSPECT,
+    )
+    account_manager = models.CharField(max_length=255, blank=True, default="")
+    commercial_terms = models.TextField(blank=True, default="")
+    partner_since = models.DateField(blank=True, null=True)
+
+    last_contact_date = models.DateField(blank=True, null=True)
+    next_action = models.CharField(max_length=255, blank=True, default="")
+    next_action_date = models.DateField(blank=True, null=True)
+    notes = models.TextField(blank=True, default="")
+    tags = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(max_capacity__gte=1),
+                name="hub_location_max_capacity_positive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(seated_capacity__isnull=True)
+                    | Q(
+                        seated_capacity__gte=1,
+                        seated_capacity__lte=F("max_capacity"),
+                    )
+                ),
+                name="hub_location_valid_seated_capacity",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.max_capacity is not None and self.max_capacity < 1:
+            errors["max_capacity"] = "Maximum capacity must be at least 1."
+        if self.seated_capacity is not None and (
+            self.seated_capacity < 1
+            or self.max_capacity is None
+            or self.seated_capacity > self.max_capacity
+        ):
+            errors["seated_capacity"] = (
+                "Seated capacity must be between 1 and maximum capacity."
+            )
+        allowed_event_types = set(self.EventType.values)
+        if not isinstance(self.compatible_event_types, list) or any(
+            not isinstance(event_type, str) or event_type not in allowed_event_types
+            for event_type in self.compatible_event_types
+        ):
+            errors["compatible_event_types"] = (
+                "Use a list containing only supported event types."
+            )
+        if not isinstance(self.tags, list) or any(
+            not isinstance(tag, str) or not tag.strip() for tag in self.tags
+        ):
+            errors["tags"] = "Use a list containing only non-empty tag names."
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.name} ({self.city})"
+
+
+class LocationContact(models.Model):
+    location = models.OneToOneField(
+        Location,
+        on_delete=models.CASCADE,
+        related_name="primary_contact",
+    )
+    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=255, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=50, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} — {self.location.name}"
 
 
 class WhatsAppMessage(models.Model):

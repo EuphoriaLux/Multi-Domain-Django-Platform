@@ -5,6 +5,8 @@ from .models import (
     HubRequest,
     HubResource,
     HubTimelineEvent,
+    Location,
+    LocationContact,
     WhatsAppInboundMessage,
     WhatsAppMessage,
 )
@@ -38,6 +40,42 @@ class HubTimelineEventAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("title", "body", "user__email", "user__username")
     date_hierarchy = "occurred_at"
+
+
+class LocationContactInline(admin.StackedInline):
+    model = LocationContact
+    extra = 0
+    max_num = 1
+
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "city",
+        "partnership_stage",
+        "max_capacity",
+        "account_manager",
+        "last_contact_date",
+    )
+    list_filter = (
+        "partnership_stage",
+        "country",
+        "has_outdoor_space",
+        "has_kitchen",
+        "has_private_room",
+        "has_sound_system",
+    )
+    search_fields = ("name", "address", "city", "account_manager", "notes")
+    date_hierarchy = "last_contact_date"
+    inlines = (LocationContactInline,)
+
+
+@admin.register(LocationContact)
+class LocationContactAdmin(admin.ModelAdmin):
+    list_display = ("name", "location", "role", "email", "phone")
+    search_fields = ("name", "location__name", "role", "email", "phone")
+    list_select_related = ("location",)
 
 
 @admin.register(WhatsAppMessage)

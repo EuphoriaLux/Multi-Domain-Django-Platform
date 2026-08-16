@@ -5,9 +5,11 @@ from .models import (
     HubRequest,
     HubResource,
     HubTimelineEvent,
+    Location,
+    LocationContact,
+    SocialPost,
     WhatsAppInboundMessage,
     WhatsAppMessage,
-    SocialPost,
 )
 
 
@@ -55,6 +57,81 @@ class HubTimelineEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = HubTimelineEvent
         fields = ["id", "date", "title", "description"]
+
+
+class LocationContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocationContact
+        fields = ["name", "role", "email", "phone"]
+        read_only_fields = fields
+
+
+class LocationSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    maxCapacity = serializers.IntegerField(source="max_capacity", read_only=True)
+    seatedCapacity = serializers.IntegerField(source="seated_capacity", read_only=True)
+    hasOutdoorSpace = serializers.BooleanField(
+        source="has_outdoor_space", read_only=True
+    )
+    hasKitchen = serializers.BooleanField(source="has_kitchen", read_only=True)
+    hasPrivateRoom = serializers.BooleanField(source="has_private_room", read_only=True)
+    hasSoundSystem = serializers.BooleanField(source="has_sound_system", read_only=True)
+    compatibleEventTypes = serializers.JSONField(
+        source="compatible_event_types", read_only=True
+    )
+    partnershipStage = serializers.CharField(source="partnership_stage", read_only=True)
+    primaryContact = serializers.SerializerMethodField()
+    accountManager = serializers.CharField(source="account_manager", read_only=True)
+    commercialTerms = serializers.CharField(source="commercial_terms", read_only=True)
+    partnerSince = serializers.DateField(source="partner_since", read_only=True)
+    lastContactDate = serializers.SerializerMethodField()
+    nextAction = serializers.CharField(source="next_action", read_only=True)
+    nextActionDate = serializers.DateField(source="next_action_date", read_only=True)
+
+    class Meta:
+        model = Location
+        fields = [
+            "id",
+            "name",
+            "address",
+            "city",
+            "country",
+            "maxCapacity",
+            "seatedCapacity",
+            "hasOutdoorSpace",
+            "hasKitchen",
+            "hasPrivateRoom",
+            "hasSoundSystem",
+            "compatibleEventTypes",
+            "partnershipStage",
+            "primaryContact",
+            "accountManager",
+            "commercialTerms",
+            "partnerSince",
+            "lastContactDate",
+            "nextAction",
+            "nextActionDate",
+            "notes",
+            "tags",
+        ]
+        read_only_fields = fields
+
+    def get_primaryContact(self, obj):
+        try:
+            contact = obj.primary_contact
+        except LocationContact.DoesNotExist:
+            return {"name": "", "role": "", "email": "", "phone": ""}
+        return LocationContactSerializer(contact).data
+
+    def get_lastContactDate(self, obj):
+        return obj.last_contact_date.isoformat() if obj.last_contact_date else ""
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for optional_field in ("seatedCapacity", "partnerSince", "nextActionDate"):
+            if data.get(optional_field) is None:
+                data.pop(optional_field, None)
+        return data
 
 
 class WhatsAppMessageSerializer(serializers.ModelSerializer):
