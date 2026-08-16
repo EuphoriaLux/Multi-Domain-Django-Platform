@@ -5,11 +5,39 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
+class PaymentTransactionQuerySet(models.QuerySet):
+    def paid_event_registrations(self):
+        """Captured cash for event seats — the definition every report shares.
+
+        Three readers ask this question and must agree by construction rather
+        than by convention: ``business_plan_metrics``, ``weekly_kpis`` and the
+        admin revenue dashboard. They diverge only in what they do afterwards
+        (group by event, count by paid week, sum the amount), so the shared
+        part is the definition itself — which provider counts as money, and
+        what "paid" means.
+
+        CREDIT is excluded deliberately. Crush Credit is a payment *method*,
+        not new revenue: the cash behind a redeemed credit was captured (and
+        counted) when it was first taken, so counting it again would book one
+        payment in two periods.
+        """
+        return self.filter(
+            provider__in=(
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            ),
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        )
+
+
 class PaymentTransaction(models.Model):
     """
     Tracks payment transactions initiated via payment providers (SumUp).
     Links payment checkouts to EventRegistration or PremiumMembership models.
     """
+
+    objects = PaymentTransactionQuerySet.as_manager()
 
     class Provider(models.TextChoices):
         SUMUP = "sumup", _("SumUp")

@@ -8,6 +8,9 @@ Supports --since / --until date filters and --monthly breakdown.
 """
 
 import json
+import logging
+import re
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
@@ -20,8 +23,12 @@ from crush_lu.models.connections import EventConnection, ConnectionMessage
 from crush_lu.models.crush_spark import CrushSpark
 from crush_lu.models.events import MeetupEvent, EventRegistration
 from crush_lu.models.journey import JourneyProgress, ChapterProgress
+from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CallAttempt, CrushCoach, UserActivity, PWADeviceInstallation
 from crush_lu.models.referrals import ReferralAttribution, ReferralCode
+
+
+logger = logging.getLogger(__name__)
 
 
 def _add_months(d, months):
@@ -30,6 +37,129 @@ def _add_months(d, months):
     year = d.year + month // 12
     month = month % 12 + 1
     return date(year, month, 1)
+
+
+#: The registration id both event-payment creators embed in
+#: ``transaction_reference``: ``CRUSH-EVT-<id>-<hex>`` from the card checkout
+#: (``views_payments.create_sumup_event_checkout``) and
+#: ``CRUSH-MANUAL-<id>-<hex>`` from the cash/bank receipt staff records in the
+#: registration admin — plus ``CRUSH-MANUAL-BACKFILL-<id>``, the receipt
+#: migration 0228 materialised for seats already paid before the ledger
+#: existed. Those are the oldest rows in the table and exactly the ones a
+#: multi-year report reaches, so missing them would split a reused-then-deleted
+#: registration back into one seat per capture.
+#:
+#: Anchored, and the id must end the string or be followed by the separator, so
+#: a reference in some other shape falls through instead of matching a digit
+#: run out of its middle.
+_REFERENCE_REGISTRATION_RE = re.compile(
+    r"^CRUSH-(?:EVT|MANUAL)-(?:BACKFILL-)?(\d+)(?:-|$)"
+)
+
+
+def _registration_id_from_reference(reference):
+    """The registration a capture was opened for, or None.
+
+    Used only once the FK is gone: deleting an account deletes its
+    EventRegistration rows and the FK is SET_NULL, but this string is a
+    CharField on the transaction and survives.
+    """
+    match = _REFERENCE_REGISTRATION_RE.match(reference or "")
+    return int(match.group(1)) if match else None
+
+
+def _paid_seat_counts_by_event(events):
+    """``{event_id: paid seat count}`` for these events, in a single query.
+
+    Keyed by event so the monthly breakdown can bucket a whole reporting
+    window once instead of re-querying per month: the loop around it already
+    issues ~26 queries a month, and an arbitrary ``--since``/``--until`` range
+    would otherwise multiply this figure's share of them by the month count.
+
+    Seat identity, in priority order — the dedupe rules live here rather than
+    in three separate aggregate queries because they do not share a GROUP BY:
+
+    * a surviving registration, deduped by it — a declined attempt behind a
+      capture, or a re-booked cycle reusing the row, is one seat;
+    * else the registration id parsed out of ``transaction_reference``. Both
+      creators embed it (``CRUSH-EVT-<id>-<hex>`` for card checkouts,
+      ``CRUSH-MANUAL-<id>-<hex>`` for the cash/bank receipts staff records),
+      and unlike the FK that string survives the registration's deletion. It
+      is the only seat identity that both keeps a re-booked cycle's several
+      captures together AND keeps distinct members apart — ``user`` cannot,
+      because staff may open a card checkout on a member's behalf and
+      ``PaymentTransaction.user`` then holds the *staff* requester, which
+      would collapse a whole event's staff-sold seats into one;
+    * else the transaction itself, so a reference we cannot parse stands
+      alone rather than merging with every other unparseable row.
+
+    Summing per-event counts equals a global DISTINCT: a registration belongs
+    to exactly one event, so its id cannot appear under two of them.
+    """
+    rows = PaymentTransaction.objects.paid_event_registrations().filter(
+        event__in=events,
+    ).values_list("event_id", "event_registration_id", "transaction_reference", "pk")
+
+    seats = defaultdict(set)
+    unattributable = []
+    for event_id, registration_id, reference, pk in rows.iterator(chunk_size=2000):
+        if registration_id is None:
+            registration_id = _registration_id_from_reference(reference)
+        if registration_id is not None:
+            identity = ("registration", registration_id)
+        else:
+            # Orphaned AND unparseable: nothing ties this capture to its seat.
+            # `transaction_reference` defaults to a bare uuid4, so a row created
+            # without an explicit reference — no current event-payment path does
+            # that, but history is not bound by current paths — lands here. Two
+            # such captures of ONE re-booked seat would count as two.
+            identity = ("transaction", pk)
+            unattributable.append((pk, reference))
+        seats[event_id].add(identity)
+
+    if unattributable:
+        # Say so rather than letting the figure drift quietly: this is the
+        # "report changes when nobody touched anything relevant" failure the
+        # transaction-row rewrite exists to end, and it would otherwise only
+        # appear once the account was already gone.
+        logger.warning(
+            "business_plan_metrics: %s paid capture(s) could not be attributed "
+            "to a registration and were counted individually; a re-booked seat "
+            "among them inflates its event's paid count. References: %s",
+            len(unattributable),
+            ", ".join(f"{pk}:{ref!r}" for pk, ref in unattributable[:20]),
+        )
+
+    return {event_id: len(found) for event_id, found in seats.items()}
+
+
+def _paid_registration_count(events):
+    """Paid seats on these events, counted from immutable transaction rows.
+
+    Mirrors what #827 moved ``weekly_kpis`` and ``admin_views`` to: a PAID
+    ``PaymentTransaction`` (SumUp or cash) is the record of a captured
+    payment, while ``EventRegistration.payment_confirmed`` is a mutable seat
+    entitlement that issuing cancellation credit clears — keying this count
+    on the flag let a cancellation that releases a seat retroactively shrink
+    a past month's "paid" figure. Credit-funded seats are excluded on
+    purpose: the money behind them was already counted when it was first
+    captured, so counting them again would book one payment in two months.
+    Distinct registrations, not transactions — a seat with a declined attempt
+    behind its capture (or a re-booked cycle reusing the row) is one seat.
+
+    Attribution runs through ``PaymentTransaction.event``, the immutable copy
+    stamped on the PAID transition (and backfilled by 0229), NOT through
+    ``event_registration__event``. Deleting an account deletes its
+    EventRegistration rows (``views_account.py``), and the FK is SET_NULL — so
+    joining through the registration drops those captured payments and shrinks
+    a past month all over again, which is the very failure this function
+    exists to end.
+
+    Thin wrapper over :func:`_paid_seat_counts_by_event`, which holds the
+    dedupe rules; callers reporting several periods should use that directly
+    and bucket its result rather than calling this once per period.
+    """
+    return sum(_paid_seat_counts_by_event(events).values())
 
 
 def _fmt_timedelta(td):
@@ -395,7 +525,10 @@ class Command(BaseCommand):
         confirmed_attended = reg_by_status.get("confirmed", 0) + reg_by_status.get("attended", 0)
         attended = reg_by_status.get("attended", 0)
         no_show = reg_by_status.get("no_show", 0)
-        paid_reg = reg_qs.filter(payment_confirmed=True).count()
+        # Paid seats from captured payments, not the mutable seat flag —
+        # issuing cancellation credit clears payment_confirmed, which used to
+        # retroactively shrink this figure (#847).
+        paid_reg = _paid_registration_count(active_events)
 
         # Avg fill rate
         fill_data = active_events.filter(max_participants__gt=0).annotate(
@@ -737,6 +870,17 @@ class Command(BaseCommand):
             months.append((cursor, next_month))
             cursor = next_month
 
+        # Paid seats for the whole window in one query, bucketed by event
+        # below. The per-month helper would re-run it for each month, and the
+        # command accepts arbitrary --since/--until ranges.
+        window_events = MeetupEvent.objects.filter(
+            is_published=True,
+            is_cancelled=False,
+            date_time__date__gte=months[0][0] if months else since,
+            date_time__date__lt=months[-1][1] if months else until,
+        )
+        paid_seats_by_event = _paid_seat_counts_by_event(window_events)
+
         monthly_data = []
         for month_start, month_end in months:
             profiles = CrushProfile.objects.filter(
@@ -776,9 +920,13 @@ class Command(BaseCommand):
             attended_count = EventRegistration.objects.filter(
                 event__in=month_events, status="attended",
             ).count()
-            paid_count = EventRegistration.objects.filter(
-                event__in=month_events, payment_confirmed=True,
-            ).count()
+            # Same transaction-row source as the main report: a cancellation
+            # releasing the seat must not shrink a past month's figure (#847).
+            # Summed from the window-wide map rather than re-queried per month.
+            paid_count = sum(
+                paid_seats_by_event.get(event_id, 0)
+                for event_id in month_events.values_list("id", flat=True)
+            )
 
             # Connections
             month_conn = EventConnection.objects.filter(
