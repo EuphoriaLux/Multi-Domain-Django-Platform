@@ -120,12 +120,43 @@ def send_native_push_notification(
         logger.warning("Skipping iOS push for user ID %s: APNS settings are missing.", user.id)
         return {"success": 0, "failed": 0, "total": total}
 
+    # Bounded like the web fan-out in push_notifications.send_push_notification:
+    # production has no task worker, so this loop runs inside the request that
+    # triggered the notification. Each APNs call can hang for its timeout, so
+    # the deadline — not the count — is what keeps a member with a pile of
+    # stale devices from eating the gunicorn window.
+    limit = getattr(settings, "CRUSH_PUSH_FANOUT_LIMIT", 10)
+    budget = getattr(settings, "CRUSH_PUSH_FANOUT_BUDGET_SECONDS", 10.0)
+    deadline = time.monotonic() + budget
+
     success_count = 0
     failed_count = 0
-    for device in devices:
+    attempted = 0
+    for device in devices[:limit]:
+        if time.monotonic() >= deadline:
+            break
+        attempted += 1
         if send_ios_push_to_device(device, title, body, url=url, tag=tag):
             success_count += 1
         else:
             failed_count += 1
 
-    return {"success": success_count, "failed": failed_count, "total": total}
+    skipped = total - attempted
+    if skipped > 0:
+        logger.warning(
+            "iOS push fan-out for user ID %s bounded: sent to %s of %s "
+            "device(s), %s skipped (limit=%s, budget=%ss)",
+            user.id,
+            attempted,
+            total,
+            skipped,
+            limit,
+            budget,
+        )
+
+    return {
+        "success": success_count,
+        "failed": failed_count,
+        "total": total,
+        "skipped": skipped,
+    }

@@ -194,11 +194,22 @@ def sample_event(db):
 
 @pytest.fixture
 def mock_vapid_settings():
-    """Mock VAPID settings for push notifications."""
+    """Mock VAPID settings for push notifications.
+
+    This replaces the whole settings object, so every setting the sender reads
+    has to be present here with a usable type — an unset attribute on a
+    MagicMock is another MagicMock, which sails past `getattr(..., default)`
+    and only fails further in (a MagicMock slice bound raises TypeError, not
+    AttributeError). The fan-out bounds are set generously so tests exercise
+    delivery rather than the cap; the cap has its own tests.
+    """
     with patch('crush_lu.push_notifications.settings') as mock_settings:
         mock_settings.VAPID_PRIVATE_KEY = 'test_vapid_private_key'
         mock_settings.VAPID_PUBLIC_KEY = 'test_vapid_public_key'
         mock_settings.VAPID_ADMIN_EMAIL = 'admin@crush.lu'
+        mock_settings.CRUSH_PUSH_FANOUT_LIMIT = 100
+        mock_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 3600.0
+        mock_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 10.0
         yield mock_settings
 
 
