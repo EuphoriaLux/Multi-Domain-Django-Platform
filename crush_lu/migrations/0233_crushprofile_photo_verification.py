@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("crush_lu", "0231_meetupevent_cancellation_cycle"),
+        ("crush_lu", "0232_alter_crushcredit_options"),
     ]
 
     operations = [
