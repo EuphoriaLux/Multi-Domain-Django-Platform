@@ -432,6 +432,12 @@ class NotificationService:
                 feedback = context.get('feedback', context.get('coach_notes', ''))
                 return push_notifications.send_profile_revision_notification(user, feedback) or {}
 
+            elif notification_type == NotificationType.PROFILE_REJECTED:
+                reason = context.get('feedback', context.get('coach_notes', ''))
+                return push_notifications.send_profile_rejected_notification(
+                    user, reason
+                ) or {}
+
             elif notification_type == NotificationType.PROFILE_RECONTACT:
                 return push_notifications.send_profile_recontact_notification(user) or {}
 

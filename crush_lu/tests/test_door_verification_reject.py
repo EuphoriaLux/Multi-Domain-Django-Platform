@@ -286,6 +286,44 @@ class TestDoorVerificationReject:
         submission.refresh_from_db()
         assert submission.status == "expired"
 
+    def test_a_newer_revision_is_not_bypassed_to_approve_an_older_rejection(
+        self, client, event, coach
+    ):
+        """Reopening claims the LATEST row, or nothing.
+
+        A profile can carry a newer "revision" (or "recontact_coach") row above
+        an older rejection. Searching for the newest pending/rejected
+        submission would reach past the live record and approve the stale one,
+        leaving the profile verified while its actual latest submission still
+        says it needs revision.
+        """
+        profile, reg, _sig = _attendee(event, "revision_above_rejection")
+        older = ProfileSubmission.objects.filter(profile=profile).latest(
+            "submitted_at"
+        )
+        older.status = "rejected"
+        older.save(update_fields=["status"])
+        newer = ProfileSubmission.objects.create(
+            profile=profile,
+            status="revision",
+            submitted_at=older.submitted_at + timedelta(days=1),
+        )
+        _scan(client, reg, event, coach)
+
+        client.force_login(coach.user)
+        verify_resp = client.post(
+            reverse(
+                "coach_mark_verified",
+                kwargs={"event_id": event.id, "registration_id": reg.id},
+            )
+        )
+        assert verify_resp.status_code == 200
+
+        older.refresh_from_db()
+        newer.refresh_from_db()
+        assert older.status == "rejected", "an older rejection was approved"
+        assert newer.status == "revision"
+
     def test_rejected_profile_cannot_use_existing_verified_event_ticket(
         self, client, event, coach
     ):

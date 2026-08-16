@@ -135,15 +135,15 @@ def _apply_verification(profile, method, coach, now, claim_from=("pending",)):
     # while the profile says verified is a user-visible split state:
     # context_processors then serves profile_is_approved=True alongside
     # profile_status="rejected".
-    submission = None
-    if ProfileSubmission.latest_for_profile(profile) is not None:
-        submission = (
-            ProfileSubmission.objects.filter(
-                profile=profile, status__in=("pending", "rejected")
-            )
-            .order_by("-submitted_at")
-            .first()
-        )
+    # The LATEST row, then a status check on that row — never a filtered search
+    # for the newest pending/rejected one. A profile can carry a newer
+    # "revision" or "recontact_coach" row above an older rejection, and
+    # searching would reach past the live record to approve the stale one,
+    # leaving the profile verified while its actual latest submission still
+    # says something else.
+    submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is not None and submission.status not in ("pending", "rejected"):
+        submission = None
     if submission:
         reopened = submission.status == "rejected"
         submission.status = "approved"
