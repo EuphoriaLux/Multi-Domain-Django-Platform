@@ -60,10 +60,14 @@ def _provider():
     """Optional real model, purely from the environment. None -> deterministic
     fallback (see lore.engine) — the default, and what the preview always uses.
 
-    ATMOS_OPENAI_BASE_URL / ATMOS_OPENAI_MODEL let this point at any
-    OpenAI-compatible endpoint, not just api.openai.com — e.g. GitHub Models
-    (https://models.inference.ai.azure.com), which is free for development
-    and authenticates with a GitHub PAT (scope: models) as the API key.
+    ATMOS_OPENAI_BASE_URL / ATMOS_OPENAI_MODEL let the OpenAI path point at
+    any OpenAI-compatible endpoint, not just api.openai.com. (GitHub Models
+    was the obvious free option here — it was retired 2026-07-30, so this is
+    now only useful for a real OpenAI key or another compatible provider.)
+
+    ATMOS_GEMINI_MODEL overrides the Gemini model — pass an explicit "-latest"
+    alias here rather than relying on the class default staying valid; Google
+    retires dated Gemini model IDs from under callers without notice.
     """
     key = os.environ.get("ATMOS_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
     if key:
@@ -77,7 +81,11 @@ def _provider():
         return OpenAIProvider(key, **kwargs)
     key = os.environ.get("ATMOS_GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if key:
-        return GeminiProvider(key)
+        kwargs = {}
+        model = os.environ.get("ATMOS_GEMINI_MODEL")
+        if model:
+            kwargs["model"] = model
+        return GeminiProvider(key, **kwargs)
     return None
 
 

@@ -102,7 +102,11 @@ class GeminiProvider:
         self,
         api_key: str,
         *,
-        model: str = "gemini-2.0-flash",
+        # "-latest" alias, not a pinned version: Google retires dated model IDs
+        # from under callers with no notice (gemini-2.0-flash, current when this
+        # class was written, already 404s as of 2026-08 — verified against the
+        # live API, not assumed). The alias is Google's own hedge against this.
+        model: str = "gemini-flash-latest",
         base_url: str = "https://generativelanguage.googleapis.com/v1beta",
         max_tokens: int = 200,
         temperature: float = 1.0,
