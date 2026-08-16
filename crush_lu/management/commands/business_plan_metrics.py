@@ -8,6 +8,7 @@ Supports --since / --until date filters and --monthly breakdown.
 """
 
 import json
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
@@ -33,6 +34,54 @@ def _add_months(d, months):
     return date(year, month, 1)
 
 
+def _paid_seat_counts_by_event(events):
+    """``{event_id: paid seat count}`` for these events, in a single query.
+
+    Keyed by event so the monthly breakdown can bucket a whole reporting
+    window once instead of re-querying per month: the loop around it already
+    issues ~26 queries a month, and an arbitrary ``--since``/``--until`` range
+    would otherwise multiply this figure's share of them by the month count.
+
+    Seat identity, in priority order — the dedupe rules live here rather than
+    in three separate aggregate queries because they do not share a GROUP BY:
+
+    * a surviving registration, deduped by it — a declined attempt behind a
+      capture, or a re-booked cycle reusing the row, is one seat;
+    * else the (event, member) pair, for captures whose registration was
+      deleted. A rebooking cycle can leave a card capture and a later cash one
+      on a single registration, so these must dedupe exactly as the linked
+      branch does or a seat becomes two the moment the member leaves. ``user``
+      survives that deletion: the FK is PROTECT because a captured payment is
+      a financial record;
+    * else the transaction itself — a capture with no member cannot be paired
+      with anything, and must not collapse with the other member-less rows
+      into a single NULL group.
+
+    Summing per-event counts equals a global DISTINCT: a registration belongs
+    to exactly one event, and the member pair is already scoped by the bucket.
+    """
+    rows = PaymentTransaction.objects.filter(
+        provider__in=(
+            PaymentTransaction.Provider.SUMUP,
+            PaymentTransaction.Provider.MANUAL,
+        ),
+        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        status=PaymentTransaction.Status.PAID,
+        event__in=events,
+    ).values_list("event_id", "event_registration_id", "user_id", "pk")
+
+    seats = defaultdict(set)
+    for event_id, registration_id, user_id, pk in rows.iterator(chunk_size=2000):
+        if registration_id is not None:
+            identity = ("registration", registration_id)
+        elif user_id is not None:
+            identity = ("member", user_id)
+        else:
+            identity = ("transaction", pk)
+        seats[event_id].add(identity)
+    return {event_id: len(found) for event_id, found in seats.items()}
+
+
 def _paid_registration_count(events):
     """Paid seats on these events, counted from immutable transaction rows.
 
@@ -54,45 +103,12 @@ def _paid_registration_count(events):
     joining through the registration drops those captured payments and shrinks
     a past month all over again, which is the very failure this function
     exists to end.
+
+    Thin wrapper over :func:`_paid_seat_counts_by_event`, which holds the
+    dedupe rules; callers reporting several periods should use that directly
+    and bucket its result rather than calling this once per period.
     """
-    paid = PaymentTransaction.objects.filter(
-        provider__in=(
-            PaymentTransaction.Provider.SUMUP,
-            PaymentTransaction.Provider.MANUAL,
-        ),
-        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-        status=PaymentTransaction.Status.PAID,
-        event__in=events,
-    )
-    # Seats whose registration still exists, deduped by it.
-    linked = (
-        paid.filter(event_registration__isnull=False)
-        .values("event_registration_id")
-        .distinct()
-        .count()
-    )
-    # Plus the seats whose registration was deleted, counted separately: they
-    # all share event_registration_id=NULL, so folding them into the DISTINCT
-    # above would collapse a whole event's worth of departed members into one
-    # paid seat.
-    #
-    # Their seat identity is (event, member). A rebooking cycle can leave
-    # several PAID captures on a single registration — a card capture and a
-    # later cash one — which the linked branch dedupes by registration and
-    # this branch must dedupe too, or a seat silently becomes two the moment
-    # the member leaves. ``user`` survives that deletion: the FK is PROTECT
-    # precisely because a captured payment is a financial record.
-    orphaned_rows = paid.filter(event_registration__isnull=True)
-    orphaned = (
-        orphaned_rows.filter(user__isnull=False)
-        .values("event_id", "user_id")
-        .distinct()
-        .count()
-    )
-    # A capture with no member cannot be paired with anything, so it stands on
-    # its own rather than collapsing into a single NULL group.
-    orphaned += orphaned_rows.filter(user__isnull=True).count()
-    return linked + orphaned
+    return sum(_paid_seat_counts_by_event(events).values())
 
 
 def _fmt_timedelta(td):
@@ -803,6 +819,17 @@ class Command(BaseCommand):
             months.append((cursor, next_month))
             cursor = next_month
 
+        # Paid seats for the whole window in one query, bucketed by event
+        # below. The per-month helper would re-run it for each month, and the
+        # command accepts arbitrary --since/--until ranges.
+        window_events = MeetupEvent.objects.filter(
+            is_published=True,
+            is_cancelled=False,
+            date_time__date__gte=months[0][0] if months else since,
+            date_time__date__lt=months[-1][1] if months else until,
+        )
+        paid_seats_by_event = _paid_seat_counts_by_event(window_events)
+
         monthly_data = []
         for month_start, month_end in months:
             profiles = CrushProfile.objects.filter(
@@ -844,7 +871,11 @@ class Command(BaseCommand):
             ).count()
             # Same transaction-row source as the main report: a cancellation
             # releasing the seat must not shrink a past month's figure (#847).
-            paid_count = _paid_registration_count(month_events)
+            # Summed from the window-wide map rather than re-queried per month.
+            paid_count = sum(
+                paid_seats_by_event.get(event_id, 0)
+                for event_id in month_events.values_list("id", flat=True)
+            )
 
             # Connections
             month_conn = EventConnection.objects.filter(
