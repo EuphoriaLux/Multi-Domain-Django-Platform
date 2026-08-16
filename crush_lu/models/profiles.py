@@ -1093,21 +1093,23 @@ class CrushProfile(models.Model):
         if self.verification_method in ("coach_event", "premium_coach"):
             return True
 
-        qs = EventRegistration.objects.filter(
+        attended = EventRegistration.objects.filter(
             user_id=self.user_id,
             status="attended",
-            checkin_granted_coach__isnull=False,
         )
+        # A coach scanning a member who already has a coach grants no new one,
+        # and the event may be run by someone other than the assigned coach —
+        # the photo attestation is the trace that scan does leave. Kept in step
+        # with `services.crush_connect.filter_connect_identity_verified`, which
+        # is the queryset form of this same gate.
+        if (
+            attended.filter(checkin_granted_coach__isnull=False).exists()
+            or attended.exclude(checkin_attested_photo_key="").exists()
+        ):
+            return True
         if self.assigned_coach_id is not None:
-            return (
-                qs.exists()
-                or EventRegistration.objects.filter(
-                    user_id=self.user_id,
-                    status="attended",
-                    event__coaches=self.assigned_coach,
-                ).exists()
-            )
-        return qs.exists()
+            return attended.filter(event__coaches=self.assigned_coach).exists()
+        return False
 
     @property
     def is_connect_identity_verified(self) -> bool:

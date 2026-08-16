@@ -1059,34 +1059,9 @@ def coach_undo_checkin(request, event_id, registration_id):
             and profile.verification_status == "verified"
             and profile.verification_method == "coach_event"
         ):
-            # The grant cleared above is gone from the database but still set on
-            # this in-memory `profile` (the clear was a raw UPDATE). Read it back
-            # as absent rather than counting the coach we just revoked as
-            # ongoing evidence of coach-authenticated attendance.
-            surviving_coach_id = None if coach_cleared else profile.assigned_coach_id
-            other_coach_attendances = (
-                EventRegistration.objects.filter(
-                    user_id=profile.user_id,
-                    status="attended",
-                )
-                .filter(
-                    Q(checkin_granted_coach_id__isnull=False)
-                    | ~Q(checkin_attested_photo_key="")
-                    | (
-                        Q(event__coaches=surviving_coach_id)
-                        if surviving_coach_id
-                        else Q()
-                    )
-                )
-                .exclude(pk=registration.pk)
-            )
-            # Materialise once. `.exists()` does not populate the result cache,
-            # so branching on it and then re-filtering the same queryset would
-            # issue the whole three-way OR (including the coaches m2m join)
-            # twice on the door's undo path.
-            surviving_pks = list(
-                other_coach_attendances.values_list("pk", flat=True).distinct()
-            )
+            # LuxID settles it on its own, so it is checked first: the survival
+            # query below is a three-way OR with an m2m join and there is no
+            # point paying for it when the member carries their own proof.
             if profile.has_luxid_connected:
                 CrushProfile.objects.filter(
                     pk=profile.pk,
@@ -1095,33 +1070,63 @@ def coach_undo_checkin(request, event_id, registration_id):
                 ).update(
                     verification_method="luxid",
                 )
-            elif surviving_pks:
-                # Transfer provenance to surviving coach-authenticated check-in so subsequent undos still know it verified the member
-                EventRegistration.objects.filter(
-                    pk__in=surviving_pks,
-                    checkin_auto_verified=False,
-                ).update(checkin_auto_verified=True)
             else:
-                demoted = transition_unverified_profile(
-                    profile,
-                    target_status="pending",
-                    transition_from=("verified",),
+                # The grant cleared above is gone from the database but still set
+                # on this in-memory `profile` (the clear was a raw UPDATE). Read
+                # it back as absent rather than counting the coach we just
+                # revoked as ongoing evidence of coach-authenticated attendance.
+                surviving_coach_id = (
+                    None if coach_cleared else profile.assigned_coach_id
                 )
-                if demoted:
-                    try:
-                        from .referrals import revoke_profile_approved_reward
-
-                        revoke_profile_approved_reward(profile)
-                    except Exception:
-                        # Broad on purpose: the coach is correcting a mis-scan at
-                        # the door and the undo itself must still commit — raising
-                        # here would roll the whole correction back. `exception`
-                        # rather than `warning` so the traceback survives for the
-                        # manual reconciliation this leaves behind.
-                        logger.exception(
-                            "Could not revoke referral reward on checkin undo for %s",
-                            profile.pk,
+                other_coach_attendances = (
+                    EventRegistration.objects.filter(
+                        user_id=profile.user_id,
+                        status="attended",
+                    )
+                    .filter(
+                        Q(checkin_granted_coach_id__isnull=False)
+                        | ~Q(checkin_attested_photo_key="")
+                        | (
+                            Q(event__coaches=surviving_coach_id)
+                            if surviving_coach_id
+                            else Q()
                         )
+                    )
+                    .exclude(pk=registration.pk)
+                )
+                # Materialise once. `.exists()` does not populate the result
+                # cache, so branching on it and then re-filtering the same
+                # queryset would issue the whole three-way OR twice.
+                surviving_pks = list(
+                    other_coach_attendances.values_list("pk", flat=True).distinct()
+                )
+                if surviving_pks:
+                    # Transfer provenance to surviving coach-authenticated check-in so subsequent undos still know it verified the member
+                    EventRegistration.objects.filter(
+                        pk__in=surviving_pks,
+                        checkin_auto_verified=False,
+                    ).update(checkin_auto_verified=True)
+                else:
+                    demoted = transition_unverified_profile(
+                        profile,
+                        target_status="pending",
+                        transition_from=("verified",),
+                    )
+                    if demoted:
+                        try:
+                            from .referrals import revoke_profile_approved_reward
+
+                            revoke_profile_approved_reward(profile)
+                        except Exception:
+                            # Broad on purpose: the coach is correcting a mis-scan
+                            # at the door and the undo itself must still commit —
+                            # raising here would roll the whole correction back.
+                            # `exception` rather than `warning` so the traceback
+                            # survives for the manual reconciliation it leaves.
+                            logger.exception(
+                                "Could not revoke referral reward on checkin undo for %s",
+                                profile.pk,
+                            )
 
         # Back to whatever the row actually held. A promoted walk-up returns to
         # the waitlist: undoing a mistaken promotion must not leave them

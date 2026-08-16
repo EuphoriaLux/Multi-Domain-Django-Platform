@@ -376,6 +376,47 @@ def test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate():
 
 
 @pytest.mark.django_db
+def test_coach_scan_keeps_a_member_who_already_had_a_different_coach():
+    """An authenticated scan counts even when it grants no new coach.
+
+    `assign_coach_on_first_attendance` is idempotent, so scanning a member who
+    already has coach A records no `checkin_granted_coach`; and the event may be
+    run by coach B, so the assigned-coach arm misses it too. The photo
+    attestation the scan writes is the trace that keeps them eligible — without
+    it an authenticated attendee silently drops out of Connect.
+    """
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    user = _make_user(username="scanned_other_coach", premium=True, has_luxid=False)
+    profile = user.crushprofile
+    profile.verification_status = "verified"
+    profile.verification_method = "admin"
+    profile.save(update_fields=["verification_status", "verification_method"])
+
+    # Coach B runs the event; the member is already assigned to coach A.
+    coach_b_user = User.objects.create_user(username="coach_b", email="b@example.com")
+    coach_b = CrushCoach.objects.create(user=coach_b_user, bio="B", is_active=True)
+    event = _make_event(title="Coach B event")
+    event.coaches.add(coach_b)
+    assert profile.assigned_coach_id != coach_b.id
+
+    registration = EventRegistration.objects.create(
+        user=user, event=event, status="attended"
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is False
+
+    # The scan attests the photo without granting a coach.
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_attested_photo_key="users/1/photos/test.jpg",
+        checkin_attested_photo_at=timezone.now(),
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is True
+    assert filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+
+@pytest.mark.django_db
 def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
     from crush_lu.views_crush_connect import (
         _user_is_connect_candidate_eligible,

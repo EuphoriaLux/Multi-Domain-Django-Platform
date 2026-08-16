@@ -3,7 +3,29 @@
 from collections.abc import Iterable
 from datetime import datetime
 
-from crush_lu.models import CrushProfile
+from crush_lu.models import CrushProfile, EventRegistration
+
+
+def _clear_door_photo_attestations(profile: CrushProfile) -> None:
+    """Drop the door provenance mirroring a photo attestation just revoked.
+
+    ``CrushProfile.photo_verification_key`` is the member's current attestation;
+    ``EventRegistration.checkin_attested_photo_key`` is the door's record of
+    which scan made it. Revoking the first without the second leaves a
+    registration claiming a coach vouched for a photo that has since been
+    rejected — and `coach_undo_checkin` reads exactly that field as surviving
+    coach-authenticated evidence, so a stale row would preserve a verification
+    the rejection was meant to take away.
+
+    Written as a queryset update: this runs from post-save-adjacent coach flows
+    and must not re-enter `EventRegistration`'s signals.
+    """
+    EventRegistration.objects.filter(user_id=profile.user_id).exclude(
+        checkin_attested_photo_key="",
+    ).update(
+        checkin_attested_photo_key="",
+        checkin_attested_photo_at=None,
+    )
 
 
 def claim_profile_verification(
@@ -69,6 +91,11 @@ def transition_unverified_profile(
     if not transitioned:
         return False
 
+    # Only once the CAS above won: a no-op transition means another path holds
+    # the verification, and wiping the door's provenance would take evidence
+    # away from a member somebody else just verified.
+    _clear_door_photo_attestations(profile)
+
     profile.is_approved = False
     profile.approved_at = None
     profile.verification_method = ""
@@ -102,6 +129,9 @@ def reject_door_verification(
     )
     if not updated:
         return False
+
+    # See `transition_unverified_profile`: only after the CAS won.
+    _clear_door_photo_attestations(profile)
 
     profile.is_approved = False
     profile.approved_at = None

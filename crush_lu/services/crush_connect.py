@@ -98,12 +98,23 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
         status="attended",
         event__coaches=OuterRef("crushprofile__assigned_coach_id"),
     )
+    # A coach who scans a member that already has a coach grants no new one
+    # (`assign_coach_on_first_attendance` is idempotent), and the event may be
+    # run by a different coach than the one assigned — so neither subquery above
+    # sees that scan. The photo attestation is the trace it does leave: only
+    # coach-authenticated endpoints write it, and both revocation paths clear it
+    # (`profile_verification._clear_door_photo_attestations`), so a non-empty
+    # key is current evidence that a coach stood in front of this member.
+    attended_with_attested_photo_subq = attended_event_subq.exclude(
+        checkin_attested_photo_key="",
+    )
     return (
         qs.annotate(
             _has_luxid_native=Exists(luxid_native_subq),
             _has_luxid_oidc=Exists(luxid_oidc_subq),
             _has_attended_with_grant=Exists(attended_with_grant_subq),
             _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
+            _has_attended_with_attested_photo=Exists(attended_with_attested_photo_subq),
         )
         .filter(
             crushprofile__verification_status="verified",
@@ -119,6 +130,7 @@ def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
             )
             | Q(_has_attended_with_grant=True)
             | Q(_has_attended_with_assigned_coach=True)
+            | Q(_has_attended_with_attested_photo=True)
         )
     )
 

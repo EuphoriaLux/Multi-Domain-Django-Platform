@@ -646,6 +646,79 @@ def test_reprocess_photos_does_not_resurrect_concurrent_revocation(event, coach)
     assert reg.checkin_attested_photo_key != profile.photo_1.name
 
 
+def test_rejection_clears_door_provenance_so_a_stale_row_cannot_save_a_verification(
+    event, coach, client
+):
+    """A rejected attestation stops counting as surviving coach evidence.
+
+    `reject_door_verification` clears the profile's attestation; the
+    registration that recorded it must lose its copy too. Otherwise a member
+    rejected for a photo mismatch, who resubmits and is scanned again
+    elsewhere, keeps their verification through an undo of the second scan —
+    rescued by the very registration the rejection invalidated.
+    """
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+    from crush_lu.services.profile_verification import reject_door_verification
+
+    profile, reg1 = _attendee(event, "stalerejected")
+    # Already coached by someone who runs neither event, so the scans below
+    # record no coach grant and the attestation is reg1's only evidence —
+    # which is the arm this test is about.
+    other_coach = _premium_coach()
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        assigned_coach=other_coach, assigned_coach_at=timezone.now()
+    )
+
+    # 1. Scanned at event 1: attests the photo and auto-verifies.
+    assert _scan(reg1, event, as_coach=coach).status_code == 200
+    reg1.refresh_from_db()
+    assert reg1.checkin_attested_photo_key
+    assert reg1.checkin_auto_verified is True
+    assert reg1.checkin_granted_coach_id is None
+
+    # 2. A coach later rejects the profile (photo mismatch).
+    profile.refresh_from_db()
+    assert reject_door_verification(profile) is True
+    reg1.refresh_from_db()
+    assert reg1.checkin_attested_photo_key == ""
+
+    # 3. Member resubmits, 4. and is scanned at a second event.
+    CrushProfile.objects.filter(pk=profile.pk).update(verification_status="pending")
+    event2 = MeetupEvent.objects.create(
+        title="Door event 2",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() + timedelta(hours=1),
+        location="Luxembourg",
+        address="2 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() + timedelta(minutes=30),
+        is_published=True,
+    )
+    event2.coaches.add(coach)
+    reg2 = EventRegistration.objects.create(
+        event=event2, user=profile.user, status="confirmed"
+    )
+    assert _scan(reg2, event2, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # 5. Undoing that scan must demote: reg1's attestation was invalidated, so
+    # nothing survives to carry the verification.
+    client.force_login(coach.user)
+    resp = client.post(
+        reverse(
+            "coach_undo_checkin",
+            kwargs={"event_id": event2.pk, "registration_id": reg2.pk},
+        )
+    )
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+
+
 def test_undo_checkin_preserves_a_verification_the_coach_made_before_the_scan(
     event, coach, client
 ):
