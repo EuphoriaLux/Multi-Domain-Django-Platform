@@ -39636,3 +39636,7 @@ msgid ""
 msgstr ""
 "Deine Verifizierung wurde abgelehnt, weil die Person beim Event nicht zu "
 "deinen Profilfotos passte."
+
+#: push_notifications.py:432
+msgid "Verification Not Approved"
+msgstr "Verifizierung nicht bestätigt"

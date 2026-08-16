@@ -110,3 +110,54 @@ def test_a_third_approval_after_that_is_skipped_again(member):
 
     assert result.email_skipped_reason == "duplicate"
     assert _approved_rows(member).count() == 2
+
+
+class TestRejectionPushSender:
+    """The rejection push is the only active alert a web-push-only member gets.
+
+    `_send_push` had branches for approval, revision and recontact but none for
+    rejection, so a member with an enabled browser subscription and email off
+    learned of it only from the bell row on their next visit.
+    """
+
+    @pytest.mark.django_db
+    def test_dispatcher_routes_rejection_to_the_push_sender(self, member, monkeypatch):
+        from crush_lu import push_notifications
+        from crush_lu.notification_service import NotificationService
+
+        seen = {}
+
+        def fake(user, reason):
+            seen["user"] = user
+            seen["reason"] = reason
+            return {"sent": 1}
+
+        monkeypatch.setattr(
+            push_notifications, "send_profile_rejected_notification", fake
+        )
+        NotificationService._send_push(
+            member,
+            NotificationType.PROFILE_REJECTED,
+            {"profile": member.crushprofile, "feedback": "photo mismatch"},
+        )
+
+        assert seen["user"] == member
+        assert seen["reason"] == "photo mismatch"
+
+    @pytest.mark.django_db
+    def test_sender_respects_the_profile_updates_preference(self, member, monkeypatch):
+        """Same channel as the approval and revision pushes: a member who muted
+        coach decisions has muted this one."""
+        from crush_lu import push_notifications
+
+        sent = []
+        monkeypatch.setattr(
+            push_notifications, "send_push_notification",
+            lambda **kw: sent.append(kw) or {"ok": True},
+        )
+
+        # No subscription at all -> nothing sent, and no crash.
+        assert push_notifications.send_profile_rejected_notification(
+            member, "photo mismatch"
+        ) is None
+        assert sent == []
