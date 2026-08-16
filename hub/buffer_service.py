@@ -124,7 +124,12 @@ def list_buffer_profiles() -> list[dict]:
 
 
 def _create_channel_post(
-    *, channel_id: str, text: str, scheduled_at: str | None, media_url: str | None
+    *,
+    channel_id: str,
+    text: str,
+    scheduled_at: str | None,
+    media_url: str | None,
+    platform: str | None = None,
 ) -> str:
     post_input: dict = {
         "text": text,
@@ -143,6 +148,12 @@ def _create_channel_post(
                 "Buffer media must use a publicly reachable HTTP(S) URL"
             )
         post_input["assets"] = [{"image": {"url": media_url}}]
+
+    metadata: dict = {}
+    if platform == "facebook":
+        metadata["facebook"] = {"type": "post"}
+    if metadata:
+        post_input["metadata"] = metadata
 
     data = _graphql(
         """
@@ -171,12 +182,14 @@ def create_buffer_update(
     profile_ids: list[str],
     scheduled_at: str | None = None,
     media_url: str | None = None,
+    profile_platforms: dict[str, str] | None = None,
 ) -> dict:
     """Create one Buffer post per selected channel."""
 
     if not profile_ids:
         raise BufferServiceError("Select at least one Buffer channel")
 
+    profile_platforms = profile_platforms or {}
     post_ids = []
     created_profile_ids = []
     for channel_id in profile_ids:
@@ -187,6 +200,7 @@ def create_buffer_update(
                     text=text,
                     scheduled_at=scheduled_at,
                     media_url=media_url,
+                    platform=profile_platforms.get(channel_id),
                 )
             )
             created_profile_ids.append(channel_id)

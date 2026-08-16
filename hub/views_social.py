@@ -604,10 +604,17 @@ class SocialPostDetailView(APIView):
             updated_post.save(update_fields=["status_history"])
 
         if new_status == SocialPost.Status.SCHEDULED and new_status != old_status:
+            profile_platforms = dict(updated_post.buffer_profile_platforms or {})
+            if not profile_platforms and len(updated_post.platforms or []) == 1:
+                profile_platforms = {
+                    profile_id: updated_post.platforms[0]
+                    for profile_id in (updated_post.buffer_profile_ids or [])
+                }
             try:
                 result = create_buffer_update(
                     text=updated_post.content,
                     profile_ids=updated_post.buffer_profile_ids or [],
+                    profile_platforms=profile_platforms,
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
                 )
