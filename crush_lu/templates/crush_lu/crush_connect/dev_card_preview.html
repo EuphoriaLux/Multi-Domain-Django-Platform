@@ -39,6 +39,9 @@
                 <dt class="font-medium text-gray-500">{% trans "Approved" %}</dt>
                 <dd class="col-span-2">{{ target_profile.is_approved|yesno:_("yes,no,—") }}</dd>
 
+                <dt class="font-medium text-gray-500">{% trans "Photo verified" %}</dt>
+                <dd class="col-span-2">{{ target_profile.is_photo_verified|yesno:_("yes,no,—") }}</dd>
+
                 <dt class="font-medium text-gray-500">{% trans "Onboarded to Connect" %}</dt>
                 <dd class="col-span-2">
                     {% if target_membership and target_membership.is_onboarded %}{% trans "yes" %}{% else %}{% trans "no" %}{% endif %}

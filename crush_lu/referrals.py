@@ -36,12 +36,12 @@ def build_referral_url(code, request=None, base_url=None, language_neutral=False
         # Users will get the site in their browser's preferred language
         path = f"/r/{code}/"
     else:
-        path = reverse('crush_lu:referral_redirect', kwargs={'code': code})
+        path = reverse("crush_lu:referral_redirect", kwargs={"code": code})
 
     if request is not None and not language_neutral:
         return request.build_absolute_uri(path)
 
-    base = base_url or getattr(settings, 'CRUSH_BASE_URL', None) or "https://crush.lu"
+    base = base_url or getattr(settings, "CRUSH_BASE_URL", None) or "https://crush.lu"
     return f"{base.rstrip('/')}{path}"
 
 
@@ -49,12 +49,16 @@ def capture_referral(request, code, source="link"):
     if not code:
         return None
 
-    referral = ReferralCode.objects.filter(code__iexact=code, is_active=True).select_related('referrer').first()
+    referral = (
+        ReferralCode.objects.filter(code__iexact=code, is_active=True)
+        .select_related("referrer")
+        .first()
+    )
     if not referral:
         return None
 
-    request.session['referral_code'] = referral.code
-    request.session['referral_source'] = source
+    request.session["referral_code"] = referral.code
+    request.session["referral_source"] = source
     session_key = ensure_session_key(request)
 
     ReferralAttribution.objects.get_or_create(
@@ -63,37 +67,45 @@ def capture_referral(request, code, source="link"):
         referred_user=None,
         session_key=session_key,
         defaults={
-            'ip_address': get_client_ip(request) or "",
-            'user_agent': (request.META.get('HTTP_USER_AGENT') or "")[:1000],
-            'landing_path': request.get_full_path(),
-        }
+            "ip_address": get_client_ip(request) or "",
+            "user_agent": (request.META.get("HTTP_USER_AGENT") or "")[:1000],
+            "landing_path": request.get_full_path(),
+        },
     )
     return referral
 
 
 def capture_referral_from_request(request):
-    code = request.GET.get('ref')
+    code = request.GET.get("ref")
     if code:
         return capture_referral(request, code, source="query")
     return None
 
 
 def apply_referral_to_user(request, user):
-    code = request.session.pop('referral_code', None)
+    code = request.session.pop("referral_code", None)
     if not code:
         return None
 
-    referral = ReferralCode.objects.filter(code__iexact=code, is_active=True).select_related('referrer').first()
+    referral = (
+        ReferralCode.objects.filter(code__iexact=code, is_active=True)
+        .select_related("referrer")
+        .first()
+    )
     if not referral:
         return None
 
     session_key = ensure_session_key(request)
-    attribution = ReferralAttribution.objects.filter(
-        referral_code=referral,
-        referrer=referral.referrer,
-        referred_user=None,
-        session_key=session_key
-    ).order_by('-created_at').first()
+    attribution = (
+        ReferralAttribution.objects.filter(
+            referral_code=referral,
+            referrer=referral.referrer,
+            referred_user=None,
+            session_key=session_key,
+        )
+        .order_by("-created_at")
+        .first()
+    )
 
     if attribution:
         attribution.mark_converted(user)
@@ -105,13 +117,13 @@ def apply_referral_to_user(request, user):
             status=ReferralAttribution.Status.CONVERTED,
             session_key=session_key,
             ip_address=get_client_ip(request) or "",
-            user_agent=(request.META.get('HTTP_USER_AGENT') or "")[:1000],
+            user_agent=(request.META.get("HTTP_USER_AGENT") or "")[:1000],
             landing_path=request.get_full_path(),
             converted_at=timezone.now(),
         )
 
     referral.last_used_at = timezone.now()
-    referral.save(update_fields=['last_used_at'])
+    referral.save(update_fields=["last_used_at"])
 
     # Award signup points to the referrer
     if attribution:
@@ -120,13 +132,17 @@ def apply_referral_to_user(request, user):
     return referral
 
 
-def update_membership_tier(profile):
+def update_membership_tier(profile, allow_downgrade=False):
     """Update user's membership tier based on total referral points."""
-    thresholds = getattr(settings, "MEMBERSHIP_TIER_THRESHOLDS", {
-        "bronze": 200,
-        "silver": 500,
-        "gold": 1000,
-    })
+    thresholds = getattr(
+        settings,
+        "MEMBERSHIP_TIER_THRESHOLDS",
+        {
+            "bronze": 200,
+            "silver": 500,
+            "gold": 1000,
+        },
+    )
 
     new_tier = "basic"
     for tier, threshold in sorted(thresholds.items(), key=lambda x: x[1], reverse=True):
@@ -134,17 +150,17 @@ def update_membership_tier(profile):
             new_tier = tier
             break
 
-    # Only upgrade tiers, never downgrade (protect against point redemption)
+    # Only upgrade tiers unless allow_downgrade=True during undo/revocation
     tier_rank = {"basic": 0, "bronze": 1, "silver": 2, "gold": 3}
     current_rank = tier_rank.get(profile.membership_tier, 0)
     new_rank = tier_rank.get(new_tier, 0)
 
-    if new_rank > current_rank:
+    if (allow_downgrade and new_rank != current_rank) or (new_rank > current_rank):
         old_tier = profile.membership_tier
         profile.membership_tier = new_tier
         profile.save(update_fields=["membership_tier"])
         logger.info(
-            "User %s tier upgraded from %s to %s (points: %d)",
+            "Updated membership tier for user %s from %s to %s (points: %d)",
             profile.user_id,
             old_tier,
             new_tier,
@@ -246,10 +262,8 @@ def apply_referral_reward(attribution, reward_type="signup"):
         # Multiple callers (coach approval, event check-in, login signals) can
         # pass the outer status check concurrently; the lock + re-check ensures
         # only one of them awards the points.
-        attribution = (
-            ReferralAttribution.objects
-            .select_for_update()
-            .get(pk=attribution.pk)
+        attribution = ReferralAttribution.objects.select_for_update().get(
+            pk=attribution.pk
         )
         if attribution.reward_applied:
             logger.debug(
@@ -262,7 +276,9 @@ def apply_referral_reward(attribution, reward_type="signup"):
         attribution.reward_applied = True
         attribution.reward_applied_at = timezone.now()
         attribution.reward_points = F("reward_points") + points
-        attribution.save(update_fields=["reward_applied", "reward_applied_at", "reward_points"])
+        attribution.save(
+            update_fields=["reward_applied", "reward_applied_at", "reward_points"]
+        )
 
         # Update referrer's points
         CrushProfile.objects.filter(pk=attribution.referrer_id).update(
@@ -304,11 +320,15 @@ def check_and_apply_signup_reward(user):
     Returns:
         The ReferralAttribution if reward was applied, None otherwise
     """
-    attribution = ReferralAttribution.objects.filter(
-        referred_user=user,
-        status=ReferralAttribution.Status.CONVERTED,
-        reward_applied=False,
-    ).select_related("referrer").first()
+    attribution = (
+        ReferralAttribution.objects.filter(
+            referred_user=user,
+            status=ReferralAttribution.Status.CONVERTED,
+            reward_applied=False,
+        )
+        .select_related("referrer")
+        .first()
+    )
 
     if not attribution:
         return None
@@ -331,10 +351,14 @@ def check_and_apply_profile_approved_reward(profile):
         The ReferralAttribution if reward was applied, None otherwise
     """
     # Find the attribution for this user
-    attribution = ReferralAttribution.objects.filter(
-        referred_user=profile.user,
-        status=ReferralAttribution.Status.CONVERTED,
-    ).select_related("referrer").first()
+    attribution = (
+        ReferralAttribution.objects.filter(
+            referred_user=profile.user,
+            status=ReferralAttribution.Status.CONVERTED,
+        )
+        .select_related("referrer")
+        .first()
+    )
 
     if not attribution:
         return None
@@ -349,18 +373,26 @@ def check_and_apply_profile_approved_reward(profile):
     # We'll use the reward_points field to check if bonus was already given
     signup_points = getattr(settings, "REFERRAL_POINTS_PER_SIGNUP", 100)
     bonus_points = getattr(settings, "REFERRAL_POINTS_PER_PROFILE_APPROVED", 50)
-
-    if attribution.reward_points >= signup_points + bonus_points:
+    target_points = signup_points + bonus_points
+    if attribution.reward_points >= target_points:
         # Bonus already applied
         return None
 
     # Apply the bonus
     with transaction.atomic():
-        attribution.reward_points = F("reward_points") + bonus_points
-        attribution.save(update_fields=["reward_points"])
+        attribution = ReferralAttribution.objects.select_for_update().get(
+            pk=attribution.pk
+        )
+        if attribution.reward_points >= target_points:
+            return None
+
+        points_to_add = target_points - attribution.reward_points
+        attribution.reward_points = F("reward_points") + points_to_add
+        attribution.reward_applied_at = timezone.now()
+        attribution.save(update_fields=["reward_points", "reward_applied_at"])
 
         CrushProfile.objects.filter(pk=attribution.referrer_id).update(
-            referral_points=F("referral_points") + bonus_points
+            referral_points=F("referral_points") + points_to_add
         )
 
         attribution.refresh_from_db()
@@ -372,10 +404,64 @@ def check_and_apply_profile_approved_reward(profile):
 
         logger.info(
             "Awarded %d bonus points to user %s for referred profile approval",
-            bonus_points,
+            points_to_add,
             attribution.referrer.user_id,
         )
 
+    return attribution
+
+
+def revoke_profile_approved_reward(profile, max_age_minutes=20):
+    """Reverses the profile_approved bonus points if an auto-verification is undone."""
+    from datetime import timedelta
+
+    signup_points = getattr(settings, "REFERRAL_POINTS_PER_SIGNUP", 100)
+    bonus_points = getattr(settings, "REFERRAL_POINTS_PER_PROFILE_APPROVED", 50)
+
+    with transaction.atomic():
+        attribution = (
+            ReferralAttribution.objects.select_for_update()
+            .filter(
+                referred_user=profile.user,
+                status=ReferralAttribution.Status.CONVERTED,
+            )
+            .first()
+        )
+        if not attribution:
+            return None
+
+        if attribution.reward_points <= signup_points:
+            return None
+
+        if attribution.reward_applied_at and (
+            timezone.now() - attribution.reward_applied_at
+        ) > timedelta(minutes=max_age_minutes):
+            # The approval bonus was granted by an earlier historical verification; do not revoke on this undo.
+            return None
+
+        referrer = CrushProfile.objects.select_for_update().get(
+            pk=attribution.referrer_id
+        )
+
+        points_to_deduct = min(referrer.referral_points, bonus_points)
+        if points_to_deduct > 0:
+            attribution.reward_points = F("reward_points") - points_to_deduct
+            attribution.save(update_fields=["reward_points"])
+            CrushProfile.objects.filter(pk=referrer.pk).update(
+                referral_points=F("referral_points") - points_to_deduct
+            )
+
+        attribution.refresh_from_db()
+        referrer.refresh_from_db()
+        upgraded = update_membership_tier(referrer, allow_downgrade=True)
+        if not upgraded:
+            refresh_passes_after_points_change(referrer)
+
+        logger.info(
+            "Revoked %d bonus points from user %s for undone profile approval",
+            points_to_deduct,
+            attribution.referrer.user_id,
+        )
     return attribution
 
 
@@ -391,11 +477,11 @@ def get_referral_stats(profile):
     """
     from django.db.models import Count, Sum, Q
 
-    stats = ReferralAttribution.objects.filter(
-        referrer=profile
-    ).aggregate(
+    stats = ReferralAttribution.objects.filter(referrer=profile).aggregate(
         total_clicks=Count("id"),
-        total_conversions=Count("id", filter=Q(status=ReferralAttribution.Status.CONVERTED)),
+        total_conversions=Count(
+            "id", filter=Q(status=ReferralAttribution.Status.CONVERTED)
+        ),
         total_points_earned=Sum("reward_points"),
     )
 

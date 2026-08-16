@@ -9,6 +9,7 @@ import logging
 
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from crush_lu.models import CrushProfile, CrushCoach
 from crush_lu.utils.image_processing import process_uploaded_image
@@ -54,9 +55,7 @@ class Command(BaseCommand):
         # Process CrushProfile photos
         stats = {"processed": 0, "skipped": 0, "errors": 0}
 
-        profiles = CrushProfile.objects.exclude(
-            photo_1="", photo_2="", photo_3=""
-        )
+        profiles = CrushProfile.objects.exclude(photo_1="", photo_2="", photo_3="")
         if user_id:
             profiles = profiles.filter(user_id=user_id)
 
@@ -72,9 +71,7 @@ class Command(BaseCommand):
                 if not field:
                     continue
 
-                self._process_photo(
-                    profile, field_name, field, dry_run, stats
-                )
+                self._process_photo(profile, field_name, field, dry_run, stats)
 
         # Process CrushCoach photos
         if options["include_coaches"]:
@@ -87,9 +84,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"\nFound {coach_count} coach photos to process")
 
             for coach in coaches.iterator():
-                self._process_photo(
-                    coach, "photo", coach.photo, dry_run, stats
-                )
+                self._process_photo(coach, "photo", coach.photo, dry_run, stats)
 
         # Summary
         self.stdout.write("")
@@ -150,8 +145,31 @@ class Command(BaseCommand):
                 except Exception:
                     logger.warning("Could not delete old blob: %s", old_blob_name)
 
-            # Save the model to persist the field reference
-            obj.save(update_fields=[field_name])
+            # Save the model to persist the field reference. If this is a verified
+            # primary photo, carry forward the attestation to the new key.
+            # CrushProfile.save validates that the old key was still verified
+            # in the database, preventing resurrection of concurrent revocations.
+            update_fields = [field_name]
+            carries_attestation = (
+                isinstance(obj, CrushProfile)
+                and field_name == "photo_1"
+                and old_blob_name
+                and obj.photo_verification_key == old_blob_name
+                and obj.photo_verified_at is not None
+            )
+            if carries_attestation:
+                obj.photo_verification_key = field.name
+                update_fields.extend(["photo_verification_key", "photo_verified_at"])
+                # Only the carry-forward needs the save and the provenance
+                # repoint to land together; a plain reprocess (the overwhelming
+                # majority of a backfill) must not pay a BEGIN/COMMIT per photo.
+                with transaction.atomic():
+                    obj.save(update_fields=update_fields)
+                    self._carry_forward_registration_attestation(
+                        obj, old_blob_name, field.name
+                    )
+            else:
+                obj.save(update_fields=update_fields)
 
             self.stdout.write(
                 f"  Processed {obj_label}: "
@@ -162,7 +180,11 @@ class Command(BaseCommand):
         except (FileNotFoundError, Exception) as e:
             # Catch Azure ResourceNotFoundError (blob missing from storage)
             err_str = str(e)
-            if "BlobNotFound" in err_str or "does not exist" in err_str or isinstance(e, FileNotFoundError):
+            if (
+                "BlobNotFound" in err_str
+                or "does not exist" in err_str
+                or isinstance(e, FileNotFoundError)
+            ):
                 self.stdout.write(
                     self.style.WARNING(
                         f"  Skipped {obj_label}: file not found in storage"
@@ -175,6 +197,32 @@ class Command(BaseCommand):
                 )
                 logger.exception("Error reprocessing %s", obj_label)
                 stats["errors"] += 1
+
+    def _carry_forward_registration_attestation(self, profile, old_key, new_key):
+        """Repoint door check-in provenance at the reprocessed photo.
+
+        Call *after* ``profile.save()``. ``CrushProfile.save`` is the authority
+        on whether the attestation survived: it re-reads the row and clears the
+        attestation when a revocation (a door rejection, a check-in undo) landed
+        while this command was reprocessing the image. Reading that decision
+        back out of the database — rather than trusting the in-memory copy this
+        command wrote just before saving — is what stops a revoked attestation
+        being resurrected on the registration under a key nobody ever verified,
+        where `coach_undo_checkin` would later read it as coach attendance.
+        """
+        from crush_lu.models import EventRegistration
+
+        carried_forward = CrushProfile.objects.filter(
+            pk=profile.pk,
+            photo_verification_key=new_key,
+        ).exists()
+        if not carried_forward:
+            return
+
+        EventRegistration.objects.filter(
+            user_id=profile.user_id,
+            checkin_attested_photo_key=old_key,
+        ).update(checkin_attested_photo_key=new_key)
 
     def _get_label(self, obj, field_name):
         """Get a human-readable label for logging."""

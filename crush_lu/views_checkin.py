@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -28,6 +29,7 @@ from .models.events import SEAT_HOLDING_STATUSES
 from .services.profile_verification import (
     claim_profile_verification,
     reject_door_verification,
+    transition_unverified_profile,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,7 +55,7 @@ def _scanning_coach(request):
 
 
 #: Fields every check-in write names. `updated_at` is `auto_now`, so it is only
-#: written when listed; the three `checkin_*` provenance fields are what makes
+#: written when listed; the provenance fields are what makes
 #: the undo reversible without guessing (see `_record_checkin_provenance`).
 _CHECKIN_UPDATE_FIELDS = [
     "status",
@@ -61,6 +63,9 @@ _CHECKIN_UPDATE_FIELDS = [
     "checkin_prior_status",
     "checkin_granted_coach",
     "checkin_granted_coach_at",
+    "checkin_attested_photo_key",
+    "checkin_attested_photo_at",
+    "checkin_auto_verified",
     "updated_at",
 ]
 
@@ -87,6 +92,9 @@ def _record_checkin_provenance(registration):
     registration.checkin_prior_status = registration.status
     registration.checkin_granted_coach = None
     registration.checkin_granted_coach_at = None
+    registration.checkin_attested_photo_key = ""
+    registration.checkin_attested_photo_at = None
+    registration.checkin_auto_verified = False
 
 
 #: Statuses the manual Verify button may transition from. The endpoint has
@@ -222,20 +230,59 @@ def _evaluate_lobby_participation(registration):
         )
 
 
+def _attest_and_record_photo(
+    profile, registration, now, allowed_statuses=("pending", "verified"), coach=None
+) -> bool:
+    """Attest member's photo and record provenance on registration without extra post-save signals.
+
+    Refuses to attest when the scanning ``coach`` is the attendee themselves.
+    Both call sites (auto-verify-on-attendance and the manual Verify button)
+    authenticate on an active coach account, and an attendee who happens to
+    also be an active coach can otherwise scan or click their own way to a
+    self-issued "Photo Verified" badge -- exactly the independent, in-person
+    attestation this feature exists to guarantee.
+    """
+    if coach is not None and coach.user_id == registration.user_id:
+        logger.warning(
+            "[CHECKIN-VERIFY] Refused photo attestation: coach %s attempted to "
+            "attest their own registration %s",
+            coach.pk,
+            registration.pk,
+        )
+        return False
+    if not profile or not profile.photo_1:
+        return False
+    attested = profile.mark_current_photo_verified(
+        verified_at=now,
+        allowed_statuses=allowed_statuses,
+    )
+    if attested:
+        attested_key = getattr(profile.photo_1, "name", "") or ""
+        registration.checkin_attested_photo_key = attested_key
+        registration.checkin_attested_photo_at = profile.photo_verified_at
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            checkin_attested_photo_key=attested_key,
+            checkin_attested_photo_at=profile.photo_verified_at,
+        )
+        return True
+    return False
+
+
 def _auto_verify_on_attendance(request, registration, now):
-    """Verify a `pending` profile because a coach checked them in at the door.
+    """Auto-verify an unverified attendee at event check-in.
 
-    Attending the event *is* the verification for the ordinary walk-in, so the
-    coach should not have to tap a second button. Two deliberate exceptions keep
-    their own explicit action (the Verify button stays visible for exactly
-    these):
+    Runs inside the registration's ``transaction.atomic`` block. Does NOT save
+    the registration — that is the caller's responsibility.
 
-    * **Premium members** — the "only their own coach may verify" rule is
-      intentional for paying members, so it is left to that coach.
-    * **Profiles with no photo** — since the fast-track change (PR #650) a
-      member can complete their profile without one, and a scan cannot confirm
-      an identity there is nothing on screen to compare. Verification would be
-      asserting something nobody checked.
+    Only applies to members with ``verification_status == 'pending'`` and no
+    active premium membership (premium members are verified by their own coach).
+    If verification was already granted via another path (e.g. LuxID, coach
+    approval), this is a no-op that leaves the existing verification intact.
+
+    The scan also attests the attendee's primary photo (``is_photo_verified``),
+    even for members already verified via LuxID or a previous event, provided
+    their profile is still in good standing. Photoless profiles are skipped —
+    asserting something nobody checked.
 
     Returns the verified profile (so the caller can run the side effects once
     the transaction commits), or ``None``.
@@ -244,8 +291,27 @@ def _auto_verify_on_attendance(request, registration, now):
     if coach is None:
         return None
 
-    profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
-    if profile is None or profile.verification_status != "pending":
+    profile = (
+        CrushProfile.objects.select_for_update()
+        .filter(user_id=registration.user_id)
+        .first()
+    )
+    if profile is None:
+        return None
+    # The coach-authenticated scan attests the exact photo visible at the
+    # door, independently of whether LuxID (or an earlier coach) already won
+    # the member-level verification race. Photoless scans write nothing, so a
+    # later upload cannot inherit this badge.
+    if profile.verification_status in ("pending", "verified"):
+        _attest_and_record_photo(
+            profile,
+            registration,
+            now,
+            allowed_statuses=("pending", "verified"),
+            coach=coach,
+        )
+
+    if profile.verification_status != "pending":
         return None
     if profile.has_active_premium:
         return None
@@ -255,6 +321,12 @@ def _auto_verify_on_attendance(request, registration, now):
     if not _apply_verification(profile, "coach_event", coach, now):
         # Another path (e.g. a concurrent LuxID callback) verified them first.
         return None
+
+    registration.checkin_auto_verified = True
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_auto_verified=True,
+    )
+
     logger.info(
         "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
         profile.pk,
@@ -376,13 +448,14 @@ def event_checkin_api(request, registration_id, token):
         if within_checkin_window:
             with transaction.atomic():
                 locked_registration = (
-                    EventRegistration.objects.select_for_update()
+                    EventRegistration.objects.select_for_update(of=("self",))
                     .select_related("event", "user")
                     .get(id=registration_id)
                 )
-                rescan_verified = _auto_verify_on_attendance(
-                    request, locked_registration, now
-                )
+                if locked_registration.status == "attended":
+                    rescan_verified = _auto_verify_on_attendance(
+                        request, locked_registration, now
+                    )
         if rescan_verified is not None:
             # `registration` was loaded with `user__crushprofile` selected, so
             # its cached profile predates the write above — re-read it or the
@@ -677,42 +750,47 @@ def coach_mark_verified(request, event_id, registration_id):
         else:
             method = "coach_event"
 
-        if profile.verification_status == "verified":
-            return JsonResponse(
-                {
-                    "success": True,
-                    "already_verified": True,
-                    "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration, coach_authenticated=True),
-                    "verification_method": profile.verification_method,
-                    "message": str(_("Already verified.")),
-                    "row": _row_state(registration, coach_authenticated=True),
-                }
-            )
-
         # Same workflow the auto-verify on attendance runs, so the two paths
         # cannot drift apart.
-        if not _apply_verification(
-            profile, method, coach, now, claim_from=MANUAL_VERIFY_CLAIM_FROM
-        ):
-            # The claim can only fail here because another path verified them
-            # first — every other status is claimable. Report the same
-            # idempotent success as an already-verified profile rather than
-            # running the side effects twice. Reporting this for a still-
-            # unapproved profile would be worse than useless: the client
-            # removes the Verify button on `already_verified`, so the row would
-            # claim verified while the database disagreed.
-            profile.refresh_from_db()
-            if profile.verification_status != "verified":
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": str(
-                            _("Could not verify this profile. Please try again.")
-                        ),
-                    },
-                    status=409,
-                )
+        already_verified = False
+        if profile.verification_status != "verified":
+            if not _apply_verification(
+                profile, method, coach, now, claim_from=MANUAL_VERIFY_CLAIM_FROM
+            ):
+                # The claim can only fail here because another path verified them
+                # first — every other status is claimable. Report the same
+                # idempotent success as an already-verified profile rather than
+                # running the side effects twice. Reporting this for a still-
+                # unapproved profile would be worse than useless: the client
+                # removes the Verify button on `already_verified`, so the row would
+                # claim verified while the database disagreed.
+                profile.refresh_from_db()
+                if profile.verification_status != "verified":
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": str(
+                                _("Could not verify this profile. Please try again.")
+                            ),
+                        },
+                        status=409,
+                    )
+                already_verified = True
+        else:
+            already_verified = True
+
+        # This explicit coach action attests the photo even when member-level
+        # identity was already verified through LuxID. The method remains the
+        # first verification path; the photo key is a separate, versioned fact.
+        _attest_and_record_photo(
+            profile,
+            registration,
+            now,
+            allowed_statuses=("incomplete", "pending", "rejected", "verified"),
+            coach=coach,
+        )
+
+        if already_verified:
             return JsonResponse(
                 {
                     "success": True,
@@ -1022,29 +1100,33 @@ def coach_undo_checkin(request, event_id, registration_id):
     Refused for a row with no ``checked_in_at``. The window is what keeps this
     a correction rather than an attendance editor, and a row with no timestamp
     has no window — those belong to an administrator.
-
-    The Event Lobby needs no cleanup: ``eligible_participations`` re-checks
-    ``event_registration__status == "attended"`` at read time (§5.2), so the
-    member drops off the roster, the photo route and the signal targets as
-    soon as this commits.
     """
-    coach = request.coach
-    now = timezone.now()
-
-    with transaction.atomic():
-        # Lock only the registration row — crushprofile is the nullable side of
-        # an outer join, which PostgreSQL refuses to lock under FOR UPDATE.
-        registration = (
-            EventRegistration.objects.select_for_update(of=("self",))
-            .select_related("user", "event")
-            .filter(id=registration_id, event_id=event_id)
-            .first()
+    coach = _scanning_coach(request)
+    if coach is None:
+        return JsonResponse(
+            {"success": False, "error": str(_("Authentication required."))},
+            status=401,
         )
-        if registration is None:
+
+    # Lock the registration so an undo cannot race another coach scanning or
+    # editing the same attendee at the door, then the profile, so the
+    # verification decision below is serialised against a concurrent door
+    # rejection or LuxID callback. The order is registration → crushprofile and
+    # must stay that way: every other writer that takes both takes them in this
+    # order, and reversing it here is how a door deadlock gets built.
+    with transaction.atomic():
+        try:
+            registration = (
+                EventRegistration.objects.select_for_update(of=("self",))
+                .select_related("event", "user")
+                .get(pk=registration_id, event_id=event_id)
+            )
+        except EventRegistration.DoesNotExist:
             return JsonResponse(
                 {"success": False, "error": str(_("Registration not found."))},
                 status=404,
             )
+
         if registration.status != "attended":
             return JsonResponse(
                 {
@@ -1054,11 +1136,10 @@ def coach_undo_checkin(request, event_id, registration_id):
                 status=409,
             )
 
-        # No timestamp, no window — and no undo. An attended row with a NULL
-        # checked_in_at is valid: attendance entered administratively or by an
-        # older flow. Letting it skip the age check is what would turn a
-        # 15-minute mis-scan fix into an editor for attendance of any age,
-        # because every attended row renders an Undo button.
+        # The door is loud: a coach correcting a mis-scan needs a few minutes,
+        # but attendance from last week must not be rewritable here.
+        # superusers/lead coaches can still fix records in Django admin.
+        now = timezone.now()
         checked_in_at = registration.checked_in_at
         undo_window = timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES)
         if checked_in_at is None or now - checked_in_at > undo_window:
@@ -1084,7 +1165,11 @@ def coach_undo_checkin(request, event_id, registration_id):
         # A member who arrived with a coach records no grant at all and is
         # untouched, as before.
         coach_cleared = False
-        profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
+        profile = (
+            CrushProfile.objects.select_for_update()
+            .filter(user_id=registration.user_id)
+            .first()
+        )
         granted_coach_id = registration.checkin_granted_coach_id
         granted_at = registration.checkin_granted_coach_at
         if (
@@ -1094,10 +1179,116 @@ def coach_undo_checkin(request, event_id, registration_id):
             and profile.assigned_coach_id == granted_coach_id
             and profile.assigned_coach_at == granted_at
         ):
-            profile.assigned_coach = None
-            profile.assigned_coach_at = None
-            profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+            CrushProfile.objects.filter(
+                pk=profile.pk,
+                assigned_coach_id=granted_coach_id,
+                assigned_coach_at=granted_at,
+            ).update(
+                assigned_coach=None,
+                assigned_coach_at=None,
+            )
             coach_cleared = True
+
+        # Revoke scan-created photo attestation atomically if the profile still holds the exact key and timestamp
+        attested_key = registration.checkin_attested_photo_key
+        attested_at = registration.checkin_attested_photo_at
+        if attested_key and attested_at and profile is not None:
+            CrushProfile.objects.filter(
+                pk=profile.pk,
+                photo_verification_key=attested_key,
+                photo_verified_at=attested_at,
+            ).update(
+                photo_verification_key="",
+                photo_verified_at=None,
+            )
+
+        # Revoke auto-verification only when this check-in is what carries the
+        # member's verification, unless independent current proof (a connected
+        # LuxID, or another coach-authenticated attended event) supersedes it.
+        #
+        # `checkin_auto_verified` is that fact and the only one: a coach grant is
+        # revoked above, a photo attestation is revoked directly above that, and
+        # neither is evidence this scan verified the *member*. A coach who used
+        # the Verify button before the scan (`coach_mark_verified`) leaves an
+        # attested photo on the row while the later scan sets no
+        # `checkin_auto_verified` — that independent decision must survive
+        # undoing the scan. The transfer branch below keeps the flag set on a
+        # surviving coach-authenticated registration, so a chain of undos still
+        # ends in a demotion.
+        if (
+            profile is not None
+            and registration.checkin_auto_verified
+            and profile.verification_status == "verified"
+            and profile.verification_method == "coach_event"
+        ):
+            # LuxID settles it on its own, so it is checked first: the survival
+            # query below is a three-way OR with an m2m join and there is no
+            # point paying for it when the member carries their own proof.
+            if profile.has_luxid_connected:
+                CrushProfile.objects.filter(
+                    pk=profile.pk,
+                    verification_status="verified",
+                    verification_method="coach_event",
+                ).update(
+                    verification_method="luxid",
+                )
+            else:
+                # The grant cleared above is gone from the database but still set
+                # on this in-memory `profile` (the clear was a raw UPDATE). Read
+                # it back as absent rather than counting the coach we just
+                # revoked as ongoing evidence of coach-authenticated attendance.
+                surviving_coach_id = (
+                    None if coach_cleared else profile.assigned_coach_id
+                )
+                other_coach_attendances = (
+                    EventRegistration.objects.filter(
+                        user_id=profile.user_id,
+                        status="attended",
+                    )
+                    .filter(
+                        Q(checkin_granted_coach_id__isnull=False)
+                        | ~Q(checkin_attested_photo_key="")
+                        | (
+                            Q(event__coaches=surviving_coach_id)
+                            if surviving_coach_id
+                            else Q()
+                        )
+                    )
+                    .exclude(pk=registration.pk)
+                )
+                # Materialise once. `.exists()` does not populate the result
+                # cache, so branching on it and then re-filtering the same
+                # queryset would issue the whole three-way OR twice.
+                surviving_pks = list(
+                    other_coach_attendances.values_list("pk", flat=True).distinct()
+                )
+                if surviving_pks:
+                    # Transfer provenance to surviving coach-authenticated check-in so subsequent undos still know it verified the member
+                    EventRegistration.objects.filter(
+                        pk__in=surviving_pks,
+                        checkin_auto_verified=False,
+                    ).update(checkin_auto_verified=True)
+                else:
+                    demoted = transition_unverified_profile(
+                        profile,
+                        target_status="pending",
+                        transition_from=("verified",),
+                    )
+                    if demoted:
+                        try:
+                            from .referrals import revoke_profile_approved_reward
+
+                            revoke_profile_approved_reward(profile)
+                        except Exception:
+                            # Broad on purpose: the coach is correcting a mis-scan
+                            # at the door and the undo itself must still commit —
+                            # raising here would roll the whole correction back.
+                            # `exception` rather than `warning` so the traceback
+                            # survives for the manual reconciliation it leaves.
+                            logger.exception(
+                                "Could not revoke referral reward on checkin undo for %s",
+                                profile.pk,
+                            )
 
         # Back to whatever the row actually held. A promoted walk-up returns to
         # the waitlist: undoing a mistaken promotion must not leave them
@@ -1119,6 +1310,9 @@ def coach_undo_checkin(request, event_id, registration_id):
         registration.checkin_prior_status = ""
         registration.checkin_granted_coach = None
         registration.checkin_granted_coach_at = None
+        registration.checkin_attested_photo_key = ""
+        registration.checkin_attested_photo_at = None
+        registration.checkin_auto_verified = False
         # Tells handle_event_ticket_on_registration_change that this really is
         # an attended -> confirmed transition. The same idiom as
         # _checkin_coach: the signal cannot tell a transition from any other

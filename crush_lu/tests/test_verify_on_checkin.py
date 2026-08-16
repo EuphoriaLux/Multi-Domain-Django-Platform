@@ -128,6 +128,8 @@ def test_scan_by_a_coach_verifies_an_ordinary_attendee(event, coach):
     assert profile.verification_status == "verified"
     assert profile.is_approved is True
     assert profile.verification_method == "coach_event"
+    assert profile.is_photo_verified
+    assert profile.photo_verification_key == profile.photo_1.name
 
 
 def test_toast_reports_the_attendee_as_verified(event, coach):
@@ -160,6 +162,9 @@ def test_profile_without_a_photo_is_not_auto_verified(event, coach):
     profile.refresh_from_db()
     assert reg.status == "attended"
     assert profile.verification_status == "pending"
+    profile.photo_1 = "users/1/photos/uploaded-after-checkin.jpg"
+    profile.save(update_fields=["photo_1"])
+    assert not profile.is_photo_verified
 
 
 def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
@@ -174,6 +179,70 @@ def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
     assert reg.status == "attended"  # unchanged behaviour
     assert profile.verification_status == "pending"
     assert profile.is_approved is False
+    assert not profile.is_photo_verified
+
+
+def test_coach_scanning_their_own_ticket_does_not_self_attest_photo(event, coach):
+    """A coach is also a member elsewhere and could hold their own signed QR.
+
+    The badge exists to certify an *independent* attestation — a coach who is
+    also the attendee must not be able to award it to themselves by scanning
+    their own ticket, even though the scan still checks them in normally.
+    """
+    profile = CrushProfile.objects.create(
+        user=coach.user,
+        date_of_birth=date(1994, 3, 2),
+        gender="F",
+        location="Luxembourg",
+        is_active=True,
+    )
+    profile.photo_1.save("selfcoach.gif", SimpleUploadedFile("selfcoach.gif", _GIF))
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="pending", is_approved=False, phone_verified=True
+    )
+    reg = EventRegistration.objects.create(
+        event=event, user=coach.user, status="confirmed"
+    )
+
+    response = _scan(reg, event, as_coach=coach)
+
+    assert response.status_code == 200
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.status == "attended"  # still checks the coach in normally
+    assert not profile.is_photo_verified
+    assert profile.photo_verification_key == ""
+    assert reg.checkin_attested_photo_key == ""
+
+
+def test_coach_cannot_self_verify_their_own_photo_via_manual_button(
+    event, coach, client
+):
+    """Same self-attestation guard applies to the manual Verify button."""
+    profile = CrushProfile.objects.create(
+        user=coach.user,
+        date_of_birth=date(1994, 3, 2),
+        gender="F",
+        location="Luxembourg",
+        is_active=True,
+    )
+    profile.photo_1.save("selfverify.gif", SimpleUploadedFile("selfverify.gif", _GIF))
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="pending", is_approved=False, phone_verified=True
+    )
+    reg = EventRegistration.objects.create(
+        event=event, user=coach.user, status="confirmed"
+    )
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert not profile.is_photo_verified
+    assert profile.photo_verification_key == ""
+    assert reg.checkin_attested_photo_key == ""
 
 
 def test_inactive_coach_session_does_not_verify(event, coach):
@@ -196,6 +265,7 @@ def test_already_verified_profile_is_untouched(event, coach):
     profile.refresh_from_db()
     # LuxID verification must not be overwritten with coach_event.
     assert profile.verification_method == "luxid"
+    assert profile.is_photo_verified
 
 
 def test_rejected_profile_is_not_verified_by_attending(event, coach):
@@ -458,3 +528,759 @@ def test_existing_coach_is_never_reassigned_by_a_scan(event, coach):
 
     profile.refresh_from_db()
     assert profile.assigned_coach_id == coach.id
+
+
+def test_undo_checkin_revokes_photo_attestation_and_auto_verification(
+    event, coach, client
+):
+    """When a coach undoes checkin for a mis-scanned badge, the photo attestation
+    and auto-verification created by that scan are revoked."""
+    from django.urls import reverse
+
+    profile, reg = _attendee(event, "undomisscan")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+    assert reg.checkin_auto_verified is True
+
+    # Coach undoes the check-in
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "pending"
+    assert profile.is_approved is False
+    assert profile.verification_method == ""
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
+
+
+def test_undo_checkin_preserves_verification_if_luxid_connected_before_undo(
+    event, coach, client
+):
+    """If a member connects LuxID after an attendance scan but before check-in undo,
+    the undo revokes the photo attestation but preserves member verification via LuxID.
+    """
+    from django.urls import reverse
+    from allauth.socialaccount.models import SocialAccount
+
+    profile, reg = _attendee(event, "undoluxid")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+
+    # User links LuxID before undo
+    SocialAccount.objects.create(
+        user=profile.user,
+        provider="luxid",
+        uid="luxid_undo_test",
+    )
+    assert profile.has_luxid_connected is True
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "verified"
+    assert profile.is_approved is True
+    assert profile.verification_method == "luxid"
+    assert profile.is_photo_verified is False
+
+
+def test_mark_photo_verified_does_not_race_rejected_profile(event, coach):
+    """If a profile is rejected (e.g. door mismatch), concurrent/stale mark_current_photo_verified
+    is ignored and cannot restore the trust badge."""
+    profile, reg = _attendee(event, "rejectedprofile")
+    profile.verification_status = "rejected"
+    profile.is_approved = False
+    profile.save(update_fields=["verification_status", "is_approved"])
+
+    assert profile.mark_current_photo_verified() is False
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+
+
+def test_manual_coach_mark_verified_on_confirmed_seat_grants_connect_identity(
+    event, coach, client
+):
+    """When a coach manually verifies a member at an event whose registration is still confirmed,
+    is_connect_identity_verified must be True immediately."""
+    profile, reg = _attendee(event, "manualverifyconnect")
+    assert reg.status == "confirmed"
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert profile.is_connect_identity_verified is True
+    assert profile.is_photo_verified is True
+
+
+def test_reprocess_photos_carries_forward_photo_attestation(event, coach):
+    """Running reprocess_photos on a verified photo carries the attestation forward to the newly generated key."""
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+
+    profile, reg = _attendee(event, "reprocessmember")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is True
+    original_key = profile.photo_verification_key
+    assert original_key == profile.photo_1.name
+
+    # Mock process_uploaded_image to return smaller data so it is not skipped
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        return_value=ContentFile(b"small_image", name="processed.jpg"),
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    assert profile.photo_1.name != original_key
+    assert profile.photo_verification_key == profile.photo_1.name
+    assert profile.is_photo_verified is True
+
+
+def test_reprocess_photos_does_not_resurrect_concurrent_revocation(event, coach):
+    """If a profile's attestation is revoked in the DB before reprocess_photos saves,
+    the attestation is wiped and not resurrected on the new key."""
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+    from crush_lu.services.profile_verification import reject_door_verification
+
+    profile, reg = _attendee(event, "reprocessrevoked")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is True
+
+    # Simulate a concurrent revocation landing right before save (e.g. door rejection)
+    def mock_process_and_revoke(*args, **kwargs):
+        # A concurrent door rejection clears attestation in DB
+        reject_door_verification(profile)
+        return ContentFile(b"small_image", name="processed.jpg")
+
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        side_effect=mock_process_and_revoke,
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
+
+    # The registration's provenance must not be repointed at the new key
+    # either. A `checkin_attested_photo_key` matching the member's current
+    # photo reads as coach attendance in `coach_undo_checkin`, so resurrecting
+    # a revoked attestation there would preserve a verification it never earned.
+    reg.refresh_from_db()
+    assert reg.checkin_attested_photo_key != profile.photo_1.name
+
+
+def test_rejection_clears_door_provenance_so_a_stale_row_cannot_save_a_verification(
+    event, coach, client
+):
+    """A rejected attestation stops counting as surviving coach evidence.
+
+    `reject_door_verification` clears the profile's attestation; the
+    registration that recorded it must lose its copy too. Otherwise a member
+    rejected for a photo mismatch, who resubmits and is scanned again
+    elsewhere, keeps their verification through an undo of the second scan —
+    rescued by the very registration the rejection invalidated.
+    """
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+    from crush_lu.services.profile_verification import reject_door_verification
+
+    profile, reg1 = _attendee(event, "stalerejected")
+    # Already coached by someone who runs neither event, so the scans below
+    # record no coach grant and the attestation is reg1's only evidence —
+    # which is the arm this test is about.
+    other_coach = _premium_coach()
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        assigned_coach=other_coach, assigned_coach_at=timezone.now()
+    )
+
+    # 1. Scanned at event 1: attests the photo and auto-verifies.
+    assert _scan(reg1, event, as_coach=coach).status_code == 200
+    reg1.refresh_from_db()
+    assert reg1.checkin_attested_photo_key
+    assert reg1.checkin_auto_verified is True
+    assert reg1.checkin_granted_coach_id is None
+
+    # 2. A coach later rejects the profile (photo mismatch).
+    profile.refresh_from_db()
+    assert reject_door_verification(profile) is True
+    reg1.refresh_from_db()
+    assert reg1.checkin_attested_photo_key == ""
+
+    # 3. Member resubmits, 4. and is scanned at a second event.
+    CrushProfile.objects.filter(pk=profile.pk).update(verification_status="pending")
+    event2 = MeetupEvent.objects.create(
+        title="Door event 2",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() + timedelta(hours=1),
+        location="Luxembourg",
+        address="2 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() + timedelta(minutes=30),
+        is_published=True,
+    )
+    event2.coaches.add(coach)
+    reg2 = EventRegistration.objects.create(
+        event=event2, user=profile.user, status="confirmed"
+    )
+    assert _scan(reg2, event2, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # 5. Undoing that scan must demote: reg1's attestation was invalidated, so
+    # nothing survives to carry the verification.
+    client.force_login(coach.user)
+    resp = client.post(
+        reverse(
+            "coach_undo_checkin",
+            kwargs={"event_id": event2.pk, "registration_id": reg2.pk},
+        )
+    )
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+
+
+def test_undo_checkin_preserves_a_verification_the_coach_made_before_the_scan(
+    event, coach, client
+):
+    """The manual Verify button outlives an undo of a later scan.
+
+    `coach_mark_verified` on a still-confirmed seat verifies the member and
+    attests their photo. The scan that follows finds them already verified, so
+    it records no `checkin_auto_verified` — it only re-attests the photo. Undoing
+    that scan must revoke what the scan did and nothing more: demoting the member
+    to `pending` would strip Connect access a coach granted independently.
+    """
+    from django.urls import reverse
+
+    profile, reg = _attendee(event, "manualthenscan")
+
+    client.force_login(coach.user)
+    assert client.post(f"/api/events/{event.id}/verify/{reg.id}/").status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    reg.refresh_from_db()
+    # The scan attested the photo but claimed no member-level verification.
+    assert reg.checkin_attested_photo_key
+    assert reg.checkin_auto_verified is False
+
+    resp = client.post(
+        reverse(
+            "coach_undo_checkin",
+            kwargs={"event_id": event.pk, "registration_id": reg.pk},
+        )
+    )
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    # The scan's own photo attestation is still revoked — that part was this
+    # check-in's, and the badge asserts a coach saw the photo at this door.
+    assert profile.is_photo_verified is False
+
+
+def test_manual_coach_mark_verified_attests_photo_on_rejected_profile(
+    event, coach, client
+):
+    """A coach manually verifying a previously rejected profile attests their photo and records provenance."""
+    profile, reg = _attendee(event, "manualrejected")
+    profile.verification_status = "rejected"
+    profile.is_approved = False
+    profile.save(update_fields=["verification_status", "is_approved"])
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+    assert reg.checkin_attested_photo_at == profile.photo_verified_at
+
+
+def test_transition_unverified_profile_clears_photo_attestation():
+    """transition_unverified_profile clears any stale photo attestation."""
+    from crush_lu.services.profile_verification import transition_unverified_profile
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    User = get_user_model()
+    user = User.objects.create_user(username="trans_test", email="trans@example.com")
+    profile = CrushProfile.objects.create(
+        user=user,
+        verification_status="pending",
+        photo_1=SimpleUploadedFile("photo.jpg", b"fake", content_type="image/jpeg"),
+    )
+    assert profile.mark_current_photo_verified() is True
+    assert profile.is_photo_verified is True
+
+    transition_unverified_profile(profile, target_status="rejected")
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "rejected"
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.photo_verified_at is None
+
+
+def test_undo_checkin_preserves_verification_if_other_event_attended(
+    event, coach, client
+):
+    """If an attendee already has another attended event, undoing this event's check-in
+    revokes this event's photo attestation but preserves profile verification."""
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+    from django.utils import timezone
+    from datetime import timedelta
+
+    other_event = MeetupEvent.objects.create(
+        title="Other Event",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() - timedelta(days=7),
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=8),
+        is_published=True,
+    )
+    profile, reg = _attendee(event, "multiattendee")
+    EventRegistration.objects.create(
+        user=profile.user,
+        event=other_event,
+        status="attended",
+        checkin_granted_coach=coach,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is True
+
+    # Coach undoes this checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert profile.verification_status == "verified"
+    assert profile.is_photo_verified is False
+
+
+def test_undo_checkin_revokes_referral_approval_reward(event, coach, client):
+    """Undoing check-in for an auto-verified referred member reverses the referrer's bonus points."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+    from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+    referrer_user = get_user_model().objects.create_user(
+        username="referrer_user", email="referrer@example.com"
+    )
+    referrer_prof = CrushProfile.objects.create(user=referrer_user, referral_points=100)
+    ref_code = ReferralCode.objects.create(code="REF123", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "referredattendee")
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_points=100,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # Simulate referral side effect
+    check_and_apply_profile_approved_reward(profile)
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 150
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 100
+    assert referrer_prof.referral_points == 100
+
+
+def test_reprocess_photos_updates_registration_provenance_for_undo(
+    event, coach, client
+):
+    """When reprocess_photos carries forward attestation, registration provenance follows it
+    so a subsequent undo cleanly revokes the reprocessed key."""
+    from django.urls import reverse
+    from django.core.management import call_command
+    from unittest.mock import patch
+    from django.core.files.base import ContentFile
+
+    profile, reg = _attendee(event, "reprocessundo")
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+
+    with patch(
+        "crush_lu.management.commands.reprocess_photos.process_uploaded_image",
+        return_value=ContentFile(b"small_image", name="processed.jpg"),
+    ):
+        call_command("reprocess_photos", user_id=profile.user_id, include_coaches=False)
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is True
+    assert reg.checkin_attested_photo_key == profile.photo_1.name
+
+    # Coach undoes checkin after reprocessing
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert profile.is_photo_verified is False
+    assert profile.photo_verification_key == ""
+    assert profile.verification_status == "pending"
+
+
+def test_undo_checkin_unauthenticated_attendance_does_not_preserve_verification(
+    event, coach, client
+):
+    """An unauthenticated self-scanned attended registration without coach provenance
+    does not preserve profile verification when the coach check-in is undone."""
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+
+    other_event = MeetupEvent.objects.create(
+        title="Self Scan Event",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() - timedelta(days=7),
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=8),
+        is_published=True,
+    )
+    profile, reg = _attendee(event, "unauthattendee")
+    # Registration with status='attended' but no coach provenance
+    EventRegistration.objects.create(
+        user=profile.user,
+        event=other_event,
+        status="attended",
+        checkin_granted_coach=None,
+        checkin_attested_photo_key="",
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # Coach undoes the verified check-in
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+    assert profile.verification_method == ""
+
+
+def test_undo_checkin_spent_referral_points_does_not_underflow(event, coach, client):
+    """If a referrer spent their bonus points before the undo, referral points do not go negative."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+    from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+    referrer_user = get_user_model().objects.create_user(
+        username="spent_referrer", email="spent@example.com"
+    )
+    referrer_prof = CrushProfile.objects.create(user=referrer_user, referral_points=0)
+    ref_code = ReferralCode.objects.create(code="SPENTREF", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "spentattendee")
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_points=100,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    check_and_apply_profile_approved_reward(profile)
+    attribution.refresh_from_db()
+    referrer_prof.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 50
+
+    # Referrer spends points before undo
+    referrer_prof.referral_points = 10
+    referrer_prof.save(update_fields=["referral_points"])
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 140  # Revoked exactly the 10 unspent points
+    assert referrer_prof.referral_points == 0  # Deducted 10, did not underflow to -40
+
+    # Profile is re-approved later: only remaining 10 points are credited, not double awarding
+    check_and_apply_profile_approved_reward(profile)
+    attribution.refresh_from_db()
+    referrer_prof.refresh_from_db()
+    assert attribution.reward_points == 150
+    assert referrer_prof.referral_points == 10
+
+
+def test_undo_checkin_does_not_revoke_historical_referral_reward(event, coach, client):
+    """If a referral bonus was awarded historically in the past, an undo of a subsequent
+    scan does not revoke the historical bonus."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+
+    referrer_user = get_user_model().objects.create_user(
+        username="hist_referrer", email="hist@example.com"
+    )
+    referrer_prof = CrushProfile.objects.create(
+        user=referrer_user, referral_points=200, membership_tier="bronze"
+    )
+    ref_code = ReferralCode.objects.create(code="HISTREF", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "histattendee")
+    # Bonus was awarded 10 days ago
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_applied_at=timezone.now() - timedelta(days=10),
+        reward_points=150,
+    )
+
+    # Scan auto-verifies member (profile was pending)
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert attribution.reward_points == 150  # Kept historical 150 points
+    assert referrer_prof.referral_points == 200
+
+
+def test_undo_checkin_downgrades_tier_when_points_revoked(event, coach, client):
+    """When revoking invalid points drops total points below tier threshold, tier is downgraded."""
+    from django.urls import reverse
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import ReferralCode, ReferralAttribution, CrushProfile
+    from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+    referrer_user = get_user_model().objects.create_user(
+        username="tier_referrer", email="tier@example.com"
+    )
+    # Referrer has 160 points (basic tier, bronze threshold is 200)
+    referrer_prof = CrushProfile.objects.create(
+        user=referrer_user, referral_points=160, membership_tier="basic"
+    )
+    ref_code = ReferralCode.objects.create(code="TIERREF", referrer=referrer_prof)
+
+    profile, reg = _attendee(event, "tierattendee")
+    attribution = ReferralAttribution.objects.create(
+        referral_code=ref_code,
+        referrer=referrer_prof,
+        referred_user=profile.user,
+        status=ReferralAttribution.Status.CONVERTED,
+        reward_applied=True,
+        reward_points=100,
+    )
+
+    assert _scan(reg, event, as_coach=coach).status_code == 200
+    check_and_apply_profile_approved_reward(profile)
+    referrer_prof.refresh_from_db()
+    assert referrer_prof.referral_points == 210
+    assert referrer_prof.membership_tier == "bronze"
+
+    # Coach undoes checkin
+    client.force_login(coach.user)
+    undo_url = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg.pk},
+    )
+    resp = client.post(undo_url)
+    assert resp.status_code == 200
+
+    referrer_prof.refresh_from_db()
+    attribution.refresh_from_db()
+    assert referrer_prof.referral_points == 160
+    assert referrer_prof.membership_tier == "basic"  # Successfully restored to basic
+
+
+def test_undo_checkin_transfers_provenance_to_surviving_authenticated_registration(
+    event, coach, client
+):
+    """When reg1 auto-verifies a profile and reg2 is scanned later (leaving checkin_auto_verified=False),
+    undoing reg1 transfers provenance to reg2, so subsequent undo of reg2 correctly demotes the profile.
+    """
+    from django.urls import reverse
+    from crush_lu.models import MeetupEvent
+
+    event2 = MeetupEvent.objects.create(
+        title="Event 2",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now(),
+        location="Luxembourg",
+        address="2 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() - timedelta(days=1),
+        is_published=True,
+    )
+    event2.coaches.add(coach)
+
+    profile, reg1 = _attendee(event, "multi_undo_user")
+    reg2 = EventRegistration.objects.create(
+        user=profile.user,
+        event=event2,
+        status="confirmed",
+    )
+
+    # Scan 1: auto-verifies member
+    assert _scan(reg1, event, as_coach=coach).status_code == 200
+    profile.refresh_from_db()
+    reg1.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+    assert reg1.checkin_auto_verified is True
+
+    # Scan 2: already verified, so checkin_auto_verified is False
+    assert _scan(reg2, event2, as_coach=coach).status_code == 200
+    reg2.refresh_from_db()
+    assert reg2.status == "attended"
+    assert reg2.checkin_auto_verified is False
+
+    # Undo scan 1: reg2 still attended, so profile remains verified, but provenance transferred to reg2
+    client.force_login(coach.user)
+    undo_url_1 = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event.pk, "registration_id": reg1.pk},
+    )
+    resp1 = client.post(undo_url_1)
+    assert resp1.status_code == 200
+
+    profile.refresh_from_db()
+    reg2.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert reg2.checkin_auto_verified is True  # Transferred!
+
+    # Undo scan 2: no remaining coach attendance, profile is demoted to pending
+    undo_url_2 = reverse(
+        "coach_undo_checkin",
+        kwargs={"event_id": event2.pk, "registration_id": reg2.pk},
+    )
+    resp2 = client.post(undo_url_2)
+    assert resp2.status_code == 200
+
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+    assert profile.verification_method == ""

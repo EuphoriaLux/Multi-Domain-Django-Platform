@@ -32,7 +32,11 @@
             {% trans "You're in the mix." %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-            {% trans "You've opted in — your LuxID is verified and your 3 questions are live. A Crush Coach can now hand-pick you as a match for a Premium member, and we'll tell you the moment it happens." %}
+            {% if profile.has_luxid_connected %}
+                {% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}
+            {% else %}
+                {% trans "Your in-person event attendance is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}
+            {% endif %}
         </p>
         {% endif %}
     </header>
@@ -41,7 +45,11 @@
     <div class="flex flex-wrap gap-2 mb-5">
         <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
-            {% trans "LuxID verified" %}
+            {% if profile.has_luxid_connected %}
+                {% trans "LuxID verified" %}
+            {% else %}
+                {% trans "Identity verified — you can join Crush Connect" %}
+            {% endif %}
         </span>
         {% if membership.has_gate_questions %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">

@@ -10,7 +10,6 @@ from datetime import date, timedelta
 import pytest
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 from django.utils import timezone
 
 # View tests use /en/crush-connect/… URLs which only resolve under urls_crush.
@@ -344,6 +343,80 @@ def test_pool_excludes_unattended_event_targets_without_luxid():
 
 
 @pytest.mark.django_db
+def test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate():
+    """A bare ``attended`` row is not identity proof.
+
+    The attendee holds their own QR code, so a check-in can be self-posted.
+    Connect's identity gate therefore requires coach-authenticated attendance —
+    a door grant, or an event whose coaches include the member's assigned coach
+    — which is the same standard ``CrushProfile.has_attended_event`` applies.
+    This deliberately excludes an admin/legacy-verified member whose only
+    attendance was self-scanned.
+    """
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    user = _make_user(username="selfscanned", premium=False, has_luxid=False)
+    profile = user.crushprofile
+    profile.verification_status = "verified"
+    profile.verification_method = "admin"
+    profile.save(update_fields=["verification_status", "verification_method"])
+
+    registration = EventRegistration.objects.create(
+        user=user, event=_make_event(title="Self-scanned"), status="attended"
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is False
+    assert not filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+    # The same attendance, scanned by a coach, does satisfy the gate.
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_granted_coach=_get_coach()
+    )
+    assert filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+
+@pytest.mark.django_db
+def test_coach_scan_keeps_a_member_who_already_had_a_different_coach():
+    """An authenticated scan counts even when it grants no new coach.
+
+    `assign_coach_on_first_attendance` is idempotent, so scanning a member who
+    already has coach A records no `checkin_granted_coach`; and the event may be
+    run by coach B, so the assigned-coach arm misses it too. The photo
+    attestation the scan writes is the trace that keeps them eligible — without
+    it an authenticated attendee silently drops out of Connect.
+    """
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    user = _make_user(username="scanned_other_coach", premium=True, has_luxid=False)
+    profile = user.crushprofile
+    profile.verification_status = "verified"
+    profile.verification_method = "admin"
+    profile.save(update_fields=["verification_status", "verification_method"])
+
+    # Coach B runs the event; the member is already assigned to coach A.
+    coach_b_user = User.objects.create_user(username="coach_b", email="b@example.com")
+    coach_b = CrushCoach.objects.create(user=coach_b_user, bio="B", is_active=True)
+    event = _make_event(title="Coach B event")
+    event.coaches.add(coach_b)
+    assert profile.assigned_coach_id != coach_b.id
+
+    registration = EventRegistration.objects.create(
+        user=user, event=event, status="attended"
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is False
+
+    # The scan attests the photo without granting a coach.
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_attested_photo_key="users/1/photos/test.jpg",
+        checkin_attested_photo_at=timezone.now(),
+    )
+    profile.refresh_from_db()
+    assert profile.has_attended_event is True
+    assert filter_connect_identity_verified(User.objects.filter(pk=user.pk)).exists()
+
+
+@pytest.mark.django_db
 def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
     from crush_lu.views_crush_connect import (
         _user_is_connect_candidate_eligible,
@@ -361,6 +434,88 @@ def test_candidate_eligibility_and_pre_onboarding_with_attended_event():
     assert _user_is_connect_candidate_eligible(user)
     assert _user_passes_pre_onboarding_gate(user)
     assert is_catalogue_eligible(user)
+
+
+@pytest.mark.django_db
+def test_profile_is_photo_verified():
+    # Issue #540 / Task 4.3: the badge belongs to the exact file a coach saw,
+    # not to the member's historical attendance or verification method.
+    user = _make_user(username="unverified_photo", premium=False, has_luxid=True)
+    user.crushprofile.verification_method = "luxid"
+    user.crushprofile.save(update_fields=["verification_method"])
+    assert not user.crushprofile.is_photo_verified
+
+    assert user.crushprofile.mark_current_photo_verified()
+    user.crushprofile.refresh_from_db()
+    assert user.crushprofile.is_photo_verified
+
+    user.crushprofile.photo_1 = "users/1/photos/replacement.jpg"
+    user.crushprofile.save(update_fields=["photo_1"])
+    assert not user.crushprofile.is_photo_verified
+    assert user.crushprofile.photo_verification_key == ""
+
+
+@pytest.mark.django_db
+def test_attendance_while_photoless_does_not_badge_a_later_upload():
+    user = _make_user(username="photoless_attendee", premium=False, has_luxid=False)
+    user.crushprofile.photo_1 = ""
+    user.crushprofile.save(update_fields=["photo_1"])
+
+    _mark_attended(user)
+    user.crushprofile.photo_1 = "users/1/photos/uploaded-later.jpg"
+    user.crushprofile.save(update_fields=["photo_1"])
+
+    assert not user.crushprofile.is_photo_verified
+
+
+@pytest.mark.django_db
+def test_stale_full_save_preserves_new_photo_attestation():
+    user = _make_user(username="stale_photo_save", premium=False)
+    stale_profile = CrushProfile.objects.get(pk=user.crushprofile.pk)
+    current_profile = CrushProfile.objects.get(pk=user.crushprofile.pk)
+    assert current_profile.mark_current_photo_verified()
+
+    stale_profile.location = "Esch-sur-Alzette"
+    stale_profile.save()
+
+    current_profile.refresh_from_db()
+    assert current_profile.is_photo_verified
+
+
+@pytest.mark.django_db
+def test_drop_card_renders_photo_verified_badge():
+    from django.template.loader import render_to_string
+
+    user = _make_user(username="target_badge", gender="F")
+    profile = user.crushprofile
+    membership = user.crush_connect_membership
+
+    # Without a coach attestation for this exact file.
+    profile.verification_method = "luxid"
+    profile.save(update_fields=["verification_method"])
+    html = render_to_string(
+        "crush_lu/crush_connect/_drop_card.html",
+        {
+            "target": user,
+            "target_profile": profile,
+            "target_membership": membership,
+        },
+    )
+    assert "Photo Verified" not in html
+
+    # A coach-authenticated attendance scan attests the current storage key.
+    _mark_attended(user)
+    profile.mark_current_photo_verified()
+    profile.refresh_from_db()
+    html_verified = render_to_string(
+        "crush_lu/crush_connect/_drop_card.html",
+        {
+            "target": user,
+            "target_profile": profile,
+            "target_membership": membership,
+        },
+    )
+    assert "Photo Verified" in html_verified
 
 
 @pytest.mark.django_db
@@ -994,6 +1149,36 @@ def test_home_hides_recipient_who_cleared_photo_after_snapshot(client, settings)
 
 
 @pytest.mark.django_db
+def test_home_hides_attendance_only_recipient_after_checkin_is_undone(client, settings):
+    """Persisted Drops are audit snapshots, not permanent photo access."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    target = _make_user(
+        username="attendance_only",
+        gender="F",
+        preferred_genders=["M"],
+        premium=False,
+        has_luxid=False,
+    )
+    registration = _mark_attended(target)
+    _login_eligible(client, me)
+
+    drop = get_or_create_daily_drop(me)
+    drop.recipients.set([target])
+    assert target.first_name in client.get(CONNECT_HOME_URL).content.decode()
+
+    registration.status = "confirmed"
+    registration.save(update_fields=["status"])
+    target.crushprofile.verification_method = ""
+    target.crushprofile.verification_status = "pending"
+    target.crushprofile.save()
+
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert target.first_name not in body
+    assert drop.recipients.filter(pk=target.pk).exists()
+
+
+@pytest.mark.django_db
 def test_home_renders_empty_state_when_no_pool(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
@@ -1229,6 +1414,24 @@ def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
     assert "in the mix" in body.lower()
     # Consenting member sees the positive "You're in" framing, not the nudge.
     assert "almost in the mix" not in body.lower()
+
+
+@pytest.mark.django_db
+def test_catalogue_status_uses_attendance_copy_without_luxid(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="attendance_candidate",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=False,
+        has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    body = client.get(CATALOGUE_STATUS_URL).content.decode()
+    assert "in-person event attendance is verified" in body
+    assert "LuxID verified" not in body
 
 
 @pytest.mark.django_db

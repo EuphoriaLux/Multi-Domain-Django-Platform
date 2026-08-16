@@ -23690,6 +23690,7 @@ msgstr "Vous êtes de la partie !"
 msgid "You've opted in to Crush Connect."
 msgstr "Vous avez rejoint Crush Connect."
 
+#: templates/crush_lu/crush_connect/catalogue_status.html:36
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:11
 msgid ""
 "Your LuxID is verified and your story is live — a Crush Coach can now hand-"
@@ -23698,6 +23699,7 @@ msgstr ""
 "Votre LuxID est vérifié et votre histoire est en ligne — un Crush Coach peut"
 " maintenant vous sélectionner à la main comme match pour un membre Premium."
 
+#: templates/crush_lu/crush_connect/catalogue_status.html:38
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:13
 msgid ""
 "Your in-person event attendance is verified and your story is live — a Crush"
@@ -39758,6 +39760,12 @@ msgid ""
 msgstr ""
 "Vérifiez votre identité avec LuxID ou lors d'un événement en personne — "
 "gratuit, confirme que vous êtes une vraie personne."
+
+msgid "Photo Verified"
+msgstr "Photo vérifiée"
+
+msgid "Photo verified in person by a Crush Coach"
+msgstr "Photo vérifiée en personne par un Crush Coach"
 
 #: views_checkin.py:899
 msgid ""
