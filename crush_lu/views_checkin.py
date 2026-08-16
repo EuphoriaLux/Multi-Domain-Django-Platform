@@ -231,9 +231,25 @@ def _evaluate_lobby_participation(registration):
 
 
 def _attest_and_record_photo(
-    profile, registration, now, allowed_statuses=("pending", "verified")
+    profile, registration, now, allowed_statuses=("pending", "verified"), coach=None
 ) -> bool:
-    """Attest member's photo and record provenance on registration without extra post-save signals."""
+    """Attest member's photo and record provenance on registration without extra post-save signals.
+
+    Refuses to attest when the scanning ``coach`` is the attendee themselves.
+    Both call sites (auto-verify-on-attendance and the manual Verify button)
+    authenticate on an active coach account, and an attendee who happens to
+    also be an active coach can otherwise scan or click their own way to a
+    self-issued "Photo Verified" badge -- exactly the independent, in-person
+    attestation this feature exists to guarantee.
+    """
+    if coach is not None and coach.user_id == registration.user_id:
+        logger.warning(
+            "[CHECKIN-VERIFY] Refused photo attestation: coach %s attempted to "
+            "attest their own registration %s",
+            coach.pk,
+            registration.pk,
+        )
+        return False
     if not profile or not profile.photo_1:
         return False
     attested = profile.mark_current_photo_verified(
@@ -292,6 +308,7 @@ def _auto_verify_on_attendance(request, registration, now):
             registration,
             now,
             allowed_statuses=("pending", "verified"),
+            coach=coach,
         )
 
     if profile.verification_status != "pending":
@@ -748,6 +765,7 @@ def coach_mark_verified(request, event_id, registration_id):
             registration,
             now,
             allowed_statuses=("incomplete", "pending", "rejected", "verified"),
+            coach=coach,
         )
 
         if already_verified:

@@ -182,6 +182,69 @@ def test_self_scan_without_a_coach_session_checks_in_but_does_not_verify(event):
     assert not profile.is_photo_verified
 
 
+def test_coach_scanning_their_own_ticket_does_not_self_attest_photo(event, coach):
+    """A coach is also a member elsewhere and could hold their own signed QR.
+
+    The badge exists to certify an *independent* attestation — a coach who is
+    also the attendee must not be able to award it to themselves by scanning
+    their own ticket, even though the scan still checks them in normally.
+    """
+    profile = CrushProfile.objects.create(
+        user=coach.user,
+        date_of_birth=date(1994, 3, 2),
+        gender="F",
+        location="Luxembourg",
+        is_active=True,
+    )
+    profile.photo_1.save("selfcoach.gif", SimpleUploadedFile("selfcoach.gif", _GIF))
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="pending", is_approved=False, phone_verified=True
+    )
+    reg = EventRegistration.objects.create(
+        event=event, user=coach.user, status="confirmed"
+    )
+
+    response = _scan(reg, event, as_coach=coach)
+
+    assert response.status_code == 200
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.status == "attended"  # still checks the coach in normally
+    assert not profile.is_photo_verified
+    assert profile.photo_verification_key == ""
+    assert reg.checkin_attested_photo_key == ""
+
+
+def test_coach_cannot_self_verify_their_own_photo_via_manual_button(
+    event, coach, client
+):
+    """Same self-attestation guard applies to the manual Verify button."""
+    profile = CrushProfile.objects.create(
+        user=coach.user,
+        date_of_birth=date(1994, 3, 2),
+        gender="F",
+        location="Luxembourg",
+        is_active=True,
+    )
+    profile.photo_1.save("selfverify.gif", SimpleUploadedFile("selfverify.gif", _GIF))
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="pending", is_approved=False, phone_verified=True
+    )
+    reg = EventRegistration.objects.create(
+        event=event, user=coach.user, status="confirmed"
+    )
+
+    client.force_login(coach.user)
+    resp = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+    assert resp.status_code == 200
+
+    profile.refresh_from_db()
+    reg.refresh_from_db()
+    assert not profile.is_photo_verified
+    assert profile.photo_verification_key == ""
+    assert reg.checkin_attested_photo_key == ""
+
+
 def test_inactive_coach_session_does_not_verify(event, coach):
     profile, reg = _attendee(event, "inactive")
     CrushCoach.objects.filter(pk=coach.pk).update(is_active=False)
