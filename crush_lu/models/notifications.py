@@ -30,6 +30,17 @@ class Notification(models.Model):
 
     metadata = models.JSONField(default=dict, blank=True)
 
+    dedupe_key = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text=_(
+            "Optional once-only claim token. When set, the database refuses a "
+            "second row with the same (user, notification_type, dedupe_key), "
+            "which is how concurrent senders agree on who delivers."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
@@ -43,6 +54,20 @@ class Notification(models.Model):
             models.Index(
                 fields=["user", "read_at"],
                 name="crush_notif_user_read_idx",
+            ),
+        ]
+        constraints = [
+            # Deliberately conditional. Most notification types are allowed to
+            # repeat (every new message writes a row), and even the deduped
+            # ones repeat legitimately across verification lifecycles — a
+            # member rejected at the door and later approved in person MUST be
+            # told twice. So this cannot be a constraint on
+            # (user, notification_type): the key carries the lifecycle, and
+            # rows that opt out by leaving it NULL are unconstrained.
+            models.UniqueConstraint(
+                fields=["user", "notification_type", "dedupe_key"],
+                condition=models.Q(dedupe_key__isnull=False),
+                name="crush_notif_unique_dedupe_key",
             ),
         ]
 
