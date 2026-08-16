@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+
 import requests
 
 from django.conf import settings
@@ -161,10 +163,23 @@ def send_native_android_push_notification(
     if url:
         data_payload["url"] = str(url)
 
+    # Bounded like the web fan-out in push_notifications.send_push_notification:
+    # production has no task worker, so this loop runs inside the request that
+    # triggered the notification. Each FCM post carries a 10s timeout, so the
+    # deadline — not the count — is what keeps a member with a pile of stale
+    # devices from eating the gunicorn window.
+    limit = getattr(settings, "CRUSH_PUSH_FANOUT_LIMIT", 10)
+    budget = getattr(settings, "CRUSH_PUSH_FANOUT_BUDGET_SECONDS", 10.0)
+    deadline = time.monotonic() + budget
+
     success_count = 0
     failed_count = 0
+    attempted = 0
 
-    for device in devices:
+    for device in devices[:limit]:
+        if time.monotonic() >= deadline:
+            break
+        attempted += 1
         payload = {
             "message": {
                 "token": device.registration_token,
@@ -194,7 +209,25 @@ def send_native_android_push_notification(
             logger.error(f"Exception during FCM send to device {device.id}: {e}")
             failed_count += 1
 
-    return {"success": success_count, "failed": failed_count, "total": total}
+    skipped = total - attempted
+    if skipped > 0:
+        logger.warning(
+            "Android push fan-out for user ID %s bounded: sent to %s of %s "
+            "device(s), %s skipped (limit=%s, budget=%ss)",
+            user.id,
+            attempted,
+            total,
+            skipped,
+            limit,
+            budget,
+        )
+
+    return {
+        "success": success_count,
+        "failed": failed_count,
+        "total": total,
+        "skipped": skipped,
+    }
 
 
 

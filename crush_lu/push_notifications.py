@@ -5,6 +5,7 @@ Handles Web Push API notifications for PWA users
 
 import json
 import logging
+import time
 from contextlib import contextmanager
 from django.conf import settings
 from django.urls import reverse
@@ -68,9 +69,18 @@ def get_user_language_url(user, url_name, **kwargs):
         return reverse(url_name, **kwargs)
 
 
-def send_push_notification(user, title, body, url='/', tag='crush-notification', icon=None, badge=None):
+def send_push_notification(
+    user,
+    title,
+    body,
+    url='/',
+    tag='crush-notification',
+    icon=None,
+    badge=None,
+    preference_key=None,
+):
     """
-    Send a push notification to all of a user's subscribed devices.
+    Send a push notification to a user's subscribed devices.
 
     Args:
         user: Django User object
@@ -80,12 +90,21 @@ def send_push_notification(user, title, body, url='/', tag='crush-notification',
         tag: Notification tag for grouping (default: 'crush-notification')
         icon: Icon URL (default: Crush.lu logo)
         badge: Badge icon URL (default: Crush.lu badge)
+        preference_key: Optional per-subscription preference suffix (e.g.
+            'profile_updates'). When given, only subscriptions with
+            notify_<preference_key>=True are sent to. Callers used to check the
+            preference themselves with .exists() and then call this, which
+            answered *whether* to notify but never *where*: a member with one
+            opted-in and one opted-out device got it on both. Same idiom and
+            same argument name as ios_push/android_push, which already filter
+            this way. Left None (campaigns, the test push) it means "every
+            enabled subscription", which is those callers' intent.
 
     Returns:
         dict: {
             'success': int,  # Number of successful sends
             'failed': int,   # Number of failed sends
-            'total': int     # Total subscriptions attempted
+            'total': int     # Total subscriptions selected for delivery
         }
     """
 
@@ -98,10 +117,14 @@ def send_push_notification(user, title, body, url='/', tag='crush-notification',
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
         return {'success': 0, 'failed': 0, 'total': 0}
 
-    # Get all active subscriptions for this user
+    # Active subscriptions for this user, narrowed to the ones that opted in to
+    # this kind of notification when the caller named a preference.
     subscriptions = PushSubscription.objects.filter(user=user, enabled=True)
+    if preference_key:
+        subscriptions = subscriptions.filter(**{f'notify_{preference_key}': True})
 
-    if not subscriptions.exists():
+    total = subscriptions.count()
+    if not total:
         logger.info(f"No active push subscriptions for user {user.username}")
         return {'success': 0, 'failed': 0, 'total': 0}
 
@@ -119,8 +142,23 @@ def send_push_notification(user, title, body, url='/', tag='crush-notification',
     success_count = 0
     failed_count = 0
 
+    # Bound the fan-out. There is no background worker in production
+    # (DJANGO_TASKS_BACKEND is unset, so TASKS runs ImmediateBackend), so this
+    # loop runs inside the request that triggered it — at the door, that is a
+    # coach whose rejection has ALREADY committed. Each webpush() is an HTTP
+    # call to a third-party service that can hang, so the count is not itself a
+    # bound: the deadline is. Checked before each send, so a slow provider
+    # costs at most one in-flight call past the budget.
+    limit = getattr(settings, 'CRUSH_PUSH_FANOUT_LIMIT', 10)
+    budget = getattr(settings, 'CRUSH_PUSH_FANOUT_BUDGET_SECONDS', 10.0)
+    deadline = time.monotonic() + budget
+    attempted = 0
+
     # Send to each subscription
-    for subscription in subscriptions:
+    for subscription in subscriptions[:limit]:
+        if time.monotonic() >= deadline:
+            break
+        attempted += 1
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -162,10 +200,28 @@ def send_push_notification(user, title, body, url='/', tag='crush-notification',
             logger.error(f"Unexpected error sending push to {user.username}: {e}")
             failed_count += 1
 
+    skipped = total - attempted
+    if skipped > 0:
+        # Never silent: the member still gets the in-app bell row, and these
+        # devices are reachable again on the next notification. A recurring
+        # skip here means a member is carrying dead endpoints or the push
+        # provider is slow — both worth seeing before a member complains.
+        logger.warning(
+            "Push fan-out for %s bounded: sent to %s of %s subscription(s), "
+            "%s skipped (limit=%s, budget=%ss)",
+            user.username,
+            attempted,
+            total,
+            skipped,
+            limit,
+            budget,
+        )
+
     return {
         'success': success_count,
         'failed': failed_count,
-        'total': subscriptions.count()
+        'total': total,
+        'skipped': skipped,
     }
 
 
@@ -277,7 +333,8 @@ def send_event_reminder(user, event):
         title=title,
         body=body,
         url=url,
-        tag=f'event-reminder-{event.id}'
+        tag=f'event-reminder-{event.id}',
+        preference_key='event_reminders',
     )
 
 
@@ -311,7 +368,8 @@ def send_new_connection_notification(user, connection):
         title=title,
         body=body,
         url=url,
-        tag=f'connection-{connection.id}'
+        tag=f'connection-{connection.id}',
+        preference_key='new_connections',
     )
 
 
@@ -347,7 +405,8 @@ def send_new_message_notification(user, message):
         title=title,
         body=body,
         url=url,
-        tag=f'message-{message.connection.id}'
+        tag=f'message-{message.connection.id}',
+        preference_key='new_messages',
     )
 
 
@@ -376,7 +435,8 @@ def send_profile_approved_notification(user):
         title=title,
         body=body,
         url=url,
-        tag='profile-approved'
+        tag='profile-approved',
+        preference_key='profile_updates',
     )
 
 
@@ -406,7 +466,8 @@ def send_profile_revision_notification(user, feedback):
         title=title,
         body=body,
         url=url,
-        tag='profile-revision'
+        tag='profile-revision',
+        preference_key='profile_updates',
     )
 
 
@@ -439,7 +500,8 @@ def send_profile_rejected_notification(user, reason):
         title=title,
         body=body,
         url=url,
-        tag='profile-rejected'
+        tag='profile-rejected',
+        preference_key='profile_updates',
     )
 
 
@@ -468,7 +530,8 @@ def send_profile_recontact_notification(user):
         title=title,
         body=body,
         url=url,
-        tag='profile-recontact'
+        tag='profile-recontact',
+        preference_key='profile_updates',
     )
 
 
@@ -492,5 +555,8 @@ def send_test_notification(user):
         title=title,
         body=body,
         url=url,
-        tag='user-test-notification'
+        # No preference_key on purpose: "send me a test" means every device
+        # the member has enabled, including ones muted for a given category.
+        # Answering "did push reach this phone?" is the whole point.
+        tag='user-test-notification',
     )
