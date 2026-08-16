@@ -27,6 +27,19 @@ class MenuCategoryInline(admin.TabularInline):
     fields = ("name", "sort_order", "is_visible")
 
 
+class TableAdmin(admin.ModelAdmin):
+    list_display = ("label", "venue", "seats", "is_active")
+    list_filter = ("venue",)
+    readonly_fields = ("qr_token",)
+    # Without this, Table.qr_token — blank=False, auto-generated in save()
+    # only when empty — is a *required* input on this standalone admin's add
+    # form, so the Django ModelForm rejects a blank submission before save()
+    # ever runs. Staff could not create a table here without inventing a
+    # token themselves, defeating the whole point of the auto-generated,
+    # rotatable one. TableInline already had this; the standalone
+    # registration didn't.
+
+
 class VenueAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "service_open", "currency", "created_at")
     prepopulated_fields = {"slug": ("name",)}
@@ -72,12 +85,21 @@ class GuestAdmin(admin.ModelAdmin):
     list_filter = ("venue", "status")
 
 
+class TabAdmin(admin.ModelAdmin):
+    list_display = ("table", "venue", "status", "opened_at")
+    list_filter = ("venue", "status")
+    # venue is now always derived from table in Tab.save() (models.py) —
+    # shown readonly rather than left as a normal editable FK so it doesn't
+    # look like a real choice that silently gets overwritten on save.
+    readonly_fields = ("venue",)
+
+
 # Only power_up_admin_site, matching crm/onboarding — not the default
 # admin.site (see power_up/admin.py's import-for-side-effect convention).
 power_up_admin_site.register(Venue, VenueAdmin)
-power_up_admin_site.register(Table)
+power_up_admin_site.register(Table, TableAdmin)
 power_up_admin_site.register(MenuCategory, MenuCategoryAdmin)
 power_up_admin_site.register(MenuItem, MenuItemAdmin)
-power_up_admin_site.register(Tab)
+power_up_admin_site.register(Tab, TabAdmin)
 power_up_admin_site.register(Guest, GuestAdmin)
 power_up_admin_site.register(Order, OrderAdmin)

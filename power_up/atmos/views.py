@@ -23,6 +23,7 @@ import os
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -32,7 +33,7 @@ from django.utils import timezone
 
 from .lore.chronicle import Chronicle, ChronicleEvent, DrinkLine
 from .lore.engine import generate_vignette
-from .lore.personas import random_persona
+from .lore.personas import NOIR_PERSONAS, random_persona
 from .lore.providers import GeminiProvider, OpenAIProvider
 from .lore.safety import PersonaRejected, sanitize_persona
 from .models import Guest, MenuItem, Order, OrderItem, Tab, Table, Venue
@@ -43,6 +44,7 @@ GUEST_COOKIE = "atmos_guest"
 GUEST_COOKIE_MAX_AGE = 60 * 60 * 6  # 6h, spec §7.1
 CART_SESSION_KEY = "atmos_cart"
 TAB_SESSION_KEY = "atmos_tab_id"
+MAX_ITEM_QTY = 9  # matches the menu form's advertised max — enforced here too
 
 # Dev-only in-process chronicle store — see module docstring.
 _CHRONICLES: dict[str, Chronicle] = {}
@@ -110,6 +112,14 @@ def _active_aliases(venue: Venue):
     return list(Guest.objects.filter(venue=venue, status="active").values_list("alias", flat=True))
 
 
+def _clamp_qty(raw, default=1) -> int:
+    try:
+        qty = int(raw)
+    except (TypeError, ValueError):
+        qty = default
+    return max(1, min(MAX_ITEM_QTY, qty))
+
+
 # ---------------------------------------------------------------- guest zone
 
 
@@ -152,9 +162,27 @@ def guest_join(request):
                 error = "Let's try a noir one instead."
 
         if not error:
-            alias = rolled if rolled and rolled not in active else random_persona(exclude=active)
+            # `rolled` arrives via a hidden form field — guest-controlled.
+            # Only accept it if it's actually a catalog persona; anything
+            # else (edited, injected, or just stale after a collision)
+            # gets a fresh server-side roll instead of being trusted as-is.
+            # This is the same moderation boundary sanitize_persona()
+            # enforces for typed names — the rolled path was accidentally
+            # exempt from it.
+            alias = (
+                rolled
+                if rolled in NOIR_PERSONAS and rolled not in active
+                else random_persona(exclude=active)
+            )
             if alias in active:  # collision (e.g. a double submit) — reroll silently
                 alias = random_persona(exclude=active)
+
+            # Switching identity (new table scan, new guest) must not carry
+            # the previous guest's cart forward — item IDs are shared across
+            # every venue on the platform, so a stale cart could otherwise
+            # be ordered onto the new table under the new persona.
+            request.session[CART_SESSION_KEY] = {}
+
             guest = Guest.objects.create(tab=tab, venue=tab.venue, alias=alias, display_name=display_name)
             response = redirect("atmos:guest_menu")
             response.set_cookie(
@@ -163,6 +191,7 @@ def guest_join(request):
                 max_age=GUEST_COOKIE_MAX_AGE,
                 httponly=True,
                 samesite="Lax",
+                secure=not settings.DEBUG,
             )
             return response
 
@@ -190,12 +219,11 @@ def cart_add(request):
     item = get_object_or_404(
         MenuItem, pk=request.POST.get("item_id"), category__venue=guest.venue, is_available=True
     )
-    try:
-        qty = max(1, int(request.POST.get("quantity", 1)))
-    except (TypeError, ValueError):
-        qty = 1
+    qty = _clamp_qty(request.POST.get("quantity", 1))
     cart = request.session.get(CART_SESSION_KEY, {})
-    cart[str(item.id)] = cart.get(str(item.id), 0) + qty
+    # Clamp the running total too, not just this add — repeated adds must
+    # not be able to stack past the advertised max.
+    cart[str(item.id)] = min(MAX_ITEM_QTY, cart.get(str(item.id), 0) + qty)
     request.session[CART_SESSION_KEY] = cart
     return redirect("atmos:guest_menu")
 
@@ -213,7 +241,7 @@ def cart_update(request):
     if qty <= 0:
         cart.pop(item_id, None)
     else:
-        cart[item_id] = qty
+        cart[item_id] = min(MAX_ITEM_QTY, qty)
     request.session[CART_SESSION_KEY] = cart
     return redirect("atmos:cart_detail")
 
@@ -235,16 +263,30 @@ def cart_detail(request):
 
 
 @transaction.atomic
-def order_place(request):
-    guest = _get_guest(request)
-    if not guest or request.method != "POST":
-        return render(request, "atmos/no_session.html")
+def _create_order_atomic(request, guest):
+    """DB-only half of order placement: re-check the master switch, lock and
+    validate the cart, create the Order + OrderItems. Returns
+    `(order, venue, lines)`, the string `"closed"`, or `None` (empty cart).
+
+    Deliberately makes no network calls. `order_place()` below calls this,
+    then generates the vignette *outside* this transaction — a slow model
+    response must never hold the venue/menu-item locks acquired here, or
+    every other guest ordering the same items queues up behind it.
+    """
+    # Locking the venue row does two jobs: it re-checks `service_open` at
+    # the moment of placement (a guest's cookie can outlive staff flipping
+    # the switch — the scan-time check in guest_scan() isn't enough), and
+    # it serializes the short_code allocation below across concurrent
+    # placements at the same venue (see the comment there).
+    venue = Venue.objects.select_for_update().get(pk=guest.venue_id)
+    if not venue.service_open:
+        return "closed"
 
     cart = request.session.get(CART_SESSION_KEY, {})
     available = {
         str(i.id): i
         for i in MenuItem.objects.select_for_update().filter(
-            pk__in=cart.keys(), category__venue=guest.venue, is_available=True
+            pk__in=cart.keys(), category__venue=venue, is_available=True
         )
     }
     lines, total = [], Decimal("0.00")
@@ -256,15 +298,20 @@ def order_place(request):
         total += (item.price * qty).quantize(Decimal("0.01"))
 
     if not lines:
-        return redirect("atmos:cart_detail")
+        return None
 
-    order_number = Order.objects.filter(venue=guest.venue).count() + 1
+    # `short_code` has no uniqueness constraint, and this count-then-use
+    # sequence isn't atomic on its own — two concurrent placements at the
+    # same venue could previously read the same count before either
+    # committed and produce duplicate delivery codes. The venue lock above
+    # now serializes this too.
+    order_number = Order.objects.filter(venue=venue).count() + 1
     short_code = f"T{guest.tab.table.label.upper()[:3]}-{order_number:02d}"
 
     order = Order.objects.create(
         guest=guest,
         tab=guest.tab,
-        venue=guest.venue,
+        venue=venue,
         short_code=short_code,
         alias_snapshot=guest.display,
         total_amount=total,
@@ -278,7 +325,25 @@ def order_place(request):
             quantity=qty,
         )
 
-    chronicle = _chronicle_for(guest.venue)
+    request.session[CART_SESSION_KEY] = {}
+    return order, venue, lines
+
+
+def order_place(request):
+    guest = _get_guest(request)
+    if not guest or request.method != "POST":
+        return render(request, "atmos/no_session.html")
+
+    result = _create_order_atomic(request, guest)
+    if result is None:
+        return redirect("atmos:cart_detail")
+    if result == "closed":
+        return render(request, "atmos/closed.html", {"table": guest.tab.table})
+
+    order, venue, lines = result
+
+    # Outside the transaction — see _create_order_atomic()'s docstring.
+    chronicle = _chronicle_for(venue)
     event = ChronicleEvent(
         at=timezone.localtime(order.placed_at),
         table_label=guest.tab.table.label,
@@ -286,12 +351,11 @@ def order_place(request):
         drinks=tuple(DrinkLine(item.name, qty) for item, qty in lines),
         ticket_code=order.short_code,
     )
-    result = generate_vignette(event, chronicle, provider=_provider())
-    order.vignette = result.text
-    order.vignette_source = result.source
-    order.save(update_fields=["vignette", "vignette_source"])
+    vignette = generate_vignette(event, chronicle, provider=_provider())
+    Order.objects.filter(pk=order.pk).update(
+        vignette=vignette.text, vignette_source=vignette.source
+    )
 
-    request.session[CART_SESSION_KEY] = {}
     return redirect("atmos:order_status", pk=order.pk)
 
 
@@ -315,8 +379,13 @@ def order_status(request, pk):
         ),
         vignette=order.vignette,
         currency=guest.venue.currency,
-        qr_payload=f"https://power-up.lu/atmos/o/{order.short_code}",
-        contains_alcohol=any(i.menu_item.contains_alcohol for i in order.items.all()),
+        # Points at this table's own scan URL ("order another round"), not a
+        # per-order status page: /atmos/o/<code> was never implemented, and
+        # order_status itself is guest-cookie-scoped (spec §8.1) so a bare
+        # public QR to it couldn't work for whoever picks up the ticket
+        # anyway. This is the one link that's actually live and useful.
+        qr_payload=f"https://power-up.lu/atmos/t/{guest.tab.table.qr_token}/",
+        contains_alcohol=order.contains_alcohol,
         footer="pay at the table",
     )
     ticket_preview = render_plain_text(render_ticket(ticket, Paper.MM80), Paper.MM80)
@@ -342,14 +411,14 @@ def kds(request, venue_slug):
         Order.objects.filter(venue=venue)
         .exclude(status__in=["served", "cancelled"])
         .select_related("guest", "tab__table")
-        .prefetch_related("items")
+        .prefetch_related("items__menu_item")
     )
     done = (
         Order.objects.filter(
             venue=venue, status="served", served_at__gte=timezone.now() - timedelta(minutes=30)
         )
         .select_related("guest", "tab__table")
-        .prefetch_related("items")
+        .prefetch_related("items__menu_item")
     )
     columns = {
         "new": [o for o in live if o.status == "placed"],

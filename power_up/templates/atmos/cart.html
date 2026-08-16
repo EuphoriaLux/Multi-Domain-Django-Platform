@@ -24,13 +24,13 @@
         <button class="btn btn-small btn-ghost" type="submit">Update</button>
       </form>
     </div>
-    <div class="price" style="font-size: 1.05rem;">€{{ line.line_total }}</div>
+    <div class="price" style="font-size: 1.05rem;">{{ guest.venue.currency_symbol }}{{ line.line_total }}</div>
   </div>
   {% endfor %}
   
   <div class="item-row" style="border-bottom: none; margin-top: 0.75rem; padding-top: 1rem; border-top: 1px dashed var(--line);">
     <div style="font-size: 1.1rem; font-weight: 700; color: var(--ink);">Total for this round</div>
-    <div class="price" style="font-size: 1.35rem; font-weight: 700; color: var(--gold-light);">€{{ total }}</div>
+    <div class="price" style="font-size: 1.35rem; font-weight: 700; color: var(--gold-light);">{{ guest.venue.currency_symbol }}{{ total }}</div>
   </div>
 </div>
 

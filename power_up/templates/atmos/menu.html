@@ -26,7 +26,7 @@
         <form method="post" action="{% url 'atmos:cart_add' %}" class="qty-form">
           {% csrf_token %}
           <input type="hidden" name="item_id" value="{{ item.id }}">
-          <span class="price">€{{ item.price }}</span>
+          <span class="price">{{ guest.venue.currency_symbol }}{{ item.price }}</span>
           <input type="number" name="quantity" value="1" min="1" max="9" aria-label="Quantity">
           <button class="btn btn-small" type="submit">+ Add</button>
         </form>

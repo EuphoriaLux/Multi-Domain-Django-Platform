@@ -3,18 +3,25 @@
     <div class="kds-persona">{{ order.alias_snapshot }}</div>
     <span class="kds-table-badge">📍 Table {{ order.tab.table.label }}</span>
   </div>
-  
+
   <div class="kds-meta">
     <span>🎟️ {{ order.short_code }}</span>
     <span>·</span>
     <span>⏱️ {{ order.placed_at|timesince }} ago</span>
   </div>
-  
+
+  {% if order.contains_alcohol %}
+  <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 0.35rem 0.6rem; border-radius: 6px; margin: 0.5rem 0;">
+    🔞 Contains alcohol — check age at delivery
+  </div>
+  {% endif %}
+
   <ul class="kds-items">
     {% for item in order.items.all %}
     <li>
       <span class="item-qty">{{ item.quantity }}×</span>
       <span>{{ item.name_snapshot }}</span>
+      {% if item.menu_item.contains_alcohol %}<span class="muted" title="Contains alcohol">🔞</span>{% endif %}
       {% if item.note %}<span class="muted">({{ item.note }})</span>{% endif %}
     </li>
     {% endfor %}

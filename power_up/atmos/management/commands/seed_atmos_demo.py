@@ -8,6 +8,8 @@ looking like two different products.
 
 from __future__ import annotations
 
+import secrets
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
@@ -69,14 +71,25 @@ class Command(BaseCommand):
 
         User = get_user_model()
         if not User.objects.filter(is_staff=True).exists():
+            # A fixed password here would be a fixed, public credential —
+            # this repo, and this command's own output, are both visible to
+            # anyone. On staging (test.power-up.lu) that's a real superuser
+            # with a guessable password reachable over the network, not a
+            # local-only convenience. Generated fresh per run and printed
+            # once; if it scrolls off, reset it with `changepassword` or
+            # Django admin rather than re-running this (the `if not exists`
+            # guard means a second run won't print it again).
+            password = secrets.token_urlsafe(12)
             User.objects.create_user(
                 username="atmos_staff",
                 email="atmos-staff@example.com",
-                password="atmos-staff",
+                password=password,
                 is_staff=True,
                 is_superuser=True,
             )
-            self.stdout.write("Created staff login: atmos_staff / atmos-staff")
+            self.stdout.write(self.style.WARNING(
+                f"Created staff login: atmos_staff / {password}  (save this — shown once)"
+            ))
         else:
             self.stdout.write("A staff user already exists — not creating another.")
 

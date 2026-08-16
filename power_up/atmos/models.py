@@ -37,6 +37,11 @@ from django.utils import timezone
 
 from power_up.storage import powerup_media_storage, powerup_upload_path
 
+# Mirrors printing.layout.money()'s mapping — kept here too since templates
+# can't easily call an imported function, and printing/ deliberately stays
+# Django-free (no models import), so the dependency can't run the other way.
+_CURRENCY_SYMBOLS = {"EUR": "€", "GBP": "£", "USD": "$"}
+
 
 class Venue(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -58,6 +63,16 @@ class Venue(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def currency_symbol(self) -> str:
+        """Guest-facing menu/cart templates hardcoded '€' until this existed
+        — the ticket already went through printing.layout.money(), so a
+        non-EUR venue would show one currency while ordering and get a
+        different one on the printed ticket. Falls back to the bare code
+        (with a trailing space) rather than an ambiguous plain number, same
+        as money()."""
+        return _CURRENCY_SYMBOLS.get(self.currency, self.currency + " ")
 
 
 class Table(models.Model):
@@ -147,6 +162,17 @@ class Tab(models.Model):
     def __str__(self) -> str:
         return f"Tab for {self.table} ({self.status})"
 
+    def save(self, *args, **kwargs):
+        # `venue` is denormalised for staff queries (see Guest's comment on
+        # the same tradeoff) — it must never be independently settable, or
+        # the default admin lets staff pick a table at venue A and a venue
+        # field pointing at B: a scan of A's QR reuses that tab and serves
+        # B's menu, creating guests and orders under the wrong venue's KDS.
+        # Always derive it, so the two can't diverge regardless of what's
+        # submitted.
+        self.venue_id = self.table.venue_id
+        super().save(*args, **kwargs)
+
 
 class Guest(models.Model):
     STATUS_CHOICES = [
@@ -233,6 +259,13 @@ class Order(models.Model):
 
     def __str__(self) -> str:
         return f"{self.short_code} — {self.alias_snapshot}"
+
+    @property
+    def contains_alcohol(self) -> bool:
+        """Spec §8.5: flag alcohol-containing orders so staff check at
+        delivery. Callers should `.prefetch_related("items__menu_item")`
+        first — this still works without it, just at N+1 query cost."""
+        return any(i.menu_item.contains_alcohol for i in self.items.all())
 
     def transition_to(self, new_status: str) -> None:
         allowed = self._TRANSITIONS.get(self.status, set())
