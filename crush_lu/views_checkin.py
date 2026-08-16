@@ -1262,12 +1262,18 @@ def _get_display_name(registration):
     try:
         return registration.user.crushprofile.display_name
     except Exception:
-        # Same fallback the page's rows use (coach_event_checkin.html): a
-        # profileless attendee is their first name, then their username — not
-        # a bare "Attendee", which named no one and degraded every promoted
-        # row's name and search haystack to the same placeholder.
-        user = registration.user
-        return user.first_name or user.username or str(_("Attendee"))
+        # A profileless attendee is their first name rather than a bare
+        # "Attendee", which named no one and degraded every promoted row to
+        # the same placeholder.
+        #
+        # Deliberately NOT falling through to username the way the coach page
+        # does (coach_event_checkin.html): signup is email-only, so allauth
+        # derives the username from the address and it is usually the address
+        # itself. That page is coach-authenticated; this helper also feeds
+        # `event_checkin_api`, which is CSRF-exempt and authenticated solely by
+        # the signed URL baked into the ticket QR — so anyone holding a
+        # photographed ticket would be handed the account's email.
+        return registration.user.first_name or str(_("Attendee"))
 
 
 #: Sentinel distinguishing "the caller has not computed the table assignment"
@@ -1414,12 +1420,14 @@ def event_checkin_summary(request, event_id):
     # QuizEvent row can exist under an event that is not a quiz night, and
     # following it here made the refetch disagree with the page that rendered
     # it — plus the membership queries on every non-quiz refetch.
+    # getattr's default, not a bare except: Django builds the reverse-one-to-one
+    # "no related object" error as a subclass of both AttributeError and the
+    # related model's DoesNotExist precisely so this narrows to the missing-row
+    # case. Catching Exception here would swallow a database error into an
+    # empty table-fill panel instead of surfacing it.
     quiz_event = None
     if event.event_type == "quiz_night":
-        try:
-            quiz_event = event.quiz
-        except Exception:
-            pass
+        quiz_event = getattr(event, "quiz", None)
     if quiz_event and quiz_event.num_tables:
         from collections import Counter
 

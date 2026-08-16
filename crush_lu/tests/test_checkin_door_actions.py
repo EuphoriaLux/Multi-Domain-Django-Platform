@@ -9,6 +9,7 @@ never re-saves the row, so ``assign_coach_on_first_attendance`` never fires
 again. Before this the only fix for a wrong badge was Django admin.
 """
 
+import json
 from datetime import timedelta
 from unittest import mock
 
@@ -1759,3 +1760,52 @@ class TestRowStatePayload:
         row = client.post(url).json()["row"]
 
         assert row["is_approved"] is True
+
+
+class TestProfilelessAttendeePrivacy:
+    """`event_checkin_api` must not hand out the account's email address.
+
+    That endpoint is CSRF-exempt and authenticated solely by the signed URL
+    baked into the ticket QR, so its response reaches anyone holding a
+    photographed ticket. Signup is email-only, so allauth derives the username
+    from the address and it is usually the address itself — the coach page can
+    fall through to it (`coach_event_checkin.html`, behind a coach login), this
+    endpoint cannot.
+    """
+
+    def _profileless_registration(self, event, *, first_name=""):
+        user = User.objects.create_user(
+            username="noprofile@example.com",
+            email="noprofile@example.com",
+            password="pass12345",
+            first_name=first_name,
+        )
+        _grant_consent(user)
+        return EventRegistration.objects.create(
+            event=event, user=user, status="confirmed"
+        )
+
+    @pytest.mark.django_db
+    def test_scan_response_never_carries_the_username(self, client):
+        _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event)
+
+        payload = _scan(client, event, registration).json()
+
+        blob = json.dumps(payload)
+        assert "noprofile@example.com" not in blob
+        assert payload["row"]["display_name"] == "Attendee"
+
+    @pytest.mark.django_db
+    def test_a_first_name_is_still_used_when_there_is_one(self, client):
+        """The improvement this replaced "Attendee" with is kept — a first name
+        is not the account identifier and names the person on the door list."""
+        _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event, first_name="Ada")
+
+        payload = _scan(client, event, registration).json()
+
+        assert payload["row"]["display_name"] == "Ada"
+        assert "noprofile@example.com" not in json.dumps(payload)

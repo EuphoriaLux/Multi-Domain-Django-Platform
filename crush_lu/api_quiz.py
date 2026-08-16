@@ -634,6 +634,7 @@ def mark_attended(request, quiz_id):
             _get_display_name,
             _get_profile_data,
             _row_state,
+            _TABLE_ASSIGNMENT_UNSET,
         )
 
         broadcast_payload = {
@@ -651,7 +652,23 @@ def mark_attended(request, quiz_id):
             # bails: the toast fires and the counters converge (summary
             # refetch), but the row itself never flips — no tick, and the
             # Check In button stays enabled (#845).
-            "row": _row_state(registration),
+            #
+            # The assignment `assign_table_on_checkin` just computed is handed
+            # over rather than re-derived, like every other call site — leaving
+            # it out would have this path repeat the quiz/membership/rotation
+            # lookup the rest of the commit exists to remove.
+            #
+            # include_search because this can recover a `no_show`, for which
+            # the page has no row at all (`coach_event_checkin` renders only
+            # SEAT_HOLDING_STATUSES) — the applier builds one from scratch, and
+            # without the haystack a coach cannot then find that attendee by
+            # the name on their ID or the address they booked with. Coach-only
+            # endpoint, same as the other search-carrying payload.
+            "row": _row_state(
+                registration,
+                include_search=True,
+                table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+            ),
         }
         if table_assignment:
             broadcast_payload["table_number"] = table_assignment.get(
