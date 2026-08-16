@@ -3009,7 +3009,9 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 
     Guards: LuxID provider, crush.lu domain, authenticated user, has CrushProfile,
     and the profile must be awaiting verification (verification_status="pending").
-    Incomplete profiles must submit first; rejected profiles cannot self-clear.
+    Incomplete profiles must submit first; rejected profiles cannot self-clear —
+    a door rejection is overturned by a coach re-verifying in person, never by
+    the member reconnecting their LuxID.
     """
     if sociallogin.account.provider not in ("luxid", "openid_connect"):
         return
