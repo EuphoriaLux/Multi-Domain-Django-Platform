@@ -208,7 +208,12 @@ class CrushCredit(models.Model):
                 name="one_resale_restore_per_tranche",
             ),
         ]
+        # Hand-issuing goodwill credit is a money-minting action that used to
+        # ride ``change_crushprofile``, which every profile-reviewing staff
+        # account holds. It gets its own permission so it can be granted to the
+        # few people who should be able to create value out of nothing.
         permissions = [
+            ("issue_crushcredit", "Can issue Crush Credit (goodwill)"),
             ("void_crushcredit", "Can void Crush Credit"),
         ]
 

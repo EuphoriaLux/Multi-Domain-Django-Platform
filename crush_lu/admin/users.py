@@ -15,6 +15,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from crush_lu.admin.credits import (
+    GoodwillCreditPermissionMixin,
     annotate_credit_balance,
     credit_balance_column,
     issue_goodwill_credit,
@@ -218,7 +219,7 @@ def unban_users(modeladmin, request, queryset):
 unban_users.short_description = '✅ Unban selected users'
 
 
-class CrushUserAdmin(BaseUserAdmin):
+class CrushUserAdmin(GoodwillCreditPermissionMixin, BaseUserAdmin):
     """
     User admin for Crush.lu coach panel.
     Shows users with their Crush.lu profiles and provides bidirectional navigation.
