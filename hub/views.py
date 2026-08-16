@@ -4,11 +4,12 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import HubProfile, HubRequest, HubResource, HubTimelineEvent
+from .models import HubProfile, HubRequest, HubResource, HubTimelineEvent, Location
 from .serializers import (
     HubRequestSerializer,
     HubResourceSerializer,
     HubTimelineEventSerializer,
+    LocationSerializer,
 )
 
 
@@ -88,4 +89,15 @@ class TimelineView(APIView):
     def get(self, request):
         queryset = HubTimelineEvent.objects.filter(user=request.user)
         serializer = HubTimelineEventSerializer(queryset, many=True)
+        return Response({"items": serializer.data})
+
+
+class LocationsView(generics.ListAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = LocationSerializer
+    queryset = Location.objects.select_related("primary_contact")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
         return Response({"items": serializer.data})
