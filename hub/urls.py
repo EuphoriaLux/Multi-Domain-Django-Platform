@@ -31,6 +31,8 @@ urlpatterns = [
     path("resources/", views.ResourcesView.as_view()),
     path("timeline", views.TimelineView.as_view(), name="timeline"),
     path("timeline/", views.TimelineView.as_view()),
+    path("locations", views.LocationsView.as_view(), name="locations"),
+    path("locations/", views.LocationsView.as_view()),
     # Social Media Marketing Routes
     path("social/posts", SocialPostsView.as_view(), name="social_posts"),
     path("social/posts/", SocialPostsView.as_view()),
