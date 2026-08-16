@@ -31,6 +31,16 @@ Privacy contract (Crush Connect):
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 
+        {# Verified Photo badge #}
+        {% if target_profile.is_photo_verified %}
+        <div class="absolute top-3 right-3 z-10">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20 shadow-sm" title="{% trans 'Photo verified in person by a Crush Coach' %}">
+                <svg class="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                {% trans "Photo Verified" %}
+            </span>
+        </div>
+        {% endif %}
+
         {% comment %}
         Name + age range overlaid at the foot of the photo. Identity beyond
         first name + age range stays gated until a mutual match.

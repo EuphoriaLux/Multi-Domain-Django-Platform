@@ -64,6 +64,77 @@ GATE_ALIGN_MIN = 2  # ≥2 of 3 guesses matching truth = "read" them
 WEEKLY_CATALOGUE_SIZE = 12  # active questions surfaced in a week's set
 
 
+def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
+    """Keep users whose current Connect identity gate is still satisfied.
+
+    This is shared by new-pool selection and persisted-Drop rendering. A Drop
+    is an immutable audit snapshot, but it must not keep exposing a member who
+    has since unlinked LuxID or had their only attendance check-in undone.
+
+    The attendance arm deliberately requires **coach-authenticated** attendance
+    — a door grant, or an event whose coaches include the member's assigned
+    coach — and not merely ``status="attended"``. Connect's identity gate is a
+    claim that somebody looked at this person, and a bare ``attended`` row can
+    be written by a self-scan (the attendee holds their own QR code), which
+    attests nothing. This mirrors ``CrushProfile.has_attended_event``, which
+    applies the same coach-provenance requirement. The narrowing excludes an
+    admin/legacy-verified member whose only attendance was self-scanned; see
+    ``test_self_scanned_attendance_alone_does_not_satisfy_the_identity_gate``.
+    """
+    from crush_lu.models import CrushProfile, EventRegistration
+
+    luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
+        OuterRef("pk")
+    )
+    attended_event_subq = EventRegistration.objects.filter(
+        user_id=OuterRef("pk"),
+        status="attended",
+    )
+    attended_with_grant_subq = attended_event_subq.filter(
+        checkin_granted_coach__isnull=False,
+    )
+    attended_with_assigned_coach_subq = EventRegistration.objects.filter(
+        user_id=OuterRef("pk"),
+        status="attended",
+        event__coaches=OuterRef("crushprofile__assigned_coach_id"),
+    )
+    # A coach who scans a member that already has a coach grants no new one
+    # (`assign_coach_on_first_attendance` is idempotent), and the event may be
+    # run by a different coach than the one assigned — so neither subquery above
+    # sees that scan. The photo attestation is the trace it does leave: only
+    # coach-authenticated endpoints write it, and both revocation paths clear it
+    # (`profile_verification._clear_door_photo_attestations`), so a non-empty
+    # key is current evidence that a coach stood in front of this member.
+    attended_with_attested_photo_subq = attended_event_subq.exclude(
+        checkin_attested_photo_key="",
+    )
+    return (
+        qs.annotate(
+            _has_luxid_native=Exists(luxid_native_subq),
+            _has_luxid_oidc=Exists(luxid_oidc_subq),
+            _has_attended_with_grant=Exists(attended_with_grant_subq),
+            _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
+            _has_attended_with_attested_photo=Exists(attended_with_attested_photo_subq),
+        )
+        .filter(
+            crushprofile__verification_status="verified",
+        )
+        .filter(
+            Q(_has_luxid_native=True)
+            | Q(_has_luxid_oidc=True)
+            | Q(
+                crushprofile__verification_method__in=(
+                    "coach_event",
+                    "premium_coach",
+                )
+            )
+            | Q(_has_attended_with_grant=True)
+            | Q(_has_attended_with_assigned_coach=True)
+            | Q(_has_attended_with_attested_photo=True)
+        )
+    )
+
+
 def _years_ago(years: int) -> date:
     """Approximate date offset by ``years``; good enough for age-range filters."""
     today = date.today()
@@ -177,7 +248,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     gender-preference step below — point lookups ("is X in the pool?") must use
     it, otherwise the whole pool is materialized just to check one row.
     """
-    from crush_lu.models import CrushProfile, EventConnection, EventRegistration
+    from crush_lu.models import EventConnection
     from crush_lu.services.blocking import block_exists_subquery
 
     # --- Requester self-eligibility -----------------------------------------
@@ -218,17 +289,6 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         )
     )
 
-    # LuxID OR attended in-person event satisfies identity verification for the candidate
-    # catalogue (Option B / Issue #539). SocialAccount is the authoritative store for LuxID.
-    # EventRegistration with status="attended" verifies in-person door attendance.
-    luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
-        OuterRef("pk")
-    )
-    attended_event_subq = EventRegistration.objects.filter(
-        user_id=OuterRef("pk"),
-        status="attended",
-    )
-
     qs = (
         User.objects.filter(
             crushprofile__verification_status="verified",
@@ -248,20 +308,16 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .annotate(
             _has_connection=Exists(existing_connection_subq),
             _has_block=block_exists_subquery(user),
-            _has_luxid_native=Exists(luxid_native_subq),
-            _has_luxid_oidc=Exists(luxid_oidc_subq),
-            _has_attended_event=Exists(attended_event_subq),
         )
         .filter(_has_connection=False)
         .filter(_has_block=False)
-        .filter(
-            Q(_has_luxid_native=True)
-            | Q(_has_luxid_oidc=True)
-            | Q(_has_attended_event=True)
-        )
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
+    # LuxID OR attended in-person event satisfies identity verification for
+    # the candidate catalogue (Option B / Issue #539). Keep this predicate in
+    # one helper so persisted Drops re-check the exact same live state.
+    qs = filter_connect_identity_verified(qs)
 
     # A coach and their own assigned member are never candidates for each
     # other, in either direction (see is_assigned_coach_pair). Coaches stay in

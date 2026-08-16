@@ -1098,6 +1098,29 @@ class EventRegistration(models.Model):
             "reassignment — survives the undo."
         ),
     )
+    checkin_attested_photo_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        editable=False,
+        help_text=_(
+            "Photo key verified during this check-in. Cleared on undo to revoke "
+            "the in-person photo trust badge."
+        ),
+    )
+    checkin_attested_photo_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("When the photo was attested during this check-in."),
+    )
+    checkin_auto_verified = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text=_(
+            "True if this check-in auto-verified a previously pending profile."
+        ),
+    )
 
     # Google Wallet Event Ticket
     google_wallet_ticket_object_id = models.CharField(
