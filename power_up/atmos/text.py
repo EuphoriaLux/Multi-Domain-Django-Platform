@@ -32,10 +32,17 @@ TRANSLIT = str.maketrans(
 
 # Characters that reorder or hide text when displayed. A right-to-left override
 # can make a persona render as something entirely different from what is stored.
+#
+# Written as \u escapes rather than the literal characters on purpose: a .py
+# file that *contains* raw bidi-override/invisible codepoints is exactly the
+# Trojan Source profile (CVE-2021-42574) — Bandit's B613 flags this file for
+# the same reason this set exists, and it can't tell "detects the attack" from
+# "is the attack" by shape alone. Escaping keeps the check meaningful instead
+# of just silencing it: the source stays plain ASCII, nothing to hide behind.
 INVISIBLE = frozenset(
-    "​‌‍⁠﻿"
-    "‪‫‬‭‮"
-    "⁦⁧⁨⁩"
+    "\u200b\u200c\u200d\u2060\ufeff"  # zero-width space/joiners, word joiner, BOM
+    "\u202a\u202b\u202c\u202d\u202e"  # LRE/RLE/PDF/LRO/RLO embeddings+overrides
+    "\u2066\u2067\u2068\u2069"        # LRI/RLI/FSI/PDI isolates
 )
 
 
