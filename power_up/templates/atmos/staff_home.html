@@ -1,19 +1,47 @@
 {% extends "atmos/base.html" %}
 {% block bodyclass %}staff{% endblock %}
-{% block title %}Atmos Staff{% endblock %}
+{% block title %}Atmos Staff Venues{% endblock %}
 {% block venue_name %}Atmos{% endblock %}
 {% block content %}
-<h1>Atmos — pick a venue</h1>
-<table class="venues">
-  <tr><th>Venue</th><th>Status</th><th></th></tr>
-  {% for venue in venues %}
-  <tr>
-    <td>{{ venue.name }}</td>
-    <td>{% if venue.service_open %}Open{% else %}Closed{% endif %}</td>
-    <td><a href="{% url 'atmos:kds' venue.slug %}">Open KDS →</a></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="3" class="muted">No venues yet — add one in <a href="/power-admin/atmos/venue/add/">admin</a>.</td></tr>
-  {% endfor %}
-</table>
+<div style="margin-bottom: 1.5rem;">
+  <h1 style="font-size: 1.6rem; margin-bottom: 0.25rem;">Atmos Staff · Venue Selector</h1>
+  <p class="tag" style="margin-bottom: 0;">Select an active bar or speakeasy to launch its live KDS queue.</p>
+</div>
+
+<div class="panel" style="padding: 0; overflow: hidden;">
+  <table class="venues">
+    <thead>
+      <tr>
+        <th>Venue</th>
+        <th>Service Status</th>
+        <th style="text-align: right;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for venue in venues %}
+      <tr>
+        <td style="font-weight: 600; font-size: 1rem;">{{ venue.name }}</td>
+        <td>
+          {% if venue.service_open %}
+            <span class="tag-badge" style="background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.35); color: #4ade80;">
+              <span class="pulse-dot"></span> Open
+            </span>
+          {% else %}
+            <span class="tag-badge tag-badge-ghost">Closed</span>
+          {% endif %}
+        </td>
+        <td style="text-align: right;">
+          <a class="btn btn-small" href="{% url 'atmos:kds' venue.slug %}">Open KDS Board →</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3" class="muted" style="text-align: center; padding: 2rem 1rem;">
+          No venues configured yet. Add one in the <a href="/power-admin/atmos/venue/add/">admin panel</a>.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

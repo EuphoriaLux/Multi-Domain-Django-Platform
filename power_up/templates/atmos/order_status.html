@@ -3,17 +3,60 @@
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
 {% block refresh %}{% if order.status != "served" and order.status != "cancelled" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
-<h1>{{ order.alias_snapshot }} — {{ order.short_code }}</h1>
-<p class="tag">
-  <span class="status-pill">{{ order.get_status_display }}</span>
-  {% if order.vignette_source %}
-  <span class="status-pill" style="border-color:var(--dim);color:var(--dim);">
-    {% if order.vignette_source == "model" %}written by AI{% else %}written by the fallback engine{% endif %}
+<div class="tag" style="margin-bottom: 0.5rem;">
+  <span class="tag-badge">🎟️ {{ order.short_code }}</span>
+  <span class="tag-badge {% if order.status == 'served' %}tag-badge-ghost{% endif %}">
+    {% if order.status != "served" and order.status != "cancelled" %}<span class="pulse-dot" style="margin-right: 0.2rem;"></span>{% endif %}
+    {{ order.get_status_display }}
   </span>
+</div>
+
+<h1>{{ order.alias_snapshot }}</h1>
+<p class="tag" style="margin-bottom: 1.5rem;">
+  {% if order.status == "served" %}
+    Your drinks have been delivered to your table. Cheers!
+  {% elif order.status == "preparing" %}
+    The barkeeper is currently crafting your round.
+  {% elif order.status == "accepted" %}
+    Your order is queued at the bar.
+  {% else %}
+    Your order has been transmitted to the bar display.
   {% endif %}
 </p>
 
-<div class="ticket">{{ ticket_preview }}</div>
+<!-- 4-Stage Progress Stepper -->
+<div class="progress-stepper">
+  <div class="step-node {% if order.status == 'placed' %}active{% elif order.status == 'accepted' or order.status == 'preparing' or order.status == 'served' %}complete{% endif %}">
+    <div class="step-circle">1</div>
+    <div class="step-label">Placed</div>
+  </div>
+  <div class="step-node {% if order.status == 'accepted' %}active{% elif order.status == 'preparing' or order.status == 'served' %}complete{% endif %}">
+    <div class="step-circle">2</div>
+    <div class="step-label">Accepted</div>
+  </div>
+  <div class="step-node {% if order.status == 'preparing' %}active{% elif order.status == 'served' %}complete{% endif %}">
+    <div class="step-circle">3</div>
+    <div class="step-label">Mixing</div>
+  </div>
+  <div class="step-node {% if order.status == 'served' %}active complete{% endif %}">
+    <div class="step-circle">✓</div>
+    <div class="step-label">Served</div>
+  </div>
+</div>
 
-<p style="margin-top:1.5rem;"><a href="{% url 'atmos:guest_menu' %}">← order more</a></p>
+<!-- Printed Bar Ticket Preview -->
+<div class="ticket-wrapper">
+  <div class="ticket">{{ ticket_preview }}</div>
+  <div class="ticket-tear"></div>
+</div>
+
+{% if order.vignette_source %}
+<p class="muted" style="text-align: center; margin-top: 0.75rem; font-size: 0.78rem;">
+  ✨ Speakeasy chronicle {% if order.vignette_source == "model" %}AI-authored{% else %}fallback-generated{% endif %} on your physical receipt
+</p>
+{% endif %}
+
+<div style="margin-top: 1.75rem;">
+  <a class="btn btn-ghost" href="{% url 'atmos:guest_menu' %}">← Order more drinks</a>
+</div>
 {% endblock %}
