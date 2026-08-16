@@ -433,7 +433,36 @@ class GoodwillCreditForm(forms.Form):
     )
 
 
-@admin.action(description="💳 Issue Crush Credit (goodwill)", permissions=["change"])
+def may_issue_goodwill_credit(user):
+    """Who may mint credit out of nothing.
+
+    Mirrors :meth:`CrushCreditAdmin.has_void_permission`: superusers plus
+    holders of the dedicated ``issue_crushcredit`` permission. Goodwill used to
+    ride ``change_crushprofile`` — routine profile-review permission — which
+    let any staff account able to read a member list issue up to €500 each.
+    """
+    return user.is_superuser or user.has_perm("crush_lu.issue_crushcredit")
+
+
+class GoodwillCreditPermissionMixin:
+    """Supplies the permission hook ``permissions=["issue_crushcredit"]`` needs.
+
+    Django resolves an action's declared permissions by calling
+    ``has_<perm>_permission(request)`` on the ModelAdmin with a bare
+    ``getattr`` and no default, so every admin that registers
+    :func:`issue_goodwill_credit` must define this method or its changelist
+    raises AttributeError before it renders a single row. Mix this in
+    alongside the action rather than repeating the method on each admin.
+    """
+
+    def has_issue_crushcredit_permission(self, request):
+        return may_issue_goodwill_credit(request.user)
+
+
+@admin.action(
+    description="💳 Issue Crush Credit (goodwill)",
+    permissions=["issue_crushcredit"],
+)
 def issue_goodwill_credit(modeladmin, request, queryset):
     """Give the selected members credit, with a reason on the record.
 
@@ -445,8 +474,15 @@ def issue_goodwill_credit(modeladmin, request, queryset):
     like a refund of that seat, and ``issue_credit`` releases
     ``payment_confirmed`` for exactly those reasons. Goodwill is additional
     money, so the member keeps whatever seat they have already paid for.
+
+    Gated on the dedicated ``issue_crushcredit`` permission rather than the
+    admin's change permission: this action mints spendable money, and it is
+    exposed on admins (the member list, the hidden user list) whose change
+    permission is handed out for profile review. The decorator's
+    ``permissions`` hides the dropdown entry; this check enforces it on the
+    POST itself, so a crafted action request cannot skip the first.
     """
-    if not modeladmin.has_change_permission(request):
+    if not may_issue_goodwill_credit(request.user):
         raise PermissionDenied
 
     selected = list(queryset)
