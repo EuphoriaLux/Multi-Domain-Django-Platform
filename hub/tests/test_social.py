@@ -862,6 +862,103 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.buffer_id, "post_1,post_2")
         self.assertEqual(post.status, SocialPost.Status.SCHEDULED)
 
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_resolves_platforms_from_buffer_for_multi_channel(
+        self, dispatch, list_profiles
+    ):
+        """No explicit buffer_profile_platforms (the frontend never sends one):
+        the multi-channel path -- the common one -- must still resolve each
+        channel's real platform from Buffer so platform-specific metadata
+        (e.g. Facebook's required post type) reaches _create_channel_post."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.return_value = [
+            {"id": "channel_1", "service": "facebook"},
+            {"id": "channel_2", "service": "instagram"},
+        ]
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        list_profiles.assert_called_once()
+        self.assertEqual(
+            dispatch.call_args.kwargs["profile_platforms"],
+            {"channel_1": "facebook", "channel_2": "instagram"},
+        )
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_survives_buffer_profile_lookup_failure(
+        self, dispatch, list_profiles
+    ):
+        """A failed Buffer lookup must not block scheduling -- that's exactly
+        the pre-fix behaviour (post goes out with no platform metadata),
+        not a 500 or a stuck draft."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1,post_2"}
+        list_profiles.side_effect = BufferServiceError("Buffer is down")
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1", "channel_2"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(dispatch.call_args.kwargs["profile_platforms"], {})
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.SCHEDULED)
+
+    @patch("hub.views_social.list_buffer_profiles")
+    @patch("hub.views_social.create_buffer_update")
+    def test_scheduling_does_not_look_up_buffer_when_platforms_already_known(
+        self, dispatch, list_profiles
+    ):
+        """The single-platform heuristic and any explicit mapping already
+        cover every selected channel -- the extra Buffer round-trip this fix
+        adds must only fire for channels that are still unresolved."""
+        dispatch.return_value = {"success": True, "buffer_id": "post_1"}
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+                "platforms": ["facebook"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        list_profiles.assert_not_called()
+        self.assertEqual(
+            dispatch.call_args.kwargs["profile_platforms"], {"channel_1": "facebook"}
+        )
+
     def test_scheduled_delivery_fields_are_immutable(self):
         post = SocialPost.objects.create(
             user=self.user,

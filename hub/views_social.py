@@ -605,11 +605,44 @@ class SocialPostDetailView(APIView):
 
         if new_status == SocialPost.Status.SCHEDULED and new_status != old_status:
             profile_platforms = dict(updated_post.buffer_profile_platforms or {})
-            if not profile_platforms and len(updated_post.platforms or []) == 1:
-                profile_platforms = {
-                    profile_id: updated_post.platforms[0]
-                    for profile_id in (updated_post.buffer_profile_ids or [])
-                }
+            selected_ids = updated_post.buffer_profile_ids or []
+            unresolved_ids = [
+                profile_id
+                for profile_id in selected_ids
+                if profile_id not in profile_platforms
+            ]
+            if unresolved_ids and len(updated_post.platforms or []) == 1:
+                # A single declared platform covers every channel that wasn't
+                # already explicitly mapped by validation above.
+                for profile_id in unresolved_ids:
+                    profile_platforms[profile_id] = updated_post.platforms[0]
+                unresolved_ids = []
+            if unresolved_ids:
+                # The common case: multiple channels, no explicit mapping --
+                # the frontend never sends buffer_profile_platforms today, so
+                # this is where most scheduled posts land. Ask Buffer which
+                # service each channel actually is so _create_channel_post
+                # still has a platform to key off (e.g. the Facebook
+                # post-type metadata this fallback exists to attach). A
+                # lookup failure must not block scheduling -- that's exactly
+                # the pre-fix behaviour, just without the metadata.
+                try:
+                    known_services = {
+                        profile["id"]: profile.get("service", "")
+                        for profile in list_buffer_profiles()
+                    }
+                except BufferServiceError:
+                    logger.warning(
+                        "Could not resolve Buffer channel platforms for "
+                        "post %s; scheduling without platform-specific "
+                        "metadata.",
+                        updated_post.pk,
+                    )
+                    known_services = {}
+                for profile_id in unresolved_ids:
+                    service = known_services.get(profile_id)
+                    if service:
+                        profile_platforms[profile_id] = service
             try:
                 result = create_buffer_update(
                     text=updated_post.content,
