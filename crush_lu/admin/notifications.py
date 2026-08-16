@@ -256,7 +256,12 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'title', 'body')
     readonly_fields = (
         'user', 'notification_type', 'title', 'body', 'link_url',
-        'metadata', 'created_at', 'read_at'
+        'metadata', 'created_at', 'read_at',
+        # Machine-written claim token, and read-only for a stronger reason than
+        # the rest of this log: editing it by hand would either re-open a
+        # lifecycle that has already been notified or silently claim one that
+        # has not, which is the duplicate-vs-silence bug it exists to prevent.
+        'dedupe_key',
     )
     date_hierarchy = 'created_at'
     list_per_page = 50
