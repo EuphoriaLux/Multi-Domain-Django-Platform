@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
@@ -402,7 +402,7 @@ def _create_order_atomic(request, guest, expected_total=None):
     if not lines:
         return None
 
-    if expected_total is not None and total != expected_total:
+    if expected_total is None or total != expected_total:
         return "price_changed", expected_total, total
 
     # `short_code` has no uniqueness constraint, and this count-then-use
@@ -441,7 +441,7 @@ def order_place(request):
 
     try:
         expected_total = Decimal(request.POST.get("expected_total", ""))
-    except (TypeError, ValueError):
+    except (InvalidOperation, TypeError, ValueError):
         expected_total = None
 
     result = _create_order_atomic(request, guest, expected_total=expected_total)
