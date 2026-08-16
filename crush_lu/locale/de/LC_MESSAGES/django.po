@@ -39636,3 +39636,15 @@ msgstr "Foto verifiziert"
 
 msgid "Photo verified in person by a Crush Coach"
 msgstr "Foto persönlich durch einen Crush Coach verifiziert"
+
+#: views_checkin.py:899
+msgid ""
+"Your verification was rejected because the person at the event did not match"
+" your profile photos."
+msgstr ""
+"Deine Verifizierung wurde abgelehnt, weil die Person beim Event nicht zu "
+"deinen Profilfotos passte."
+
+#: push_notifications.py:432
+msgid "Verification Not Approved"
+msgstr "Verifizierung nicht bestätigt"
