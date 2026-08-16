@@ -1226,6 +1226,18 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         event_id,
     )
 
+    # Same hazard `coach_mark_verified` guards against: the instance held here
+    # was locked inside the transaction above, and an overlapping door action
+    # committed since (a scan, an undo) would ride along as stale state on a
+    # payload every screen converges its row on.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration_id, event_id=event_id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
+
     display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
@@ -1343,14 +1355,12 @@ def _row_state(
             if registration.checked_in_at
             else None
         ),
-        # The waitlist is FIFO by this timestamp (the page orders it the same
-        # way in views_coach.py), so restoring an undone promotion at its
-        # queue position — rather than at the end — needs it in the payload.
-        "registered_at": (
-            registration.registered_at.isoformat()
-            if registration.registered_at
-            else None
-        ),
+        # `registered_at` deliberately absent. It went in as groundwork for
+        # restoring an undone promotion at its FIFO queue position, but that
+        # also needs the timestamp on the rendered rows and was deferred —
+        # leaving nothing reading it, on a payload three `event_checkin_api`
+        # responses hand to anyone holding a photographed ticket. Add it back
+        # with the feature, gated to the coach-only branch.
         "display_name": display_name,
         "has_profile": False,
         "is_approved": False,
