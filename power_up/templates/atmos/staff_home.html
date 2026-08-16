@@ -1,0 +1,19 @@
+{% extends "atmos/base.html" %}
+{% block bodyclass %}staff{% endblock %}
+{% block title %}Atmos Staff{% endblock %}
+{% block venue_name %}Atmos{% endblock %}
+{% block content %}
+<h1>Atmos — pick a venue</h1>
+<table class="venues">
+  <tr><th>Venue</th><th>Status</th><th></th></tr>
+  {% for venue in venues %}
+  <tr>
+    <td>{{ venue.name }}</td>
+    <td>{% if venue.service_open %}Open{% else %}Closed{% endif %}</td>
+    <td><a href="{% url 'atmos:kds' venue.slug %}">Open KDS →</a></td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3" class="muted">No venues yet — add one in <a href="/power-admin/atmos/venue/add/">admin</a>.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

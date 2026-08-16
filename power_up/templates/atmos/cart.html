@@ -1,0 +1,36 @@
+{% extends "atmos/base.html" %}
+{% block title %}Cart{% endblock %}
+{% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block content %}
+<h1>Your round</h1>
+<p class="tag">{{ guest.display }} — table {{ guest.tab.table.label }}</p>
+
+{% if lines %}
+<div class="panel">
+  {% for line in lines %}
+  <div class="item-row">
+    <div>
+      <div class="item-name">{{ line.item.name }}</div>
+      <form method="post" action="{% url 'atmos:cart_update' %}" class="qty-form" style="margin-top:.3rem;">
+        {% csrf_token %}
+        <input type="hidden" name="item_id" value="{{ line.item.id }}">
+        <input type="number" name="quantity" value="{{ line.quantity }}" min="0" max="9">
+        <button class="btn btn-small btn-ghost" type="submit">Update</button>
+      </form>
+    </div>
+    <div class="price">€{{ line.line_total }}</div>
+  </div>
+  {% endfor %}
+  <div class="item-row" style="border-bottom:none;font-weight:bold;">
+    <div>Total</div><div class="price">€{{ total }}</div>
+  </div>
+</div>
+<form method="post" action="{% url 'atmos:order_place' %}">
+  {% csrf_token %}
+  <button class="btn" type="submit">Place order →</button>
+</form>
+{% else %}
+<p class="muted">Your cart is empty.</p>
+{% endif %}
+<p style="margin-top:1rem;"><a href="{% url 'atmos:guest_menu' %}">← back to the menu</a></p>
+{% endblock %}

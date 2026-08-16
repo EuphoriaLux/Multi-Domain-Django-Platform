@@ -1,0 +1,36 @@
+{% extends "atmos/base.html" %}
+{% block title %}Menu{% endblock %}
+{% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block content %}
+<h1>{{ guest.venue.name }}</h1>
+<p class="tag">You're <strong>{{ guest.display }}</strong> at table {{ guest.tab.table.label }}</p>
+
+{% for category in categories %}
+  <div class="cat-title">{{ category.name }}</div>
+  <div class="panel">
+    {% for item in category.items.all %}
+      {% if item.is_available %}
+      <div class="item-row">
+        <div>
+          <div class="item-name">{{ item.name }}{% if item.contains_alcohol %} <span class="muted">(18+)</span>{% endif %}</div>
+          {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
+        </div>
+        <form method="post" action="{% url 'atmos:cart_add' %}" class="qty-form">
+          {% csrf_token %}
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+          <input type="number" name="quantity" value="1" min="1" max="9">
+          <span class="price">€{{ item.price }}</span>
+          <button class="btn btn-small" type="submit">Add</button>
+        </form>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% empty %}
+  <p class="muted">The menu isn't set up yet — ask a barkeeper.</p>
+{% endfor %}
+
+<div class="cart-fab">
+  <a class="btn" href="{% url 'atmos:cart_detail' %}">View cart{% if cart_count %} ({{ cart_count }}){% endif %} →</a>
+</div>
+{% endblock %}

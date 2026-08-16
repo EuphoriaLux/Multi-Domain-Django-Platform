@@ -1,0 +1,12 @@
+{% extends "atmos/base.html" %}
+{% block title %}Order {{ order.short_code }}{% endblock %}
+{% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block refresh %}{% if order.status != "served" and order.status != "cancelled" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<h1>{{ order.alias_snapshot }} — {{ order.short_code }}</h1>
+<p class="tag"><span class="status-pill">{{ order.get_status_display }}</span></p>
+
+<div class="ticket">{{ ticket_preview }}</div>
+
+<p style="margin-top:1.5rem;"><a href="{% url 'atmos:guest_menu' %}">← order more</a></p>
+{% endblock %}

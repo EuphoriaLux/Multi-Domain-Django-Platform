@@ -1,0 +1,127 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Atmos{% endblock %} — {% block venue_name %}Atmos{% endblock %}</title>
+{% block refresh %}{% endblock %}
+<style>
+  :root {
+    color-scheme: dark light;
+    --ink: #f2ece2;
+    --dim: #b9ac9a;
+    --gold: #c9a24b;
+    --bg: #14100f;
+    --panel: #1e1917;
+    --line: #3a322c;
+    --danger: #c85a4d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+  h1, h2, h3 { font-weight: 400; letter-spacing: .02em; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  .tag { color: var(--dim); font-size: .85rem; margin: 0 0 1.5rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .btn {
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    padding: .85rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--gold);
+    background: var(--gold);
+    color: #1a1410;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-ghost { background: transparent; color: var(--gold); }
+  .btn-small { width: auto; padding: .4rem .8rem; font-size: .85rem; }
+  .btn-row { display: flex; gap: .5rem; }
+  .btn-row .btn { flex: 1; }
+  input[type=text], input[type=number] {
+    width: 100%;
+    padding: .7rem .8rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #0f0c0b;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  a { color: var(--gold); }
+  .muted { color: var(--dim); font-size: .85rem; }
+  .item-row { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+  .item-row:last-child { border-bottom: none; }
+  .item-name { font-size: 1.02rem; }
+  .item-desc { color: var(--dim); font-size: .8rem; margin-top: .15rem; }
+  .price { color: var(--gold); white-space: nowrap; }
+  .qty-form { display: flex; gap: .4rem; align-items: center; }
+  .qty-form input { width: 3.2rem; text-align: center; padding: .4rem; }
+  .cat-title { margin-top: 1.5rem; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; color: var(--gold); }
+  .ticket {
+    background: #0f0c0b;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: "Courier New", monospace;
+    white-space: pre-wrap;
+    font-size: .8rem;
+    line-height: 1.35;
+    overflow-x: auto;
+  }
+  .status-pill {
+    display: inline-block;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+  }
+  .alert { border: 1px solid var(--danger); color: var(--danger); padding: .6rem .8rem; border-radius: 8px; margin-bottom: 1rem; }
+  .cart-fab {
+    position: fixed; bottom: 1rem; left: 1rem; right: 1rem; max-width: 480px; margin: 0 auto;
+  }
+
+  /* Staff (light, functional) theme — set via body.staff */
+  body.staff {
+    --ink: #1c1917; --dim: #6b625a; --gold: #8a5a2a; --bg: #f4f1ec; --panel: #ffffff; --line: #ddd5c8;
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  body.staff .wrap { max-width: 1100px; }
+  .kds-board { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+  @media (min-width: 760px) { .kds-board { grid-template-columns: repeat(3, 1fr); } }
+  .kds-col h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .1em; color: var(--dim); border-bottom: 2px solid var(--line); padding-bottom: .4rem; }
+  .kds-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; margin-bottom: .75rem; }
+  .kds-persona { font-size: 1.05rem; font-weight: 600; }
+  .kds-meta { color: var(--dim); font-size: .78rem; margin: .15rem 0 .5rem; }
+  .kds-items { font-size: .88rem; margin: 0 0 .5rem; }
+  .kds-vignette { font-family: "Courier New", monospace; font-size: .72rem; color: var(--dim); white-space: pre-wrap; border-top: 1px dashed var(--line); margin-top: .5rem; padding-top: .5rem; }
+  table.venues { width: 100%; border-collapse: collapse; }
+  table.venues td, table.venues th { padding: .5rem; border-bottom: 1px solid var(--line); text-align: left; }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+<div class="wrap">
+{% block content %}{% endblock %}
+</div>
+</body>
+</html>

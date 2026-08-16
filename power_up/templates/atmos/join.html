@@ -1,0 +1,31 @@
+{% extends "atmos/base.html" %}
+{% block title %}Join{% endblock %}
+{% block venue_name %}{{ tab.venue.name }}{% endblock %}
+{% block content %}
+<h1>You're at Table {{ tab.table.label }}</h1>
+<p class="tag">What should we shout when your drink is ready?</p>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<div class="panel">
+  <p class="muted" style="margin:0;">Roll a name</p>
+  <h2 style="margin:.3rem 0 1rem;">{{ rolled_alias }}</h2>
+  <a class="btn btn-ghost" href="{% url 'atmos:guest_join' %}">🎲 Roll again</a>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
+  <button class="btn" type="submit">That's me, let's go →</button>
+</form>
+
+<p class="tag" style="text-align:center;margin:1.5rem 0 .5rem;">— or type your own —</p>
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
+  <input type="text" name="display_name" placeholder="Your name" maxlength="20">
+  <button class="btn btn-ghost" type="submit" style="margin-top:.5rem;">Use this name</button>
+</form>
+
+<p class="muted" style="margin-top:2rem;">We only keep this for tonight.</p>
+{% endblock %}

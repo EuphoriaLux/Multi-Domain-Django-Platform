@@ -1,0 +1,24 @@
+<div class="kds-card">
+  <div class="kds-persona">{{ order.alias_snapshot }} <span class="muted">· table {{ order.tab.table.label }}</span></div>
+  <div class="kds-meta">{{ order.short_code }} · placed {{ order.placed_at|timesince }} ago</div>
+  <ul class="kds-items">
+    {% for item in order.items.all %}<li>{{ item.quantity }}× {{ item.name_snapshot }}{% if item.note %} — {{ item.note }}{% endif %}</li>{% endfor %}
+  </ul>
+  {% if order.status == "placed" %}
+  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+    {% csrf_token %}<input type="hidden" name="status" value="accepted">
+    <button class="btn btn-small" type="submit">Accept</button>
+  </form>
+  {% elif order.status == "accepted" %}
+  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+    {% csrf_token %}<input type="hidden" name="status" value="preparing">
+    <button class="btn btn-small" type="submit">Start preparing</button>
+  </form>
+  {% elif order.status == "preparing" %}
+  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+    {% csrf_token %}<input type="hidden" name="status" value="served">
+    <button class="btn btn-small" type="submit">Mark served</button>
+  </form>
+  {% endif %}
+  {% if order.vignette %}<div class="kds-vignette">{{ order.vignette }}</div>{% endif %}
+</div>

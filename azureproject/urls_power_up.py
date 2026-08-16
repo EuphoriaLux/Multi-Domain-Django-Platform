@@ -34,6 +34,10 @@ urlpatterns = base_patterns + [
 
     # Onboarding - Customer onboarding email builder (language-neutral)
     path("onboarding/", include("power_up.onboarding.urls")),
+
+    # Atmos - QR bar ordering prototype (language-neutral, spec §2.1: a
+    # table's printed QR must not be locked to one language)
+    path("atmos/", include("power_up.atmos.urls")),
 ]
 
 # Language-prefixed patterns (user-facing pages)

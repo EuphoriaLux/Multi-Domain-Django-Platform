@@ -1,0 +1,24 @@
+{% extends "atmos/base.html" %}
+{% block bodyclass %}staff{% endblock %}
+{% block title %}KDS{% endblock %}
+{% block venue_name %}{{ venue.name }}{% endblock %}
+{% block refresh %}<meta http-equiv="refresh" content="4">{% endblock %}
+{% block content %}
+<h1>{{ venue.name }} — KDS</h1>
+<p class="muted"><a href="{% url 'atmos:staff_home' %}">← venues</a></p>
+
+<div class="kds-board">
+  <div class="kds-col">
+    <h2>New</h2>
+    {% for order in columns.new %}{% include "atmos/_kds_card.html" %}{% empty %}<p class="muted">Nothing yet.</p>{% endfor %}
+  </div>
+  <div class="kds-col">
+    <h2>In progress</h2>
+    {% for order in columns.in_progress %}{% include "atmos/_kds_card.html" %}{% empty %}<p class="muted">Nothing in progress.</p>{% endfor %}
+  </div>
+  <div class="kds-col">
+    <h2>Done (last 30 min)</h2>
+    {% for order in columns.done %}{% include "atmos/_kds_card.html" %}{% empty %}<p class="muted">Nothing served yet.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}
