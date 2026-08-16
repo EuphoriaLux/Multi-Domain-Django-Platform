@@ -410,6 +410,39 @@ def send_profile_revision_notification(user, feedback):
     )
 
 
+def send_profile_rejected_notification(user, reason):
+    """Send notification when a verification is rejected.
+
+    Rides `notify_profile_updates` like the revision and approval pushes: it
+    is the same coach-decision channel, and a member who muted those has
+    muted this. Without this sender a web-push-only member got no active
+    alert at all — only a bell row they would find on their next visit.
+
+    Args:
+        user: Django User object
+        reason: Why the verification was rejected
+    """
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_profile_updates=True
+    )
+    if not subscriptions.exists():
+        return
+
+    with user_language_context(user):
+        title = _("Verification Not Approved")
+        body = _("%(reason)s") % {'reason': str(reason)[:120]}
+
+    url = get_user_language_url(user, 'crush_lu:dashboard')
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag='profile-rejected'
+    )
+
+
 def send_profile_recontact_notification(user):
     """
     Send notification when coach needs user to recontact them.
