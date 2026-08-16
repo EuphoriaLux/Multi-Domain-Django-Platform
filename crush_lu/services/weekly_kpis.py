@@ -186,14 +186,7 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         # Issuing cancellation credit clears EventRegistration.payment_* and
         # a credit redemption creates a paid seat without new cash revenue.
         "paid_event_registrations": in_week(
-            PaymentTransaction.objects.filter(
-                provider__in=(
-                    PaymentTransaction.Provider.SUMUP,
-                    PaymentTransaction.Provider.MANUAL,
-                ),
-                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                status=PaymentTransaction.Status.PAID,
-            ),
+            PaymentTransaction.objects.paid_event_registrations(),
             "paid_at",
         ).count(),
     }
