@@ -897,6 +897,16 @@ class SocialMediaTests(TestCase):
             dispatch.call_args.kwargs["profile_platforms"],
             {"channel_1": "facebook", "channel_2": "instagram"},
         )
+        # The resolved mapping must land on the model too -- not just the
+        # local dict passed to create_buffer_update -- since
+        # dispatched_platforms (recorded below) and any later anti-abuse
+        # re-validation of this post both read the persisted field.
+        post.refresh_from_db()
+        self.assertEqual(
+            post.buffer_profile_platforms,
+            {"channel_1": "facebook", "channel_2": "instagram"},
+        )
+        self.assertEqual(set(post.dispatched_platforms), {"facebook", "instagram"})
 
     @patch("hub.views_social.list_buffer_profiles")
     @patch("hub.views_social.create_buffer_update")
@@ -933,9 +943,10 @@ class SocialMediaTests(TestCase):
     def test_scheduling_does_not_look_up_buffer_when_platforms_already_known(
         self, dispatch, list_profiles
     ):
-        """The single-platform heuristic and any explicit mapping already
-        cover every selected channel -- the extra Buffer round-trip this fix
-        adds must only fire for channels that are still unresolved."""
+        """The pre-save validation block's single-declared-platform case
+        already writes a full buffer_profile_platforms mapping before this
+        fallback ever runs -- the extra Buffer round-trip this fix adds must
+        only fire for channels that are genuinely still unresolved."""
         dispatch.return_value = {"success": True, "buffer_id": "post_1"}
         post = SocialPost.objects.create(
             user=self.user,
@@ -958,6 +969,9 @@ class SocialMediaTests(TestCase):
         self.assertEqual(
             dispatch.call_args.kwargs["profile_platforms"], {"channel_1": "facebook"}
         )
+        post.refresh_from_db()
+        self.assertEqual(post.buffer_profile_platforms, {"channel_1": "facebook"})
+        self.assertEqual(post.dispatched_platforms, ["facebook"])
 
     def test_scheduled_delivery_fields_are_immutable(self):
         post = SocialPost.objects.create(
