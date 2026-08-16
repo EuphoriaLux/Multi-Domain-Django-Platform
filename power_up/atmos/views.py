@@ -111,7 +111,7 @@ def _get_guest(request):
         return None
     return (
         Guest.objects.select_related("tab__table", "venue")
-        .filter(pk=guest_id, status="active")
+        .filter(pk=guest_id, status="active", tab__status="open")
         .first()
     )
 
@@ -137,7 +137,7 @@ def _resolve_menu_item(guest, item_id):
     here rather than filtering on a raw POSTed id directly.
     """
     try:
-        return MenuItem.objects.get(pk=item_id, category__venue=guest.venue, is_available=True)
+        return MenuItem.objects.get(pk=item_id, category__venue=guest.venue, category__is_visible=True, is_available=True)
     except (MenuItem.DoesNotExist, ValidationError, ValueError):
         return None
 
@@ -305,17 +305,28 @@ def _cart_lines(guest, cart):
     guest is sitting on the cart page). Shared by cart_detail and
     order_place's unavailable-item bounce, so both show the same reality.
     """
-    items = MenuItem.objects.filter(
-        pk__in=cart.keys(), category__venue=guest.venue, is_available=True
+    # Keep stale entries visible so the guest can remove them. Cross-venue
+    # IDs remain hidden; only items that once belonged to this venue are shown.
+    items = MenuItem.objects.select_related("category").filter(
+        pk__in=cart.keys(), category__venue=guest.venue
     )
     lines, total = [], Decimal("0.00")
     for item in items:
         qty = cart.get(str(item.id), 0)
         if qty <= 0:
             continue
+        is_orderable = item.is_available and item.category.is_visible
         line_total = (item.price * qty).quantize(Decimal("0.01"))
-        total += line_total
-        lines.append({"item": item, "quantity": qty, "line_total": line_total})
+        if is_orderable:
+            total += line_total
+        lines.append(
+            {
+                "item": item,
+                "quantity": qty,
+                "line_total": line_total,
+                "is_orderable": is_orderable,
+            }
+        )
     return lines, total
 
 
@@ -329,7 +340,7 @@ def cart_detail(request):
 
 
 @transaction.atomic
-def _create_order_atomic(request, guest):
+def _create_order_atomic(request, guest, expected_total=None):
     """DB-only half of order placement: re-check the master switch, lock and
     validate the cart, create the Order + OrderItems. Returns
     `(order, venue, lines)`, the string `"closed"`, `("unavailable", names)`,
@@ -349,11 +360,20 @@ def _create_order_atomic(request, guest):
     if not venue.service_open:
         return "closed"
 
+    # A valid guest cookie must not revive a historical tab. Lock and re-check
+    # the tab in the same transaction as placement so an admin close racing
+    # this POST cannot accept another order.
+    tab_is_open = Tab.objects.select_for_update().filter(
+        pk=guest.tab_id, venue=venue, status="open"
+    ).exists()
+    if not tab_is_open:
+        return "tab_closed"
+
     cart = request.session.get(CART_SESSION_KEY, {})
     available = {
         str(i.id): i
         for i in MenuItem.objects.select_for_update().filter(
-            pk__in=cart.keys(), category__venue=venue, is_available=True
+            pk__in=cart.keys(), category__venue=venue, category__is_visible=True, is_available=True
         )
     }
 
@@ -381,6 +401,9 @@ def _create_order_atomic(request, guest):
 
     if not lines:
         return None
+
+    if expected_total is not None and total != expected_total:
+        return "price_changed", expected_total, total
 
     # `short_code` has no uniqueness constraint, and this count-then-use
     # sequence isn't atomic on its own — two concurrent placements at the
@@ -416,11 +439,18 @@ def order_place(request):
     if not guest or request.method != "POST":
         return render(request, "atmos/no_session.html")
 
-    result = _create_order_atomic(request, guest)
+    try:
+        expected_total = Decimal(request.POST.get("expected_total", ""))
+    except (TypeError, ValueError):
+        expected_total = None
+
+    result = _create_order_atomic(request, guest, expected_total=expected_total)
     if result is None:
         return redirect("atmos:cart_detail")
     if result == "closed":
         return render(request, "atmos/closed.html", {"table": guest.tab.table})
+    if result == "tab_closed":
+        return render(request, "atmos/no_session.html")
     if result[0] == "unavailable":
         # Cart is untouched on purpose (see _create_order_atomic) — show the
         # guest the same lines cart_detail would, plus what changed, rather
@@ -432,6 +462,20 @@ def order_place(request):
             request,
             "atmos/cart.html",
             {"guest": guest, "lines": lines, "total": total, "unavailable_names": names},
+        )
+
+    if result[0] == "price_changed":
+        cart = request.session.get(CART_SESSION_KEY, {})
+        lines, total = _cart_lines(guest, cart)
+        return render(
+            request,
+            "atmos/cart.html",
+            {
+                "guest": guest,
+                "lines": lines,
+                "total": total,
+                "price_changed": True,
+            },
         )
 
     order, venue, lines = result
