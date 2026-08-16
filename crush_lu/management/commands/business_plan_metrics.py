@@ -8,6 +8,7 @@ Supports --since / --until date filters and --monthly breakdown.
 """
 
 import json
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -34,6 +35,27 @@ def _add_months(d, months):
     return date(year, month, 1)
 
 
+#: The registration id both event-payment creators embed in
+#: ``transaction_reference``: ``CRUSH-EVT-<id>-<hex>`` from the card checkout
+#: (``views_payments.create_sumup_event_checkout``) and
+#: ``CRUSH-MANUAL-<id>-<hex>`` from the cash/bank receipt staff records in the
+#: registration admin. Anchored, and the id must end the string or be followed
+#: by the separator, so a reference in some other shape falls through instead
+#: of matching a digit run out of its middle.
+_REFERENCE_REGISTRATION_RE = re.compile(r"^CRUSH-(?:EVT|MANUAL)-(\d+)(?:-|$)")
+
+
+def _registration_id_from_reference(reference):
+    """The registration a capture was opened for, or None.
+
+    Used only once the FK is gone: deleting an account deletes its
+    EventRegistration rows and the FK is SET_NULL, but this string is a
+    CharField on the transaction and survives.
+    """
+    match = _REFERENCE_REGISTRATION_RE.match(reference or "")
+    return int(match.group(1)) if match else None
+
+
 def _paid_seat_counts_by_event(events):
     """``{event_id: paid seat count}`` for these events, in a single query.
 
@@ -47,18 +69,20 @@ def _paid_seat_counts_by_event(events):
 
     * a surviving registration, deduped by it — a declined attempt behind a
       capture, or a re-booked cycle reusing the row, is one seat;
-    * else the (event, member) pair, for captures whose registration was
-      deleted. A rebooking cycle can leave a card capture and a later cash one
-      on a single registration, so these must dedupe exactly as the linked
-      branch does or a seat becomes two the moment the member leaves. ``user``
-      survives that deletion: the FK is PROTECT because a captured payment is
-      a financial record;
-    * else the transaction itself — a capture with no member cannot be paired
-      with anything, and must not collapse with the other member-less rows
-      into a single NULL group.
+    * else the registration id parsed out of ``transaction_reference``. Both
+      creators embed it (``CRUSH-EVT-<id>-<hex>`` for card checkouts,
+      ``CRUSH-MANUAL-<id>-<hex>`` for the cash/bank receipts staff records),
+      and unlike the FK that string survives the registration's deletion. It
+      is the only seat identity that both keeps a re-booked cycle's several
+      captures together AND keeps distinct members apart — ``user`` cannot,
+      because staff may open a card checkout on a member's behalf and
+      ``PaymentTransaction.user`` then holds the *staff* requester, which
+      would collapse a whole event's staff-sold seats into one;
+    * else the transaction itself, so a reference we cannot parse stands
+      alone rather than merging with every other unparseable row.
 
     Summing per-event counts equals a global DISTINCT: a registration belongs
-    to exactly one event, and the member pair is already scoped by the bucket.
+    to exactly one event, so its id cannot appear under two of them.
     """
     rows = PaymentTransaction.objects.filter(
         provider__in=(
@@ -68,14 +92,14 @@ def _paid_seat_counts_by_event(events):
         purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
         status=PaymentTransaction.Status.PAID,
         event__in=events,
-    ).values_list("event_id", "event_registration_id", "user_id", "pk")
+    ).values_list("event_id", "event_registration_id", "transaction_reference", "pk")
 
     seats = defaultdict(set)
-    for event_id, registration_id, user_id, pk in rows.iterator(chunk_size=2000):
+    for event_id, registration_id, reference, pk in rows.iterator(chunk_size=2000):
+        if registration_id is None:
+            registration_id = _registration_id_from_reference(reference)
         if registration_id is not None:
             identity = ("registration", registration_id)
-        elif user_id is not None:
-            identity = ("member", user_id)
         else:
             identity = ("transaction", pk)
         seats[event_id].add(identity)

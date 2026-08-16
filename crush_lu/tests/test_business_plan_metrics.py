@@ -10,6 +10,7 @@ Run with: pytest crush_lu/tests/test_business_plan_metrics.py -v
 """
 
 import json
+import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import StringIO
@@ -75,7 +76,10 @@ class BusinessPlanMetricsFixture(TestCase):
         self._tx(
             registration,
             provider=provider,
-            reference=f"CRUSH-EVT-{registration.pk}",
+            # Shaped like the real thing: create_sumup_event_checkout writes
+            # CRUSH-EVT-<registration id>-<hex>, and the registration id in
+            # that string is what identifies the seat once the FK is gone.
+            reference=f"CRUSH-EVT-{registration.pk}-{uuid.uuid4().hex[:6]}",
         )
         return registration
 
@@ -330,3 +334,38 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
 
         report = self._report(date(2026, 5, 1), date(2026, 6, 1))
         self.assertEqual(report["event_activity"]["paid_registrations"], 2)
+
+    def test_staff_opened_checkouts_do_not_collapse_after_deletion(self):
+        """Seat identity cannot be the payer.
+
+        `create_sumup_event_checkout` lets staff open a card checkout on a
+        member's behalf and stores the *staff* requester in
+        `PaymentTransaction.user` (the repo pins this in
+        `StaffOpenedPaymentTransactionAdminTests`). Keying orphaned captures on
+        the user would report a whole event's staff-sold seats as one the
+        moment those members left.
+        """
+        event = self._event(date(2026, 5, 14))
+        staff = User.objects.create_user(
+            username="staff@crush.lu", email="staff@crush.lu", password="x",
+            is_staff=True,
+        )
+        for i in range(3):
+            buyer = User.objects.create_user(
+                username=f"buyer{i}@crush.lu", email=f"buyer{i}@crush.lu", password="x"
+            )
+            registration = EventRegistration.objects.create(
+                event=event, user=buyer, status="confirmed",
+                payment_confirmed=True, payment_date=timezone.now(),
+            )
+            tx = self._tx(
+                registration,
+                reference=f"CRUSH-EVT-{registration.pk}-{uuid.uuid4().hex[:6]}",
+            )
+            # Staff opened it: payer is staff, buyer is the member.
+            tx.user = staff
+            tx.save(update_fields=["user"])
+            registration.delete()
+
+        report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(report["event_activity"]["paid_registrations"], 3)
