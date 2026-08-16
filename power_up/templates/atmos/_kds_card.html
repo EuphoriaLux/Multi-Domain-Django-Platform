@@ -20,5 +20,10 @@
     <button class="btn btn-small" type="submit">Mark served</button>
   </form>
   {% endif %}
-  {% if order.vignette %}<div class="kds-vignette">{{ order.vignette }}</div>{% endif %}
+  {% if order.vignette %}
+  <div class="kds-vignette">
+    <div class="muted" style="margin-bottom:.25rem;">{% if order.vignette_source == "model" %}AI-written{% else %}fallback-written{% endif %}</div>
+    {{ order.vignette }}
+  </div>
+  {% endif %}
 </div>

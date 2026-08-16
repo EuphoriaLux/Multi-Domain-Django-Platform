@@ -4,7 +4,14 @@
 {% block refresh %}{% if order.status != "served" and order.status != "cancelled" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
 <h1>{{ order.alias_snapshot }} — {{ order.short_code }}</h1>
-<p class="tag"><span class="status-pill">{{ order.get_status_display }}</span></p>
+<p class="tag">
+  <span class="status-pill">{{ order.get_status_display }}</span>
+  {% if order.vignette_source %}
+  <span class="status-pill" style="border-color:var(--dim);color:var(--dim);">
+    {% if order.vignette_source == "model" %}written by AI{% else %}written by the fallback engine{% endif %}
+  </span>
+  {% endif %}
+</p>
 
 <div class="ticket">{{ ticket_preview }}</div>
 
