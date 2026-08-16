@@ -286,3 +286,47 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
         monthly = self._monthly(date(2026, 5, 1), date(2026, 7, 1))
         self.assertEqual(monthly["2026-05"]["paid_reg"], 1)
         self.assertEqual(monthly["2026-06"]["paid_reg"], 1)
+
+    def test_reused_seat_with_two_captures_stays_one_after_deletion(self):
+        """The mirror of ``test_one_seat_with_several_attempts_counts_once``.
+
+        A rebooking cycle leaves a card capture and a later cash capture on
+        one registration; the linked branch dedupes them by registration and
+        reports one seat. Deleting the member orphans both rows, and counting
+        orphans as transactions would make that seat silently become two —
+        the report jumping up on a departure rather than staying put.
+        """
+        event = self._event(date(2026, 5, 14))
+        registration = self._paid_seat(event, self.member)
+        self._tx(
+            registration,
+            provider=PaymentTransaction.Provider.MANUAL,
+            reference=f"CRUSH-EVT-{registration.pk}-cash",
+        )
+
+        before = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(before["event_activity"]["paid_registrations"], 1)
+
+        registration.delete()
+
+        after = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(after["event_activity"]["paid_registrations"], 1)
+
+    def test_two_departed_members_on_one_event_still_count_separately(self):
+        """Deduping orphans by (event, member) must not over-merge: two
+        different people who both left are two seats, not one."""
+        event = self._event(date(2026, 5, 14))
+        for i in range(2):
+            user = User.objects.create_user(
+                username=f"left{i}@crush.lu", email=f"left{i}@crush.lu", password="x"
+            )
+            registration = self._paid_seat(event, user)
+            self._tx(
+                registration,
+                provider=PaymentTransaction.Provider.MANUAL,
+                reference=f"CRUSH-EVT-{registration.pk}-cash",
+            )
+            registration.delete()
+
+        report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(report["event_activity"]["paid_registrations"], 2)

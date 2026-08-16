@@ -71,11 +71,27 @@ def _paid_registration_count(events):
         .distinct()
         .count()
     )
-    # Plus one seat per row whose registration was deleted. These are counted
-    # separately rather than folded into the DISTINCT above, where every NULL
-    # would collapse into a single group and a whole event's worth of deleted
-    # accounts would report as one paid seat.
-    orphaned = paid.filter(event_registration__isnull=True).count()
+    # Plus the seats whose registration was deleted, counted separately: they
+    # all share event_registration_id=NULL, so folding them into the DISTINCT
+    # above would collapse a whole event's worth of departed members into one
+    # paid seat.
+    #
+    # Their seat identity is (event, member). A rebooking cycle can leave
+    # several PAID captures on a single registration — a card capture and a
+    # later cash one — which the linked branch dedupes by registration and
+    # this branch must dedupe too, or a seat silently becomes two the moment
+    # the member leaves. ``user`` survives that deletion: the FK is PROTECT
+    # precisely because a captured payment is a financial record.
+    orphaned_rows = paid.filter(event_registration__isnull=True)
+    orphaned = (
+        orphaned_rows.filter(user__isnull=False)
+        .values("event_id", "user_id")
+        .distinct()
+        .count()
+    )
+    # A capture with no member cannot be paired with anything, so it stands on
+    # its own rather than collapsing into a single NULL group.
+    orphaned += orphaned_rows.filter(user__isnull=True).count()
     return linked + orphaned
 
 
