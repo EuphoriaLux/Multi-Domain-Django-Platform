@@ -633,18 +633,45 @@ def mark_attended(request, quiz_id):
             _broadcast_quiz_table_update,
             _get_display_name,
             _get_profile_data,
+            _row_state,
+            _TABLE_ASSIGNMENT_UNSET,
         )
 
         broadcast_payload = {
             "success": True,
             "registration_id": registration.id,
-            "attendee_name": _get_display_name(registration),
+            "attendee_name": _get_display_name(
+                registration, coach_authenticated=True
+            ),
             "checked_in_at": (
                 registration.checked_in_at.isoformat()
                 if registration.checked_in_at
                 else None
             ),
             "profile": _get_profile_data(registration),
+            # Same input every other door broadcast feeds the shared
+            # row-state applier with (#710). Without it `_applyRowState`
+            # bails: the toast fires and the counters converge (summary
+            # refetch), but the row itself never flips — no tick, and the
+            # Check In button stays enabled (#845).
+            #
+            # The assignment `assign_table_on_checkin` just computed is handed
+            # over rather than re-derived, like every other call site — leaving
+            # it out would have this path repeat the quiz/membership/rotation
+            # lookup the rest of the commit exists to remove.
+            #
+            # include_search because this can recover a `no_show`, for which
+            # the page has no row at all (`coach_event_checkin` renders only
+            # SEAT_HOLDING_STATUSES) — the applier builds one from scratch, and
+            # without the haystack a coach cannot then find that attendee by
+            # the name on their ID or the address they booked with. Coach-only
+            # endpoint, same as the other search-carrying payload.
+            "row": _row_state(
+                registration,
+                include_search=True,
+                table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+                coach_authenticated=True,
+            ),
         }
         if table_assignment:
             broadcast_payload["table_number"] = table_assignment.get(

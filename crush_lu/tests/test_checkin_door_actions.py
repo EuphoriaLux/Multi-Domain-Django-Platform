@@ -9,6 +9,7 @@ never re-saves the row, so ``assign_coach_on_first_attendance`` never fires
 again. Before this the only fix for a wrong badge was Django admin.
 """
 
+import json
 from datetime import timedelta
 from unittest import mock
 
@@ -407,9 +408,16 @@ class TestUndoCheckin:
         profile.refresh_from_db()
         assert profile.verification_status == "verified"
 
-    def test_undo_returns_the_gender_bucket(self, client):
-        """The client decrements the live "In the room" split with this — the
-        tile is rendered once and a door shift never reloads."""
+    def test_undo_returns_the_gender_bucket_on_the_row(self, client):
+        """The bucket letter rides the row payload, not the top level.
+
+        It used to be sent twice: once at the top level for a client-side
+        decrement of the live "In the room" split, and once inside ``row``.
+        #710 moved that split onto the summary refetch — every door action,
+        undo included, repaints the tiles from ``gender_checked_in`` on the
+        server's own counts — which left the top-level copy with no reader.
+        The row copy stays: ``_applyRowState`` renders the gender icon from it.
+        """
         coach = _make_coach()
         attendee = _make_attendee()
         event = _make_event()
@@ -420,7 +428,8 @@ class TestUndoCheckin:
 
         payload = client.post(_undo_url(event, registration)).json()
 
-        assert payload["gender"] == "F"
+        assert payload["row"]["gender"] == "F"
+        assert "gender" not in payload
 
     def test_undo_touches_updated_at(self, client):
         """auto_now only writes when the field is named in update_fields."""
@@ -1751,3 +1760,130 @@ class TestRowStatePayload:
         row = client.post(url).json()["row"]
 
         assert row["is_approved"] is True
+
+
+class TestProfilelessAttendeePrivacy:
+    """`event_checkin_api` must not hand out the account's email address.
+
+    That endpoint is CSRF-exempt and authenticated solely by the signed URL
+    baked into the ticket QR, so its response reaches anyone holding a
+    photographed ticket. Signup is email-only, so allauth derives the username
+    from the address and it is usually the address itself — the coach page can
+    fall through to it (`coach_event_checkin.html`, behind a coach login), this
+    endpoint cannot.
+    """
+
+    def _profileless_registration(self, event, *, first_name=""):
+        user = User.objects.create_user(
+            username="noprofile@example.com",
+            email="noprofile@example.com",
+            password="pass12345",
+            first_name=first_name,
+        )
+        _grant_consent(user)
+        return EventRegistration.objects.create(
+            event=event, user=user, status="confirmed"
+        )
+
+    @pytest.mark.django_db
+    def test_scan_response_never_carries_the_username(self, client):
+        _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event)
+
+        payload = _scan(client, event, registration).json()
+
+        blob = json.dumps(payload)
+        assert "noprofile@example.com" not in blob
+        assert payload["row"]["display_name"] == "Attendee"
+
+    @pytest.mark.django_db
+    def test_the_first_name_is_withheld_on_the_qr_path_too(self, client):
+        """`first_name` is account data the member never chose to publish.
+
+        A profile's `display_name` travels because they picked it for a public
+        dating profile; a legal first name is not interchangeable with one, and
+        the QR path is reachable by anyone holding a photographed ticket.
+        """
+        _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event, first_name="Ada")
+
+        payload = _scan(client, event, registration).json()
+
+        assert payload["row"]["display_name"] == "Attendee"
+        assert "Ada" not in json.dumps(payload)
+
+    @pytest.mark.django_db
+    def test_a_coach_endpoint_does_name_the_attendee(self, client):
+        """The door list is the case the named fallback exists for — behind a
+        coach login, where rendering every profileless row as the same
+        placeholder helps nobody."""
+        coach = _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event, first_name="Ada")
+        _scan(client, event, registration)
+
+        client.force_login(coach.user)
+        payload = client.post(
+            reverse(
+                "coach_undo_checkin",
+                kwargs={"event_id": event.id, "registration_id": registration.id},
+            )
+        ).json()
+
+        assert payload["row"]["display_name"] == "Ada"
+
+
+class TestRecoveredRowCanBeCheckedInAgain:
+    """A row the applier builds from scratch must not be a one-way trip.
+
+    `mark_attended` can recover a `no_show`, for which the page has no row at
+    all — `coach_event_checkin` renders only SEAT_HOLDING_STATUSES — so the
+    client builds one. It offers Undo because `checked_in_at` is set, but the
+    Check In button is built from `data-checkin-url`, which is signed per
+    registration and cannot be derived client-side. Without it in the payload
+    the coach undoes once and the attendee is stranded until a reload.
+    """
+
+    @pytest.mark.django_db
+    def test_undo_payload_carries_the_signed_checkin_path(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        # The door page mints tokens for confirmed rows on load
+        # (`coach_event_checkin`), so by the time a coach acts they exist.
+        from crush_lu.views_ticket import _generate_checkin_token
+
+        _generate_checkin_token(registration)
+        _scan(client, event, registration)
+
+        client.force_login(coach.user)
+        payload = client.post(
+            reverse(
+                "coach_undo_checkin",
+                kwargs={"event_id": event.id, "registration_id": registration.id},
+            )
+        ).json()
+
+        registration.refresh_from_db()
+        assert payload["row"]["checkin_url"] == (
+            f"/api/events/checkin/{registration.pk}/{registration.checkin_token}/"
+        )
+
+    @pytest.mark.django_db
+    def test_the_qr_payload_does_not_carry_it(self, client):
+        """It rides the coach-only branch, like the search haystack."""
+        _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+
+        payload = _scan(client, event, registration).json()
+
+        assert "checkin_url" not in payload["row"]

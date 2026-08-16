@@ -839,6 +839,12 @@ document.addEventListener("alpine:init", function () {
                         !document.getElementById("waitlist-reg-" + regId) &&
                         this._waitlistList()
                     ) {
+                        // Appended, so an undone promotion returns the member
+                        // to the end of the waitlist rather than the position
+                        // they signed up in. Restoring the true FIFO slot
+                        // needs registered_at both in the row payload and as
+                        // an attribute on the rendered rows (this builder and
+                        // the server template) — none of the three carry it.
                         this._waitlistList().appendChild(
                             this._buildWaitlistRow(row, mainPhoto),
                         );
@@ -1097,9 +1103,23 @@ document.addEventListener("alpine:init", function () {
                     "data-undo-url",
                     this._apiUrl("undo-checkin", row.registration_id),
                 );
+                // Check-in IS signed per registration, so unlike the two above
+                // it cannot be derived here and has to ride the payload. A row
+                // built from scratch — what a recovered `no_show` gets, having
+                // none on the page to begin with — would otherwise offer Undo
+                // and then have no way back in, stranding that attendee until
+                // the coach reloads.
+                if (row.checkin_url) {
+                    el.setAttribute("data-checkin-url", row.checkin_url);
+                }
+                // The haystack goes in RAW: setAttribute stores exactly what
+                // it is handed (attribute values are never entity-parsed),
+                // and the filter reads it back with getAttribute to compare
+                // against the coach's literal input. Escaping here made
+                // "Smith & Co" searchable only as "smith &amp; co".
                 el.setAttribute(
                     "data-attendee-search",
-                    this._escAttr(row.search || row.display_name || ""),
+                    row.search || row.display_name || "",
                 );
 
                 var left = document.createElement("div");
@@ -1235,7 +1255,13 @@ document.addEventListener("alpine:init", function () {
             // taint CodeQL traces into img.src.
             _takeRowPhoto: function (rowEl) {
                 if (!rowEl) return null;
-                var img = rowEl.querySelector("[data-checkin-avatar] img");
+                // The row's one <img>, wherever it lives: confirmed rows
+                // wrap it in [data-checkin-avatar] (the overlay badge needs
+                // the positioning context), waitlist rows have no wrapper.
+                // It is the WAITLIST row this detaches on a promotion, so
+                // the narrow selector lost the photo in exactly that
+                // direction — the undo direction kept working.
+                var img = rowEl.querySelector("img");
                 if (img && img.parentNode) img.parentNode.removeChild(img);
                 return img || null;
             },
