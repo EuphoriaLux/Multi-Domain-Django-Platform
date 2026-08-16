@@ -1798,14 +1798,38 @@ class TestProfilelessAttendeePrivacy:
         assert payload["row"]["display_name"] == "Attendee"
 
     @pytest.mark.django_db
-    def test_a_first_name_is_still_used_when_there_is_one(self, client):
-        """The improvement this replaced "Attendee" with is kept — a first name
-        is not the account identifier and names the person on the door list."""
+    def test_the_first_name_is_withheld_on_the_qr_path_too(self, client):
+        """`first_name` is account data the member never chose to publish.
+
+        A profile's `display_name` travels because they picked it for a public
+        dating profile; a legal first name is not interchangeable with one, and
+        the QR path is reachable by anyone holding a photographed ticket.
+        """
         _make_coach()
         event = _make_event()
         registration = self._profileless_registration(event, first_name="Ada")
 
         payload = _scan(client, event, registration).json()
 
+        assert payload["row"]["display_name"] == "Attendee"
+        assert "Ada" not in json.dumps(payload)
+
+    @pytest.mark.django_db
+    def test_a_coach_endpoint_does_name_the_attendee(self, client):
+        """The door list is the case the named fallback exists for — behind a
+        coach login, where rendering every profileless row as the same
+        placeholder helps nobody."""
+        coach = _make_coach()
+        event = _make_event()
+        registration = self._profileless_registration(event, first_name="Ada")
+        _scan(client, event, registration)
+
+        client.force_login(coach.user)
+        payload = client.post(
+            reverse(
+                "coach_undo_checkin",
+                kwargs={"event_id": event.id, "registration_id": registration.id},
+            )
+        ).json()
+
         assert payload["row"]["display_name"] == "Ada"
-        assert "noprofile@example.com" not in json.dumps(payload)

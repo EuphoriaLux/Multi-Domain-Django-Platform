@@ -656,10 +656,10 @@ def coach_mark_verified(request, event_id, registration_id):
                     "success": True,
                     "already_verified": True,
                     "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration),
+                    "attendee_name": _get_display_name(registration, coach_authenticated=True),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
-                    "row": _row_state(registration),
+                    "row": _row_state(registration, coach_authenticated=True),
                 }
             )
 
@@ -691,10 +691,10 @@ def coach_mark_verified(request, event_id, registration_id):
                     "success": True,
                     "already_verified": True,
                     "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration),
+                    "attendee_name": _get_display_name(registration, coach_authenticated=True),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
-                    "row": _row_state(registration),
+                    "row": _row_state(registration, coach_authenticated=True),
                 }
             )
 
@@ -734,12 +734,12 @@ def coach_mark_verified(request, event_id, registration_id):
         "success": True,
         "already_verified": False,
         "registration_id": registration.id,
-        "attendee_name": _get_display_name(registration),
+        "attendee_name": _get_display_name(registration, coach_authenticated=True),
         "verification_method": method,
         "message": str(_("%(name)s is now verified."))
-        % {"name": _get_display_name(registration)},
+        % {"name": _get_display_name(registration, coach_authenticated=True)},
         "profile": _get_profile_data(registration),
-        "row": _row_state(registration),
+        "row": _row_state(registration, coach_authenticated=True),
     }
     _broadcast_checkin(registration.event_id, response_data)
     return JsonResponse(response_data)
@@ -836,7 +836,7 @@ def coach_reject_verification(request, event_id, registration_id):
         event_id,
     )
 
-    display_name = _get_display_name(registration)
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "rejected": True,
@@ -1038,7 +1038,7 @@ def coach_undo_checkin(request, event_id, registration_id):
         coach_cleared,
     )
 
-    display_name = _get_display_name(registration)
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "undone": True,
@@ -1053,7 +1053,7 @@ def coach_undo_checkin(request, event_id, registration_id):
         # The full row state the shared applier renders from — status,
         # cleared coach line, table badge — for the local path AND the
         # broadcast, which used to have no undo branch at all (#710).
-        "row": _row_state(registration),
+        "row": _row_state(registration, coach_authenticated=True),
     }
     # The *membership* table, not the current one. The door page's table-fill
     # grid is rendered from QuizTableMembership (views_coach.py), so it counts
@@ -1226,7 +1226,7 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         event_id,
     )
 
-    display_name = _get_display_name(registration)
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "promoted": True,
@@ -1246,6 +1246,7 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
             registration,
             include_search=True,
             table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+            coach_authenticated=True,
         ),
     }
     if table_assignment:
@@ -1257,23 +1258,33 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
     return JsonResponse(response_data)
 
 
-def _get_display_name(registration):
-    """Get privacy-aware display name for attendee."""
+def _get_display_name(registration, *, coach_authenticated=False):
+    """Get privacy-aware display name for attendee.
+
+    ``display_name`` is a name the member chose to publish on a dating
+    profile, so it travels on any authenticated response. A profileless
+    attendee has no such chosen name, and the account fields behind it are not
+    interchangeable with one:
+
+    * ``username`` is never used — signup is email-only
+      (``ACCOUNT_SIGNUP_FIELDS``), so allauth derives it from the address and
+      it is generally the address itself;
+    * ``first_name`` is real account data the member never published, so it
+      needs ``coach_authenticated``.
+
+    That flag defaults to False because the riskier caller is the quiet one:
+    `event_checkin_api` is CSRF-exempt and authenticated solely by the signed
+    URL baked into the ticket QR, so its response reaches anyone holding a
+    photographed ticket. Coach endpoints opt in explicitly.
+    """
     try:
         return registration.user.crushprofile.display_name
     except Exception:
-        # A profileless attendee is their first name rather than a bare
-        # "Attendee", which named no one and degraded every promoted row to
-        # the same placeholder.
-        #
-        # Deliberately NOT falling through to username the way the coach page
-        # does (coach_event_checkin.html): signup is email-only, so allauth
-        # derives the username from the address and it is usually the address
-        # itself. That page is coach-authenticated; this helper also feeds
-        # `event_checkin_api`, which is CSRF-exempt and authenticated solely by
-        # the signed URL baked into the ticket QR — so anyone holding a
-        # photographed ticket would be handed the account's email.
-        return registration.user.first_name or str(_("Attendee"))
+        if coach_authenticated:
+            # Names the person on the door list instead of rendering every
+            # profileless row as the same placeholder.
+            return registration.user.first_name or str(_("Attendee"))
+        return str(_("Attendee"))
 
 
 #: Sentinel distinguishing "the caller has not computed the table assignment"
@@ -1286,7 +1297,10 @@ _TABLE_ASSIGNMENT_UNSET = object()
 
 
 def _row_state(
-    registration, include_search=False, table_assignment=_TABLE_ASSIGNMENT_UNSET
+    registration,
+    include_search=False,
+    table_assignment=_TABLE_ASSIGNMENT_UNSET,
+    coach_authenticated=False,
 ):
     """Row-level state for the door page's shared row-state applier (#710).
 
@@ -1317,7 +1331,9 @@ def _row_state(
     """
     # str() coerces the lazy "Attendee" fallback — it must be a plain string
     # both for the join below and for JsonResponse.
-    display_name = str(_get_display_name(registration))
+    display_name = str(
+        _get_display_name(registration, coach_authenticated=coach_authenticated)
+    )
     row = {
         "registration_id": registration.id,
         "user_id": registration.user_id,

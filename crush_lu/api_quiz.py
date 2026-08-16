@@ -640,7 +640,9 @@ def mark_attended(request, quiz_id):
         broadcast_payload = {
             "success": True,
             "registration_id": registration.id,
-            "attendee_name": _get_display_name(registration),
+            "attendee_name": _get_display_name(
+                registration, coach_authenticated=True
+            ),
             "checked_in_at": (
                 registration.checked_in_at.isoformat()
                 if registration.checked_in_at
@@ -668,6 +670,7 @@ def mark_attended(request, quiz_id):
                 registration,
                 include_search=True,
                 table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+                coach_authenticated=True,
             ),
         }
         if table_assignment:
