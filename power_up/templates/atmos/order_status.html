@@ -44,6 +44,21 @@
   </div>
 </div>
 
+<!-- Speakeasy Event Experience Mission Card -->
+{% if mission %}
+<div class="card" style="background: rgba(212, 168, 83, 0.08); border: 1px solid rgba(212, 168, 83, 0.35); border-radius: 12px; padding: 1.1rem; margin-bottom: 1.5rem;">
+  <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold-light); font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
+    <span>🍸 Tonight's Speakeasy Mission</span>
+  </div>
+  <div style="font-size: 0.95rem; color: var(--ink); line-height: 1.45; font-style: italic;">
+    "{{ mission }}"
+  </div>
+  <div style="font-size: 0.74rem; color: var(--muted); margin-top: 0.5rem;">
+    Share this with your table or attempt the challenge before your round arrives!
+  </div>
+</div>
+{% endif %}
+
 <!-- Printed Bar Ticket Preview -->
 <div class="ticket-wrapper">
   <div class="ticket">{{ ticket_preview }}</div>

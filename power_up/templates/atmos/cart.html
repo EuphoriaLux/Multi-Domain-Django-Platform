@@ -10,6 +10,12 @@
 <h1>Review Your Round</h1>
 <p class="tag" style="margin-bottom: 1.5rem;">Check your drinks before sending them to the bar.</p>
 
+{% if unavailable_names %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
+  ⚠️ <strong>The bar just 86'd:</strong> {{ unavailable_names|join:", " }} — your round wasn't sent. Update the quantity to 0 to remove {% if unavailable_names|length > 1 %}them{% else %}it{% endif %}, then try again.
+</div>
+{% endif %}
+
 {% if lines %}
 <div class="panel">
   {% for line in lines %}

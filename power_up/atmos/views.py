@@ -38,6 +38,7 @@ from .lore.personas import NOIR_PERSONAS, random_persona
 from .lore.providers import GeminiProvider, OpenAIProvider
 from .lore.safety import PersonaRejected, sanitize_persona
 from .models import Guest, MenuItem, Order, OrderItem, Tab, Table, Venue
+from .printing.art import select_ascii_art, select_mission
 from .printing.escpos import render_plain_text
 from .printing.layout import Paper, TicketData, TicketLine, render_ticket
 
@@ -46,6 +47,12 @@ GUEST_COOKIE_MAX_AGE = 60 * 60 * 6  # 6h, spec §7.1
 CART_SESSION_KEY = "atmos_cart"
 TAB_SESSION_KEY = "atmos_tab_id"
 MAX_ITEM_QTY = 9  # matches the menu form's advertised max — enforced here too
+
+# sanitize_persona()'s own default cap (28) is looser than this field, so a
+# 21-28 char typed name would pass sanitization and then fail the DB insert
+# (a data-truncation error on Postgres). Read from the field instead of
+# hand-copying "20" so the two can't drift out of sync again.
+_DISPLAY_NAME_MAX_LENGTH = Guest._meta.get_field("display_name").max_length
 
 # Dev-only in-process chronicle store — see module docstring.
 _CHRONICLES: dict[str, Chronicle] = {}
@@ -172,7 +179,7 @@ def guest_join(request):
         display_name = ""
         if typed:
             try:
-                display_name = sanitize_persona(typed)
+                display_name = sanitize_persona(typed, max_length=_DISPLAY_NAME_MAX_LENGTH)
             except PersonaRejected:
                 error = "Let's try a noir one instead."
 
@@ -291,20 +298,17 @@ def cart_update(request):
     return redirect("atmos:cart_detail")
 
 
-def cart_detail(request):
-    guest = _get_guest(request)
-    if not guest:
-        return render(request, "atmos/no_session.html")
-    cart = request.session.get(CART_SESSION_KEY, {})
-    lines, total = [], Decimal("0.00")
-    # Same venue + availability scoping _create_order_atomic's `available`
-    # query uses — without it, a total(s) can promise more than order_place
-    # will actually charge (e.g. staff 86's an item while the guest is
-    # sitting on this page), with no warning shown before the guest taps
-    # "Send Round to Bar".
+def _cart_lines(guest, cart):
+    """Same venue + availability scoping `_create_order_atomic`'s `available`
+    query uses — without it, a displayed total can promise more than
+    order_place will actually charge (e.g. staff 86's an item while the
+    guest is sitting on the cart page). Shared by cart_detail and
+    order_place's unavailable-item bounce, so both show the same reality.
+    """
     items = MenuItem.objects.filter(
         pk__in=cart.keys(), category__venue=guest.venue, is_available=True
     )
+    lines, total = [], Decimal("0.00")
     for item in items:
         qty = cart.get(str(item.id), 0)
         if qty <= 0:
@@ -312,6 +316,15 @@ def cart_detail(request):
         line_total = (item.price * qty).quantize(Decimal("0.01"))
         total += line_total
         lines.append({"item": item, "quantity": qty, "line_total": line_total})
+    return lines, total
+
+
+def cart_detail(request):
+    guest = _get_guest(request)
+    if not guest:
+        return render(request, "atmos/no_session.html")
+    cart = request.session.get(CART_SESSION_KEY, {})
+    lines, total = _cart_lines(guest, cart)
     return render(request, "atmos/cart.html", {"guest": guest, "lines": lines, "total": total})
 
 
@@ -319,7 +332,8 @@ def cart_detail(request):
 def _create_order_atomic(request, guest):
     """DB-only half of order placement: re-check the master switch, lock and
     validate the cart, create the Order + OrderItems. Returns
-    `(order, venue, lines)`, the string `"closed"`, or `None` (empty cart).
+    `(order, venue, lines)`, the string `"closed"`, `("unavailable", names)`,
+    or `None` (empty cart).
 
     Deliberately makes no network calls. `order_place()` below calls this,
     then generates the vignette *outside* this transaction — a slow model
@@ -342,6 +356,21 @@ def _create_order_atomic(request, guest):
             pk__in=cart.keys(), category__venue=venue, is_available=True
         )
     }
+
+    # A cart entry can go stale between cart_detail and this lock (staff
+    # 86's it, or its category changes venue) — used to be silently
+    # dropped here, placing a smaller order than the guest just reviewed
+    # with no warning. Reject the whole placement instead: leave the
+    # session cart untouched and let order_place show what changed.
+    missing_ids = [item_id for item_id, qty in cart.items() if qty > 0 and item_id not in available]
+    if missing_ids:
+        names = list(
+            MenuItem.objects.filter(pk__in=missing_ids, category__venue=venue).values_list(
+                "name", flat=True
+            )
+        )
+        return "unavailable", names
+
     lines, total = [], Decimal("0.00")
     for item_id, qty in cart.items():
         item = available.get(item_id)
@@ -392,6 +421,18 @@ def order_place(request):
         return redirect("atmos:cart_detail")
     if result == "closed":
         return render(request, "atmos/closed.html", {"table": guest.tab.table})
+    if result[0] == "unavailable":
+        # Cart is untouched on purpose (see _create_order_atomic) — show the
+        # guest the same lines cart_detail would, plus what changed, rather
+        # than silently placing a smaller order.
+        _, names = result
+        cart = request.session.get(CART_SESSION_KEY, {})
+        lines, total = _cart_lines(guest, cart)
+        return render(
+            request,
+            "atmos/cart.html",
+            {"guest": guest, "lines": lines, "total": total, "unavailable_names": names},
+        )
 
     order, venue, lines = result
 
@@ -420,6 +461,10 @@ def order_status(request, pk):
     # table-mate's order by editing the URL.
     order = get_object_or_404(guest.orders.prefetch_related("items__menu_item"), pk=pk)
 
+    item_names = [i.name_snapshot for i in order.items.all()]
+    ascii_art = select_ascii_art(item_names)
+    mission = select_mission(f"{order.id}-{order.short_code}")
+
     ticket = TicketData(
         venue_name=guest.venue.name,
         table_label=guest.tab.table.label,
@@ -431,6 +476,8 @@ def order_status(request, pk):
             for i in order.items.all()
         ),
         vignette=order.vignette,
+        ascii_art=ascii_art,
+        mission=mission,
         currency=guest.venue.currency,
         # Points at this table's own scan URL ("order another round"), not a
         # per-order status page: /atmos/o/<code> was never implemented, and
@@ -445,7 +492,13 @@ def order_status(request, pk):
     return render(
         request,
         "atmos/order_status.html",
-        {"guest": guest, "order": order, "ticket_preview": ticket_preview},
+        {
+            "guest": guest,
+            "order": order,
+            "ticket_preview": ticket_preview,
+            "mission": mission,
+            "ascii_art": ascii_art,
+        },
     )
 
 

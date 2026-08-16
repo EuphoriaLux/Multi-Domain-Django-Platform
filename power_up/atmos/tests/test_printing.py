@@ -5,6 +5,13 @@ from decimal import Decimal
 
 import pytest
 
+from power_up.atmos.printing.art import (
+    BEER_STEIN,
+    COCKTAIL_COUPE,
+    OLD_FASHIONED,
+    select_ascii_art,
+    select_mission,
+)
 from power_up.atmos.printing.escpos import (
     CODEPAGE_CP858,
     INIT,
@@ -125,6 +132,21 @@ class TestLayout:
         text = render_plain_text(render_ticket(ticket()))
         assert "The rain kept its own counsel." in text
 
+    def test_renders_ascii_art_when_present(self):
+        art_ticket = ticket(ascii_art=OLD_FASHIONED)
+        for paper in (Paper.MM80, Paper.MM58):
+            text = render_plain_text(render_ticket(art_ticket, paper), paper)
+            assert ".-------." in text
+            assert all(len(line) <= paper.columns for line in text.splitlines())
+
+    def test_renders_mission_when_present(self):
+        mission_ticket = ticket(mission="Covert Toast: Raise your glass to table 4.")
+        for paper in (Paper.MM80, Paper.MM58):
+            text = render_plain_text(render_ticket(mission_ticket, paper), paper)
+            assert "SPEAKEASY MISSION" in text
+            assert "Covert Toast" in text
+            assert all(len(line) <= paper.columns for line in text.splitlines())
+
     def test_item_notes_are_indented_under_the_item(self):
         text = render_plain_text(render_ticket(ticket()))
         assert "    no ice" in text
@@ -141,6 +163,19 @@ class TestLayout:
 
     def test_survives_an_empty_order(self):
         assert render_plain_text(render_ticket(ticket(lines=())))
+
+
+class TestArtAndMissions:
+    def test_select_ascii_art_matches_drink_types(self):
+        assert select_ascii_art(["Old Fashioned"]) == OLD_FASHIONED
+        assert select_ascii_art(["Pilsner, 33cl"]) == BEER_STEIN
+        assert select_ascii_art(["French 75"]) == COCKTAIL_COUPE
+
+    def test_select_mission_returns_deterministic_string(self):
+        m1 = select_mission("test-order-1")
+        m2 = select_mission("test-order-1")
+        assert m1 == m2
+        assert len(m1) > 10
 
 
 class TestEscPos:

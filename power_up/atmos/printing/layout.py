@@ -100,6 +100,8 @@ class TicketData:
     persona: str
     lines: tuple[TicketLine, ...]
     vignette: str = ""
+    ascii_art: str = ""
+    mission: str = ""
     currency: str = "EUR"
     qr_payload: str = ""
     footer: str = ""
@@ -211,6 +213,11 @@ def render_ticket(ticket: TicketData, paper: Paper = Paper.MM80) -> list[Directi
         out.append(Text("ALCOHOL - CHECK AT TABLE", Align.CENTER, bold=True))
 
     out.append(Rule("="))
+    if ticket.ascii_art:
+        for art_line in ticket.ascii_art.splitlines():
+            out.append(Text(art_line, Align.CENTER))
+        out.append(Feed(1))
+
     out.append(Text(ticket.persona.upper(), Align.CENTER, bold=True))
     out.append(Rule("="))
 
@@ -219,6 +226,13 @@ def render_ticket(ticket: TicketData, paper: Paper = Paper.MM80) -> list[Directi
         out.extend(Text(part, Align.LEFT) for part in wrap(ticket.vignette, cols))
         out.append(Feed(1))
         out.append(Rule())
+
+    if ticket.mission:
+        out.append(Text("SPEAKEASY MISSION", Align.CENTER, bold=True))
+        out.append(Rule("-"))
+        out.extend(Text(part, Align.CENTER) for part in wrap(ticket.mission, cols))
+        out.append(Rule("-"))
+        out.append(Feed(1))
 
     if ticket.qr_payload:
         out.append(QrCode(ticket.qr_payload))

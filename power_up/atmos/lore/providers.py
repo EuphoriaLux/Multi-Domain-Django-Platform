@@ -5,15 +5,24 @@ inherits their transitive trees and their opinions about retries — and retries
 are exactly wrong here, because the deadline is a bartender's patience.
 
 **Timeout caveat, deliberately not hidden:** `urllib`'s `timeout` applies per
-socket operation, not to total wall time, so a server that dribbles bytes can
-outlast it. `engine.generate_vignette` therefore also checks a wall-clock
-deadline after the call returns and discards a late answer. Neither mechanism
-alone is sufficient.
+socket operation (connect, then each `recv`), not to total wall time, so a
+server that dribbles one byte just under that interval, repeatedly, can hold
+the call open indefinitely — engine.generate_vignette's post-hoc elapsed-time
+check can't run until `complete()` returns, so it can't prevent that, only
+discard the answer once it finally does. `_post_json` below runs the actual
+`urlopen`/`.read()` call on a background thread and joins it with the real
+timeout, so the request-handling thread is bounded by wall time regardless of
+how the server paces bytes. The daemon thread itself isn't killed on timeout
+(Python has no safe way to do that) — it keeps running until its own
+per-operation timeout eventually fires and it exits on its own; this bounds
+the caller, not the leaked connection, which is the trade-off worth knowing
+about before pointing this at an untrusted endpoint.
 """
 
 from __future__ import annotations
 
 import json
+import threading
 import urllib.error
 import urllib.request
 from typing import Protocol
@@ -49,11 +58,32 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> dict:
         headers={"Content-Type": "application/json", **headers},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
-        raise ProviderError(str(exc)) from exc
+
+    outcome: dict = {}
+
+    def _do_request() -> None:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                outcome["data"] = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+            outcome["error"] = exc
+        except Exception as exc:  # noqa: BLE001 - surfaced as ProviderError below
+            outcome["error"] = exc
+
+    # See module docstring: `timeout` bounds each socket op, not the total
+    # call. Running it on a thread and joining with the same budget bounds
+    # *this* function's wall-clock time regardless of how the server paces
+    # its response — the thread itself is abandoned (daemon) if it doesn't
+    # finish in time, not killed.
+    worker = threading.Thread(target=_do_request, daemon=True)
+    worker.start()
+    worker.join(timeout=timeout)
+
+    if worker.is_alive():
+        raise ProviderError(f"provider call exceeded {timeout}s wall-clock deadline")
+    if "error" in outcome:
+        raise ProviderError(str(outcome["error"])) from outcome["error"]
+    return outcome.get("data", {})
 
 
 class OpenAIProvider:

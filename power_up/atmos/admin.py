@@ -73,8 +73,15 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     list_display = ("short_code", "alias_snapshot", "venue", "status", "total_amount", "placed_at")
     list_filter = ("venue", "status")
+    # `status` is readonly here on purpose: the default ModelAdmin save
+    # bypasses Order.transition_to() entirely, so an editable status field
+    # let staff perform illegal transitions (e.g. placed -> served,
+    # skipping accepted/preparing) or mark an order served without setting
+    # served_at — which is exactly the field the KDS's recent-served query
+    # filters on, so that order would silently vanish from the board.
+    # Real status changes go through the KDS UI, which calls transition_to().
     readonly_fields = (
-        "id", "guest", "tab", "venue", "short_code", "alias_snapshot",
+        "id", "guest", "tab", "venue", "short_code", "alias_snapshot", "status",
         "total_amount", "vignette", "vignette_source", "placed_at",
     )
     inlines = [OrderItemInline]
