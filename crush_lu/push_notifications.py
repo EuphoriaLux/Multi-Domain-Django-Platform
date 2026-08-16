@@ -151,15 +151,24 @@ def send_push_notification(
     # costs at most one in-flight call past the budget.
     limit = getattr(settings, 'CRUSH_PUSH_FANOUT_LIMIT', 10)
     budget = getattr(settings, 'CRUSH_PUSH_FANOUT_BUDGET_SECONDS', 10.0)
+    send_timeout = getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0)
     deadline = time.monotonic() + budget
     attempted = 0
 
     # Send to each subscription
     for subscription in subscriptions[:limit]:
-        if time.monotonic() >= deadline:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
             break
         attempted += 1
         try:
+            # Checking the deadline between sends only bounds the loop if each
+            # send is itself bounded — pywebpush defaults to timeout=None, so
+            # one unresponsive push endpoint could hang past the budget by an
+            # arbitrary amount and take the whole gunicorn window with it. Same
+            # reason PASSKIT forwards its deadline into the per-device call.
+            # httpx (iOS) and requests (Android) already carry their own 10s.
+            call_timeout = max(0.1, min(send_timeout, remaining))
             # Prepare subscription info for pywebpush
             subscription_info = {
                 "endpoint": subscription.endpoint,
@@ -176,7 +185,8 @@ def send_push_notification(
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims={
                     "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-                }
+                },
+                timeout=call_timeout,
             )
 
             # Mark success
@@ -277,14 +287,17 @@ def send_push_to_subscription(subscription, title, body, url='/', tag='crush-not
             }
         }
 
-        # Send the push notification
+        # Send the push notification. One device, so there is no fan-out to
+        # bound — but pywebpush still defaults to timeout=None, and this runs
+        # in a request like everything else.
         webpush(
             subscription_info=subscription_info,
             data=json.dumps(payload),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={
                 "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-            }
+            },
+            timeout=getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0),
         )
 
         # Mark success

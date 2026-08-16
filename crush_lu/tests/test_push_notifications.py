@@ -208,6 +208,7 @@ def mock_vapid_settings():
         mock_settings.VAPID_ADMIN_EMAIL = 'admin@crush.lu'
         mock_settings.CRUSH_PUSH_FANOUT_LIMIT = 100
         mock_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 3600.0
+        mock_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 10.0
         yield mock_settings
 
 

@@ -1558,6 +1558,14 @@ CRUSH_PUSH_FANOUT_LIMIT = int(os.getenv("CRUSH_PUSH_FANOUT_LIMIT", "10"))
 CRUSH_PUSH_FANOUT_BUDGET_SECONDS = float(
     os.getenv("CRUSH_PUSH_FANOUT_BUDGET_SECONDS", "10")
 )
+# Per-send ceiling for web push. The budget above only bounds the loop if each
+# send inside it is bounded too — pywebpush defaults to timeout=None, so a
+# single unresponsive endpoint could otherwise hang past the budget by an
+# arbitrary amount. Clamped to whatever is left of the budget at call time.
+# The native channels already carry their own (httpx 10s / requests 10s).
+CRUSH_PUSH_SEND_TIMEOUT_SECONDS = float(
+    os.getenv("CRUSH_PUSH_SEND_TIMEOUT_SECONDS", "10")
+)
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

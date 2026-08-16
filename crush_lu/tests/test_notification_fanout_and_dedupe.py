@@ -79,6 +79,7 @@ def vapid_settings():
         mock_settings.VAPID_ADMIN_EMAIL = "admin@crush.lu"
         mock_settings.CRUSH_PUSH_FANOUT_LIMIT = 100
         mock_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 3600.0
+        mock_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 10.0
         yield mock_settings
 
 
@@ -213,6 +214,42 @@ def test_fanout_stops_when_the_time_budget_is_gone(
     assert mock_webpush.call_count == 3
     assert result["total"] == 5
     assert result["skipped"] == 2
+
+
+@pytest.mark.django_db
+@patch("crush_lu.push_notifications.webpush")
+def test_each_send_carries_a_timeout(mock_webpush, member, vapid_settings):
+    """A deadline checked between sends does not bound a send that hangs.
+
+    pywebpush defaults to timeout=None, so without this one unresponsive push
+    endpoint holds the request open indefinitely and the loop's budget never
+    gets a chance to notice — the exact door-latency failure the bound exists
+    to prevent. The per-call timeout is clamped to what is left of the budget.
+    """
+    _subscription(member, 0)
+    vapid_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 4.0
+    vapid_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 3600.0
+
+    send_push_notification(member, "Title", "Body")
+
+    timeout = mock_webpush.call_args.kwargs.get("timeout")
+    assert timeout == 4.0, "webpush must be given an explicit timeout"
+
+
+@pytest.mark.django_db
+@patch("crush_lu.push_notifications.webpush")
+def test_send_timeout_never_outlives_the_budget(
+    mock_webpush, member, vapid_settings
+):
+    """The remaining budget caps the per-send timeout, not the other way round."""
+    _subscription(member, 0)
+    vapid_settings.CRUSH_PUSH_SEND_TIMEOUT_SECONDS = 30.0
+    vapid_settings.CRUSH_PUSH_FANOUT_BUDGET_SECONDS = 2.0
+
+    send_push_notification(member, "Title", "Body")
+
+    timeout = mock_webpush.call_args.kwargs.get("timeout")
+    assert 0 < timeout <= 2.0
 
 
 @pytest.mark.django_db
