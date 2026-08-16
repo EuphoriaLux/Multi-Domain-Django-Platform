@@ -16,12 +16,21 @@
 </div>
 {% endif %}
 
+{% if price_changed %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
+  ⚠️ <strong>A price changed:</strong> your round wasn't sent. Review the refreshed prices and total before trying again.
+</div>
+{% endif %}
+
 {% if lines %}
 <div class="panel">
   {% for line in lines %}
   <div class="item-row">
     <div class="item-info">
       <div class="item-name">{{ line.item.name }}</div>
+      {% if not line.is_orderable %}
+      <div style="color: #fca5a5; font-size: 0.8rem; margin-top: 0.25rem;">Unavailable — set quantity to 0 to remove</div>
+      {% endif %}
       <form method="post" action="{% url 'atmos:cart_update' %}" class="qty-form" style="margin-top: 0.45rem;">
         {% csrf_token %}
         <input type="hidden" name="item_id" value="{{ line.item.id }}">
@@ -30,7 +39,7 @@
         <button class="btn btn-small btn-ghost" type="submit">Update</button>
       </form>
     </div>
-    <div class="price" style="font-size: 1.05rem;">{{ guest.venue.currency_symbol }}{{ line.line_total }}</div>
+    <div class="price" style="font-size: 1.05rem;">{% if line.is_orderable %}{{ guest.venue.currency_symbol }}{{ line.line_total }}{% else %}—{% endif %}</div>
   </div>
   {% endfor %}
   
@@ -46,6 +55,7 @@
 
 <form method="post" action="{% url 'atmos:order_place' %}">
   {% csrf_token %}
+  <input type="hidden" name="expected_total" value="{{ total }}">
   <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
 </form>
 
