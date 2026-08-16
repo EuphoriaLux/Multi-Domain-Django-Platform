@@ -46,12 +46,10 @@ class EventLobbyConsumer(BaseCrushWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        for group in (
+        await self._safe_group_discards(
             getattr(self, "lobby_group", None),
             getattr(self, "user_group", None),
-        ):
-            if group:
-                await self._safe_group_discard(group)
+        )
 
     async def receive_json(self, content, **kwargs):
         # Read-only by design (§11.1): all writes go through the HTTP

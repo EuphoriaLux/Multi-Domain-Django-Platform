@@ -92,15 +92,8 @@ class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
     async def _safe_group_discard(
         self, group_name: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
     ) -> None:
-        """Discard group membership safely without crashing disconnect on Redis hiccup.
-
-        Bounds cleanup with a short timeout and halts subsequent discards on the
-        same consumer instance if Redis is unresponsive, preventing chained teardown
-        delays from exceeding ASGI server cancellation thresholds.
-        """
+        """Discard single group membership safely without crashing disconnect on Redis hiccup."""
         if not group_name or not getattr(self, "channel_layer", None):
-            return
-        if getattr(self, "_channel_layer_unresponsive", False):
             return
         try:
             await asyncio.wait_for(
@@ -108,13 +101,32 @@ class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
                 timeout=timeout,
             )
         except Exception as exc:
-            self._channel_layer_unresponsive = True
             logger.warning(
                 "Failed to discard group %s for channel %s during teardown: %s",
                 group_name,
                 getattr(self, "channel_name", "unknown"),
                 exc,
             )
+
+    async def _safe_group_discards(
+        self, *group_names: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+    ) -> None:
+        """Concurrently discard multiple groups bounded by a single timeout window.
+
+        Running discards concurrently ensures all active groups are attempted even if one
+        fails or times out, while capping total teardown latency to a single timeout window (~2s)
+        so ASGI server shutdown thresholds are never exceeded.
+        """
+        valid_groups = [g for g in group_names if g]
+        if not valid_groups or not getattr(self, "channel_layer", None):
+            return
+        await asyncio.gather(
+            *(
+                self._safe_group_discard(group, timeout=timeout)
+                for group in valid_groups
+            ),
+            return_exceptions=True,
+        )
 
 
 class QuizConsumer(BaseCrushWebsocketConsumer):
@@ -312,14 +324,12 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 await self.send_json({"type": "quiz.my_assignment", "data": assignment})
 
     async def disconnect(self, close_code):
-        if hasattr(self, "quiz_group"):
-            await self._safe_group_discard(self.quiz_group)
-        if getattr(self, "display_group", None):
-            await self._safe_group_discard(self.display_group)
-        if getattr(self, "table_group", None):
-            await self._safe_group_discard(self.table_group)
-        if getattr(self, "host_group", None):
-            await self._safe_group_discard(self.host_group)
+        await self._safe_group_discards(
+            getattr(self, "quiz_group", None),
+            getattr(self, "display_group", None),
+            getattr(self, "table_group", None),
+            getattr(self, "host_group", None),
+        )
 
     async def receive_json(self, content):
         # Display connections are read-only (projector view)
@@ -768,6 +778,10 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 new_group = f"quiz_{self.quiz_id}_table_{new_table_id}"
                 if new_group != self.table_group:
                     if self.table_group:
+                        # Deliberately call channel_layer.group_discard directly rather than
+                        # _safe_group_discard: during active rotation, leaving the old table
+                        # MUST succeed before joining the new one; failing loud prevents
+                        # a split-brain state where the member remains subscribed to both tables.
                         await self.channel_layer.group_discard(
                             self.table_group, self.channel_name
                         )
@@ -1989,8 +2003,7 @@ class CheckinConsumer(BaseCrushWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        if hasattr(self, "checkin_group"):
-            await self._safe_group_discard(self.checkin_group)
+        await self._safe_group_discards(getattr(self, "checkin_group", None))
 
     async def receive_json(self, content):
         pass
@@ -2045,10 +2058,10 @@ class CacheHuntConsumer(BaseCrushWebsocketConsumer):
             await self.send_json({"type": "state", "data": state})
 
     async def disconnect(self, close_code):
-        if hasattr(self, "cache_group"):
-            await self._safe_group_discard(self.cache_group)
-        if hasattr(self, "cache_coach_group"):
-            await self._safe_group_discard(self.cache_coach_group)
+        await self._safe_group_discards(
+            getattr(self, "cache_group", None),
+            getattr(self, "cache_coach_group", None),
+        )
 
     async def receive_json(self, content):
         pass

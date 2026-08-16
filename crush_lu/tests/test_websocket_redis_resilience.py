@@ -53,7 +53,6 @@ class TestWebsocketConsumerSafeDisconnect:
             "Failed to discard group test_group for channel test_channel_123"
             in caplog.text
         )
-        assert getattr(consumer, "_channel_layer_unresponsive", False) is True
 
     def test_safe_group_discard_handles_timeout(self, caplog):
         consumer = BaseCrushWebsocketConsumer()
@@ -73,7 +72,33 @@ class TestWebsocketConsumerSafeDisconnect:
             "Failed to discard group test_group for channel test_channel_timeout"
             in caplog.text
         )
-        assert getattr(consumer, "_channel_layer_unresponsive", False) is True
+
+    def test_safe_group_discards_attempts_all_groups_concurrently_despite_failures(
+        self,
+    ):
+        """Discards all active groups concurrently; failure in one does not skip others."""
+        consumer = BaseCrushWebsocketConsumer()
+        consumer.channel_name = "test_concurrent_ch"
+        consumer.channel_layer = MagicMock()
+
+        calls = []
+
+        async def mock_discard(group, channel):
+            calls.append(group)
+            if group == "group_fail":
+                raise ConnectionResetError("Redis dropped")
+            return None
+
+        consumer.channel_layer.group_discard = AsyncMock(side_effect=mock_discard)
+
+        asyncio.run(
+            consumer._safe_group_discards("group_fail", "group_ok", None, "group_ok_2")
+        )
+
+        assert "group_fail" in calls
+        assert "group_ok" in calls
+        assert "group_ok_2" in calls
+        assert len(calls) == 3
 
     def test_checkin_consumer_disconnect_with_failing_redis(self):
         consumer = CheckinConsumer()
@@ -90,8 +115,8 @@ class TestWebsocketConsumerSafeDisconnect:
             "checkin_42", "checkin_ch_1"
         )
 
-    def test_quiz_consumer_disconnect_halts_on_first_failure(self):
-        """When Redis is down, group_discard should not block sequentially on all 4 groups."""
+    def test_quiz_consumer_disconnect_attempts_all_groups_concurrently(self):
+        """All 4 groups are attempted concurrently during disconnect even if some fail."""
         consumer = QuizConsumer()
         consumer.channel_name = "quiz_ch_1"
         consumer.quiz_group = "quiz_10"
@@ -99,13 +124,16 @@ class TestWebsocketConsumerSafeDisconnect:
         consumer.table_group = "quiz_10_table_1"
         consumer.host_group = "quiz_10_host"
         consumer.channel_layer = MagicMock()
-        consumer.channel_layer.group_discard = AsyncMock(
-            side_effect=ConnectionResetError("Connection lost")
-        )
+
+        def side_effect(group, channel):
+            if group == "quiz_10":
+                raise ConnectionResetError("Connection lost")
+            return None
+
+        consumer.channel_layer.group_discard = AsyncMock(side_effect=side_effect)
 
         asyncio.run(consumer.disconnect(1000))
-        # First group fails and marks _channel_layer_unresponsive; subsequent 3 groups are skipped
-        assert consumer.channel_layer.group_discard.call_count == 1
+        assert consumer.channel_layer.group_discard.call_count == 4
 
     def test_quiz_consumer_disconnect_success_discards_all_groups(self):
         """When Redis is healthy, all groups must be discarded cleanly."""
@@ -132,7 +160,7 @@ class TestWebsocketConsumerSafeDisconnect:
         )
 
         asyncio.run(consumer.disconnect(1000))
-        assert consumer.channel_layer.group_discard.call_count == 1
+        assert consumer.channel_layer.group_discard.call_count == 2
 
     def test_event_lobby_consumer_disconnect_with_failing_redis(self):
         consumer = EventLobbyConsumer()
@@ -145,7 +173,7 @@ class TestWebsocketConsumerSafeDisconnect:
         )
 
         asyncio.run(consumer.disconnect(1000))
-        assert consumer.channel_layer.group_discard.call_count == 1
+        assert consumer.channel_layer.group_discard.call_count == 2
 
     def test_quiz_rotation_does_not_swallow_group_discard_failure(self):
         """An active socket must not join a new table if leaving the old one fails."""
