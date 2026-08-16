@@ -175,6 +175,14 @@ def guest_join(request):
     if not tab:
         return render(request, "atmos/no_session.html")
 
+    # A revisit (direct URL, browser back, or a double-submit) must not
+    # mint a second Guest for the same tab — that would replace the
+    # cookie, clear the in-progress cart, and orphan the first identity's
+    # order-status pages. Same pattern as guest_scan()'s own check.
+    existing_guest = _get_guest(request)
+    if existing_guest and existing_guest.tab_id == tab.id:
+        return redirect("atmos:guest_menu")
+
     error = ""
     if request.method == "POST":
         active = _active_aliases(tab.venue)

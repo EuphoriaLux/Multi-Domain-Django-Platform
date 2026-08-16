@@ -1,4 +1,5 @@
 {% extends "atmos/base.html" %}
+{% load l10n %}
 {% block title %}Your Round{% endblock %}
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
 {% block content %}
@@ -56,7 +57,11 @@
 
 <form method="post" action="{% url 'atmos:order_place' %}">
   {% csrf_token %}
-  <input type="hidden" name="expected_total" value="{{ total }}">
+  <!-- Machine-readable, not display: must stay period-decimal ("12.50")
+       regardless of the visitor's locale so order_place()'s Decimal()
+       parse can read it back. The displayed total above stays localized
+       — only this round-trip value needs {% localize off %}. -->
+  {% localize off %}<input type="hidden" name="expected_total" value="{{ total }}">{% endlocalize %}
   <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
 </form>
 

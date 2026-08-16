@@ -31,6 +31,7 @@ import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -128,7 +129,13 @@ class MenuItem(models.Model):
     category = models.ForeignKey(MenuCategory, related_name="items", on_delete=models.CASCADE)
     name = models.CharField(max_length=160)
     description = models.TextField(blank=True, default="")
-    price = models.DecimalField(max_digits=7, decimal_places=2)
+    # A negative price has no legitimate meaning here (it would let a guest
+    # be *paid* to order, and corrupt total_amount/settlement records) —
+    # enforced at both the admin-form level (validator) and the DB level
+    # (CheckConstraint below), so a non-admin write path can't bypass it.
+    price = models.DecimalField(
+        max_digits=7, decimal_places=2, validators=[MinValueValidator(Decimal("0"))]
+    )
     image = models.ImageField(
         upload_to=powerup_upload_path("atmos/menu"),
         storage=powerup_media_storage,
@@ -142,6 +149,9 @@ class MenuItem(models.Model):
 
     class Meta:
         ordering = ["sort_order", "name"]
+        constraints = [
+            models.CheckConstraint(condition=Q(price__gte=0), name="menuitem_price_non_negative"),
+        ]
 
     def __str__(self) -> str:
         return self.name
@@ -178,7 +188,20 @@ class Tab(models.Model):
         # Always derive it, so the two can't diverge regardless of what's
         # submitted.
         self.venue_id = self.table.venue_id
+        was_open = (
+            self.pk is not None
+            and Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first() == "open"
+        )
         super().save(*args, **kwargs)
+        if was_open and self.status == "closed":
+            # `uniq_active_alias_per_venue` treats every `status="active"`
+            # guest as occupying its alias, with no link to whether the
+            # guest's own tab is still open. Without this, a closed tab's
+            # guests keep reserving their personas indefinitely — the
+            # catalog slowly starves across service nights, and joins
+            # eventually fail once it's crowded enough that the bounded
+            # collision-retry in guest_join can't find a free one.
+            self.guests.filter(status="active").update(status="settled", settled_at=timezone.now())
 
 
 class Guest(models.Model):
