@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("crush_lu", "0232_alter_crushcredit_options"),
+        ("crush_lu", "0233_notification_dedupe_key_and_more"),
     ]
 
     operations = [

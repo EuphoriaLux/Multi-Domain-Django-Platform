@@ -465,6 +465,9 @@ def event_checkin_api(request, registration_id, token):
             ).get(id=registration_id)
 
         display_name = _get_display_name(registration)
+        # Computed once, used twice: the row payload and the response's own
+        # table fields — `_row_state` no longer re-derives it (#845).
+        table_info = _get_existing_table_assignment(registration)
         response_data = {
             "success": True,
             "already_checked_in": True,
@@ -478,9 +481,8 @@ def event_checkin_api(request, registration_id, token):
             "message": f"{display_name} was already checked in.",
             "profile": _get_profile_data(registration),
             "auto_verified": rescan_verified is not None,
-            "row": _row_state(registration),
+            "row": _row_state(registration, table_assignment=table_info),
         }
-        table_info = _get_existing_table_assignment(registration)
         if table_info:
             response_data.update(table_info)
         if rescan_verified is not None:
@@ -542,6 +544,8 @@ def event_checkin_api(request, registration_id, token):
                 request, registration, now
             )
             display_name = _get_display_name(registration)
+            # Same once-only lookup as the re-scan branch above (#845).
+            table_info = _get_existing_table_assignment(registration)
             response_data = {
                 "success": True,
                 "already_checked_in": True,
@@ -555,9 +559,8 @@ def event_checkin_api(request, registration_id, token):
                 "message": f"{display_name} was already checked in.",
                 "profile": _get_profile_data(registration),
                 "auto_verified": already_verified_profile is not None,
-                "row": _row_state(registration),
+                "row": _row_state(registration, table_assignment=table_info),
             }
-            table_info = _get_existing_table_assignment(registration)
             if table_info:
                 response_data.update(table_info)
             if already_verified_profile is not None:
@@ -628,6 +631,19 @@ def event_checkin_api(request, registration_id, token):
         registration.event_id,
     )
 
+    # Same fresh read the coach endpoints take before broadcasting: the
+    # instance above was locked inside the check-in transaction, and an
+    # overlapping door action committed since (a second scanner, an undo)
+    # would otherwise ride along as stale state on the payload every screen
+    # converges its row on.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration.id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
+
     response_data = {
         "success": True,
         "already_checked_in": False,
@@ -642,8 +658,14 @@ def event_checkin_api(request, registration_id, token):
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
         # What the shared row-state applier renders the manual row from, on
-        # this response AND the broadcast of it.
-        "row": _row_state(registration),
+        # this response AND the broadcast of it. The assignment dict built
+        # above is handed over rather than re-derived — when there is none
+        # (no quiz, or a failed assignment) the sentinel lets `_row_state`
+        # fall back to its own lookup, preserving the badge-on-old-
+        # membership behaviour of the failure path.
+        "row": _row_state(
+            registration, table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET
+        ),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -774,10 +796,10 @@ def coach_mark_verified(request, event_id, registration_id):
                     "success": True,
                     "already_verified": True,
                     "registration_id": registration.id,
-                    "attendee_name": _get_display_name(registration),
+                    "attendee_name": _get_display_name(registration, coach_authenticated=True),
                     "verification_method": profile.verification_method,
                     "message": str(_("Already verified.")),
-                    "row": _row_state(registration),
+                    "row": _row_state(registration, coach_authenticated=True),
                 }
             )
 
@@ -797,16 +819,32 @@ def coach_mark_verified(request, event_id, registration_id):
         registration.user, profile, request, registration.id
     )
 
+    # The response — and the broadcast of it — converges every other
+    # screen's row on this payload, so it must describe committed state.
+    # `registration` is still the instance locked inside the transaction
+    # above: an overlapping door action that committed since (a scan, an
+    # undo) would ride along as stale state and the broadcast would un-check
+    # an already-attended row on every screen. The summary refetch is
+    # sequence-guarded (c65d1136) — the row payload is not, so it is built
+    # from a fresh read, taken as late as possible.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration_id, event_id=event_id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
+
     response_data = {
         "success": True,
         "already_verified": False,
         "registration_id": registration.id,
-        "attendee_name": _get_display_name(registration),
+        "attendee_name": _get_display_name(registration, coach_authenticated=True),
         "verification_method": method,
         "message": str(_("%(name)s is now verified."))
-        % {"name": _get_display_name(registration)},
+        % {"name": _get_display_name(registration, coach_authenticated=True)},
         "profile": _get_profile_data(registration),
-        "row": _row_state(registration),
+        "row": _row_state(registration, coach_authenticated=True),
     }
     _broadcast_checkin(registration.event_id, response_data)
     return JsonResponse(response_data)
@@ -993,7 +1031,7 @@ def coach_reject_verification(request, event_id, registration_id):
             registration.id,
         )
 
-    display_name = _get_display_name(registration)
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "rejected": True,
@@ -1313,7 +1351,7 @@ def coach_undo_checkin(request, event_id, registration_id):
         coach_cleared,
     )
 
-    display_name = _get_display_name(registration)
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "undone": True,
@@ -1324,17 +1362,17 @@ def coach_undo_checkin(request, event_id, registration_id):
         # in the expected set — so this cannot be assumed client-side.
         "restored_status": restored_status,
         "coach_cleared": coach_cleared,
-        # The client decrements the live gender split with this. Only the
-        # bucket letter travels — the toast payload would be gratuitous here.
-        "gender": getattr(
-            getattr(registration.user, "crushprofile", None), "gender", ""
-        )
-        or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
         # The full row state the shared applier renders from — status,
         # cleared coach line, table badge — for the local path AND the
         # broadcast, which used to have no undo branch at all (#710).
-        "row": _row_state(registration),
+        #
+        # Built from a fresh read for the same reason the other endpoints are:
+        # the instance was locked inside the transaction, `release_table_on_undo`
+        # is a round trip after the lock, and a second coach re-scanning in the
+        # gap before the broadcast would otherwise have this payload un-check an
+        # already-re-attended row on every screen.
+        "row": _row_state(_fresh(registration), coach_authenticated=True),
     }
     # The *membership* table, not the current one. The door page's table-fill
     # grid is rendered from QuizTableMembership (views_coach.py), so it counts
@@ -1507,7 +1545,19 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         event_id,
     )
 
-    display_name = _get_display_name(registration)
+    # Same hazard `coach_mark_verified` guards against: the instance held here
+    # was locked inside the transaction above, and an overlapping door action
+    # committed since (a scan, an undo) would ride along as stale state on a
+    # payload every screen converges its row on.
+    fresh_registration = (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(id=registration_id, event_id=event_id)
+        .first()
+    )
+    if fresh_registration is not None:
+        registration = fresh_registration
+
+    display_name = _get_display_name(registration, coach_authenticated=True)
     response_data = {
         "success": True,
         "promoted": True,
@@ -1523,7 +1573,12 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         # it from the identity fields carried here. Coach-only endpoint, so
         # this is also the one row payload allowed to carry the legal
         # name/email search haystack.
-        "row": _row_state(registration, include_search=True),
+        "row": _row_state(
+            registration,
+            include_search=True,
+            table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
+            coach_authenticated=True,
+        ),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -1534,15 +1589,67 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
     return JsonResponse(response_data)
 
 
-def _get_display_name(registration):
-    """Get privacy-aware display name for attendee."""
+def _get_display_name(registration, *, coach_authenticated=False):
+    """Get privacy-aware display name for attendee.
+
+    ``display_name`` is a name the member chose to publish on a dating
+    profile, so it travels on any authenticated response. A profileless
+    attendee has no such chosen name, and the account fields behind it are not
+    interchangeable with one:
+
+    * ``username`` is never used — signup is email-only
+      (``ACCOUNT_SIGNUP_FIELDS``), so allauth derives it from the address and
+      it is generally the address itself;
+    * ``first_name`` is real account data the member never published, so it
+      needs ``coach_authenticated``.
+
+    That flag defaults to False because the riskier caller is the quiet one:
+    `event_checkin_api` is CSRF-exempt and authenticated solely by the signed
+    URL baked into the ticket QR, so its response reaches anyone holding a
+    photographed ticket. Coach endpoints opt in explicitly.
+    """
     try:
         return registration.user.crushprofile.display_name
     except Exception:
-        return _("Attendee")
+        if coach_authenticated:
+            # Names the person on the door list instead of rendering every
+            # profileless row as the same placeholder.
+            return registration.user.first_name or str(_("Attendee"))
+        return str(_("Attendee"))
 
 
-def _row_state(registration, include_search=False):
+def _fresh(registration):
+    """Re-read a registration straight before its state is broadcast.
+
+    Every door endpoint locks its row inside a transaction and then builds a
+    payload every screen converges on. Between the commit and the broadcast a
+    concurrent door action can land, and the in-memory instance would carry the
+    pre-race state out to all of them. Falls back to the instance in hand when
+    the row is gone, so a delete cannot turn a correction into a 500.
+    """
+    return (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(pk=registration.pk)
+        .first()
+        or registration
+    )
+
+
+#: Sentinel distinguishing "the caller has not computed the table assignment"
+#: from "the caller computed it and there is none". ``_row_state`` used to
+#: run ``_get_existing_table_assignment`` unconditionally, so the callers
+#: that had just computed it (the re-scan branches, a fresh
+#: ``assign_table_on_checkin``) paid the quiz/membership/rotation queries
+#: twice per door action on quiz nights.
+_TABLE_ASSIGNMENT_UNSET = object()
+
+
+def _row_state(
+    registration,
+    include_search=False,
+    table_assignment=_TABLE_ASSIGNMENT_UNSET,
+    coach_authenticated=False,
+):
     """Row-level state for the door page's shared row-state applier (#710).
 
     Every door action returns this under ``row`` and the page applies it with
@@ -1564,10 +1671,17 @@ def _row_state(registration, include_search=False):
     ``user__crushprofile``: the coach grant is written by a signal on its own
     profile instance during ``save()``, so the cached copy predates the very
     field this is asked to report.
+
+    ``table_assignment`` is the caller's already-computed
+    ``_get_existing_table_assignment`` result (or an ``assign_table_on_checkin``
+    dict — only ``table_number`` is read) and spares the duplicate lookup
+    above; leave it unset to have this helper compute it.
     """
     # str() coerces the lazy "Attendee" fallback — it must be a plain string
     # both for the join below and for JsonResponse.
-    display_name = str(_get_display_name(registration))
+    display_name = str(
+        _get_display_name(registration, coach_authenticated=coach_authenticated)
+    )
     row = {
         "registration_id": registration.id,
         "user_id": registration.user_id,
@@ -1577,6 +1691,12 @@ def _row_state(registration, include_search=False):
             if registration.checked_in_at
             else None
         ),
+        # `registered_at` deliberately absent. It went in as groundwork for
+        # restoring an undone promotion at its FIFO queue position, but that
+        # also needs the timestamp on the rendered rows and was deferred —
+        # leaving nothing reading it, on a payload three `event_checkin_api`
+        # responses hand to anyone holding a photographed ticket. Add it back
+        # with the feature, gated to the coach-only branch.
         "display_name": display_name,
         "has_profile": False,
         "is_approved": False,
@@ -1596,6 +1716,15 @@ def _row_state(registration, include_search=False):
             )
             if part
         )
+    if coach_authenticated and registration.checkin_token:
+        # `_buildConfirmedRow` has no other source for this: the path is signed
+        # per registration, so the client cannot derive it. Without it a row the
+        # applier built from scratch — a `no_show` recovered by `mark_attended`
+        # has none on the page to begin with — offers Undo but no way back in,
+        # stranding the attendee until the coach reloads.
+        row["checkin_url"] = (
+            f"/api/events/checkin/{registration.pk}/{registration.checkin_token}/"
+        )
     profile = (
         CrushProfile.objects.select_related("assigned_coach__user")
         .filter(user_id=registration.user_id)
@@ -1612,9 +1741,10 @@ def _row_state(registration, include_search=False):
                 f"{coach_user.first_name} {coach_user.last_name}".strip()
                 or coach_user.username
             )
-    table_info = _get_existing_table_assignment(registration)
-    if table_info:
-        row["table_number"] = table_info["table_number"]
+    if table_assignment is _TABLE_ASSIGNMENT_UNSET:
+        table_assignment = _get_existing_table_assignment(registration)
+    if table_assignment:
+        row["table_number"] = table_assignment["table_number"]
     return row
 
 
@@ -1657,7 +1787,18 @@ def event_checkin_summary(request, event_id):
             gender_checked_in[key] += 1
 
     table_fill = []
-    quiz_event = getattr(event, "quiz", None)
+    # Same gate as the page view (coach_event_checkin in views_coach.py): a
+    # QuizEvent row can exist under an event that is not a quiz night, and
+    # following it here made the refetch disagree with the page that rendered
+    # it — plus the membership queries on every non-quiz refetch.
+    # getattr's default, not a bare except: Django builds the reverse-one-to-one
+    # "no related object" error as a subclass of both AttributeError and the
+    # related model's DoesNotExist precisely so this narrows to the missing-row
+    # case. Catching Exception here would swallow a database error into an
+    # empty table-fill panel instead of surfacing it.
+    quiz_event = None
+    if event.event_type == "quiz_night":
+        quiz_event = getattr(event, "quiz", None)
     if quiz_event and quiz_event.num_tables:
         from collections import Counter
 

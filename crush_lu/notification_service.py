@@ -89,6 +89,10 @@ class NotificationResult:
     inapp_created: bool = False
     inapp_id: Optional[int] = None
 
+    # True when a dedupe_key claim lost the race to a concurrent sender, so
+    # this call delivered nothing on purpose. Distinct from "everything failed".
+    deduped: bool = False
+
     # Errors for debugging
     errors: list = field(default_factory=list)
 
@@ -121,7 +125,8 @@ class NotificationService:
         user,
         notification_type: NotificationType,
         context: dict,
-        request: Optional[HttpRequest] = None
+        request: Optional[HttpRequest] = None,
+        dedupe_key: Optional[str] = None,
     ) -> NotificationResult:
         """
         Send notification via independent push and email channels.
@@ -134,12 +139,63 @@ class NotificationService:
             notification_type: Type of notification to send
             context: Dict with notification-specific data (profile, message, event, etc.)
             request: Optional Django request for URL generation
+            dedupe_key: Optional once-only claim token. When given, the in-app
+                row is written BEFORE any external channel and a unique
+                constraint decides who delivers; a caller that loses the race
+                returns immediately having sent nothing. Callers that want a
+                notification per call leave this None and keep the original
+                ordering (external channels first, bell row last).
 
         Returns:
             NotificationResult with delivery status
         """
         result = NotificationResult()
         preference_key = notification_type.preference_key
+
+        # --- Claim (only when the caller asked to be deduped) ---
+        #
+        # Ordering is the entire point. Checking "has this been sent?" and then
+        # sending is two steps, and two approval paths (a bulk admin action and
+        # a door scan) can both read "no" before either writes. Writing the row
+        # first turns the question into one the database answers exactly once:
+        # the loser gets IntegrityError and stops, having sent nothing.
+        #
+        # The claim is its own atomic block so a lost race cannot poison an
+        # outer transaction — the caller (e.g. the door view) may well be
+        # inside one, and a broken transaction there would roll back the
+        # decision this notification is announcing.
+        if dedupe_key is not None:
+            from django.db import IntegrityError, transaction
+
+            from .models import Notification
+
+            payload = NotificationService._render_inapp_payload(
+                user, notification_type, context, request
+            )
+            if payload:
+                try:
+                    with transaction.atomic():
+                        obj = Notification.objects.create(
+                            user=user,
+                            notification_type=notification_type.value,
+                            title=str(payload.get("title", ""))[:200],
+                            body=str(payload.get("body", "")),
+                            link_url=payload.get("link_url", ""),
+                            metadata=payload.get("metadata", {}) or {},
+                            dedupe_key=dedupe_key,
+                        )
+                    result.inapp_created = True
+                    result.inapp_id = obj.id
+                except IntegrityError:
+                    result.deduped = True
+                    logger.info(
+                        "Skipping %s for %s: dedupe_key %r already claimed by a "
+                        "concurrent sender",
+                        notification_type.name,
+                        user.username,
+                        dedupe_key,
+                    )
+                    return result
 
         # --- Push channel (independent) ---
         try:
@@ -227,25 +283,30 @@ class NotificationService:
         # The bell is a historical surface; users can ignore it. They cannot opt
         # out of having a record per privacy/audit reasons, but they are not
         # actively pushed anything when only this channel fires.
-        try:
-            from .models import Notification
-            payload = NotificationService._render_inapp_payload(
-                user, notification_type, context, request
-            )
-            if payload:
-                obj = Notification.objects.create(
-                    user=user,
-                    notification_type=notification_type.value,
-                    title=payload.get("title", "")[:200],
-                    body=payload.get("body", ""),
-                    link_url=payload.get("link_url", ""),
-                    metadata=payload.get("metadata", {}) or {},
+        #
+        # Skipped when a dedupe_key was given: that row was already written
+        # above as the claim, and writing it here too would both duplicate the
+        # bell entry and trip the very constraint that guarded the send.
+        if not result.inapp_created:
+            try:
+                from .models import Notification
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, request
                 )
-                result.inapp_created = True
-                result.inapp_id = obj.id
-        except Exception as e:
-            logger.error(f"Error writing in-app notification for {user.username}: {e}")
-            result.errors.append(f"In-app error: {e}")
+                if payload:
+                    obj = Notification.objects.create(
+                        user=user,
+                        notification_type=notification_type.value,
+                        title=payload.get("title", "")[:200],
+                        body=payload.get("body", ""),
+                        link_url=payload.get("link_url", ""),
+                        metadata=payload.get("metadata", {}) or {},
+                    )
+                    result.inapp_created = True
+                    result.inapp_id = obj.id
+            except Exception as e:
+                logger.error(f"Error writing in-app notification for {user.username}: {e}")
+                result.errors.append(f"In-app error: {e}")
 
         return result
 
@@ -672,8 +733,15 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
     in try/except, so a failure there leaves no rejected row and the following
     re-approval is suppressed. That is strictly rarer than notifying nobody at
     all, which is what an unscoped guard did on every overturned rejection.
+
+    The read below decides the common case; it cannot decide a concurrent one,
+    because a bulk admin action and a door scan can both read "not yet sent"
+    before either writes. So the lifecycle it identifies is also handed to
+    notify() as a claim token, and the database settles the tie.
     """
     from .models import Notification
+
+    lifecycle_key = None
 
     try:
         last_approved = (
@@ -684,13 +752,25 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
             .order_by("-created_at")
             .first()
         )
-        already_notified = last_approved is not None and not (
+        last_rejected = (
             Notification.objects.filter(
                 user=user,
                 notification_type=NotificationType.PROFILE_REJECTED.value,
-                created_at__gt=last_approved.created_at,
-            ).exists()
+            )
+            .order_by("-created_at")
+            .first()
         )
+        already_notified = last_approved is not None and not (
+            last_rejected is not None
+            and last_rejected.created_at > last_approved.created_at
+        )
+        # Names the lifecycle rather than the user: the rejection that reopened
+        # it, or a sentinel for a member who has never been rejected. Two
+        # racing approvals of the SAME transition compute the same key and
+        # collide; a genuine re-approval after a new rejection computes a
+        # different one and is allowed through. Uses pk, not created_at, so
+        # the key survives two rows landing in the same clock tick.
+        lifecycle_key = f"lifecycle:{last_rejected.pk if last_rejected else 0}"
     except Exception as e:
         # The dedupe guard is best-effort: if the check itself fails, send as
         # before rather than silently dropping a first-time notification.
@@ -707,6 +787,7 @@ def notify_profile_approved(user, profile, coach_notes: str = None, request=None
 
     return NotificationService.notify(
         user=user,
+        dedupe_key=lifecycle_key,
         notification_type=NotificationType.PROFILE_APPROVED,
         context={'profile': profile, 'coach_notes': coach_notes},
         request=request
