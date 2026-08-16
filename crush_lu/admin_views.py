@@ -475,14 +475,7 @@ def crush_admin_dashboard(request):
 
     # Revenue metrics
     total_revenue = (
-        PaymentTransaction.objects.filter(
-            provider__in=(
-                PaymentTransaction.Provider.SUMUP,
-                PaymentTransaction.Provider.MANUAL,
-            ),
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            status=PaymentTransaction.Status.PAID,
-        ).aggregate(total=Sum("amount"))["total"]
+        PaymentTransaction.objects.paid_event_registrations().aggregate(total=Sum("amount"))["total"]
         or 0
     )
 

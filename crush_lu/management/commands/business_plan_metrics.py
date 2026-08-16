@@ -92,13 +92,7 @@ def _paid_seat_counts_by_event(events):
     Summing per-event counts equals a global DISTINCT: a registration belongs
     to exactly one event, so its id cannot appear under two of them.
     """
-    rows = PaymentTransaction.objects.filter(
-        provider__in=(
-            PaymentTransaction.Provider.SUMUP,
-            PaymentTransaction.Provider.MANUAL,
-        ),
-        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-        status=PaymentTransaction.Status.PAID,
+    rows = PaymentTransaction.objects.paid_event_registrations().filter(
         event__in=events,
     ).values_list("event_id", "event_registration_id", "transaction_reference", "pk")
 
