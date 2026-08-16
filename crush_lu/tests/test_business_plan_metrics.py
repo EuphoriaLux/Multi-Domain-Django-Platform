@@ -369,3 +369,33 @@ class DeletedAccountPaidSeatsTests(BusinessPlanMetricsFixture):
 
         report = self._report(date(2026, 5, 1), date(2026, 6, 1))
         self.assertEqual(report["event_activity"]["paid_registrations"], 3)
+
+    def test_backfilled_manual_receipts_share_their_seat(self):
+        """Migration 0228 wrote CRUSH-MANUAL-BACKFILL-<id> for pre-ledger seats.
+
+        A reused registration accumulates a capture per paid cycle, so a
+        backfilled receipt plus a later one are two rows for one seat. If the
+        parser does not recognise the backfill shape they fall back to
+        per-transaction identity and that seat doubles once the member leaves —
+        and these are the oldest rows in the table, exactly what a multi-year
+        report reaches.
+        """
+        event = self._event(date(2026, 5, 14))
+        registration = EventRegistration.objects.create(
+            event=event, user=self.member, status="confirmed",
+            payment_confirmed=True, payment_date=timezone.now(),
+        )
+        self._tx(
+            registration,
+            provider=PaymentTransaction.Provider.MANUAL,
+            reference=f"CRUSH-MANUAL-BACKFILL-{registration.pk}",
+        )
+        self._tx(
+            registration,
+            provider=PaymentTransaction.Provider.MANUAL,
+            reference=f"CRUSH-MANUAL-{registration.pk}-{uuid.uuid4().hex[:8]}",
+        )
+        registration.delete()
+
+        report = self._report(date(2026, 5, 1), date(2026, 6, 1))
+        self.assertEqual(report["event_activity"]["paid_registrations"], 1)

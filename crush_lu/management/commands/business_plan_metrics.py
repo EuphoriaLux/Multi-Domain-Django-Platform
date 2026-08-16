@@ -39,10 +39,18 @@ def _add_months(d, months):
 #: ``transaction_reference``: ``CRUSH-EVT-<id>-<hex>`` from the card checkout
 #: (``views_payments.create_sumup_event_checkout``) and
 #: ``CRUSH-MANUAL-<id>-<hex>`` from the cash/bank receipt staff records in the
-#: registration admin. Anchored, and the id must end the string or be followed
-#: by the separator, so a reference in some other shape falls through instead
-#: of matching a digit run out of its middle.
-_REFERENCE_REGISTRATION_RE = re.compile(r"^CRUSH-(?:EVT|MANUAL)-(\d+)(?:-|$)")
+#: registration admin — plus ``CRUSH-MANUAL-BACKFILL-<id>``, the receipt
+#: migration 0228 materialised for seats already paid before the ledger
+#: existed. Those are the oldest rows in the table and exactly the ones a
+#: multi-year report reaches, so missing them would split a reused-then-deleted
+#: registration back into one seat per capture.
+#:
+#: Anchored, and the id must end the string or be followed by the separator, so
+#: a reference in some other shape falls through instead of matching a digit
+#: run out of its middle.
+_REFERENCE_REGISTRATION_RE = re.compile(
+    r"^CRUSH-(?:EVT|MANUAL)-(?:BACKFILL-)?(\d+)(?:-|$)"
+)
 
 
 def _registration_id_from_reference(reference):
