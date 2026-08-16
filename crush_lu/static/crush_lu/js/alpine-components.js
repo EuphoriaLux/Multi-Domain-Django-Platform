@@ -1103,6 +1103,15 @@ document.addEventListener("alpine:init", function () {
                     "data-undo-url",
                     this._apiUrl("undo-checkin", row.registration_id),
                 );
+                // Check-in IS signed per registration, so unlike the two above
+                // it cannot be derived here and has to ride the payload. A row
+                // built from scratch — what a recovered `no_show` gets, having
+                // none on the page to begin with — would otherwise offer Undo
+                // and then have no way back in, stranding that attendee until
+                // the coach reloads.
+                if (row.checkin_url) {
+                    el.setAttribute("data-checkin-url", row.checkin_url);
+                }
                 // The haystack goes in RAW: setAttribute stores exactly what
                 // it is handed (attribute values are never entity-parsed),
                 // and the filter reads it back with getAttribute to compare

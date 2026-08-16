@@ -1833,3 +1833,57 @@ class TestProfilelessAttendeePrivacy:
         ).json()
 
         assert payload["row"]["display_name"] == "Ada"
+
+
+class TestRecoveredRowCanBeCheckedInAgain:
+    """A row the applier builds from scratch must not be a one-way trip.
+
+    `mark_attended` can recover a `no_show`, for which the page has no row at
+    all — `coach_event_checkin` renders only SEAT_HOLDING_STATUSES — so the
+    client builds one. It offers Undo because `checked_in_at` is set, but the
+    Check In button is built from `data-checkin-url`, which is signed per
+    registration and cannot be derived client-side. Without it in the payload
+    the coach undoes once and the attendee is stranded until a reload.
+    """
+
+    @pytest.mark.django_db
+    def test_undo_payload_carries_the_signed_checkin_path(self, client):
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        # The door page mints tokens for confirmed rows on load
+        # (`coach_event_checkin`), so by the time a coach acts they exist.
+        from crush_lu.views_ticket import _generate_checkin_token
+
+        _generate_checkin_token(registration)
+        _scan(client, event, registration)
+
+        client.force_login(coach.user)
+        payload = client.post(
+            reverse(
+                "coach_undo_checkin",
+                kwargs={"event_id": event.id, "registration_id": registration.id},
+            )
+        ).json()
+
+        registration.refresh_from_db()
+        assert payload["row"]["checkin_url"] == (
+            f"/api/events/checkin/{registration.pk}/{registration.checkin_token}/"
+        )
+
+    @pytest.mark.django_db
+    def test_the_qr_payload_does_not_carry_it(self, client):
+        """It rides the coach-only branch, like the search haystack."""
+        _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+
+        payload = _scan(client, event, registration).json()
+
+        assert "checkin_url" not in payload["row"]

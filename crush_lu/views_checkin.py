@@ -1172,7 +1172,13 @@ def coach_undo_checkin(request, event_id, registration_id):
         # The full row state the shared applier renders from — status,
         # cleared coach line, table badge — for the local path AND the
         # broadcast, which used to have no undo branch at all (#710).
-        "row": _row_state(registration, coach_authenticated=True),
+        #
+        # Built from a fresh read for the same reason the other endpoints are:
+        # the instance was locked inside the transaction, `release_table_on_undo`
+        # is a round trip after the lock, and a second coach re-scanning in the
+        # gap before the broadcast would otherwise have this payload un-check an
+        # already-re-attended row on every screen.
+        "row": _row_state(_fresh(registration), coach_authenticated=True),
     }
     # The *membership* table, not the current one. The door page's table-fill
     # grid is rendered from QuizTableMembership (views_coach.py), so it counts
@@ -1418,6 +1424,23 @@ def _get_display_name(registration, *, coach_authenticated=False):
         return str(_("Attendee"))
 
 
+def _fresh(registration):
+    """Re-read a registration straight before its state is broadcast.
+
+    Every door endpoint locks its row inside a transaction and then builds a
+    payload every screen converges on. Between the commit and the broadcast a
+    concurrent door action can land, and the in-memory instance would carry the
+    pre-race state out to all of them. Falls back to the instance in hand when
+    the row is gone, so a delete cannot turn a correction into a 500.
+    """
+    return (
+        EventRegistration.objects.select_related("user", "event")
+        .filter(pk=registration.pk)
+        .first()
+        or registration
+    )
+
+
 #: Sentinel distinguishing "the caller has not computed the table assignment"
 #: from "the caller computed it and there is none". ``_row_state`` used to
 #: run ``_get_existing_table_assignment`` unconditionally, so the callers
@@ -1498,6 +1521,15 @@ def _row_state(
                 registration.user.email,
             )
             if part
+        )
+    if coach_authenticated and registration.checkin_token:
+        # `_buildConfirmedRow` has no other source for this: the path is signed
+        # per registration, so the client cannot derive it. Without it a row the
+        # applier built from scratch — a `no_show` recovered by `mark_attended`
+        # has none on the page to begin with — offers Undo but no way back in,
+        # stranding the attendee until the coach reloads.
+        row["checkin_url"] = (
+            f"/api/events/checkin/{registration.pk}/{registration.checkin_token}/"
         )
     profile = (
         CrushProfile.objects.select_related("assigned_coach__user")
