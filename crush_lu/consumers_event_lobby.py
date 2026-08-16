@@ -23,10 +23,11 @@ consumer is a read-only relay in the ``CacheHuntConsumer`` mould:
 """
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
+
+from crush_lu.consumers import BaseCrushWebsocketConsumer
 
 
-class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
+class EventLobbyConsumer(BaseCrushWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if user is None or not user.is_authenticated:
@@ -50,7 +51,7 @@ class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
             getattr(self, "user_group", None),
         ):
             if group:
-                await self.channel_layer.group_discard(group, self.channel_name)
+                await self._safe_group_discard(group)
 
     async def receive_json(self, content, **kwargs):
         # Read-only by design (§11.1): all writes go through the HTTP
