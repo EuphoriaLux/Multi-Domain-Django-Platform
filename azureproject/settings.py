@@ -267,17 +267,42 @@ ASGI_APPLICATION = "azureproject.asgi.application"
 # identical timers race, the client wins, and every idle WebSocket dies at
 # exactly 5.0s with "Timeout reading from ...redis.cache.windows.net:6380".
 CHANNEL_LAYER_SOCKET_TIMEOUT = 10
+CHANNEL_LAYER_SOCKET_CONNECT_TIMEOUT = 5
+CHANNEL_LAYER_HEALTH_CHECK_INTERVAL = 15
 
 
 def channel_layer_hosts(url):
-    """Channel-layer host config with a read timeout that outlives BRPOP.
+    """Channel-layer host config with a read timeout that outlives BRPOP and
+    connection resilience settings (keepalive, health-check ping).
 
     Scoped to the channel layer on purpose: CACHES shares this Redis URL, and
     raising the timeout there too would slow how fast a wedged Redis surfaces
     on the page-render path. `decode_hosts` forwards dict entries verbatim and
     `create_pool` calls `from_url(address, **host)`, so this reaches the pool.
+
+    Resilience settings:
+    - socket_timeout: outlives channels-redis BRPOP (5s).
+    - socket_connect_timeout: bounds connection establishment (5s).
+    - health_check_interval: proactively pings idle pooled connections (15s) to discard
+      dead/reset sockets before executing commands.
+    - socket_keepalive: sends TCP keepalives to prevent Azure idle drops.
+
+    Note: Connection-level command retries (e.g. `retry` / `retry_on_timeout`)
+    are deliberately omitted here. `channels-redis` receives messages using
+    destructive operations (`BZPOPMIN`/`BRPOP`). Retrying at the client connection
+    level after a network reset during a receive could rerun the pop on a message
+    already consumed, causing silent message loss instead of cleanly surfacing
+    the connection failure and reconnecting.
     """
-    return [{"address": url, "socket_timeout": CHANNEL_LAYER_SOCKET_TIMEOUT}]
+    return [
+        {
+            "address": url,
+            "socket_timeout": CHANNEL_LAYER_SOCKET_TIMEOUT,
+            "socket_connect_timeout": CHANNEL_LAYER_SOCKET_CONNECT_TIMEOUT,
+            "health_check_interval": CHANNEL_LAYER_HEALTH_CHECK_INTERVAL,
+            "socket_keepalive": True,
+        }
+    ]
 
 
 # Channel Layers - Redis if REDIS_URL is set, otherwise in-memory
