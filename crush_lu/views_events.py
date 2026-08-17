@@ -1316,20 +1316,19 @@ def event_register(request, event_id):
         profile is None or not profile.gender
     )
 
-    # Same answer the event page's CTA used to get here, so the button that said
-    # "Join Waitlist" does not land on a page headed "Confirm Registration"
-    # (#866). `event.is_full` alone missed both a full gender pool and a
-    # reserved-premium block.
+    # Which template the single render at the bottom uses. An invalid HTMX
+    # submit swaps only #registration-form-container, so it gets the partial
+    # instead of the whole page -- but it is chosen here rather than returned
+    # early so that both go out through *one* render with *one* context.
     #
-    # Computed once, above the branch, because *three* render paths leave this
-    # view -- the full-page GET, the non-HTMX invalid POST, and the HTMX partial
-    # re-render -- and the partial was the one that got missed, silently
-    # flipping a corrected "Join Waitlist" back to "Confirm Registration" the
-    # moment a pool-full member tripped form validation. One call site is the
-    # only shape a future fourth path cannot forget.
-    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
-        _registration_outlook(event, profile)
-    )
+    # That is the actual fix, not just a tidier shape: the partial used to be
+    # rendered from its own hand-built context, and a context the full page grew
+    # and the partial did not is exactly how it ended up branching on
+    # `event.is_full` long after every other surface had stopped -- flipping a
+    # corrected "Join Waitlist" back to "Confirm Registration" the moment a
+    # pool-full member tripped form validation. Sharing the context means a
+    # future key cannot reach one and miss the other.
+    template = "crush_lu/event_register.html"
 
     if request.method == "POST":
         form = EventRegistrationForm(
@@ -1515,22 +1514,8 @@ def event_register(request, event_id):
                     },
                 )
             return redirect("crush_lu:dashboard")
-        else:
-            if request.headers.get("HX-Request"):
-                return render(
-                    request,
-                    "crush_lu/_event_registration_form.html",
-                    {
-                        "event": event,
-                        "form": form,
-                        "requires_age_confirmation": requires_age_confirmation,
-                        "requires_gender_selection": requires_gender_selection,
-                        # The warning banner sits outside #registration-form-
-                        # container and survives the swap; only the submit label
-                        # is re-rendered here, so the reason is not needed.
-                        "registration_will_waitlist": registration_will_waitlist,
-                    },
-                )
+        elif request.headers.get("HX-Request"):
+            template = "crush_lu/_event_registration_form.html"
     else:
         form = EventRegistrationForm(
             event=event,
@@ -1538,15 +1523,28 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
 
+    # Same answer the event page's CTA used to get here, so the button that said
+    # "Join Waitlist" does not land on a page headed "Confirm Registration"
+    # (#866). `event.is_full` alone missed both a full gender pool and a
+    # reserved-premium block.
+    #
+    # Below the branch, so the successful POST -- which returned above and needs
+    # none of this -- does not pay for three capacity counts it will not read.
+    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
+        _registration_outlook(event, profile)
+    )
+
     context = {
         "event": event,
         "form": form,
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
         "registration_will_waitlist": registration_will_waitlist,
+        # Read by the full page's warning heading only; the partial swaps just
+        # the form, and the banner outside it survives untouched.
         "registration_waitlist_reason": waitlist_reason,
     }
-    return render(request, "crush_lu/event_register.html", context)
+    return render(request, template, context)
 
 
 @crush_login_required
