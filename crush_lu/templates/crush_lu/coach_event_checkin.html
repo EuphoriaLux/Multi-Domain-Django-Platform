@@ -105,6 +105,18 @@
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-lg dark:text-white">{% trans "QR Scanner" %}</h3>
         <div class="flex items-center gap-2">
+            {# Thermal Printer Controls #}
+            <button type="button" @click="togglePrinter" class="btn-sm inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors"
+                :class="printerEnabled ? 'bg-purple-50 text-crush-purple border-crush-purple/30 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-600' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'"
+                :title="printerEnabled ? '{% trans "Thermal printer active (RawBT)" %}' : '{% trans "Thermal printer disabled" %}'">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                <span x-text="printerButtonText"></span>
+            </button>
+            <button x-show="printerEnabled" @click="testPrint" type="button" class="btn-crush-outline btn-sm inline-flex items-center gap-1 text-xs" style="display: none;">
+                <span>{% trans "Test Bon" %}</span>
+            </button>
             <button x-show="torchIsAvailable" @click="toggleTorch" style="display: none;" class="btn-crush-outline btn-sm inline-flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
@@ -379,6 +391,19 @@
                 {% if reg.checked_in_at %}
                 <button
                     type="button"
+                    class="manual-reprint-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1"
+                    data-print-url="/api/events/{{ event.id }}/print-ticket/{{ reg.id }}/"
+                    data-reg-id="{{ reg.id }}"
+                    @click="reprintTicket"
+                    title="{% trans 'Reprint Ticket' %}"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    <span>{% trans "Print" %}</span>
+                </button>
+                <button
+                    type="button"
                     class="manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                     data-undo-url="/api/events/{{ event.id }}/undo-checkin/{{ reg.id }}/"
                     data-reg-id="{{ reg.id }}"
@@ -498,7 +523,10 @@ window._checkinI18n = {
     torchOff: '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}',
     undoAction: '{% filter escapejs %}{% trans "Undo" %}{% endfilter %}',
     undoConfirm: '{% filter escapejs %}{% trans "Undo this check-in? They will be marked as not arrived again." %}{% endfilter %}',
-    undoFailed: '{% filter escapejs %}{% trans "Could not undo this check-in" %}{% endfilter %}'
+    undoFailed: '{% filter escapejs %}{% trans "Could not undo this check-in" %}{% endfilter %}',
+    printAction: '{% filter escapejs %}{% trans "Print" %}{% endfilter %}',
+    printerOn: '{% filter escapejs %}{% trans "Printer: ON" %}{% endfilter %}',
+    printerOff: '{% filter escapejs %}{% trans "Printer: OFF" %}{% endfilter %}'
 };
 var _tableAssignments = {{ table_assignments_json|safe }};
 var _tableFill = {{ table_fill_json|safe }};
