@@ -317,6 +317,23 @@ class CapacitySnapshotTests(GenderPoolAvailabilityTestBase):
         self.assertFalse(total_full)
         self.assertEqual(remaining, 1)
 
+    def test_the_uncapped_branch_memoises_too(self):
+        """`reserved_premium_seats` does not depend on `gender_limits_active`,
+        so an uncapped event with reserved seats hits the banner re-count race
+        as well. Every other test here calls _set_caps() first and would miss a
+        memo that only the gender-capped branch sets."""
+        self.event.max_participants = 10
+        self.event.reserved_premium_seats = 2
+        self.event.save()
+        self.assertFalse(self.event.gender_limits_active)
+        self._fill(1)
+
+        with self.assertNumQueries(1):
+            self.event.registration_capacity(is_premium=True)
+        with self.assertNumQueries(0):
+            self.event.is_full_for(is_premium=False)
+            self.assertEqual(self.event.get_confirmed_count(), 1)
+
     def test_chips_and_cta_cannot_contradict_each_other(self):
         """Capacity zero now implies total_full by construction, so a row of
         "full" chips can never appear beside a CTA promising a seat."""

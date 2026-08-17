@@ -616,23 +616,26 @@ class MeetupEvent(models.Model):
         For a gender-capped event that read is :meth:`_seat_counts_by_gender`,
         whose rows already cover *every* seat-holding registration; an event
         without caps has no pools to fetch and falls back to a plain count.
+
+        Either way the count is memoised under ``confirmed_count_annotated`` --
+        the name :meth:`get_confirmed_count` already honours -- so every later
+        capacity read on this instance is free *and* returns this same number.
+        Without it the premium reserved-seat banner re-counts and can disagree
+        with the CTA rendered beside it. Both branches must do this:
+        ``reserved_premium_seats`` is independent of ``gender_limits_active``,
+        so an uncapped event with reserved seats hits that race too. Request
+        scoped by construction, since views load their own event instance.
         """
         if not self.gender_limits_active:
+            self.confirmed_count_annotated = self.get_confirmed_count()
             total_full, remaining = self.capacity_snapshot(is_premium=is_premium)
             return total_full, remaining, []
 
         counts = self._seat_counts_by_gender()
-        confirmed = sum(counts.values())
-
-        # Memoised under the name get_confirmed_count() already honours, so
-        # every later capacity read on this instance is free *and* returns this
-        # same number. Without it the premium reserved-seat banner re-counts and
-        # can disagree with the CTA rendered beside it from the earlier count.
-        # Request-scoped by construction: views load their own event instance.
-        self.confirmed_count_annotated = confirmed
+        self.confirmed_count_annotated = sum(counts.values())
 
         cap = self.max_participants if is_premium else self.public_capacity
-        remaining = max(0, cap - confirmed)
+        remaining = max(0, cap - self.confirmed_count_annotated)
         return remaining == 0, remaining, self._pool_rows(counts, remaining)
 
     def clean(self):
