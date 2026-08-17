@@ -1,0 +1,11 @@
+{% extends "atmos/base.html" %}
+{% block title %}Bar Closed{% endblock %}
+{% block content %}
+<div class="panel" style="text-align: center; padding: 2.5rem 1.5rem; margin-top: 1.5rem;">
+  <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🔒</div>
+  <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Ordering is Currently Closed</h1>
+  <p class="muted" style="line-height: 1.5;">
+    {{ table.venue.name }} isn't accepting mobile orders at the moment. Please ask a member of the bar team for assistance.
+  </p>
+</div>
+{% endblock %}
