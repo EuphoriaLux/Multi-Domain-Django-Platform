@@ -7,6 +7,10 @@ from .models import (
     HubTimelineEvent,
     Location,
     LocationContact,
+    PaymentIn,
+    PaymentOut,
+    Payroll,
+    Refund,
     SocialPost,
     WhatsAppInboundMessage,
     WhatsAppMessage,
@@ -132,6 +136,139 @@ class LocationSerializer(serializers.ModelSerializer):
             if data.get(optional_field) is None:
                 data.pop(optional_field, None)
         return data
+
+
+class MoneyField(serializers.DecimalField):
+    """A euro amount the SPA can do arithmetic on.
+
+    DRF's ``COERCE_DECIMAL_TO_STRING`` default is on and this project never
+    overrides it, so a plain ``DecimalField`` would ship ``"1250.00"``. The
+    accounting page sums these values, and summing strings concatenates them,
+    so every money field must opt out — doing it here keeps the next one from
+    forgetting.
+    """
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("max_digits", 10)
+        kwargs.setdefault("decimal_places", 2)
+        kwargs.setdefault("coerce_to_string", False)
+        kwargs.setdefault("read_only", True)
+        super().__init__(**kwargs)
+
+
+class FinanceSerializerMixin:
+    """Drops null optionals so the payload matches the SPA's optional fields.
+
+    Mirrors ``LocationSerializer``: nullable non-string fields are omitted
+    entirely rather than sent as ``null``; blank text stays ``""``.
+    """
+
+    optional_fields = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for optional_field in self.optional_fields:
+            if data.get(optional_field) is None:
+                data.pop(optional_field, None)
+        return data
+
+
+class PaymentInSerializer(FinanceSerializerMixin, serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    amount = MoneyField()
+    clientName = serializers.CharField(source="client_name", read_only=True)
+    paymentMethod = serializers.CharField(source="payment_method", read_only=True)
+    receiptUrl = serializers.CharField(source="receipt_url", read_only=True)
+
+    class Meta:
+        model = PaymentIn
+        fields = [
+            "id",
+            "date",
+            "amount",
+            "source",
+            "clientName",
+            "status",
+            "reference",
+            "paymentMethod",
+            "receiptUrl",
+        ]
+        read_only_fields = fields
+
+
+class PaymentOutSerializer(FinanceSerializerMixin, serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    amount = MoneyField()
+    locationId = serializers.CharField(source="location_id", read_only=True)
+    paymentMethod = serializers.CharField(source="payment_method", read_only=True)
+    depositStatus = serializers.CharField(source="deposit_status", read_only=True)
+    receiptUrl = serializers.CharField(source="receipt_url", read_only=True)
+
+    optional_fields = ("locationId", "depositStatus")
+
+    class Meta:
+        model = PaymentOut
+        fields = [
+            "id",
+            "date",
+            "amount",
+            "locationId",
+            "payee",
+            "description",
+            "status",
+            "paymentMethod",
+            "category",
+            "depositStatus",
+            "receiptUrl",
+        ]
+        read_only_fields = fields
+
+
+class PayrollSerializer(FinanceSerializerMixin, serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    amount = MoneyField()
+    grossSalary = MoneyField(source="gross_salary")
+    employerCharges = MoneyField(source="employer_charges")
+    employeeName = serializers.CharField(source="employee_name", read_only=True)
+    paymentMethod = serializers.CharField(source="payment_method", read_only=True)
+    receiptUrl = serializers.CharField(source="receipt_url", read_only=True)
+
+    class Meta:
+        model = Payroll
+        fields = [
+            "id",
+            "date",
+            "amount",
+            "grossSalary",
+            "employerCharges",
+            "employeeName",
+            "category",
+            "description",
+            "status",
+            "paymentMethod",
+            "receiptUrl",
+        ]
+        read_only_fields = fields
+
+
+class RefundSerializer(FinanceSerializerMixin, serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    amount = MoneyField()
+    participantName = serializers.CharField(source="participant_name", read_only=True)
+    eventName = serializers.CharField(source="event_name", read_only=True)
+
+    class Meta:
+        model = Refund
+        fields = [
+            "id",
+            "date",
+            "amount",
+            "participantName",
+            "eventName",
+            "reason",
+            "status",
+        ]
+        read_only_fields = fields
 
 
 class WhatsAppMessageSerializer(serializers.ModelSerializer):

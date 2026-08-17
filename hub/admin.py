@@ -7,6 +7,10 @@ from .models import (
     HubTimelineEvent,
     Location,
     LocationContact,
+    PaymentIn,
+    PaymentOut,
+    Payroll,
+    Refund,
     WhatsAppInboundMessage,
     WhatsAppMessage,
 )
@@ -76,6 +80,48 @@ class LocationContactAdmin(admin.ModelAdmin):
     list_display = ("name", "location", "role", "email", "phone")
     search_fields = ("name", "location__name", "role", "email", "phone")
     list_select_related = ("location",)
+
+
+@admin.register(PaymentIn)
+class PaymentInAdmin(admin.ModelAdmin):
+    list_display = ("date", "source", "client_name", "amount", "status", "reference")
+    list_filter = ("status", "payment_method")
+    search_fields = ("source", "client_name", "reference")
+    date_hierarchy = "date"
+
+
+@admin.register(PaymentOut)
+class PaymentOutAdmin(admin.ModelAdmin):
+    list_display = ("date", "payee", "category", "amount", "status", "location")
+    list_filter = ("status", "category", "payment_method", "deposit_status")
+    search_fields = ("payee", "description", "location__name")
+    date_hierarchy = "date"
+    list_select_related = ("location",)
+    autocomplete_fields = ("location",)
+
+
+@admin.register(Payroll)
+class PayrollAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "employee_name",
+        "category",
+        "amount",
+        "gross_salary",
+        "employer_charges",
+        "status",
+    )
+    list_filter = ("status", "category", "payment_method")
+    search_fields = ("employee_name", "description")
+    date_hierarchy = "date"
+
+
+@admin.register(Refund)
+class RefundAdmin(admin.ModelAdmin):
+    list_display = ("date", "participant_name", "event_name", "amount", "status")
+    list_filter = ("status",)
+    search_fields = ("participant_name", "event_name", "reason")
+    date_hierarchy = "date"
 
 
 @admin.register(WhatsAppMessage)
