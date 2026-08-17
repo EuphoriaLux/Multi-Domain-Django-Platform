@@ -218,6 +218,9 @@ class TestTicketPrinter(TestCase):
         # Male candidate ticket must NOT pick other male attendees when female candidate pool is available
         # (Pos is female, Bob is male)
         self.assertIn("Pos", plain_text)
+        # Assert ROOM DATA statistics appear
+        self.assertIn("ROOM DATA", plain_text)
+        self.assertIn("TOP PASSIONS", plain_text)
 
 
 class TestCheckinPrintingAPI(TestCase):

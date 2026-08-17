@@ -134,6 +134,99 @@ def _build_coach_rules_directives(
     return out
 
 
+def _build_room_stats_directives(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    cols: int = 48,
+) -> list[Directive]:
+    """Builds collective group statistics for the event attendees."""
+    out: list[Directive] = []
+
+    if not (registration and getattr(registration, "pk", None)):
+        return out
+
+    try:
+        from collections import Counter
+        from crush_lu.models import EventRegistration
+
+        event_id = getattr(event, "id", None) or getattr(
+            registration, "event_id", None
+        )
+        if not event_id:
+            return out
+
+        regs = list(
+            EventRegistration.objects.filter(
+                event_id=event_id,
+                status__in=["confirmed", "attended"],
+            )
+            .select_related("user__crushprofile")
+            .prefetch_related(
+                "user__crushprofile__interests_new",
+                "user__crushprofile__defects",
+            )
+        )
+        total = len(regs)
+        if total < 2:
+            return out
+
+        all_interests = []
+        all_defects = []
+        all_langs = []
+        first_step_counts: Counter[str] = Counter()
+
+        for r in regs:
+            prof = getattr(getattr(r, "user", None), "crushprofile", None)
+            if not prof:
+                continue
+            all_interests.extend([i.label for i in prof.interests_new.all()])
+            all_defects.extend([d.label for d in prof.defects.all()])
+            all_langs.extend(prof.event_languages or [])
+            if prof.first_step_preference:
+                first_step_counts[prof.first_step_preference] += 1
+
+        top_interests = Counter(all_interests).most_common(3)
+        top_defects = Counter(all_defects).most_common(2)
+
+        out.append(Text("ROOM DATA // STATS DE LA SOIREE", Align.CENTER, bold=True))
+        out.append(Rule("-"))
+
+        if top_interests:
+            out.append(Text("TOP PASSIONS DANS LA SALLE :", bold=True))
+            for name, count in top_interests:
+                pct = int((count / total) * 100)
+                out.append(Text(justify(f"• {name}", f"{pct}% ({count}p)", cols)))
+
+        if first_step_counts:
+            they_init = first_step_counts.get("they_initiate", 0)
+            they_pct = int((they_init / total) * 100)
+            if they_pct > 0:
+                out.append(Text(f"• {they_pct}% attendent le premier pas"))
+
+        if top_defects:
+            def_name, def_cnt = top_defects[0]
+            def_pct = int((def_cnt / total) * 100)
+            out.append(Text(f"• {def_pct}% avouent : '{def_name}'"))
+
+        if all_langs:
+            lang_counts = Counter(all_langs)
+            lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
+            fr_pct = int((lang_counts.get("fr", 0) / total) * 100)
+            de_pct = int((lang_counts.get("de", 0) / total) * 100)
+            en_pct = int((lang_counts.get("en", 0) / total) * 100)
+            out.append(
+                Text(
+                    f"• Langues: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}%"
+                )
+            )
+
+        out.append(Rule("="))
+    except Exception:
+        return []
+
+    return out
+
+
 def _build_mission_directives(
     custom_mission: str | None = None,
     cols: int = 48,
@@ -401,6 +494,11 @@ def build_checkin_ticket_directives(
         )
     )
     directives.extend(_build_receipt_directives(cols=cols))
+    directives.extend(
+        _build_room_stats_directives(
+            registration=registration, event=event, cols=cols
+        )
+    )
     directives.extend(_build_coach_rules_directives(cols=cols))
     directives.extend(
         _build_mystery_radar_directives(
