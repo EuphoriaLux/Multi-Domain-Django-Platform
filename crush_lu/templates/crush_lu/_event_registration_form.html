@@ -74,7 +74,17 @@
                 {% include "shared/icons/loading.html" with class="w-5 h-5 animate-spin" %}
             </span>
             <span class="htmx-hide-on-request">
-                {% if event.is_full %}
+                {% comment %}
+                `registration_will_waitlist`, not `event.is_full`: this partial
+                replaces the form after a validation error, and the raw total is
+                blind to both a full gender pool and a reserved-premium block.
+                Reading it here flipped a corrected "Join Waitlist" back to
+                "Confirm Registration" for a pool-full member who merely forgot a
+                required field -- #866 again, one keystroke later. The warning
+                banner above lives outside the swap target, so it survives; this
+                label is the only thing the re-render can contradict.
+                {% endcomment %}
+                {% if registration_will_waitlist %}
                     {% trans "Join Waitlist" %}
                 {% else %}
                     {% trans "Confirm Registration" %}

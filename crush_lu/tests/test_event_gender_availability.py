@@ -495,3 +495,149 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
         response = self._get_detail()
         self.assertTrue(response.context["premium_reserved_seat_available"])
         self.assertContains(response, "A seat is reserved for you")
+
+
+class WaitlistCtaSurvivesAValidationErrorTests(GenderPoolAvailabilityTestBase):
+    """The HTMX re-render must not undo the corrected button.
+
+    An invalid submit swaps `#registration-form-container` for
+    `_event_registration_form.html`, which branched on `event.is_full` long
+    after every other surface had stopped. A pool-full member who forgot a
+    required field therefore watched "Join Waitlist" turn into "Confirm
+    Registration" -- the same false promise as #866, now on the very screen
+    where they are about to act on it.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # The one validation failure this fixture can actually reach: the form
+        # only keeps `bringing_guest`/`guest_name` when the event allows a plus
+        # one, and clean() errors when the box is ticked with no name.
+        self.event.allow_plus_ones = True
+        self.event.save()
+
+    def _post_invalid_htmx(self):
+        return self.client.post(
+            f"/en/events/{self.event.id}/register/",
+            {"bringing_guest": "on", "guest_name": ""},
+            HTTP_HX_REQUEST="true",
+        )
+
+    def test_pool_full_member_keeps_the_waitlist_button(self):
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        self.assertEqual(response.status_code, 200)
+        # It really is the invalid-form partial, not a success render ...
+        self.assertContains(response, "Please provide your guest&#x27;s name.")
+        # ... and the button still tells the truth about what will happen.
+        self.assertTrue(response.context["registration_will_waitlist"])
+        self.assertContains(response, "Join Waitlist")
+        self.assertNotContains(response, "Confirm Registration")
+
+    def test_seatable_member_keeps_the_register_button(self):
+        """The other direction, so the fix cannot be "always say waitlist"."""
+        self._set_caps(4, 4, 0)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Please provide your guest&#x27;s name.")
+        self.assertFalse(response.context["registration_will_waitlist"])
+        self.assertContains(response, "Confirm Registration")
+        self.assertNotContains(response, "Join Waitlist")
+
+    def test_reserved_premium_block_also_survives_the_re_render(self):
+        """`event.is_full` was blind to this too: the event is not full, the
+        pool is not full, and the viewer still cannot have a seat."""
+        self.event.max_participants = 2
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._set_caps(3, 3, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        self.assertFalse(self.event.is_full)
+        self.assertFalse(self.event.is_gender_pool_full("M"))
+        self.assertTrue(response.context["registration_will_waitlist"])
+        self.assertContains(response, "Join Waitlist")
+
+
+class WaitlistReasonNamesTheRightCauseTests(GenderPoolAvailabilityTestBase):
+    """ "Your gender group is full" must not be said when it is not true.
+
+    `user_pool.is_full` folds the pool's own cap together with a total or
+    reserved-premium block, so a viewer stopped by overall capacity read that
+    their gender group was full while its cap sat untouched. The reason now
+    travels from `_registration_outlook` into the component, which is the same
+    value the registration page and the post-POST flash use -- so all three
+    name one cause.
+    """
+
+    GENDER_LINE = "All spots for your gender group are taken"
+    TOTAL_LINE = "The event is fully booked"
+
+    def test_total_capacity_is_not_blamed_on_the_gender_pool(self):
+        """Two general seats gone, a third reserved for premium: the men's cap
+        is 3 and only one man holds a seat."""
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._set_caps(3, 3, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        self.assertFalse(self.event.is_gender_pool_full("M"))
+        self.assertEqual(response.context["registration_waitlist_reason"], "total")
+        self.assertContains(response, self.TOTAL_LINE)
+        self.assertNotContains(response, self.GENDER_LINE)
+
+    def test_a_full_pool_is_still_named_as_a_full_pool(self):
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        self.assertEqual(response.context["registration_waitlist_reason"], "pool")
+        self.assertContains(response, self.GENDER_LINE)
+        self.assertNotContains(response, self.TOTAL_LINE)
+
+    def test_total_wins_the_tie_exactly_as_the_other_surfaces_decide(self):
+        """Both full: `_registration_outlook` returns "total", event_register's
+        flash says "Event is full", and the chips must agree rather than pick
+        the narrower cause on their own."""
+        self.event.max_participants = 1
+        self.event.save()
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        self.assertTrue(self.event.is_gender_pool_full("M"))
+        self.assertTrue(self.event.is_full)
+        self.assertEqual(response.context["registration_waitlist_reason"], "total")
+        self.assertContains(response, self.TOTAL_LINE)
+        self.assertNotContains(response, self.GENDER_LINE)
+
+    def test_a_seatable_member_gets_neither_line(self):
+        self._set_caps(4, 4, 0)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        self.assertIsNone(response.context["registration_waitlist_reason"])
+        self.assertContains(response, "spots left for you.")
+        self.assertNotContains(response, self.TOTAL_LINE)
+        self.assertNotContains(response, self.GENDER_LINE)

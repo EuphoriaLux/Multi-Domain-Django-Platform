@@ -911,9 +911,17 @@ def event_detail(request, event_id):
 
     # Per-gender availability plus the one answer both the event page and the
     # registration page need: will registration actually seat this viewer?
-    gender_pool_availability, user_gender_pool, event_full_for_user, _reason = (
-        _registration_outlook(event, user_profile)
-    )
+    # The reason travels with it: the chips' personal line must name the same
+    # cause the registration page names, and it cannot derive that from the pool
+    # row alone -- `is_full` there folds a total or reserved-premium block in
+    # with the pool's own cap, which read as "your gender group is full" to
+    # someone whose gender group was not.
+    (
+        gender_pool_availability,
+        user_gender_pool,
+        event_full_for_user,
+        registration_waitlist_reason,
+    ) = _registration_outlook(event, user_profile)
     user_pool_full = bool(user_gender_pool and user_gender_pool["pool_full"])
 
     # A reserved seat is available to this premium member specifically when the
@@ -944,6 +952,7 @@ def event_detail(request, event_id):
         "gender_pool_availability": gender_pool_availability,
         "user_gender_pool": user_gender_pool,
         "user_pool_full": user_pool_full,
+        "registration_waitlist_reason": registration_waitlist_reason,
         "premium_reserved_seat_available": premium_reserved_seat_available,
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
@@ -1307,6 +1316,21 @@ def event_register(request, event_id):
         profile is None or not profile.gender
     )
 
+    # Same answer the event page's CTA used to get here, so the button that said
+    # "Join Waitlist" does not land on a page headed "Confirm Registration"
+    # (#866). `event.is_full` alone missed both a full gender pool and a
+    # reserved-premium block.
+    #
+    # Computed once, above the branch, because *three* render paths leave this
+    # view -- the full-page GET, the non-HTMX invalid POST, and the HTMX partial
+    # re-render -- and the partial was the one that got missed, silently
+    # flipping a corrected "Join Waitlist" back to "Confirm Registration" the
+    # moment a pool-full member tripped form validation. One call site is the
+    # only shape a future fourth path cannot forget.
+    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
+        _registration_outlook(event, profile)
+    )
+
     if request.method == "POST":
         form = EventRegistrationForm(
             request.POST,
@@ -1501,6 +1525,10 @@ def event_register(request, event_id):
                         "form": form,
                         "requires_age_confirmation": requires_age_confirmation,
                         "requires_gender_selection": requires_gender_selection,
+                        # The warning banner sits outside #registration-form-
+                        # container and survives the swap; only the submit label
+                        # is re-rendered here, so the reason is not needed.
+                        "registration_will_waitlist": registration_will_waitlist,
                     },
                 )
     else:
@@ -1509,14 +1537,6 @@ def event_register(request, event_id):
             requires_age_confirmation=requires_age_confirmation,
             requires_gender_selection=requires_gender_selection,
         )
-
-    # Same answer the event page's CTA used to get here, so the button that
-    # said "Join Waitlist" does not land on a page headed "Confirm
-    # Registration" (#866). `event.is_full` alone missed both a full gender
-    # pool and a reserved-premium block.
-    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
-        _registration_outlook(event, profile)
-    )
 
     context = {
         "event": event,

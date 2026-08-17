@@ -39795,6 +39795,11 @@ msgstr ""
 "toujours rejoindre la liste d'attente."
 
 #: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "The event is fully booked — you can still join the waitlist."
+msgstr ""
+"L'événement est complet — vous pouvez toujours rejoindre la liste d'attente."
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
 msgid "%(name)s: %(spots)s spot left"
 msgid_plural "%(name)s: %(spots)s spots left"
 msgstr[0] "%(name)s : %(spots)s place restante"

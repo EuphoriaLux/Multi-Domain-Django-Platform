@@ -24,6 +24,17 @@ Args:
              are already waitlisted, they are on it. Either way the personal
              line is suppressed; the chips stay, since the counts are still
              true.
+  waitlist_reason
+             Optional. `"total"`, `"pool"` or None, straight from
+             views_events._registration_outlook(). It picks *which* explanation
+             the personal line gives, because `user_pool.is_full` cannot: that
+             flag folds the pool's own cap together with a total or
+             reserved-premium block, so a viewer stopped by overall capacity was
+             told their gender group was full when it was not. Reading the same
+             value the registration page reads keeps all three surfaces -- chip,
+             CTA and the flash after POST -- naming the same cause, and "total"
+             wins a tie there for the same reason it does here: when the whole
+             event is full, that is the plainer thing to tell someone.
 {% endcomment %}
 {% load i18n %}
 <div class="flex items-center gap-1.5 flex-wrap">
@@ -41,7 +52,11 @@ Args:
     {% endfor %}
 </div>
 {% if user_pool and not viewer_registration %}
-    {% if user_pool.is_full %}
+    {% if waitlist_reason == "total" %}
+        <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+            {% trans "The event is fully booked — you can still join the waitlist." %}
+        </p>
+    {% elif waitlist_reason == "pool" %}
         <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
             {% trans "All spots for your gender group are taken — you can still join the waitlist." %}
         </p>
