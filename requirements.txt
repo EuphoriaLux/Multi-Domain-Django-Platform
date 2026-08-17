@@ -16,7 +16,7 @@ django-htmx==1.29.0  # HTMX server-side integration
 psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.19.0  # Updated from 65.1.0 (latest stable)
+django-allauth==65.19.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.13.0  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.56.3  # Required for Google Wallet API authentication
@@ -51,7 +51,7 @@ gunicorn==26.0.0
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==7.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.52.1
+uvicorn[standard]==0.52.3
 
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1
