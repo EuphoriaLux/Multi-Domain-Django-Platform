@@ -13,6 +13,7 @@ from django.test import RequestFactory, override_settings
 from power_up.atmos.models import Guest, MenuCategory, MenuItem, Tab, Table, Venue
 from power_up.atmos.views import (
     _JOIN_RATE_LIMIT,
+    _JOIN_RATE_WINDOW_SECONDS,
     CART_SESSION_KEY,
     GUEST_COOKIE,
     TAB_SESSION_KEY,
@@ -340,6 +341,43 @@ def test_join_rate_limit_fails_open_on_cache_outage():
 
     with patch("power_up.atmos.views.cache.incr", return_value=None):
         assert _join_rate_limited(_Request(), "some-tab-id") is False
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_recovers_from_ttl_boundary_race():
+    """add() and incr() are two separate round trips, not one atomic
+    operation — a narrow race around each window's TTL boundary can have
+    the key expire in the gap between them. LocMemCache's incr() raises
+    ValueError in that case (its own get() sees the now-expired key as
+    missing); this must not propagate as a 500 on the join page."""
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.6"}
+        method = "GET"
+
+    with patch("power_up.atmos.views.cache.incr", side_effect=[ValueError, 1]):
+        assert _join_rate_limited(_Request(), "some-tab-id") is False
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_refreshes_ttl_on_first_hit():
+    """Redis's INCR auto-vivifies a missing key at 0 with NO ttl. If the
+    boundary race above hits the Redis backend instead of LocMemCache
+    (add() sees the key still present, but it expires before incr() runs),
+    the resulting key must not be left to persist forever with no expiry —
+    it would otherwise never reset and permanently 429 this bucket once it
+    eventually crosses the limit."""
+    cache.clear()
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.7"}
+        method = "GET"
+
+    key = "atmos:join_rl:GET:10.0.0.7:some-tab-id"
+    with patch("power_up.atmos.views.cache.touch") as mock_touch:
+        _join_rate_limited(_Request(), "some-tab-id")
+
+    mock_touch.assert_called_once_with(key, _JOIN_RATE_WINDOW_SECONDS)
 
 
 def test_client_ip_strips_ipv4_port():

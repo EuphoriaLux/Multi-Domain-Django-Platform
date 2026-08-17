@@ -66,10 +66,14 @@ _DISPLAY_NAME_MAX_LENGTH = Guest._meta.get_field("display_name").max_length
 # single photographed QR was enough to obtain the scan handoff once and
 # then hit guest_join() indefinitely — each hit runs a fresh active-alias
 # query and full template render (a new persona reroll), with nothing else
-# in this app throttling unauthenticated traffic. 20 requests/minute per
-# (IP, tab, method) bucket comfortably covers a real guest mashing "reroll"
-# a few times while still bounding sustained abuse.
-_JOIN_RATE_LIMIT = 20
+# in this app throttling unauthenticated traffic. Bar patrons at (or near)
+# one table routinely share a single address — venue Wi-Fi NAT, or mobile
+# CGNAT for guests on cellular — and this bucket is still scoped to one
+# (IP, tab, method), so raising it doesn't weaken protection against a
+# scripted attacker targeting a single table: 60/minute comfortably covers
+# a full busy table's page-load-plus-reroll traffic while still bounding
+# sustained abuse.
+_JOIN_RATE_LIMIT = 60
 _JOIN_RATE_WINDOW_SECONDS = 60
 
 
@@ -118,13 +122,34 @@ def _join_rate_limited(request, tab_id) -> bool:
     # Only one request can win add()'s initialization; every request
     # (winner included) then increments the same shared counter atomically.
     cache.add(key, 0, timeout=_JOIN_RATE_WINDOW_SECONDS)
-    count = cache.incr(key)
+    try:
+        count = cache.incr(key)
+    except ValueError:
+        # add() and incr() are two separate round trips, not one atomic
+        # operation — a narrow race around each window's TTL boundary can
+        # have the key expire in the gap between them. LocMemCache's incr()
+        # raises here in that case (its own get() sees the now-expired key
+        # as missing). Treat it the same as a fresh window: this is rare
+        # enough that a second add()+incr() pair is worth it over letting
+        # this 500 the join page.
+        cache.add(key, 0, timeout=_JOIN_RATE_WINDOW_SECONDS)
+        count = cache.incr(key)
     if count is None:
         # django_redis's IGNORE_EXCEPTIONS=True (azureproject/settings.py)
         # turns a Redis outage into a silent None return here instead of a
         # raised exception. Fail open — a soft anti-abuse throttle must
         # never itself take the join page down during a cache interruption.
         return False
+    if count == 1:
+        # Redis's INCR auto-vivifies a missing key at 0 with NO ttl — if
+        # the boundary race above hit Redis instead of LocMemCache (add()
+        # saw the key still present, but it expired before incr() ran),
+        # this key would otherwise persist forever with no expiry, never
+        # resetting, and permanently 429 this (IP, tab, method) once it
+        # eventually crosses the limit. touch() is a no-op cost when this
+        # is a genuine fresh window (add() already set the same timeout);
+        # it only matters for closing that race.
+        cache.touch(key, _JOIN_RATE_WINDOW_SECONDS)
     return count > _JOIN_RATE_LIMIT
 
 

@@ -317,16 +317,13 @@ class Tab(models.Model):
                         )
                     ).distinct()
                 )
-                # Reset each stale guest's own order snapshots to their
-                # alias BEFORE clearing display_name, or a typed name still
-                # only living in Order.alias_snapshot would be left as the
-                # sole remaining copy of something we're about to promise
-                # is gone.
+                # purge_display_name() resets each stale guest's order
+                # snapshots to its alias before clearing display_name — see
+                # its own docstring for why that order matters. One save()
+                # per named guest instead of a set-based update; fine for
+                # the handful of guests a single tab has.
                 for guest in stale_guests:
-                    guest.orders.exclude(alias_snapshot=guest.alias).update(
-                        alias_snapshot=guest.alias
-                    )
-                self.guests.filter(display_name__gt="").update(display_name="")
+                    guest.purge_display_name()
                 # `uniq_active_alias_per_venue` treats every `status="active"`
                 # guest as occupying its alias, with no link to whether the
                 # guest's own tab is still open. Without this, a closed
@@ -389,6 +386,27 @@ class Guest(models.Model):
     def display(self) -> str:
         """What staff see and shout — spec §3.7."""
         return self.display_name or self.alias
+
+    def purge_display_name(self) -> int:
+        """Resets this guest's own `Order.alias_snapshot` copies back to
+        `alias` and clears `display_name` — the "erase this guest's typed
+        personal name everywhere" step shared by `Tab.save()`'s tab-close
+        purge and `purge_stale_guest_names`'s cutoff-based sweep. Order
+        snapshots are reset BEFORE clearing display_name, or a typed name
+        still only living in `alias_snapshot` would be left as the sole
+        remaining copy of something we're about to promise is gone.
+
+        Caller owns whatever locking/atomicity it needs around this (e.g.
+        `select_for_update()` — see `purge_stale_guest_names`). Returns the
+        number of `Order` rows whose `alias_snapshot` was reset.
+        """
+        order_count = self.orders.exclude(alias_snapshot=self.alias).update(
+            alias_snapshot=self.alias
+        )
+        if self.display_name:
+            self.display_name = ""
+            self.save(update_fields=["display_name"])
+        return order_count
 
 
 class Order(models.Model):
