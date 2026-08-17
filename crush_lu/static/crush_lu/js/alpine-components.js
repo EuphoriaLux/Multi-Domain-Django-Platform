@@ -1483,7 +1483,8 @@ document.addEventListener("alpine:init", function () {
                 // Validate base64 charset before constructing URI
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
                 try {
-                    window.location.href = "rawbt:base64," + trimmed;
+                    var safePayload = encodeURIComponent(trimmed);
+                    window.location.href = "rawbt:base64," + safePayload;
                 } catch (e) {
                     console.warn("RawBT trigger failed:", e);
                 }
