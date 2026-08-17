@@ -1480,16 +1480,58 @@ document.addEventListener("alpine:init", function () {
             triggerRawBtPrint: function (base64Payload) {
                 if (!base64Payload || typeof base64Payload !== "string") return;
                 var trimmed = base64Payload.trim();
-                // Validate base64 charset before constructing URI
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+
+                // 1. Primary: Direct binary stream via local RawBT WebSocket (ws://127.0.0.1:40213)
                 try {
+                    var binaryString = atob(trimmed);
+                    var len = binaryString.length;
+                    var bytes = new Uint8Array(len);
+                    for (var i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    var ws = new WebSocket("ws://127.0.0.1:40213/");
+                    ws.binaryType = "arraybuffer";
+                    var wsHandled = false;
+
+                    var fallbackTimer = setTimeout(function () {
+                        if (!wsHandled && ws.readyState !== 1) {
+                            wsHandled = true;
+                            try { ws.close(); } catch (e) {}
+                            var intentUrl =
+                                "intent:base64," +
+                                trimmed +
+                                "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                            window.location.href = intentUrl;
+                        }
+                    }, 400);
+
+                    ws.onopen = function () {
+                        wsHandled = true;
+                        clearTimeout(fallbackTimer);
+                        ws.send(bytes.buffer);
+                        setTimeout(function () {
+                            try { ws.close(); } catch (e) {}
+                        }, 500);
+                    };
+
+                    ws.onerror = function () {
+                        if (!wsHandled) {
+                            wsHandled = true;
+                            clearTimeout(fallbackTimer);
+                            var intentUrl =
+                                "intent:base64," +
+                                trimmed +
+                                "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                            window.location.href = intentUrl;
+                        }
+                    };
+                } catch (e) {
                     var intentUrl =
                         "intent:base64," +
                         trimmed +
                         "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
                     window.location.href = intentUrl;
-                } catch (e) {
-                    console.warn("RawBT trigger failed:", e);
                 }
             },
 
