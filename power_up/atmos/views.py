@@ -570,9 +570,7 @@ def cart_detail(request):
         request, guest, request.session.get(CART_SESSION_KEY, {})
     )
     lines, total = _cart_lines(guest, cart)
-    cart_signature = _order_signature(
-        (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
-    )
+    cart_signature = _cart_signature(lines)
     return render(
         request,
         "atmos/cart.html",
@@ -772,9 +770,7 @@ def order_place(request):
         # than silently placing a smaller order.
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
-        cart_signature = _order_signature(
-            (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
-        )
+        cart_signature = _cart_signature(lines)
         return render(
             request,
             "atmos/cart.html",
@@ -789,9 +785,7 @@ def order_place(request):
     if result.outcome is PlacementOutcome.PRICE_CHANGED:
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
-        cart_signature = _order_signature(
-            (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
-        )
+        cart_signature = _cart_signature(lines)
         return render(
             request,
             "atmos/cart.html",
