@@ -1060,7 +1060,7 @@ document.addEventListener("alpine:init", function () {
                 var i18n = window._checkinI18n || {};
                 var regId = row.registration_id;
                 var wrap = document.createElement("div");
-                wrap.className = "flex-shrink-0 flex items-center gap-2";
+                wrap.className = "flex-shrink-0 flex items-center gap-1 sm:gap-2";
                 wrap.setAttribute("data-row-actions", "");
                 // Verify sits outside the status split, exactly like the
                 // server-rendered twin: attended does not imply verified.
@@ -1073,7 +1073,7 @@ document.addEventListener("alpine:init", function () {
                 if (row.status === "attended") {
                     var checkedSpan = document.createElement("span");
                     checkedSpan.className =
-                        "px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
+                        "px-2 sm:px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
                     checkedSpan.textContent = i18n.checkedIn || "Checked In";
                     wrap.appendChild(checkedSpan);
                     if (row.table_number) {
@@ -1082,7 +1082,7 @@ document.addEventListener("alpine:init", function () {
                         // clears along with the seat — without it an undone
                         // check-in left its "T3" on screen.
                         tableBadge.className =
-                            "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
+                            "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-1.5 sm:px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
                         tableBadge.setAttribute("data-user-id", row.user_id);
                         tableBadge.textContent = "T" + row.table_number;
                         wrap.appendChild(tableBadge);
@@ -1110,7 +1110,7 @@ document.addEventListener("alpine:init", function () {
                         var checkinBtn = document.createElement("button");
                         checkinBtn.type = "button";
                         checkinBtn.className =
-                            "manual-checkin-btn btn-crush-solid btn-sm text-white";
+                            "manual-checkin-btn btn-crush-solid btn-sm text-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs";
                         checkinBtn.setAttribute("data-checkin-url", checkinUrl);
                         checkinBtn.setAttribute("data-reg-id", regId);
                         checkinBtn.textContent = i18n.checkIn || "Check In";
@@ -1426,9 +1426,10 @@ document.addEventListener("alpine:init", function () {
                 // sits next to rows that never left, and a drifted class list
                 // shows up as two differently-shaped buttons in the same list.
                 undoBtn.className =
-                    "manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
+                    "manual-undo-btn btn-link p-1.5 sm:px-2 sm:py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
                 undoBtn.setAttribute("data-undo-url", undoUrl);
                 undoBtn.setAttribute("data-reg-id", regId);
+                undoBtn.setAttribute("title", i18n.undoAction || "Undo");
                 undoBtn.textContent = i18n.undoAction || "Undo";
                 // Bound directly rather than with x-on — Alpine only wires
                 // directives present when it walked the tree.
@@ -1444,16 +1445,19 @@ document.addEventListener("alpine:init", function () {
                 var btn = document.createElement("button");
                 btn.type = "button";
                 btn.className =
-                    "manual-reprint-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1";
+                    "manual-reprint-btn btn-link p-1.5 sm:px-2 sm:py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1";
                 btn.setAttribute(
                     "data-print-url",
                     this._apiUrl("print-ticket", regId),
                 );
                 btn.setAttribute("data-reg-id", regId);
                 var label = i18n.printAction || "Print";
+                btn.setAttribute("title", label);
                 btn.innerHTML =
-                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
-                    self._esc(label);
+                    '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+                    '<span class="hidden sm:inline">' +
+                    self._esc(label) +
+                    "</span>";
                 btn.addEventListener("click", function (clickEvent) {
                     self.reprintTicket(clickEvent);
                 });
@@ -1468,7 +1472,7 @@ document.addEventListener("alpine:init", function () {
                 // Must stay identical to the server-rendered twin in
                 // coach_event_checkin.html — see _buildUndoButton.
                 verifyBtn.className =
-                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
+                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs";
                 verifyBtn.setAttribute(
                     "data-verify-url",
                     this._apiUrl("verify", regId),
