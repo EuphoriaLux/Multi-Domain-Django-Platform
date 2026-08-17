@@ -1,0 +1,39 @@
+{% comment %}
+"You will be waitlisted" warning for the registration screen.
+
+Rendered *inside* `#registration-form-container` on purpose. An invalid HTMX
+submit swaps that container, and the server recomputes the outlook for the
+replacement submit label -- so a banner living outside the swap would keep
+whatever capacity was true when the page first loaded. A cancellation between
+load and submit then left "Your gender group is full" sitting above a "Confirm
+Registration" button, and a pool filling up left "Join Waitlist" with nothing
+explaining it. Inside the swapped region the two cannot disagree, because one
+render produces both.
+
+Reads from the surrounding context (plain `{% include %}`, no `with`):
+  registration_will_waitlist   whether to show at all
+  registration_waitlist_reason "total" / "pool" / None -- picks the heading, so
+                               a member whose gender pool is full is not told
+                               the event is full when it plainly is not (#866).
+{% endcomment %}
+{% load i18n %}
+{% if registration_will_waitlist %}
+    <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-4 mb-6 flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+            {% if registration_waitlist_reason == "pool" %}
+                {% comment %}
+                The event still has seats; this member's gender pool does not.
+                Saying "Event is Full" here would be the same misinformation
+                #866 was filed about, one screen later.
+                {% endcomment %}
+                <p class="font-semibold">{% trans "Your gender group is full" %}</p>
+            {% else %}
+                <p class="font-semibold">{% trans "Event is Full" %}</p>
+            {% endif %}
+            <p class="text-sm">{% trans "You will be added to the waitlist. We'll notify you if a spot opens up." %}</p>
+        </div>
+    </div>
+{% endif %}

@@ -515,6 +515,129 @@ class MeetupEvent(models.Model):
             return False
         return self.get_confirmed_count_for_gender(gender_code) >= limit
 
+    # Display labels for the three pools. Named here rather than in the
+    # template so the member-facing wording and the pool keys cannot drift
+    # apart, and so the admin's field verbose_names stay free to say
+    # "Max spots (Men)" without that phrasing leaking onto the event page.
+    GENDER_POOL_LABELS = {"m": _("Men"), "f": _("Women"), "nb": _("Other genders")}
+
+    def get_gender_pool_availability(self, capacity_remaining=None):
+        """Per-pool availability rows for display.
+
+        Returns ``[]`` when the caps are not active, so callers can branch on
+        truthiness alone and an uncapped event keeps its total-only display.
+
+        Each row carries two different notions of "full", because they answer
+        two different questions and conflating them is how a page ends up
+        promising a seat nobody can take:
+
+        ``pool_full``
+            ``confirmed >= limit`` -- purely this pool's own cap. The exact
+            predicate :meth:`is_gender_pool_full` re-checks under lock when
+            registration decides who gets waitlisted.
+        ``remaining`` / ``is_full``
+            What a viewer could *actually* claim. Pass ``capacity_remaining``
+            (from :meth:`spots_remaining_for`) and every pool is capped by it,
+            so a total cap or a reserved-premium block that has already spoken
+            for the seats cannot be advertised as pool availability. Left
+            uncapped, these collapse onto the pool's own cap.
+
+        One grouped query instead of three ``COUNT``s, because every caller
+        renders all three pools together -- the same reason the coach list
+        aggregates in a single pass (``views_coach._attach_event_gender_stats``).
+
+        Counting mirrors :meth:`get_confirmed_count_for_gender` exactly,
+        blind spots included: a seat held by someone with no ``CrushProfile``,
+        or with a gender outside ``POOL_TO_CODES``, belongs to no pool and is
+        counted in none of them. The two must agree -- this method decides what
+        the event page *shows*, and that one decides who actually gets
+        waitlisted, so a divergence would recreate the very mismatch this
+        exists to fix (#866).
+        """
+        if not self.gender_limits_active:
+            return []
+        return self._pool_rows(self._seat_counts_by_gender(), capacity_remaining)
+
+    def _seat_counts_by_gender(self):
+        """One grouped query: ``{gender_code_or_None: seats}``.
+
+        A seat held by someone with no ``CrushProfile`` groups under ``None``
+        rather than being dropped -- the join is an outer one -- so these values
+        sum to exactly :meth:`get_confirmed_count`. That is what lets
+        :meth:`registration_capacity` take the *total* from this same read
+        instead of counting again.
+        """
+        # order_by() strips any default ordering: a Meta.ordering field would
+        # otherwise join the GROUP BY and split each gender into several rows.
+        return dict(
+            self.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
+            .order_by()
+            .values_list("user__crushprofile__gender")
+            .annotate(seats=models.Count("id"))
+        )
+
+    def _pool_rows(self, counts, capacity_remaining=None):
+        """Build the display rows from an already-fetched count map."""
+        limits = {
+            "m": self.max_participants_m,
+            "f": self.max_participants_f,
+            "nb": self.max_participants_nb,
+        }
+        pools = []
+        for key in ("m", "f", "nb"):
+            limit = limits[key]
+            confirmed = sum(counts.get(code, 0) for code in self.POOL_TO_CODES[key])
+            remaining = max(0, limit - confirmed)
+            if capacity_remaining is not None:
+                remaining = min(remaining, max(0, capacity_remaining))
+            pools.append(
+                {
+                    "key": key,
+                    "label": self.GENDER_POOL_LABELS[key],
+                    "limit": limit,
+                    "confirmed": confirmed,
+                    "pool_full": confirmed >= limit,
+                    "remaining": remaining,
+                    "is_full": remaining == 0,
+                }
+            )
+        return pools
+
+    def registration_capacity(self, is_premium=False):
+        """``(total_full, capacity_remaining, pools)`` -- the whole picture, one read.
+
+        Asking for the total and the per-pool counts separately means two
+        queries against two database states, and a registration landing between
+        them makes a single page contradict itself: ``capacity_remaining`` from
+        one moment marking every chip "full", beside a CTA still offering a seat
+        because fullness was counted a moment earlier. That is the shape of #866
+        rather than a fix for it, so both come from one read here.
+
+        For a gender-capped event that read is :meth:`_seat_counts_by_gender`,
+        whose rows already cover *every* seat-holding registration; an event
+        without caps has no pools to fetch and falls back to a plain count.
+
+        Either way the count is memoised under ``confirmed_count_annotated`` --
+        the name :meth:`get_confirmed_count` already honours -- so every later
+        capacity read on this instance is free *and* returns this same number.
+        Without it the premium reserved-seat banner re-counts and can disagree
+        with the CTA rendered beside it. Both branches must do this:
+        ``reserved_premium_seats`` is independent of ``gender_limits_active``,
+        so an uncapped event with reserved seats hits that race too. Request
+        scoped by construction, since views load their own event instance.
+        """
+        if not self.gender_limits_active:
+            self.confirmed_count_annotated = self.get_confirmed_count()
+            total_full, remaining = self.capacity_snapshot(is_premium=is_premium)
+            return total_full, remaining, []
+
+        counts = self._seat_counts_by_gender()
+        self.confirmed_count_annotated = sum(counts.values())
+
+        cap = self.max_participants if is_premium else self.public_capacity
+        remaining = max(0, cap - self.confirmed_count_annotated)
+        return remaining == 0, remaining, self._pool_rows(counts, remaining)
+
     def clean(self):
         """Validate event data before saving"""
         from django.core.exceptions import ValidationError
@@ -641,18 +764,36 @@ class MeetupEvent(models.Model):
         """Seats available to general (non-premium) members."""
         return max(0, self.max_participants - self.reserved_premium_seats)
 
+    def capacity_snapshot(self, is_premium=False):
+        """``(is_full, spots_remaining)`` from a *single* count.
+
+        :meth:`is_full_for` and :meth:`spots_remaining_for` each issue their own
+        ``COUNT``, so a caller needing both reads the database twice -- and one
+        registration landing between those two reads lets a single response
+        contradict itself: every pool chip full because ``capacity_remaining``
+        came back zero, beside a CTA still promising a seat because fullness was
+        counted a moment earlier. Anything that needs both must take them here.
+
+        Premium (coach-assigned) members measure fullness against the total
+        ``max_participants``; everyone else against ``public_capacity``.
+        """
+        cap = self.max_participants if is_premium else self.public_capacity
+        remaining = max(0, cap - self.get_confirmed_count())
+        # `remaining == 0` and the older `count >= cap` are the same predicate --
+        # max() only clamps the already-full side -- so the two helpers below
+        # keep their exact behaviour while the capacity rule lives in one place.
+        return remaining == 0, remaining
+
     def is_full_for(self, is_premium=False):
         """Capacity check that respects reserved premium seats.
 
         Premium (coach-assigned) members measure fullness against the total
         ``max_participants``; everyone else against ``public_capacity``.
         """
-        cap = self.max_participants if is_premium else self.public_capacity
-        return self.get_confirmed_count() >= cap
+        return self.capacity_snapshot(is_premium=is_premium)[0]
 
     def spots_remaining_for(self, is_premium=False):
-        cap = self.max_participants if is_premium else self.public_capacity
-        return max(0, cap - self.get_confirmed_count())
+        return self.capacity_snapshot(is_premium=is_premium)[1]
 
     @property
     def reserved_spots_remaining(self):
