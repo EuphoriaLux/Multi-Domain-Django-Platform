@@ -291,17 +291,6 @@ def guest_scan(request, qr_token):
 
 
 def guest_join(request):
-    # A revisit (direct URL, browser back, or a double-submit) must not mint
-    # a second Guest — that would replace the cookie, clear the in-progress
-    # cart, and orphan the first identity's order-status pages. Checked
-    # straight from the guest cookie, independent of whatever this session's
-    # own scan handoff (below) currently holds, so an already-active guest
-    # can always get back to their menu even after that handoff has expired
-    # or been consumed. Same pattern guest_scan() uses for the same case.
-    existing_guest = _get_guest(request)
-    if existing_guest:
-        return redirect("atmos:guest_menu")
-
     # TAB_SESSION_KEY is a one-time handoff from guest_scan(), consumed
     # below the moment it successfully produces a guest. Without that, a
     # guest staff later settles/removes could revisit this page and mint a
@@ -309,13 +298,28 @@ def guest_join(request):
     # rescanning — silently bypassing a QR token staff rotated specifically
     # to cut off exactly that browser.
     tab_id = request.session.get(TAB_SESSION_KEY)
-    if not tab_id:
-        return render(request, "atmos/no_session.html")
-    tab = (
-        Tab.objects.select_related("venue", "table")
-        .filter(pk=tab_id, status="open")
-        .first()
-    )
+    tab = None
+    if tab_id:
+        tab = (
+            Tab.objects.select_related("venue", "table")
+            .filter(pk=tab_id, status="open")
+            .first()
+        )
+
+    # A revisit (direct URL, browser back, or a double-submit) must not mint
+    # a second Guest for the SAME tab — that would replace the cookie, clear
+    # the in-progress cart, and orphan the first identity's order-status
+    # pages. Scoped to `tab` (or its absence), not any active guest cookie —
+    # scanning a DIFFERENT table's QR while already active at another table
+    # is a supported flow (see the cart-reset comment below) and must fall
+    # through to mint a new guest there, not bounce back to the old table's
+    # menu. When the handoff has already expired/been consumed (`tab` is
+    # None) an existing active guest still has nowhere else to go but their
+    # own menu. Same pattern guest_scan() uses for the same-tab case.
+    existing_guest = _get_guest(request)
+    if existing_guest and (tab is None or existing_guest.tab_id == tab.id):
+        return redirect("atmos:guest_menu")
+
     if not tab:
         return render(request, "atmos/no_session.html")
 
@@ -372,16 +376,17 @@ def guest_join(request):
                     with transaction.atomic():
                         # The scan handoff can go stale between guest_scan()
                         # setting it and this POST landing — staff can close
-                        # the tab in between. Lock and re-check status="open"
-                        # in the SAME transaction as the create: a losing
-                        # race here would otherwise create an active guest
-                        # on a tab that's already closed — its cookie stops
-                        # resolving immediately (_get_guest requires
-                        # tab__status="open") while its alias stays reserved
-                        # indefinitely.
+                        # the tab, or deactivate its table, in between. Lock
+                        # and re-check both in the SAME transaction as the
+                        # create: a losing race here would otherwise create
+                        # an active guest that _get_guest() can never
+                        # resolve again (it requires tab__status="open" AND
+                        # tab__table__is_active=True), leaving the guest
+                        # stuck on an unusable cookie while its alias stays
+                        # reserved indefinitely.
                         locked_tab = (
                             Tab.objects.select_for_update()
-                            .filter(pk=tab.pk, status="open")
+                            .filter(pk=tab.pk, status="open", table__is_active=True)
                             .first()
                         )
                         if locked_tab is None:

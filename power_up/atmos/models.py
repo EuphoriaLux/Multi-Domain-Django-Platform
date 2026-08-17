@@ -202,19 +202,29 @@ class Tab(models.Model):
         # Always derive it, so the two can't diverge regardless of what's
         # submitted.
         self.venue_id = self.table.venue_id
-        was_open = (
-            self.pk is not None
-            and Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first()
-            == "open"
+        current = (
+            Tab.objects.filter(pk=self.pk).values_list("status", "closed_at").first()
+            if self.pk is not None
+            else None
         )
+        was_open = current is not None and current[0] == "open"
         just_closed = was_open and self.status == "closed"
-        if just_closed and self.closed_at is None:
-            # No other writer touches this field (checked repo-wide) — every
-            # normal open->closed transition used to leave it NULL forever,
-            # making visit-duration/closure-time records inaccurate. Stamp it
-            # in the same save() as the transition rather than a follow-up
-            # query.
-            self.closed_at = timezone.now()
+        if self.status == "closed" and self.closed_at is None:
+            if just_closed:
+                # No other writer touches this field (checked repo-wide) —
+                # every normal open->closed transition used to leave it NULL
+                # forever, making visit-duration/closure-time records
+                # inaccurate. Stamp it in the same save() as the transition
+                # rather than a follow-up query.
+                self.closed_at = timezone.now()
+            elif current is not None and current[1] is not None:
+                # This instance was loaded before a CONCURRENT save already
+                # closed the same tab and stamped closed_at — its own
+                # closed_at is still None from that earlier read. Without
+                # this, the plain super().save() below would overwrite the
+                # real timestamp with NULL. Adopt what's already committed
+                # instead of clobbering it.
+                self.closed_at = current[1]
             update_fields = kwargs.get("update_fields")
             if update_fields is not None:
                 kwargs["update_fields"] = [*update_fields, "closed_at"]

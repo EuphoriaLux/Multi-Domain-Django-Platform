@@ -30,6 +30,11 @@ from power_up.atmos.models import (
 # nothing outside this app. Used to scope permissions below.
 _ATMOS_MODELS = [Venue, Table, MenuCategory, MenuItem, Tab, Guest, Order, OrderItem]
 
+# Set on the account this command creates, and checked against any existing
+# "atmos_staff" account before granting it anything — see the ownership
+# check below.
+_SEEDED_EMAIL = "atmos-staff@example.com"
+
 ## (name, price, description, contains_alcohol)
 MENU = {
     "Cocktails": [
@@ -98,6 +103,15 @@ class Command(BaseCommand):
         # skip creating atmos_staff altogether. Check for this specific
         # account instead.
         staff_user = User.objects.filter(username="atmos_staff").first()
+        # A *different* username collision is unlikely on its own, but the
+        # branches below grant real permissions (or demote a superuser) to
+        # whatever account already sits at this username — on a shared
+        # multi-domain platform, "atmos_staff" isn't a namespace this
+        # command owns exclusively. Only touch permissions/superuser status
+        # when the existing account's email also matches what THIS command
+        # sets at creation time; otherwise it's not the seeded identity and
+        # this command has no business granting it anything.
+        looks_seeded = staff_user is not None and staff_user.email == _SEEDED_EMAIL
         if staff_user is None:
             # A fixed password here would be a fixed, public credential —
             # this repo, and this command's own output, are both visible to
@@ -117,7 +131,7 @@ class Command(BaseCommand):
             # enough for admin CRUD on power_up_admin_site.
             staff_user = User.objects.create_user(
                 username="atmos_staff",
-                email="atmos-staff@example.com",
+                email=_SEEDED_EMAIL,
                 password=password,
                 is_staff=True,
             )
@@ -125,6 +139,23 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(
                     f"Created staff login: atmos_staff / {password}  (save this — shown once)"
+                )
+            )
+        elif not looks_seeded:
+            # A same-username collision with an account this command didn't
+            # create (its email doesn't match). On a shared multi-domain
+            # platform "atmos_staff" isn't a namespace this command owns
+            # exclusively — silently granting Atmos permissions to (or,
+            # worse, demoting the superuser status of) an arbitrary
+            # unrelated account just because it happens to have this
+            # username would be a real takeover, not a seed. Leave it
+            # completely untouched and surface the collision instead.
+            self.stdout.write(
+                self.style.ERROR(
+                    "A user named 'atmos_staff' already exists with a different "
+                    f"email ({staff_user.email!r}, expected {_SEEDED_EMAIL!r}) — "
+                    "leaving it untouched. This is not the account this command "
+                    "seeds; resolve the collision manually."
                 )
             )
         elif staff_user.is_superuser:
