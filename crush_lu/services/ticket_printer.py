@@ -78,9 +78,12 @@ def _build_header_directives(
     out.append(Rule("-"))
 
     candidate_display = f"{attendee_name} {candidate_num}".strip()
+    # Double-width characters take 2 columns each on thermal printers, so
+    # a 48-col roll fits at most 24 double-width characters per line.
+    dw_cols = max(16, cols // 2)
     out.append(
         Text(
-            justify(candidate_display.upper(), table_label.upper(), cols),
+            justify(candidate_display.upper()[: dw_cols - len(table_label) - 1], table_label.upper(), dw_cols),
             bold=True,
             double_width=True,
         )
@@ -169,17 +172,19 @@ def _build_qr_footer_directives(
 
 def build_checkin_ticket_directives(
     registration: EventRegistration | None = None,
-    event: Event | None = None,
+    event: MeetupEvent | None = None,
     table_number: int | None = None,
     seat_label: str = "",
     qr_url: str = "",
     paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
 ) -> list[Directive]:
     """Builds the full sequence of directives for a check-in ticket."""
     cols = paper.columns
 
     event_title = "Speed Dating Event"
-    date_str = timezone.now().strftime("%a %d %b %H:%M")
+    now_local = timezone.localtime(timezone.now()) if timezone.is_aware(timezone.now()) else timezone.now()
+    date_str = now_local.strftime("%a %d %b %H:%M")
     attendee_name = "Guest"
     candidate_num = ""
 
@@ -187,19 +192,26 @@ def build_checkin_ticket_directives(
         reg_user = getattr(registration, "user", None)
         if reg_user:
             profile = getattr(reg_user, "crushprofile", None)
-            if profile and profile.display_name:
+            if profile and getattr(profile, "display_name", None):
                 attendee_name = profile.display_name
             elif reg_user.first_name:
                 attendee_name = reg_user.first_name
+            elif coach_authenticated and getattr(reg_user, "username", None):
+                attendee_name = reg_user.username.split("@")[0]
             else:
-                attendee_name = reg_user.username
+                attendee_name = "Attendee"
         candidate_num = f"(#{registration.id})"
 
     if event:
         event_title = getattr(event, "title", event_title)
         event_dt = getattr(event, "date_time", None)
         if event_dt:
-            date_str = event_dt.strftime("%a %d %b %H:%M")
+            local_dt = (
+                timezone.localtime(event_dt)
+                if timezone.is_aware(event_dt)
+                else event_dt
+            )
+            date_str = local_dt.strftime("%a %d %b %H:%M")
 
     table_display = "WELCOME"
     if table_number:
@@ -208,8 +220,16 @@ def build_checkin_ticket_directives(
             table_display += f" ({seat_label})"
 
     if not qr_url:
-        base_domain = getattr(settings, "CRUSH_LU_CANONICAL_DOMAIN", "https://crush.lu")
-        qr_url = f"{base_domain}/m/event-lobby/"
+        base_domain = getattr(
+            settings, "CRUSH_LU_CANONICAL_DOMAIN", "https://crush.lu"
+        ).rstrip("/")
+        event_id = getattr(event, "id", None) or (
+            getattr(registration, "event_id", None) if registration else None
+        )
+        if event_id:
+            qr_url = f"{base_domain}/events/{event_id}/lobby/"
+        else:
+            qr_url = f"{base_domain}/my-crush/"
 
     directives: list[Directive] = []
     directives.extend(
@@ -232,11 +252,12 @@ def build_checkin_ticket_directives(
 
 def build_checkin_ticket_bytes(
     registration: EventRegistration | None = None,
-    event: Event | None = None,
+    event: MeetupEvent | None = None,
     table_number: int | None = None,
     seat_label: str = "",
     qr_url: str = "",
     paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
 ) -> bytes:
     """Builds the raw ESC/POS byte sequence for a ticket."""
     directives = build_checkin_ticket_directives(
@@ -246,39 +267,43 @@ def build_checkin_ticket_bytes(
         seat_label=seat_label,
         qr_url=qr_url,
         paper=paper,
+        coach_authenticated=coach_authenticated,
     )
     return encode_ticket(directives, paper=paper)
 
 
 def build_checkin_ticket_base64(
     registration: EventRegistration | None = None,
-    event: Event | None = None,
+    event: MeetupEvent | None = None,
     table_number: int | None = None,
     seat_label: str = "",
     qr_url: str = "",
     paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
 ) -> str:
-    """Builds base64-encoded ESC/POS bytes suitable for JSON API transmission."""
-    payload_bytes = build_checkin_ticket_bytes(
+    """Builds the base64-encoded ESC/POS byte payload for RawBT transmission."""
+    raw_bytes = build_checkin_ticket_bytes(
         registration=registration,
         event=event,
         table_number=table_number,
         seat_label=seat_label,
         qr_url=qr_url,
         paper=paper,
+        coach_authenticated=coach_authenticated,
     )
-    return base64.b64encode(payload_bytes).decode("ascii")
+    return base64.b64encode(raw_bytes).decode("ascii")
 
 
 def preview_checkin_ticket_text(
     registration: EventRegistration | None = None,
-    event: Event | None = None,
+    event: MeetupEvent | None = None,
     table_number: int | None = None,
     seat_label: str = "",
     qr_url: str = "",
     paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
 ) -> str:
-    """Renders plain text monospace preview of the check-in ticket."""
+    """Generates a plain-text monospace preview of the ticket."""
     directives = build_checkin_ticket_directives(
         registration=registration,
         event=event,
@@ -286,5 +311,6 @@ def preview_checkin_ticket_text(
         seat_label=seat_label,
         qr_url=qr_url,
         paper=paper,
+        coach_authenticated=coach_authenticated,
     )
     return render_plain_text(directives, paper=paper)

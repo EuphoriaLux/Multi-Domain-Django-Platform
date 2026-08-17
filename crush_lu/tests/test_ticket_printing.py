@@ -100,6 +100,67 @@ class TestTicketPrinter(TestCase):
         decoded = base64.b64decode(b64)
         self.assertTrue(decoded.startswith(INIT + CODEPAGE_CP858))
 
+    def test_event_lobby_qr_url(self):
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=3,
+        )
+        expected_url = f"https://crush.lu/events/{self.event.id}/lobby/"
+        self.assertIn(expected_url, plain_text)
+
+    def test_privacy_aware_attendee_fallback(self):
+        anon_user = User.objects.create_user(
+            username="secret_email@test.lu",
+            email="secret_email@test.lu",
+            first_name="",
+        )
+        anon_reg = EventRegistration.objects.create(
+            user=anon_user,
+            event=self.event,
+            status="confirmed",
+        )
+        # Unauthenticated / scanner scan must NOT leak the email address
+        plain_anon = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=False,
+        )
+        self.assertNotIn("secret_email@test.lu", plain_anon)
+        self.assertIn("ATTENDEE", plain_anon)
+
+        # Coach authenticated call uses username prefix
+        plain_coach = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+        )
+        self.assertIn("SECRET_EMAIL", plain_coach)
+
+    def test_timezone_conversion_for_event_date(self):
+        import zoneinfo
+        from datetime import datetime
+        lux_tz = zoneinfo.ZoneInfo("Europe/Luxembourg")
+        # Fixed datetime in winter (UTC+1)
+        fixed_dt = datetime(2026, 12, 1, 18, 30, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        event = MeetupEvent.objects.create(
+            title="Winter Speed Dating",
+            date_time=fixed_dt,
+            registration_deadline=fixed_dt - timedelta(hours=2),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=event,
+            table_number=1,
+        )
+        # In Luxembourg winter time, 18:30 UTC is 19:30 CET
+        self.assertIn("19:30", plain_text)
+
 
 class TestCheckinPrintingAPI(TestCase):
     """Integration test for check-in endpoints returning print payloads."""

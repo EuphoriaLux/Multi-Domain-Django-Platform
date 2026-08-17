@@ -564,7 +564,10 @@ def event_checkin_api(request, registration_id, token):
                 "auto_verified": already_verified_profile is not None,
                 "row": _row_state(registration, table_assignment=table_info),
                 "print_payload_base64": _get_ticket_print_payload(
-                    registration, table_info=table_info
+                    registration,
+                    table_info=table_info,
+                    coach_authenticated=request.user.is_authenticated
+                    and hasattr(request.user, "coach_profile"),
                 ),
             }
             if table_info:
@@ -673,7 +676,10 @@ def event_checkin_api(request, registration_id, token):
             registration, table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET
         ),
         "print_payload_base64": _get_ticket_print_payload(
-            registration, table_info=table_assignment
+            registration,
+            table_info=table_assignment,
+            coach_authenticated=request.user.is_authenticated
+            and hasattr(request.user, "coach_profile"),
         ),
     }
     if table_assignment:
@@ -1589,7 +1595,9 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
             coach_authenticated=True,
         ),
         "print_payload_base64": _get_ticket_print_payload(
-            registration, table_info=table_assignment
+            registration,
+            table_info=table_assignment,
+            coach_authenticated=True,
         ),
     }
     if table_assignment:
@@ -2037,7 +2045,9 @@ def _get_existing_table_assignment(registration):
         return None
 
 
-def _get_ticket_print_payload(registration, table_info=None):
+def _get_ticket_print_payload(
+    registration, table_info=None, coach_authenticated=False
+):
     """Safely build 80mm base64 ESC/POS ticket payload without failing check-in."""
     try:
         from .services.ticket_printer import build_checkin_ticket_base64
@@ -2053,6 +2063,7 @@ def _get_ticket_print_payload(registration, table_info=None):
             event=getattr(registration, "event", None),
             table_number=table_number,
             seat_label=seat_label,
+            coach_authenticated=coach_authenticated,
         )
     except Exception:
         logger.exception(
@@ -2072,7 +2083,9 @@ def event_reprint_ticket_api(request, event_id, registration_id):
         event_id=event_id,
     )
     table_info = _get_existing_table_assignment(registration)
-    print_payload = _get_ticket_print_payload(registration, table_info=table_info)
+    print_payload = _get_ticket_print_payload(
+        registration, table_info=table_info, coach_authenticated=True
+    )
 
     return JsonResponse(
         {

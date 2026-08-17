@@ -1425,6 +1425,7 @@ document.addEventListener("alpine:init", function () {
 
             _buildReprintButton: function (regId) {
                 var self = this;
+                var i18n = window._checkinI18n || {};
                 var btn = document.createElement("button");
                 btn.type = "button";
                 btn.className =
@@ -1434,8 +1435,10 @@ document.addEventListener("alpine:init", function () {
                     "/api/events/" + this.eventId + "/print-ticket/" + regId + "/",
                 );
                 btn.setAttribute("data-reg-id", regId);
+                var label = i18n.printAction || "Print";
                 btn.innerHTML =
-                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>Print';
+                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+                    self._esc(label);
                 btn.addEventListener("click", function (clickEvent) {
                     self.reprintTicket(clickEvent);
                 });
