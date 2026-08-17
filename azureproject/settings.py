@@ -1491,11 +1491,12 @@ SECURE_CSP_REPORT_ONLY = {
         # SumUp — the widget calls the gateway directly from the browser
         "https://gateway.sumup.com",
         "https://api.sumup.com",
-        # WebSocket for HTMX and Local Hardware Print Services (RawBT / Server for RawBT)
-        "wss:",
+        # Local "Server for RawBT" print bridge (crush_lu/services/ticket_printer.py,
+        # triggerRawBtPrint in alpine-components.js) — the coach's own device only,
+        # deliberately scoped to loopback print ports.
+        "ws://127.0.0.1:40213",
         "ws://127.0.0.1:*",
         "ws://localhost:*",
-        "ws:",
     ],
     # OAuth popups and Firebase reCAPTCHA
     "frame-src": [

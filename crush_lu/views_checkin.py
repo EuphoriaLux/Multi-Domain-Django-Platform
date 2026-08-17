@@ -483,7 +483,9 @@ def event_checkin_api(request, registration_id, token):
             "auto_verified": rescan_verified is not None,
             "row": _row_state(registration, table_assignment=table_info),
             "print_payload_base64": _get_ticket_print_payload(
-                registration, table_info=table_info
+                registration,
+                table_info=table_info,
+                coach_authenticated=_scanning_coach(request) is not None,
             ),
         }
         if table_info:
@@ -2083,14 +2085,16 @@ def event_reprint_ticket_api(request, event_id, registration_id):
         event_id=event_id,
     )
     table_info = _get_existing_table_assignment(registration)
-    lang = request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "")
+    # Only override the attendee's own stored language when the coach
+    # explicitly asks for one (?lang=).
+    lang = request.GET.get("lang", "")
     print_payload = _get_ticket_print_payload(
         registration, table_info=table_info, coach_authenticated=True, language=lang
     )
 
     return JsonResponse(
         {
-            "success": True,
+            "success": bool(print_payload),
             "registration_id": registration.id,
             "attendee_name": _get_display_name(registration, coach_authenticated=True),
             "print_payload_base64": print_payload,
@@ -2124,6 +2128,7 @@ def event_test_ticket_api(request, event_id):
 
 
 @require_GET
+@coach_required
 def event_test_ticket_bin_api(request, event_id):
     """Return raw ESC/POS binary bytes for direct download/printing."""
     from django.http import HttpResponse
@@ -2144,6 +2149,7 @@ def event_test_ticket_bin_api(request, event_id):
     return resp
 
 
+@coach_required
 def debug_print_test_page(request):
     """Standalone diagnostic page for testing RawBT and ESC/POS thermal printing."""
     from django.shortcuts import render

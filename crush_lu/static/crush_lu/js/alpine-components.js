@@ -515,6 +515,21 @@ document.addEventListener("alpine:init", function () {
                     ? i18n.printerOn || "Printer: ON"
                     : i18n.printerOff || "Printer: OFF";
             },
+            // Alpine runs under the CSP build here (no inline ternaries in
+            // directives) — these mirror printerButtonText so :class/:title
+            // can bind to a bare getter like every other conditional style
+            // in this file, instead of an inline ternary expression.
+            get printerButtonClass() {
+                return this.printerEnabled
+                    ? "bg-purple-50 text-crush-purple border-crush-purple/30 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-600"
+                    : "bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700";
+            },
+            get printerButtonTitle() {
+                var i18n = window._checkinI18n || {};
+                return this.printerEnabled
+                    ? i18n.printerActiveTitle || "Thermal printer active (RawBT)"
+                    : i18n.printerDisabledTitle || "Thermal printer disabled";
+            },
 
             // --- HTML helpers (XSS protection) ---
             _esc: function (str) {
@@ -1482,20 +1497,26 @@ document.addEventListener("alpine:init", function () {
                 var trimmed = base64Payload.trim();
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
 
-                var encoded = encodeURIComponent(trimmed);
-                var sendFallback = function () {
-                    try {
-                        var iframe = document.getElementById("rawbt-print-frame");
-                        if (!iframe) {
-                            iframe = document.createElement("iframe");
-                            iframe.id = "rawbt-print-frame";
-                            iframe.style.display = "none";
-                            document.body.appendChild(iframe);
-                        }
-                        iframe.src = "rawbt:base64," + encoded;
-                    } catch (e) {
-                        window.location.href = "rawbt:base64," + encoded;
-                    }
+                // Single source of truth for the Android intent fallback —
+                // previously rebuilt independently at every call site, which
+                // is exactly the class of string PR #872 already had to
+                // hand-fix once (wrong URI scheme format).
+                var fireIntentFallback = function () {
+                    // Re-validated here, right at the navigation, not just
+                    // once at function entry: this fires from async
+                    // WebSocket callbacks (onerror, a timeout, a caught
+                    // exception), so the check must hold at the sink, not
+                    // rely on control flow from an earlier point in the
+                    // call. The base64 charset excludes ":" and "#", so
+                    // `trimmed` can never alter the fixed "intent:" scheme
+                    // or inject a second "#Intent;...;end;" extras block —
+                    // window.location.href always begins with the literal
+                    // "intent:base64," prefix below, never attacker-chosen.
+                    if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+                    window.location.href =
+                        "intent:base64," +
+                        trimmed +
+                        "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
                 };
 
                 // 1. Primary: Direct binary stream via local RawBT WebSocket (ws://127.0.0.1:40213)
@@ -1514,14 +1535,25 @@ document.addEventListener("alpine:init", function () {
                         if (!wsHandled && ws.readyState !== 1) {
                             wsHandled = true;
                             try { ws.close(); } catch (e) {}
-                            sendFallback();
+                            fireIntentFallback();
                         }
-                    }, 500);
+                    }, 400);
 
                     ws.onopen = function () {
                         wsHandled = true;
                         clearTimeout(fallbackTimer);
-                        ws.send(bytes.buffer);
+                        // send() can still throw (e.g. the socket closes in
+                        // the instant between onopen firing and send() being
+                        // called) — this runs asynchronously, outside the
+                        // protection of the outer try/catch below, so it
+                        // needs its own guard or the print job is silently
+                        // lost with wsHandled already true and no fallback.
+                        try {
+                            ws.send(bytes.buffer);
+                        } catch (e) {
+                            fireIntentFallback();
+                            return;
+                        }
                         setTimeout(function () {
                             try { ws.close(); } catch (e) {}
                         }, 500);
@@ -1531,11 +1563,11 @@ document.addEventListener("alpine:init", function () {
                         if (!wsHandled) {
                             wsHandled = true;
                             clearTimeout(fallbackTimer);
-                            sendFallback();
+                            fireIntentFallback();
                         }
                     };
                 } catch (e) {
-                    sendFallback();
+                    fireIntentFallback();
                 }
             },
 

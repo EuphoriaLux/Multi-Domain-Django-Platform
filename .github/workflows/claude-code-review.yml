@@ -3,20 +3,35 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
+  # Lets anyone with write access re-run a review on demand by commenting
+  # "@claude review" on the PR — no need to push a new commit.
+  issue_comment:
+    types: [created]
 
-# A new push to the PR cancels the still-running review of the previous push
+# A new push to the PR (or a fresh comment trigger) cancels the still-running
+# review of the previous one.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
   claude-review:
-    # Skip drafts, forked PRs, and Dependabot PRs — the latter two don't get
-    # Actions secrets on pull_request, so the OAuth token would be empty
+    # Two ways in:
+    #  1. pull_request event — skip drafts, forked PRs, and Dependabot PRs
+    #     (the latter two don't get Actions secrets on pull_request, so the
+    #     OAuth token would be empty).
+    #  2. issue_comment event — only on PR comments (not plain issues)
+    #     containing the trigger phrase, from someone with at least
+    #     collaborator access (comments are otherwise untrusted input).
     if: >-
-      ${{ !github.event.pull_request.draft &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          github.actor != 'dependabot[bot]' }}
+      (github.event_name == 'pull_request' &&
+        !github.event.pull_request.draft &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.actor != 'dependabot[bot]') ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '@claude review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,10 +41,17 @@ jobs:
       id-token: write
 
     steps:
+      - name: Resolve PR number
+        id: pr
+        run: echo "number=${{ github.event.pull_request.number || github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          # pull_request already checks out the right ref by default; a
+          # comment trigger needs to be pointed at the PR head explicitly.
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', steps.pr.outputs.number) || '' }}
 
       - name: Run Claude Code Review
         id: claude-review
@@ -41,7 +63,7 @@ jobs:
           display_report: true
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }} --comment'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ steps.pr.outputs.number }} --comment'
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
