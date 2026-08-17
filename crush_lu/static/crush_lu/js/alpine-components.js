@@ -1490,9 +1490,17 @@ document.addEventListener("alpine:init", function () {
                         iframe.style.display = "none";
                         document.body.appendChild(iframe);
                     }
-                    iframe.src = "rawbt:data:base64," + trimmed;
+                    // RawBT's raw-bytes channel is "rawbt:base64,<data>" — no
+                    // "data:" infix and no MIME type. That "data:mime;base64,"
+                    // form is a *different* RawBT feature for typed content
+                    // (rawbt:data:image/jpeg;base64,... / text/plain / pdf);
+                    // used here it left RawBT with no MIME segment to parse,
+                    // so the app opened but had nothing to print.
+                    // Ref: https://rawbt.ru/intents.html and the official
+                    // DemoRawBtPrinter sample (ru.a402d.demorawbt).
+                    iframe.src = "rawbt:base64," + trimmed;
                 } catch (e) {
-                    window.location.href = "rawbt:data:base64," + trimmed;
+                    window.location.href = "rawbt:base64," + trimmed;
                 }
             },
 
