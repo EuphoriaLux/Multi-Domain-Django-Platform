@@ -7,7 +7,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.core import signing
 from django.core.cache import cache
 from django.db import IntegrityError
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 
 from power_up.atmos.models import Guest, MenuCategory, MenuItem, Tab, Table, Venue
 from power_up.atmos.views import (
@@ -35,13 +35,6 @@ def request_with_session(method="get", data=None):
     # reads request.user — normally set by AuthenticationMiddleware, which
     # this bare RequestFactory request never goes through.
     request.user = AnonymousUser()
-    # join.html's {% url 'atmos:...' %} tags need request.urlconf pointing at
-    # the atmos-hosting urlconf — normally set per-request by
-    # DomainURLRoutingMiddleware based on the Host header, which this bare
-    # RequestFactory request also never goes through. Without it, reverse()
-    # falls back to ROOT_URLCONF, which doesn't register the 'atmos'
-    # namespace at all in this domain-routed, multi-app platform.
-    request.urlconf = "azureproject.urls_power_up"
     return request
 
 
@@ -246,6 +239,13 @@ def test_order_snapshots_venue_currency(ordering_setup):
 
 
 @pytest.mark.django_db
+# join.html's {% url 'atmos:guest_join' %} needs the 'atmos' namespace to
+# resolve. Real requests get that from DomainURLRoutingMiddleware, which
+# swaps in azureproject.urls_power_up based on the Host header — a
+# request.urlconf attribute set here wouldn't do it, since that's only read
+# by BaseHandler's own request-response cycle, not by calling guest_join()
+# directly. Overriding ROOT_URLCONF is what reverse() actually falls back to.
+@override_settings(ROOT_URLCONF="azureproject.urls_power_up")
 def test_guest_join_rate_limited(ordering_setup):
     """Per-(IP, tab) join-page throttle — spec requires it, and nothing else
     in this app limits an unauthenticated visitor hammering the reroll."""
@@ -267,6 +267,7 @@ def test_guest_join_rate_limited(ordering_setup):
 
 
 @pytest.mark.django_db
+@override_settings(ROOT_URLCONF="azureproject.urls_power_up")
 def test_guest_join_preserves_cart_when_creation_fails(ordering_setup):
     """The cart reset used to happen before the guest-creation retry loop —
     a failed table switch (closed tab, exhausted alias retries) would
