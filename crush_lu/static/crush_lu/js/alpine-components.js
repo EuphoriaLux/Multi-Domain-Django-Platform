@@ -1502,6 +1502,17 @@ document.addEventListener("alpine:init", function () {
                 // is exactly the class of string PR #872 already had to
                 // hand-fix once (wrong URI scheme format).
                 var fireIntentFallback = function () {
+                    // Re-validated here, right at the navigation, not just
+                    // once at function entry: this fires from async
+                    // WebSocket callbacks (onerror, a timeout, a caught
+                    // exception), so the check must hold at the sink, not
+                    // rely on control flow from an earlier point in the
+                    // call. The base64 charset excludes ":" and "#", so
+                    // `trimmed` can never alter the fixed "intent:" scheme
+                    // or inject a second "#Intent;...;end;" extras block —
+                    // window.location.href always begins with the literal
+                    // "intent:base64," prefix below, never attacker-chosen.
+                    if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
                     window.location.href =
                         "intent:base64," +
                         trimmed +
