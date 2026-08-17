@@ -84,3 +84,81 @@ class NullTransport:
 
     def __repr__(self) -> str:
         return f"NullTransport({len(self.sent)} jobs)"
+
+
+class WindowsRawTransport:
+    """Sends raw ESC/POS byte streams to a local Windows printer queue.
+
+    Uses `winspool.drv` directly via `ctypes` without external dependencies.
+    Suitable for USB thermal receipt printers (e.g. POS-80C / M817) installed
+    in Windows.
+    """
+
+    def __init__(
+        self, printer_name: str = "POS-80C", doc_name: str = "Atmos Ticket"
+    ) -> None:
+        self.printer_name = printer_name
+        self.doc_name = doc_name
+
+    def send(self, payload: bytes) -> None:
+        import sys
+
+        if sys.platform != "win32":
+            raise TransportError(
+                f"WindowsRawTransport requires Windows, current platform is {sys.platform}"
+            )
+
+        import ctypes
+        from ctypes import wintypes
+
+        class DOC_INFO_1(ctypes.Structure):
+            _fields_ = [
+                ("pDocName", wintypes.LPCWSTR),
+                ("pOutputFile", wintypes.LPCWSTR),
+                ("pDataType", wintypes.LPCWSTR),
+            ]
+
+        winspool = ctypes.WinDLL("winspool.drv", use_last_error=True)
+        handle = wintypes.HANDLE()
+
+        if not winspool.OpenPrinterW(self.printer_name, ctypes.byref(handle), None):
+            err = ctypes.get_last_error()
+            raise TransportError(
+                f"cannot open Windows printer '{self.printer_name}': error code {err}"
+            )
+
+        try:
+            doc_info = DOC_INFO_1(self.doc_name, None, "RAW")
+            job_id = winspool.StartDocPrinterW(handle, 1, ctypes.byref(doc_info))
+            if job_id <= 0:
+                err = ctypes.get_last_error()
+                raise TransportError(
+                    f"StartDocPrinter failed for '{self.printer_name}': error code {err}"
+                )
+
+            try:
+                if not winspool.StartPagePrinter(handle):
+                    err = ctypes.get_last_error()
+                    raise TransportError(
+                        f"StartPagePrinter failed for '{self.printer_name}': error code {err}"
+                    )
+                try:
+                    written = wintypes.DWORD()
+                    success = winspool.WritePrinter(
+                        handle, payload, len(payload), ctypes.byref(written)
+                    )
+                    if not success or written.value != len(payload):
+                        err = ctypes.get_last_error()
+                        raise TransportError(
+                            f"WritePrinter failed on '{self.printer_name}': wrote {written.value}/{len(payload)} bytes: error code {err}"
+                        )
+                finally:
+                    winspool.EndPagePrinter(handle)
+            finally:
+                winspool.EndDocPrinter(handle)
+        finally:
+            winspool.ClosePrinter(handle)
+
+    def __repr__(self) -> str:
+        return f"WindowsRawTransport({self.printer_name!r})"
+

@@ -19,6 +19,7 @@ from .transport import (
     NullTransport,
     Tcp9100Transport,
     TransportError,
+    WindowsRawTransport,
 )
 
 __all__ = [
@@ -36,7 +37,9 @@ __all__ = [
     "TicketData",
     "TicketLine",
     "TransportError",
+    "WindowsRawTransport",
     "encode_ticket",
     "render_plain_text",
     "render_ticket",
 ]
+

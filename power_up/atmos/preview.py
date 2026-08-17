@@ -19,6 +19,7 @@ from .lore.chronicle import Chronicle, ChronicleEvent, DrinkLine, summarize
 from .lore.engine import generate_vignette
 from .printing.escpos import encode_ticket, render_plain_text
 from .printing.layout import Paper, TicketData, TicketLine, render_ticket
+from .printing.transport import Tcp9100Transport, Transport, WindowsRawTransport
 
 VENUE = "The Velvet Hour"
 
@@ -41,10 +42,10 @@ SERVICE = [
 ]
 
 
-def build(paper: Paper, dump_bytes: bool) -> str:
+def generate_service_tickets(paper: Paper) -> list[tuple[TicketData, list, bytes, str]]:
     chronicle = Chronicle(VENUE, max_events=12)
     started = datetime(2026, 8, 16, 21, 40)
-    blocks: list[str] = []
+    items_out = []
 
     for index, (persona, table, items) in enumerate(SERVICE):
         placed = started + timedelta(minutes=index * 7)
@@ -62,9 +63,6 @@ def build(paper: Paper, dump_bytes: bool) -> str:
             ticket_code=code,
         )
 
-        # No provider configured, so this exercises the deterministic fallback —
-        # deliberately, because that is what prints when the uplink is having
-        # a bad night and it is the path least likely to be reviewed otherwise.
         result = generate_vignette(event, chronicle)
 
         ticket = TicketData(
@@ -75,30 +73,40 @@ def build(paper: Paper, dump_bytes: bool) -> str:
             persona=persona,
             lines=lines,
             vignette=result.text,
-            # `/atmos/o/<code>` was never implemented (order_status is
-            # guest-cookie-scoped, per spec §8.1, so a bare public code
-            # couldn't resolve one anyway) — the live app points tickets at
-            # the table's own scan URL instead (views.py's order_status()).
-            # This demo token isn't real (preview.py has no DB access), but
-            # the URL shape now matches the live app's, not a 404.
             qr_payload=f"https://power-up.lu/atmos/t/demo-table-{table}/",
             contains_alcohol=any(alcohol for *_, alcohol in items),
             footer="pay at the table",
         )
 
         directives = render_ticket(ticket, paper)
+        payload = encode_ticket(directives, paper)
+        diag = f"[{result.source}, {result.elapsed_ms} ms" + (f", {result.reason}" if result.reason else "") + "]"
+        items_out.append((ticket, directives, payload, diag))
+
+    return items_out
+
+
+def build(paper: Paper, dump_bytes: bool) -> str:
+    blocks: list[str] = []
+    service_items = generate_service_tickets(paper)
+    chronicle = Chronicle(VENUE, max_events=12)
+
+    for index, (ticket, directives, payload, diag) in enumerate(service_items):
         blocks.append(render_plain_text(directives, paper))
-        blocks.append(
-            f"  [{result.source}, {result.elapsed_ms} ms"
-            + (f", {result.reason}" if result.reason else "")
-            + "]"
-        )
-
+        blocks.append(f"  {diag}")
         if dump_bytes:
-            payload = encode_ticket(directives, paper)
             blocks.append(f"  [{len(payload)} bytes ESC/POS] {payload[:48]!r}...")
-
         blocks.append("")
+
+        # Rebuild chronicle event for summary
+        event = ChronicleEvent(
+            at=ticket.placed_at,
+            table_label=ticket.table_label,
+            persona=ticket.persona,
+            drinks=tuple(DrinkLine(line.name, line.quantity) for line in ticket.lines),
+            ticket_code=ticket.ticket_code,
+        )
+        chronicle.record(event)
 
     blocks.append("=" * paper.columns)
     blocks.append("CHRONICLE")
@@ -111,11 +119,50 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--paper", choices=("80", "58"), default="80")
     parser.add_argument("--bytes", action="store_true", dest="dump_bytes")
+    parser.add_argument(
+        "--printer",
+        nargs="?",
+        const="POS-80C",
+        help="Windows printer name to send raw ESC/POS bytes (default: POS-80C)",
+    )
+    parser.add_argument(
+        "--tcp",
+        metavar="HOST[:PORT]",
+        help="TCP network printer host:port (default port: 9100)",
+    )
+    parser.add_argument(
+        "--order",
+        type=int,
+        choices=(1, 2, 3, 4),
+        help="Print only a single specific order number (1-4) instead of all 4",
+    )
     args = parser.parse_args()
 
     paper = Paper.MM80 if args.paper == "80" else Paper.MM58
-    print(build(paper, args.dump_bytes))
+    preview_output = build(paper, args.dump_bytes)
+    print(preview_output)
+
+    transport: Transport | None = None
+    if args.printer:
+        transport = WindowsRawTransport(printer_name=args.printer)
+    elif args.tcp:
+        parts = args.tcp.split(":")
+        host = parts[0]
+        port = int(parts[1]) if len(parts) > 1 else 9100
+        transport = Tcp9100Transport(host=host, port=port)
+
+    if transport:
+        service_items = generate_service_tickets(paper)
+        if args.order:
+            service_items = [service_items[args.order - 1]]
+
+        print(f"\n--- Sending {len(service_items)} ticket(s) to {transport} ---")
+        for ticket, _directives, payload, _diag in service_items:
+            print(f"Printing ticket {ticket.ticket_code} ({ticket.persona}) -> {len(payload)} bytes...")
+            transport.send(payload)
+        print("Done!")
 
 
 if __name__ == "__main__":
     main()
+
