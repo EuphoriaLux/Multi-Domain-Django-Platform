@@ -17,6 +17,7 @@ from decimal import Decimal
 
 from .lore.chronicle import Chronicle, ChronicleEvent, DrinkLine, summarize
 from .lore.engine import generate_vignette
+from .printing.art import select_ascii_art, select_mission
 from .printing.escpos import encode_ticket, render_plain_text
 from .printing.layout import Paper, TicketData, TicketLine, render_ticket
 from .printing.transport import Tcp9100Transport, Transport, WindowsRawTransport
@@ -64,6 +65,9 @@ def generate_service_tickets(paper: Paper) -> list[tuple[TicketData, list, bytes
         )
 
         result = generate_vignette(event, chronicle)
+        drink_names = [line.name for line in lines]
+        ascii_art = select_ascii_art(drink_names)
+        mission = select_mission(f"demo-{table}-{code}")
 
         ticket = TicketData(
             venue_name=VENUE,
@@ -73,6 +77,8 @@ def generate_service_tickets(paper: Paper) -> list[tuple[TicketData, list, bytes
             persona=persona,
             lines=lines,
             vignette=result.text,
+            ascii_art=ascii_art,
+            mission=mission,
             qr_payload=f"https://power-up.lu/atmos/t/demo-table-{table}/",
             contains_alcohol=any(alcohol for *_, alcohol in items),
             footer="pay at the table",
@@ -84,6 +90,7 @@ def generate_service_tickets(paper: Paper) -> list[tuple[TicketData, list, bytes
         items_out.append((ticket, directives, payload, diag))
 
     return items_out
+
 
 
 def build(paper: Paper, dump_bytes: bool) -> str:
