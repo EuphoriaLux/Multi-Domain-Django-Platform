@@ -106,7 +106,15 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> dict:
     # call. Submitting to the bounded pool and waiting on the future with
     # the same budget bounds *this* function's wall-clock time regardless
     # of how the server paces its response.
-    future = _EXECUTOR.submit(_do_request)
+    try:
+        future = _EXECUTOR.submit(_do_request)
+    except BaseException:
+        # If submit() itself raises — e.g. ThreadPoolExecutor.submit() after
+        # interpreter shutdown has started — the permit acquired above would
+        # otherwise never reach the done-callback that releases it,
+        # permanently leaking one slot from this process-lifetime semaphore.
+        _ADMISSION_SEMAPHORE.release()
+        raise
     # Released when the future is actually done — run, errored, OR cleanly
     # cancelled before it ever started — not when *this* call's own wait
     # below times out. That keeps the semaphore counting real admitted work,

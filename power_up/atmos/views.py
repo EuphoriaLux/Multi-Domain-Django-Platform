@@ -268,6 +268,17 @@ def _order_signature(pairs) -> str:
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
+def _cart_signature(lines) -> str:
+    """`_order_signature()` over `_cart_lines()`-shaped dicts, restricted to
+    the orderable ones — the one line every call site (cart_detail and both
+    of order_place's cart.html re-renders) needs, kept in one place so they
+    can't drift out of sync with each other.
+    """
+    return _order_signature(
+        (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
+    )
+
+
 # ---------------------------------------------------------------- guest zone
 
 
@@ -300,9 +311,16 @@ def guest_join(request):
     tab_id = request.session.get(TAB_SESSION_KEY)
     tab = None
     if tab_id:
+        # `table__is_active=True` here too, matching _get_guest() and the
+        # POST-time select_for_update() lock below: Table.save() never
+        # touches Tab.status, so a table deactivated after the scan would
+        # otherwise still resolve here and render the join form for a table
+        # staff just took out of service. The POST is already safely
+        # rejected either way (the locked recheck below), so this is a UX
+        # fix, not a data-integrity one — but worth being consistent.
         tab = (
             Tab.objects.select_related("venue", "table")
-            .filter(pk=tab_id, status="open")
+            .filter(pk=tab_id, status="open", table__is_active=True)
             .first()
         )
 
