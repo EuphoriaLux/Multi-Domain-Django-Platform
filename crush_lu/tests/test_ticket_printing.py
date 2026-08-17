@@ -219,8 +219,41 @@ class TestTicketPrinter(TestCase):
         self.assertNotIn(f"Pos (#{other_reg.id})", plain_text)
         # Assert rich ROOM DATA statistics appear
         self.assertIn("ROOM DATA", plain_text)
-        self.assertIn("TOP PASSIONS", plain_text)
-        self.assertIn("Age moyen", plain_text)
+        self.assertIn("PASSIONS", plain_text)
+        self.assertIn("Average age", plain_text)
+
+    def test_multilingual_ticket_generation(self):
+        # 1. French
+        text_fr = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="fr",
+        )
+        self.assertIn("REÇU DATING", text_fr)
+        self.assertIn("GUIDE DE SURVIE", text_fr)
+
+        # 2. German
+        text_de = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="de",
+        )
+        self.assertIn("DATING RECEIPT", text_de)
+        self.assertIn("Hoffnung & Optimismus", text_de)
+        self.assertIn("SURVIVAL GUIDE", text_de)
+
+        # 3. English
+        text_en = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="en",
+        )
+        self.assertIn("DATING RECEIPT", text_en)
+        self.assertIn("Hope & Optimism", text_en)
+        self.assertIn("SURVIVAL GUIDE", text_en)
 
 
 class TestCheckinPrintingAPI(TestCase):

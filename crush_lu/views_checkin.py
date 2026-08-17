@@ -2046,7 +2046,7 @@ def _get_existing_table_assignment(registration):
 
 
 def _get_ticket_print_payload(
-    registration, table_info=None, coach_authenticated=False
+    registration, table_info=None, coach_authenticated=False, language=""
 ):
     """Safely build 80mm base64 ESC/POS ticket payload without failing check-in."""
     try:
@@ -2064,6 +2064,7 @@ def _get_ticket_print_payload(
             table_number=table_number,
             seat_label=seat_label,
             coach_authenticated=coach_authenticated,
+            language=language,
         )
     except Exception:
         logger.exception(
@@ -2083,8 +2084,9 @@ def event_reprint_ticket_api(request, event_id, registration_id):
         event_id=event_id,
     )
     table_info = _get_existing_table_assignment(registration)
+    lang = request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "")
     print_payload = _get_ticket_print_payload(
-        registration, table_info=table_info, coach_authenticated=True
+        registration, table_info=table_info, coach_authenticated=True, language=lang
     )
 
     return JsonResponse(
@@ -2105,11 +2107,13 @@ def event_test_ticket_api(request, event_id):
     from .services.ticket_printer import build_checkin_ticket_base64
 
     event = get_object_or_404(MeetupEvent, id=event_id)
+    lang = request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "")
     sample_payload = build_checkin_ticket_base64(
         registration=None,
         event=event,
         table_number=1,
         seat_label="A",
+        language=lang,
     )
     return JsonResponse(
         {
