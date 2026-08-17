@@ -388,10 +388,26 @@ def _build_mystery_radar_directives(
                                 badge,
                             )
                         )
+                    elif op.location:
+                        clues.append(
+                            (f'Vient de "{op.location}"', badge)
+                        )
+                    elif op.event_languages:
+                        clues.append(
+                            (f'Parle {op.event_languages[0].upper()}', badge)
+                        )
+                    else:
+                        clues.append(
+                            ("Mystery Match", badge)
+                        )
 
-                # Keep up to 4 unique clues
+                # Scale clues dynamically to match event size (e.g. 7 candidates for 7 tables)
+                max_clues = len(candidate_pool)
+                if event and getattr(event, "max_participants", None):
+                    max_clues = max(max_clues, min(7, event.max_participants // 2))
+
                 random.shuffle(clues)
-                clues = clues[:4]
+                clues = clues[:max(max_clues, 7)]
         except Exception:
             clues = []
 
