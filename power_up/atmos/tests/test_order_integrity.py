@@ -35,6 +35,13 @@ def request_with_session(method="get", data=None):
     # reads request.user — normally set by AuthenticationMiddleware, which
     # this bare RequestFactory request never goes through.
     request.user = AnonymousUser()
+    # join.html's {% url 'atmos:...' %} tags need request.urlconf pointing at
+    # the atmos-hosting urlconf — normally set per-request by
+    # DomainURLRoutingMiddleware based on the Host header, which this bare
+    # RequestFactory request also never goes through. Without it, reverse()
+    # falls back to ROOT_URLCONF, which doesn't register the 'atmos'
+    # namespace at all in this domain-routed, multi-app platform.
+    request.urlconf = "azureproject.urls_power_up"
     return request
 
 
