@@ -722,6 +722,16 @@ urlpatterns = (
             views_checkin.event_test_ticket_api,
             name="event_test_ticket_api",
         ),
+        path(
+            "api/events/<int:event_id>/test-ticket.bin",
+            views_checkin.event_test_ticket_bin_api,
+            name="event_test_ticket_bin_api",
+        ),
+        path(
+            "test-print/",
+            views_checkin.debug_print_test_page,
+            name="debug_print_test_page",
+        ),
         # Wallet passes (language-neutral for platform-specific clients)
         path(
             "wallet/apple/pass/",
