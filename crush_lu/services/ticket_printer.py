@@ -1,0 +1,1068 @@
+"""
+Crush.lu Check-In Ticket Printer Service.
+
+Builds 80mm ESC/POS thermal receipt payloads for Speed Dating & Mixer events.
+Generates a tangible, viral physical slip at check-in featuring:
+- Event & Candidate identity (Table assignment, Candidate Badge #)
+- Humorous "Dating Receipt" itemization
+- Crush Coach Survival Rules (quirky tips & icebreakers)
+- Room Mystery Radar (Secret Mission)
+- Deep-link QR code to post-event MyCrush portal
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+import random
+from typing import TYPE_CHECKING, Any
+
+from django.conf import settings
+from django.utils import timezone
+
+from power_up.atmos.printing.escpos import encode_ticket, render_plain_text
+from power_up.atmos.printing.layout import (
+    Align,
+    Cut,
+    Directive,
+    Feed,
+    Paper,
+    QrCode,
+    Rule,
+    Text,
+    justify,
+    wrap,
+)
+
+if TYPE_CHECKING:
+    from crush_lu.models import MeetupEvent, EventRegistration
+
+logger = logging.getLogger(__name__)
+
+
+def _format_ticket_date(dt: Any, lang: str = "en") -> str:
+    """Formats an aware/naive datetime in a locale-aware way for the thermal ticket."""
+    if dt is None:
+        return ""
+    if hasattr(dt, "tzinfo") and dt.tzinfo is not None and timezone.is_aware(dt):
+        local_dt = timezone.localtime(dt)
+    else:
+        local_dt = dt
+
+    weekdays = {
+        "fr": ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
+        "de": ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."],
+        "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    }
+    months = {
+        "fr": [
+            "janv.",
+            "févr.",
+            "mars",
+            "avr.",
+            "mai",
+            "juin",
+            "juil.",
+            "août",
+            "sept.",
+            "oct.",
+            "nov.",
+            "déc.",
+        ],
+        "de": [
+            "Jan.",
+            "Feb.",
+            "März",
+            "Apr.",
+            "Mai",
+            "Juni",
+            "Juli",
+            "Aug.",
+            "Sept.",
+            "Okt.",
+            "Nov.",
+            "Dez.",
+        ],
+        "en": [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ],
+    }
+    w_list = weekdays.get(lang, weekdays["en"])
+    m_list = months.get(lang, months["en"])
+    w_str = w_list[local_dt.weekday()]
+    m_str = m_list[local_dt.month - 1]
+    time_str = local_dt.strftime("%H:%M")
+    if lang == "de":
+        return f"{w_str} {local_dt.day:02d}. {m_str} {time_str}"
+    return f"{w_str} {local_dt.day:02d} {m_str} {time_str}"
+
+
+COACH_SURVIVAL_RULES: dict[str, list[str]] = {
+    "fr": [
+        "3 minutes passent plus vite que le tram sur le Kirchberg.",
+        "Le sujet 'Ex-partenaire' au 1er round coûte -50 points d'aura.",
+        "Contact visuel : Sourire chaleureux, sans fixer comme dans un thriller.",
+        "Question de secours en cas de blanc : 'Quel est ton talent le plus inutile ?'",
+        "Parle de voyages & passions, pas de ta feuille d'impôts.",
+        "Le sourire fait la moitié du travail. L'écoute active fait le reste.",
+        "Personne ne te jugera sur tes goûts musicaux (sauf l'Eurovision 2004).",
+        "Complimenter un sourire ou des baskets marche 10x mieux qu'une voiture.",
+        "Débat Schueberfouer : Gromperekichelcher avec ou sans compote de pommes ?",
+        "Si tu es venu en Vel'oh sous la pluie, c'est +20 points de résilience.",
+        "L'authenticité bat la perfection à tous les coups.",
+        "Prends une grande inspiration : ton date est aussi nerveux(se) que toi !",
+        "Demande : 'Quel est ton film plaisir coupable inavouable ?'",
+        "Question magique : 'Si tu pouvais te téléporter ce week-end, où irais-tu ?'",
+        "En cas de panique : demande son avis sur la pizza à l'ananas.",
+        "Demande : 'Quel est le dernier truc qui t'a fait rire aux larmes ?'",
+        "Green Flag ultime : Quelqu'un qui rigole de ses propres maladresses.",
+        "Red Flag immédiat : Poser des questions sur la tranche d'imposition.",
+        "Parler avec les mains est autorisé et fortement encouragé.",
+        "Si vous avez un fou rire à la minute 2, c'est presque un mariage garanti.",
+        "Ne vends pas ton CV : raconte une anecdote amusante de ton enfance.",
+        "La confiance, c'est d'assumer d'aimer les dessins animés ou le karaoké.",
+        "Laisse 5 secondes de silence sans paniquer : c'est là que le charme opère.",
+        "Le verre sur la table est ton meilleur allié pour rythmer le dialogue.",
+        "Sois toi-même à 100 % : la bonne personne adorera exactement ce que tu es.",
+        "Quand la cloche sonne : un clin d'œil chaleureux avant de changer de table.",
+        "Un date moyen n'est pas perdu : c'est un entraînement pour le suivant !",
+        "Le meilleur opener : 'Quel est le voyage qui t'a le plus marqué ?'",
+        "À la fin des 7 rounds : tout le monde se retrouve au bar pour trinquer !",
+        "Détends-toi, ce n'est pas un entretien d'embauche : amuse-toi !",
+    ],
+    "de": [
+        "3 Minuten vergehen schneller als die Tram auf dem Kirchberg.",
+        "Das Thema 'Ex-Partner' in Runde 1 kostet -50 Aura-Punkte.",
+        "Augenkontakt halten: Charmant lächeln, nicht wie ein Serienmörder anstarren.",
+        "Notfall-Frage bei Stille: 'Was ist dein absolut nutzlosestes Talent?'",
+        "Frag nach Leidenschaften & Reisezielen, nicht nach der Steuerklasse.",
+        "Lächeln ist die halbe Miete. Die andere Hälfte ist aktives Zuhören.",
+        "Niemand verurteilt dich für deinen Musikgeschmack (außer es ist Kirmes-Techno).",
+        "Komplimente über Schuhe oder Lächeln funktionieren 10x besser als über Autos.",
+        "Schueberfouer-Debatte: Gromperekichelcher mit oder ohne Apfelmus?",
+        "Wer mit dem Vel'oh durch den Regen kam, kriegt +20 Resilienz-Punkte.",
+        "Authentizität schlägt Perfektionismus in jeder einzelnen Runde.",
+        "Einmal tief durchatmen: Dein Gegenüber ist genauso nervös wie du!",
+        "Frag nach dem peinlichsten Guilty-Pleasure-Film aller Zeiten.",
+        "Zauberfrage: 'Wenn du dich jetzt beamen könntest, wo wärst du am Wochenende?'",
+        "Im Notfall: Frag nach der ultimativen Meinung zu Pizza mit Ananas.",
+        "Frag: 'Worüber hast du zuletzt so richtig Tränen gelacht?'",
+        "Ultimative Green Flag: Jemand, der über eigene Tolpatschigkeit lachen kann.",
+        "Instant Red Flag: Fragen nach der Steuerklasse oder dem Firmenwagen.",
+        "Mit Händen und Füßen reden ist ausdrücklich erlaubt und sympathisch.",
+        "Gemeinsamer Lachanfall in Minute 2 ist quasi die halbe Verlobung.",
+        "Verkauf nicht deinen Lebenslauf: Erzähl eine witzige Kindheits-Anekdote.",
+        "Wahres Selbstvertrauen ist, offen zu seinen Nerd-Hobbys zu stehen.",
+        "Keine Angst vor 5 Sekunden Pause: Das ist der Moment, wo Chemie entsteht.",
+        "Das Glas an der Bar ist dein bester Verbündeter für die perfekte Redepause.",
+        "Sei zu 100% du selbst: Die richtige Person wird genau das an dir lieben.",
+        "Wenn die Glocke läutet: Ein kurzes Lächeln, bevor es zum nächsten Tisch geht.",
+        "Eine mittelmäßige Runde ist kein Verlust: Es ist Warm-up für den nächsten Tisch!",
+        "Der beste Opener überhaupt: 'Welche Reise hat dich am meisten verändert?'",
+        "Nach den 7 Runden: Alle treffen sich an der Bar für die After-Drinks!",
+        "Entspann dich, es ist kein Vorstellungsgespräch: Hab Spaß!",
+    ],
+    "en": [
+        "3 minutes fly faster than the tram on the Kirchberg.",
+        "Talking about your 'Ex' in Round 1 costs -50 aura points.",
+        "Eye contact: Warm smile, avoid staring like in a crime drama.",
+        "Emergency question for awkward silence: 'What is your most useless talent?'",
+        "Ask about travel & obsessions, not about tax brackets.",
+        "A smile is half the charm. Active listening does the rest.",
+        "Nobody judges your music taste (unless it's fairground techno).",
+        "Complimenting shoes or a smile works 10x better than cars.",
+        "Schueberfouer debate: Gromperekichelcher with or without apple sauce?",
+        "Arriving by Vel'oh in the rain grants +20 resilience points.",
+        "Authenticity beats perfectionism in every single round.",
+        "Take a deep breath: Your date is just as nervous as you are!",
+        "Ask: 'What is your most embarrassing guilty-pleasure movie?'",
+        "Magic question: 'If you could teleport anywhere this weekend, where to?'",
+        "In case of emergency: Ask for their honest stance on pineapple on pizza.",
+        "Ask: 'What was the last thing that made you laugh to tears?'",
+        "Ultimate Green Flag: Someone who laughs at their own clumsy moments.",
+        "Instant Red Flag: Asking about tax brackets or corporate bonuses.",
+        "Talking with your hands is fully allowed and highly charming.",
+        "A shared laughing fit at minute 2 is practically half an engagement.",
+        "Don't recite your CV: Share a funny childhood anecdote instead.",
+        "True confidence is proudly admitting your nerd hobbies or karaoke addiction.",
+        "Don't fear 5 seconds of silence: That's where chemistry actually happens.",
+        "Your drink on the table is your best ally for pacing the conversation.",
+        "Be 100% yourself: The right person will love exactly who you are.",
+        "When the bell rings: A warm smile before moving to the next table.",
+        "An average round is never lost: It's just a warm-up for the next table!",
+        "The best universal opener: 'What travel trip changed you the most?'",
+        "After the 7 rounds: Everyone gathers at the bar for after-event drinks!",
+        "Relax, it's not a job interview: Have fun and enjoy the moment!",
+    ],
+}
+
+SECRET_MISSIONS: dict[str, list[str]] = {
+    "fr": [
+        "Trouve qui regarde de la télé-réalité en cachette – sans le demander cash !",
+        "Trouve la personne qui défend la pizza à l'ananas !",
+        "Trouve qui a déjà sauté en parachute ou à l'élastique !",
+        "Trouve la personne qui parle 4 langues ou plus !",
+        "Trouve qui a la meilleure adresse de restaurant secret au Luxembourg !",
+        "Trouve la personne qui a déjà enfermé ses clés dans sa voiture !",
+    ],
+    "de": [
+        "Finde heraus, wer heimlich Trash-TV schaut – ohne direkt danach zu fragen!",
+        "Finde die Person, die Pizza mit Ananas verteidigt!",
+        "Finde heraus, wer schon mal Fallschirmspringen oder Bungee-Jumping gemacht hat!",
+        "Finde die Person, die 4 oder mehr Sprachen spricht!",
+        "Finde heraus, wer den besten Restaurant-Geheimtipp in Luxemburg hat!",
+        "Finde die Person, die schon mal ihren Schlüssel im Auto eingesperrt hat!",
+    ],
+    "en": [
+        "Find out who secretly watches trash TV – without asking directly!",
+        "Find the person who defends pineapple on pizza!",
+        "Find out who has done skydiving or bungee jumping before!",
+        "Find the person who speaks 4 or more languages!",
+        "Find out who knows the best hidden foodie spot in Luxembourg!",
+        "Find the person who has locked their keys inside their car!",
+    ],
+}
+
+RECEIPT_ITEMS: dict[str, list[tuple[str, str]]] = {
+    "fr": [
+        ("1x Espoir & Optimisme", "EUR 0.00"),
+        ("1x Charme 1ère impression", "100%"),
+        ("1x Assurance Smalltalk", "INCLUS"),
+        ("1x Brise-glace luxembourgeois", "GRATUIT"),
+    ],
+    "de": [
+        ("1x Hoffnung & Optimismus", "EUR 0.00"),
+        ("1x Charme beim 1. Eindruck", "100%"),
+        ("1x Smalltalk-Versicherung", "INKLUSIVE"),
+        ("1x Luxemburger Eisbrecher", "GRATIS"),
+    ],
+    "en": [
+        ("1x Hope & Optimism", "EUR 0.00"),
+        ("1x First Impression Charm", "100%"),
+        ("1x Smalltalk Insurance", "INCLUDED"),
+        ("1x Luxembourgish Icebreaker", "FREE"),
+    ],
+}
+
+
+def resolve_ticket_language(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    language: str = "",
+) -> str:
+    """Resolves the target language (en, fr, de) for the printed ticket."""
+    if language in ("fr", "de", "en"):
+        return language
+    if registration:
+        user = getattr(registration, "user", None)
+        profile = getattr(user, "crushprofile", None) if user else None
+        if profile and getattr(profile, "preferred_language", None):
+            lang = profile.preferred_language.lower()
+            explicitly_set = getattr(profile, "language_explicitly_set", True)
+            if lang in ("fr", "de", "en"):
+                if explicitly_set or lang != "en":
+                    return lang
+    if event and getattr(event, "languages", None):
+        for el in event.languages:
+            if el in ("fr", "de", "en"):
+                return el
+    return "en"
+
+
+def _build_header_directives(
+    event_title: str,
+    date_str: str,
+    attendee_name: str,
+    table_label: str,
+    candidate_num: str = "",
+    cols: int = 48,
+    lang: str = "fr",
+    event_type: str = "speed_dating",
+) -> list[Directive]:
+    """Builds top banner and candidate table assignment."""
+    out: list[Directive] = []
+
+    if event_type in ("speed_dating", "mixer"):
+        sub = {
+            "fr": "SPEED DATING // PASS ENREGISTREMENT",
+            "de": "SPEED DATING // CHECK-IN PASS",
+            "en": "SPEED DATING // CHECK-IN PASS",
+        }.get(lang, "SPEED DATING // CHECK-IN PASS")
+    else:
+        sub = {
+            "fr": "ÉVÉNEMENT // PASS ENREGISTREMENT",
+            "de": "EVENT // CHECK-IN PASS",
+            "en": "EVENT // CHECK-IN PASS",
+        }.get(lang, "EVENT // CHECK-IN PASS")
+
+    event_lbl = {"fr": "ÉVÉNEMENT:", "de": "EVENT:", "en": "EVENT:"}.get(
+        lang, "EVENT:"
+    )
+    date_lbl = {"fr": "DATE:", "de": "DATUM:", "en": "DATE:"}.get(
+        lang, "DATE:"
+    )
+
+    out.append(Text("CRUSH.LU", Align.CENTER, bold=True, double_height=True))
+    out.append(Text(sub, Align.CENTER, bold=True))
+    out.append(Rule("="))
+
+    out.append(Text(justify(event_lbl, event_title[: cols - 12], cols)))
+    out.append(Text(justify(date_lbl, date_str, cols)))
+    out.append(Rule("-"))
+
+    dw_cols = max(16, cols // 2)
+    # Truncate the name, not the badge: candidate_num is the short identifier
+    # the room-stats/mystery-radar sections reference elsewhere on the ticket,
+    # so it must survive even when a long table/seat label leaves little room
+    # (truncating the combined "name + badge" string as one unit previously
+    # dropped the badge whenever the name alone filled the budget).
+    badge_part = f" {candidate_num}" if candidate_num else ""
+    name_budget = max(0, dw_cols - len(table_label) - 1 - len(badge_part))
+    candidate_display = f"{attendee_name.upper()[:name_budget]}{badge_part}".strip()
+    out.append(
+        Text(
+            justify(
+                candidate_display,
+                table_label.upper(),
+                dw_cols,
+            ),
+            bold=True,
+            double_width=True,
+        )
+    )
+    out.append(Rule("="))
+    return out
+
+
+def _build_receipt_directives(cols: int = 48, lang: str = "fr") -> list[Directive]:
+    """Builds the viral humorous dating receipt breakdown."""
+    out: list[Directive] = []
+    hdr = {
+        "fr": "REÇU DATING // RÉCAPITULATIF",
+        "de": "DATING RECEIPT // SUMMARY",
+        "en": "DATING RECEIPT // SUMMARY",
+    }.get(lang, "DATING RECEIPT // SUMMARY")
+    tot = {
+        "fr": ("TOTAL", "INESTIMABLE"),
+        "de": ("TOTAL", "PRICELESS"),
+        "en": ("TOTAL", "PRICELESS"),
+    }.get(lang, ("TOTAL", "PRICELESS"))
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+
+    items = RECEIPT_ITEMS.get(lang, RECEIPT_ITEMS["en"])
+    for left, right in items:
+        out.append(Text(justify(left, right, cols)))
+
+    out.append(Rule("-"))
+    out.append(Text(justify(tot[0], tot[1], cols), bold=True))
+    out.append(Rule("="))
+    return out
+
+
+def _build_coach_rules_directives(
+    custom_rules: list[str] | None = None,
+    cols: int = 48,
+    lang: str = "fr",
+    seed_id: int | None = None,
+) -> list[Directive]:
+    """Builds Coach survival tips with deterministic non-overlapping selection."""
+    out: list[Directive] = []
+    hdr = {
+        "fr": "GUIDE DE SURVIE DU CRUSH COACH",
+        "de": "CRUSH COACH // SURVIVAL GUIDE",
+        "en": "CRUSH COACH // SURVIVAL GUIDE",
+    }.get(lang, "CRUSH COACH // SURVIVAL GUIDE")
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+
+    pool = COACH_SURVIVAL_RULES.get(lang, COACH_SURVIVAL_RULES["en"])
+    if custom_rules:
+        rules = custom_rules
+    elif seed_id is not None:
+        rng = random.Random(seed_id)
+        rules = rng.sample(pool, min(2, len(pool)))
+    else:
+        rules = random.sample(pool, min(2, len(pool)))
+
+    for i, rule in enumerate(rules, 1):
+        for part in wrap(f"{i}. {rule}", cols):
+            out.append(Text(part))
+        out.append(Feed(1))
+
+    out.append(Rule("="))
+    return out
+
+
+def _fetch_event_roster(event_id):
+    """Fetches the event's confirmed/attended roster with the select/prefetch
+    both `_build_room_stats_directives` and `_build_mystery_radar_directives`
+    need, so a single check-in scan issues one roster query instead of two.
+    """
+    from crush_lu.models import EventRegistration
+
+    return list(
+        EventRegistration.objects.filter(
+            event_id=event_id,
+            status__in=["confirmed", "attended"],
+        )
+        .select_related("user", "user__crushprofile")
+        .prefetch_related(
+            "user__crushprofile__interests_new",
+            "user__crushprofile__defects",
+            "user__crushprofile__qualities",
+        )
+    )
+
+
+def _build_room_stats_directives(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    cols: int = 48,
+    lang: str = "fr",
+    coach_authenticated: bool = False,
+    event_roster: list | None = None,
+) -> list[Directive]:
+    """Builds collective group statistics for the event attendees.
+
+    Gated to coach-authenticated requests, matching the Mystery Radar and
+    attendee-name code: these aggregates (top interests/defects with
+    percentages) can identify a specific other attendee at a small event, so
+    they must not print on the unauthenticated self-scan path.
+
+    ``event_roster``, when given, is used as-is instead of re-querying (the
+    caller already fetched it for `_build_mystery_radar_directives`).
+    """
+    out: list[Directive] = []
+
+    if not coach_authenticated:
+        return out
+
+    if not (registration and getattr(registration, "pk", None)):
+        return out
+
+    try:
+        from collections import Counter
+
+        event_id = getattr(event, "id", None) or getattr(
+            registration, "event_id", None
+        )
+        if not event_id:
+            return out
+
+        regs = event_roster if event_roster is not None else _fetch_event_roster(event_id)
+        total = len(regs)
+        if total < 2:
+            return out
+
+        all_interests = []
+        all_defects = []
+        all_vibes = []
+        all_langs = []
+        ages = []
+        first_step_counts: Counter[str] = Counter()
+
+        for r in regs:
+            prof = getattr(getattr(r, "user", None), "crushprofile", None)
+            if not prof:
+                continue
+            all_interests.extend([i.label for i in prof.interests_new.all()])
+            all_defects.extend([d.label for d in prof.defects.all()])
+            if prof.event_vibe:
+                all_vibes.append(prof.get_event_vibe_display())
+            all_langs.extend(prof.event_languages or [])
+            if prof.first_step_preference:
+                first_step_counts[prof.first_step_preference] += 1
+            if prof.age:
+                ages.append(prof.age)
+
+        top_interests = Counter(all_interests).most_common(3)
+        top_defects = Counter(all_defects).most_common(2)
+        top_vibes = Counter(all_vibes).most_common(2)
+
+        hdr = {
+            "fr": "ROOM DATA // STATS DE LA SOIRÉE",
+            "de": "ROOM DATA // STATS DES ABENDS",
+            "en": "ROOM DATA // TONIGHT'S STATS",
+        }.get(lang, "ROOM DATA // TONIGHT'S STATS")
+
+        out.append(Text(hdr, Align.CENTER, bold=True))
+        out.append(Rule("-"))
+
+        # 1. Âge & Démographie
+        if ages:
+            avg_age = int(round(sum(ages) / len(ages)))
+            min_age, max_age = min(ages), max(ages)
+            lbl_age = {
+                "fr": f"• Âge moyen: {avg_age} ans",
+                "de": f"• Durchschnittsalter: {avg_age} J.",
+                "en": f"• Average age: {avg_age} yrs",
+            }.get(lang, f"• Average age: {avg_age} yrs")
+            span_age = f"({min_age}-{max_age} ans)" if lang == "fr" else (f"({min_age}-{max_age} J.)" if lang == "de" else f"({min_age}-{max_age} yrs)")
+            out.append(Text(justify(lbl_age, span_age, cols)))
+
+        # 2. Top Passions & Hobbies
+        if top_interests:
+            hdr_passions = {
+                "fr": "TOP PASSIONS DU GROUPE :",
+                "de": "TOP HOBBYS IM RAUM :",
+                "en": "TOP GROUP PASSIONS :",
+            }.get(lang, "TOP GROUP PASSIONS :")
+            out.append(Text(hdr_passions, bold=True))
+            for name, count in top_interests:
+                pct = int((count / total) * 100)
+                out.append(Text(justify(f"  - {name}", f"{pct}% ({count}p)", cols)))
+
+        # 3. Dynamique de drague (1er pas)
+        if first_step_counts:
+            they_init = first_step_counts.get("they_initiate", 0)
+            they_pct = int((they_init / total) * 100)
+            i_init = first_step_counts.get("i_initiate", 0)
+            i_pct = int((i_init / total) * 100)
+            if they_pct > 0 or i_pct > 0:
+                line_step = {
+                    "fr": f"• 1er pas: {they_pct}% attendent | {i_pct}% foncent",
+                    "de": f"• 1. Schritt: {they_pct}% warten | {i_pct}% starten",
+                    "en": f"• 1st step: {they_pct}% wait | {i_pct}% initiate",
+                }.get(lang, f"• 1st step: {they_pct}% wait | {i_pct}% initiate")
+                out.append(Text(line_step))
+
+        # 4. Ambiance / Vibes
+        if top_vibes:
+            vibe_str = " | ".join(f"{v[0]} ({int(v[1]/total*100)}%)" for v in top_vibes)
+            out.append(Text(f"• Vibes: {vibe_str}"[:cols]))
+
+        # 5. Petits défauts partagés (Autodérision)
+        if top_defects:
+            lbl_def = {
+                "fr": "• Défauts avoués: ",
+                "de": "• Offene Macken: ",
+                "en": "• Admitted quirks: ",
+            }.get(lang, "• Admitted quirks: ")
+            def_items = [f"'{d[0]}' ({int(d[1]/total*100)}%)" for d in top_defects]
+            def_str = lbl_def + " & ".join(def_items)
+            for part in wrap(def_str, cols):
+                out.append(Text(part))
+
+        # 6. Répartition des langues
+        if all_langs:
+            lang_counts = Counter(all_langs)
+            lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
+            fr_pct = int((lang_counts.get("fr", 0) / total) * 100)
+            de_pct = int((lang_counts.get("de", 0) / total) * 100)
+            en_pct = int((lang_counts.get("en", 0) / total) * 100)
+            lbl_l = {
+                "fr": "• Langues:",
+                "de": "• Sprachen:",
+                "en": "• Languages:",
+            }.get(lang, "• Languages:")
+            lang_line = (
+                f"{lbl_l} LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}%"
+            )
+            for part in wrap(lang_line, cols):
+                out.append(Text(part))
+
+        out.append(Rule("="))
+    except Exception as e:
+        logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
+        return []
+
+    return out
+
+
+def _build_mission_directives(
+    custom_mission: str | None = None,
+    cols: int = 48,
+    lang: str = "fr",
+) -> list[Directive]:
+    """Builds fallback Room Mystery Radar secret icebreaker mission."""
+    out: list[Directive] = []
+    hdr = {
+        "fr": "MYSTERY RADAR // MISSION SECRÈTE",
+        "de": "MYSTERY RADAR // GEHEIMMISSION",
+        "en": "MYSTERY RADAR // SECRET MISSION",
+    }.get(lang, "MYSTERY RADAR // SECRET MISSION")
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+
+    pool = SECRET_MISSIONS.get(lang, SECRET_MISSIONS["en"])
+    mission = custom_mission or random.choice(pool)
+    for part in wrap(mission, cols):
+        out.append(Text(part, Align.CENTER))
+
+    out.append(Rule("="))
+    return out
+
+
+def _build_mystery_radar_directives(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    cols: int = 48,
+    lang: str = "fr",
+    coach_authenticated: bool = False,
+    event_roster: list | None = None,
+) -> list[Directive]:
+    """Builds interactive Mystery Radar clues from actual event attendees.
+
+    Displays anonymous badge numbers like '( #6 )' with empty checkboxes [   ]
+    WITHOUT attendee names, so candidates discover and write the name during dates.
+    Gated to coach-authenticated requests to keep attendee details out of public payloads.
+
+    ``event_roster``, when given, is used as-is instead of re-querying (the
+    caller already fetched it for `_build_room_stats_directives`).
+    """
+    if not coach_authenticated:
+        return _build_mission_directives(cols=cols, lang=lang)
+
+    clues: list[tuple[str, str]] = []
+
+    if registration and getattr(registration, "pk", None):
+        try:
+            event_id = getattr(event, "id", None) or getattr(
+                registration, "event_id", None
+            )
+            if event_id:
+                roster = (
+                    event_roster if event_roster is not None else _fetch_event_roster(event_id)
+                )
+                other_regs = [r for r in roster if r.id != registration.id]
+
+                my_user = getattr(registration, "user", None)
+                my_profile = (
+                    getattr(my_user, "crushprofile", None) if my_user else None
+                )
+                my_connect_membership = (
+                    getattr(my_user, "crush_connect_membership", None)
+                    if my_user
+                    else None
+                )
+                my_interests = set()
+                my_gender = ""
+                my_pref_genders = []
+                if my_profile:
+                    my_interests = set(
+                        i.label for i in my_profile.interests_new.all()
+                    )
+                    my_gender = getattr(my_profile, "gender", "") or ""
+                    my_pref_genders = getattr(my_profile, "preferred_genders", []) or []
+
+                if my_connect_membership and getattr(my_connect_membership, "preferred_genders", None):
+                    my_pref_genders = my_connect_membership.preferred_genders or []
+
+                # Target dating genders: Men get clues about Women, Women about Men
+                target_genders = set()
+                if my_pref_genders:
+                    target_genders = set(my_pref_genders)
+                elif my_gender == "M":
+                    target_genders = {"F"}
+                elif my_gender == "F":
+                    target_genders = {"M"}
+
+                dating_pool = []
+                general_pool = []
+                for other in other_regs:
+                    op = getattr(
+                        getattr(other, "user", None), "crushprofile", None
+                    )
+                    other_gender = getattr(op, "gender", "") if op else ""
+                    if target_genders and other_gender in target_genders:
+                        dating_pool.append(other)
+                    else:
+                        general_pool.append(other)
+
+                # Prioritize dating candidates; fallback to general if pool is small
+                candidate_pool = (
+                    dating_pool
+                    if len(dating_pool) >= 2
+                    else (dating_pool + general_pool)
+                )
+
+                for other in candidate_pool:
+                    op = getattr(
+                        getattr(other, "user", None), "crushprofile", None
+                    )
+                    if not op:
+                        continue
+                    # Anonymous badge number only: e.g. "(#6)"
+                    badge = f"(#{other.id})"
+
+                    other_interests = [i.label for i in op.interests_new.all()]
+                    common = my_interests.intersection(other_interests)
+                    other_defects = list(op.defects.all())
+                    other_qualities = list(op.qualities.all())
+
+                    if common:
+                        txt = {
+                            "fr": f'Partage ta passion "{list(common)[0]}"',
+                            "de": f'Teilt deine Leidenschaft "{list(common)[0]}"',
+                            "en": f'Shares your passion "{list(common)[0]}"',
+                        }.get(lang, f'Shares your passion "{list(common)[0]}"')
+                        clues.append((txt, badge))
+                    elif op.event_vibe:
+                        clues.append(
+                            (f'Vibe: "{op.get_event_vibe_display()}"', badge)
+                        )
+                    elif other_interests:
+                        txt = {
+                            "fr": f'Adore "{other_interests[0]}"',
+                            "de": f'Liebt "{other_interests[0]}"',
+                            "en": f'Loves "{other_interests[0]}"',
+                        }.get(lang, f'Loves "{other_interests[0]}"')
+                        clues.append((txt, badge))
+                    elif other_defects:
+                        txt = {
+                            "fr": f'Défaut: "{other_defects[0].label}"',
+                            "de": f'Macke: "{other_defects[0].label}"',
+                            "en": f'Quirk: "{other_defects[0].label}"',
+                        }.get(lang, f'Quirk: "{other_defects[0].label}"')
+                        clues.append((txt, badge))
+                    elif other_qualities:
+                        txt = {
+                            "fr": f'Atout: "{other_qualities[0].label}"',
+                            "de": f'Stärke: "{other_qualities[0].label}"',
+                            "en": f'Strength: "{other_qualities[0].label}"',
+                        }.get(lang, f'Strength: "{other_qualities[0].label}"')
+                        clues.append((txt, badge))
+                    elif op.location:
+                        txt = {
+                            "fr": f'Vient de "{op.location}"',
+                            "de": f'Kommt aus "{op.location}"',
+                            "en": f'From "{op.location}"',
+                        }.get(lang, f'From "{op.location}"')
+                        clues.append((txt, badge))
+                    elif op.event_languages:
+                        txt = {
+                            "fr": f'Parle {op.event_languages[0].upper()}',
+                            "de": f'Spricht {op.event_languages[0].upper()}',
+                            "en": f'Speaks {op.event_languages[0].upper()}',
+                        }.get(lang, f'Speaks {op.event_languages[0].upper()}')
+                        clues.append((txt, badge))
+                    else:
+                        clues.append(("Mystery Match", badge))
+
+                # Scale clues dynamically to match event size (e.g. 7 candidates for
+                # 7 tables), but never print more than are actually available.
+                max_clues = 7
+                if event and getattr(event, "max_participants", None):
+                    max_clues = min(7, event.max_participants // 2)
+
+                random.shuffle(clues)
+                clues = clues[: min(max_clues, len(candidate_pool))]
+        except Exception as e:
+            logger.warning("Failed to build mystery radar clues: %s", e, exc_info=True)
+            clues = []
+
+    if not clues:
+        return _build_mission_directives(cols=cols, lang=lang)
+
+    out: list[Directive] = []
+    hdr = {
+        "fr": f"MYSTERY RADAR // LES {len(clues)} CANDIDAT(E)S",
+        "de": f"MYSTERY RADAR // DIE {len(clues)} KANDIDATEN",
+        "en": f"MYSTERY RADAR // THE {len(clues)} CANDIDATES",
+    }.get(lang, f"MYSTERY RADAR // THE {len(clues)} CANDIDATES")
+
+    sub1 = {
+        "fr": "Devine qui correspond à chaque indice et",
+        "de": "Finde heraus, wer zu jedem Hinweis passt und",
+        "en": "Guess who matches each clue and",
+    }.get(lang, "Guess who matches each clue and")
+
+    sub2 = {
+        "fr": "écris son prénom dans la case [   ] :",
+        "de": "schreibe den Namen in das Feld [   ] :",
+        "en": "write their name in the box [   ] :",
+    }.get(lang, "write their name in the box [   ] :")
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+    out.append(Text(sub1, Align.CENTER))
+    out.append(Text(sub2, Align.CENTER))
+    out.append(Feed(1))
+
+    for clue_text, badge in clues:
+        prefix = "[   ] "
+        full_clue = f"{prefix}{clue_text}"
+        # If line fits with right-justified badge, justify directly
+        if len(full_clue) + len(badge) + 2 <= cols:
+            out.append(Text(justify(full_clue, badge, cols)))
+        else:
+            for part in wrap(full_clue, cols):
+                out.append(Text(part))
+            out.append(Text(justify("", badge, cols)))
+
+    out.append(Rule("="))
+    return out
+
+
+def _build_qr_footer_directives(
+    qr_url: str,
+    cols: int = 48,
+    lang: str = "fr",
+) -> list[Directive]:
+    """Builds QR code and social media footer."""
+    out: list[Directive] = []
+    hdr = {
+        "fr": "SCANNE APRÈS L'ÉVÉNEMENT POUR VOTER :",
+        "de": "NACH DEM EVENT SCANNEN ZUM VOTEN :",
+        "en": "SCAN AFTER EVENT TO VOTE & MATCH :",
+    }.get(lang, "SCAN AFTER EVENT TO VOTE & MATCH :")
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Feed(1))
+    if qr_url:
+        out.append(QrCode(qr_url, size=6))
+    out.append(Text(qr_url, Align.CENTER))
+    out.append(Feed(1))
+    out.append(Text("Tag your story: @crush.lu #CrushSpeedDating", Align.CENTER))
+    out.append(Rule("="))
+    out.append(Feed(3))
+    out.append(Cut(partial=True))
+    return out
+
+
+def build_checkin_ticket_directives(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    table_number: int | None = None,
+    seat_label: str = "",
+    qr_url: str = "",
+    paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
+    language: str = "",
+) -> list[Directive]:
+    """Builds the full sequence of directives for a check-in ticket."""
+    from django.utils.translation import override as translation_override
+
+    cols = paper.columns
+    lang = resolve_ticket_language(
+        registration=registration, event=event, language=language
+    )
+
+    # Kept even though this file's own copy is hardcoded per-language literals
+    # (thermal-ticket text, not routed through the .po catalog): it still
+    # governs Django's own translated `get_FOO_display()` calls made below,
+    # e.g. `CrushProfile.get_event_vibe_display()`, whose EVENT_VIBE_CHOICES
+    # labels are defined with gettext_lazy.
+    with translation_override(lang):
+        event_title = "Speed Dating Event"
+        now_local = (
+            timezone.localtime(timezone.now())
+            if timezone.is_aware(timezone.now())
+            else timezone.now()
+        )
+        date_str = _format_ticket_date(now_local, lang=lang)
+        attendee_name = "Guest"
+        candidate_num = ""
+
+        if registration:
+            reg_user = getattr(registration, "user", None)
+            if reg_user:
+                profile = getattr(reg_user, "crushprofile", None)
+                if profile and getattr(profile, "display_name", None):
+                    attendee_name = profile.display_name
+                elif coach_authenticated:
+                    # `username` is never used here — signup is email-only, so
+                    # it is generally the address itself (see the identical
+                    # rule `_get_display_name`, views_checkin.py, follows).
+                    if reg_user.first_name:
+                        attendee_name = reg_user.first_name
+                    else:
+                        attendee_name = "Attendee"
+                else:
+                    attendee_name = "Attendee"
+            candidate_num = f"(#{registration.id})"
+
+        if event:
+            event_title = getattr(event, "title", event_title)
+            event_dt = getattr(event, "date_time", None)
+            if event_dt:
+                date_str = _format_ticket_date(event_dt, lang=lang)
+
+        welcome_word = {"fr": "BIENVENUE", "de": "WILLKOMMEN", "en": "WELCOME"}.get(
+            lang, "WELCOME"
+        )
+        table_word = {"fr": "TABLE", "de": "TISCH", "en": "TABLE"}.get(lang, "TABLE")
+        table_display = welcome_word
+        if table_number:
+            table_display = f"{table_word} {table_number}"
+            if seat_label:
+                # seat_label is either a free-form seat letter (not
+                # translatable) or a quiz role ("anchor"/"rotator") — translate
+                # only the known role values, and pass anything else through.
+                role_label = {
+                    "fr": {"anchor": "PILIER", "rotator": "ROTATION"},
+                    "de": {"anchor": "ANKER", "rotator": "ROTATION"},
+                    "en": {"anchor": "ANCHOR", "rotator": "ROTATOR"},
+                }.get(lang, {}).get(seat_label, seat_label)
+                table_display += f" ({role_label})"
+
+        if not qr_url:
+            base_domain = getattr(
+                settings, "CRUSH_LU_CANONICAL_DOMAIN", "https://crush.lu"
+            ).rstrip("/")
+            event_id = getattr(event, "id", None) or (
+                getattr(registration, "event_id", None) if registration else None
+            )
+            if event_id:
+                try:
+                    from django.urls import reverse
+
+                    path = reverse("crush_lu:event_lobby", kwargs={"event_id": event_id})
+                    qr_url = f"{base_domain}{path}"
+                except Exception:
+                    qr_url = f"{base_domain}/{lang}/events/{event_id}/lobby/"
+            else:
+                try:
+                    from django.urls import reverse
+
+                    path = reverse("crush_lu:my_crush")
+                    qr_url = f"{base_domain}{path}"
+                except Exception:
+                    qr_url = f"{base_domain}/{lang}/my-crush/"
+
+        event_type = getattr(event, "event_type", "speed_dating") or "speed_dating"
+        is_dating_event = event_type in ("speed_dating", "mixer")
+
+        # Fetched once and shared: room-stats and mystery-radar both need the
+        # same event roster, and both only run when coach_authenticated.
+        event_roster = None
+        if coach_authenticated and registration and getattr(registration, "pk", None):
+            roster_event_id = getattr(event, "id", None) or getattr(
+                registration, "event_id", None
+            )
+            if roster_event_id:
+                event_roster = _fetch_event_roster(roster_event_id)
+
+        directives: list[Directive] = []
+        directives.extend(
+            _build_header_directives(
+                event_title=event_title,
+                date_str=date_str,
+                attendee_name=attendee_name,
+                table_label=table_display,
+                candidate_num=candidate_num,
+                cols=cols,
+                lang=lang,
+                event_type=event_type,
+            )
+        )
+        if is_dating_event:
+            directives.extend(_build_receipt_directives(cols=cols, lang=lang))
+        directives.extend(
+            _build_room_stats_directives(
+                registration=registration,
+                event=event,
+                cols=cols,
+                lang=lang,
+                coach_authenticated=coach_authenticated,
+                event_roster=event_roster,
+            )
+        )
+        if is_dating_event:
+            directives.extend(
+                _build_coach_rules_directives(
+                    cols=cols, lang=lang, seed_id=getattr(registration, "id", None)
+                )
+            )
+        directives.extend(
+            _build_mystery_radar_directives(
+                registration=registration,
+                event=event,
+                cols=cols,
+                lang=lang,
+                coach_authenticated=coach_authenticated,
+                event_roster=event_roster,
+            )
+        )
+        directives.extend(
+            _build_qr_footer_directives(qr_url=qr_url, cols=cols, lang=lang)
+        )
+
+        return directives
+
+
+def build_checkin_ticket_bytes(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    table_number: int | None = None,
+    seat_label: str = "",
+    qr_url: str = "",
+    paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
+    language: str = "",
+) -> bytes:
+    """Builds the raw ESC/POS byte sequence for a ticket."""
+    directives = build_checkin_ticket_directives(
+        registration=registration,
+        event=event,
+        table_number=table_number,
+        seat_label=seat_label,
+        qr_url=qr_url,
+        paper=paper,
+        coach_authenticated=coach_authenticated,
+        language=language,
+    )
+    return encode_ticket(directives, paper=paper)
+
+
+def build_checkin_ticket_base64(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    table_number: int | None = None,
+    seat_label: str = "",
+    qr_url: str = "",
+    paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
+    language: str = "",
+) -> str:
+    """Builds the base64-encoded ESC/POS byte payload for RawBT transmission."""
+    raw_bytes = build_checkin_ticket_bytes(
+        registration=registration,
+        event=event,
+        table_number=table_number,
+        seat_label=seat_label,
+        qr_url=qr_url,
+        paper=paper,
+        coach_authenticated=coach_authenticated,
+        language=language,
+    )
+    return base64.b64encode(raw_bytes).decode("ascii")
+
+
+def preview_checkin_ticket_text(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    table_number: int | None = None,
+    seat_label: str = "",
+    qr_url: str = "",
+    paper: Paper = Paper.MM80,
+    coach_authenticated: bool = False,
+    language: str = "",
+) -> str:
+    """Generates a plain-text monospace preview of the ticket."""
+    directives = build_checkin_ticket_directives(
+        registration=registration,
+        event=event,
+        table_number=table_number,
+        seat_label=seat_label,
+        qr_url=qr_url,
+        paper=paper,
+        coach_authenticated=coach_authenticated,
+        language=language,
+    )
+    return render_plain_text(directives, paper=paper)

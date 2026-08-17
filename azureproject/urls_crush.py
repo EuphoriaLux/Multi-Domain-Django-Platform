@@ -711,6 +711,17 @@ urlpatterns = (
             views_checkin.event_checkin_summary,
             name="event_checkin_summary",
         ),
+        # 80mm ESC/POS thermal ticket printing (reprint & test ticket)
+        path(
+            "api/events/<int:event_id>/print-ticket/<int:registration_id>/",
+            views_checkin.event_reprint_ticket_api,
+            name="event_reprint_ticket_api",
+        ),
+        path(
+            "api/events/<int:event_id>/test-ticket/",
+            views_checkin.event_test_ticket_api,
+            name="event_test_ticket_api",
+        ),
         # Wallet passes (language-neutral for platform-specific clients)
         path(
             "wallet/apple/pass/",
