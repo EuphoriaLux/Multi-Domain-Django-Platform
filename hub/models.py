@@ -234,6 +234,202 @@ class LocationContact(models.Model):
         return f"{self.name} — {self.location.name}"
 
 
+class PaymentStatus(models.TextChoices):
+    """Shared settlement state for every accounting row.
+
+    Values are stored verbatim because the CRM SPA both renders them and
+    derives CSS classes from them (``status.toLowerCase()``) — see the
+    ``PaymentStatus`` union in the frontend's ``lib/types.ts``.
+    """
+
+    PAID = "Paid", "Paid"
+    PENDING = "Pending", "Pending"
+    OVERDUE = "Overdue", "Overdue"
+    SCHEDULED = "Scheduled", "Scheduled"
+
+
+class PaymentMethod(models.TextChoices):
+    CARD = "Card", "Card"
+    TRANSFER = "Transfer", "Transfer"
+    CASH = "Cash", "Cash"
+    PAYCONIQ = "Payconiq", "Payconiq"
+
+
+class PaymentIn(models.Model):
+    """Money received — ticket sales, sponsorships, and other inbound revenue.
+
+    Bookkeeping only: these rows are kept by hand for the CRM accounting page
+    and are deliberately not wired to ``crush_lu.PaymentTransaction``/SumUp,
+    which is a separate live payments pipeline.
+    """
+
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    source = models.CharField(max_length=255)
+    client_name = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING
+    )
+    reference = models.CharField(max_length=255, blank=True, default="")
+    payment_method = models.CharField(
+        max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.TRANSFER
+    )
+    receipt_url = models.URLField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gte=0),
+                name="hub_paymentin_amount_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source} +{self.amount} [{self.status}]"
+
+
+class PaymentOut(models.Model):
+    """Money spent — venue fees, marketing, tooling, supplies."""
+
+    class Category(models.TextChoices):
+        VENUE = "Lieu", "Lieu"
+        MARKETING = "Marketing", "Marketing"
+        TECH = "Tech", "Tech"
+        SUPPLIES = "Fournitures", "Fournitures"
+        OTHER = "Autre", "Autre"
+
+    class DepositStatus(models.TextChoices):
+        DEPOSIT = "deposit", "Deposit"
+        BALANCE = "balance", "Balance"
+        FULL = "full", "Full"
+
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    # Bookkeeping outlives the partnership, so an archived venue must not take
+    # its cost history with it.
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        related_name="payments_out",
+        blank=True,
+        null=True,
+    )
+    payee = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING
+    )
+    payment_method = models.CharField(
+        max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.TRANSFER
+    )
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.OTHER
+    )
+    deposit_status = models.CharField(
+        max_length=20,
+        choices=DepositStatus.choices,
+        blank=True,
+        null=True,
+        default=None,
+    )
+    receipt_url = models.URLField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gte=0),
+                name="hub_paymentout_amount_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.payee} -{self.amount} [{self.status}]"
+
+
+class Payroll(models.Model):
+    """Staff compensation: salaries, reimbursed expenses, and bonuses.
+
+    ``amount`` is what actually leaves the bank; ``gross_salary`` and
+    ``employer_charges`` are kept alongside it so the accounting page can show
+    the employer's full cost without re-deriving it.
+    """
+
+    class Category(models.TextChoices):
+        SALARY = "Salary", "Salary"
+        EXPENSE = "Expense", "Expense"
+        BONUS = "Bonus", "Bonus"
+
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    gross_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    employer_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    employee_name = models.CharField(max_length=255)
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.SALARY
+    )
+    description = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING
+    )
+    payment_method = models.CharField(
+        max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.TRANSFER
+    )
+    receipt_url = models.URLField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gte=0)
+                & Q(gross_salary__gte=0)
+                & Q(employer_charges__gte=0),
+                name="hub_payroll_amounts_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.employee_name} {self.amount} ({self.category})"
+
+
+class Refund(models.Model):
+    """A participant reimbursement recorded for the books.
+
+    Standalone from the live refund path in ``crush_lu`` — this is the
+    accountant's ledger view, not an instruction to move money.
+    """
+
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    participant_name = models.CharField(max_length=255)
+    event_name = models.CharField(max_length=255, blank=True, default="")
+    reason = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gte=0),
+                name="hub_refund_amount_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.participant_name} -{self.amount} [{self.status}]"
+
+
 class WhatsAppMessage(models.Model):
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
