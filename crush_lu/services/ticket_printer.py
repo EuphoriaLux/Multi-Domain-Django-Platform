@@ -505,9 +505,21 @@ def _build_room_stats_directives(
     event: MeetupEvent | None = None,
     cols: int = 48,
     lang: str = "fr",
+    coach_authenticated: bool = False,
 ) -> list[Directive]:
-    """Builds collective group statistics for the event attendees."""
+    """Builds collective group statistics for the event attendees.
+
+    Gated to coach-authenticated requests, matching
+    ``_build_mystery_radar_directives`` below: for a small attendee count,
+    aggregate percentages (age, admitted quirks, top interests) are
+    trivially invertible into a specific other registrant's private profile
+    data, and this endpoint is deliberately reachable via an unattended
+    self-scan with no coach present.
+    """
     out: list[Directive] = []
+
+    if not coach_authenticated:
+        return out
 
     if not (registration and getattr(registration, "pk", None)):
         return out
@@ -755,7 +767,7 @@ def _build_mystery_radar_directives(
                     getattr(my_user, "crushprofile", None) if my_user else None
                 )
                 my_connect_membership = (
-                    getattr(my_user, "crushconnectmembership", None)
+                    getattr(my_user, "crush_connect_membership", None)
                     if my_user
                     else None
                 )
@@ -868,13 +880,16 @@ def _build_mystery_radar_directives(
                         }.get(lang, "Secret Enigma Profile")
                         clues.append((txt_fallback, badge))
 
-                # Scale clues dynamically to match event size (e.g. 7 candidates for 7 tables)
-                max_clues = len(candidate_pool)
+                # Scale clues to event size (e.g. ~7 for a 14-person / 7-table
+                # event), capped at 7 regardless of pool size so a large mixer
+                # doesn't print dozens of clue lines on one ticket. `min`, not
+                # `max`, is the operative bound here.
+                target_clues = 7
                 if event and getattr(event, "max_participants", None):
-                    max_clues = max(max_clues, min(7, event.max_participants // 2))
+                    target_clues = min(7, max(1, event.max_participants // 2))
 
                 random.shuffle(clues)
-                clues = clues[:max(max_clues, 7)]
+                clues = clues[:target_clues]
         except Exception as e:
             logger.warning("Failed to build mystery radar clues: %s", e, exc_info=True)
             clues = []
@@ -1016,10 +1031,11 @@ def build_checkin_ticket_directives(
                 if profile and getattr(profile, "display_name", None):
                     attendee_name = profile.display_name
                 elif coach_authenticated:
+                    # `username` is never used here — signup is email-only, so
+                    # it is generally the address itself (see the identical
+                    # rule `_get_display_name`, views_checkin.py, follows).
                     if reg_user.first_name:
                         attendee_name = reg_user.first_name
-                    elif getattr(reg_user, "username", None):
-                        attendee_name = reg_user.username.split("@")[0]
                     else:
                         attendee_name = "Attendee"
                 else:
@@ -1080,7 +1096,11 @@ def build_checkin_ticket_directives(
         )
         directives.extend(
             _build_room_stats_directives(
-                registration=registration, event=event, cols=cols, lang=lang
+                registration=registration,
+                event=event,
+                cols=cols,
+                lang=lang,
+                coach_authenticated=coach_authenticated,
             )
         )
         if is_dating_event:
