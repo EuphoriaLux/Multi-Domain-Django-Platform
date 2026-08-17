@@ -64,3 +64,37 @@ def test_tab_close_purges_guest_display_name_and_snapshots(venue):
     # the same promise purge_stale_guest_names makes, just applied at the
     # moment the tab actually closes instead of waiting for a time cutoff.
     assert order.alias_snapshot == guest.alias
+
+
+@pytest.mark.django_db
+def test_tab_close_purges_removed_guest_names_too(venue):
+    """GuestAdmin lets staff mark a guest "removed" (e.g. ejecting someone)
+    before the tab itself closes. That guest already left the
+    status="active" bucket, but its display_name/alias_snapshot are still
+    personal data that must not survive close-of-night just because of
+    that — the purge must not be scoped to active guests only."""
+    table = Table.objects.create(venue=venue, label="A1")
+    tab = Tab.objects.create(table=table, venue=venue)
+    guest = Guest.objects.create(
+        tab=tab,
+        venue=venue,
+        alias="The Velvet Silhouette",
+        display_name="Alice",
+        status="removed",
+    )
+    order = Order.objects.create(
+        guest=guest,
+        tab=tab,
+        venue=venue,
+        short_code="TA1-01",
+        alias_snapshot="Alice",
+    )
+
+    tab.status = "closed"
+    tab.save(update_fields=["status"])
+
+    guest.refresh_from_db()
+    order.refresh_from_db()
+    assert guest.display_name == ""
+    assert guest.status == "removed"  # untouched — only active guests settle
+    assert order.alias_snapshot == guest.alias

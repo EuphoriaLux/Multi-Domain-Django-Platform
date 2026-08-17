@@ -81,12 +81,19 @@ def _client_ip(request) -> str:
     """
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if forwarded:
-        # Azure App Service includes the port ("1.2.3.4:5678") — same format
-        # azureproject.adapters.get_client_ip() strips; a stray port would
-        # otherwise fragment one visitor's requests across many cache keys.
+        # Azure App Service includes the port ("1.2.3.4:5678", or
+        # "[2001:db8::1]:5678" for IPv6) — same formats
+        # azureproject.adapters.get_client_ip() strips. Left unstripped, the
+        # ephemeral port would fragment one visitor's requests across many
+        # cache keys, and for bracketed IPv6 specifically, a new source port
+        # on reconnect would mint a fresh rate-limit bucket for free.
         ip = forwarded.split(",")[0].strip()
-        if ip.count(":") == 1:
-            ip = ip.split(":")[0]
+        if ip.startswith("["):
+            ip = ip.split("]")[0][1:]  # "[::1]:5678" -> "::1"
+        elif ip.count(":") == 1:
+            ip = ip.split(":")[0]  # "1.2.3.4:5678" -> "1.2.3.4"
+        # else: plain IPv6 without a port (multiple colons, no brackets) —
+        # use as-is.
         return ip or "unknown"
     return request.META.get("REMOTE_ADDR") or "unknown"
 
@@ -97,18 +104,20 @@ def _join_rate_limited(request, tab_id) -> bool:
     per `azureproject/settings.py`, LocMemCache otherwise), so this works
     without any Atmos-specific configuration."""
     key = f"atmos:join_rl:{_client_ip(request)}:{tab_id}"
-    try:
-        count = cache.incr(key)
-    except ValueError:
-        # incr() raises when the key doesn't exist yet (first hit this
-        # window) — set it directly instead of racing a separate has-key
-        # check against a concurrent request doing the same thing. Two
-        # requests can still both land here on the very first hit and both
-        # call set(1), losing one increment — acceptable for a soft
-        # anti-abuse throttle (not a hard security boundary), and no worse
-        # than the fixed-window's usual boundary slop.
-        cache.set(key, 1, timeout=_JOIN_RATE_WINDOW_SECONDS)
-        count = 1
+    # add() is an atomic add-if-absent (Redis SETNX) — a synchronized burst
+    # hitting an absent/expired key would otherwise each race incr()'s
+    # ValueError and independently set(1), letting every one of them "win"
+    # and undercounting the true concurrent total by an arbitrary amount.
+    # Only one request can win add()'s initialization; every request
+    # (winner included) then increments the same shared counter atomically.
+    cache.add(key, 0, timeout=_JOIN_RATE_WINDOW_SECONDS)
+    count = cache.incr(key)
+    if count is None:
+        # django_redis's IGNORE_EXCEPTIONS=True (azureproject/settings.py)
+        # turns a Redis outage into a silent None return here instead of a
+        # raised exception. Fail open — a soft anti-abuse throttle must
+        # never itself take the join page down during a cache interruption.
+        return False
     return count > _JOIN_RATE_LIMIT
 
 

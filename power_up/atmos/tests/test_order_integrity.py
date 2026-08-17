@@ -1,3 +1,4 @@
+import threading
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -17,9 +18,11 @@ from power_up.atmos.views import (
     TAB_SESSION_KEY,
     PlacementOutcome,
     _cart_lines,
+    _client_ip,
     _create_order_atomic,
     _get_guest,
     _guest_can_still_scan,
+    _join_rate_limited,
     _order_signature,
     _resolve_menu_item,
     guest_join,
@@ -264,6 +267,78 @@ def test_guest_join_rate_limited(ordering_setup):
     request.session.save()
     response = guest_join(request)
     assert response.status_code == 429
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_survives_synchronized_burst(ordering_setup):
+    """A prior version raced incr()'s ValueError: N truly-concurrent requests
+    hitting an absent key could each independently set(1), so the counter
+    could land anywhere from 1 to N instead of N — undercounting the burst
+    by an arbitrary amount. cache.add()'s atomic init means only one request
+    can win that; every request in the burst (winner included) then
+    increments the same shared counter, so the true concurrent count is
+    never lost. Uses real threads + a barrier, not a sequential loop, since
+    a sequential loop can't distinguish the old buggy behavior from this."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    class _BurstyRequest:
+        META = {"REMOTE_ADDR": "10.0.0.1"}
+
+    thread_count = 10
+    barrier = threading.Barrier(thread_count)
+
+    def worker():
+        barrier.wait()
+        _join_rate_limited(_BurstyRequest(), tab.id)
+
+    threads = [threading.Thread(target=worker) for _ in range(thread_count)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    key = f"atmos:join_rl:10.0.0.1:{tab.id}"
+    assert cache.get(key) == thread_count
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_fails_open_on_cache_outage():
+    """django_redis's IGNORE_EXCEPTIONS=True (azureproject/settings.py) turns
+    a Redis outage into a silent None return from incr(), not a raised
+    exception. A soft anti-abuse throttle must not itself 500 the join page
+    over that — it should fail open instead."""
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.2"}
+
+    with patch("power_up.atmos.views.cache.incr", return_value=None):
+        assert _join_rate_limited(_Request(), "some-tab-id") is False
+
+
+def test_client_ip_strips_ipv4_port():
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "1.2.3.4:5678"}
+
+    assert _client_ip(_Request()) == "1.2.3.4"
+
+
+def test_client_ip_strips_bracketed_ipv6_port():
+    """Azure supplies bracketed IPv6-with-port ("[2001:db8::1]:49152"). Left
+    unstripped, a new ephemeral source port on reconnect would mint a fresh
+    rate-limit bucket for the same client every time."""
+
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "[2001:db8::1]:49152"}
+
+    assert _client_ip(_Request()) == "2001:db8::1"
+
+
+def test_client_ip_leaves_bare_ipv6_untouched():
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "2001:db8::1"}
+
+    assert _client_ip(_Request()) == "2001:db8::1"
 
 
 @pytest.mark.django_db

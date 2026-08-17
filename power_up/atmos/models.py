@@ -32,7 +32,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -292,28 +292,36 @@ class Tab(models.Model):
             # cutoff-based purge_stale_guest_names command (which is
             # dry-run by default, has no scheduled invocation on this
             # platform, and only fires after guest_window_minutes has
-            # passed regardless of whether the tab already closed). Reset
+            # passed regardless of whether the tab already closed). Purge
+            # EVERY guest on this tab, not just status="active" ones —
+            # GuestAdmin lets staff mark a guest "removed"/"settled" (e.g.
+            # ejecting someone) before the tab itself closes, and that
+            # guest's display_name/alias_snapshot must not survive close-of-
+            # night just because it already left the "active" bucket. Reset
             # each named guest's own order snapshots to their alias BEFORE
-            # the bulk settle below clears display_name, or their typed
-            # name would be left as the only remaining copy of something
-            # we're about to promise is gone.
-            named_guests = list(
-                self.guests.filter(status="active").exclude(display_name="")
-            )
-            for guest in named_guests:
-                guest.orders.exclude(alias_snapshot=guest.alias).update(
-                    alias_snapshot=guest.alias
+            # clearing display_name below, or their typed name would be
+            # left as the only remaining copy of something we're about to
+            # promise is gone.
+            with transaction.atomic():
+                named_guests = list(self.guests.exclude(display_name=""))
+                for guest in named_guests:
+                    guest.orders.exclude(alias_snapshot=guest.alias).update(
+                        alias_snapshot=guest.alias
+                    )
+                self.guests.exclude(display_name="").update(display_name="")
+                # `uniq_active_alias_per_venue` treats every `status="active"`
+                # guest as occupying its alias, with no link to whether the
+                # guest's own tab is still open. Without this, a closed
+                # tab's still-active guests keep reserving their personas
+                # indefinitely — the catalog slowly starves across service
+                # nights, and joins eventually fail once it's crowded
+                # enough that the bounded collision-retry in guest_join
+                # can't find a free one. Guests already removed/settled
+                # keep their existing status/settled_at — only the name
+                # purge above applies to them.
+                self.guests.filter(status="active").update(
+                    status="settled", settled_at=timezone.now()
                 )
-            # `uniq_active_alias_per_venue` treats every `status="active"`
-            # guest as occupying its alias, with no link to whether the
-            # guest's own tab is still open. Without this, a closed tab's
-            # guests keep reserving their personas indefinitely — the
-            # catalog slowly starves across service nights, and joins
-            # eventually fail once it's crowded enough that the bounded
-            # collision-retry in guest_join can't find a free one.
-            self.guests.filter(status="active").update(
-                status="settled", settled_at=timezone.now(), display_name=""
-            )
 
 
 class Guest(models.Model):
