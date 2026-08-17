@@ -190,12 +190,44 @@ def _build_mystery_radar_directives(
                     getattr(my_user, "crushprofile", None) if my_user else None
                 )
                 my_interests = set()
+                my_gender = ""
+                my_pref_genders = []
                 if my_profile:
                     my_interests = set(
                         i.label for i in my_profile.interests_new.all()
                     )
+                    my_gender = getattr(my_profile, "gender", "") or ""
+                    my_pref_genders = getattr(my_profile, "preferred_genders", []) or []
 
+                # Target dating genders: Men get clues about Women, Women about Men
+                target_genders = set()
+                if my_pref_genders:
+                    target_genders = set(my_pref_genders)
+                elif my_gender == "M":
+                    target_genders = {"F"}
+                elif my_gender == "F":
+                    target_genders = {"M"}
+
+                dating_pool = []
+                general_pool = []
                 for other in other_regs:
+                    op = getattr(
+                        getattr(other, "user", None), "crushprofile", None
+                    )
+                    other_gender = getattr(op, "gender", "") if op else ""
+                    if target_genders and other_gender in target_genders:
+                        dating_pool.append(other)
+                    else:
+                        general_pool.append(other)
+
+                # Prioritize dating candidates; fallback to general if pool is small
+                candidate_pool = (
+                    dating_pool
+                    if len(dating_pool) >= 2
+                    else (dating_pool + general_pool)
+                )
+
+                for other in candidate_pool:
                     op = getattr(
                         getattr(other, "user", None), "crushprofile", None
                     )

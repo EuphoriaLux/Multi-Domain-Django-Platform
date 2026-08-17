@@ -189,6 +189,24 @@ class TestTicketPrinter(TestCase):
             status="confirmed",
         )
 
+        # Also create another male attendee
+        other_male = User.objects.create_user(
+            username="male2@test.lu",
+            email="male2@test.lu",
+            first_name="Bob",
+        )
+        other_male_prof = CrushProfile.objects.create(
+            user=other_male,
+            gender="M",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
+        )
+        other_male_prof.interests_new.add(interest_books)
+        other_male_reg = EventRegistration.objects.create(
+            user=other_male,
+            event=self.event,
+            status="confirmed",
+        )
+
         plain_text = preview_checkin_ticket_text(
             registration=self.registration,
             event=self.event,
@@ -197,6 +215,9 @@ class TestTicketPrinter(TestCase):
         self.assertIn("MYSTERY RADAR", plain_text)
         self.assertIn("[   ]", plain_text)
         self.assertIn(f"(#{other_reg.id})", plain_text)
+        # Male candidate ticket must NOT pick other male attendees when female candidate pool is available
+        # (Pos is female, Bob is male)
+        self.assertIn("Pos", plain_text)
 
 
 class TestCheckinPrintingAPI(TestCase):
