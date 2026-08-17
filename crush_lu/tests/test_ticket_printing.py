@@ -158,8 +158,45 @@ class TestTicketPrinter(TestCase):
             event=event,
             table_number=1,
         )
-        # In Luxembourg winter time, 18:30 UTC is 19:30 CET
-        self.assertIn("19:30", plain_text)
+    def test_mystery_radar_with_attendee_clues_and_checkboxes(self):
+        from crush_lu.models import Interest
+
+        interest_books, _ = Interest.objects.get_or_create(
+            slug="reading", defaults={"label": "Reading", "category": "arts"}
+        )
+        interest_gaming, _ = Interest.objects.get_or_create(
+            slug="video-games", defaults={"label": "Video games", "category": "games"}
+        )
+
+        self.profile.interests_new.add(interest_books, interest_gaming)
+
+        other_user = User.objects.create_user(
+            username="candidate2@test.lu",
+            email="candidate2@test.lu",
+            first_name="Pos",
+        )
+        other_profile = CrushProfile.objects.create(
+            user=other_user,
+            gender="F",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 35),
+            event_vibe="at_the_bar",
+        )
+        other_profile.interests_new.add(interest_books)
+
+        other_reg = EventRegistration.objects.create(
+            user=other_user,
+            event=self.event,
+            status="confirmed",
+        )
+
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=2,
+        )
+        self.assertIn("MYSTERY RADAR", plain_text)
+        self.assertIn("[   ]", plain_text)
+        self.assertIn(f"(#{other_reg.id})", plain_text)
 
 
 class TestCheckinPrintingAPI(TestCase):

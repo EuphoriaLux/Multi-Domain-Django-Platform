@@ -138,7 +138,7 @@ def _build_mission_directives(
     custom_mission: str | None = None,
     cols: int = 48,
 ) -> list[Directive]:
-    """Builds the Room Mystery Radar secret icebreaker mission."""
+    """Builds fallback Room Mystery Radar secret icebreaker mission."""
     out: list[Directive] = []
     out.append(Text("MYSTERY RADAR // SECRET MISSION", Align.CENTER, bold=True))
     out.append(Rule("-"))
@@ -146,6 +146,132 @@ def _build_mission_directives(
     mission = custom_mission or random.choice(SECRET_MISSIONS)
     for part in wrap(mission, cols):
         out.append(Text(part, Align.CENTER))
+
+    out.append(Rule("="))
+    return out
+
+
+def _build_mystery_radar_directives(
+    registration: EventRegistration | None = None,
+    event: MeetupEvent | None = None,
+    cols: int = 48,
+) -> list[Directive]:
+    """Builds interactive Mystery Radar clues from actual event attendees.
+
+    Displays anonymous badges like 'Pos (#6)' with empty checkboxes [   ]
+    so candidates can guess and write the person's name during dates.
+    """
+    clues: list[tuple[str, str]] = []
+
+    if registration and getattr(registration, "pk", None):
+        try:
+            from crush_lu.models import EventRegistration
+
+            event_id = getattr(event, "id", None) or getattr(
+                registration, "event_id", None
+            )
+            if event_id:
+                other_regs = list(
+                    EventRegistration.objects.filter(
+                        event_id=event_id,
+                        status__in=["confirmed", "attended"],
+                    )
+                    .exclude(id=registration.id)
+                    .select_related("user", "user__crushprofile")
+                    .prefetch_related(
+                        "user__crushprofile__interests_new",
+                        "user__crushprofile__qualities",
+                        "user__crushprofile__defects",
+                    )
+                )
+
+                my_user = getattr(registration, "user", None)
+                my_profile = (
+                    getattr(my_user, "crushprofile", None) if my_user else None
+                )
+                my_interests = set()
+                if my_profile:
+                    my_interests = set(
+                        i.label for i in my_profile.interests_new.all()
+                    )
+
+                for other in other_regs:
+                    op = getattr(
+                        getattr(other, "user", None), "crushprofile", None
+                    )
+                    if not op:
+                        continue
+                    # Badge format e.g. "Pos (#6)" or "Alex (#9)"
+                    badge_name = (
+                        getattr(op, "display_name", "")
+                        or getattr(other.user, "first_name", "")
+                        or ""
+                    )
+                    badge = f"{badge_name} (#{other.id})".strip()
+
+                    other_interests = [i.label for i in op.interests_new.all()]
+                    common = my_interests.intersection(other_interests)
+
+                    if common:
+                        clues.append(
+                            (
+                                f'Partage ta passion "{list(common)[0]}"',
+                                badge,
+                            )
+                        )
+                    elif op.event_vibe:
+                        clues.append(
+                            (f'Vibe: "{op.get_event_vibe_display()}"', badge)
+                        )
+                    elif other_interests:
+                        clues.append(
+                            (f'Adore "{other_interests[0]}"', badge)
+                        )
+                    elif op.defects.exists():
+                        clues.append(
+                            (
+                                f'Macke: "{op.defects.first().label}"',
+                                badge,
+                            )
+                        )
+                    elif op.qualities.exists():
+                        clues.append(
+                            (
+                                f'Atout: "{op.qualities.first().label}"',
+                                badge,
+                            )
+                        )
+
+                # Keep up to 4 unique clues
+                random.shuffle(clues)
+                clues = clues[:4]
+        except Exception:
+            clues = []
+
+    if not clues:
+        return _build_mission_directives(cols=cols)
+
+    out: list[Directive] = []
+    out.append(Text("MYSTERY RADAR // INDICES & MISSIONS", Align.CENTER, bold=True))
+    out.append(Rule("-"))
+    out.append(
+        Text("Devine qui correspond a chaque indice et", Align.CENTER)
+    )
+    out.append(
+        Text("ecris son prenom dans la case [   ] :", Align.CENTER)
+    )
+    out.append(Feed(1))
+
+    for clue_text, badge in clues:
+        prefix = "[   ] "
+        full_clue = f"{prefix}{clue_text}"
+        # If line fits with right-justified badge, justify directly
+        if len(full_clue) + len(badge) + 2 <= cols:
+            out.append(Text(justify(full_clue, badge, cols)))
+        else:
+            for part in wrap(full_clue, cols):
+                out.append(Text(part))
+            out.append(Text(justify("", badge, cols)))
 
     out.append(Rule("="))
     return out
@@ -244,7 +370,11 @@ def build_checkin_ticket_directives(
     )
     directives.extend(_build_receipt_directives(cols=cols))
     directives.extend(_build_coach_rules_directives(cols=cols))
-    directives.extend(_build_mission_directives(cols=cols))
+    directives.extend(
+        _build_mystery_radar_directives(
+            registration=registration, event=event, cols=cols
+        )
+    )
     directives.extend(_build_qr_footer_directives(qr_url=qr_url, cols=cols))
 
     return directives
