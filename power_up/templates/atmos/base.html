@@ -1,4 +1,17 @@
 {% load static %}<!DOCTYPE html>
+<!--
+  Deliberately left as a hardcoded "en", not derived from the active request
+  locale: `lang` describes the actual language of the document's content,
+  not the visitor's negotiated preference, and every string in these
+  templates is still hard-coded English regardless of locale. Emitting
+  lang="fr"/"de" for French/German visitors (an earlier version of this
+  comment did exactly that) would have assistive technology apply French/
+  German pronunciation rules to English text — worse than the status quo,
+  not better. Translating the guest-facing copy (marking every string +
+  this repo's polib-based .po/.mo build) is the separate, larger follow-up
+  that would make locale-driven `lang` correct here — see the join.html
+  review thread for that decision.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">

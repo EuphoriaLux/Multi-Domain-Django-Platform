@@ -19,7 +19,7 @@
 
 {% if price_changed %}
 <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
-  ⚠️ <strong>A price changed:</strong> your round wasn't sent. Review the refreshed prices and total before trying again.
+  ⚠️ <strong>The menu changed:</strong> your round wasn't sent. Review the refreshed drinks and total before trying again.
 </div>
 {% endif %}
 
@@ -67,6 +67,12 @@
        prose would itself open an unclosed block, exactly the bug this
        fix is for.) -->
   {% localize off %}<input type="hidden" name="expected_total" value="{{ total }}">{% endlocalize %}
+  <!-- Content fingerprint of what's actually being reviewed (item ids, qty,
+       price, AND name) — expected_total alone can't catch a same-priced
+       rename between review and placement. See _order_signature() and
+       _create_order_atomic() in views.py. -->
+  <input type="hidden" name="expected_signature" value="{{ cart_signature }}">
+  <input type="hidden" name="expected_currency" value="{{ guest.venue.currency }}">
   <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
 </form>
 

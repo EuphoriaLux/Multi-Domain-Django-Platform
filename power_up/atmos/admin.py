@@ -44,6 +44,18 @@ class TableAdmin(admin.ModelAdmin):
     # rotatable one. TableInline already had this; the standalone
     # registration didn't.
 
+    def get_readonly_fields(self, request, obj=None):
+        # `venue` stays editable on the ADD form (there's nothing to protect
+        # yet), but once a table exists, moving it to another venue leaves
+        # any open Tab/Guest/Order still pointed at the old venue while a
+        # fresh scan resolves the table under the new one — get_or_create()
+        # then reuses that stale tab, silently serving the new venue's menu
+        # under the old venue's guests/KDS. Editing venue is not a supported
+        # operation; deactivate and recreate the table instead.
+        if obj is None:
+            return self.readonly_fields
+        return (*self.readonly_fields, "venue")
+
     @admin.action(description="Rotate QR token (invalidates the printed sticker)")
     def rotate_qr_token(self, request, queryset):
         # Making qr_token readonly (above) closed the "staff invent a token"
@@ -141,6 +153,10 @@ class OrderAdmin(admin.ModelAdmin):
         "served_at",
         "cancelled_at",
         "total_amount",
+        # Another placement-time snapshot, same reasoning as the fields
+        # above — editable, it would let an admin save silently rewrite
+        # which currency a historical order's total was actually charged in.
+        "currency",
         "vignette",
         "vignette_source",
         "placed_at",
@@ -156,6 +172,18 @@ class GuestAdmin(admin.ModelAdmin):
     # field readonly with this same reasoning; this admin was missed.
     readonly_fields = ("venue",)
 
+    def get_readonly_fields(self, request, obj=None):
+        # `tab` stays editable on the ADD form. Once a guest exists, its
+        # cookie, order-status view, and every historical Order.tab/venue
+        # already point at the original tab — reassigning it here changes
+        # only this Guest row, silently rewriting which table/venue future
+        # requests under that cookie resolve to (and letting order_status
+        # render a past order's ticket with the new table/currency), while
+        # existing Order rows stay on the old one.
+        if obj is None:
+            return self.readonly_fields
+        return (*self.readonly_fields, "tab")
+
 
 class TabAdmin(admin.ModelAdmin):
     list_display = ("table", "venue", "status", "opened_at")
@@ -164,6 +192,18 @@ class TabAdmin(admin.ModelAdmin):
     # shown readonly rather than left as a normal editable FK so it doesn't
     # look like a real choice that silently gets overwritten on save.
     readonly_fields = ("venue",)
+
+    def get_readonly_fields(self, request, obj=None):
+        # `table` stays editable on the ADD form. Once a tab exists,
+        # Tab.save() re-derives `venue` from whatever `table` is submitted,
+        # but existing Guest.venue/Order.venue rows created under this tab
+        # do NOT move with it — reassigning an active tab's table would
+        # invalidate its guests' placement checks (guest.venue no longer
+        # matches tab.venue) while historical orders show the new table on
+        # what is still, for KDS purposes, the old venue.
+        if obj is None:
+            return self.readonly_fields
+        return (*self.readonly_fields, "table")
 
 
 # Only power_up_admin_site, matching crm/onboarding — not the default

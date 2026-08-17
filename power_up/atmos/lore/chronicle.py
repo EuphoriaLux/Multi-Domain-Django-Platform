@@ -10,6 +10,7 @@ notice about table 4.
 
 from __future__ import annotations
 
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -56,25 +57,45 @@ class Chronicle:
     venue_name: str
     max_events: int = DEFAULT_WINDOW
     _events: deque[ChronicleEvent] = field(default_factory=deque, init=False)
+    # views.py's `_chronicle_for()` hands the SAME Chronicle instance to
+    # every concurrent request for one venue/night — a deque is thread-safe
+    # for a single append/pop from either end (the GIL makes that atomic),
+    # but NOT for iterating it while another thread appends: one request's
+    # `generate_vignette()` reading `active_personas()` while another's
+    # `record()` mutates the same deque raises `RuntimeError: deque mutated
+    # during iteration`, and by the time that happens the order has already
+    # committed and the guest's session cart is already cleared — the guest
+    # gets a bare 500 despite their order being fine. Every read/write below
+    # takes this lock and, for reads, copies to a tuple before releasing it,
+    # so iteration always happens over an immutable snapshot.
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self._events = deque(maxlen=max(1, self.max_events))
 
     def record(self, event: ChronicleEvent) -> None:
-        self._events.append(event)
+        with self._lock:
+            self._events.append(event)
 
     def __len__(self) -> int:
-        return len(self._events)
+        with self._lock:
+            return len(self._events)
 
     def __iter__(self) -> Iterator[ChronicleEvent]:
-        return iter(self._events)
+        with self._lock:
+            snapshot = tuple(self._events)
+        return iter(snapshot)
 
     @property
     def events(self) -> tuple[ChronicleEvent, ...]:
-        return tuple(self._events)
+        with self._lock:
+            return tuple(self._events)
 
     def recent(self, limit: int | None = None) -> tuple[ChronicleEvent, ...]:
-        items = tuple(self._events)
+        with self._lock:
+            items = tuple(self._events)
         if limit is None:
             return items
         # `items[-0:]` is the whole tuple, so a caller disabling context to cut
@@ -83,8 +104,10 @@ class Chronicle:
 
     def active_personas(self, *, exclude: str | None = None) -> tuple[str, ...]:
         """Distinct personas in the window, most recent last."""
+        with self._lock:
+            snapshot = tuple(self._events)
         seen: dict[str, None] = {}
-        for event in self._events:
+        for event in snapshot:
             if exclude and event.persona.casefold() == exclude.casefold():
                 continue
             seen[event.persona] = None

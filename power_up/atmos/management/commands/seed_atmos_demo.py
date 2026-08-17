@@ -30,6 +30,11 @@ from power_up.atmos.models import (
 # nothing outside this app. Used to scope permissions below.
 _ATMOS_MODELS = [Venue, Table, MenuCategory, MenuItem, Tab, Guest, Order, OrderItem]
 
+# Set on the account this command creates, and checked against any existing
+# "atmos_staff" account before granting it anything — see the ownership
+# check below.
+_SEEDED_EMAIL = "atmos-staff@example.com"
+
 ## (name, price, description, contains_alcohol)
 MENU = {
     "Cocktails": [
@@ -85,13 +90,29 @@ class Command(BaseCommand):
                 )
 
         User = get_user_model()
+        permissions = Permission.objects.filter(
+            content_type__in=ContentType.objects.get_for_models(
+                *_ATMOS_MODELS
+            ).values(),
+            codename__regex=r"^(add|change|delete|view)_",
+        )
         # Checking for *any* is_staff user (the original guard) is wrong on
         # this platform: test.power-up.lu is a shared multi-domain DB, so
         # crush_lu/crm/other apps' staff accounts already exist there long
         # before Atmos ever runs — that guard would see them and silently
         # skip creating atmos_staff altogether. Check for this specific
         # account instead.
-        if not User.objects.filter(username="atmos_staff").exists():
+        staff_user = User.objects.filter(username="atmos_staff").first()
+        # A *different* username collision is unlikely on its own, but the
+        # branches below grant real permissions (or demote a superuser) to
+        # whatever account already sits at this username — on a shared
+        # multi-domain platform, "atmos_staff" isn't a namespace this
+        # command owns exclusively. Only touch permissions/superuser status
+        # when the existing account's email also matches what THIS command
+        # sets at creation time; otherwise it's not the seeded identity and
+        # this command has no business granting it anything.
+        looks_seeded = staff_user is not None and staff_user.email == _SEEDED_EMAIL
+        if staff_user is None:
             # A fixed password here would be a fixed, public credential —
             # this repo, and this command's own output, are both visible to
             # anyone. On staging (test.power-up.lu) that's a real account
@@ -110,20 +131,71 @@ class Command(BaseCommand):
             # enough for admin CRUD on power_up_admin_site.
             staff_user = User.objects.create_user(
                 username="atmos_staff",
-                email="atmos-staff@example.com",
+                email=_SEEDED_EMAIL,
                 password=password,
                 is_staff=True,
             )
-            permissions = Permission.objects.filter(
-                content_type__in=ContentType.objects.get_for_models(*_ATMOS_MODELS).values(),
-                codename__regex=r"^(add|change|delete|view)_",
-            )
             staff_user.user_permissions.add(*permissions)
-            self.stdout.write(self.style.WARNING(
-                f"Created staff login: atmos_staff / {password}  (save this — shown once)"
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Created staff login: atmos_staff / {password}  (save this — shown once)"
+                )
+            )
+        elif not looks_seeded:
+            # A same-username collision with an account this command didn't
+            # create (its email doesn't match). On a shared multi-domain
+            # platform "atmos_staff" isn't a namespace this command owns
+            # exclusively — silently granting Atmos permissions to (or,
+            # worse, demoting the superuser status of) an arbitrary
+            # unrelated account just because it happens to have this
+            # username would be a real takeover, not a seed. Leave it
+            # completely untouched and surface the collision instead.
+            self.stdout.write(
+                self.style.ERROR(
+                    "A user named 'atmos_staff' already exists with a different "
+                    f"email ({staff_user.email!r}, expected {_SEEDED_EMAIL!r}) — "
+                    "leaving it untouched. This is not the account this command "
+                    "seeds; resolve the collision manually."
+                )
+            )
+        elif staff_user.is_superuser:
+            # Fresh evidence after the fix above: an atmos_staff account
+            # created by an EARLIER version of this command can already
+            # exist with is_superuser=True. Treating "the account exists" as
+            # success would skip both demotion and the scoped-permission
+            # assignment below, leaving that credential able to reach every
+            # other app's data in the shared database indefinitely — remedy
+            # it in place instead.
+            #
+            # Rotate the password too, not just the permission scope: this
+            # exact account/username had a FIXED, publicly-committed
+            # password (`atmos-staff`) before an earlier fix on this same
+            # PR replaced it with a per-run random one — an installation
+            # seeded before that fix can still be sitting on that
+            # known-from-git-history password. Demoting the account but
+            # leaving that password in place would still let anyone who's
+            # read the repo history log back in.
+            password = secrets.token_urlsafe(12)
+            staff_user.is_superuser = False
+            staff_user.is_staff = True
+            staff_user.set_password(password)
+            staff_user.save(update_fields=["is_superuser", "is_staff", "password"])
+            staff_user.user_permissions.add(*permissions)
+            self.stdout.write(
+                self.style.WARNING(
+                    "atmos_staff existed as a global superuser — demoted to Atmos-only "
+                    "staff permissions AND its password was rotated (a pre-fix install "
+                    f"may still have had the old, publicly-committed one): atmos_staff / "
+                    f"{password}  (save this — shown once)"
+                )
+            )
         else:
-            self.stdout.write("atmos_staff already exists — not recreating.")
+            # Keep permissions current even on a no-op run, in case the set
+            # of Atmos models/permissions this command manages grows later.
+            staff_user.user_permissions.add(*permissions)
+            self.stdout.write(
+                "atmos_staff already exists — not recreating, permissions refreshed."
+            )
 
         self.stdout.write(self.style.SUCCESS("Atmos demo data ready."))
         for table in venue.tables.all():

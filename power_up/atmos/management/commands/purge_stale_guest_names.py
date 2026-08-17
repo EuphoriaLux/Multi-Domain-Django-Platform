@@ -29,6 +29,8 @@ run, with no preview step to catch the mistake first.
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 
 from power_up.atmos.models import Guest, Venue
@@ -55,30 +57,68 @@ class Command(BaseCommand):
             cutoff = timezone.now() - timezone.timedelta(
                 minutes=venue.guest_window_minutes
             )
+            # Deliberately NOT a bare `.exclude(display_name="")`: a guest
+            # whose display_name already reads "" can still have a leftover
+            # personal `Order.alias_snapshot` from a race where a placement
+            # committed `guest.display` (read before this command's clear)
+            # just after an earlier run had already blanked display_name —
+            # excluding on the current (already-cleared) field value is
+            # exactly what let that leftover snapshot persist indefinitely.
+            # But scanning literally every guest past the window forever
+            # (once fully purged, a guest never needs revisiting) makes this
+            # command's cost grow with the venue's entire history instead of
+            # its actual backlog. Cover both real candidates with one query
+            # instead: a name still set, OR at least one order whose
+            # snapshot has already drifted from the (immutable) alias — that
+            # second clause is what actually catches the race above, without
+            # requiring "every guest ever" to prove it doesn't apply.
             stale_guests = list(
-                Guest.objects.filter(venue=venue, joined_at__lt=cutoff).exclude(
-                    display_name=""
+                Guest.objects.filter(venue=venue, joined_at__lt=cutoff)
+                .filter(
+                    Q(display_name__gt="")
+                    | (Q(orders__isnull=False) & ~Q(orders__alias_snapshot=F("alias")))
                 )
+                .distinct()
             )
+            guests_purged = 0
+            orders_purged = 0
             for guest in stale_guests:
-                order_count = guest.orders.exclude(alias_snapshot=guest.alias).count()
                 if apply_changes:
-                    # Reset each of this guest's past orders back to the
-                    # (non-personal) alias before clearing display_name
-                    # below — otherwise the snapshot is the only remaining
-                    # copy of a name we just promised to forget.
-                    total_orders += guest.orders.exclude(
-                        alias_snapshot=guest.alias
-                    ).update(alias_snapshot=guest.alias)
-                    guest.display_name = ""
-                    guest.save(update_fields=["display_name"])
+                    # Lock this Guest row for the duration of the fix.
+                    # _create_order_atomic() (views.py) locks the same row via
+                    # select_for_update() before writing Order.alias_snapshot
+                    # — the two locks serialize against each other, so a
+                    # placement already in flight for this guest either fully
+                    # commits (its alias_snapshot is then caught by the
+                    # `.exclude()` below, in this same locked transaction)
+                    # before we touch it, or fully waits until after we've
+                    # cleared display_name and reset every existing snapshot.
+                    with transaction.atomic():
+                        locked_guest = Guest.objects.select_for_update().get(
+                            pk=guest.pk
+                        )
+                        order_count = locked_guest.orders.exclude(
+                            alias_snapshot=locked_guest.alias
+                        ).update(alias_snapshot=locked_guest.alias)
+                        had_name = bool(locked_guest.display_name)
+                        if had_name:
+                            locked_guest.display_name = ""
+                            locked_guest.save(update_fields=["display_name"])
                 else:
-                    total_orders += order_count
-                total_guests += 1
-            if stale_guests:
+                    order_count = guest.orders.exclude(
+                        alias_snapshot=guest.alias
+                    ).count()
+                    had_name = bool(guest.display_name)
+                if order_count or had_name:
+                    guests_purged += 1
+                orders_purged += order_count
+            total_guests += guests_purged
+            total_orders += orders_purged
+            if guests_purged:
                 verb = "purged" if apply_changes else "would purge"
                 self.stdout.write(
-                    f"  {venue.name}: {verb} {len(stale_guests)} guest name(s)"
+                    f"  {venue.name}: {verb} {guests_purged} guest name(s) and "
+                    f"{orders_purged} order snapshot(s)"
                 )
 
         if apply_changes:
