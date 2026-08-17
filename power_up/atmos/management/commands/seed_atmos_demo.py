@@ -166,16 +166,27 @@ class Command(BaseCommand):
             # assignment below, leaving that credential able to reach every
             # other app's data in the shared database indefinitely — remedy
             # it in place instead.
+            #
+            # Rotate the password too, not just the permission scope: this
+            # exact account/username had a FIXED, publicly-committed
+            # password (`atmos-staff`) before an earlier fix on this same
+            # PR replaced it with a per-run random one — an installation
+            # seeded before that fix can still be sitting on that
+            # known-from-git-history password. Demoting the account but
+            # leaving that password in place would still let anyone who's
+            # read the repo history log back in.
+            password = secrets.token_urlsafe(12)
             staff_user.is_superuser = False
             staff_user.is_staff = True
-            staff_user.save(update_fields=["is_superuser", "is_staff"])
+            staff_user.set_password(password)
+            staff_user.save(update_fields=["is_superuser", "is_staff", "password"])
             staff_user.user_permissions.add(*permissions)
             self.stdout.write(
                 self.style.WARNING(
                     "atmos_staff existed as a global superuser — demoted to Atmos-only "
-                    "staff permissions. Its password is unchanged; reset it separately "
-                    "(changepassword) if it may already have been shared as a superuser "
-                    "credential."
+                    "staff permissions AND its password was rotated (a pre-fix install "
+                    f"may still have had the old, publicly-committed one): atmos_staff / "
+                    f"{password}  (save this — shown once)"
                 )
             )
         else:

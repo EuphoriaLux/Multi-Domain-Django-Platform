@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 
 from power_up.atmos.models import Guest, Venue
@@ -56,16 +57,29 @@ class Command(BaseCommand):
             cutoff = timezone.now() - timezone.timedelta(
                 minutes=venue.guest_window_minutes
             )
-            # Deliberately NOT `.exclude(display_name="")`: a guest whose
-            # display_name already reads "" can still have a leftover
+            # Deliberately NOT a bare `.exclude(display_name="")`: a guest
+            # whose display_name already reads "" can still have a leftover
             # personal `Order.alias_snapshot` from a race where a placement
             # committed `guest.display` (read before this command's clear)
             # just after an earlier run had already blanked display_name —
             # excluding on the current (already-cleared) field value is
-            # exactly what let that leftover snapshot persist indefinitely,
-            # since every later run would skip the guest that still needs
-            # its snapshot fixed. Check every guest past the window instead.
-            stale_guests = list(Guest.objects.filter(venue=venue, joined_at__lt=cutoff))
+            # exactly what let that leftover snapshot persist indefinitely.
+            # But scanning literally every guest past the window forever
+            # (once fully purged, a guest never needs revisiting) makes this
+            # command's cost grow with the venue's entire history instead of
+            # its actual backlog. Cover both real candidates with one query
+            # instead: a name still set, OR at least one order whose
+            # snapshot has already drifted from the (immutable) alias — that
+            # second clause is what actually catches the race above, without
+            # requiring "every guest ever" to prove it doesn't apply.
+            stale_guests = list(
+                Guest.objects.filter(venue=venue, joined_at__lt=cutoff)
+                .filter(
+                    Q(display_name__gt="")
+                    | (Q(orders__isnull=False) & ~Q(orders__alias_snapshot=F("alias")))
+                )
+                .distinct()
+            )
             guests_purged = 0
             orders_purged = 0
             for guest in stale_guests:

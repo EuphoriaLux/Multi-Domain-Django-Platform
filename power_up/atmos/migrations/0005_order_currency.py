@@ -6,8 +6,19 @@ from django.db import migrations, models
 def _backfill(apps, schema_editor):
     """The field defaults to "EUR" for every existing row, which is wrong for
     any pre-existing order placed at a non-EUR venue. Backfill from the
-    order's own (denormalised) venue FK — orders never change venue, so this
-    is exact, not a best guess.
+    order's own (denormalised) venue FK's CURRENT currency.
+
+    This is a best-effort backfill, NOT an exact historical reconstruction —
+    it cannot be, since no prior schema version ever recorded what currency
+    an order was actually placed in. Orders never change venue (the FK
+    itself is exact), but `Venue.currency` is a live, editable field: if a
+    venue's currency was ever changed between an old order's placement and
+    whenever this migration runs, that order gets backfilled with the
+    venue's currency AT MIGRATION TIME, not at placement time — the same
+    class of staleness this field exists to prevent going forward, just
+    unavoidable for history predating it. In practice this only matters for
+    venues that have actually changed currency, which this prototype has
+    none of yet; flagging it here rather than overclaiming exactness.
     """
     Order = apps.get_model("atmos", "Order")
     Venue = apps.get_model("atmos", "Venue")

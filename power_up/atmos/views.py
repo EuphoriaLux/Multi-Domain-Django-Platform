@@ -256,15 +256,23 @@ def _resolve_menu_item(guest, item_id):
 
 def _order_signature(pairs) -> str:
     """Content fingerprint of a cart's orderable `(item, quantity)` pairs —
-    item identity, quantity, price, AND name, not just the summed total.
-    `expected_total` alone catches a price change but not a same-priced
-    rename: if staff repurpose what "Old Fashioned" points to without
-    touching its price, the numeric total still matches what the guest
-    reviewed, but they never confirmed the new item — it would otherwise
-    reach the KDS and ticket as something else entirely. Order-independent
-    (sorted) so cart line ordering doesn't matter.
+    item identity, quantity, price, name, AND allergens, not just the summed
+    total. `expected_total` alone catches a price change but not a
+    same-priced rename: if staff repurpose what "Old Fashioned" points to
+    without touching its price, the numeric total still matches what the
+    guest reviewed, but they never confirmed the new item — it would
+    otherwise reach the KDS and ticket as something else entirely.
+    `allergens` is included for the same reason: cart.html displays it
+    prominently next to each line, so a staff edit that adds/removes an
+    allergen between review and submission is exactly the kind of
+    "guest never actually saw this" change this signature exists to catch —
+    not just renames. Order-independent (sorted) so cart line ordering
+    doesn't matter.
     """
-    parts = sorted(f"{item.id}:{qty}:{item.price}:{item.name}" for item, qty in pairs)
+    parts = sorted(
+        f"{item.id}:{qty}:{item.price}:{item.name}:{item.allergens}"
+        for item, qty in pairs
+    )
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
@@ -764,6 +772,17 @@ def order_place(request):
         return render(request, "atmos/closed.html", {"table": guest.tab.table})
     if result.outcome in (PlacementOutcome.TAB_CLOSED, PlacementOutcome.GUEST_INACTIVE):
         return render(request, "atmos/no_session.html")
+    if result.outcome in (PlacementOutcome.UNAVAILABLE, PlacementOutcome.PRICE_CHANGED):
+        # Re-fetch rather than reuse the `guest` fetched at the top of this
+        # view: that instance's `venue` (select_related at that point) can
+        # already be stale by the time we get here — e.g. a currency change
+        # is exactly what triggered PRICE_CHANGED in the first place. Without
+        # this, the hidden expected_currency field below re-renders with the
+        # OLD currency again, so a resubmit fails the same check forever
+        # until the guest manually reloads the cart. Fall back to the
+        # original instance only if this somehow returns nothing (shouldn't
+        # happen — nothing between the two fetches removes the guest).
+        guest = _get_guest(request) or guest
     if result.outcome is PlacementOutcome.UNAVAILABLE:
         # Cart is untouched on purpose (see _create_order_atomic) — show the
         # guest the same lines cart_detail would, plus what changed, rather

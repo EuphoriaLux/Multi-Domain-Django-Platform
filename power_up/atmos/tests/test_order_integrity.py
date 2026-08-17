@@ -166,6 +166,31 @@ def test_order_rejects_renamed_item_with_same_price(ordering_setup):
 
 
 @pytest.mark.django_db
+def test_order_rejects_added_allergen_with_same_price_and_name(ordering_setup):
+    """cart.html displays allergens prominently next to each line — a staff
+    edit that adds one between review and placement is exactly the kind of
+    "guest never actually saw this" change the signature must catch, not
+    just renames/price changes."""
+    _venue, _table, _tab, guest, _category, item = ordering_setup
+    reviewed_signature = _order_signature([(item, 1)])
+
+    item.allergens = "peanuts"
+    item.save(update_fields=["allergens"])
+
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(
+        request,
+        guest,
+        expected_total=Decimal("12.00"),
+        expected_signature=reviewed_signature,
+    )
+    assert result.outcome is PlacementOutcome.PRICE_CHANGED
+    assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
 def test_order_rejects_currency_change_since_cart_review(ordering_setup):
     venue, _table, _tab, guest, _category, item = ordering_setup
     request = request_with_session("post", {"expected_total": "12.00"})
