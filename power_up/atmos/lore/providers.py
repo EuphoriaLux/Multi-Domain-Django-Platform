@@ -16,14 +16,27 @@ wall time regardless of how the server paces bytes. A worker that's still
 blocked on a slow socket when its deadline passes isn't killed (Python has no
 safe way to do that) — but because the pool is bounded, at most
 `_MAX_CONCURRENT_PROVIDER_CALLS` such workers can ever be stuck at once,
-instead of leaking one new thread per timed-out order under sustained load; a
-call still queued (not yet started) when its deadline passes is cancelled
-outright, so a saturated pool degrades to fast fallbacks rather than growing.
+instead of leaking one new thread per timed-out order under sustained load.
+
+**Admission control, not just a bounded pool:** `ThreadPoolExecutor`'s own
+work queue is unbounded — cancelling a future whose work item hasn't started
+yet stops it from *running*, but that item is only actually removed from the
+queue when a worker gets around to dequeuing it. If every worker is stuck on
+a slow-dribbling response, nothing dequeues, and calls keep piling up in the
+queue (with their request payloads) for as long as callers keep submitting.
+`_ADMISSION_SEMAPHORE` below tracks "admitted but not yet finished" work
+directly — sized to the pool, acquired before `submit()`, released only when
+the future actually completes (including a successful, never-started
+cancellation) via `add_done_callback`. A call made while the pool is fully
+saturated is rejected immediately, before ever touching the executor's queue,
+so a saturated pool degrades to fast fallbacks rather than an ever-growing
+backlog.
 """
 
 from __future__ import annotations
 
 import json
+import threading
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -38,6 +51,11 @@ _MAX_CONCURRENT_PROVIDER_CALLS = 8
 _EXECUTOR = ThreadPoolExecutor(
     max_workers=_MAX_CONCURRENT_PROVIDER_CALLS, thread_name_prefix="atmos-provider"
 )
+# See "Admission control" above — one permit per call admitted to the
+# executor, held until that call's future is actually done (run, errored, or
+# cleanly cancelled before running). `acquire(blocking=False)` is the
+# admission check: nothing waits on this semaphore.
+_ADMISSION_SEMAPHORE = threading.BoundedSemaphore(_MAX_CONCURRENT_PROVIDER_CALLS)
 
 
 class ProviderError(Exception):
@@ -75,19 +93,36 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> dict:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    # Admission check, not a wait: reject immediately if every permit is
+    # already held by in-flight/queued work, rather than joining an
+    # unbounded queue behind it (see module docstring).
+    if not _ADMISSION_SEMAPHORE.acquire(blocking=False):
+        raise ProviderError(
+            f"provider pool saturated at {_MAX_CONCURRENT_PROVIDER_CALLS} "
+            "in-flight calls — rejecting immediately"
+        )
+
     # See module docstring: `timeout` bounds each socket op, not the total
     # call. Submitting to the bounded pool and waiting on the future with
     # the same budget bounds *this* function's wall-clock time regardless
     # of how the server paces its response.
     future = _EXECUTOR.submit(_do_request)
+    # Released when the future is actually done — run, errored, OR cleanly
+    # cancelled before it ever started — not when *this* call's own wait
+    # below times out. That keeps the semaphore counting real admitted work,
+    # so a worker still stuck on a slow socket after we've moved on still
+    # holds its permit.
+    future.add_done_callback(lambda _f: _ADMISSION_SEMAPHORE.release())
     try:
         return future.result(timeout=timeout)
     except FutureTimeoutError:
         # If the call hadn't started yet (pool was saturated), this
         # actually removes it from the queue — no worker thread is spent
-        # on it at all. If it had already started, cancel() is a no-op and
-        # that one worker stays blocked until its own socket-level timeout
-        # eventually fires — bounded by pool size, not unbounded.
+        # on it at all, and the done-callback above fires immediately,
+        # freeing its permit. If it had already started, cancel() is a
+        # no-op and that one worker (and its permit) stays held until its
+        # own socket-level timeout eventually fires — bounded by pool size,
+        # not unbounded.
         future.cancel()
         raise ProviderError(
             f"provider call exceeded {timeout}s wall-clock deadline"

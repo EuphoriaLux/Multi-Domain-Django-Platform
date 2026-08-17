@@ -13,6 +13,7 @@ from power_up.atmos.views import (
     _cart_lines,
     _create_order_atomic,
     _get_guest,
+    _order_signature,
     _resolve_menu_item,
 )
 
@@ -113,3 +114,87 @@ def test_order_rechecks_tab_status_inside_transaction(ordering_setup):
     result = _create_order_atomic(request, guest, expected_total=Decimal("12.00"))
     assert result.outcome is PlacementOutcome.TAB_CLOSED
     assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
+def test_order_rejects_deactivated_table(ordering_setup):
+    _venue, table, _tab, guest, _category, item = ordering_setup
+    table.is_active = False
+    table.save(update_fields=["is_active"])
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(request, guest, expected_total=Decimal("12.00"))
+    assert result.outcome is PlacementOutcome.TAB_CLOSED
+    assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
+def test_order_rejects_settled_guest(ordering_setup):
+    _venue, _table, _tab, guest, _category, item = ordering_setup
+    guest.status = "settled"
+    guest.save(update_fields=["status"])
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(request, guest, expected_total=Decimal("12.00"))
+    assert result.outcome is PlacementOutcome.GUEST_INACTIVE
+    assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
+def test_order_rejects_renamed_item_with_same_price(ordering_setup):
+    """expected_total alone can't catch a same-priced rename between cart
+    review and placement — expected_signature must."""
+    _venue, _table, _tab, guest, _category, item = ordering_setup
+    reviewed_signature = _order_signature([(item, 1)])
+
+    item.name = "Something Else Entirely"
+    item.save(update_fields=["name"])
+
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(
+        request,
+        guest,
+        expected_total=Decimal("12.00"),
+        expected_signature=reviewed_signature,
+    )
+    assert result.outcome is PlacementOutcome.PRICE_CHANGED
+    assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
+def test_order_rejects_currency_change_since_cart_review(ordering_setup):
+    venue, _table, _tab, guest, _category, item = ordering_setup
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(
+        request,
+        guest,
+        expected_total=Decimal("12.00"),
+        expected_currency="USD",  # venue is still "EUR" — mismatch
+    )
+    assert result.outcome is PlacementOutcome.PRICE_CHANGED
+    assert guest.orders.count() == 0
+
+
+@pytest.mark.django_db
+def test_order_snapshots_venue_currency(ordering_setup):
+    venue, _table, _tab, guest, _category, item = ordering_setup
+    venue.currency = "GBP"
+    venue.save(update_fields=["currency"])
+    request = request_with_session("post", {"expected_total": "12.00"})
+    request.session[CART_SESSION_KEY] = {str(item.id): 1}
+
+    result = _create_order_atomic(request, guest, expected_total=Decimal("12.00"))
+    assert result.outcome is PlacementOutcome.PLACED
+    assert result.order.currency == "GBP"
+
+    # A later currency change must not retroactively rewrite the order.
+    venue.currency = "USD"
+    venue.save(update_fields=["currency"])
+    result.order.refresh_from_db()
+    assert result.order.currency == "GBP"

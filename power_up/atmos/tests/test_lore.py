@@ -80,6 +80,46 @@ class TestChronicle:
         assert chronicle.recent(0) == ()
         assert chronicle.context_lines(limit=0) == ()
 
+    def test_concurrent_record_and_read_does_not_raise(self):
+        """views.py hands ONE Chronicle instance to every concurrent request
+        for a venue/night. Without a lock, one thread's `record()` (append)
+        racing another's `active_personas()` (a bare `for event in
+        self._events`) raises `RuntimeError: deque mutated during
+        iteration` — and by the time that happens the order has already
+        committed, so the guest gets a bare 500 despite their order being
+        fine. This hammers both from many threads and asserts it never
+        raises."""
+        import threading
+
+        chronicle = Chronicle("The Velvet Hour", max_events=20)
+        errors = []
+
+        def writer(n):
+            try:
+                for i in range(200):
+                    chronicle.record(event(persona=f"Writer{n}-{i}"))
+            except Exception as exc:  # noqa: BLE001 - the assertion is "no exception"
+                errors.append(exc)
+
+        def reader():
+            try:
+                for _ in range(200):
+                    chronicle.active_personas()
+                    chronicle.recent(6)
+                    list(chronicle)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=writer, args=(n,)) for n in range(4)]
+        threads += [threading.Thread(target=reader) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        assert len(chronicle) == 20  # bounded window still holds
+
 
 class TestBuildPrompt:
     def test_persona_is_fenced_as_data(self):

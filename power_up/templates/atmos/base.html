@@ -1,5 +1,16 @@
-{% load static %}<!DOCTYPE html>
-<html lang="en">
+{% load static i18n %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}<!--
+  Derived from the active request locale (LocaleMiddleware), not hardcoded —
+  test.power-up.lu already serves French/German visitors elsewhere on the
+  platform, and a hardcoded "en" here fed assistive tech the wrong language
+  rules regardless of what those visitors' browsers/cookies actually
+  negotiated. This does NOT translate the guest-facing copy below — every
+  string in the Atmos templates is still hard-coded English; that's a
+  separate, larger follow-up (marking every string for translation + this
+  repo's polib-based .po/.mo build), not something fixed by this one
+  attribute. See the join.html review thread for that decision.
+-->
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

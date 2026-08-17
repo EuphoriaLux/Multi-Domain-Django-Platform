@@ -85,13 +85,20 @@ class Command(BaseCommand):
                 )
 
         User = get_user_model()
+        permissions = Permission.objects.filter(
+            content_type__in=ContentType.objects.get_for_models(
+                *_ATMOS_MODELS
+            ).values(),
+            codename__regex=r"^(add|change|delete|view)_",
+        )
         # Checking for *any* is_staff user (the original guard) is wrong on
         # this platform: test.power-up.lu is a shared multi-domain DB, so
         # crush_lu/crm/other apps' staff accounts already exist there long
         # before Atmos ever runs — that guard would see them and silently
         # skip creating atmos_staff altogether. Check for this specific
         # account instead.
-        if not User.objects.filter(username="atmos_staff").exists():
+        staff_user = User.objects.filter(username="atmos_staff").first()
+        if staff_user is None:
             # A fixed password here would be a fixed, public credential —
             # this repo, and this command's own output, are both visible to
             # anyone. On staging (test.power-up.lu) that's a real account
@@ -114,16 +121,39 @@ class Command(BaseCommand):
                 password=password,
                 is_staff=True,
             )
-            permissions = Permission.objects.filter(
-                content_type__in=ContentType.objects.get_for_models(*_ATMOS_MODELS).values(),
-                codename__regex=r"^(add|change|delete|view)_",
-            )
             staff_user.user_permissions.add(*permissions)
-            self.stdout.write(self.style.WARNING(
-                f"Created staff login: atmos_staff / {password}  (save this — shown once)"
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Created staff login: atmos_staff / {password}  (save this — shown once)"
+                )
+            )
+        elif staff_user.is_superuser:
+            # Fresh evidence after the fix above: an atmos_staff account
+            # created by an EARLIER version of this command can already
+            # exist with is_superuser=True. Treating "the account exists" as
+            # success would skip both demotion and the scoped-permission
+            # assignment below, leaving that credential able to reach every
+            # other app's data in the shared database indefinitely — remedy
+            # it in place instead.
+            staff_user.is_superuser = False
+            staff_user.is_staff = True
+            staff_user.save(update_fields=["is_superuser", "is_staff"])
+            staff_user.user_permissions.add(*permissions)
+            self.stdout.write(
+                self.style.WARNING(
+                    "atmos_staff existed as a global superuser — demoted to Atmos-only "
+                    "staff permissions. Its password is unchanged; reset it separately "
+                    "(changepassword) if it may already have been shared as a superuser "
+                    "credential."
+                )
+            )
         else:
-            self.stdout.write("atmos_staff already exists — not recreating.")
+            # Keep permissions current even on a no-op run, in case the set
+            # of Atmos models/permissions this command manages grows later.
+            staff_user.user_permissions.add(*permissions)
+            self.stdout.write(
+                "atmos_staff already exists — not recreating, permissions refreshed."
+            )
 
         self.stdout.write(self.style.SUCCESS("Atmos demo data ready."))
         for table in venue.tables.all():

@@ -44,6 +44,14 @@ from power_up.storage import powerup_media_storage, powerup_upload_path
 _CURRENCY_SYMBOLS = {"EUR": "€", "GBP": "£", "USD": "$"}
 
 
+def currency_symbol(code: str) -> str:
+    """Shared by Venue (live, pre-order display) and Order (the currency
+    actually snapshotted at placement) so both render the same way — falls
+    back to the bare code (with a trailing space) rather than an ambiguous
+    plain number, same as printing.layout.money()."""
+    return _CURRENCY_SYMBOLS.get(code, code + " ")
+
+
 class Venue(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
@@ -77,10 +85,8 @@ class Venue(models.Model):
         """Guest-facing menu/cart templates hardcoded '€' until this existed
         — the ticket already went through printing.layout.money(), so a
         non-EUR venue would show one currency while ordering and get a
-        different one on the printed ticket. Falls back to the bare code
-        (with a trailing space) rather than an ambiguous plain number, same
-        as money()."""
-        return _CURRENCY_SYMBOLS.get(self.currency, self.currency + " ")
+        different one on the printed ticket."""
+        return currency_symbol(self.currency)
 
 
 class Table(models.Model):
@@ -201,8 +207,19 @@ class Tab(models.Model):
             and Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first()
             == "open"
         )
+        just_closed = was_open and self.status == "closed"
+        if just_closed and self.closed_at is None:
+            # No other writer touches this field (checked repo-wide) — every
+            # normal open->closed transition used to leave it NULL forever,
+            # making visit-duration/closure-time records inaccurate. Stamp it
+            # in the same save() as the transition rather than a follow-up
+            # query.
+            self.closed_at = timezone.now()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = [*update_fields, "closed_at"]
         super().save(*args, **kwargs)
-        if was_open and self.status == "closed":
+        if just_closed:
             # `uniq_active_alias_per_venue` treats every `status="active"`
             # guest as occupying its alias, with no link to whether the
             # guest's own tab is still open. Without this, a closed tab's
@@ -305,6 +322,12 @@ class Order(models.Model):
     total_amount = models.DecimalField(
         max_digits=9, decimal_places=2, default=Decimal("0.00")
     )
+    # Snapshotted at placement time, same reasoning as every other *_snapshot
+    # field on this model: total_amount/unit_price_snapshot are numbers taken
+    # at order time, but the ticket used to re-render with the *live*
+    # Venue.currency. Staff changing a venue's currency later would silently
+    # turn a historical €12.00 order into a $12.00 receipt.
+    currency = models.CharField(max_length=3, default="EUR")
 
     # Not in the spec's §4.8 table — see the module docstring. Populated by
     # power_up.atmos.lore.engine.generate_vignette() at placement time.
@@ -327,6 +350,12 @@ class Order(models.Model):
         already in flight. Callers should `.prefetch_related("items")`
         first — this still works without it, just at N+1 query cost."""
         return any(i.contains_alcohol_snapshot for i in self.items.all())
+
+    @property
+    def currency_symbol(self) -> str:
+        """The symbol for `self.currency` — the placement-time snapshot, not
+        whatever `self.venue.currency` reads today."""
+        return currency_symbol(self.currency)
 
     def transition_to(self, new_status: str) -> None:
         allowed = self._TRANSITIONS.get(self.status, set())

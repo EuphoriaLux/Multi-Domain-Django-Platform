@@ -19,6 +19,7 @@ Deliberately trimmed for a fast, reliable demo rather than the full spec:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import threading
 from dataclasses import dataclass, field
@@ -34,6 +35,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from .lore.chronicle import Chronicle, ChronicleEvent, DrinkLine
@@ -71,6 +73,7 @@ class PlacementOutcome(Enum):
     EMPTY_CART = "empty_cart"
     VENUE_CLOSED = "venue_closed"
     TAB_CLOSED = "tab_closed"
+    GUEST_INACTIVE = "guest_inactive"
     UNAVAILABLE = "unavailable"
     PRICE_CHANGED = "price_changed"
     PLACED = "placed"
@@ -181,8 +184,16 @@ def _get_guest(request):
         return None
     return (
         Guest.objects.select_related("tab__table", "venue")
-        .filter(pk=guest_id, status="active", tab__status="open")
-        .first()
+        # `tab__table__is_active`: staff taking a table out of service after
+        # a guest already scanned used to only block *future* scans — the
+        # existing cookie kept resolving here regardless, so the guest could
+        # keep browsing/ordering from a table staff explicitly deactivated.
+        .filter(
+            pk=guest_id,
+            status="active",
+            tab__status="open",
+            tab__table__is_active=True,
+        ).first()
     )
 
 
@@ -243,6 +254,20 @@ def _resolve_menu_item(guest, item_id):
         return None
 
 
+def _order_signature(pairs) -> str:
+    """Content fingerprint of a cart's orderable `(item, quantity)` pairs —
+    item identity, quantity, price, AND name, not just the summed total.
+    `expected_total` alone catches a price change but not a same-priced
+    rename: if staff repurpose what "Old Fashioned" points to without
+    touching its price, the numeric total still matches what the guest
+    reviewed, but they never confirmed the new item — it would otherwise
+    reach the KDS and ticket as something else entirely. Order-independent
+    (sorted) so cart line ordering doesn't matter.
+    """
+    parts = sorted(f"{item.id}:{qty}:{item.price}:{item.name}" for item, qty in pairs)
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
 # ---------------------------------------------------------------- guest zone
 
 
@@ -266,24 +291,33 @@ def guest_scan(request, qr_token):
 
 
 def guest_join(request):
+    # A revisit (direct URL, browser back, or a double-submit) must not mint
+    # a second Guest — that would replace the cookie, clear the in-progress
+    # cart, and orphan the first identity's order-status pages. Checked
+    # straight from the guest cookie, independent of whatever this session's
+    # own scan handoff (below) currently holds, so an already-active guest
+    # can always get back to their menu even after that handoff has expired
+    # or been consumed. Same pattern guest_scan() uses for the same case.
+    existing_guest = _get_guest(request)
+    if existing_guest:
+        return redirect("atmos:guest_menu")
+
+    # TAB_SESSION_KEY is a one-time handoff from guest_scan(), consumed
+    # below the moment it successfully produces a guest. Without that, a
+    # guest staff later settles/removes could revisit this page and mint a
+    # fresh active identity on the same (still open) tab without ever
+    # rescanning — silently bypassing a QR token staff rotated specifically
+    # to cut off exactly that browser.
     tab_id = request.session.get(TAB_SESSION_KEY)
-    tab = None
-    if tab_id:
-        tab = (
-            Tab.objects.select_related("venue", "table")
-            .filter(pk=tab_id, status="open")
-            .first()
-        )
+    if not tab_id:
+        return render(request, "atmos/no_session.html")
+    tab = (
+        Tab.objects.select_related("venue", "table")
+        .filter(pk=tab_id, status="open")
+        .first()
+    )
     if not tab:
         return render(request, "atmos/no_session.html")
-
-    # A revisit (direct URL, browser back, or a double-submit) must not
-    # mint a second Guest for the same tab — that would replace the
-    # cookie, clear the in-progress cart, and orphan the first identity's
-    # order-status pages. Same pattern as guest_scan()'s own check.
-    existing_guest = _get_guest(request)
-    if existing_guest and existing_guest.tab_id == tab.id:
-        return redirect("atmos:guest_menu")
 
     error = ""
     if request.method == "POST":
@@ -332,12 +366,30 @@ def guest_join(request):
             # gets its own savepoint so a failed one can't poison a wider
             # transaction if this view is ever called from inside one.
             guest = None
+            tab_closed_mid_join = False
             for _attempt in range(3):
                 try:
                     with transaction.atomic():
+                        # The scan handoff can go stale between guest_scan()
+                        # setting it and this POST landing — staff can close
+                        # the tab in between. Lock and re-check status="open"
+                        # in the SAME transaction as the create: a losing
+                        # race here would otherwise create an active guest
+                        # on a tab that's already closed — its cookie stops
+                        # resolving immediately (_get_guest requires
+                        # tab__status="open") while its alias stays reserved
+                        # indefinitely.
+                        locked_tab = (
+                            Tab.objects.select_for_update()
+                            .filter(pk=tab.pk, status="open")
+                            .first()
+                        )
+                        if locked_tab is None:
+                            tab_closed_mid_join = True
+                            break
                         guest = Guest.objects.create(
-                            tab=tab,
-                            venue=tab.venue,
+                            tab=locked_tab,
+                            venue=locked_tab.venue,
                             alias=alias,
                             display_name=display_name,
                         )
@@ -345,9 +397,14 @@ def guest_join(request):
                 except IntegrityError:
                     alias = random_persona(exclude=_active_aliases(tab.venue))
 
+            if tab_closed_mid_join:
+                return render(request, "atmos/no_session.html")
+
             if guest is None:
                 error = "This table's crowded with ghosts — try again."
             else:
+                # Consume the handoff — see the note where it's read above.
+                request.session.pop(TAB_SESSION_KEY, None)
                 response = redirect("atmos:guest_menu")
                 response.set_cookie(
                     GUEST_COOKIE,
@@ -490,13 +547,25 @@ def cart_detail(request):
         request, guest, request.session.get(CART_SESSION_KEY, {})
     )
     lines, total = _cart_lines(guest, cart)
+    cart_signature = _order_signature(
+        (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
+    )
     return render(
-        request, "atmos/cart.html", {"guest": guest, "lines": lines, "total": total}
+        request,
+        "atmos/cart.html",
+        {
+            "guest": guest,
+            "lines": lines,
+            "total": total,
+            "cart_signature": cart_signature,
+        },
     )
 
 
 @transaction.atomic
-def _create_order_atomic(request, guest, expected_total=None) -> PlacementResult:
+def _create_order_atomic(
+    request, guest, expected_total=None, expected_signature="", expected_currency=""
+) -> PlacementResult:
     """DB-only half of order placement: re-check the master switch, lock and
     validate the cart, create the Order + OrderItems. Returns a
     `PlacementResult` — see that class for the possible outcomes.
@@ -515,16 +584,37 @@ def _create_order_atomic(request, guest, expected_total=None) -> PlacementResult
     if not venue.service_open:
         return PlacementResult(PlacementOutcome.VENUE_CLOSED)
 
-    # A valid guest cookie must not revive a historical tab. Lock and re-check
-    # the tab in the same transaction as placement so an admin close racing
-    # this POST cannot accept another order.
+    # A valid guest cookie must not revive a historical tab. Lock and
+    # re-check the tab (and its table's is_active — staff taking a table
+    # out of service mid-session used to only block future scans, not an
+    # order already in flight against it) in the same transaction as
+    # placement, so an admin close/deactivation racing this POST cannot
+    # accept another order.
     tab_is_open = (
         Tab.objects.select_for_update()
-        .filter(pk=guest.tab_id, venue=venue, status="open")
+        .filter(pk=guest.tab_id, venue=venue, status="open", table__is_active=True)
         .exists()
     )
     if not tab_is_open:
         return PlacementResult(PlacementOutcome.TAB_CLOSED)
+
+    # A guest cookie can outlive staff settling/removing that guest (e.g.
+    # from admin) between _get_guest() resolving it and this transaction
+    # committing — lock and re-check status here too, not just venue/tab, or
+    # a stale-but-signed cookie can keep placing orders under a guest staff
+    # already closed out. Locking this row also lets
+    # purge_stale_guest_names serialize against a concurrent placement for
+    # the same guest (see that command) — re-fetched here rather than
+    # trusting the `guest` argument, which may have been loaded before a
+    # concurrent purge/edit committed.
+    guest = (
+        Guest.objects.select_for_update()
+        .select_related("tab__table", "venue")
+        .filter(pk=guest.pk, status="active")
+        .first()
+    )
+    if guest is None:
+        return PlacementResult(PlacementOutcome.GUEST_INACTIVE)
 
     cart = _prune_orphaned_cart_keys(
         request, guest, request.session.get(CART_SESSION_KEY, {})
@@ -566,7 +656,27 @@ def _create_order_atomic(request, guest, expected_total=None) -> PlacementResult
     if not lines:
         return PlacementResult(PlacementOutcome.EMPTY_CART)
 
-    if expected_total is None or total != expected_total:
+    # `expected_total` alone catches a price change but not a same-priced
+    # rename/repurpose of a menu item between cart review and this lock —
+    # the numeric total still matches, but the guest never confirmed the
+    # new item identity. Comparing the full content signature (item id,
+    # qty, price, AND name) catches that too. `expected_signature` is only
+    # sent by the current cart.html; an empty one (e.g. an old cached page)
+    # skips this specific check rather than failing safe-by-total alone.
+    signature_changed = bool(
+        expected_signature
+    ) and expected_signature != _order_signature(lines)
+    # A venue currency change between cart review and this lock could
+    # otherwise slip through when the numeric total happens to stay equal
+    # (e.g. prices already keyed in the new currency's units) — reviewed and
+    # charged currency must match, not just the number.
+    currency_changed = bool(expected_currency) and expected_currency != venue.currency
+    if (
+        expected_total is None
+        or total != expected_total
+        or signature_changed
+        or currency_changed
+    ):
         return PlacementResult(
             PlacementOutcome.PRICE_CHANGED, expected_total=expected_total, actual_total=total
         )
@@ -589,6 +699,7 @@ def _create_order_atomic(request, guest, expected_total=None) -> PlacementResult
         short_code=short_code,
         alias_snapshot=guest.display,
         total_amount=total,
+        currency=venue.currency,
     )
     for item, qty in lines:
         OrderItem.objects.create(
@@ -615,14 +726,22 @@ def order_place(request):
         expected_total = Decimal(request.POST.get("expected_total", ""))
     except (InvalidOperation, TypeError, ValueError):
         expected_total = None
+    expected_signature = request.POST.get("expected_signature", "")
+    expected_currency = request.POST.get("expected_currency", "")
 
-    result = _create_order_atomic(request, guest, expected_total=expected_total)
+    result = _create_order_atomic(
+        request,
+        guest,
+        expected_total=expected_total,
+        expected_signature=expected_signature,
+        expected_currency=expected_currency,
+    )
 
     if result.outcome is PlacementOutcome.EMPTY_CART:
         return redirect("atmos:cart_detail")
     if result.outcome is PlacementOutcome.VENUE_CLOSED:
         return render(request, "atmos/closed.html", {"table": guest.tab.table})
-    if result.outcome is PlacementOutcome.TAB_CLOSED:
+    if result.outcome in (PlacementOutcome.TAB_CLOSED, PlacementOutcome.GUEST_INACTIVE):
         return render(request, "atmos/no_session.html")
     if result.outcome is PlacementOutcome.UNAVAILABLE:
         # Cart is untouched on purpose (see _create_order_atomic) — show the
@@ -630,6 +749,9 @@ def order_place(request):
         # than silently placing a smaller order.
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
+        cart_signature = _order_signature(
+            (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
+        )
         return render(
             request,
             "atmos/cart.html",
@@ -637,12 +759,16 @@ def order_place(request):
                 "guest": guest,
                 "lines": lines,
                 "total": total,
+                "cart_signature": cart_signature,
                 "unavailable_names": result.unavailable_names,
             },
         )
     if result.outcome is PlacementOutcome.PRICE_CHANGED:
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
+        cart_signature = _order_signature(
+            (line["item"], line["quantity"]) for line in lines if line["is_orderable"]
+        )
         return render(
             request,
             "atmos/cart.html",
@@ -650,6 +776,7 @@ def order_place(request):
                 "guest": guest,
                 "lines": lines,
                 "total": total,
+                "cart_signature": cart_signature,
                 "price_changed": True,
             },
         )
@@ -716,13 +843,23 @@ def order_status(request, pk):
         vignette=order.vignette,
         ascii_art=ascii_art,
         mission=mission,
-        currency=guest.venue.currency,
+        # The placement-time snapshot, not guest.venue.currency: staff
+        # changing a venue's currency after the fact must not silently turn
+        # a historical €12.00 order into a $12.00 receipt.
+        currency=order.currency,
         # Points at this table's own scan URL ("order another round"), not a
         # per-order status page: /atmos/o/<code> was never implemented, and
         # order_status itself is guest-cookie-scoped (spec §8.1) so a bare
         # public QR to it couldn't work for whoever picks up the ticket
         # anyway. This is the one link that's actually live and useful.
-        qr_payload=f"https://power-up.lu/atmos/t/{guest.tab.table.qr_token}/",
+        # Built from THIS request/deployment (build_absolute_uri), not a
+        # hardcoded production host — on test.power-up.lu or a local
+        # runserver, a hardcoded power-up.lu origin would print a ticket
+        # whose QR opens production with a token that database doesn't have,
+        # 404ing every time.
+        qr_payload=request.build_absolute_uri(
+            reverse("atmos:guest_scan", args=[guest.tab.table.qr_token])
+        ),
         contains_alcohol=order.contains_alcohol,
         footer="pay at the table",
     )
