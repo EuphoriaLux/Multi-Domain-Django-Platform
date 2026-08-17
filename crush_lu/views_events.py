@@ -699,12 +699,16 @@ def _registration_outlook(event, profile, gender=None):
     both pages go back to guessing.
     """
     is_premium = bool(profile and profile.assigned_coach_id)
-    # Both halves off one count -- see MeetupEvent.capacity_snapshot(). Asking
-    # is_full_for() and spots_remaining_for() separately meant two COUNTs against
-    # two database states, and a registration landing between them could hand a
-    # viewer a row of "full" chips beside a CTA that still promised them a seat.
-    total_full, capacity_remaining = event.capacity_snapshot(is_premium=is_premium)
-    pools = event.get_gender_pool_availability(capacity_remaining=capacity_remaining)
+    # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
+    # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a
+    # registration committing between two queries here would let the chips
+    # describe one moment and the CTA another, which is the shape of #866 rather
+    # than a fix for it. It also memoises the count on `event`, so the premium
+    # reserved-seat banner further down reads this same number for free instead
+    # of counting again and disagreeing with the CTA beside it.
+    total_full, capacity_remaining, pools = event.registration_capacity(
+        is_premium=is_premium
+    )
 
     user_gender = gender or getattr(profile, "gender", None)
     user_pool = None
@@ -932,12 +936,14 @@ def event_detail(request, event_id):
         event_full_for_user,
         registration_waitlist_reason,
     ) = _registration_outlook(event, user_profile)
-    user_pool_full = bool(user_gender_pool and user_gender_pool["pool_full"])
 
     # A reserved seat is available to this premium member specifically when the
     # event is publicly full but not yet at total capacity. A full gender pool
     # closes this too: premium buys a seat past `reserved_premium_seats`, not
     # past a pool cap, so event_register waitlists them like everyone else.
+    #
+    # `is_full_for` here costs no query and cannot disagree with the CTA above:
+    # registration_capacity() memoised the count it used, and this reads it.
     premium_reserved_seat_available = (
         user_is_premium
         and event.is_full_for(is_premium=False)
@@ -961,7 +967,6 @@ def event_detail(request, event_id):
         "event_full_for_user": event_full_for_user,
         "gender_pool_availability": gender_pool_availability,
         "user_gender_pool": user_gender_pool,
-        "user_pool_full": user_pool_full,
         "registration_waitlist_reason": registration_waitlist_reason,
         "premium_reserved_seat_available": premium_reserved_seat_available,
         "language_requirement_met": language_requirement_met,

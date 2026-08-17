@@ -272,6 +272,51 @@ class CapacitySnapshotTests(GenderPoolAvailabilityTestBase):
         with self.assertNumQueries(1):
             self.event.capacity_snapshot()
 
+    def test_total_comes_from_the_same_query_as_the_pools(self):
+        """The join to CrushProfile is an outer one, so a seat held by someone
+        with no profile groups under None instead of vanishing -- which is what
+        lets the grouped rows supply the total as well as the pools."""
+        self._set_caps(3, 3, 1)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+        self._register(self._create_user("noprofile@test.com"))
+
+        counts = self.event._seat_counts_by_gender()
+        self.assertIn(None, counts)
+        self.assertEqual(sum(counts.values()), self.event.get_confirmed_count())
+
+    def test_the_whole_picture_is_one_query(self):
+        """Total and pools as two queries could straddle a commit -- Postgres
+        runs READ COMMITTED, so each statement gets its own snapshot."""
+        self._set_caps(2, 2, 0)
+        self._fill(1)
+        with self.assertNumQueries(1):
+            self.event.registration_capacity()
+
+    def test_it_memoises_the_count_for_later_capacity_reads(self):
+        """The premium banner calls is_full_for() after the outlook has already
+        counted; without the memo that is a second query against a later state,
+        and the banner could contradict the CTA rendered beside it."""
+        self._set_caps(2, 2, 0)
+        self._fill(1)
+        self.event.registration_capacity()
+
+        with self.assertNumQueries(0):
+            self.event.is_full_for(is_premium=False)
+            self.assertEqual(self.event.get_confirmed_count(), 1)
+
+    def test_an_uncapped_event_still_reports_capacity(self):
+        """No pools to fetch, so it falls back to a plain count -- but the
+        total half must keep working."""
+        self.event.max_participants = 2
+        self.event.save()
+        self._fill(1)
+
+        total_full, remaining, pools = self.event.registration_capacity()
+        self.assertEqual(pools, [])
+        self.assertFalse(total_full)
+        self.assertEqual(remaining, 1)
+
     def test_chips_and_cta_cannot_contradict_each_other(self):
         """Capacity zero now implies total_full by construction, so a row of
         "full" chips can never appear beside a CTA promising a seat."""
@@ -331,7 +376,7 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
         response = self._get_detail()
         self.assertContains(response, "3 spots left for you.")
         self.assertEqual(response.context["user_gender_pool"]["key"], "m")
-        self.assertFalse(response.context["user_pool_full"])
+        self.assertFalse(response.context["user_gender_pool"]["pool_full"])
 
     def test_member_with_full_pool_is_told_so_and_gets_waitlist_cta(self):
         """The incident: total capacity still had room, the member's pool did
@@ -345,7 +390,7 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
         # The event is nowhere near its total cap ...
         self.assertFalse(self.event.is_full)
         # ... but this member cannot take one of those seats.
-        self.assertTrue(response.context["user_pool_full"])
+        self.assertTrue(response.context["user_gender_pool"]["pool_full"])
         self.assertTrue(response.context["event_full_for_user"])
         self.assertContains(
             response,
@@ -553,7 +598,7 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
         response = self._get_detail()
         # Publicly full (1/1 general seats), so the banner would normally show.
         self.assertTrue(self.event.is_full_for(is_premium=False))
-        self.assertTrue(response.context["user_pool_full"])
+        self.assertTrue(response.context["user_gender_pool"]["pool_full"])
         self.assertFalse(response.context["premium_reserved_seat_available"])
         self.assertNotContains(response, "A seat is reserved for you")
 

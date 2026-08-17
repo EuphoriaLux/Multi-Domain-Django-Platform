@@ -556,16 +556,28 @@ class MeetupEvent(models.Model):
         """
         if not self.gender_limits_active:
             return []
+        return self._pool_rows(self._seat_counts_by_gender(), capacity_remaining)
 
+    def _seat_counts_by_gender(self):
+        """One grouped query: ``{gender_code_or_None: seats}``.
+
+        A seat held by someone with no ``CrushProfile`` groups under ``None``
+        rather than being dropped -- the join is an outer one -- so these values
+        sum to exactly :meth:`get_confirmed_count`. That is what lets
+        :meth:`registration_capacity` take the *total* from this same read
+        instead of counting again.
+        """
         # order_by() strips any default ordering: a Meta.ordering field would
         # otherwise join the GROUP BY and split each gender into several rows.
-        counts = dict(
+        return dict(
             self.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
             .order_by()
             .values_list("user__crushprofile__gender")
             .annotate(seats=models.Count("id"))
         )
 
+    def _pool_rows(self, counts, capacity_remaining=None):
+        """Build the display rows from an already-fetched count map."""
         limits = {
             "m": self.max_participants_m,
             "f": self.max_participants_f,
@@ -590,6 +602,38 @@ class MeetupEvent(models.Model):
                 }
             )
         return pools
+
+    def registration_capacity(self, is_premium=False):
+        """``(total_full, capacity_remaining, pools)`` -- the whole picture, one read.
+
+        Asking for the total and the per-pool counts separately means two
+        queries against two database states, and a registration landing between
+        them makes a single page contradict itself: ``capacity_remaining`` from
+        one moment marking every chip "full", beside a CTA still offering a seat
+        because fullness was counted a moment earlier. That is the shape of #866
+        rather than a fix for it, so both come from one read here.
+
+        For a gender-capped event that read is :meth:`_seat_counts_by_gender`,
+        whose rows already cover *every* seat-holding registration; an event
+        without caps has no pools to fetch and falls back to a plain count.
+        """
+        if not self.gender_limits_active:
+            total_full, remaining = self.capacity_snapshot(is_premium=is_premium)
+            return total_full, remaining, []
+
+        counts = self._seat_counts_by_gender()
+        confirmed = sum(counts.values())
+
+        # Memoised under the name get_confirmed_count() already honours, so
+        # every later capacity read on this instance is free *and* returns this
+        # same number. Without it the premium reserved-seat banner re-counts and
+        # can disagree with the CTA rendered beside it from the earlier count.
+        # Request-scoped by construction: views load their own event instance.
+        self.confirmed_count_annotated = confirmed
+
+        cap = self.max_participants if is_premium else self.public_capacity
+        remaining = max(0, cap - confirmed)
+        return remaining == 0, remaining, self._pool_rows(counts, remaining)
 
     def clean(self):
         """Validate event data before saving"""
