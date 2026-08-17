@@ -47,6 +47,28 @@ COACH_SURVIVAL_RULES: dict[str, list[str]] = {
         "Le sourire fait la moitié du travail. L'écoute active fait le reste.",
         "Personne ne te jugera sur tes goûts musicaux (sauf l'Eurovision 2004).",
         "Complimenter un sourire ou des baskets marche 10x mieux qu'une voiture.",
+        "Débat Schueberfouer : Gromperekichelcher avec ou sans compote de pommes ?",
+        "Si tu es venu en Vel'oh sous la pluie, c'est +20 points de résilience.",
+        "L'authenticité bat la perfection à tous les coups.",
+        "Prends une grande inspiration : ton date est aussi nerveux(se) que toi !",
+        "Demande : 'Quel est ton film plaisir coupable inavouable ?'",
+        "Question magique : 'Si tu pouvais te téléporter ce week-end, où irais-tu ?'",
+        "En cas de panique : demande son avis sur la pizza à l'ananas.",
+        "Demande : 'Quel est le dernier truc qui t'a fait rire aux larmes ?'",
+        "Green Flag ultime : Quelqu'un qui rigole de ses propres maladresses.",
+        "Red Flag immédiat : Poser des questions sur la tranche d'imposition.",
+        "Parler avec les mains est autorisé et fortement encouragé.",
+        "Si vous avez un fou rire à la minute 2, c'est presque un mariage garanti.",
+        "Ne vends pas ton CV : raconte une anecdote amusante de ton enfance.",
+        "La confiance, c'est d'assumer d'aimer les dessins animés ou le karaoké.",
+        "Laisse 5 secondes de silence sans paniquer : c'est là que le charme opère.",
+        "Le verre sur la table est ton meilleur allié pour rythmer le dialogue.",
+        "Sois toi-même à 100 % : la bonne personne adorera exactement ce que tu es.",
+        "Quand la cloche sonne : un clin d'œil chaleureux avant de changer de table.",
+        "Un date moyen n'est pas perdu : c'est un entraînement pour le suivant !",
+        "Le meilleur opener : 'Quel est le voyage qui t'a le plus marqué ?'",
+        "À la fin des 7 rounds : tout le monde se retrouve au bar pour trinquer !",
+        "Détends-toi, ce n'est pas un entretien d'embauche : amuse-toi !",
     ],
     "de": [
         "3 Minuten vergehen schneller als die Tram auf dem Kirchberg.",
@@ -57,6 +79,28 @@ COACH_SURVIVAL_RULES: dict[str, list[str]] = {
         "Lächeln ist die halbe Miete. Die andere Hälfte ist aktives Zuhören.",
         "Niemand verurteilt dich für deinen Musikgeschmack (außer es ist Kirmes-Techno).",
         "Komplimente über Schuhe oder Lächeln funktionieren 10x besser als über Autos.",
+        "Schueberfouer-Debatte: Gromperekichelcher mit oder ohne Apfelmus?",
+        "Wer mit dem Vel'oh durch den Regen kam, kriegt +20 Resilienz-Punkte.",
+        "Authentizität schlägt Perfektionismus in jeder einzelnen Runde.",
+        "Einmal tief durchatmen: Dein Gegenüber ist genauso nervös wie du!",
+        "Frag nach dem peinlichsten Guilty-Pleasure-Film aller Zeiten.",
+        "Zauberfrage: 'Wenn du dich jetzt beamen könntest, wo wärst du am Wochenende?'",
+        "Im Notfall: Frag nach der ultimativen Meinung zu Pizza mit Ananas.",
+        "Frag: 'Worüber hast du zuletzt so richtig Tränen gelacht?'",
+        "Ultimative Green Flag: Jemand, der über eigene Tolpatschigkeit lachen kann.",
+        "Instant Red Flag: Fragen nach der Steuerklasse oder dem Firmenwagen.",
+        "Mit Händen und Füßen reden ist ausdrücklich erlaubt und sympathisch.",
+        "Gemeinsamer Lachanfall in Minute 2 ist quasi die halbe Verlobung.",
+        "Verkauf nicht deinen Lebenslauf: Erzähl eine witzige Kindheits-Anekdote.",
+        "Wahres Selbstvertrauen ist, offen zu seinen Nerd-Hobbys zu stehen.",
+        "Keine Angst vor 5 Sekunden Pause: Das ist der Moment, wo Chemie entsteht.",
+        "Das Glas an der Bar ist dein bester Verbündeter für die perfekte Redepause.",
+        "Sei zu 100% du selbst: Die richtige Person wird genau das an dir lieben.",
+        "Wenn die Glocke läutet: Ein kurzes Lächeln, bevor es zum nächsten Tisch geht.",
+        "Eine mittelmäßige Runde ist kein Verlust: Es ist Warm-up für den nächsten Tisch!",
+        "Der beste Opener überhaupt: 'Welche Reise hat dich am meisten verändert?'",
+        "Nach den 7 Runden: Alle treffen sich an der Bar für die After-Drinks!",
+        "Entspann dich, es ist kein Vorstellungsgespräch: Hab Spaß!",
     ],
     "en": [
         "3 minutes fly faster than the tram on the Kirchberg.",
@@ -64,9 +108,31 @@ COACH_SURVIVAL_RULES: dict[str, list[str]] = {
         "Eye contact: Warm smile, avoid staring like in a crime drama.",
         "Emergency question for awkward silence: 'What is your most useless talent?'",
         "Ask about travel & obsessions, not about tax brackets.",
-        "A smile is half the charm. Active listening is the rest.",
+        "A smile is half the charm. Active listening does the rest.",
         "Nobody judges your music taste (unless it's fairground techno).",
         "Complimenting shoes or a smile works 10x better than cars.",
+        "Schueberfouer debate: Gromperekichelcher with or without apple sauce?",
+        "Arriving by Vel'oh in the rain grants +20 resilience points.",
+        "Authenticity beats perfectionism in every single round.",
+        "Take a deep breath: Your date is just as nervous as you are!",
+        "Ask: 'What is your most embarrassing guilty-pleasure movie?'",
+        "Magic question: 'If you could teleport anywhere this weekend, where to?'",
+        "In case of emergency: Ask for their honest stance on pineapple on pizza.",
+        "Ask: 'What was the last thing that made you laugh to tears?'",
+        "Ultimate Green Flag: Someone who laughs at their own clumsy moments.",
+        "Instant Red Flag: Asking about tax brackets or corporate bonuses.",
+        "Talking with your hands is fully allowed and highly charming.",
+        "A shared laughing fit at minute 2 is practically half an engagement.",
+        "Don't recite your CV: Share a funny childhood anecdote instead.",
+        "True confidence is proudly admitting your nerd hobbies or karaoke addiction.",
+        "Don't fear 5 seconds of silence: That's where chemistry actually happens.",
+        "Your drink on the table is your best ally for pacing the conversation.",
+        "Be 100% yourself: The right person will love exactly who you are.",
+        "When the bell rings: A warm smile before moving to the next table.",
+        "An average round is never lost: It's just a warm-up for the next table!",
+        "The best universal opener: 'What travel trip changed you the most?'",
+        "After the 7 rounds: Everyone gathers at the bar for after-event drinks!",
+        "Relax, it's not a job interview: Have fun and enjoy the moment!",
     ],
 }
 
@@ -222,8 +288,9 @@ def _build_coach_rules_directives(
     custom_rules: list[str] | None = None,
     cols: int = 48,
     lang: str = "fr",
+    seed_id: int | None = None,
 ) -> list[Directive]:
-    """Builds Coach survival tips."""
+    """Builds Coach survival tips with deterministic non-overlapping selection."""
     out: list[Directive] = []
     hdr = {
         "fr": "GUIDE DE SURVIE DU CRUSH COACH",
@@ -235,7 +302,14 @@ def _build_coach_rules_directives(
     out.append(Rule("-"))
 
     pool = COACH_SURVIVAL_RULES.get(lang, COACH_SURVIVAL_RULES["en"])
-    rules = custom_rules or random.sample(pool, min(2, len(pool)))
+    if custom_rules:
+        rules = custom_rules
+    elif seed_id is not None:
+        rng = random.Random(seed_id)
+        rules = rng.sample(pool, min(2, len(pool)))
+    else:
+        rules = random.sample(pool, min(2, len(pool)))
+
     for i, rule in enumerate(rules, 1):
         for part in wrap(f"{i}. {rule}", cols):
             out.append(Text(part))
@@ -730,7 +804,9 @@ def build_checkin_ticket_directives(
             )
         )
         directives.extend(
-            _build_coach_rules_directives(cols=cols, lang=lang)
+            _build_coach_rules_directives(
+                cols=cols, lang=lang, seed_id=getattr(registration, "id", None)
+            )
         )
         directives.extend(
             _build_mystery_radar_directives(
