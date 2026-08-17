@@ -129,14 +129,18 @@ class TestTicketPrinter(TestCase):
         self.assertNotIn("secret_email@test.lu", plain_anon)
         self.assertIn("ATTENDEE", plain_anon)
 
-        # Coach authenticated call uses username prefix
+        # Coach-authenticated call, but still no first_name to show: falls
+        # back to the generic label rather than the user's email-derived
+        # username — username is never a safe display name (signup is
+        # email-only, so it is generally the address itself).
         plain_coach = preview_checkin_ticket_text(
             registration=anon_reg,
             event=self.event,
             table_number=1,
             coach_authenticated=True,
         )
-        self.assertIn("SECRET_EMAIL", plain_coach)
+        self.assertNotIn("secret_email", plain_coach.lower())
+        self.assertIn("ATTENDEE", plain_coach)
 
     def test_timezone_conversion_for_event_date(self):
         import zoneinfo

@@ -483,7 +483,9 @@ def event_checkin_api(request, registration_id, token):
             "auto_verified": rescan_verified is not None,
             "row": _row_state(registration, table_assignment=table_info),
             "print_payload_base64": _get_ticket_print_payload(
-                registration, table_info=table_info
+                registration,
+                table_info=table_info,
+                coach_authenticated=_scanning_coach(request) is not None,
             ),
         }
         if table_info:
@@ -531,7 +533,6 @@ def event_checkin_api(request, registration_id, token):
 
     # Mark as attended (with lock to prevent duplicate concurrent check-ins)
     table_assignment = None
-    is_rescan = False
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update()
@@ -539,23 +540,50 @@ def event_checkin_api(request, registration_id, token):
             .get(id=registration_id)
         )
         if registration.status == "attended":
-            is_rescan = True
             already_verified_profile = _auto_verify_on_attendance(
                 request, registration, now
             )
             display_name = _get_display_name(registration)
             table_info = _get_existing_table_assignment(registration)
             is_auto_verified = already_verified_profile is not None
-            rescan_reg_id = registration.id
-            rescan_event_id = registration.event_id
-            rescan_user = registration.user
-            rescan_checked_in_at = (
-                registration.checked_in_at.isoformat()
-                if registration.checked_in_at
-                else None
-            )
-            rescan_profile_data = _get_profile_data(registration)
-            rescan_row_data = _row_state(registration, table_assignment=table_info)
+            response_data = {
+                "success": True,
+                "already_checked_in": True,
+                "registration_id": registration.id,
+                "attendee_name": display_name,
+                "checked_in_at": (
+                    registration.checked_in_at.isoformat()
+                    if registration.checked_in_at
+                    else None
+                ),
+                "message": f"{display_name} was already checked in.",
+                "profile": _get_profile_data(registration),
+                "auto_verified": is_auto_verified,
+                "row": _row_state(registration, table_assignment=table_info),
+                "print_payload_base64": _get_ticket_print_payload(
+                    registration,
+                    table_info=table_info,
+                    coach_authenticated=_scanning_coach(request) is not None,
+                ),
+            }
+            if table_info:
+                response_data.update(table_info)
+            if is_auto_verified:
+                # Deferred to commit so the broadcast cannot describe a state
+                # that gets rolled back (matches the early re-scan branch
+                # above and the ordinary check-in path below).
+                transaction.on_commit(
+                    lambda: (
+                        _run_post_verification_side_effects(
+                            registration.user,
+                            already_verified_profile,
+                            request,
+                            registration.id,
+                        ),
+                        _broadcast_checkin(registration.event_id, response_data),
+                    )
+                )
+            return JsonResponse(response_data)
         else:
             # The scanning coach becomes the member's permanent coach (when they
             # have none): read by `assign_coach_on_first_attendance` during the
@@ -597,35 +625,6 @@ def event_checkin_api(request, registration_id, token):
                     "Quiz table assignment failed for registration %s",
                     registration.id,
                 )
-
-    if is_rescan:
-        response_data = {
-            "success": True,
-            "already_checked_in": True,
-            "registration_id": rescan_reg_id,
-            "attendee_name": display_name,
-            "checked_in_at": rescan_checked_in_at,
-            "message": f"{display_name} was already checked in.",
-            "profile": rescan_profile_data,
-            "auto_verified": is_auto_verified,
-            "row": rescan_row_data,
-            "print_payload_base64": _get_ticket_print_payload(
-                registration,
-                table_info=table_info,
-                coach_authenticated=_scanning_coach(request) is not None,
-            ),
-        }
-        if table_info:
-            response_data.update(table_info)
-        if is_auto_verified:
-            _run_post_verification_side_effects(
-                rescan_user,
-                already_verified_profile,
-                request,
-                rescan_reg_id,
-            )
-            _broadcast_checkin(rescan_event_id, response_data)
-        return JsonResponse(response_data)
 
     # Crush Connect Event Lobby: evaluate participation only after attendance
     # committed.
