@@ -1,20 +1,32 @@
+import threading
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core import signing
-from django.test import RequestFactory
+from django.core.cache import cache
+from django.db import IntegrityError
+from django.test import RequestFactory, override_settings
 
 from power_up.atmos.models import Guest, MenuCategory, MenuItem, Tab, Table, Venue
 from power_up.atmos.views import (
+    _JOIN_RATE_LIMIT,
+    _JOIN_RATE_WINDOW_SECONDS,
     CART_SESSION_KEY,
     GUEST_COOKIE,
+    TAB_SESSION_KEY,
     PlacementOutcome,
     _cart_lines,
+    _client_ip,
     _create_order_atomic,
     _get_guest,
+    _guest_can_still_scan,
+    _join_rate_limited,
     _order_signature,
     _resolve_menu_item,
+    guest_join,
 )
 
 
@@ -22,6 +34,11 @@ def request_with_session(method="get", data=None):
     request = getattr(RequestFactory(), method)("/", data=data or {})
     SessionMiddleware(lambda req: None).process_request(request)
     request.session.save()
+    # guest_join()'s render() path runs every globally-registered template
+    # context processor, including crush_lu's crush_user_context, which
+    # reads request.user — normally set by AuthenticationMiddleware, which
+    # this bare RequestFactory request never goes through.
+    request.user = AnonymousUser()
     return request
 
 
@@ -223,3 +240,224 @@ def test_order_snapshots_venue_currency(ordering_setup):
     venue.save(update_fields=["currency"])
     result.order.refresh_from_db()
     assert result.order.currency == "GBP"
+
+
+@pytest.mark.django_db
+# join.html's {% url 'atmos:guest_join' %} needs the 'atmos' namespace to
+# resolve. Real requests get that from DomainURLRoutingMiddleware, which
+# swaps in azureproject.urls_power_up based on the Host header — a
+# request.urlconf attribute set here wouldn't do it, since that's only read
+# by BaseHandler's own request-response cycle, not by calling guest_join()
+# directly. Overriding ROOT_URLCONF is what reverse() actually falls back to.
+@override_settings(ROOT_URLCONF="azureproject.urls_power_up")
+def test_guest_join_rate_limited(ordering_setup):
+    """Per-(IP, tab) join-page throttle — spec requires it, and nothing else
+    in this app limits an unauthenticated visitor hammering the reroll."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    for _ in range(_JOIN_RATE_LIMIT):
+        request = request_with_session()
+        request.session[TAB_SESSION_KEY] = str(tab.id)
+        request.session.save()
+        response = guest_join(request)
+        assert response.status_code == 200
+
+    request = request_with_session()
+    request.session[TAB_SESSION_KEY] = str(tab.id)
+    request.session.save()
+    response = guest_join(request)
+    assert response.status_code == 429
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_survives_synchronized_burst(ordering_setup):
+    """A prior version raced incr()'s ValueError: N truly-concurrent requests
+    hitting an absent key could each independently set(1), so the counter
+    could land anywhere from 1 to N instead of N — undercounting the burst
+    by an arbitrary amount. cache.add()'s atomic init means only one request
+    can win that; every request in the burst (winner included) then
+    increments the same shared counter, so the true concurrent count is
+    never lost. Uses real threads + a barrier, not a sequential loop, since
+    a sequential loop can't distinguish the old buggy behavior from this."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    class _BurstyRequest:
+        META = {"REMOTE_ADDR": "10.0.0.1"}
+        method = "GET"
+
+    thread_count = 10
+    barrier = threading.Barrier(thread_count)
+
+    def worker():
+        barrier.wait()
+        _join_rate_limited(_BurstyRequest(), tab.id)
+
+    threads = [threading.Thread(target=worker) for _ in range(thread_count)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    key = f"atmos:join_rl:GET:10.0.0.1:{tab.id}"
+    assert cache.get(key) == thread_count
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_separates_get_and_post_buckets(ordering_setup):
+    """A venue's shared Wi-Fi IP means several guests' one-time initial-view
+    GET and confirm POST must not draw from the same budget as actual
+    reroll-spam GETs — otherwise a handful of guests joining together could
+    exhaust the limit before anyone even rerolls once."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    class _GetRequest:
+        META = {"REMOTE_ADDR": "10.0.0.3"}
+        method = "GET"
+
+    class _PostRequest:
+        META = {"REMOTE_ADDR": "10.0.0.3"}
+        method = "POST"
+
+    for _ in range(_JOIN_RATE_LIMIT):
+        assert _join_rate_limited(_GetRequest(), tab.id) is False
+    # The GET bucket above is now fully exhausted — a same-IP/tab POST
+    # confirmation still goes through because it draws from its own bucket.
+    assert _join_rate_limited(_PostRequest(), tab.id) is False
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_fails_open_on_cache_outage():
+    """django_redis's IGNORE_EXCEPTIONS=True (azureproject/settings.py) turns
+    a Redis outage into a silent None return from incr(), not a raised
+    exception. A soft anti-abuse throttle must not itself 500 the join page
+    over that — it should fail open instead."""
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.2"}
+        method = "GET"
+
+    with patch("power_up.atmos.views.cache.incr", return_value=None):
+        assert _join_rate_limited(_Request(), "some-tab-id") is False
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_recovers_from_ttl_boundary_race():
+    """add() and incr() are two separate round trips, not one atomic
+    operation — a narrow race around each window's TTL boundary can have
+    the key expire in the gap between them. LocMemCache's incr() raises
+    ValueError in that case (its own get() sees the now-expired key as
+    missing); this must not propagate as a 500 on the join page."""
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.6"}
+        method = "GET"
+
+    with patch("power_up.atmos.views.cache.incr", side_effect=[ValueError, 1]):
+        assert _join_rate_limited(_Request(), "some-tab-id") is False
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_refreshes_ttl_on_first_hit():
+    """Redis's INCR auto-vivifies a missing key at 0 with NO ttl. If the
+    boundary race above hits the Redis backend instead of LocMemCache
+    (add() sees the key still present, but it expires before incr() runs),
+    the resulting key must not be left to persist forever with no expiry —
+    it would otherwise never reset and permanently 429 this bucket once it
+    eventually crosses the limit."""
+    cache.clear()
+
+    class _Request:
+        META = {"REMOTE_ADDR": "10.0.0.7"}
+        method = "GET"
+
+    key = "atmos:join_rl:GET:10.0.0.7:some-tab-id"
+    with patch("power_up.atmos.views.cache.touch") as mock_touch:
+        _join_rate_limited(_Request(), "some-tab-id")
+
+    mock_touch.assert_called_once_with(key, _JOIN_RATE_WINDOW_SECONDS)
+
+
+def test_client_ip_strips_ipv4_port():
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "1.2.3.4:5678"}
+
+    assert _client_ip(_Request()) == "1.2.3.4"
+
+
+def test_client_ip_strips_bracketed_ipv6_port():
+    """Azure supplies bracketed IPv6-with-port ("[2001:db8::1]:49152"). Left
+    unstripped, a new ephemeral source port on reconnect would mint a fresh
+    rate-limit bucket for the same client every time."""
+
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "[2001:db8::1]:49152"}
+
+    assert _client_ip(_Request()) == "2001:db8::1"
+
+
+def test_client_ip_leaves_bare_ipv6_untouched():
+    class _Request:
+        META = {"HTTP_X_FORWARDED_FOR": "2001:db8::1"}
+
+    assert _client_ip(_Request()) == "2001:db8::1"
+
+
+@pytest.mark.django_db
+@override_settings(ROOT_URLCONF="azureproject.urls_power_up")
+def test_guest_join_preserves_cart_when_creation_fails(ordering_setup):
+    """The cart reset used to happen before the guest-creation retry loop —
+    a failed table switch (closed tab, exhausted alias retries) would
+    silently empty an unrelated in-progress round anyway."""
+    _venue, _table, tab, _guest, _category, item = ordering_setup
+    request = request_with_session("post", {"display_name": "", "rolled_alias": ""})
+    request.session[CART_SESSION_KEY] = {str(item.id): 3}
+    request.session[TAB_SESSION_KEY] = str(tab.id)
+    request.session.save()
+
+    with patch("power_up.atmos.views.Guest.objects.create", side_effect=IntegrityError):
+        response = guest_join(request)
+
+    assert response.status_code == 200  # re-rendered join.html with an error
+    assert request.session[CART_SESSION_KEY] == {str(item.id): 3}
+
+
+class _FakeTable:
+    is_active = True
+
+
+class _FakeTab:
+    status = "open"
+    table = _FakeTable()
+
+
+class _FakeGuest:
+    status = "active"
+    tab = _FakeTab()
+
+
+def test_guest_can_still_scan_true_for_active_guest_open_tab_active_table():
+    assert _guest_can_still_scan(_FakeGuest()) is True
+
+
+@pytest.mark.parametrize(
+    "guest_status,tab_status,table_active",
+    [
+        ("removed", "open", True),
+        ("settled", "open", True),
+        ("active", "closed", True),
+        ("active", "open", False),
+    ],
+)
+def test_guest_can_still_scan_false_when_inactive(
+    guest_status, tab_status, table_active
+):
+    guest = _FakeGuest()
+    guest.status = guest_status
+    guest.tab = _FakeTab()
+    guest.tab.status = tab_status
+    guest.tab.table = _FakeTable()
+    guest.tab.table.is_active = table_active
+    assert _guest_can_still_scan(guest) is False

@@ -97,13 +97,8 @@ class Command(BaseCommand):
                         locked_guest = Guest.objects.select_for_update().get(
                             pk=guest.pk
                         )
-                        order_count = locked_guest.orders.exclude(
-                            alias_snapshot=locked_guest.alias
-                        ).update(alias_snapshot=locked_guest.alias)
                         had_name = bool(locked_guest.display_name)
-                        if had_name:
-                            locked_guest.display_name = ""
-                            locked_guest.save(update_fields=["display_name"])
+                        order_count = locked_guest.purge_display_name()
                 else:
                     order_count = guest.orders.exclude(
                         alias_snapshot=guest.alias
