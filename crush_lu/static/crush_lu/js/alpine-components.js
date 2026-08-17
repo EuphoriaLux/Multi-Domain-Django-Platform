@@ -437,6 +437,10 @@ document.addEventListener("alpine:init", function () {
             scanBusy: false,
             startPending: false,
 
+            // Thermal Printer state (PEC 80 / RawBT)
+            printerEnabled: localStorage.getItem("crush_printer_enabled") === "true",
+            autoPrint: localStorage.getItem("crush_autoprint_enabled") !== "false",
+
             // WebSocket state
             ws: null,
             connected: false,
@@ -504,6 +508,12 @@ document.addEventListener("alpine:init", function () {
                 return this.torchOn
                     ? i18n.torchOff || "Flash Off"
                     : i18n.torchOn || "Flash On";
+            },
+            get printerButtonText() {
+                var i18n = window._checkinI18n || {};
+                return this.printerEnabled
+                    ? i18n.printerOn || "Printer: ON"
+                    : i18n.printerOff || "Printer: OFF";
             },
 
             // --- HTML helpers (XSS protection) ---
@@ -759,6 +769,16 @@ document.addEventListener("alpine:init", function () {
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
                 this.showProfileToast(data);
+                // Secondary desk printer: auto-print on remote checkin if printer + autoPrint active
+                if (
+                    this.printerEnabled &&
+                    this.autoPrint &&
+                    data.print_payload_base64 &&
+                    !data.undone &&
+                    !data.rejected
+                ) {
+                    this.triggerRawBtPrint(data.print_payload_base64);
+                }
                 // Only a fresh arrival enters Recent Check-ins: a re-scan
                 // (already_checked_in) and a verification (no such flag at
                 // all) must not.
@@ -1061,6 +1081,8 @@ document.addEventListener("alpine:init", function () {
                     // the button would offer a correction that can only
                     // answer 409.
                     if (row.checked_in_at) {
+                        var reprintBtn = this._buildReprintButton(regId);
+                        if (reprintBtn) wrap.appendChild(reprintBtn);
                         var undoUrl =
                             rowEl.getAttribute("data-undo-url") ||
                             this._apiUrl("undo-checkin", regId);
@@ -1401,6 +1423,25 @@ document.addEventListener("alpine:init", function () {
                 return undoBtn;
             },
 
+            _buildReprintButton: function (regId) {
+                var self = this;
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className =
+                    "manual-reprint-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1";
+                btn.setAttribute(
+                    "data-print-url",
+                    "/api/events/" + this.eventId + "/print-ticket/" + regId + "/",
+                );
+                btn.setAttribute("data-reg-id", regId);
+                btn.innerHTML =
+                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>Print';
+                btn.addEventListener("click", function (clickEvent) {
+                    self.reprintTicket(clickEvent);
+                });
+                return btn;
+            },
+
             _buildVerifyButton: function (regId) {
                 var self = this;
                 var i18n = window._checkinI18n || {};
@@ -1422,6 +1463,64 @@ document.addEventListener("alpine:init", function () {
                     self.markVerified(clickEvent);
                 });
                 return verifyBtn;
+            },
+
+            // --- Thermal Printer (RawBT Protocol) ---
+            togglePrinter: function () {
+                this.printerEnabled = !this.printerEnabled;
+                localStorage.setItem(
+                    "crush_printer_enabled",
+                    this.printerEnabled ? "true" : "false",
+                );
+            },
+
+            triggerRawBtPrint: function (base64Payload) {
+                if (!base64Payload) return;
+                try {
+                    var iframe = document.getElementById("rawbt-print-frame");
+                    if (!iframe) {
+                        iframe = document.createElement("iframe");
+                        iframe.id = "rawbt-print-frame";
+                        iframe.style.display = "none";
+                        document.body.appendChild(iframe);
+                    }
+                    iframe.src = "rawbt:data:base64," + base64Payload;
+                } catch (e) {
+                    window.location.href = "rawbt:data:base64," + base64Payload;
+                }
+            },
+
+            testPrint: function () {
+                var self = this;
+                fetch("/api/events/" + this.eventId + "/test-ticket/")
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.success && data.print_payload_base64) {
+                            self.triggerRawBtPrint(data.print_payload_base64);
+                        }
+                    })
+                    .catch(function () {});
+            },
+
+            reprintTicket: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var regId = btn.getAttribute("data-reg-id");
+                var url =
+                    btn.getAttribute("data-print-url") ||
+                    ("/api/events/" + this.eventId + "/print-ticket/" + regId + "/");
+                fetch(url)
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.success && data.print_payload_base64) {
+                            self.triggerRawBtPrint(data.print_payload_base64);
+                        }
+                    })
+                    .catch(function () {});
             },
 
             // --- Scanner ---
@@ -1659,6 +1758,9 @@ document.addEventListener("alpine:init", function () {
                             self.showProfileToast(data);
                             self._applyRowState(data.row);
                             self._refetchSummary();
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                             // Only a fresh arrival enters Recent Check-ins —
                             // a re-scan of an already-attended badge must not.
                             if (data.already_checked_in === false) {
@@ -1716,6 +1818,9 @@ document.addEventListener("alpine:init", function () {
                             self.showProfileToast(data);
                             self._applyRowState(data.row);
                             self._refetchSummary();
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                             if (data.already_checked_in === false) {
                                 self._pushRecentCheckin(data);
                             }
@@ -1830,6 +1935,9 @@ document.addEventListener("alpine:init", function () {
                             self._applyRowState(data.row);
                             self._refetchSummary();
                             self._pushRecentCheckin(data);
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                         } else {
                             btn.disabled = false;
                             btn.textContent = i18n.checkIn || "Check In";

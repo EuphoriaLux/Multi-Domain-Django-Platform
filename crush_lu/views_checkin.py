@@ -482,6 +482,9 @@ def event_checkin_api(request, registration_id, token):
             "profile": _get_profile_data(registration),
             "auto_verified": rescan_verified is not None,
             "row": _row_state(registration, table_assignment=table_info),
+            "print_payload_base64": _get_ticket_print_payload(
+                registration, table_info=table_info
+            ),
         }
         if table_info:
             response_data.update(table_info)
@@ -560,6 +563,9 @@ def event_checkin_api(request, registration_id, token):
                 "profile": _get_profile_data(registration),
                 "auto_verified": already_verified_profile is not None,
                 "row": _row_state(registration, table_assignment=table_info),
+                "print_payload_base64": _get_ticket_print_payload(
+                    registration, table_info=table_info
+                ),
             }
             if table_info:
                 response_data.update(table_info)
@@ -665,6 +671,9 @@ def event_checkin_api(request, registration_id, token):
         # membership behaviour of the failure path.
         "row": _row_state(
             registration, table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET
+        ),
+        "print_payload_base64": _get_ticket_print_payload(
+            registration, table_info=table_assignment
         ),
     }
     if table_assignment:
@@ -1579,6 +1588,9 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
             table_assignment=table_assignment or _TABLE_ASSIGNMENT_UNSET,
             coach_authenticated=True,
         ),
+        "print_payload_base64": _get_ticket_print_payload(
+            registration, table_info=table_assignment
+        ),
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -2023,3 +2035,73 @@ def _get_existing_table_assignment(registration):
         }
     except Exception:
         return None
+
+
+def _get_ticket_print_payload(registration, table_info=None):
+    """Safely build 80mm base64 ESC/POS ticket payload without failing check-in."""
+    try:
+        from .services.ticket_printer import build_checkin_ticket_base64
+
+        table_number = None
+        seat_label = ""
+        if table_info and isinstance(table_info, dict):
+            table_number = table_info.get("table_number")
+            seat_label = table_info.get("seat_label", "") or table_info.get("role", "")
+
+        return build_checkin_ticket_base64(
+            registration=registration,
+            event=getattr(registration, "event", None),
+            table_number=table_number,
+            seat_label=seat_label,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to build ticket print payload for registration %s",
+            getattr(registration, "id", None),
+        )
+        return ""
+
+
+@require_GET
+@coach_required
+def event_reprint_ticket_api(request, event_id, registration_id):
+    """Reprint a check-in ticket for an attendee (coach-authenticated)."""
+    registration = get_object_or_404(
+        EventRegistration.objects.select_related("user", "event", "user__crushprofile"),
+        id=registration_id,
+        event_id=event_id,
+    )
+    table_info = _get_existing_table_assignment(registration)
+    print_payload = _get_ticket_print_payload(registration, table_info=table_info)
+
+    return JsonResponse(
+        {
+            "success": True,
+            "registration_id": registration.id,
+            "attendee_name": _get_display_name(registration, coach_authenticated=True),
+            "print_payload_base64": print_payload,
+        }
+    )
+
+
+@require_GET
+@coach_required
+def event_test_ticket_api(request, event_id):
+    """Generate a sample 80mm ESC/POS test ticket for hardware check."""
+    from .models import MeetupEvent
+    from .services.ticket_printer import build_checkin_ticket_base64
+
+    event = get_object_or_404(MeetupEvent, id=event_id)
+    sample_payload = build_checkin_ticket_base64(
+        registration=None,
+        event=event,
+        table_number=1,
+        seat_label="A",
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "event_id": event.id,
+            "print_payload_base64": sample_payload,
+        }
+    )
