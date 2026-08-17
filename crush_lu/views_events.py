@@ -691,10 +691,12 @@ def _registration_outlook(event, profile):
     both pages go back to guessing.
     """
     is_premium = bool(profile and profile.assigned_coach_id)
-    total_full = event.is_full_for(is_premium=is_premium)
-    pools = event.get_gender_pool_availability(
-        capacity_remaining=event.spots_remaining_for(is_premium=is_premium)
-    )
+    # Both halves off one count -- see MeetupEvent.capacity_snapshot(). Asking
+    # is_full_for() and spots_remaining_for() separately meant two COUNTs against
+    # two database states, and a registration landing between them could hand a
+    # viewer a row of "full" chips beside a CTA that still promised them a seat.
+    total_full, capacity_remaining = event.capacity_snapshot(is_premium=is_premium)
+    pools = event.get_gender_pool_availability(capacity_remaining=capacity_remaining)
 
     user_gender = getattr(profile, "gender", None)
     user_pool = None
@@ -1540,8 +1542,9 @@ def event_register(request, event_id):
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
         "registration_will_waitlist": registration_will_waitlist,
-        # Read by the full page's warning heading only; the partial swaps just
-        # the form, and the banner outside it survives untouched.
+        # Both templates read this: the warning banner is a shared component
+        # rendered inside the swapped container, so the partial needs the reason
+        # as much as the full page does.
         "registration_waitlist_reason": waitlist_reason,
     }
     return render(request, template, context)

@@ -214,6 +214,68 @@ class GenderPoolAvailabilityModelTests(GenderPoolAvailabilityTestBase):
         self.assertEqual(pools["f"]["remaining"], 2)
 
 
+class CapacitySnapshotTests(GenderPoolAvailabilityTestBase):
+    """One count behind both halves of "is it full / how many left".
+
+    `is_full_for()` and `spots_remaining_for()` each issue their own COUNT, so
+    a caller needing both read the database twice -- and a registration landing
+    between those reads let one response contradict itself: `capacity_remaining`
+    zero (every pool chip "full") beside `total_full` false (a CTA still
+    offering a seat).
+    """
+
+    def _fill(self, n, gender="M"):
+        for i in range(n):
+            self._register(self._create_user_with_profile(f"u{i}@test.com", gender))
+
+    def test_agrees_with_both_helpers_it_replaces(self):
+        """Delegation must not shift either predicate: `remaining == 0` and the
+        older `count >= cap` are the same test, max() only clamps the full side."""
+        self.event.max_participants = 3
+        self.event.save()
+        for filled in range(0, 5):
+            with self.subTest(filled=filled):
+                is_full, remaining = self.event.capacity_snapshot()
+                self.assertEqual(is_full, self.event.is_full_for())
+                self.assertEqual(remaining, self.event.spots_remaining_for())
+                if filled < 4:
+                    self._register(
+                        self._create_user_with_profile(f"f{filled}@test.com", "M")
+                    )
+
+    def test_respects_reserved_premium_seats_for_each_audience(self):
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._fill(2)
+
+        self.assertEqual(self.event.capacity_snapshot(is_premium=False), (True, 0))
+        self.assertEqual(self.event.capacity_snapshot(is_premium=True), (False, 1))
+
+    def test_is_a_single_query(self):
+        """The whole point: two reads could straddle a concurrent registration."""
+        self._fill(1)
+        with self.assertNumQueries(1):
+            self.event.capacity_snapshot()
+
+    def test_chips_and_cta_cannot_contradict_each_other(self):
+        """Capacity zero now implies total_full by construction, so a row of
+        "full" chips can never appear beside a CTA promising a seat."""
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._set_caps(3, 3, 0)
+        self._fill(2)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        pools = response.context["gender_pool_availability"]
+        self.assertTrue(all(p["is_full"] for p in pools))
+        self.assertTrue(response.context["event_full_for_user"])
+        self.assertContains(response, "Join Waitlist")
+
+
 class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
     """What the member actually reads on /events/<id>/."""
 
@@ -537,6 +599,44 @@ class WaitlistCtaSurvivesAValidationErrorTests(GenderPoolAvailabilityTestBase):
         self.assertTrue(response.context["registration_will_waitlist"])
         self.assertContains(response, "Join Waitlist")
         self.assertNotContains(response, "Confirm Registration")
+
+    def test_the_swap_carries_the_warning_banner_too(self):
+        """The banner used to sit outside the swapped container, so it kept
+        describing the capacity at page load while the button was recomputed --
+        a cancellation in between left the two contradicting each other."""
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        # Same render produced both, so they cannot disagree.
+        self.assertContains(response, "Your gender group is full")
+        self.assertContains(response, "Join Waitlist")
+
+    def test_the_swap_carries_the_reason_not_just_the_flag(self):
+        """A totally full event must not be relabelled "your gender group" on
+        the way through the partial -- the reason has to survive the swap."""
+        self.event.max_participants = 1
+        self.event.save()
+        self._set_caps(4, 4, 4)
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        self.assertEqual(response.context["registration_waitlist_reason"], "total")
+        self.assertContains(response, "Event is Full")
+        self.assertNotContains(response, "Your gender group is full")
+
+    def test_a_seatable_member_gets_no_banner_in_the_swap(self):
+        """The banner must be cleared by the swap, not merely added by it."""
+        self._set_caps(4, 4, 0)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx()
+        self.assertNotContains(response, "You will be added to the waitlist")
 
     def test_seatable_member_keeps_the_register_button(self):
         """The other direction, so the fix cannot be "always say waitlist"."""

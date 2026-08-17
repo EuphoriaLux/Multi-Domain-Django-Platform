@@ -717,18 +717,36 @@ class MeetupEvent(models.Model):
         """Seats available to general (non-premium) members."""
         return max(0, self.max_participants - self.reserved_premium_seats)
 
+    def capacity_snapshot(self, is_premium=False):
+        """``(is_full, spots_remaining)`` from a *single* count.
+
+        :meth:`is_full_for` and :meth:`spots_remaining_for` each issue their own
+        ``COUNT``, so a caller needing both reads the database twice -- and one
+        registration landing between those two reads lets a single response
+        contradict itself: every pool chip full because ``capacity_remaining``
+        came back zero, beside a CTA still promising a seat because fullness was
+        counted a moment earlier. Anything that needs both must take them here.
+
+        Premium (coach-assigned) members measure fullness against the total
+        ``max_participants``; everyone else against ``public_capacity``.
+        """
+        cap = self.max_participants if is_premium else self.public_capacity
+        remaining = max(0, cap - self.get_confirmed_count())
+        # `remaining == 0` and the older `count >= cap` are the same predicate --
+        # max() only clamps the already-full side -- so the two helpers below
+        # keep their exact behaviour while the capacity rule lives in one place.
+        return remaining == 0, remaining
+
     def is_full_for(self, is_premium=False):
         """Capacity check that respects reserved premium seats.
 
         Premium (coach-assigned) members measure fullness against the total
         ``max_participants``; everyone else against ``public_capacity``.
         """
-        cap = self.max_participants if is_premium else self.public_capacity
-        return self.get_confirmed_count() >= cap
+        return self.capacity_snapshot(is_premium=is_premium)[0]
 
     def spots_remaining_for(self, is_premium=False):
-        cap = self.max_participants if is_premium else self.public_capacity
-        return max(0, cap - self.get_confirmed_count())
+        return self.capacity_snapshot(is_premium=is_premium)[1]
 
     @property
     def reserved_spots_remaining(self):

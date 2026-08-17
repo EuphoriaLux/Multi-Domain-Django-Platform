@@ -9,6 +9,15 @@
       aria-atomic="true">
     {% csrf_token %}
 
+    {% comment %}
+    This partial *is* the swap, so it carries the warning too. Rendering only
+    the button here let the banner above go on describing the capacity at page
+    load: a cancellation in between left "Your gender group is full" above a
+    "Confirm Registration" button, and a pool filling up left "Join Waitlist"
+    with nothing explaining it. One render now produces both.
+    {% endcomment %}
+    {% include "crush_lu/components/registration_waitlist_warning.html" %}
+
     {% if form.non_field_errors %}
         <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4">
             {% for error in form.non_field_errors %}
@@ -80,9 +89,9 @@
                 blind to both a full gender pool and a reserved-premium block.
                 Reading it here flipped a corrected "Join Waitlist" back to
                 "Confirm Registration" for a pool-full member who merely forgot a
-                required field -- #866 again, one keystroke later. The warning
-                banner above lives outside the swap target, so it survives; this
-                label is the only thing the re-render can contradict.
+                required field -- #866 again, one keystroke later. The warning at
+                the top of this same partial is rendered from the same outlook,
+                so label and banner always agree.
                 {% endcomment %}
                 {% if registration_will_waitlist %}
                     {% trans "Join Waitlist" %}
