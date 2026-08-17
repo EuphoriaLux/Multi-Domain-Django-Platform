@@ -1493,6 +1493,11 @@ SECURE_CSP_REPORT_ONLY = {
         "https://api.sumup.com",
         # WebSocket for HTMX
         "wss:",
+        # Local "Server for RawBT" print bridge (crush_lu/services/ticket_printer.py,
+        # triggerRawBtPrint in alpine-components.js) — the coach's own device only,
+        # deliberately scoped to this one loopback port rather than a bare "ws:",
+        # which would permit unencrypted WebSocket connections to any host.
+        "ws://127.0.0.1:40213",
     ],
     # OAuth popups and Firebase reCAPTCHA
     "frame-src": [

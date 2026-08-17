@@ -483,7 +483,9 @@ def event_checkin_api(request, registration_id, token):
             "auto_verified": rescan_verified is not None,
             "row": _row_state(registration, table_assignment=table_info),
             "print_payload_base64": _get_ticket_print_payload(
-                registration, table_info=table_info
+                registration,
+                table_info=table_info,
+                coach_authenticated=_scanning_coach(request) is not None,
             ),
         }
         if table_info:
@@ -2083,14 +2085,23 @@ def event_reprint_ticket_api(request, event_id, registration_id):
         event_id=event_id,
     )
     table_info = _get_existing_table_assignment(registration)
-    lang = request.GET.get("lang") or getattr(request, "LANGUAGE_CODE", "")
+    # Only override the attendee's own stored language when the coach
+    # explicitly asks for one (?lang=). Falling back to the coach's own
+    # browser LANGUAGE_CODE here would silently reprint every ticket in the
+    # scanning coach's locale instead of the language the original ticket
+    # was printed in.
+    lang = request.GET.get("lang", "")
     print_payload = _get_ticket_print_payload(
         registration, table_info=table_info, coach_authenticated=True, language=lang
     )
 
     return JsonResponse(
         {
-            "success": True,
+            # Reflects whether a payload was actually built — the wrapper
+            # swallows rendering exceptions and returns "" on failure, and a
+            # reprint is itself a failure-recovery action, so the coach must
+            # be able to tell it didn't work rather than see a false "success".
+            "success": bool(print_payload),
             "registration_id": registration.id,
             "attendee_name": _get_display_name(registration, coach_authenticated=True),
             "print_payload_base64": print_payload,
@@ -2124,8 +2135,18 @@ def event_test_ticket_api(request, event_id):
 
 
 @require_GET
+@coach_required
 def event_test_ticket_bin_api(request, event_id):
-    """Return raw ESC/POS binary bytes for direct download/printing."""
+    """Return raw ESC/POS binary bytes for direct download/printing.
+
+    Coach-gated for consistency with its JSON-returning sibling
+    (event_test_ticket_api). Note: RawBT's own PrintDownloadActivity fetches
+    this URL directly from the Android app, outside the browser's session
+    cookie jar, so the "Binary Download" test button on the /test-print/
+    diagnostic page (which relies on that fetch) no longer authenticates —
+    use the "Live Staging Ticket API" test button instead, which goes
+    through the browser's fetch() and carries the session.
+    """
     from django.http import HttpResponse
     from .models import MeetupEvent
     from .services.ticket_printer import build_checkin_ticket_bytes
@@ -2144,8 +2165,14 @@ def event_test_ticket_bin_api(request, event_id):
     return resp
 
 
+@coach_required
 def debug_print_test_page(request):
-    """Standalone diagnostic page for testing RawBT and ESC/POS thermal printing."""
+    """Standalone diagnostic page for testing RawBT and ESC/POS thermal printing.
+
+    Coach-gated: this page has no other access control and would otherwise
+    disclose the most recent event's title/id (unfiltered by is_published)
+    to anyone who found the URL.
+    """
     from django.http import HttpResponse
     from .models import MeetupEvent
 

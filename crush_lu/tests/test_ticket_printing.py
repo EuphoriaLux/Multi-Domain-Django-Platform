@@ -312,6 +312,72 @@ class TestTicketPrinter(TestCase):
         self.assertIn("PASSIONS", plain_text)
         self.assertIn("Average age", plain_text)
 
+    def test_room_stats_hidden_without_coach_authentication(self):
+        # Privacy regression test: room-wide aggregate attendee stats must
+        # not appear on a self-scanned ticket (no coach present) — only
+        # Mystery Radar was previously gated this way, room stats was not.
+        other_user = User.objects.create_user(
+            username="candidate3@test.lu", email="candidate3@test.lu"
+        )
+        CrushProfile.objects.create(
+            user=other_user,
+            gender="F",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
+        )
+        EventRegistration.objects.create(
+            user=other_user, event=self.event, status="confirmed"
+        )
+
+        plain_anon = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=False,
+        )
+        self.assertNotIn("ROOM DATA", plain_anon)
+        self.assertNotIn("Average age", plain_anon)
+
+        plain_coach = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+        )
+        self.assertIn("ROOM DATA", plain_coach)
+
+    def test_mystery_radar_clue_count_is_capped(self):
+        # Regression test: the clue-count cap previously used max() where
+        # min() was intended and never actually truncated anything.
+        for i in range(20):
+            user = User.objects.create_user(
+                username=f"cap_candidate{i}@test.lu",
+                email=f"cap_candidate{i}@test.lu",
+                first_name=f"Candidate{i}",
+            )
+            CrushProfile.objects.create(
+                user=user,
+                gender="F" if i % 2 == 0 else "M",
+                date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
+            )
+            EventRegistration.objects.create(
+                user=user, event=self.event, status="confirmed"
+            )
+
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+        )
+        # Count only actual clue lines (each starts with the checkbox
+        # prefix) — the instructional subheading also contains the literal
+        # "[   ]" substring as a worked example, so a plain substring count
+        # would overcount by one.
+        clue_lines = [
+            line for line in plain_text.splitlines() if line.strip().startswith("[   ]")
+        ]
+        self.assertLessEqual(len(clue_lines), 7)
+
     def test_multilingual_ticket_generation(self):
         # 1. French
         text_fr = preview_checkin_ticket_text(
@@ -413,6 +479,14 @@ class TestCheckinPrintingAPI(TestCase):
         self.assertTrue(data.get("already_checked_in"))
         self.assertIn("print_payload_base64", data)
         self.assertTrue(len(data["print_payload_base64"]) > 50)
+        # Locks in the coach_authenticated propagation fix: this is the
+        # common rescan path (not the select_for_update race-loser branch),
+        # and a coach-scanned rescan must print the attendee's real name,
+        # not the anonymized "ATTENDEE" fallback — coach_authenticated was
+        # previously omitted from this exact call site.
+        decoded = base64.b64decode(data["print_payload_base64"])
+        self.assertIn(b"ALEX", decoded)
+        self.assertNotIn(b"ATTENDEE", decoded)
 
     def test_promote_from_waitlist_returns_print_payload(self):
         self.registration.status = "waitlist"
@@ -454,3 +528,15 @@ class TestCheckinPrintingAPI(TestCase):
         self.assertEqual(data.get("event_id"), self.event.id)
         self.assertIn("print_payload_base64", data)
         self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_test_ticket_bin_api_requires_coach(self):
+        # Regression test: this endpoint previously had no @coach_required,
+        # unlike its JSON-returning sibling event_test_ticket_api above.
+        bin_url = f"/api/events/{self.event.id}/test-ticket.bin"
+        anon_resp = self.client.get(bin_url)
+        self.assertEqual(anon_resp.status_code, 302)
+
+        self.client.force_login(self.coach_user)
+        resp = self.client.get(bin_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/octet-stream")
