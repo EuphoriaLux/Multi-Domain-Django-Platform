@@ -39778,3 +39778,39 @@ msgstr ""
 #: push_notifications.py:432
 msgid "Verification Not Approved"
 msgstr "Vérification non validée"
+
+#: crush_lu/models/events.py:0
+msgid "Other genders"
+msgstr "Autres genres"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(name)s: full"
+msgstr "%(name)s : complet"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid ""
+"All spots for your gender group are taken — you can still join the waitlist."
+msgstr ""
+"Toutes les places pour votre groupe de genre sont prises — vous pouvez "
+"toujours rejoindre la liste d'attente."
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "The event is fully booked — you can still join the waitlist."
+msgstr ""
+"L'événement est complet — vous pouvez toujours rejoindre la liste d'attente."
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(name)s: %(spots)s spot left"
+msgid_plural "%(name)s: %(spots)s spots left"
+msgstr[0] "%(name)s : %(spots)s place restante"
+msgstr[1] "%(name)s : %(spots)s places restantes"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(spots)s spot left for you."
+msgid_plural "%(spots)s spots left for you."
+msgstr[0] "%(spots)s place restante pour vous."
+msgstr[1] "%(spots)s places restantes pour vous."
+
+#: crush_lu/templates/crush_lu/event_register.html:0
+msgid "Your gender group is full"
+msgstr "Votre groupe de genre est complet"
