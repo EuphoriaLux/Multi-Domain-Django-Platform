@@ -164,6 +164,7 @@ def _build_room_stats_directives(
             .prefetch_related(
                 "user__crushprofile__interests_new",
                 "user__crushprofile__defects",
+                "user__crushprofile__qualities",
             )
         )
         total = len(regs)
@@ -172,7 +173,9 @@ def _build_room_stats_directives(
 
         all_interests = []
         all_defects = []
+        all_vibes = []
         all_langs = []
+        ages = []
         first_step_counts: Counter[str] = Counter()
 
         for r in regs:
@@ -181,33 +184,57 @@ def _build_room_stats_directives(
                 continue
             all_interests.extend([i.label for i in prof.interests_new.all()])
             all_defects.extend([d.label for d in prof.defects.all()])
+            if prof.event_vibe:
+                all_vibes.append(prof.get_event_vibe_display())
             all_langs.extend(prof.event_languages or [])
             if prof.first_step_preference:
                 first_step_counts[prof.first_step_preference] += 1
+            if prof.age:
+                ages.append(prof.age)
 
         top_interests = Counter(all_interests).most_common(3)
         top_defects = Counter(all_defects).most_common(2)
+        top_vibes = Counter(all_vibes).most_common(2)
 
         out.append(Text("ROOM DATA // STATS DE LA SOIREE", Align.CENTER, bold=True))
         out.append(Rule("-"))
 
+        # 1. Âge & Démographie
+        if ages:
+            avg_age = int(round(sum(ages) / len(ages)))
+            min_age, max_age = min(ages), max(ages)
+            out.append(Text(justify(f"• Age moyen: {avg_age} ans", f"({min_age}-{max_age} ans)", cols)))
+
+        # 2. Top Passions & Hobbies
         if top_interests:
-            out.append(Text("TOP PASSIONS DANS LA SALLE :", bold=True))
+            out.append(Text("TOP PASSIONS DU GROUPE :", bold=True))
             for name, count in top_interests:
                 pct = int((count / total) * 100)
-                out.append(Text(justify(f"• {name}", f"{pct}% ({count}p)", cols)))
+                out.append(Text(justify(f"  - {name}", f"{pct}% ({count}p)", cols)))
 
+        # 3. Dynamique de drague (1er pas)
         if first_step_counts:
             they_init = first_step_counts.get("they_initiate", 0)
             they_pct = int((they_init / total) * 100)
-            if they_pct > 0:
-                out.append(Text(f"• {they_pct}% attendent le premier pas"))
+            i_init = first_step_counts.get("i_initiate", 0)
+            i_pct = int((i_init / total) * 100)
+            if they_pct > 0 or i_pct > 0:
+                out.append(Text(f"• 1er pas: {they_pct}% attendent | {i_pct}% foncent"))
 
+        # 4. Ambiance / Vibes
+        if top_vibes:
+            vibe_str = " | ".join(f"{v[0]} ({int(v[1]/total*100)}%)" for v in top_vibes)
+            for part in wrap(f"• Vibes: {vibe_str}", cols):
+                out.append(Text(part))
+
+        # 5. Petits défauts partagés (Autodérision)
         if top_defects:
-            def_name, def_cnt = top_defects[0]
-            def_pct = int((def_cnt / total) * 100)
-            out.append(Text(f"• {def_pct}% avouent : '{def_name}'"))
+            def_items = [f"'{d[0]}' ({int(d[1]/total*100)}%)" for d in top_defects]
+            def_str = " & ".join(def_items)
+            for part in wrap(f"• Defauts avoues: {def_str}", cols):
+                out.append(Text(part))
 
+        # 6. Répartition des langues
         if all_langs:
             lang_counts = Counter(all_langs)
             lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
@@ -251,8 +278,8 @@ def _build_mystery_radar_directives(
 ) -> list[Directive]:
     """Builds interactive Mystery Radar clues from actual event attendees.
 
-    Displays anonymous badges like 'Pos (#6)' with empty checkboxes [   ]
-    so candidates can guess and write the person's name during dates.
+    Displays anonymous badge numbers like '( #6 )' with empty checkboxes [   ]
+    WITHOUT attendee names, so candidates discover and write the name during dates.
     """
     clues: list[tuple[str, str]] = []
 
@@ -326,13 +353,8 @@ def _build_mystery_radar_directives(
                     )
                     if not op:
                         continue
-                    # Badge format e.g. "Pos (#6)" or "Alex (#9)"
-                    badge_name = (
-                        getattr(op, "display_name", "")
-                        or getattr(other.user, "first_name", "")
-                        or ""
-                    )
-                    badge = f"{badge_name} (#{other.id})".strip()
+                    # Anonymous badge number only: e.g. "(#6)"
+                    badge = f"(#{other.id})"
 
                     other_interests = [i.label for i in op.interests_new.all()]
                     common = my_interests.intersection(other_interests)

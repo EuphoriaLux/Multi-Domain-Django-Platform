@@ -215,12 +215,12 @@ class TestTicketPrinter(TestCase):
         self.assertIn("MYSTERY RADAR", plain_text)
         self.assertIn("[   ]", plain_text)
         self.assertIn(f"(#{other_reg.id})", plain_text)
-        # Male candidate ticket must NOT pick other male attendees when female candidate pool is available
-        # (Pos is female, Bob is male)
-        self.assertIn("Pos", plain_text)
-        # Assert ROOM DATA statistics appear
+        # Mystery radar must be anonymous with badge number only (no attendee names in mystery clues)
+        self.assertNotIn(f"Pos (#{other_reg.id})", plain_text)
+        # Assert rich ROOM DATA statistics appear
         self.assertIn("ROOM DATA", plain_text)
         self.assertIn("TOP PASSIONS", plain_text)
+        self.assertIn("Age moyen", plain_text)
 
 
 class TestCheckinPrintingAPI(TestCase):
