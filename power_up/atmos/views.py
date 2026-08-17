@@ -31,9 +31,10 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import permission_required
 from django.core import signing
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -59,6 +60,52 @@ MAX_ITEM_QTY = 9  # matches the menu form's advertised max — enforced here too
 # (a data-truncation error on Postgres). Read from the field instead of
 # hand-copying "20" so the two can't drift out of sync again.
 _DISPLAY_NAME_MAX_LENGTH = Guest._meta.get_field("display_name").max_length
+
+# Per spec §7 (docs/specs/atmos-bar-ordering.md): the guest join page must
+# be rate-limited per-IP and per-tab. Before this, a single photographed QR
+# was enough to obtain the scan handoff once and then hit guest_join()
+# indefinitely — each hit runs a fresh active-alias query and full template
+# render (a new persona reroll), with nothing else in this app throttling
+# unauthenticated traffic. 20 requests/minute comfortably covers a real
+# guest mashing "reroll" a few times while still bounding sustained abuse.
+_JOIN_RATE_LIMIT = 20
+_JOIN_RATE_WINDOW_SECONDS = 60
+
+
+def _client_ip(request) -> str:
+    """Best-effort client IP for rate-limit bucketing only — unlike
+    `azureproject.adapters`' allauth adapter (which raises PermissionDenied
+    on anything unparseable, appropriate for its auth context), a
+    malformed/missing value here just degrades to a shared "unknown" bucket
+    rather than blocking a legitimate request over an IP-parsing edge case.
+    """
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded:
+        # Azure App Service includes the port ("1.2.3.4:5678") — same format
+        # azureproject.adapters.get_client_ip() strips; a stray port would
+        # otherwise fragment one visitor's requests across many cache keys.
+        ip = forwarded.split(",")[0].strip()
+        if ip.count(":") == 1:
+            ip = ip.split(":")[0]
+        return ip or "unknown"
+    return request.META.get("REMOTE_ADDR") or "unknown"
+
+
+def _join_rate_limited(request, tab_id) -> bool:
+    """Fixed-window counter keyed on (client IP, tab) — both dimensions the
+    spec calls for. `cache` is Django's default cache (Redis in production
+    per `azureproject/settings.py`, LocMemCache otherwise), so this works
+    without any Atmos-specific configuration."""
+    key = f"atmos:join_rl:{_client_ip(request)}:{tab_id}"
+    try:
+        count = cache.incr(key)
+    except ValueError:
+        # incr() raises when the key doesn't exist yet (first hit this
+        # window) — set it directly instead of racing a separate has-key
+        # check against a concurrent request doing the same thing.
+        cache.set(key, 1, timeout=_JOIN_RATE_WINDOW_SECONDS)
+        count = 1
+    return count > _JOIN_RATE_LIMIT
 
 
 class PlacementOutcome(Enum):
@@ -219,6 +266,24 @@ def _get_guest_for_viewing(request):
     )
 
 
+def _guest_can_still_scan(guest) -> bool:
+    """Whether `order_status()` should embed the table's live scan QR on
+    this guest's ticket. `_get_guest_for_viewing()` deliberately resolves a
+    removed/settled guest too (so they can still see their OWN historical
+    order), but that same permissiveness would otherwise hand them the
+    table's CURRENT scan token on every reload of an old ticket — if staff
+    removed them and rotated the QR specifically to cut them off, they
+    could read the newly rotated URL straight off their old ticket and
+    immediately mint a fresh identity, defeating the rotation entirely.
+    Requires `guest`'s `tab__table` to already be select_related.
+    """
+    return (
+        guest.status == "active"
+        and guest.tab.status == "open"
+        and guest.tab.table.is_active
+    )
+
+
 def _active_aliases(venue: Venue):
     return list(
         Guest.objects.filter(venue=venue, status="active").values_list(
@@ -349,6 +414,12 @@ def guest_join(request):
     if not tab:
         return render(request, "atmos/no_session.html")
 
+    if _join_rate_limited(request, tab.id):
+        return HttpResponse(
+            "Too many requests — please wait a moment and try again.",
+            status=429,
+        )
+
     error = ""
     if request.method == "POST":
         active = _active_aliases(tab.venue)
@@ -379,12 +450,6 @@ def guest_join(request):
             )
             if alias in active:  # collision (e.g. a double submit) — reroll silently
                 alias = random_persona(exclude=active)
-
-            # Switching identity (new table scan, new guest) must not carry
-            # the previous guest's cart forward — item IDs are shared across
-            # every venue on the platform, so a stale cart could otherwise
-            # be ordered onto the new table under the new persona.
-            request.session[CART_SESSION_KEY] = {}
 
             # `active` above is a snapshot read once at the top of this POST
             # — two concurrent joins can both pass the in-memory checks
@@ -434,6 +499,18 @@ def guest_join(request):
             if guest is None:
                 error = "This table's crowded with ghosts — try again."
             else:
+                # Switching identity (new table scan, new guest) must not
+                # carry the previous guest's cart forward — item IDs are
+                # shared across every venue on the platform, so a stale cart
+                # could otherwise be ordered onto the new table under the
+                # new persona. Deliberately deferred to HERE (only once
+                # guest creation actually succeeded) rather than before the
+                # retry loop above: an existing guest with an in-progress
+                # round at table A scanning table B, where B turns out
+                # closed/deactivated or every alias retry collides, must not
+                # lose that unrelated round just because a table switch was
+                # attempted and failed.
+                request.session[CART_SESSION_KEY] = {}
                 # Consume the handoff — see the note where it's read above.
                 request.session.pop(TAB_SESSION_KEY, None)
                 response = redirect("atmos:guest_menu")
@@ -892,9 +969,14 @@ def order_status(request, pk):
         # hardcoded production host — on test.power-up.lu or a local
         # runserver, a hardcoded power-up.lu origin would print a ticket
         # whose QR opens production with a token that database doesn't have,
-        # 404ing every time.
-        qr_payload=request.build_absolute_uri(
-            reverse("atmos:guest_scan", args=[guest.tab.table.qr_token])
+        # 404ing every time. Omitted entirely for an inactive guest — see
+        # _guest_can_still_scan()'s docstring.
+        qr_payload=(
+            request.build_absolute_uri(
+                reverse("atmos:guest_scan", args=[guest.tab.table.qr_token])
+            )
+            if _guest_can_still_scan(guest)
+            else ""
         ),
         contains_alcohol=order.contains_alcohol,
         footer="pay at the table",

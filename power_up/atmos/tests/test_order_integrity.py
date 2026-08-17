@@ -1,20 +1,27 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core import signing
+from django.core.cache import cache
+from django.db import IntegrityError
 from django.test import RequestFactory
 
 from power_up.atmos.models import Guest, MenuCategory, MenuItem, Tab, Table, Venue
 from power_up.atmos.views import (
+    _JOIN_RATE_LIMIT,
     CART_SESSION_KEY,
     GUEST_COOKIE,
+    TAB_SESSION_KEY,
     PlacementOutcome,
     _cart_lines,
     _create_order_atomic,
     _get_guest,
+    _guest_can_still_scan,
     _order_signature,
     _resolve_menu_item,
+    guest_join,
 )
 
 
@@ -223,3 +230,81 @@ def test_order_snapshots_venue_currency(ordering_setup):
     venue.save(update_fields=["currency"])
     result.order.refresh_from_db()
     assert result.order.currency == "GBP"
+
+
+@pytest.mark.django_db
+def test_guest_join_rate_limited(ordering_setup):
+    """Per-(IP, tab) join-page throttle — spec requires it, and nothing else
+    in this app limits an unauthenticated visitor hammering the reroll."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    for _ in range(_JOIN_RATE_LIMIT):
+        request = request_with_session()
+        request.session[TAB_SESSION_KEY] = str(tab.id)
+        request.session.save()
+        response = guest_join(request)
+        assert response.status_code == 200
+
+    request = request_with_session()
+    request.session[TAB_SESSION_KEY] = str(tab.id)
+    request.session.save()
+    response = guest_join(request)
+    assert response.status_code == 429
+
+
+@pytest.mark.django_db
+def test_guest_join_preserves_cart_when_creation_fails(ordering_setup):
+    """The cart reset used to happen before the guest-creation retry loop —
+    a failed table switch (closed tab, exhausted alias retries) would
+    silently empty an unrelated in-progress round anyway."""
+    _venue, _table, tab, _guest, _category, item = ordering_setup
+    request = request_with_session("post", {"display_name": "", "rolled_alias": ""})
+    request.session[CART_SESSION_KEY] = {str(item.id): 3}
+    request.session[TAB_SESSION_KEY] = str(tab.id)
+    request.session.save()
+
+    with patch("power_up.atmos.views.Guest.objects.create", side_effect=IntegrityError):
+        response = guest_join(request)
+
+    assert response.status_code == 200  # re-rendered join.html with an error
+    assert request.session[CART_SESSION_KEY] == {str(item.id): 3}
+
+
+class _FakeTable:
+    is_active = True
+
+
+class _FakeTab:
+    status = "open"
+    table = _FakeTable()
+
+
+class _FakeGuest:
+    status = "active"
+    tab = _FakeTab()
+
+
+def test_guest_can_still_scan_true_for_active_guest_open_tab_active_table():
+    assert _guest_can_still_scan(_FakeGuest()) is True
+
+
+@pytest.mark.parametrize(
+    "guest_status,tab_status,table_active",
+    [
+        ("removed", "open", True),
+        ("settled", "open", True),
+        ("active", "closed", True),
+        ("active", "open", False),
+    ],
+)
+def test_guest_can_still_scan_false_when_inactive(
+    guest_status, tab_status, table_active
+):
+    guest = _FakeGuest()
+    guest.status = guest_status
+    guest.tab = _FakeTab()
+    guest.tab.status = tab_status
+    guest.tab.table = _FakeTable()
+    guest.tab.table.is_active = table_active
+    assert _guest_can_still_scan(guest) is False

@@ -108,6 +108,37 @@ class Table(models.Model):
     def __str__(self) -> str:
         return f"{self.venue.name} — Table {self.label}"
 
+    def clean(self):
+        super().clean()
+        # The KDS renders `order.tab.table.label` LIVE, while an already-
+        # issued short_code and its chronicle event bake the placement-time
+        # label directly into their text — the two would silently diverge
+        # the moment a table with active history gets renamed (an order for
+        # "4" starts showing under a "9" badge on the KDS, delivered to the
+        # wrong table). Once a table has any tabs at all, its label is
+        # frozen; deactivate and create a new table instead of renaming one
+        # with history. Runs on both the standalone TableAdmin and the
+        # VenueAdmin inline — full_clean() is called for each inline row.
+        if self.pk is not None:
+            original_label = (
+                Table.objects.filter(pk=self.pk).values_list("label", flat=True).first()
+            )
+            if (
+                original_label is not None
+                and original_label != self.label
+                and self.tabs.exists()
+            ):
+                raise ValidationError(
+                    {
+                        "label": (
+                            "Cannot rename a table that already has tabs — the KDS, "
+                            "issued short codes, and chronicle events all bake in the "
+                            "old label. Deactivate this table and create a new one "
+                            "instead."
+                        )
+                    }
+                )
+
     def save(self, *args, **kwargs):
         if not self.qr_token:
             # secrets.token_urlsafe(16) per spec §4.3 — the QR encodes this,
@@ -193,6 +224,32 @@ class Tab(models.Model):
     def __str__(self) -> str:
         return f"Tab for {self.table} ({self.status})"
 
+    def clean(self):
+        super().clean()
+        # `save()` below only ever handles the open->closed direction (it
+        # stamps closed_at, settles guests). Nothing resets closed_at,
+        # restores opened_at, or reactivates settled guests for the reverse
+        # transition, so admin staff flipping a closed tab's status back to
+        # "open" would leave a tab that's simultaneously "open" (accepting
+        # new scans/guests/orders) and still carrying its old closed_at and
+        # settled guest history — the next scan of this table would attach
+        # a fresh service to what looks like a still-open previous one.
+        # Reopening isn't a supported transition; scanning the table again
+        # creates a genuinely fresh tab instead.
+        if self.pk is not None:
+            original_status = (
+                Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            )
+            if original_status == "closed" and self.status == "open":
+                raise ValidationError(
+                    {
+                        "status": (
+                            "Cannot reopen a closed tab — scan the table again to "
+                            "start a fresh one."
+                        )
+                    }
+                )
+
     def save(self, *args, **kwargs):
         # `venue` is denormalised for staff queries (see Guest's comment on
         # the same tradeoff) — it must never be independently settable, or
@@ -230,6 +287,23 @@ class Tab(models.Model):
                 kwargs["update_fields"] = [*update_fields, "closed_at"]
         super().save(*args, **kwargs)
         if just_closed:
+            # join.html tells guests "we only keep this for tonight" — but
+            # tab closure is the natural end of that promise, not the
+            # cutoff-based purge_stale_guest_names command (which is
+            # dry-run by default, has no scheduled invocation on this
+            # platform, and only fires after guest_window_minutes has
+            # passed regardless of whether the tab already closed). Reset
+            # each named guest's own order snapshots to their alias BEFORE
+            # the bulk settle below clears display_name, or their typed
+            # name would be left as the only remaining copy of something
+            # we're about to promise is gone.
+            named_guests = list(
+                self.guests.filter(status="active").exclude(display_name="")
+            )
+            for guest in named_guests:
+                guest.orders.exclude(alias_snapshot=guest.alias).update(
+                    alias_snapshot=guest.alias
+                )
             # `uniq_active_alias_per_venue` treats every `status="active"`
             # guest as occupying its alias, with no link to whether the
             # guest's own tab is still open. Without this, a closed tab's
@@ -238,7 +312,7 @@ class Tab(models.Model):
             # eventually fail once it's crowded enough that the bounded
             # collision-retry in guest_join can't find a free one.
             self.guests.filter(status="active").update(
-                status="settled", settled_at=timezone.now()
+                status="settled", settled_at=timezone.now(), display_name=""
             )
 
 
