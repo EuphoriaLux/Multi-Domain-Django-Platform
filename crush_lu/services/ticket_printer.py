@@ -321,12 +321,19 @@ def _build_header_directives(
     out.append(Text(justify(date_lbl, date_str, cols)))
     out.append(Rule("-"))
 
-    candidate_display = f"{attendee_name} {candidate_num}".strip()
     dw_cols = max(16, cols // 2)
+    # Truncate the name, not the badge: candidate_num is the short identifier
+    # the room-stats/mystery-radar sections reference elsewhere on the ticket,
+    # so it must survive even when a long table/seat label leaves little room
+    # (truncating the combined "name + badge" string as one unit previously
+    # dropped the badge whenever the name alone filled the budget).
+    badge_part = f" {candidate_num}" if candidate_num else ""
+    name_budget = max(0, dw_cols - len(table_label) - 1 - len(badge_part))
+    candidate_display = f"{attendee_name.upper()[:name_budget]}{badge_part}".strip()
     out.append(
         Text(
             justify(
-                candidate_display.upper()[: dw_cols - len(table_label) - 1],
+                candidate_display,
                 table_label.upper(),
                 dw_cols,
             ),
@@ -400,21 +407,44 @@ def _build_coach_rules_directives(
     return out
 
 
+def _fetch_event_roster(event_id):
+    """Fetches the event's confirmed/attended roster with the select/prefetch
+    both `_build_room_stats_directives` and `_build_mystery_radar_directives`
+    need, so a single check-in scan issues one roster query instead of two.
+    """
+    from crush_lu.models import EventRegistration
+
+    return list(
+        EventRegistration.objects.filter(
+            event_id=event_id,
+            status__in=["confirmed", "attended"],
+        )
+        .select_related("user", "user__crushprofile")
+        .prefetch_related(
+            "user__crushprofile__interests_new",
+            "user__crushprofile__defects",
+            "user__crushprofile__qualities",
+        )
+    )
+
+
 def _build_room_stats_directives(
     registration: EventRegistration | None = None,
     event: MeetupEvent | None = None,
     cols: int = 48,
     lang: str = "fr",
     coach_authenticated: bool = False,
+    event_roster: list | None = None,
 ) -> list[Directive]:
     """Builds collective group statistics for the event attendees.
 
-    Gated to coach-authenticated requests, matching
-    ``_build_mystery_radar_directives`` below: for a small attendee count,
-    aggregate percentages (age, admitted quirks, top interests) are
-    trivially invertible into a specific other registrant's private profile
-    data, and this endpoint is deliberately reachable via an unattended
-    self-scan with no coach present.
+    Gated to coach-authenticated requests, matching the Mystery Radar and
+    attendee-name code: these aggregates (top interests/defects with
+    percentages) can identify a specific other attendee at a small event, so
+    they must not print on the unauthenticated self-scan path.
+
+    ``event_roster``, when given, is used as-is instead of re-querying (the
+    caller already fetched it for `_build_mystery_radar_directives`).
     """
     out: list[Directive] = []
 
@@ -426,7 +456,6 @@ def _build_room_stats_directives(
 
     try:
         from collections import Counter
-        from crush_lu.models import EventRegistration
 
         event_id = getattr(event, "id", None) or getattr(
             registration, "event_id", None
@@ -434,18 +463,7 @@ def _build_room_stats_directives(
         if not event_id:
             return out
 
-        regs = list(
-            EventRegistration.objects.filter(
-                event_id=event_id,
-                status__in=["confirmed", "attended"],
-            )
-            .select_related("user__crushprofile")
-            .prefetch_related(
-                "user__crushprofile__interests_new",
-                "user__crushprofile__defects",
-                "user__crushprofile__qualities",
-            )
-        )
+        regs = event_roster if event_roster is not None else _fetch_event_roster(event_id)
         total = len(regs)
         if total < 2:
             return out
@@ -479,7 +497,7 @@ def _build_room_stats_directives(
             "fr": "ROOM DATA // STATS DE LA SOIRÉE",
             "de": "ROOM DATA // STATS DES ABENDS",
             "en": "ROOM DATA // TONIGHT'S STATS",
-        }.get(lang, "ROOM DATA // STATS DE LA SOIRÉE")
+        }.get(lang, "ROOM DATA // TONIGHT'S STATS")
 
         out.append(Text(hdr, Align.CENTER, bold=True))
         out.append(Rule("-"))
@@ -492,7 +510,7 @@ def _build_room_stats_directives(
                 "fr": f"• Âge moyen: {avg_age} ans",
                 "de": f"• Durchschnittsalter: {avg_age} J.",
                 "en": f"• Average age: {avg_age} yrs",
-            }.get(lang, f"• Âge moyen: {avg_age} ans")
+            }.get(lang, f"• Average age: {avg_age} yrs")
             span_age = f"({min_age}-{max_age} ans)" if lang == "fr" else (f"({min_age}-{max_age} J.)" if lang == "de" else f"({min_age}-{max_age} yrs)")
             out.append(Text(justify(lbl_age, span_age, cols)))
 
@@ -502,7 +520,7 @@ def _build_room_stats_directives(
                 "fr": "TOP PASSIONS DU GROUPE :",
                 "de": "TOP HOBBYS IM RAUM :",
                 "en": "TOP GROUP PASSIONS :",
-            }.get(lang, "TOP PASSIONS DU GROUPE :")
+            }.get(lang, "TOP GROUP PASSIONS :")
             out.append(Text(hdr_passions, bold=True))
             for name, count in top_interests:
                 pct = int((count / total) * 100)
@@ -519,7 +537,7 @@ def _build_room_stats_directives(
                     "fr": f"• 1er pas: {they_pct}% attendent | {i_pct}% foncent",
                     "de": f"• 1. Schritt: {they_pct}% warten | {i_pct}% starten",
                     "en": f"• 1st step: {they_pct}% wait | {i_pct}% initiate",
-                }.get(lang, f"• 1er pas: {they_pct}% attendent | {i_pct}% foncent")
+                }.get(lang, f"• 1st step: {they_pct}% wait | {i_pct}% initiate")
                 out.append(Text(line_step))
 
         # 4. Ambiance / Vibes
@@ -533,7 +551,7 @@ def _build_room_stats_directives(
                 "fr": "• Défauts avoués: ",
                 "de": "• Offene Macken: ",
                 "en": "• Admitted quirks: ",
-            }.get(lang, "• Défauts avoués: ")
+            }.get(lang, "• Admitted quirks: ")
             def_items = [f"'{d[0]}' ({int(d[1]/total*100)}%)" for d in top_defects]
             def_str = lbl_def + " & ".join(def_items)
             for part in wrap(def_str, cols):
@@ -550,12 +568,12 @@ def _build_room_stats_directives(
                 "fr": "• Langues:",
                 "de": "• Sprachen:",
                 "en": "• Languages:",
-            }.get(lang, "• Langues:")
-            out.append(
-                Text(
-                    f"{lbl_l} LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}%"
-                )
+            }.get(lang, "• Languages:")
+            lang_line = (
+                f"{lbl_l} LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}%"
             )
+            for part in wrap(lang_line, cols):
+                out.append(Text(part))
 
         out.append(Rule("="))
     except Exception as e:
@@ -596,12 +614,16 @@ def _build_mystery_radar_directives(
     cols: int = 48,
     lang: str = "fr",
     coach_authenticated: bool = False,
+    event_roster: list | None = None,
 ) -> list[Directive]:
     """Builds interactive Mystery Radar clues from actual event attendees.
 
     Displays anonymous badge numbers like '( #6 )' with empty checkboxes [   ]
     WITHOUT attendee names, so candidates discover and write the name during dates.
     Gated to coach-authenticated requests to keep attendee details out of public payloads.
+
+    ``event_roster``, when given, is used as-is instead of re-querying (the
+    caller already fetched it for `_build_room_stats_directives`).
     """
     if not coach_authenticated:
         return _build_mission_directives(cols=cols, lang=lang)
@@ -610,25 +632,14 @@ def _build_mystery_radar_directives(
 
     if registration and getattr(registration, "pk", None):
         try:
-            from crush_lu.models import EventRegistration
-
             event_id = getattr(event, "id", None) or getattr(
                 registration, "event_id", None
             )
             if event_id:
-                other_regs = list(
-                    EventRegistration.objects.filter(
-                        event_id=event_id,
-                        status__in=["confirmed", "attended"],
-                    )
-                    .exclude(id=registration.id)
-                    .select_related("user", "user__crushprofile")
-                    .prefetch_related(
-                        "user__crushprofile__interests_new",
-                        "user__crushprofile__qualities",
-                        "user__crushprofile__defects",
-                    )
+                roster = (
+                    event_roster if event_roster is not None else _fetch_event_roster(event_id)
                 )
+                other_regs = [r for r in roster if r.id != registration.id]
 
                 my_user = getattr(registration, "user", None)
                 my_profile = (
@@ -743,17 +754,14 @@ def _build_mystery_radar_directives(
                     else:
                         clues.append(("Mystery Match", badge))
 
-                # Scale clues to event size (e.g. ~7 for a 14-person / 7-table
-                # event), capped at 7 regardless of pool size so a large mixer
-                # doesn't print dozens of clue lines on one ticket. `min`, not
-                # `max`, is the operative bound here — this was previously
-                # inverted and never actually capped anything.
-                target_clues = 7
+                # Scale clues dynamically to match event size (e.g. 7 candidates for
+                # 7 tables), but never print more than are actually available.
+                max_clues = 7
                 if event and getattr(event, "max_participants", None):
-                    target_clues = min(7, max(1, event.max_participants // 2))
+                    max_clues = min(7, event.max_participants // 2)
 
                 random.shuffle(clues)
-                clues = clues[:target_clues]
+                clues = clues[: min(max_clues, len(candidate_pool))]
         except Exception as e:
             logger.warning("Failed to build mystery radar clues: %s", e, exc_info=True)
             clues = []
@@ -845,6 +853,11 @@ def build_checkin_ticket_directives(
         registration=registration, event=event, language=language
     )
 
+    # Kept even though this file's own copy is hardcoded per-language literals
+    # (thermal-ticket text, not routed through the .po catalog): it still
+    # governs Django's own translated `get_FOO_display()` calls made below,
+    # e.g. `CrushProfile.get_event_vibe_display()`, whose EVENT_VIBE_CHOICES
+    # labels are defined with gettext_lazy.
     with translation_override(lang):
         event_title = "Speed Dating Event"
         now_local = (
@@ -863,10 +876,11 @@ def build_checkin_ticket_directives(
                 if profile and getattr(profile, "display_name", None):
                     attendee_name = profile.display_name
                 elif coach_authenticated:
+                    # `username` is never used here — signup is email-only, so
+                    # it is generally the address itself (see the identical
+                    # rule `_get_display_name`, views_checkin.py, follows).
                     if reg_user.first_name:
                         attendee_name = reg_user.first_name
-                    elif getattr(reg_user, "username", None):
-                        attendee_name = reg_user.username.split("@")[0]
                     else:
                         attendee_name = "Attendee"
                 else:
@@ -879,11 +893,23 @@ def build_checkin_ticket_directives(
             if event_dt:
                 date_str = _format_ticket_date(event_dt, lang=lang)
 
-        table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
+        welcome_word = {"fr": "BIENVENUE", "de": "WILLKOMMEN", "en": "WELCOME"}.get(
+            lang, "WELCOME"
+        )
+        table_word = {"fr": "TABLE", "de": "TISCH", "en": "TABLE"}.get(lang, "TABLE")
+        table_display = welcome_word
         if table_number:
-            table_display = f"TABLE {table_number}"
+            table_display = f"{table_word} {table_number}"
             if seat_label:
-                table_display += f" ({seat_label})"
+                # seat_label is either a free-form seat letter (not
+                # translatable) or a quiz role ("anchor"/"rotator") — translate
+                # only the known role values, and pass anything else through.
+                role_label = {
+                    "fr": {"anchor": "PILIER", "rotator": "ROTATION"},
+                    "de": {"anchor": "ANKER", "rotator": "ROTATION"},
+                    "en": {"anchor": "ANCHOR", "rotator": "ROTATOR"},
+                }.get(lang, {}).get(seat_label, seat_label)
+                table_display += f" ({role_label})"
 
         if not qr_url:
             base_domain = getattr(
@@ -912,6 +938,16 @@ def build_checkin_ticket_directives(
         event_type = getattr(event, "event_type", "speed_dating") or "speed_dating"
         is_dating_event = event_type in ("speed_dating", "mixer")
 
+        # Fetched once and shared: room-stats and mystery-radar both need the
+        # same event roster, and both only run when coach_authenticated.
+        event_roster = None
+        if coach_authenticated and registration and getattr(registration, "pk", None):
+            roster_event_id = getattr(event, "id", None) or getattr(
+                registration, "event_id", None
+            )
+            if roster_event_id:
+                event_roster = _fetch_event_roster(roster_event_id)
+
         directives: list[Directive] = []
         directives.extend(
             _build_header_directives(
@@ -934,6 +970,7 @@ def build_checkin_ticket_directives(
                 cols=cols,
                 lang=lang,
                 coach_authenticated=coach_authenticated,
+                event_roster=event_roster,
             )
         )
         if is_dating_event:
@@ -949,6 +986,7 @@ def build_checkin_ticket_directives(
                 cols=cols,
                 lang=lang,
                 coach_authenticated=coach_authenticated,
+                event_roster=event_roster,
             )
         )
         directives.extend(

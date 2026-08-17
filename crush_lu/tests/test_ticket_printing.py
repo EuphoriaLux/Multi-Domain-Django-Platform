@@ -129,14 +129,18 @@ class TestTicketPrinter(TestCase):
         self.assertNotIn("secret_email@test.lu", plain_anon)
         self.assertIn("ATTENDEE", plain_anon)
 
-        # Coach authenticated call uses username prefix
+        # Coach-authenticated call, but still no first_name to show: falls
+        # back to the generic label rather than the user's email-derived
+        # username — username is never a safe display name (signup is
+        # email-only, so it is generally the address itself).
         plain_coach = preview_checkin_ticket_text(
             registration=anon_reg,
             event=self.event,
             table_number=1,
             coach_authenticated=True,
         )
-        self.assertIn("SECRET_EMAIL", plain_coach)
+        self.assertNotIn("secret_email", plain_coach.lower())
+        self.assertIn("ATTENDEE", plain_coach)
 
     def test_timezone_conversion_for_event_date(self):
         import zoneinfo
@@ -346,8 +350,8 @@ class TestTicketPrinter(TestCase):
         self.assertIn("ROOM DATA", plain_coach)
 
     def test_mystery_radar_clue_count_is_capped(self):
-        # Regression test: the clue-count cap previously used max() where
-        # min() was intended and never actually truncated anything.
+        # Regression test: the clue-count cap must never exceed 7 lines even
+        # for a large event roster.
         for i in range(20):
             user = User.objects.create_user(
                 username=f"cap_candidate{i}@test.lu",
