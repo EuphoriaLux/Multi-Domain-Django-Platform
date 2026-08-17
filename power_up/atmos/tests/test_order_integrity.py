@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core import signing
 from django.core.cache import cache
@@ -29,6 +30,11 @@ def request_with_session(method="get", data=None):
     request = getattr(RequestFactory(), method)("/", data=data or {})
     SessionMiddleware(lambda req: None).process_request(request)
     request.session.save()
+    # guest_join()'s render() path runs every globally-registered template
+    # context processor, including crush_lu's crush_user_context, which
+    # reads request.user — normally set by AuthenticationMiddleware, which
+    # this bare RequestFactory request never goes through.
+    request.user = AnonymousUser()
     return request
 
 
