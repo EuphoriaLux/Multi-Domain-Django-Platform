@@ -1483,16 +1483,9 @@ document.addEventListener("alpine:init", function () {
                 // Validate base64 charset before constructing URI
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
                 try {
-                    var iframe = document.getElementById("rawbt-print-frame");
-                    if (!iframe) {
-                        iframe = document.createElement("iframe");
-                        iframe.id = "rawbt-print-frame";
-                        iframe.style.display = "none";
-                        document.body.appendChild(iframe);
-                    }
-                    iframe.src = "rawbt:data:base64," + trimmed;
+                    window.location.href = "rawbt:base64," + trimmed;
                 } catch (e) {
-                    window.location.href = "rawbt:data:base64," + trimmed;
+                    console.warn("RawBT trigger failed:", e);
                 }
             },
 
