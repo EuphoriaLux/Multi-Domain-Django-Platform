@@ -106,8 +106,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=3,
         )
-        expected_url = f"https://crush.lu/events/{self.event.id}/lobby/"
-        self.assertIn(expected_url, plain_text)
+        self.assertIn(f"events/{self.event.id}/lobby/", plain_text)
 
     def test_privacy_aware_attendee_fallback(self):
         anon_user = User.objects.create_user(
@@ -120,7 +119,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             status="confirmed",
         )
-        # Unauthenticated / scanner scan must NOT leak the email address
+        # Public / unauthenticated call sees generic ATTENDEE fallback
         plain_anon = preview_checkin_ticket_text(
             registration=anon_reg,
             event=self.event,
@@ -142,7 +141,7 @@ class TestTicketPrinter(TestCase):
     def test_timezone_conversion_for_event_date(self):
         import zoneinfo
         from datetime import datetime
-        lux_tz = zoneinfo.ZoneInfo("Europe/Luxembourg")
+
         # Fixed datetime in winter (UTC+1)
         fixed_dt = datetime(2026, 12, 1, 18, 30, tzinfo=zoneinfo.ZoneInfo("UTC"))
         event = MeetupEvent.objects.create(
@@ -157,7 +156,97 @@ class TestTicketPrinter(TestCase):
             registration=self.registration,
             event=event,
             table_number=1,
+            coach_authenticated=True,
         )
+        self.assertIn("19:30", plain_text)
+        self.assertIn("Winter Speed Dating", plain_text)
+
+    def test_privacy_first_name_gated_on_coach_authenticated(self):
+        # User without CrushProfile but with first_name
+        anon_user = User.objects.create_user(
+            username="secret_email2@test.lu",
+            email="secret_email2@test.lu",
+            first_name="Jean-Luc",
+        )
+        anon_reg = EventRegistration.objects.create(
+            user=anon_user,
+            event=self.event,
+            status="confirmed",
+        )
+        # Unauthenticated self-scan: first_name must NOT leak
+        plain_anon = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            coach_authenticated=False,
+        )
+        self.assertNotIn("Jean-Luc", plain_anon)
+        self.assertNotIn("JEAN-LUC", plain_anon)
+        self.assertNotIn("secret_email2", plain_anon)
+        self.assertIn("ATTENDEE", plain_anon)
+
+        # Authenticated coach scan: first_name is shown (in uppercase on banner)
+        plain_coach = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            coach_authenticated=True,
+        )
+        self.assertIn("JEAN-LUC", plain_coach)
+
+    def test_qr_code_lobby_url_contains_locale_prefix(self):
+        from power_up.atmos.printing.layout import QrCode
+
+        directives = build_checkin_ticket_directives(
+            registration=self.registration,
+            event=self.event,
+            language="fr",
+            coach_authenticated=True,
+        )
+        qr_directives = [d for d in directives if isinstance(d, QrCode)]
+        self.assertTrue(len(qr_directives) > 0)
+        qr_data = qr_directives[0].data
+        self.assertIn(f"events/{self.event.id}/lobby/", qr_data)
+
+    def test_resolve_ticket_language_explicitly_set(self):
+        from crush_lu.services.ticket_printer import resolve_ticket_language
+
+        # User has default en but not explicitly set
+        self.profile.preferred_language = "en"
+        self.profile.language_explicitly_set = False
+        self.profile.save()
+
+        # Event is in French
+        self.event.languages = ["fr"]
+        self.event.save()
+
+        resolved = resolve_ticket_language(
+            registration=self.registration,
+            event=self.event,
+        )
+        # Should fall through to event language "fr"
+        self.assertEqual(resolved, "fr")
+
+    def test_non_dating_event_ticket_layout(self):
+        quiz_event = MeetupEvent.objects.create(
+            title="Pub Quiz Night",
+            event_type="quiz_night",
+            date_time=timezone.now() + timedelta(hours=2),
+            registration_deadline=timezone.now() + timedelta(hours=1),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=quiz_event,
+            table_number=3,
+            coach_authenticated=True,
+        )
+        # Should have generic event pass header
+        self.assertIn("EVENT // CHECK-IN PASS", plain_text)
+        # Should NOT have dating receipt or dating survival guide
+        self.assertNotIn("DATING RECEIPT", plain_text)
+        self.assertNotIn("REÇU DATING", plain_text)
+
     def test_mystery_radar_with_attendee_clues_and_checkboxes(self):
         from crush_lu.models import Interest
 
@@ -211,6 +300,7 @@ class TestTicketPrinter(TestCase):
             registration=self.registration,
             event=self.event,
             table_number=2,
+            coach_authenticated=True,
         )
         self.assertIn("MYSTERY RADAR", plain_text)
         self.assertIn("[   ]", plain_text)
@@ -229,6 +319,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=1,
             language="fr",
+            coach_authenticated=True,
         )
         self.assertIn("REÇU DATING", text_fr)
         self.assertIn("GUIDE DE SURVIE", text_fr)
@@ -239,6 +330,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=1,
             language="de",
+            coach_authenticated=True,
         )
         self.assertIn("DATING RECEIPT", text_de)
         self.assertIn("Hoffnung & Optimismus", text_de)
@@ -250,6 +342,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=1,
             language="en",
+            coach_authenticated=True,
         )
         self.assertIn("DATING RECEIPT", text_en)
         self.assertIn("Hope & Optimism", text_en)

@@ -13,6 +13,7 @@ Generates a tangible, viral physical slip at check-in featuring:
 from __future__ import annotations
 
 import base64
+import logging
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,76 @@ from power_up.atmos.printing.layout import (
 
 if TYPE_CHECKING:
     from crush_lu.models import MeetupEvent, EventRegistration
+
+logger = logging.getLogger(__name__)
+
+
+def _format_ticket_date(dt: Any, lang: str = "en") -> str:
+    """Formats an aware/naive datetime in a locale-aware way for the thermal ticket."""
+    if dt is None:
+        return ""
+    if hasattr(dt, "tzinfo") and dt.tzinfo is not None and timezone.is_aware(dt):
+        local_dt = timezone.localtime(dt)
+    else:
+        local_dt = dt
+
+    weekdays = {
+        "fr": ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
+        "de": ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."],
+        "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    }
+    months = {
+        "fr": [
+            "janv.",
+            "févr.",
+            "mars",
+            "avr.",
+            "mai",
+            "juin",
+            "juil.",
+            "août",
+            "sept.",
+            "oct.",
+            "nov.",
+            "déc.",
+        ],
+        "de": [
+            "Jan.",
+            "Feb.",
+            "März",
+            "Apr.",
+            "Mai",
+            "Juni",
+            "Juli",
+            "Aug.",
+            "Sept.",
+            "Okt.",
+            "Nov.",
+            "Dez.",
+        ],
+        "en": [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ],
+    }
+    w_list = weekdays.get(lang, weekdays["en"])
+    m_list = months.get(lang, months["en"])
+    w_str = w_list[local_dt.weekday()]
+    m_str = m_list[local_dt.month - 1]
+    time_str = local_dt.strftime("%H:%M")
+    if lang == "de":
+        return f"{w_str} {local_dt.day:02d}. {m_str} {time_str}"
+    return f"{w_str} {local_dt.day:02d} {m_str} {time_str}"
 
 
 COACH_SURVIVAL_RULES: dict[str, list[str]] = {
@@ -198,8 +269,10 @@ def resolve_ticket_language(
         profile = getattr(user, "crushprofile", None) if user else None
         if profile and getattr(profile, "preferred_language", None):
             lang = profile.preferred_language.lower()
+            explicitly_set = getattr(profile, "language_explicitly_set", True)
             if lang in ("fr", "de", "en"):
-                return lang
+                if explicitly_set or lang != "en":
+                    return lang
     if event and getattr(event, "languages", None):
         for el in event.languages:
             if el in ("fr", "de", "en"):
@@ -215,15 +288,23 @@ def _build_header_directives(
     candidate_num: str = "",
     cols: int = 48,
     lang: str = "fr",
+    event_type: str = "speed_dating",
 ) -> list[Directive]:
     """Builds top banner and candidate table assignment."""
     out: list[Directive] = []
 
-    sub = {
-        "fr": "SPEED DATING // PASS ENREGISTREMENT",
-        "de": "SPEED DATING // CHECK-IN PASS",
-        "en": "SPEED DATING // CHECK-IN PASS",
-    }.get(lang, "SPEED DATING // CHECK-IN PASS")
+    if event_type in ("speed_dating", "mixer"):
+        sub = {
+            "fr": "SPEED DATING // PASS ENREGISTREMENT",
+            "de": "SPEED DATING // CHECK-IN PASS",
+            "en": "SPEED DATING // CHECK-IN PASS",
+        }.get(lang, "SPEED DATING // CHECK-IN PASS")
+    else:
+        sub = {
+            "fr": "ÉVÉNEMENT // PASS ENREGISTREMENT",
+            "de": "EVENT // CHECK-IN PASS",
+            "en": "EVENT // CHECK-IN PASS",
+        }.get(lang, "EVENT // CHECK-IN PASS")
 
     event_lbl = {"fr": "ÉVÉNEMENT:", "de": "EVENT:", "en": "EVENT:"}.get(
         lang, "EVENT:"
@@ -465,7 +546,8 @@ def _build_room_stats_directives(
             )
 
         out.append(Rule("="))
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
         return []
 
     return out
@@ -501,12 +583,17 @@ def _build_mystery_radar_directives(
     event: MeetupEvent | None = None,
     cols: int = 48,
     lang: str = "fr",
+    coach_authenticated: bool = False,
 ) -> list[Directive]:
     """Builds interactive Mystery Radar clues from actual event attendees.
 
     Displays anonymous badge numbers like '( #6 )' with empty checkboxes [   ]
     WITHOUT attendee names, so candidates discover and write the name during dates.
+    Gated to coach-authenticated requests to keep attendee details out of public payloads.
     """
+    if not coach_authenticated:
+        return _build_mission_directives(cols=cols, lang=lang)
+
     clues: list[tuple[str, str]] = []
 
     if registration and getattr(registration, "pk", None):
@@ -535,6 +622,11 @@ def _build_mystery_radar_directives(
                 my_profile = (
                     getattr(my_user, "crushprofile", None) if my_user else None
                 )
+                my_connect_membership = (
+                    getattr(my_user, "crushconnectmembership", None)
+                    if my_user
+                    else None
+                )
                 my_interests = set()
                 my_gender = ""
                 my_pref_genders = []
@@ -544,6 +636,9 @@ def _build_mystery_radar_directives(
                     )
                     my_gender = getattr(my_profile, "gender", "") or ""
                     my_pref_genders = getattr(my_profile, "preferred_genders", []) or []
+
+                if my_connect_membership and getattr(my_connect_membership, "preferred_genders", None):
+                    my_pref_genders = my_connect_membership.preferred_genders or []
 
                 # Target dating genders: Men get clues about Women, Women about Men
                 target_genders = set()
@@ -584,6 +679,8 @@ def _build_mystery_radar_directives(
 
                     other_interests = [i.label for i in op.interests_new.all()]
                     common = my_interests.intersection(other_interests)
+                    other_defects = list(op.defects.all())
+                    other_qualities = list(op.qualities.all())
 
                     if common:
                         txt = {
@@ -603,19 +700,19 @@ def _build_mystery_radar_directives(
                             "en": f'Loves "{other_interests[0]}"',
                         }.get(lang, f'Loves "{other_interests[0]}"')
                         clues.append((txt, badge))
-                    elif op.defects.exists():
+                    elif other_defects:
                         txt = {
-                            "fr": f'Défaut: "{op.defects.first().label}"',
-                            "de": f'Macke: "{op.defects.first().label}"',
-                            "en": f'Quirk: "{op.defects.first().label}"',
-                        }.get(lang, f'Quirk: "{op.defects.first().label}"')
+                            "fr": f'Défaut: "{other_defects[0].label}"',
+                            "de": f'Macke: "{other_defects[0].label}"',
+                            "en": f'Quirk: "{other_defects[0].label}"',
+                        }.get(lang, f'Quirk: "{other_defects[0].label}"')
                         clues.append((txt, badge))
-                    elif op.qualities.exists():
+                    elif other_qualities:
                         txt = {
-                            "fr": f'Atout: "{op.qualities.first().label}"',
-                            "de": f'Stärke: "{op.qualities.first().label}"',
-                            "en": f'Strength: "{op.qualities.first().label}"',
-                        }.get(lang, f'Strength: "{op.qualities.first().label}"')
+                            "fr": f'Atout: "{other_qualities[0].label}"',
+                            "de": f'Stärke: "{other_qualities[0].label}"',
+                            "en": f'Strength: "{other_qualities[0].label}"',
+                        }.get(lang, f'Strength: "{other_qualities[0].label}"')
                         clues.append((txt, badge))
                     elif op.location:
                         txt = {
@@ -641,7 +738,8 @@ def _build_mystery_radar_directives(
 
                 random.shuffle(clues)
                 clues = clues[:max(max_clues, 7)]
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to build mystery radar clues: %s", e, exc_info=True)
             clues = []
 
     if not clues:
@@ -738,7 +836,7 @@ def build_checkin_ticket_directives(
             if timezone.is_aware(timezone.now())
             else timezone.now()
         )
-        date_str = now_local.strftime("%a %d %b %H:%M")
+        date_str = _format_ticket_date(now_local, lang=lang)
         attendee_name = "Guest"
         candidate_num = ""
 
@@ -748,10 +846,13 @@ def build_checkin_ticket_directives(
                 profile = getattr(reg_user, "crushprofile", None)
                 if profile and getattr(profile, "display_name", None):
                     attendee_name = profile.display_name
-                elif reg_user.first_name:
-                    attendee_name = reg_user.first_name
-                elif coach_authenticated and getattr(reg_user, "username", None):
-                    attendee_name = reg_user.username.split("@")[0]
+                elif coach_authenticated:
+                    if reg_user.first_name:
+                        attendee_name = reg_user.first_name
+                    elif getattr(reg_user, "username", None):
+                        attendee_name = reg_user.username.split("@")[0]
+                    else:
+                        attendee_name = "Attendee"
                 else:
                     attendee_name = "Attendee"
             candidate_num = f"(#{registration.id})"
@@ -760,12 +861,7 @@ def build_checkin_ticket_directives(
             event_title = getattr(event, "title", event_title)
             event_dt = getattr(event, "date_time", None)
             if event_dt:
-                local_dt = (
-                    timezone.localtime(event_dt)
-                    if timezone.is_aware(event_dt)
-                    else event_dt
-                )
-                date_str = local_dt.strftime("%a %d %b %H:%M")
+                date_str = _format_ticket_date(event_dt, lang=lang)
 
         table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
         if table_number:
@@ -781,9 +877,24 @@ def build_checkin_ticket_directives(
                 getattr(registration, "event_id", None) if registration else None
             )
             if event_id:
-                qr_url = f"{base_domain}/events/{event_id}/lobby/"
+                try:
+                    from django.urls import reverse
+
+                    path = reverse("crush_lu:event_lobby", kwargs={"event_id": event_id})
+                    qr_url = f"{base_domain}{path}"
+                except Exception:
+                    qr_url = f"{base_domain}/{lang}/events/{event_id}/lobby/"
             else:
-                qr_url = f"{base_domain}/my-crush/"
+                try:
+                    from django.urls import reverse
+
+                    path = reverse("crush_lu:my_crush")
+                    qr_url = f"{base_domain}{path}"
+                except Exception:
+                    qr_url = f"{base_domain}/{lang}/my-crush/"
+
+        event_type = getattr(event, "event_type", "speed_dating") or "speed_dating"
+        is_dating_event = event_type in ("speed_dating", "mixer")
 
         directives: list[Directive] = []
         directives.extend(
@@ -795,22 +906,29 @@ def build_checkin_ticket_directives(
                 candidate_num=candidate_num,
                 cols=cols,
                 lang=lang,
+                event_type=event_type,
             )
         )
-        directives.extend(_build_receipt_directives(cols=cols, lang=lang))
+        if is_dating_event:
+            directives.extend(_build_receipt_directives(cols=cols, lang=lang))
         directives.extend(
             _build_room_stats_directives(
                 registration=registration, event=event, cols=cols, lang=lang
             )
         )
-        directives.extend(
-            _build_coach_rules_directives(
-                cols=cols, lang=lang, seed_id=getattr(registration, "id", None)
+        if is_dating_event:
+            directives.extend(
+                _build_coach_rules_directives(
+                    cols=cols, lang=lang, seed_id=getattr(registration, "id", None)
+                )
             )
-        )
         directives.extend(
             _build_mystery_radar_directives(
-                registration=registration, event=event, cols=cols, lang=lang
+                registration=registration,
+                event=event,
+                cols=cols,
+                lang=lang,
+                coach_authenticated=coach_authenticated,
             )
         )
         directives.extend(

@@ -531,6 +531,7 @@ def event_checkin_api(request, registration_id, token):
 
     # Mark as attended (with lock to prevent duplicate concurrent check-ins)
     table_assignment = None
+    is_rescan = False
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update()
@@ -538,94 +539,93 @@ def event_checkin_api(request, registration_id, token):
             .get(id=registration_id)
         )
         if registration.status == "attended":
-            # A re-scan must still be able to verify. Two ways to arrive here
-            # with a pending profile: the first scan carried no coach session
-            # (the self-scan case this endpoint deliberately still allows), or
-            # the registration was marked attended before this feature existed.
-            # Without this the coach is silently back to tapping Verify.
+            is_rescan = True
             already_verified_profile = _auto_verify_on_attendance(
                 request, registration, now
             )
             display_name = _get_display_name(registration)
-            # Same once-only lookup as the re-scan branch above (#845).
             table_info = _get_existing_table_assignment(registration)
-            response_data = {
-                "success": True,
-                "already_checked_in": True,
-                "registration_id": registration.id,
-                "attendee_name": display_name,
-                "checked_in_at": (
-                    registration.checked_in_at.isoformat()
-                    if registration.checked_in_at
-                    else None
-                ),
-                "message": f"{display_name} was already checked in.",
-                "profile": _get_profile_data(registration),
-                "auto_verified": already_verified_profile is not None,
-                "row": _row_state(registration, table_assignment=table_info),
-                "print_payload_base64": _get_ticket_print_payload(
-                    registration,
-                    table_info=table_info,
-                    coach_authenticated=request.user.is_authenticated
-                    and hasattr(request.user, "coach_profile"),
-                ),
-            }
-            if table_info:
-                response_data.update(table_info)
-            if already_verified_profile is not None:
-                # This branch is the loser of the `select_for_update` race, but
-                # it still performs real writes, so it must announce them like
-                # its sibling above — otherwise other coaches watching the live
-                # list never see the row flip to verified until they reload.
-                # Deferred to commit so the broadcast cannot describe a state
-                # that gets rolled back.
+            is_auto_verified = already_verified_profile is not None
+            rescan_reg_id = registration.id
+            rescan_event_id = registration.event_id
+            rescan_user = registration.user
+            rescan_checked_in_at = (
+                registration.checked_in_at.isoformat()
+                if registration.checked_in_at
+                else None
+            )
+            rescan_profile_data = _get_profile_data(registration)
+            rescan_row_data = _row_state(registration, table_assignment=table_info)
+        else:
+            # The scanning coach becomes the member's permanent coach (when they
+            # have none): read by `assign_coach_on_first_attendance` during the
+            # save below, in preference to `event.coaches.first()`.
+            registration._checkin_coach = _scanning_coach(request)
+            _record_checkin_provenance(registration)
+            registration.status = "attended"
+            registration.checked_in_at = now
+            registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+
+            # Attending IS the verification, for the ordinary case. Side effects
+            # (referral credit, welcome email) run on commit — never inside the
+            # transaction, or a rollback would leave the email already sent.
+            verified_profile = _auto_verify_on_attendance(
+                request, registration, now
+            )
+            auto_verified = verified_profile is not None
+            if auto_verified:
                 transaction.on_commit(
-                    lambda: (
-                        _run_post_verification_side_effects(
-                            registration.user,
-                            already_verified_profile,
-                            request,
-                            registration.id,
-                        ),
-                        _broadcast_checkin(registration.event_id, response_data),
+                    lambda: _run_post_verification_side_effects(
+                        registration.user,
+                        verified_profile,
+                        request,
+                        registration.id,
                     )
                 )
-            return JsonResponse(response_data)
-        # The scanning coach becomes the member's permanent coach (when they
-        # have none): read by `assign_coach_on_first_attendance` during the
-        # save below, in preference to `event.coaches.first()`.
-        registration._checkin_coach = _scanning_coach(request)
-        _record_checkin_provenance(registration)
-        registration.status = "attended"
-        registration.checked_in_at = now
-        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
-        # Attending IS the verification, for the ordinary case. Side effects
-        # (referral credit, welcome email) run on commit — never inside the
-        # transaction, or a rollback would leave the email already sent.
-        verified_profile = _auto_verify_on_attendance(request, registration, now)
-        auto_verified = verified_profile is not None
-        if auto_verified:
-            transaction.on_commit(
-                lambda: _run_post_verification_side_effects(
-                    registration.user, verified_profile, request, registration.id
+            # Quiz table assignment (if this is a quiz night event)
+            try:
+                quiz_event = getattr(registration.event, "quiz", None)
+                if quiz_event and quiz_event.num_tables:
+                    from .services.quiz_rotation import assign_table_on_checkin
+
+                    table_assignment = assign_table_on_checkin(
+                        quiz_event, registration.user
+                    )
+            except Exception:
+                logger.exception(
+                    "Quiz table assignment failed for registration %s",
+                    registration.id,
                 )
-            )
 
-        # Quiz table assignment (if this is a quiz night event)
-        try:
-            quiz_event = getattr(registration.event, "quiz", None)
-            if quiz_event and quiz_event.num_tables:
-                from .services.quiz_rotation import assign_table_on_checkin
-
-                table_assignment = assign_table_on_checkin(
-                    quiz_event, registration.user
-                )
-        except Exception:
-            logger.exception(
-                "Quiz table assignment failed for registration %s",
-                registration.id,
+    if is_rescan:
+        response_data = {
+            "success": True,
+            "already_checked_in": True,
+            "registration_id": rescan_reg_id,
+            "attendee_name": display_name,
+            "checked_in_at": rescan_checked_in_at,
+            "message": f"{display_name} was already checked in.",
+            "profile": rescan_profile_data,
+            "auto_verified": is_auto_verified,
+            "row": rescan_row_data,
+            "print_payload_base64": _get_ticket_print_payload(
+                registration,
+                table_info=table_info,
+                coach_authenticated=_scanning_coach(request) is not None,
+            ),
+        }
+        if table_info:
+            response_data.update(table_info)
+        if is_auto_verified:
+            _run_post_verification_side_effects(
+                rescan_user,
+                already_verified_profile,
+                request,
+                rescan_reg_id,
             )
+            _broadcast_checkin(rescan_event_id, response_data)
+        return JsonResponse(response_data)
 
     # Crush Connect Event Lobby: evaluate participation only after attendance
     # committed.
@@ -678,8 +678,7 @@ def event_checkin_api(request, registration_id, token):
         "print_payload_base64": _get_ticket_print_payload(
             registration,
             table_info=table_assignment,
-            coach_authenticated=request.user.is_authenticated
-            and hasattr(request.user, "coach_profile"),
+            coach_authenticated=_scanning_coach(request) is not None,
         ),
     }
     if table_assignment:

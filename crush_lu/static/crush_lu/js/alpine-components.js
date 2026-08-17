@@ -1432,7 +1432,7 @@ document.addEventListener("alpine:init", function () {
                     "manual-reprint-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1";
                 btn.setAttribute(
                     "data-print-url",
-                    "/api/events/" + this.eventId + "/print-ticket/" + regId + "/",
+                    this._apiUrl("print-ticket", regId),
                 );
                 btn.setAttribute("data-reg-id", regId);
                 var label = i18n.printAction || "Print";
@@ -1478,7 +1478,10 @@ document.addEventListener("alpine:init", function () {
             },
 
             triggerRawBtPrint: function (base64Payload) {
-                if (!base64Payload) return;
+                if (!base64Payload || typeof base64Payload !== "string") return;
+                var trimmed = base64Payload.trim();
+                // Validate base64 charset before constructing URI
+                if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
                 try {
                     var iframe = document.getElementById("rawbt-print-frame");
                     if (!iframe) {
@@ -1487,9 +1490,9 @@ document.addEventListener("alpine:init", function () {
                         iframe.style.display = "none";
                         document.body.appendChild(iframe);
                     }
-                    iframe.src = "rawbt:data:base64," + base64Payload;
+                    iframe.src = "rawbt:data:base64," + trimmed;
                 } catch (e) {
-                    window.location.href = "rawbt:data:base64," + base64Payload;
+                    window.location.href = "rawbt:data:base64," + trimmed;
                 }
             },
 
@@ -1497,6 +1500,7 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 fetch("/api/events/" + this.eventId + "/test-ticket/")
                     .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
                         return r.json();
                     })
                     .then(function (data) {
@@ -1504,7 +1508,9 @@ document.addEventListener("alpine:init", function () {
                             self.triggerRawBtPrint(data.print_payload_base64);
                         }
                     })
-                    .catch(function () {});
+                    .catch(function (err) {
+                        console.warn("Test ticket request failed:", err);
+                    });
             },
 
             reprintTicket: function (evt) {
@@ -1513,9 +1519,10 @@ document.addEventListener("alpine:init", function () {
                 var regId = btn.getAttribute("data-reg-id");
                 var url =
                     btn.getAttribute("data-print-url") ||
-                    ("/api/events/" + this.eventId + "/print-ticket/" + regId + "/");
+                    self._apiUrl("print-ticket", regId);
                 fetch(url)
                     .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
                         return r.json();
                     })
                     .then(function (data) {
@@ -1523,7 +1530,9 @@ document.addEventListener("alpine:init", function () {
                             self.triggerRawBtPrint(data.print_payload_base64);
                         }
                     })
-                    .catch(function () {});
+                    .catch(function (err) {
+                        console.warn("Reprint ticket request failed:", err);
+                    });
             },
 
             // --- Scanner ---
