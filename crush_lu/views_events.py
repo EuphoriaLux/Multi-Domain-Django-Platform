@@ -662,6 +662,85 @@ def my_events(request):
     return render(request, "crush_lu/my_events.html", context)
 
 
+def _registration_outlook(event, profile, gender=None):
+    """What registration will actually do for this viewer.
+
+    ``gender`` overrides the profile's own, for a *bound* form: the gender a
+    member just picked lives in ``form.cleaned_data`` but is only written to the
+    profile on the valid branch, under the lock. After a validation error the
+    profile is therefore still genderless while the resubmit will pool-check
+    exactly this value -- and without it the fallback below asks "is *every*
+    pool full?", which answers no and promises a seat to someone whose chosen
+    pool is full.
+
+    Returns ``(pools, user_pool, will_waitlist, waitlist_reason)``:
+
+    ``pools``
+        Per-gender availability for display, every pool capped by the seats
+        this viewer could claim overall -- so a total cap or a reserved-premium
+        block that has already spoken for the seats is never re-advertised as
+        pool availability. Empty for an event without gender caps.
+    ``user_pool``
+        The viewer's own row, or ``None`` when their gender does not resolve to
+        a pool (anonymous visitors, or a profile with no gender set).
+    ``will_waitlist``
+        True when ``event_register`` would put them on the waitlist rather than
+        give them a seat.
+    ``waitlist_reason``
+        ``"total"``, ``"pool"``, or ``None`` -- so a surface can say *why*
+        rather than fall back on "Event is Full", which is plainly untrue when
+        the event has seats left and only this member's pool does not. Mirrors
+        the two branches of ``event_register``'s own flash message.
+
+    One definition, because two surfaces consume it -- the event page's CTA and
+    the registration page's own warning and submit label -- and #866 was
+    precisely the failure of a second surface quietly disagreeing with the
+    first. Anything that changes who gets waitlisted must change here too, or
+    both pages go back to guessing.
+    """
+    is_premium = bool(profile and profile.assigned_coach_id)
+    # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
+    # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a
+    # registration committing between two queries here would let the chips
+    # describe one moment and the CTA another, which is the shape of #866 rather
+    # than a fix for it. It also memoises the count on `event`, so the premium
+    # reserved-seat banner further down reads this same number for free instead
+    # of counting again and disagreeing with the CTA beside it.
+    total_full, capacity_remaining, pools = event.registration_capacity(
+        is_premium=is_premium
+    )
+
+    user_gender = gender or getattr(profile, "gender", None)
+    user_pool = None
+    if pools and user_gender:
+        pool_key = event.get_gender_pool(user_gender)
+        user_pool = next((p for p in pools if p["key"] == pool_key), None)
+
+    if not pools:
+        pool_blocks = False
+    elif user_pool is not None:
+        # `pool_full`, not `is_full`: this is the pool's own cap, the exact
+        # predicate event_register re-checks under lock. `is_full` also folds in
+        # total capacity, which `total_full` already covers.
+        pool_blocks = user_pool["pool_full"]
+    else:
+        # event_register makes a member with no stored gender choose one and
+        # persists it *before* the pool check, so "no gender" does not mean "no
+        # pool". Which pool they land in is unknowable here -- but when every
+        # pool is full, every choice is waitlisted, and the CTA must say so.
+        pool_blocks = all(pool["pool_full"] for pool in pools)
+
+    # `total` wins the tie, matching event_register's own message branch: when
+    # the whole event is full, that is the plainer thing to tell someone.
+    if total_full:
+        reason = "total"
+    elif pool_blocks:
+        reason = "pool"
+    else:
+        reason = None
+    return pools, user_pool, total_full or pool_blocks, reason
+
+
 def event_detail(request, event_id):
     """Event detail page"""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
@@ -843,9 +922,28 @@ def event_detail(request, event_id):
     # Premium (coach-assigned) members can claim reserved seats, so fullness is
     # evaluated against the full capacity for them and public capacity otherwise.
     user_is_premium = bool(user_profile and user_profile.assigned_coach_id)
-    event_full_for_user = event.is_full_for(is_premium=user_is_premium)
+
+    # Per-gender availability plus the one answer both the event page and the
+    # registration page need: will registration actually seat this viewer?
+    # The reason travels with it: the chips' personal line must name the same
+    # cause the registration page names, and it cannot derive that from the pool
+    # row alone -- `is_full` there folds a total or reserved-premium block in
+    # with the pool's own cap, which read as "your gender group is full" to
+    # someone whose gender group was not.
+    (
+        gender_pool_availability,
+        user_gender_pool,
+        event_full_for_user,
+        registration_waitlist_reason,
+    ) = _registration_outlook(event, user_profile)
+
     # A reserved seat is available to this premium member specifically when the
-    # event is publicly full but not yet at total capacity.
+    # event is publicly full but not yet at total capacity. A full gender pool
+    # closes this too: premium buys a seat past `reserved_premium_seats`, not
+    # past a pool cap, so event_register waitlists them like everyone else.
+    #
+    # `is_full_for` here costs no query and cannot disagree with the CTA above:
+    # registration_capacity() memoised the count it used, and this reads it.
     premium_reserved_seat_available = (
         user_is_premium
         and event.is_full_for(is_premium=False)
@@ -867,6 +965,9 @@ def event_detail(request, event_id):
         "user_profile": user_profile,
         "user_is_premium": user_is_premium,
         "event_full_for_user": event_full_for_user,
+        "gender_pool_availability": gender_pool_availability,
+        "user_gender_pool": user_gender_pool,
+        "registration_waitlist_reason": registration_waitlist_reason,
         "premium_reserved_seat_available": premium_reserved_seat_available,
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
@@ -1230,6 +1331,20 @@ def event_register(request, event_id):
         profile is None or not profile.gender
     )
 
+    # Which template the single render at the bottom uses. An invalid HTMX
+    # submit swaps only #registration-form-container, so it gets the partial
+    # instead of the whole page -- but it is chosen here rather than returned
+    # early so that both go out through *one* render with *one* context.
+    #
+    # That is the actual fix, not just a tidier shape: the partial used to be
+    # rendered from its own hand-built context, and a context the full page grew
+    # and the partial did not is exactly how it ended up branching on
+    # `event.is_full` long after every other surface had stopped -- flipping a
+    # corrected "Join Waitlist" back to "Confirm Registration" the moment a
+    # pool-full member tripped form validation. Sharing the context means a
+    # future key cannot reach one and miss the other.
+    template = "crush_lu/event_register.html"
+
     if request.method == "POST":
         form = EventRegistrationForm(
             request.POST,
@@ -1414,18 +1529,8 @@ def event_register(request, event_id):
                     },
                 )
             return redirect("crush_lu:dashboard")
-        else:
-            if request.headers.get("HX-Request"):
-                return render(
-                    request,
-                    "crush_lu/_event_registration_form.html",
-                    {
-                        "event": event,
-                        "form": form,
-                        "requires_age_confirmation": requires_age_confirmation,
-                        "requires_gender_selection": requires_gender_selection,
-                    },
-                )
+        elif request.headers.get("HX-Request"):
+            template = "crush_lu/_event_registration_form.html"
     else:
         form = EventRegistrationForm(
             event=event,
@@ -1433,13 +1538,40 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
 
+    # Same answer the event page's CTA used to get here, so the button that said
+    # "Join Waitlist" does not land on a page headed "Confirm Registration"
+    # (#866). `event.is_full` alone missed both a full gender pool and a
+    # reserved-premium block.
+    #
+    # Below the branch, so the successful POST -- which returned above and needs
+    # none of this -- does not pay for capacity counts it will not read.
+    #
+    # A bound form carries the gender the member just chose even though nothing
+    # persisted it: that write lives on the valid branch, under the lock (see
+    # `submitted_gender` there). Reading the profile alone would leave them
+    # genderless here, fall back to "is every pool full?", and answer no --
+    # promising a seat to someone whose chosen pool is full, which the corrected
+    # resubmit then waitlists. #866, one unrelated field error away.
+    submitted_gender = ""
+    if form.is_bound:
+        submitted_gender = (getattr(form, "cleaned_data", None) or {}).get("gender")
+
+    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
+        _registration_outlook(event, profile, gender=submitted_gender)
+    )
+
     context = {
         "event": event,
         "form": form,
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
+        "registration_will_waitlist": registration_will_waitlist,
+        # Both templates read this: the warning banner is a shared component
+        # rendered inside the swapped container, so the partial needs the reason
+        # as much as the full page does.
+        "registration_waitlist_reason": waitlist_reason,
     }
-    return render(request, "crush_lu/event_register.html", context)
+    return render(request, template, context)
 
 
 @crush_login_required

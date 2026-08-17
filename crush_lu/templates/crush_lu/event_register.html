@@ -52,18 +52,6 @@
             {% endif %}
         </div>
 
-        <!-- Full Event Warning -->
-        {% if event.is_full %}
-            <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-4 mb-6 flex items-start gap-3">
-                <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                </svg>
-                <div>
-                    <p class="font-semibold">{% trans "Event is Full" %}</p>
-                    <p class="text-sm">{% trans "You will be added to the waitlist. We'll notify you if a spot opens up." %}</p>
-                </div>
-            </div>
-        {% endif %}
     </div>
 
     <form method="post"
@@ -77,6 +65,14 @@
           aria-atomic="true"
           class="space-y-6">
         {% csrf_token %}
+
+        {% comment %}
+        Inside the swapped container, not above it: an invalid HTMX submit
+        replaces this whole form and recomputes the outlook, so a warning left
+        outside would still be describing the capacity at page load. See the
+        component for the two ways that desynced.
+        {% endcomment %}
+        {% include "crush_lu/components/registration_waitlist_warning.html" %}
 
         <!-- Dietary Restrictions (Conditional) -->
         {% if event.has_food_component %}
@@ -160,7 +156,7 @@
                     :disabled="isSubmitting"
                     class="btn-crush-primary flex-1 py-3 text-lg font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
                 <span x-show="showSubmitText" x-cloak>
-                    {% if event.is_full %}
+                    {% if registration_will_waitlist %}
                         {% trans "Join Waitlist" %}
                     {% else %}
                         {% trans "Confirm Registration" %}
