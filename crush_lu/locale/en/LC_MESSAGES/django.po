@@ -27188,3 +27188,7 @@ msgid "%(spots)s spot left for you."
 msgid_plural "%(spots)s spots left for you."
 msgstr[0] "%(spots)s spot left for you."
 msgstr[1] "%(spots)s spots left for you."
+
+#: crush_lu/templates/crush_lu/event_register.html:0
+msgid "Your gender group is full"
+msgstr "Your gender group is full"

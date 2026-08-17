@@ -662,6 +662,71 @@ def my_events(request):
     return render(request, "crush_lu/my_events.html", context)
 
 
+def _registration_outlook(event, profile):
+    """What registration will actually do for this viewer.
+
+    Returns ``(pools, user_pool, will_waitlist, waitlist_reason)``:
+
+    ``pools``
+        Per-gender availability for display, every pool capped by the seats
+        this viewer could claim overall -- so a total cap or a reserved-premium
+        block that has already spoken for the seats is never re-advertised as
+        pool availability. Empty for an event without gender caps.
+    ``user_pool``
+        The viewer's own row, or ``None`` when their gender does not resolve to
+        a pool (anonymous visitors, or a profile with no gender set).
+    ``will_waitlist``
+        True when ``event_register`` would put them on the waitlist rather than
+        give them a seat.
+    ``waitlist_reason``
+        ``"total"``, ``"pool"``, or ``None`` -- so a surface can say *why*
+        rather than fall back on "Event is Full", which is plainly untrue when
+        the event has seats left and only this member's pool does not. Mirrors
+        the two branches of ``event_register``'s own flash message.
+
+    One definition, because two surfaces consume it -- the event page's CTA and
+    the registration page's own warning and submit label -- and #866 was
+    precisely the failure of a second surface quietly disagreeing with the
+    first. Anything that changes who gets waitlisted must change here too, or
+    both pages go back to guessing.
+    """
+    is_premium = bool(profile and profile.assigned_coach_id)
+    total_full = event.is_full_for(is_premium=is_premium)
+    pools = event.get_gender_pool_availability(
+        capacity_remaining=event.spots_remaining_for(is_premium=is_premium)
+    )
+
+    user_gender = getattr(profile, "gender", None)
+    user_pool = None
+    if pools and user_gender:
+        pool_key = event.get_gender_pool(user_gender)
+        user_pool = next((p for p in pools if p["key"] == pool_key), None)
+
+    if not pools:
+        pool_blocks = False
+    elif user_pool is not None:
+        # `pool_full`, not `is_full`: this is the pool's own cap, the exact
+        # predicate event_register re-checks under lock. `is_full` also folds in
+        # total capacity, which `total_full` already covers.
+        pool_blocks = user_pool["pool_full"]
+    else:
+        # event_register makes a member with no stored gender choose one and
+        # persists it *before* the pool check, so "no gender" does not mean "no
+        # pool". Which pool they land in is unknowable here -- but when every
+        # pool is full, every choice is waitlisted, and the CTA must say so.
+        pool_blocks = all(pool["pool_full"] for pool in pools)
+
+    # `total` wins the tie, matching event_register's own message branch: when
+    # the whole event is full, that is the plainer thing to tell someone.
+    if total_full:
+        reason = "total"
+    elif pool_blocks:
+        reason = "pool"
+    else:
+        reason = None
+    return pools, user_pool, total_full or pool_blocks, reason
+
+
 def event_detail(request, event_id):
     """Event detail page"""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
@@ -843,33 +908,13 @@ def event_detail(request, event_id):
     # Premium (coach-assigned) members can claim reserved seats, so fullness is
     # evaluated against the full capacity for them and public capacity otherwise.
     user_is_premium = bool(user_profile and user_profile.assigned_coach_id)
-    total_full_for_user = event.is_full_for(is_premium=user_is_premium)
 
-    # Per-gender availability. On a gender-balanced event capacity is enforced
-    # per pool, so a single total says seats are free that are not free for
-    # *this* member: they register against "4 spots left", get waitlisted by
-    # event_register, and nothing on the page ever said why (#866). Empty list
-    # for an uncapped event, which keeps the total-only display in the template.
-    gender_pool_availability = event.get_gender_pool_availability()
-    user_gender = getattr(user_profile, "gender", None)
-    user_gender_pool = None
-    if gender_pool_availability and user_gender:
-        user_pool_key = event.get_gender_pool(user_gender)
-        user_gender_pool = next(
-            (p for p in gender_pool_availability if p["key"] == user_pool_key),
-            None,
-        )
-    # Requiring a gender mirrors event_register's own condition: a member with
-    # no profile gender is never pool-waitlisted there, so nothing here may
-    # claim they would be.
-    user_pool_full = bool(user_gender_pool and user_gender_pool["is_full"])
-
-    # What the CTA reads to choose "Register" vs "Join Waitlist". It has to be
-    # the same disjunction event_register decides on -- that view waitlists when
-    # `total_full or gender_pool_full` -- or the button promises a seat the
-    # registration path will not hand out. Folded in here rather than at the six
-    # CTA sites so the two definitions cannot drift apart again.
-    event_full_for_user = total_full_for_user or user_pool_full
+    # Per-gender availability plus the one answer both the event page and the
+    # registration page need: will registration actually seat this viewer?
+    gender_pool_availability, user_gender_pool, event_full_for_user, _reason = (
+        _registration_outlook(event, user_profile)
+    )
+    user_pool_full = bool(user_gender_pool and user_gender_pool["pool_full"])
 
     # A reserved seat is available to this premium member specifically when the
     # event is publicly full but not yet at total capacity. A full gender pool
@@ -1465,11 +1510,21 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
 
+    # Same answer the event page's CTA used to get here, so the button that
+    # said "Join Waitlist" does not land on a page headed "Confirm
+    # Registration" (#866). `event.is_full` alone missed both a full gender
+    # pool and a reserved-premium block.
+    _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
+        _registration_outlook(event, profile)
+    )
+
     context = {
         "event": event,
         "form": form,
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
+        "registration_will_waitlist": registration_will_waitlist,
+        "registration_waitlist_reason": waitlist_reason,
     }
     return render(request, "crush_lu/event_register.html", context)
 

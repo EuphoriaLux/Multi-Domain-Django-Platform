@@ -204,7 +204,7 @@
                             be able to take (#866).
                             {% endcomment %}
                             <div class="ml-7 mt-1.5">
-                                {% include "crush_lu/components/gender_pool_availability.html" with pools=gender_pool_availability user_pool=user_gender_pool %}
+                                {% include "crush_lu/components/gender_pool_availability.html" with pools=gender_pool_availability user_pool=user_gender_pool viewer_registration=user_registration %}
                             </div>
                         {% else %}
                         <div class="ml-7 mt-1.5 flex items-center gap-2 flex-wrap">

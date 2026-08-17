@@ -16,6 +16,14 @@ Args:
              anonymous visitors and members with no profile gender get the
              per-pool chips but no personal line, because we cannot say which
              pool would take them.
+  viewer_registration
+             Optional. The viewer's own non-cancelled EventRegistration. When
+             they already hold a seat their own registration is part of what
+             filled the pool, so "join the waitlist" would be advice on a page
+             that is simultaneously showing them their ticket -- and if they
+             are already waitlisted, they are on it. Either way the personal
+             line is suppressed; the chips stay, since the counts are still
+             true.
 {% endcomment %}
 {% load i18n %}
 <div class="flex items-center gap-1.5 flex-wrap">
@@ -32,7 +40,7 @@ Args:
         {% endif %}
     {% endfor %}
 </div>
-{% if user_pool %}
+{% if user_pool and not viewer_registration %}
     {% if user_pool.is_full %}
         <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
             {% trans "All spots for your gender group are taken — you can still join the waitlist." %}

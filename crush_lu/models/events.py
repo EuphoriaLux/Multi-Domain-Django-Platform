@@ -521,11 +521,26 @@ class MeetupEvent(models.Model):
     # "Max spots (Men)" without that phrasing leaking onto the event page.
     GENDER_POOL_LABELS = {"m": _("Men"), "f": _("Women"), "nb": _("Other genders")}
 
-    def get_gender_pool_availability(self):
-        """Per-pool ``limit``/``confirmed``/``remaining``/``is_full`` rows.
+    def get_gender_pool_availability(self, capacity_remaining=None):
+        """Per-pool availability rows for display.
 
         Returns ``[]`` when the caps are not active, so callers can branch on
         truthiness alone and an uncapped event keeps its total-only display.
+
+        Each row carries two different notions of "full", because they answer
+        two different questions and conflating them is how a page ends up
+        promising a seat nobody can take:
+
+        ``pool_full``
+            ``confirmed >= limit`` -- purely this pool's own cap. The exact
+            predicate :meth:`is_gender_pool_full` re-checks under lock when
+            registration decides who gets waitlisted.
+        ``remaining`` / ``is_full``
+            What a viewer could *actually* claim. Pass ``capacity_remaining``
+            (from :meth:`spots_remaining_for`) and every pool is capped by it,
+            so a total cap or a reserved-premium block that has already spoken
+            for the seats cannot be advertised as pool availability. Left
+            uncapped, these collapse onto the pool's own cap.
 
         One grouped query instead of three ``COUNT``s, because every caller
         renders all three pools together -- the same reason the coach list
@@ -560,14 +575,18 @@ class MeetupEvent(models.Model):
         for key in ("m", "f", "nb"):
             limit = limits[key]
             confirmed = sum(counts.get(code, 0) for code in self.POOL_TO_CODES[key])
+            remaining = max(0, limit - confirmed)
+            if capacity_remaining is not None:
+                remaining = min(remaining, max(0, capacity_remaining))
             pools.append(
                 {
                     "key": key,
                     "label": self.GENDER_POOL_LABELS[key],
                     "limit": limit,
                     "confirmed": confirmed,
-                    "remaining": max(0, limit - confirmed),
-                    "is_full": confirmed >= limit,
+                    "pool_full": confirmed >= limit,
+                    "remaining": remaining,
+                    "is_full": remaining == 0,
                 }
             )
         return pools

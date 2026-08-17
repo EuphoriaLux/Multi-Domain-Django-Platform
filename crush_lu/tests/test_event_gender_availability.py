@@ -179,6 +179,40 @@ class GenderPoolAvailabilityModelTests(GenderPoolAvailabilityTestBase):
         with self.assertNumQueries(1):
             self.event.get_gender_pool_availability()
 
+    def test_capacity_remaining_caps_every_pool(self):
+        """`pool_full` stays the pool's own cap -- the predicate registration
+        re-checks -- while `remaining`/`is_full` answer what a viewer could
+        actually claim. Conflating them is how a page offers a seat that a
+        total or reserved-premium cap has already spoken for."""
+        self._set_caps(4, 4, 4)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+
+        pools = {
+            p["key"]: p
+            for p in self.event.get_gender_pool_availability(capacity_remaining=1)
+        }
+        self.assertEqual(pools["m"]["remaining"], 1)  # 3 by pool cap, 1 overall
+        self.assertEqual(pools["f"]["remaining"], 1)  # 4 by pool cap, 1 overall
+        self.assertFalse(pools["m"]["pool_full"])
+        self.assertFalse(pools["m"]["is_full"])
+
+        exhausted = {
+            p["key"]: p
+            for p in self.event.get_gender_pool_availability(capacity_remaining=0)
+        }
+        self.assertTrue(exhausted["m"]["is_full"])
+        self.assertFalse(exhausted["m"]["pool_full"])
+
+    def test_capacity_remaining_defaults_to_the_pool_cap(self):
+        self._set_caps(2, 2, 2)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        self._register(self._create_user_with_profile("m2@test.com", "M"))
+
+        pools = {p["key"]: p for p in self.event.get_gender_pool_availability()}
+        self.assertTrue(pools["m"]["pool_full"])
+        self.assertTrue(pools["m"]["is_full"])
+        self.assertEqual(pools["f"]["remaining"], 2)
+
 
 class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
     """What the member actually reads on /events/<id>/."""
@@ -255,12 +289,9 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
         self.assertContains(response, "Register for This Event")
         self.assertNotContains(response, "Join Waitlist")
 
-    def test_member_without_profile_gender_is_not_pool_waitlisted(self):
-        """event_register only pool-waitlists a member whose gender resolves to
-        a pool, so the CTA must not claim a waitlist for anyone else."""
+    def _create_genderless_viewer(self):
         from crush_lu.models import CrushProfile
 
-        self._set_caps(0, 0, 0)
         viewer = self._create_user("viewer@test.com")
         CrushProfile.objects.create(
             user=viewer,
@@ -268,12 +299,68 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
             gender="",
             location="Luxembourg",
         )
-        self.client.force_login(viewer)
+        return viewer
+
+    def test_genderless_member_with_every_pool_full_gets_waitlist_cta(self):
+        """ "No stored gender" is not "no pool": event_register makes them pick
+        one and persists it *before* the pool check. Which pool they land in is
+        unknowable here, but when every pool is full every choice waitlists --
+        and the total cap still has slack, so nothing else would catch it."""
+        self._set_caps(0, 0, 0)
+        self.client.force_login(self._create_genderless_viewer())
+
+        response = self._get_detail()
+        self.assertFalse(self.event.is_full)
+        self.assertIsNone(response.context["user_gender_pool"])
+        self.assertTrue(response.context["event_full_for_user"])
+        self.assertContains(response, "Join Waitlist")
+
+    def test_genderless_member_with_room_somewhere_still_gets_register_cta(self):
+        """Some pool has room, so the gender they pick may well seat them --
+        promising a waitlist would be the same error in the other direction."""
+        self._set_caps(0, 4, 0)
+        self.client.force_login(self._create_genderless_viewer())
 
         response = self._get_detail()
         self.assertIsNone(response.context["user_gender_pool"])
-        self.assertFalse(response.context["user_pool_full"])
         self.assertFalse(response.context["event_full_for_user"])
+        self.assertContains(response, "Register for This Event")
+
+    def test_seat_holder_is_not_told_to_join_the_waitlist(self):
+        """Their own confirmed seat is part of what filled the pool, so the
+        personal line would be advice on a page already showing their ticket."""
+        self._set_caps(1, 4, 0)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self._register(viewer)
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        # The chips still tell the truth about the pool ...
+        self.assertContains(response, "Men: full")
+        # ... but the viewer is in it, so no waitlist advice.
+        self.assertNotContains(response, "All spots for your gender group are taken")
+
+    def test_pool_chips_never_advertise_a_reserved_premium_seat(self):
+        """Pool room means nothing if the only seat left is reserved: a general
+        member reading "1 spot left for you" would still be waitlisted."""
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._set_caps(3, 3, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        # The men's pool cap alone is not reached (1 of 3) ...
+        self.assertFalse(self.event.is_gender_pool_full("M"))
+        # ... but general seats are gone, so nothing is offered.
+        self.assertTrue(response.context["event_full_for_user"])
+        self.assertContains(response, "Men: full")
+        self.assertNotContains(response, "spots left for you")
+        self.assertContains(response, "Join Waitlist")
 
     def test_cta_matches_what_registration_actually_does(self):
         """The whole point of the fix: the button and event_register must agree
@@ -295,6 +382,68 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
 
         registration = EventRegistration.objects.get(event=self.event, user=viewer)
         self.assertEqual(registration.status, "waitlist")
+
+
+class RegistrationPageAgreesWithTheCtaTests(GenderPoolAvailabilityTestBase):
+    """The screen the CTA sends them to must not contradict it.
+
+    Pressing "Join Waitlist" used to land on a page headed "Confirm
+    Registration" with no warning, because event_register.html branched on
+    `event.is_full` -- the raw total, blind to both a full gender pool and a
+    reserved-premium block.
+    """
+
+    def _register_url(self):
+        return f"/en/events/{self.event.id}/register/"
+
+    def test_pool_full_member_sees_the_waitlist_warning_and_button(self):
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self.client.get(self._register_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["registration_will_waitlist"])
+        self.assertEqual(response.context["registration_waitlist_reason"], "pool")
+        self.assertContains(response, "Join Waitlist")
+        self.assertNotContains(response, "Confirm Registration")
+        # "Event is Full" would be the same misinformation one screen later:
+        # the event has seats, this member's pool does not.
+        self.assertContains(response, "Your gender group is full")
+        self.assertNotContains(response, "Event is Full")
+
+    def test_totally_full_event_still_says_event_is_full(self):
+        self.event.max_participants = 1
+        self.event.save()
+        self._set_caps(4, 4, 4)
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self.client.get(self._register_url())
+        self.assertEqual(response.context["registration_waitlist_reason"], "total")
+        self.assertContains(response, "Event is Full")
+        self.assertContains(response, "Join Waitlist")
+
+    def test_seatable_member_sees_confirm_registration(self):
+        self._set_caps(4, 4, 2)
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self.client.get(self._register_url())
+        self.assertFalse(response.context["registration_will_waitlist"])
+        self.assertIsNone(response.context["registration_waitlist_reason"])
+        self.assertContains(response, "Confirm Registration")
+        self.assertNotContains(response, "Join Waitlist")
+
+    def test_uncapped_event_is_unaffected(self):
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self.client.force_login(viewer)
+
+        response = self.client.get(self._register_url())
+        self.assertFalse(response.context["registration_will_waitlist"])
+        self.assertContains(response, "Confirm Registration")
 
 
 class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
