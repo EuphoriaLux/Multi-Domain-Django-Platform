@@ -637,6 +637,11 @@
     padding: 0.65rem;
     margin-top: 0.75rem;
     line-height: 1.4;
+    /* Vignette text is joined with real newlines into short lines (see
+       lore/safety.py's guard_vignette / lore/fallback.py) — without this,
+       HTML collapses them under the default white-space:normal and the
+       story renders as one run-on sentence instead of the intended lines. */
+    white-space: pre-line;
   }
 
   table.venues {

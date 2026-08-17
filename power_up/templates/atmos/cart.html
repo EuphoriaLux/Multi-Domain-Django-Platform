@@ -60,7 +60,12 @@
   <!-- Machine-readable, not display: must stay period-decimal ("12.50")
        regardless of the visitor's locale so order_place()'s Decimal()
        parse can read it back. The displayed total above stays localized
-       — only this round-trip value needs {% localize off %}. -->
+       — only this round-trip value needs localization turned off below.
+       (Deliberately not written as the literal tag text in this comment —
+       Django's template parser doesn't respect HTML comment syntax, so a
+       literal "curly-percent localize off curly-percent" written here as
+       prose would itself open an unclosed block, exactly the bug this
+       fix is for.) -->
   {% localize off %}<input type="hidden" name="expected_total" value="{{ total }}">{% endlocalize %}
   <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
 </form>

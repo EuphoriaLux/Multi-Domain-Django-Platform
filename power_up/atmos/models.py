@@ -93,7 +93,9 @@ class Table(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["venue", "label"], name="uniq_table_label_per_venue"),
+            models.UniqueConstraint(
+                fields=["venue", "label"], name="uniq_table_label_per_venue"
+            ),
         ]
         ordering = ["label"]
 
@@ -111,7 +113,9 @@ class Table(models.Model):
 
 class MenuCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    venue = models.ForeignKey(Venue, related_name="menu_categories", on_delete=models.CASCADE)
+    venue = models.ForeignKey(
+        Venue, related_name="menu_categories", on_delete=models.CASCADE
+    )
     name = models.CharField(max_length=120)
     sort_order = models.PositiveSmallIntegerField(default=0)
     is_visible = models.BooleanField(default=True)
@@ -126,7 +130,9 @@ class MenuCategory(models.Model):
 
 class MenuItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    category = models.ForeignKey(MenuCategory, related_name="items", on_delete=models.CASCADE)
+    category = models.ForeignKey(
+        MenuCategory, related_name="items", on_delete=models.CASCADE
+    )
     name = models.CharField(max_length=160)
     description = models.TextField(blank=True, default="")
     # A negative price has no legitimate meaning here (it would let a guest
@@ -150,7 +156,9 @@ class MenuItem(models.Model):
     class Meta:
         ordering = ["sort_order", "name"]
         constraints = [
-            models.CheckConstraint(condition=Q(price__gte=0), name="menuitem_price_non_negative"),
+            models.CheckConstraint(
+                condition=Q(price__gte=0), name="menuitem_price_non_negative"
+            ),
         ]
 
     def __str__(self) -> str:
@@ -190,7 +198,8 @@ class Tab(models.Model):
         self.venue_id = self.table.venue_id
         was_open = (
             self.pk is not None
-            and Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first() == "open"
+            and Tab.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            == "open"
         )
         super().save(*args, **kwargs)
         if was_open and self.status == "closed":
@@ -201,7 +210,9 @@ class Tab(models.Model):
             # catalog slowly starves across service nights, and joins
             # eventually fail once it's crowded enough that the bounded
             # collision-retry in guest_join can't find a free one.
-            self.guests.filter(status="active").update(status="settled", settled_at=timezone.now())
+            self.guests.filter(status="active").update(
+                status="settled", settled_at=timezone.now()
+            )
 
 
 class Guest(models.Model):
@@ -216,7 +227,9 @@ class Guest(models.Model):
     # Denormalised so uniqueness can be enforced with a plain DB constraint —
     # Django can't constrain across the tab -> venue join (spec §4.7).
     venue = models.ForeignKey(Venue, related_name="guests", on_delete=models.CASCADE)
-    alias = models.CharField(max_length=32, help_text="The rolled noir persona. The delivery key.")
+    alias = models.CharField(
+        max_length=32, help_text="The rolled noir persona. The delivery key."
+    )
     display_name = models.CharField(max_length=20, blank=True, default="")
     joined_at = models.DateTimeField(auto_now_add=True)
     last_activity_at = models.DateTimeField(auto_now=True)
@@ -289,7 +302,9 @@ class Order(models.Model):
     accepted_at = models.DateTimeField(null=True, blank=True)
     served_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
-    total_amount = models.DecimalField(max_digits=9, decimal_places=2, default=Decimal("0.00"))
+    total_amount = models.DecimalField(
+        max_digits=9, decimal_places=2, default=Decimal("0.00")
+    )
 
     # Not in the spec's §4.8 table — see the module docstring. Populated by
     # power_up.atmos.lore.engine.generate_vignette() at placement time.

@@ -21,7 +21,7 @@
     <li>
       <span class="item-qty">{{ item.quantity }}×</span>
       <span>{{ item.name_snapshot }}</span>
-      {% if item.menu_item.contains_alcohol %}<span class="muted" title="Contains alcohol">🔞</span>{% endif %}
+      {% if item.contains_alcohol_snapshot %}<span class="muted" title="Contains alcohol">🔞</span>{% endif %}
       {% if item.note %}<span class="muted">({{ item.note }})</span>{% endif %}
     </li>
     {% endfor %}

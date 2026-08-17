@@ -20,11 +20,15 @@ Deliberately trimmed for a fast, reliable demo rather than the full spec:
 from __future__ import annotations
 
 import os
+import threading
+from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from enum import Enum
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import permission_required
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -54,21 +58,67 @@ MAX_ITEM_QTY = 9  # matches the menu form's advertised max — enforced here too
 # hand-copying "20" so the two can't drift out of sync again.
 _DISPLAY_NAME_MAX_LENGTH = Guest._meta.get_field("display_name").max_length
 
+
+class PlacementOutcome(Enum):
+    """Every way `_create_order_atomic()` can end. Replaces an earlier
+    version that returned six different bare-string/tuple/object shapes
+    accreted one at a time across six rounds of review fixes — callers had
+    to type/arity-sniff each result (`result == "closed"`,
+    `result[0] == "unavailable"`, a bare 3-tuple unpack for success), which
+    made adding a *seventh* outcome error-prone. `order_place()` below
+    switches on `.outcome` instead."""
+
+    EMPTY_CART = "empty_cart"
+    VENUE_CLOSED = "venue_closed"
+    TAB_CLOSED = "tab_closed"
+    UNAVAILABLE = "unavailable"
+    PRICE_CHANGED = "price_changed"
+    PLACED = "placed"
+
+
+@dataclass
+class PlacementResult:
+    """What `_create_order_atomic()` returns. Only the fields relevant to
+    `.outcome` are populated — e.g. `order`/`venue`/`lines` only for
+    `PLACED`, `unavailable_names` only for `UNAVAILABLE`, `expected_total`/
+    `actual_total` only for `PRICE_CHANGED`."""
+
+    outcome: PlacementOutcome
+    order: Order | None = None
+    venue: Venue | None = None
+    lines: list[tuple[MenuItem, int]] = field(default_factory=list)
+    unavailable_names: list[str] = field(default_factory=list)
+    expected_total: Decimal | None = None
+    actual_total: Decimal | None = None
+
+
 # Dev-only in-process chronicle store — see module docstring.
 _CHRONICLES: dict[str, Chronicle] = {}
+# Guards the check-then-act below: on a threaded server (runserver), two
+# near-simultaneous first-orders-of-the-night for the same venue could
+# otherwise both see no existing entry, both build a fresh Chronicle, and
+# the second assignment silently discard the first's ChronicleEvent.
+_CHRONICLES_LOCK = threading.Lock()
 
 
 def _chronicle_for(venue: Venue) -> Chronicle:
-    # Keyed by (venue, local date), not just venue: this dict is process-
-    # global and never explicitly cleared, so a worker that survives past
-    # midnight would otherwise hand the first orders of a new service night
-    # a chronicle still full of last night's personas and events.
+    # Keyed by (venue, local date), not just venue: a worker that survives
+    # past midnight would otherwise hand the first orders of a new service
+    # night a chronicle still full of last night's personas and events.
     key = f"{venue.id}:{timezone.localdate().isoformat()}"
-    chronicle = _CHRONICLES.get(key)
-    if chronicle is None:
-        chronicle = Chronicle(venue.name, max_events=12)
-        _CHRONICLES[key] = chronicle
-    return chronicle
+    with _CHRONICLES_LOCK:
+        chronicle = _CHRONICLES.get(key)
+        if chronicle is None:
+            # Drop this venue's stale keys from previous days — without
+            # this the dict grows by one entry per (venue, day) forever,
+            # for the life of the process.
+            for stale_key in [
+                k for k in _CHRONICLES if k.startswith(f"{venue.id}:") and k != key
+            ]:
+                del _CHRONICLES[stale_key]
+            chronicle = Chronicle(venue.name, max_events=12)
+            _CHRONICLES[key] = chronicle
+        return chronicle
 
 
 def _provider():
@@ -104,15 +154,30 @@ def _provider():
     return None
 
 
-def _get_guest(request):
-    """Resolve the Guest from the signed cookie. Spec §8.1: object access
-    always goes *through* the guest, never a bare pk lookup."""
+def _decode_guest_cookie(request):
+    """Shared cookie-decoding step for both guest resolvers below. Returns
+    the signed guest id, or None if there's no cookie or it's invalid."""
     raw = request.COOKIES.get(GUEST_COOKIE)
     if not raw:
         return None
     try:
-        guest_id = signing.loads(raw, max_age=GUEST_COOKIE_MAX_AGE)
+        return signing.loads(raw, max_age=GUEST_COOKIE_MAX_AGE)
     except signing.BadSignature:
+        return None
+
+
+def _get_guest(request):
+    """Resolve the Guest from the signed cookie. Spec §8.1: object access
+    always goes *through* the guest, never a bare pk lookup.
+
+    Requires the guest still `active` and its tab still `open` — correct
+    for every view that can *create new state* (browsing, cart, placing an
+    order): once staff close a tab or settle a guest, no new activity
+    should be possible under that identity. `order_status()` below needs a
+    different, more permissive resolver — see `_get_guest_for_viewing()`.
+    """
+    guest_id = _decode_guest_cookie(request)
+    if guest_id is None:
         return None
     return (
         Guest.objects.select_related("tab__table", "venue")
@@ -121,8 +186,34 @@ def _get_guest(request):
     )
 
 
+def _get_guest_for_viewing(request):
+    """Resolve the Guest from the signed cookie, WITHOUT requiring the
+    guest still be `active` or its tab still `open` — used only by
+    `order_status()`.
+
+    `_get_guest()`'s stricter filter is correct for anything that creates
+    new state, but applying it here as well meant a guest lost access to
+    their OWN already-placed, still-in-progress order the instant staff
+    closed the tab (Tab.save() settles guests, but never touches
+    Order.status — the bar kept fulfilling the order while the guest could
+    no longer see it). Order *ownership* is still enforced at the call
+    site via `guest.orders.filter(pk=pk)`, so this doesn't relax any real
+    authorization boundary — a cookie only ever resolves to its own guest.
+    """
+    guest_id = _decode_guest_cookie(request)
+    if guest_id is None:
+        return None
+    return (
+        Guest.objects.select_related("tab__table", "venue").filter(pk=guest_id).first()
+    )
+
+
 def _active_aliases(venue: Venue):
-    return list(Guest.objects.filter(venue=venue, status="active").values_list("alias", flat=True))
+    return list(
+        Guest.objects.filter(venue=venue, status="active").values_list(
+            "alias", flat=True
+        )
+    )
 
 
 def _clamp_qty(raw, default=1) -> int:
@@ -142,7 +233,12 @@ def _resolve_menu_item(guest, item_id):
     here rather than filtering on a raw POSTed id directly.
     """
     try:
-        return MenuItem.objects.get(pk=item_id, category__venue=guest.venue, category__is_visible=True, is_available=True)
+        return MenuItem.objects.get(
+            pk=item_id,
+            category__venue=guest.venue,
+            category__is_visible=True,
+            is_available=True,
+        )
     except (MenuItem.DoesNotExist, ValidationError, ValueError):
         return None
 
@@ -151,7 +247,9 @@ def _resolve_menu_item(guest, item_id):
 
 
 def guest_scan(request, qr_token):
-    table = get_object_or_404(Table.objects.select_related("venue"), qr_token=qr_token, is_active=True)
+    table = get_object_or_404(
+        Table.objects.select_related("venue"), qr_token=qr_token, is_active=True
+    )
 
     if not table.venue.service_open:
         return render(request, "atmos/closed.html", {"table": table})
@@ -171,7 +269,11 @@ def guest_join(request):
     tab_id = request.session.get(TAB_SESSION_KEY)
     tab = None
     if tab_id:
-        tab = Tab.objects.select_related("venue", "table").filter(pk=tab_id, status="open").first()
+        tab = (
+            Tab.objects.select_related("venue", "table")
+            .filter(pk=tab_id, status="open")
+            .first()
+        )
     if not tab:
         return render(request, "atmos/no_session.html")
 
@@ -192,7 +294,9 @@ def guest_join(request):
         display_name = ""
         if typed:
             try:
-                display_name = sanitize_persona(typed, max_length=_DISPLAY_NAME_MAX_LENGTH)
+                display_name = sanitize_persona(
+                    typed, max_length=_DISPLAY_NAME_MAX_LENGTH
+                )
             except PersonaRejected:
                 error = "Let's try a noir one instead."
 
@@ -232,7 +336,10 @@ def guest_join(request):
                 try:
                     with transaction.atomic():
                         guest = Guest.objects.create(
-                            tab=tab, venue=tab.venue, alias=alias, display_name=display_name
+                            tab=tab,
+                            venue=tab.venue,
+                            alias=alias,
+                            display_name=display_name,
                         )
                     break
                 except IntegrityError:
@@ -253,14 +360,20 @@ def guest_join(request):
                 return response
 
     rolled_alias = random_persona(exclude=_active_aliases(tab.venue))
-    return render(request, "atmos/join.html", {"tab": tab, "rolled_alias": rolled_alias, "error": error})
+    return render(
+        request,
+        "atmos/join.html",
+        {"tab": tab, "rolled_alias": rolled_alias, "error": error},
+    )
 
 
 def guest_menu(request):
     guest = _get_guest(request)
     if not guest:
         return render(request, "atmos/no_session.html")
-    categories = guest.venue.menu_categories.filter(is_visible=True).prefetch_related("items")
+    categories = guest.venue.menu_categories.filter(is_visible=True).prefetch_related(
+        "items"
+    )
     cart = request.session.get(CART_SESSION_KEY, {})
     return render(
         request,
@@ -357,9 +470,9 @@ def _prune_orphaned_cart_keys(request, guest, cart):
         return cart
     real_ids = {
         str(i)
-        for i in MenuItem.objects.filter(pk__in=cart.keys(), category__venue=guest.venue).values_list(
-            "id", flat=True
-        )
+        for i in MenuItem.objects.filter(
+            pk__in=cart.keys(), category__venue=guest.venue
+        ).values_list("id", flat=True)
     }
     orphaned = [item_id for item_id in cart if item_id not in real_ids]
     if orphaned:
@@ -373,17 +486,20 @@ def cart_detail(request):
     guest = _get_guest(request)
     if not guest:
         return render(request, "atmos/no_session.html")
-    cart = _prune_orphaned_cart_keys(request, guest, request.session.get(CART_SESSION_KEY, {}))
+    cart = _prune_orphaned_cart_keys(
+        request, guest, request.session.get(CART_SESSION_KEY, {})
+    )
     lines, total = _cart_lines(guest, cart)
-    return render(request, "atmos/cart.html", {"guest": guest, "lines": lines, "total": total})
+    return render(
+        request, "atmos/cart.html", {"guest": guest, "lines": lines, "total": total}
+    )
 
 
 @transaction.atomic
-def _create_order_atomic(request, guest, expected_total=None):
+def _create_order_atomic(request, guest, expected_total=None) -> PlacementResult:
     """DB-only half of order placement: re-check the master switch, lock and
-    validate the cart, create the Order + OrderItems. Returns
-    `(order, venue, lines)`, the string `"closed"`, `("unavailable", names)`,
-    or `None` (empty cart).
+    validate the cart, create the Order + OrderItems. Returns a
+    `PlacementResult` — see that class for the possible outcomes.
 
     Deliberately makes no network calls. `order_place()` below calls this,
     then generates the vignette *outside* this transaction — a slow model
@@ -397,22 +513,29 @@ def _create_order_atomic(request, guest, expected_total=None):
     # placements at the same venue (see the comment there).
     venue = Venue.objects.select_for_update().get(pk=guest.venue_id)
     if not venue.service_open:
-        return "closed"
+        return PlacementResult(PlacementOutcome.VENUE_CLOSED)
 
     # A valid guest cookie must not revive a historical tab. Lock and re-check
     # the tab in the same transaction as placement so an admin close racing
     # this POST cannot accept another order.
-    tab_is_open = Tab.objects.select_for_update().filter(
-        pk=guest.tab_id, venue=venue, status="open"
-    ).exists()
+    tab_is_open = (
+        Tab.objects.select_for_update()
+        .filter(pk=guest.tab_id, venue=venue, status="open")
+        .exists()
+    )
     if not tab_is_open:
-        return "tab_closed"
+        return PlacementResult(PlacementOutcome.TAB_CLOSED)
 
-    cart = _prune_orphaned_cart_keys(request, guest, request.session.get(CART_SESSION_KEY, {}))
+    cart = _prune_orphaned_cart_keys(
+        request, guest, request.session.get(CART_SESSION_KEY, {})
+    )
     available = {
         str(i.id): i
         for i in MenuItem.objects.select_for_update().filter(
-            pk__in=cart.keys(), category__venue=venue, category__is_visible=True, is_available=True
+            pk__in=cart.keys(),
+            category__venue=venue,
+            category__is_visible=True,
+            is_available=True,
         )
     }
 
@@ -421,14 +544,16 @@ def _create_order_atomic(request, guest, expected_total=None):
     # dropped here, placing a smaller order than the guest just reviewed
     # with no warning. Reject the whole placement instead: leave the
     # session cart untouched and let order_place show what changed.
-    missing_ids = [item_id for item_id, qty in cart.items() if qty > 0 and item_id not in available]
+    missing_ids = [
+        item_id for item_id, qty in cart.items() if qty > 0 and item_id not in available
+    ]
     if missing_ids:
         names = list(
-            MenuItem.objects.filter(pk__in=missing_ids, category__venue=venue).values_list(
-                "name", flat=True
-            )
+            MenuItem.objects.filter(
+                pk__in=missing_ids, category__venue=venue
+            ).values_list("name", flat=True)
         )
-        return "unavailable", names
+        return PlacementResult(PlacementOutcome.UNAVAILABLE, unavailable_names=names)
 
     lines, total = [], Decimal("0.00")
     for item_id, qty in cart.items():
@@ -439,10 +564,12 @@ def _create_order_atomic(request, guest, expected_total=None):
         total += (item.price * qty).quantize(Decimal("0.01"))
 
     if not lines:
-        return None
+        return PlacementResult(PlacementOutcome.EMPTY_CART)
 
     if expected_total is None or total != expected_total:
-        return "price_changed", expected_total, total
+        return PlacementResult(
+            PlacementOutcome.PRICE_CHANGED, expected_total=expected_total, actual_total=total
+        )
 
     # `short_code` has no uniqueness constraint. A `count()`-derived number
     # used to work here (the venue lock above serializes it against other
@@ -474,7 +601,9 @@ def _create_order_atomic(request, guest, expected_total=None):
         )
 
     request.session[CART_SESSION_KEY] = {}
-    return order, venue, lines
+    return PlacementResult(
+        PlacementOutcome.PLACED, order=order, venue=venue, lines=lines
+    )
 
 
 def order_place(request):
@@ -488,26 +617,30 @@ def order_place(request):
         expected_total = None
 
     result = _create_order_atomic(request, guest, expected_total=expected_total)
-    if result is None:
+
+    if result.outcome is PlacementOutcome.EMPTY_CART:
         return redirect("atmos:cart_detail")
-    if result == "closed":
+    if result.outcome is PlacementOutcome.VENUE_CLOSED:
         return render(request, "atmos/closed.html", {"table": guest.tab.table})
-    if result == "tab_closed":
+    if result.outcome is PlacementOutcome.TAB_CLOSED:
         return render(request, "atmos/no_session.html")
-    if result[0] == "unavailable":
+    if result.outcome is PlacementOutcome.UNAVAILABLE:
         # Cart is untouched on purpose (see _create_order_atomic) — show the
         # guest the same lines cart_detail would, plus what changed, rather
         # than silently placing a smaller order.
-        _, names = result
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
         return render(
             request,
             "atmos/cart.html",
-            {"guest": guest, "lines": lines, "total": total, "unavailable_names": names},
+            {
+                "guest": guest,
+                "lines": lines,
+                "total": total,
+                "unavailable_names": result.unavailable_names,
+            },
         )
-
-    if result[0] == "price_changed":
+    if result.outcome is PlacementOutcome.PRICE_CHANGED:
         cart = request.session.get(CART_SESSION_KEY, {})
         lines, total = _cart_lines(guest, cart)
         return render(
@@ -521,9 +654,21 @@ def order_place(request):
             },
         )
 
-    order, venue, lines = result
+    # PlacementOutcome.PLACED from here down.
+    order, venue, lines = result.order, result.venue, result.lines
 
-    # Outside the transaction — see _create_order_atomic()'s docstring.
+    # The transaction above already committed the order, and cleared the
+    # cart in `request.session` — but Django doesn't write session changes
+    # to the store until SessionMiddleware's process_response, i.e. after
+    # this whole view returns. generate_vignette() below can take up to
+    # ~1.2s by design; a second POST landing in that window would still see
+    # the OLD (un-cleared) cart in the session store and place a full
+    # duplicate order. Force the write now, before the slow call, so a
+    # near-simultaneous resubmit sees the cart already emptied.
+    request.session.save()
+
+    # generate_vignette() itself runs outside the transaction — see
+    # _create_order_atomic()'s docstring.
     chronicle = _chronicle_for(venue)
     event = ChronicleEvent(
         at=timezone.localtime(order.placed_at),
@@ -547,7 +692,7 @@ def order_place(request):
 
 
 def order_status(request, pk):
-    guest = _get_guest(request)
+    guest = _get_guest_for_viewing(request)
     if not guest:
         return render(request, "atmos/no_session.html")
     # Scoped through the guest, per spec §8.1 — a guest cannot address a
@@ -599,11 +744,13 @@ def order_status(request, pk):
 
 
 @staff_member_required
+@permission_required("atmos.view_venue", raise_exception=True)
 def staff_home(request):
     return render(request, "atmos/staff_home.html", {"venues": Venue.objects.all()})
 
 
 @staff_member_required
+@permission_required("atmos.view_order", raise_exception=True)
 def kds(request, venue_slug):
     venue = get_object_or_404(Venue, slug=venue_slug)
     live = (
@@ -614,7 +761,9 @@ def kds(request, venue_slug):
     )
     done = (
         Order.objects.filter(
-            venue=venue, status="served", served_at__gte=timezone.now() - timedelta(minutes=30)
+            venue=venue,
+            status="served",
+            served_at__gte=timezone.now() - timedelta(minutes=30),
         )
         .select_related("guest", "tab__table")
         .prefetch_related("items__menu_item")
@@ -628,11 +777,23 @@ def kds(request, venue_slug):
 
 
 @staff_member_required
+@permission_required("atmos.change_order", raise_exception=True)
 def order_set_status(request, pk):
-    order = get_object_or_404(Order, pk=pk)
     if request.method == "POST":
-        try:
-            order.transition_to(request.POST.get("status", ""))
-        except ValidationError:
-            pass  # illegal transition (e.g. double-tap) — KDS just re-renders as-is
+        # Locked read-modify-write: two staff devices acting on the same
+        # order within the same window (one taps Accept, another taps
+        # Cancel) used to both read the same pre-transition status, both
+        # validate independently, and whichever save() landed last silently
+        # discarded the other's transition with no error to either staff
+        # member. The lock serializes them — the second request now reads
+        # the FIRST request's already-committed status, so its own
+        # transition is validated against current reality, not a stale read.
+        with transaction.atomic():
+            order = get_object_or_404(Order.objects.select_for_update(), pk=pk)
+            try:
+                order.transition_to(request.POST.get("status", ""))
+            except ValidationError:
+                pass  # illegal transition (e.g. double-tap) — KDS just re-renders as-is
+    else:
+        order = get_object_or_404(Order, pk=pk)
     return redirect("atmos:kds", venue_slug=order.venue.slug)

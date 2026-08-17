@@ -9,6 +9,7 @@ from power_up.atmos.models import Guest, MenuCategory, MenuItem, Tab, Table, Ven
 from power_up.atmos.views import (
     CART_SESSION_KEY,
     GUEST_COOKIE,
+    PlacementOutcome,
     _cart_lines,
     _create_order_atomic,
     _get_guest,
@@ -85,7 +86,9 @@ def test_order_rejects_price_changed_since_cart_review(ordering_setup):
 
     result = _create_order_atomic(request, guest, expected_total=Decimal("10.00"))
 
-    assert result == ("price_changed", Decimal("10.00"), Decimal("12.00"))
+    assert result.outcome is PlacementOutcome.PRICE_CHANGED
+    assert result.expected_total == Decimal("10.00")
+    assert result.actual_total == Decimal("12.00")
     assert guest.orders.count() == 0
     assert request.session[CART_SESSION_KEY] == {str(item.id): 1}
 
@@ -98,7 +101,6 @@ def test_order_rechecks_tab_status_inside_transaction(ordering_setup):
     request = request_with_session("post", {"expected_total": "12.00"})
     request.session[CART_SESSION_KEY] = {str(item.id): 1}
 
-    assert _create_order_atomic(
-        request, guest, expected_total=Decimal("12.00")
-    ) == "tab_closed"
+    result = _create_order_atomic(request, guest, expected_total=Decimal("12.00"))
+    assert result.outcome is PlacementOutcome.TAB_CLOSED
     assert guest.orders.count() == 0

@@ -9,23 +9,35 @@ socket operation (connect, then each `recv`), not to total wall time, so a
 server that dribbles one byte just under that interval, repeatedly, can hold
 the call open indefinitely — engine.generate_vignette's post-hoc elapsed-time
 check can't run until `complete()` returns, so it can't prevent that, only
-discard the answer once it finally does. `_post_json` below runs the actual
-`urlopen`/`.read()` call on a background thread and joins it with the real
-timeout, so the request-handling thread is bounded by wall time regardless of
-how the server paces bytes. The daemon thread itself isn't killed on timeout
-(Python has no safe way to do that) — it keeps running until its own
-per-operation timeout eventually fires and it exits on its own; this bounds
-the caller, not the leaked connection, which is the trade-off worth knowing
-about before pointing this at an untrusted endpoint.
+discard the answer once it finally does. `_post_json` below submits the actual
+`urlopen`/`.read()` call to a small, bounded `ThreadPoolExecutor` and waits on
+the future with the real timeout, so the request-handling thread is bounded by
+wall time regardless of how the server paces bytes. A worker that's still
+blocked on a slow socket when its deadline passes isn't killed (Python has no
+safe way to do that) — but because the pool is bounded, at most
+`_MAX_CONCURRENT_PROVIDER_CALLS` such workers can ever be stuck at once,
+instead of leaking one new thread per timed-out order under sustained load; a
+call still queued (not yet started) when its deadline passes is cancelled
+outright, so a saturated pool degrades to fast fallbacks rather than growing.
 """
 
 from __future__ import annotations
 
 import json
-import threading
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Protocol
+
+# Bounds how many provider HTTP calls can be in flight (or queued) at once,
+# across every guest ordering concurrently — a fixed-size pool instead of a
+# thread per call, so a slow/degraded endpoint under sustained load can only
+# ever have this many workers stuck on it, not an unbounded, ever-growing
+# count. 8 is generous for a single bar's realistic concurrent-order volume.
+_MAX_CONCURRENT_PROVIDER_CALLS = 8
+_EXECUTOR = ThreadPoolExecutor(
+    max_workers=_MAX_CONCURRENT_PROVIDER_CALLS, thread_name_prefix="atmos-provider"
+)
 
 
 class ProviderError(Exception):
@@ -59,31 +71,31 @@ def _post_json(url: str, payload: dict, headers: dict, timeout: float) -> dict:
         method="POST",
     )
 
-    outcome: dict = {}
-
-    def _do_request() -> None:
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                outcome["data"] = json.loads(response.read().decode("utf-8"))
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
-            outcome["error"] = exc
-        except Exception as exc:  # noqa: BLE001 - surfaced as ProviderError below
-            outcome["error"] = exc
+    def _do_request() -> dict:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
 
     # See module docstring: `timeout` bounds each socket op, not the total
-    # call. Running it on a thread and joining with the same budget bounds
-    # *this* function's wall-clock time regardless of how the server paces
-    # its response — the thread itself is abandoned (daemon) if it doesn't
-    # finish in time, not killed.
-    worker = threading.Thread(target=_do_request, daemon=True)
-    worker.start()
-    worker.join(timeout=timeout)
-
-    if worker.is_alive():
-        raise ProviderError(f"provider call exceeded {timeout}s wall-clock deadline")
-    if "error" in outcome:
-        raise ProviderError(str(outcome["error"])) from outcome["error"]
-    return outcome.get("data", {})
+    # call. Submitting to the bounded pool and waiting on the future with
+    # the same budget bounds *this* function's wall-clock time regardless
+    # of how the server paces its response.
+    future = _EXECUTOR.submit(_do_request)
+    try:
+        return future.result(timeout=timeout)
+    except FutureTimeoutError:
+        # If the call hadn't started yet (pool was saturated), this
+        # actually removes it from the queue — no worker thread is spent
+        # on it at all. If it had already started, cancel() is a no-op and
+        # that one worker stays blocked until its own socket-level timeout
+        # eventually fires — bounded by pool size, not unbounded.
+        future.cancel()
+        raise ProviderError(
+            f"provider call exceeded {timeout}s wall-clock deadline"
+        ) from None
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        raise ProviderError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surfaced as ProviderError below
+        raise ProviderError(str(exc)) from exc
 
 
 class OpenAIProvider:

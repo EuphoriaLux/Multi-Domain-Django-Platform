@@ -11,8 +11,6 @@ behavior rather than adding a second registration nobody asked for.)
 
 from __future__ import annotations
 
-import secrets
-
 from django.contrib import admin, messages
 
 from power_up.admin import power_up_admin_site
@@ -67,6 +65,12 @@ class VenueAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "service_open", "currency", "created_at")
     prepopulated_fields = {"slug": ("name",)}
     inlines = [TableInline, MenuCategoryInline]
+    # `next_order_number` is the monotonic counter _create_order_atomic()
+    # increments under a row lock specifically so a deleted order can't
+    # cause short_code reuse (see its comment in models.py) — left
+    # editable here, any staff with change_venue could reset it backwards
+    # and reissue already-printed delivery codes.
+    readonly_fields = ("next_order_number",)
 
 
 class MenuItemInline(admin.TabularInline):
@@ -89,12 +93,29 @@ class MenuItemAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ("menu_item", "name_snapshot", "unit_price_snapshot", "quantity", "line_total")
+    readonly_fields = (
+        "menu_item",
+        "name_snapshot",
+        "unit_price_snapshot",
+        # A placement-time snapshot, same as the three fields above it —
+        # left editable it would let an admin save silently add or remove
+        # the KDS/ticket alcohol warning from an order already in flight.
+        "contains_alcohol_snapshot",
+        "quantity",
+        "line_total",
+    )
     can_delete = False
 
 
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("short_code", "alias_snapshot", "venue", "status", "total_amount", "placed_at")
+    list_display = (
+        "short_code",
+        "alias_snapshot",
+        "venue",
+        "status",
+        "total_amount",
+        "placed_at",
+    )
     list_filter = ("venue", "status")
     # `status` is readonly here on purpose: the default ModelAdmin save
     # bypasses Order.transition_to() entirely, so an editable status field
@@ -109,9 +130,20 @@ class OrderAdmin(admin.ModelAdmin):
     # on a served order (vanishing it from the KDS the same way) or
     # backdate it to fabricate metrics, with no transition validation at all.
     readonly_fields = (
-        "id", "guest", "tab", "venue", "short_code", "alias_snapshot", "status",
-        "accepted_at", "served_at", "cancelled_at",
-        "total_amount", "vignette", "vignette_source", "placed_at",
+        "id",
+        "guest",
+        "tab",
+        "venue",
+        "short_code",
+        "alias_snapshot",
+        "status",
+        "accepted_at",
+        "served_at",
+        "cancelled_at",
+        "total_amount",
+        "vignette",
+        "vignette_source",
+        "placed_at",
     )
     inlines = [OrderItemInline]
 
@@ -119,6 +151,10 @@ class OrderAdmin(admin.ModelAdmin):
 class GuestAdmin(admin.ModelAdmin):
     list_display = ("display", "venue", "status", "joined_at")
     list_filter = ("venue", "status")
+    # Guest.save() derives venue from tab the same way Tab.save() derives
+    # its own venue from table (models.py) — TabAdmin already marks that
+    # field readonly with this same reasoning; this admin was missed.
+    readonly_fields = ("venue",)
 
 
 class TabAdmin(admin.ModelAdmin):

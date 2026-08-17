@@ -67,15 +67,34 @@ def select_ascii_art(drink_names: tuple[str, ...] | list[str]) -> str:
     """Select the best matching ASCII illustration based on ordered items."""
     text = " ".join(drink_names).lower()
 
-    if any(k in text for k in ("old fashioned", "mezcal", "sour", "whiskey", "bourbon", "rye")):
+    if any(
+        k in text
+        for k in ("old fashioned", "mezcal", "sour", "whiskey", "bourbon", "rye")
+    ):
         return OLD_FASHIONED
     if any(k in text for k in ("pilsner", "beer", "draft", "lager", "ipa", "cider")):
         return BEER_STEIN
-    if any(k in text for k in ("wine", "red", "white", "rosé", "champagne", "prosecco")):
+    if any(
+        k in text for k in ("wine", "red", "white", "rosé", "champagne", "prosecco")
+    ):
         return WINE_CHALICE
-    if any(k in text for k in ("cocktail", "fizz", "martini", "french 75", "spritz", "margarita", "gin")):
+    if any(
+        k in text
+        for k in (
+            "cocktail",
+            "fizz",
+            "martini",
+            "french 75",
+            "spritz",
+            "margarita",
+            "gin",
+        )
+    ):
         return COCKTAIL_COUPE
-    if any(k in text for k in ("nuts", "olive", "pretzel", "charcuterie", "snack", "bread", "cheese")):
+    if any(
+        k in text
+        for k in ("nuts", "olive", "pretzel", "charcuterie", "snack", "bread", "cheese")
+    ):
         return PRETZEL_SNACK
 
     return SPEAKEASY_FEDORA
@@ -99,5 +118,7 @@ def select_mission(seed_key: str) -> str:
     """Deterministically select a speakeasy mission for a given ticket/order key."""
     if not seed_key:
         return SPEAKEASY_MISSIONS[0]
-    idx = int(hashlib.sha256(seed_key.encode("utf-8")).hexdigest(), 16) % len(SPEAKEASY_MISSIONS)
+    idx = int(hashlib.sha256(seed_key.encode("utf-8")).hexdigest(), 16) % len(
+        SPEAKEASY_MISSIONS
+    )
     return SPEAKEASY_MISSIONS[idx]

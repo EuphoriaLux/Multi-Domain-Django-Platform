@@ -22,11 +22,22 @@ from .printing.layout import Paper, TicketData, TicketLine, render_ticket
 
 VENUE = "The Velvet Hour"
 
+# (name, qty, price, note, contains_alcohol) — matches seed_atmos_demo.py's
+# MENU dict, so a demo ticket's alcohol banner reflects the same items the
+# real seeded venue would serve.
 SERVICE = [
-    ("The Whispering Gambler", "4", [("Old Fashioned", 2, "8.50", "no ice")]),
-    ("The Midnight Chemist", "9", [("Smoky Mezcalita", 1, "9.50", "extra lime")]),
-    ("Detective Vance", "12", [("Rye Sour", 1, "9.00", ""), ("Bar Nuts", 1, "4.00", "")]),
-    ("The Velvet Silhouette", "4", [("French 75", 3, "11.00", "one without gin")]),
+    ("The Whispering Gambler", "4", [("Old Fashioned", 2, "8.50", "no ice", True)]),
+    ("The Midnight Chemist", "9", [("Smoky Mezcalita", 1, "9.50", "extra lime", True)]),
+    (
+        "Detective Vance",
+        "12",
+        [("Rye Sour", 1, "9.00", "", True), ("Bar Nuts", 1, "4.00", "", False)],
+    ),
+    (
+        "The Velvet Silhouette",
+        "4",
+        [("French 75", 3, "11.00", "one without gin", True)],
+    ),
 ]
 
 
@@ -40,7 +51,8 @@ def build(paper: Paper, dump_bytes: bool) -> str:
         code = f"T{table.zfill(2)}-{index + 1:02d}"
 
         lines = tuple(
-            TicketLine(name, qty, Decimal(price), note) for name, qty, price, note in items
+            TicketLine(name, qty, Decimal(price), note)
+            for name, qty, price, note, _alcohol in items
         )
         event = ChronicleEvent(
             at=placed,
@@ -63,8 +75,14 @@ def build(paper: Paper, dump_bytes: bool) -> str:
             persona=persona,
             lines=lines,
             vignette=result.text,
-            qr_payload=f"https://power-up.lu/atmos/o/{code}",
-            contains_alcohol=any("Nuts" not in line.name for line in lines),
+            # `/atmos/o/<code>` was never implemented (order_status is
+            # guest-cookie-scoped, per spec §8.1, so a bare public code
+            # couldn't resolve one anyway) — the live app points tickets at
+            # the table's own scan URL instead (views.py's order_status()).
+            # This demo token isn't real (preview.py has no DB access), but
+            # the URL shape now matches the live app's, not a 404.
+            qr_payload=f"https://power-up.lu/atmos/t/demo-table-{table}/",
+            contains_alcohol=any(alcohol for *_, alcohol in items),
             footer="pay at the table",
         )
 
