@@ -68,9 +68,9 @@ class TestTicketPrinter(TestCase):
         self.assertIn("SPEED DATING", plain_text)
         self.assertIn("MAX", plain_text)
         self.assertIn("TABLE 4", plain_text)
-        self.assertIn("DATING RECEIPT", plain_text)
         self.assertIn("CRUSH COACH", plain_text)
         self.assertIn("MYSTERY RADAR", plain_text)
+        self.assertIn("SHARE YOUR STORY", plain_text)
 
     def test_directives_fallback_without_registration(self):
         plain_text = preview_checkin_ticket_text(
@@ -244,8 +244,8 @@ class TestTicketPrinter(TestCase):
         # Should have generic event pass header
         self.assertIn("EVENT // CHECK-IN PASS", plain_text)
         # Should NOT have dating receipt or dating survival guide
-        self.assertNotIn("DATING RECEIPT", plain_text)
-        self.assertNotIn("REÇU DATING", plain_text)
+        self.assertNotIn("EVENT PASSPORT", plain_text)
+        self.assertNotIn("PASSEPORT", plain_text)
 
     def test_mystery_radar_with_attendee_clues_and_checkboxes(self):
         from crush_lu.models import Interest
@@ -302,15 +302,16 @@ class TestTicketPrinter(TestCase):
             table_number=2,
             coach_authenticated=True,
         )
-        self.assertIn("MYSTERY RADAR", plain_text)
-        self.assertIn("[   ]", plain_text)
-        self.assertIn(f"(#{other_reg.id})", plain_text)
+        self.assertIn("MYSTERY", plain_text)
+        self.assertIn("MATCH", plain_text)
+        self.assertIn("Name :", plain_text)
+        self.assertIn(f"#{other_reg.id}", plain_text)
         # Mystery radar must be anonymous with badge number only (no attendee names in mystery clues)
         self.assertNotIn(f"Pos (#{other_reg.id})", plain_text)
         # Assert rich ROOM DATA statistics appear
         self.assertIn("ROOM DATA", plain_text)
         self.assertIn("PASSIONS", plain_text)
-        self.assertIn("Average age", plain_text)
+        self.assertIn("AGE", plain_text)
 
     def test_multilingual_ticket_generation(self):
         # 1. French
@@ -321,7 +322,7 @@ class TestTicketPrinter(TestCase):
             language="fr",
             coach_authenticated=True,
         )
-        self.assertIn("REÇU DATING", text_fr)
+        self.assertIn("PARTAGE TA STORY", text_fr)
         self.assertIn("GUIDE DE SURVIE", text_fr)
 
         # 2. German
@@ -332,8 +333,7 @@ class TestTicketPrinter(TestCase):
             language="de",
             coach_authenticated=True,
         )
-        self.assertIn("DATING RECEIPT", text_de)
-        self.assertIn("Hoffnung & Optimismus", text_de)
+        self.assertIn("TEILE DEINE STORY", text_de)
         self.assertIn("SURVIVAL GUIDE", text_de)
 
         # 3. English
@@ -344,8 +344,7 @@ class TestTicketPrinter(TestCase):
             language="en",
             coach_authenticated=True,
         )
-        self.assertIn("DATING RECEIPT", text_en)
-        self.assertIn("Hope & Optimism", text_en)
+        self.assertIn("SHARE YOUR STORY", text_en)
         self.assertIn("SURVIVAL GUIDE", text_en)
 
 

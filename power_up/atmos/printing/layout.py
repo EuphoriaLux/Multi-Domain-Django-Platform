@@ -72,7 +72,17 @@ class Cut:
     partial: bool = True
 
 
-Directive = Text | Rule | Feed | QrCode | Barcode | Cut
+@dataclass(frozen=True)
+class Image:
+    """A 1-bit monochrome raster image (e.g. brand logo)."""
+
+    source: str | bytes
+    width: int = 192  # dots wide (multiple of 8)
+    align: Align = Align.CENTER
+    invert: bool = False
+
+
+Directive = Text | Rule | Feed | QrCode | Barcode | Cut | Image
 
 
 @dataclass(frozen=True)

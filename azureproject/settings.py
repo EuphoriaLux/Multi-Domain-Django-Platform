@@ -1491,8 +1491,11 @@ SECURE_CSP_REPORT_ONLY = {
         # SumUp — the widget calls the gateway directly from the browser
         "https://gateway.sumup.com",
         "https://api.sumup.com",
-        # WebSocket for HTMX
+        # WebSocket for HTMX and Local Hardware Print Services (RawBT / Server for RawBT)
         "wss:",
+        "ws://127.0.0.1:*",
+        "ws://localhost:*",
+        "ws:",
     ],
     # OAuth popups and Firebase reCAPTCHA
     "frame-src": [

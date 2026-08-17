@@ -1482,6 +1482,22 @@ document.addEventListener("alpine:init", function () {
                 var trimmed = base64Payload.trim();
                 if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
 
+                var encoded = encodeURIComponent(trimmed);
+                var sendFallback = function () {
+                    try {
+                        var iframe = document.getElementById("rawbt-print-frame");
+                        if (!iframe) {
+                            iframe = document.createElement("iframe");
+                            iframe.id = "rawbt-print-frame";
+                            iframe.style.display = "none";
+                            document.body.appendChild(iframe);
+                        }
+                        iframe.src = "rawbt:base64," + encoded;
+                    } catch (e) {
+                        window.location.href = "rawbt:base64," + encoded;
+                    }
+                };
+
                 // 1. Primary: Direct binary stream via local RawBT WebSocket (ws://127.0.0.1:40213)
                 try {
                     var binaryString = atob(trimmed);
@@ -1498,13 +1514,9 @@ document.addEventListener("alpine:init", function () {
                         if (!wsHandled && ws.readyState !== 1) {
                             wsHandled = true;
                             try { ws.close(); } catch (e) {}
-                            var intentUrl =
-                                "intent:base64," +
-                                trimmed +
-                                "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-                            window.location.href = intentUrl;
+                            sendFallback();
                         }
-                    }, 400);
+                    }, 500);
 
                     ws.onopen = function () {
                         wsHandled = true;
@@ -1519,19 +1531,11 @@ document.addEventListener("alpine:init", function () {
                         if (!wsHandled) {
                             wsHandled = true;
                             clearTimeout(fallbackTimer);
-                            var intentUrl =
-                                "intent:base64," +
-                                trimmed +
-                                "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-                            window.location.href = intentUrl;
+                            sendFallback();
                         }
                     };
                 } catch (e) {
-                    var intentUrl =
-                        "intent:base64," +
-                        trimmed +
-                        "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-                    window.location.href = intentUrl;
+                    sendFallback();
                 }
             },
 

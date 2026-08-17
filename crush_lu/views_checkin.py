@@ -2146,113 +2146,19 @@ def event_test_ticket_bin_api(request, event_id):
 
 def debug_print_test_page(request):
     """Standalone diagnostic page for testing RawBT and ESC/POS thermal printing."""
-    from django.http import HttpResponse
+    from django.shortcuts import render
     from .models import MeetupEvent
 
     event = MeetupEvent.objects.order_by("-date_time").first()
     event_id = event.id if event else 1
+    event_title = getattr(event, "title", "Demo")
 
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RawBT ESC/POS Diagnostic</title>
-    <style>
-        body {{ font-family: system-ui, -apple-system, sans-serif; padding: 20px; background: #0f172a; color: #f8fafc; line-height: 1.5; }}
-        h2 {{ margin-top: 0; color: #38bdf8; }}
-        button {{ display: block; width: 100%; padding: 14px; margin: 10px 0; font-size: 15px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; text-align: left; }}
-        .btn-1 {{ background: #10b981; color: white; }}
-        .btn-2 {{ background: #8b5cf6; color: white; }}
-        .btn-3 {{ background: #06b6d4; color: black; }}
-        .btn-4 {{ background: #f59e0b; color: black; }}
-        .btn-5 {{ background: #ec4899; color: white; }}
-        pre {{ background: #1e293b; padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; border: 1px solid #334155; }}
-    </style>
-</head>
-<body>
-    <h2>🖨️ RawBT / PEC 80 Diagnostic</h2>
-    <p style="color: #94a3b8; font-size: 14px;">Event ID: {event_id} ({getattr(event, 'title', 'Demo')})</p>
+    return render(
+        request,
+        "crush_lu/debug_test_print.html",
+        {
+            "event_id": event_id,
+            "event_title": event_title,
+        },
+    )
 
-    <button class="btn-1" onclick="test1_plain()">1️⃣ Test Plain Text (rawbt:URI)</button>
-    <button class="btn-2" onclick="test2_minimal()">2️⃣ Test Minimal ESC/POS Intent (Init + Text + Cut)</button>
-    <button class="btn-3" onclick="test3_download()">3️⃣ Test RawBT Binary Download URL</button>
-    <button class="btn-4" onclick="test4_websocket()">4️⃣ Test Local WebSocket (ws://127.0.0.1:40213)</button>
-    <button class="btn-5" onclick="test5_live_api()">5️⃣ Test Live Staging Ticket API</button>
-
-    <h3>Diagnostic Log:</h3>
-    <pre id="log">Ready. Tap a test button above.</pre>
-
-    <script>
-        function log(msg) {{
-            document.getElementById('log').textContent = msg + "\\n\\n" + document.getElementById('log').textContent;
-        }}
-
-        function test1_plain() {{
-            var txt = "=== CRUSH.LU ===\\nTEST PLAIN TEXT OK\\n\\n\\n";
-            var url = "rawbt:" + encodeURIComponent(txt);
-            log("1️⃣ Triggering: " + url);
-            window.location.href = url;
-        }}
-
-        function test2_minimal() {{
-            var b64 = "G0BDUlVTSCBURVNUCgogHVYBA==";
-            var url = "intent:base64," + b64 + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-            log("2️⃣ Triggering Minimal Base64:\\n" + url);
-            window.location.href = url;
-        }}
-
-        function test3_download() {{
-            var binUrl = window.location.origin + "/api/events/{event_id}/test-ticket.bin";
-            var intent = "intent:" + binUrl + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;component=ru.a402d.rawbtprinter.activity.PrintDownloadActivity;end;";
-            log("3️⃣ Triggering Binary Download from:\\n" + binUrl);
-            window.location.href = intent;
-        }}
-
-        function test4_websocket() {{
-            log("4️⃣ Connecting to ws://127.0.0.1:40213/ ...");
-            try {{
-                var ws = new WebSocket("ws://127.0.0.1:40213/");
-                ws.binaryType = "arraybuffer";
-                ws.onopen = function() {{
-                    log("✅ WebSocket Connected! Sending test bytes...");
-                    var b64 = "G0BDUlVTSCBURVNUCgogHVYBA==";
-                    var bin = atob(b64);
-                    var bytes = new Uint8Array(bin.length);
-                    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-                    ws.send(bytes.buffer);
-                    log("✅ Sent bytes to printer!");
-                    setTimeout(function() {{ ws.close(); }}, 500);
-                }};
-                ws.onerror = function(e) {{
-                    log("❌ WebSocket Error (Make sure WebSocket server is enabled in RawBT settings): " + e);
-                }};
-            }} catch (e) {{
-                log("❌ WebSocket Exception: " + e);
-            }}
-        }}
-
-        function test5_live_api() {{
-            log("5️⃣ Fetching /api/events/{event_id}/test-ticket/ ...");
-            fetch('/api/events/{event_id}/test-ticket/')
-                .then(function(r) {{
-                    log("HTTP Status: " + r.status);
-                    return r.json();
-                }})
-                .then(function(data) {{
-                    if (data && data.print_payload_base64) {{
-                        var b64 = data.print_payload_base64;
-                        log("✅ Got " + b64.length + " bytes Base64! Sending to RawBT...");
-                        var intent = "intent:base64," + b64 + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-                        window.location.href = intent;
-                    }} else {{
-                        log("❌ Error from API: " + JSON.stringify(data));
-                    }}
-                }})
-                .catch(function(err) {{
-                    log("❌ Fetch error: " + err);
-                }});
-        }}
-    </script>
-</body>
-</html>"""
-    return HttpResponse(html)

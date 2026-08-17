@@ -17,6 +17,7 @@ from .layout import (
     Cut,
     Directive,
     Feed,
+    Image,
     Paper,
     QrCode,
     Rule,
@@ -97,6 +98,52 @@ def _barcode_commands(data: str, height: int = 60) -> bytes:
     )
 
 
+def _image_commands(
+    source: str | bytes,
+    width: int = 192,
+    invert: bool = False,
+) -> bytes:
+    """The `GS v 0` command: encode a 1-bit monochrome raster image."""
+    import io
+    from PIL import Image as PILImage
+
+    if isinstance(source, bytes):
+        img = PILImage.open(io.BytesIO(source))
+    else:
+        img = PILImage.open(source)
+
+    img = img.convert("L")
+    target_w = max(8, (width // 8) * 8)
+    target_h = int(img.height * (target_w / img.width))
+    img = img.resize((target_w, target_h), PILImage.Resampling.LANCZOS)
+
+    # Convert to 1-bit monochrome: 0 in PIL is black, 255 is white
+    mono = img.point(lambda p: 0 if p < 180 else 255, mode="1")
+    if invert:
+        mono = mono.point(lambda p: 255 if p == 0 else 0, mode="1")
+
+    width_dots, height_dots = mono.size
+    width_bytes = width_dots // 8
+    xl = width_bytes & 0xFF
+    xh = (width_bytes >> 8) & 0xFF
+    yl = height_dots & 0xFF
+    yh = (height_dots >> 8) & 0xFF
+
+    raw_data = bytearray()
+    pixels = mono.load()
+    for y in range(height_dots):
+        for x_byte in range(width_bytes):
+            byte_val = 0
+            for bit in range(8):
+                x = x_byte * 8 + bit
+                # In ESC/POS bit 1 is black, bit 0 is white
+                if pixels[x, y] == 0:
+                    byte_val |= 1 << (7 - bit)
+            raw_data.append(byte_val)
+
+    return GS + b"v0\x00" + bytes([xl, xh, yl, yh]) + bytes(raw_data)
+
+
 def encode_directive(directive: Directive, paper: Paper) -> bytes:
     cols = paper.columns
 
@@ -123,6 +170,13 @@ def encode_directive(directive: Directive, paper: Paper) -> bytes:
         return (
             ESC + b"a" + bytes([1])
             + _barcode_commands(directive.data, directive.height)
+            + ESC + b"a" + bytes([0])
+        )
+
+    if isinstance(directive, Image):
+        return (
+            ESC + b"a" + bytes([_ALIGN[directive.align]])
+            + _image_commands(directive.source, directive.width, directive.invert)
             + ESC + b"a" + bytes([0])
         )
 
@@ -179,6 +233,8 @@ def render_plain_text(directives: list[Directive], paper: Paper = Paper.MM80) ->
             out.append(_placeholder(f"[QR {directive.data}]", cols))
         elif isinstance(directive, Barcode):
             out.append(_placeholder(f"[BARCODE {directive.data}]", cols))
+        elif isinstance(directive, Image):
+            out.append(_placeholder("[IMAGE: CRUSH GHOST LOGO]", cols))
         elif isinstance(directive, Text):
             text = directive.text
             if directive.align is Align.CENTER:
