@@ -662,8 +662,16 @@ def my_events(request):
     return render(request, "crush_lu/my_events.html", context)
 
 
-def _registration_outlook(event, profile):
+def _registration_outlook(event, profile, gender=None):
     """What registration will actually do for this viewer.
+
+    ``gender`` overrides the profile's own, for a *bound* form: the gender a
+    member just picked lives in ``form.cleaned_data`` but is only written to the
+    profile on the valid branch, under the lock. After a validation error the
+    profile is therefore still genderless while the resubmit will pool-check
+    exactly this value -- and without it the fallback below asks "is *every*
+    pool full?", which answers no and promises a seat to someone whose chosen
+    pool is full.
 
     Returns ``(pools, user_pool, will_waitlist, waitlist_reason)``:
 
@@ -698,7 +706,7 @@ def _registration_outlook(event, profile):
     total_full, capacity_remaining = event.capacity_snapshot(is_premium=is_premium)
     pools = event.get_gender_pool_availability(capacity_remaining=capacity_remaining)
 
-    user_gender = getattr(profile, "gender", None)
+    user_gender = gender or getattr(profile, "gender", None)
     user_pool = None
     if pools and user_gender:
         pool_key = event.get_gender_pool(user_gender)
@@ -1531,9 +1539,20 @@ def event_register(request, event_id):
     # reserved-premium block.
     #
     # Below the branch, so the successful POST -- which returned above and needs
-    # none of this -- does not pay for three capacity counts it will not read.
+    # none of this -- does not pay for capacity counts it will not read.
+    #
+    # A bound form carries the gender the member just chose even though nothing
+    # persisted it: that write lives on the valid branch, under the lock (see
+    # `submitted_gender` there). Reading the profile alone would leave them
+    # genderless here, fall back to "is every pool full?", and answer no --
+    # promising a seat to someone whose chosen pool is full, which the corrected
+    # resubmit then waitlists. #866, one unrelated field error away.
+    submitted_gender = ""
+    if form.is_bound:
+        submitted_gender = (getattr(form, "cleaned_data", None) or {}).get("gender")
+
     _pools, _user_pool, registration_will_waitlist, waitlist_reason = (
-        _registration_outlook(event, profile)
+        _registration_outlook(event, profile, gender=submitted_gender)
     )
 
     context = {

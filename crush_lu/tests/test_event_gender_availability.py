@@ -638,6 +638,76 @@ class WaitlistCtaSurvivesAValidationErrorTests(GenderPoolAvailabilityTestBase):
         response = self._post_invalid_htmx()
         self.assertNotContains(response, "You will be added to the waitlist")
 
+    def _create_genderless_viewer(self):
+        from crush_lu.models import CrushProfile
+
+        viewer = self._create_user("viewer@test.com")
+        CrushProfile.objects.create(
+            user=viewer,
+            date_of_birth=date(1995, 1, 1),
+            gender="",
+            location="Luxembourg",
+        )
+        return viewer
+
+    def _post_invalid_htmx_choosing(self, gender):
+        return self.client.post(
+            f"/en/events/{self.event.id}/register/",
+            {"bringing_guest": "on", "guest_name": "", "gender": gender},
+            HTTP_HX_REQUEST="true",
+        )
+
+    def test_the_gender_just_chosen_is_used_even_though_nothing_saved_it(self):
+        """The write lives on the valid branch, under the lock -- so after a
+        validation error the profile is still genderless while the resubmit will
+        pool-check the choice. Reading the profile alone fell back to "is every
+        pool full?", answered no, and promised a seat the retry refuses."""
+        self._set_caps(1, 4, 0)  # men's pool full, women's wide open
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_genderless_viewer()
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx_choosing("M")
+        # Nothing persisted it -- the profile is still genderless ...
+        viewer.crushprofile.refresh_from_db()
+        self.assertEqual(viewer.crushprofile.gender, "")
+        # ... and not every pool is full, so the old fallback said "register".
+        self.assertFalse(self.event.is_full)
+        self.assertTrue(response.context["registration_will_waitlist"])
+        self.assertEqual(response.context["registration_waitlist_reason"], "pool")
+        self.assertContains(response, "Join Waitlist")
+        self.assertContains(response, "Your gender group is full")
+
+    def test_choosing_a_pool_with_room_still_offers_the_seat(self):
+        """The other direction: the override must not blanket-waitlist."""
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_genderless_viewer()
+        self.client.force_login(viewer)
+
+        response = self._post_invalid_htmx_choosing("F")
+        self.assertFalse(response.context["registration_will_waitlist"])
+        self.assertContains(response, "Confirm Registration")
+        self.assertNotContains(response, "Join Waitlist")
+
+    def test_the_cta_matches_what_the_corrected_resubmit_does(self):
+        """End to end: fix the guest name, resubmit, and the seat outcome must
+        be the one the partial promised."""
+        self._set_caps(1, 4, 0)
+        self._register(self._create_user_with_profile("m1@test.com", "M"))
+        viewer = self._create_genderless_viewer()
+        self.client.force_login(viewer)
+
+        self.assertContains(self._post_invalid_htmx_choosing("M"), "Join Waitlist")
+        self.client.post(
+            f"/en/events/{self.event.id}/register/",
+            {"bringing_guest": "on", "guest_name": "Guest", "gender": "M"},
+        )
+        from crush_lu.models import EventRegistration
+
+        registration = EventRegistration.objects.get(event=self.event, user=viewer)
+        self.assertEqual(registration.status, "waitlist")
+
     def test_seatable_member_keeps_the_register_button(self):
         """The other direction, so the fix cannot be "always say waitlist"."""
         self._set_caps(4, 4, 0)
