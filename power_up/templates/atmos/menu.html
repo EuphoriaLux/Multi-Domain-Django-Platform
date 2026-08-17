@@ -1,0 +1,55 @@
+{% extends "atmos/base.html" %}
+{% block title %}Drink Menu{% endblock %}
+{% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block content %}
+<div class="tag" style="margin-bottom: 0.75rem;">
+  <span class="tag-badge">🍸 {{ guest.display }}</span>
+  <span class="tag-badge tag-badge-ghost">📍 Table {{ guest.tab.table.label }}</span>
+</div>
+
+<h1>{{ guest.venue.name }}</h1>
+<p class="tag" style="margin-bottom: 1.5rem;">Select drinks to add to your table's round.</p>
+
+{% for category in categories %}
+  <div class="cat-title">{{ category.name }}</div>
+  <div class="panel" style="padding: 0.5rem 1.15rem;">
+    {% for item in category.items.all %}
+      {% if item.is_available %}
+      <div class="item-row">
+        <div class="item-info">
+          <div class="item-name">
+            {{ item.name }}
+            {% if item.contains_alcohol %}<span class="tag-badge-ghost" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px;">18+</span>{% endif %}
+          </div>
+          {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
+          {% if item.allergens %}<div class="item-desc" style="color: var(--muted);">⚠️ Contains: {{ item.allergens }}</div>{% endif %}
+        </div>
+        <form method="post" action="{% url 'atmos:cart_add' %}" class="qty-form">
+          {% csrf_token %}
+          <input type="hidden" name="item_id" value="{{ item.id }}">
+          <span class="price">{{ guest.venue.currency_symbol }}{{ item.price }}</span>
+          <input type="number" name="quantity" value="1" min="1" max="9" aria-label="Quantity">
+          <button class="btn btn-small" type="submit">+ Add</button>
+        </form>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% empty %}
+  <div class="panel" style="text-align: center; padding: 2rem 1rem;">
+    <p class="muted">The bar menu is currently being updated. Please check with your barkeeper.</p>
+  </div>
+{% endfor %}
+
+<div class="cart-fab">
+  <a class="btn" href="{% url 'atmos:cart_detail' %}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.95rem 1.25rem;">
+    <span style="display: flex; align-items: center; gap: 0.5rem;">
+      <span>🍸 View Round</span>
+      {% if cart_count %}
+        <span style="background: rgba(0,0,0,0.25); padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700;">{{ cart_count }} item{{ cart_count|pluralize }}</span>
+      {% endif %}
+    </span>
+    <span>Review & Order →</span>
+  </a>
+</div>
+{% endblock %}

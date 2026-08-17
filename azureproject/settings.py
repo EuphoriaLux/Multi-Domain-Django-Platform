@@ -150,6 +150,7 @@ INSTALLED_APPS = [
     "power_up.finops",  # FinOps Hub - Azure cost analytics (submodule)
     "power_up.crm",  # CRM - Customer relationship management (submodule)
     "power_up.onboarding",  # Onboarding - Customer onboarding email builder (submodule)
+    "power_up.atmos",  # Atmos - QR bar ordering prototype (submodule)
     "tableau",  # AI Art e-commerce site for tableau.lu
     "arborist",  # Tree care informational site for arborist.lu
     "hub",  # JSON API for hub.crush.lu SPA (served on api.crush.lu)

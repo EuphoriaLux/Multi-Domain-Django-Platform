@@ -1,0 +1,91 @@
+{% extends "atmos/base.html" %}
+{% load l10n %}
+{% block title %}Your Round{% endblock %}
+{% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block content %}
+<div class="tag" style="margin-bottom: 0.75rem;">
+  <span class="tag-badge">🍸 {{ guest.display }}</span>
+  <span class="tag-badge tag-badge-ghost">📍 Table {{ guest.tab.table.label }}</span>
+</div>
+
+<h1>Review Your Round</h1>
+<p class="tag" style="margin-bottom: 1.5rem;">Check your drinks before sending them to the bar.</p>
+
+{% if unavailable_names %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
+  ⚠️ <strong>The bar just 86'd:</strong> {{ unavailable_names|join:", " }} — your round wasn't sent. Update the quantity to 0 to remove {% if unavailable_names|length > 1 %}them{% else %}it{% endif %}, then try again.
+</div>
+{% endif %}
+
+{% if price_changed %}
+<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
+  ⚠️ <strong>The menu changed:</strong> your round wasn't sent. Review the refreshed drinks and total before trying again.
+</div>
+{% endif %}
+
+{% if lines %}
+<div class="panel">
+  {% for line in lines %}
+  <div class="item-row">
+    <div class="item-info">
+      <div class="item-name">{{ line.item.name }}</div>
+      {% if line.item.allergens %}<div class="muted" style="font-size: 0.78rem;">⚠️ Contains: {{ line.item.allergens }}</div>{% endif %}
+      {% if not line.is_orderable %}
+      <div style="color: #fca5a5; font-size: 0.8rem; margin-top: 0.25rem;">Unavailable — set quantity to 0 to remove</div>
+      {% endif %}
+      <form method="post" action="{% url 'atmos:cart_update' %}" class="qty-form" style="margin-top: 0.45rem;">
+        {% csrf_token %}
+        <input type="hidden" name="item_id" value="{{ line.item.id }}">
+        <span class="muted" style="font-size: 0.8rem;">Qty:</span>
+        <input type="number" name="quantity" value="{{ line.quantity }}" min="0" max="9" aria-label="Quantity">
+        <button class="btn btn-small btn-ghost" type="submit">Update</button>
+      </form>
+    </div>
+    <div class="price" style="font-size: 1.05rem;">{% if line.is_orderable %}{{ guest.venue.currency_symbol }}{{ line.line_total }}{% else %}—{% endif %}</div>
+  </div>
+  {% endfor %}
+  
+  <div class="item-row" style="border-bottom: none; margin-top: 0.75rem; padding-top: 1rem; border-top: 1px dashed var(--line);">
+    <div style="font-size: 1.1rem; font-weight: 700; color: var(--ink);">Total for this round</div>
+    <div class="price" style="font-size: 1.35rem; font-weight: 700; color: var(--gold-light);">{{ guest.venue.currency_symbol }}{{ total }}</div>
+  </div>
+</div>
+
+<div style="background: rgba(212, 175, 55, 0.06); border: 1px solid var(--line-gold); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.45;">
+  🍸 <strong>Pay on delivery:</strong> Your round goes straight to the bar's screen and the team starts mixing right away. Pay your server when served or settle the table tab at the counter.
+</div>
+
+<form method="post" action="{% url 'atmos:order_place' %}">
+  {% csrf_token %}
+  <!-- Machine-readable, not display: must stay period-decimal ("12.50")
+       regardless of the visitor's locale so order_place()'s Decimal()
+       parse can read it back. The displayed total above stays localized
+       — only this round-trip value needs localization turned off below.
+       (Deliberately not written as the literal tag text in this comment —
+       Django's template parser doesn't respect HTML comment syntax, so a
+       literal "curly-percent localize off curly-percent" written here as
+       prose would itself open an unclosed block, exactly the bug this
+       fix is for.) -->
+  {% localize off %}<input type="hidden" name="expected_total" value="{{ total }}">{% endlocalize %}
+  <!-- Content fingerprint of what's actually being reviewed (item ids, qty,
+       price, AND name) — expected_total alone can't catch a same-priced
+       rename between review and placement. See _order_signature() and
+       _create_order_atomic() in views.py. -->
+  <input type="hidden" name="expected_signature" value="{{ cart_signature }}">
+  <input type="hidden" name="expected_currency" value="{{ guest.venue.currency }}">
+  <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
+</form>
+
+{% else %}
+<div class="panel" style="text-align: center; padding: 2.5rem 1.5rem;">
+  <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🍸</div>
+  <h2 style="margin-bottom: 0.5rem;">Your round is empty</h2>
+  <p class="muted" style="margin-bottom: 1.5rem;">Add some drinks from the menu to get started.</p>
+  <a class="btn" href="{% url 'atmos:guest_menu' %}">Browse Drink Menu →</a>
+</div>
+{% endif %}
+
+<p style="margin-top: 1.5rem; text-align: center;">
+  <a href="{% url 'atmos:guest_menu' %}" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem;">← Back to menu</a>
+</p>
+{% endblock %}

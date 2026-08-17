@@ -154,3 +154,4 @@ power_up_admin_site = PowerUpAdminSite(name="power_up_admin")
 from power_up.finops import admin as finops_admin  # noqa: F401, E402
 from power_up.crm import admin as crm_admin  # noqa: F401, E402
 from power_up.onboarding import admin as onboarding_admin  # noqa: F401, E402
+from power_up.atmos import admin as atmos_admin  # noqa: F401, E402

@@ -1,0 +1,42 @@
+{% extends "atmos/base.html" %}
+{% block title %}Join Table {{ tab.table.label }}{% endblock %}
+{% block venue_name %}{{ tab.venue.name }}{% endblock %}
+{% block content %}
+<div class="tag-badge" style="margin-bottom: 0.5rem;">📍 Table {{ tab.table.label }}</div>
+<h1>Welcome to {{ tab.venue.name }}</h1>
+<p class="tag">What should we shout when your drinks are ready?</p>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<div class="panel panel-gold" style="text-align: center; padding: 1.5rem 1.25rem;">
+  <span class="tag-badge" style="margin-bottom: 0.25rem;">🎲 Tonight's Persona</span>
+  <h2 style="font-size: 1.65rem; color: var(--gold-light); margin: 0.6rem 0 1.25rem; letter-spacing: -0.01em; line-height: 1.25;">{{ rolled_alias }}</h2>
+  
+  <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
+      <button class="btn" type="submit">That's me, enter bar →</button>
+    </form>
+    <a class="btn btn-ghost" href="{% url 'atmos:guest_join' %}">🎲 Roll another persona</a>
+  </div>
+</div>
+
+<div style="margin: 2rem 0 1rem; position: relative; text-align: center;">
+  <div style="height: 1px; background: var(--line); position: absolute; top: 50%; left: 0; right: 0;"></div>
+  <span style="position: relative; background: var(--bg); padding: 0 0.85rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim);">or enter your name</span>
+</div>
+
+<div class="panel" style="padding: 1.25rem;">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
+    <input type="text" name="display_name" placeholder="Your name or nickname" maxlength="20" autocomplete="off" autocorrect="off" style="margin-bottom: 0.75rem;">
+    <button class="btn btn-ghost" type="submit">Use this name</button>
+  </form>
+</div>
+
+<p class="muted" style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--dim-subtle);">
+  🔒 Anonymous & temporary · Session cleared at close of night
+</p>
+{% endblock %}
