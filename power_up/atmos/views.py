@@ -102,7 +102,11 @@ def _join_rate_limited(request, tab_id) -> bool:
     except ValueError:
         # incr() raises when the key doesn't exist yet (first hit this
         # window) — set it directly instead of racing a separate has-key
-        # check against a concurrent request doing the same thing.
+        # check against a concurrent request doing the same thing. Two
+        # requests can still both land here on the very first hit and both
+        # call set(1), losing one increment — acceptable for a soft
+        # anti-abuse throttle (not a hard security boundary), and no worse
+        # than the fixed-window's usual boundary slop.
         cache.set(key, 1, timeout=_JOIN_RATE_WINDOW_SECONDS)
         count = 1
     return count > _JOIN_RATE_LIMIT
