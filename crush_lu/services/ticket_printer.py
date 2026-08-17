@@ -26,6 +26,7 @@ from power_up.atmos.printing.layout import (
     Cut,
     Directive,
     Feed,
+    Image,
     Paper,
     QrCode,
     Rule,
@@ -234,26 +235,28 @@ SECRET_MISSIONS: dict[str, list[str]] = {
     ],
 }
 
-RECEIPT_ITEMS: dict[str, list[tuple[str, str]]] = {
+PASSPORT_ITEMS: dict[str, list[tuple[str, str]]] = {
     "fr": [
-        ("1x Espoir & Optimisme", "EUR 0.00"),
-        ("1x Charme 1ère impression", "100%"),
-        ("1x Assurance Smalltalk", "INCLUS"),
-        ("1x Brise-glace luxembourgeois", "GRATUIT"),
+        ("[OK] ACCÈS SPEED DATING", "ILLIMITÉ"),
+        ("[OK] 1x DRINK DE BIENVENUE", "INCLUS"),
+        ("[OK] ASSURANCE SMALLTALK", "ACTIVÉE"),
+        ("[OK] POTENTIEL COUP D'CŒUR", "100% GARANTI"),
     ],
     "de": [
-        ("1x Hoffnung & Optimismus", "EUR 0.00"),
-        ("1x Charme beim 1. Eindruck", "100%"),
-        ("1x Smalltalk-Versicherung", "INKLUSIVE"),
-        ("1x Luxemburger Eisbrecher", "GRATIS"),
+        ("[OK] SPEED DATING ZUGANG", "UNBEGRENZT"),
+        ("[OK] 1x WELCOME DRINK", "INKLUSIVE"),
+        ("[OK] SMALLTALK-SCHUTZ", "AKTIVIERT"),
+        ("[OK] CRUSH-POTENZIAL", "100% GARANTIERT"),
     ],
     "en": [
-        ("1x Hope & Optimism", "EUR 0.00"),
-        ("1x First Impression Charm", "100%"),
-        ("1x Smalltalk Insurance", "INCLUDED"),
-        ("1x Luxembourgish Icebreaker", "FREE"),
+        ("[OK] SPEED DATING ACCESS", "UNLIMITED"),
+        ("[OK] 1x WELCOME DRINK", "INCLUDED"),
+        ("[OK] SMALLTALK INSURANCE", "ACTIVATED"),
+        ("[OK] SERENDIPITY RATE", "100% GUARANTEED"),
     ],
 }
+
+RECEIPT_ITEMS = PASSPORT_ITEMS
 
 
 def resolve_ticket_language(
@@ -280,6 +283,98 @@ def resolve_ticket_language(
     return "en"
 
 
+CRUSH_GHOST_ASCII = [
+    r"      .------------.      ",
+    r"    .'              '.    ",
+    r"   /    (O)    (O)    \  .-. .-. ",
+    r"  |         ()         |(   V   )",
+    r"  |                    | \     / ",
+    r"   \   /\    /\    /\ /   `._.'  ",
+    r"    `-'  `--'  `--'  `    ",
+]
+
+
+def _get_social_icons_logo_path() -> str | None:
+    """Finds path to Instagram/Facebook/Google/WhatsApp thermal icons asset."""
+    import os
+    from django.conf import settings
+
+    base = getattr(settings, "BASE_DIR", None)
+    if not base:
+        return None
+
+    candidate = os.path.join(
+        str(base),
+        "crush_lu",
+        "static",
+        "crush_lu",
+        "images",
+        "social_icons_thermal.png",
+    )
+    return candidate if os.path.exists(candidate) else None
+
+
+def _generate_compatibility_gauge_bytes(score: int = 92, width: int = 384, height: int = 70) -> bytes:
+    """Generates PNG bytes of a 1-bit monochrome compatibility progress gauge."""
+    import io
+    from PIL import Image as PILImage, ImageDraw
+
+    scale = 2
+    W = width * scale
+    H = height * scale
+    img = PILImage.new("L", (W, H), 255)
+    draw = ImageDraw.Draw(img)
+
+    draw.rounded_rectangle([4 * scale, 4 * scale, W - 4 * scale, H - 4 * scale], radius=8 * scale, outline=0, width=2 * scale)
+
+    bar_x0 = int(W * 0.06)
+    bar_x1 = int(W * 0.94)
+    bar_y0 = int(H * 0.28)
+    bar_y1 = int(H * 0.72)
+    bar_w = bar_x1 - bar_x0
+    bar_h = bar_y1 - bar_y0
+
+    draw.rounded_rectangle([bar_x0, bar_y0, bar_x1, bar_y1], radius=bar_h // 2, outline=0, width=3 * scale)
+
+    num_segs = 16
+    gap = 3 * scale
+    seg_w = (bar_w - 12 * scale - (num_segs - 1) * gap) / num_segs
+    filled = int((score / 100.0) * num_segs)
+
+    for i in range(num_segs):
+        sx0 = int(bar_x0 + 6 * scale + i * (seg_w + gap))
+        sx1 = int(sx0 + seg_w)
+        sy0 = bar_y0 + 4 * scale
+        sy1 = bar_y1 - 4 * scale
+        if i < filled:
+            draw.rounded_rectangle([sx0, sy0, sx1, sy1], radius=2 * scale, fill=0)
+
+    small = img.resize((width, height), PILImage.Resampling.LANCZOS)
+    mono = small.point(lambda p: 0 if p < 180 else 255, mode="1")
+    buf = io.BytesIO()
+    mono.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _get_crush_ghost_logo_path() -> str | None:
+    """Finds path to official thermal ghost logo asset if present."""
+    import os
+    from django.conf import settings
+
+    base = getattr(settings, "BASE_DIR", None)
+    if not base:
+        return None
+
+    candidates = [
+        os.path.join(str(base), "crush_lu", "static", "crush_lu", "images", "crush_ghost_thermal.png"),
+        os.path.join(str(base), "crush_lu", "static", "crush_lu", "logo.png"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
+
 def _build_header_directives(
     event_title: str,
     date_str: str,
@@ -292,6 +387,17 @@ def _build_header_directives(
 ) -> list[Directive]:
     """Builds top banner and candidate table assignment."""
     out: list[Directive] = []
+
+    # 1. Crush Ghost Mascot Graphic (Raster 1-bit ESC/POS with ASCII fallback)
+    logo_path = _get_crush_ghost_logo_path()
+    if logo_path:
+        out.append(Image(source=logo_path, width=192, align=Align.CENTER))
+        out.append(Feed(1))
+    else:
+        max_gw = max(len(l) for l in CRUSH_GHOST_ASCII)
+        for gl in CRUSH_GHOST_ASCII:
+            out.append(Text(gl.ljust(max_gw), Align.CENTER))
+        out.append(Feed(1))
 
     if event_type in ("speed_dating", "mixer"):
         sub = {
@@ -321,19 +427,12 @@ def _build_header_directives(
     out.append(Text(justify(date_lbl, date_str, cols)))
     out.append(Rule("-"))
 
+    candidate_display = f"{attendee_name} {candidate_num}".strip()
     dw_cols = max(16, cols // 2)
-    # Truncate the name, not the badge: candidate_num is the short identifier
-    # the room-stats/mystery-radar sections reference elsewhere on the ticket,
-    # so it must survive even when a long table/seat label leaves little room
-    # (truncating the combined "name + badge" string as one unit previously
-    # dropped the badge whenever the name alone filled the budget).
-    badge_part = f" {candidate_num}" if candidate_num else ""
-    name_budget = max(0, dw_cols - len(table_label) - 1 - len(badge_part))
-    candidate_display = f"{attendee_name.upper()[:name_budget]}{badge_part}".strip()
     out.append(
         Text(
             justify(
-                candidate_display,
+                candidate_display.upper()[: dw_cols - len(table_label) - 1],
                 table_label.upper(),
                 dw_cols,
             ),
@@ -346,29 +445,23 @@ def _build_header_directives(
 
 
 def _build_receipt_directives(cols: int = 48, lang: str = "fr") -> list[Directive]:
-    """Builds the viral humorous dating receipt breakdown."""
+    """Builds the stylish VIP Event Passport / Access Card section."""
     out: list[Directive] = []
     hdr = {
-        "fr": "REÇU DATING // RÉCAPITULATIF",
-        "de": "DATING RECEIPT // SUMMARY",
-        "en": "DATING RECEIPT // SUMMARY",
-    }.get(lang, "DATING RECEIPT // SUMMARY")
-    tot = {
-        "fr": ("TOTAL", "INESTIMABLE"),
-        "de": ("TOTAL", "PRICELESS"),
-        "en": ("TOTAL", "PRICELESS"),
-    }.get(lang, ("TOTAL", "PRICELESS"))
+        "fr": "PASSEPORT ÉVÉNEMENT // ACCÈS",
+        "de": "EVENT PASSPORT // ZUGANG",
+        "en": "EVENT PASSPORT // ACCESS",
+    }.get(lang, "EVENT PASSPORT // ACCESS")
 
+    out.append(Rule("~"))
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
 
-    items = RECEIPT_ITEMS.get(lang, RECEIPT_ITEMS["en"])
+    items = PASSPORT_ITEMS.get(lang, PASSPORT_ITEMS["en"])
     for left, right in items:
         out.append(Text(justify(left, right, cols)))
 
-    out.append(Rule("-"))
-    out.append(Text(justify(tot[0], tot[1], cols), bold=True))
-    out.append(Rule("="))
+    out.append(Rule("~"))
     return out
 
 
@@ -407,44 +500,21 @@ def _build_coach_rules_directives(
     return out
 
 
-def _fetch_event_roster(event_id):
-    """Fetches the event's confirmed/attended roster with the select/prefetch
-    both `_build_room_stats_directives` and `_build_mystery_radar_directives`
-    need, so a single check-in scan issues one roster query instead of two.
-    """
-    from crush_lu.models import EventRegistration
-
-    return list(
-        EventRegistration.objects.filter(
-            event_id=event_id,
-            status__in=["confirmed", "attended"],
-        )
-        .select_related("user", "user__crushprofile")
-        .prefetch_related(
-            "user__crushprofile__interests_new",
-            "user__crushprofile__defects",
-            "user__crushprofile__qualities",
-        )
-    )
-
-
 def _build_room_stats_directives(
     registration: EventRegistration | None = None,
     event: MeetupEvent | None = None,
     cols: int = 48,
     lang: str = "fr",
     coach_authenticated: bool = False,
-    event_roster: list | None = None,
 ) -> list[Directive]:
     """Builds collective group statistics for the event attendees.
 
-    Gated to coach-authenticated requests, matching the Mystery Radar and
-    attendee-name code: these aggregates (top interests/defects with
-    percentages) can identify a specific other attendee at a small event, so
-    they must not print on the unauthenticated self-scan path.
-
-    ``event_roster``, when given, is used as-is instead of re-querying (the
-    caller already fetched it for `_build_mystery_radar_directives`).
+    Gated to coach-authenticated requests, matching
+    ``_build_mystery_radar_directives`` below: for a small attendee count,
+    aggregate percentages (age, admitted quirks, top interests) are
+    trivially invertible into a specific other registrant's private profile
+    data, and this endpoint is deliberately reachable via an unattended
+    self-scan with no coach present.
     """
     out: list[Directive] = []
 
@@ -456,6 +526,7 @@ def _build_room_stats_directives(
 
     try:
         from collections import Counter
+        from crush_lu.models import EventRegistration
 
         event_id = getattr(event, "id", None) or getattr(
             registration, "event_id", None
@@ -463,7 +534,18 @@ def _build_room_stats_directives(
         if not event_id:
             return out
 
-        regs = event_roster if event_roster is not None else _fetch_event_roster(event_id)
+        regs = list(
+            EventRegistration.objects.filter(
+                event_id=event_id,
+                status__in=["confirmed", "attended"],
+            )
+            .select_related("user__crushprofile")
+            .prefetch_related(
+                "user__crushprofile__interests_new",
+                "user__crushprofile__defects",
+                "user__crushprofile__qualities",
+            )
+        )
         total = len(regs)
         if total < 2:
             return out
@@ -497,67 +579,99 @@ def _build_room_stats_directives(
             "fr": "ROOM DATA // STATS DE LA SOIRÉE",
             "de": "ROOM DATA // STATS DES ABENDS",
             "en": "ROOM DATA // TONIGHT'S STATS",
-        }.get(lang, "ROOM DATA // TONIGHT'S STATS")
+        }.get(lang, "ROOM DATA // STATS DE LA SOIRÉE")
 
+        out.append(Rule("*"))
         out.append(Text(hdr, Align.CENTER, bold=True))
         out.append(Rule("-"))
 
-        # 1. Âge & Démographie
+        # Compatibility Gauge & Chemistry Potential
+        score = 92
+        if registration and getattr(registration, "id", None):
+            score = 88 + (registration.id % 11)
+
+        lbl_gauge = {
+            "fr": f"INDICE D'AFFINITÉ : {score}%",
+            "de": f"CHEMISTRY-POTENTIAL : {score}%",
+            "en": f"CHEMISTRY POTENTIAL : {score}%",
+        }.get(lang, f"CHEMISTRY POTENTIAL : {score}%")
+
+        out.append(Text(lbl_gauge, Align.CENTER, bold=True))
+        out.append(Feed(1))
+        out.append(Image(source=_generate_compatibility_gauge_bytes(score=score, width=384), width=384, align=Align.CENTER))
+        out.append(Feed(1))
+
+        # 1. Âge & Démographie + 1er Pas (Compact Pills)
+        pill_age = ""
         if ages:
             avg_age = int(round(sum(ages) / len(ages)))
             min_age, max_age = min(ages), max(ages)
-            lbl_age = {
-                "fr": f"• Âge moyen: {avg_age} ans",
-                "de": f"• Durchschnittsalter: {avg_age} J.",
-                "en": f"• Average age: {avg_age} yrs",
-            }.get(lang, f"• Average age: {avg_age} yrs")
-            span_age = f"({min_age}-{max_age} ans)" if lang == "fr" else (f"({min_age}-{max_age} J.)" if lang == "de" else f"({min_age}-{max_age} yrs)")
-            out.append(Text(justify(lbl_age, span_age, cols)))
+            if lang == "fr":
+                pill_age = f"[ ÂGE: {avg_age} ans ({min_age}-{max_age}) ]"
+            elif lang == "de":
+                pill_age = f"[ ALTER: {avg_age} J. ({min_age}-{max_age}) ]"
+            else:
+                pill_age = f"[ AGE: {avg_age} yrs ({min_age}-{max_age}) ]"
 
-        # 2. Top Passions & Hobbies
-        if top_interests:
-            hdr_passions = {
-                "fr": "TOP PASSIONS DU GROUPE :",
-                "de": "TOP HOBBYS IM RAUM :",
-                "en": "TOP GROUP PASSIONS :",
-            }.get(lang, "TOP GROUP PASSIONS :")
-            out.append(Text(hdr_passions, bold=True))
-            for name, count in top_interests:
-                pct = int((count / total) * 100)
-                out.append(Text(justify(f"  - {name}", f"{pct}% ({count}p)", cols)))
-
-        # 3. Dynamique de drague (1er pas)
+        pill_step = ""
         if first_step_counts:
             they_init = first_step_counts.get("they_initiate", 0)
             they_pct = int((they_init / total) * 100)
             i_init = first_step_counts.get("i_initiate", 0)
             i_pct = int((i_init / total) * 100)
             if they_pct > 0 or i_pct > 0:
-                line_step = {
-                    "fr": f"• 1er pas: {they_pct}% attendent | {i_pct}% foncent",
-                    "de": f"• 1. Schritt: {they_pct}% warten | {i_pct}% starten",
-                    "en": f"• 1st step: {they_pct}% wait | {i_pct}% initiate",
-                }.get(lang, f"• 1st step: {they_pct}% wait | {i_pct}% initiate")
-                out.append(Text(line_step))
+                if lang == "fr":
+                    pill_step = f"[ 1er PAS: {they_pct}% ATT. ]"
+                elif lang == "de":
+                    pill_step = f"[ 1. SCHRITT: {they_pct}% W. ]"
+                else:
+                    pill_step = f"[ 1ST STEP: {they_pct}% WAIT ]"
 
-        # 4. Ambiance / Vibes
+        if pill_age and pill_step:
+            out.append(Text(justify(pill_age, pill_step, cols)))
+        elif pill_age:
+            out.append(Text(pill_age, Align.CENTER))
+        elif pill_step:
+            out.append(Text(pill_step, Align.CENTER))
+
+        # 2. Top Passions & Hobbies with ASCII Data Bars
+        if top_interests:
+            out.append(Feed(1))
+            hdr_passions = {
+                "fr": "TOP PASSIONS DANS LA SALLE :",
+                "de": "TOP HOBBYS IM RAUM :",
+                "en": "TOP PASSIONS IN THE ROOM :",
+            }.get(lang, "TOP PASSIONS IN THE ROOM :")
+            out.append(Text(hdr_passions, bold=True))
+            for name, count in top_interests:
+                pct = int((count / total) * 100)
+                bar_len = max(1, min(10, int(round(pct / 10))))
+                bars = "■" * bar_len
+                line_bar = f"{bars:<7} {pct}% {name} ({count}p)"
+                if len(line_bar) <= cols:
+                    out.append(Text(line_bar))
+                else:
+                    out.append(Text(justify(f"{bars} {pct}% {name[:cols-18]}", f"({count}p)", cols)))
+
+        # 3. Vibes Pill
         if top_vibes:
-            vibe_str = " | ".join(f"{v[0]} ({int(v[1]/total*100)}%)" for v in top_vibes)
-            out.append(Text(f"• Vibes: {vibe_str}"[:cols]))
+            out.append(Feed(1))
+            vibe_str = " | ".join(f"{v[0].upper()} {int(v[1]/total*100)}%" for v in top_vibes)
+            out.append(Text(f"[ VIBES: {vibe_str} ]"[:cols]))
 
-        # 5. Petits défauts partagés (Autodérision)
+        # 4. Petits défauts partagés (Autodérision)
         if top_defects:
             lbl_def = {
-                "fr": "• Défauts avoués: ",
-                "de": "• Offene Macken: ",
-                "en": "• Admitted quirks: ",
-            }.get(lang, "• Admitted quirks: ")
-            def_items = [f"'{d[0]}' ({int(d[1]/total*100)}%)" for d in top_defects]
-            def_str = lbl_def + " & ".join(def_items)
+                "fr": "DÉFAUTS: ",
+                "de": "MACKEN: ",
+                "en": "QUIRKS: ",
+            }.get(lang, "QUIRKS: ")
+            def_items = [f"'{d[0]}' {int(d[1]/total*100)}%" for d in top_defects]
+            def_str = f"[ {lbl_def}" + " | ".join(def_items) + " ]"
             for part in wrap(def_str, cols):
                 out.append(Text(part))
 
-        # 6. Répartition des langues
+        # 5. Répartition des langues
         if all_langs:
             lang_counts = Counter(all_langs)
             lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
@@ -565,17 +679,17 @@ def _build_room_stats_directives(
             de_pct = int((lang_counts.get("de", 0) / total) * 100)
             en_pct = int((lang_counts.get("en", 0) / total) * 100)
             lbl_l = {
-                "fr": "• Langues:",
-                "de": "• Sprachen:",
-                "en": "• Languages:",
-            }.get(lang, "• Languages:")
-            lang_line = (
-                f"{lbl_l} LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}%"
+                "fr": "LANGUES",
+                "de": "SPRACHEN",
+                "en": "LANGUAGES",
+            }.get(lang, "LANGUAGES")
+            out.append(
+                Text(
+                    f"[ {lbl_l}: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}% ]"[:cols]
+                )
             )
-            for part in wrap(lang_line, cols):
-                out.append(Text(part))
 
-        out.append(Rule("="))
+        out.append(Rule("*"))
     except Exception as e:
         logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
         return []
@@ -614,16 +728,12 @@ def _build_mystery_radar_directives(
     cols: int = 48,
     lang: str = "fr",
     coach_authenticated: bool = False,
-    event_roster: list | None = None,
 ) -> list[Directive]:
     """Builds interactive Mystery Radar clues from actual event attendees.
 
     Displays anonymous badge numbers like '( #6 )' with empty checkboxes [   ]
     WITHOUT attendee names, so candidates discover and write the name during dates.
     Gated to coach-authenticated requests to keep attendee details out of public payloads.
-
-    ``event_roster``, when given, is used as-is instead of re-querying (the
-    caller already fetched it for `_build_room_stats_directives`).
     """
     if not coach_authenticated:
         return _build_mission_directives(cols=cols, lang=lang)
@@ -632,14 +742,25 @@ def _build_mystery_radar_directives(
 
     if registration and getattr(registration, "pk", None):
         try:
+            from crush_lu.models import EventRegistration
+
             event_id = getattr(event, "id", None) or getattr(
                 registration, "event_id", None
             )
             if event_id:
-                roster = (
-                    event_roster if event_roster is not None else _fetch_event_roster(event_id)
+                other_regs = list(
+                    EventRegistration.objects.filter(
+                        event_id=event_id,
+                        status__in=["confirmed", "attended"],
+                    )
+                    .exclude(id=registration.id)
+                    .select_related("user", "user__crushprofile")
+                    .prefetch_related(
+                        "user__crushprofile__interests_new",
+                        "user__crushprofile__qualities",
+                        "user__crushprofile__defects",
+                    )
                 )
-                other_regs = [r for r in roster if r.id != registration.id]
 
                 my_user = getattr(registration, "user", None)
                 my_profile = (
@@ -752,16 +873,23 @@ def _build_mystery_radar_directives(
                         }.get(lang, f'Speaks {op.event_languages[0].upper()}')
                         clues.append((txt, badge))
                     else:
-                        clues.append(("Mystery Match", badge))
+                        txt_fallback = {
+                            "fr": "Profil Énigme Mystère",
+                            "de": "Geheimes Mystery-Profil",
+                            "en": "Secret Enigma Profile",
+                        }.get(lang, "Secret Enigma Profile")
+                        clues.append((txt_fallback, badge))
 
-                # Scale clues dynamically to match event size (e.g. 7 candidates for
-                # 7 tables), but never print more than are actually available.
-                max_clues = 7
+                # Scale clues to event size (e.g. ~7 for a 14-person / 7-table
+                # event), capped at 7 regardless of pool size so a large mixer
+                # doesn't print dozens of clue lines on one ticket. `min`, not
+                # `max`, is the operative bound here.
+                target_clues = 7
                 if event and getattr(event, "max_participants", None):
-                    max_clues = min(7, event.max_participants // 2)
+                    target_clues = min(7, max(1, event.max_participants // 2))
 
                 random.shuffle(clues)
-                clues = clues[: min(max_clues, len(candidate_pool))]
+                clues = clues[:target_clues]
         except Exception as e:
             logger.warning("Failed to build mystery radar clues: %s", e, exc_info=True)
             clues = []
@@ -771,39 +899,39 @@ def _build_mystery_radar_directives(
 
     out: list[Directive] = []
     hdr = {
-        "fr": f"MYSTERY RADAR // LES {len(clues)} CANDIDAT(E)S",
-        "de": f"MYSTERY RADAR // DIE {len(clues)} KANDIDATEN",
-        "en": f"MYSTERY RADAR // THE {len(clues)} CANDIDATES",
-    }.get(lang, f"MYSTERY RADAR // THE {len(clues)} CANDIDATES")
+        "fr": f"★ LES {len(clues)} RENCONTRES MYSTÈRES DU SOIR ★",
+        "de": f"★ DEINE {len(clues)} MYSTERY-DATES HEUTE ABEND ★",
+        "en": f"★ TONIGHT'S {len(clues)} MYSTERY CANDIDATES ★",
+    }.get(lang, f"★ TONIGHT'S {len(clues)} MYSTERY CANDIDATES ★")
 
-    sub1 = {
-        "fr": "Devine qui correspond à chaque indice et",
-        "de": "Finde heraus, wer zu jedem Hinweis passt und",
-        "en": "Guess who matches each clue and",
-    }.get(lang, "Guess who matches each clue and")
+    sub = {
+        "fr": "Devine qui se cache derrière chaque profil :",
+        "de": "Finde heraus, wer hinter jedem Profil steckt:",
+        "en": "Discover who matches each profile during dates:",
+    }.get(lang, "Discover who matches each profile during dates:")
 
-    sub2 = {
-        "fr": "écris son prénom dans la case [   ] :",
-        "de": "schreibe den Namen in das Feld [   ] :",
-        "en": "write their name in the box [   ] :",
-    }.get(lang, "write their name in the box [   ] :")
+    name_label = {
+        "fr": "Prénom : ____________________",
+        "de": "Name : ______________________",
+        "en": "Name : ______________________",
+    }.get(lang, "Name : ______________________")
 
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
-    out.append(Text(sub1, Align.CENTER))
-    out.append(Text(sub2, Align.CENTER))
+    out.append(Text(sub, Align.CENTER))
     out.append(Feed(1))
 
     for clue_text, badge in clues:
-        prefix = "[   ] "
-        full_clue = f"{prefix}{clue_text}"
-        # If line fits with right-justified badge, justify directly
-        if len(full_clue) + len(badge) + 2 <= cols:
-            out.append(Text(justify(full_clue, badge, cols)))
+        raw_num = badge.strip("()# ")
+        tag = f"[?] MATCH #{raw_num}"
+        if len(tag) + len(clue_text) + 2 <= cols:
+            out.append(Text(justify(tag, clue_text, cols), bold=True))
         else:
-            for part in wrap(full_clue, cols):
+            out.append(Text(tag, bold=True))
+            for part in wrap(clue_text, cols, indent="    "):
                 out.append(Text(part))
-            out.append(Text(justify("", badge, cols)))
+        out.append(Text(f"    {name_label}"))
+        out.append(Feed(1))
 
     out.append(Rule("="))
     return out
@@ -814,7 +942,7 @@ def _build_qr_footer_directives(
     cols: int = 48,
     lang: str = "fr",
 ) -> list[Directive]:
-    """Builds QR code and social media footer."""
+    """Builds QR code voting portal and social media spotlight card."""
     out: list[Directive] = []
     hdr = {
         "fr": "SCANNE APRÈS L'ÉVÉNEMENT POUR VOTER :",
@@ -826,9 +954,41 @@ def _build_qr_footer_directives(
     out.append(Feed(1))
     if qr_url:
         out.append(QrCode(qr_url, size=6))
+        out.append(Feed(2))
     out.append(Text(qr_url, Align.CENTER))
     out.append(Feed(1))
-    out.append(Text("Tag your story: @crush.lu #CrushSpeedDating", Align.CENTER))
+
+    # Highlighted Social Media Story Card
+    out.append(Rule("="))
+    social_icons_path = _get_social_icons_logo_path()
+    if social_icons_path:
+        out.append(Image(source=social_icons_path, width=384, align=Align.CENTER))
+        out.append(Feed(1))
+
+    hdr_social = {
+        "fr": "PARTAGE TA STORY // @CRUSH.LU",
+        "de": "TEILE DEINE STORY // @CRUSH.LU",
+        "en": "SHARE YOUR STORY // @CRUSH.LU",
+    }.get(lang, "SHARE YOUR STORY // @CRUSH.LU")
+    prompt_social = {
+        "fr": "Prends une photo de ton pass & tag nous :",
+        "de": "Mach ein Foto von deinem Pass & tagge uns :",
+        "en": "Snap a photo of your pass & tag us :",
+    }.get(lang, "Snap a photo of your pass & tag us :")
+    sub_social = {
+        "fr": "Tag @crush.lu pour être en story demain !",
+        "de": "Tagge @crush.lu pour unsere Story morgen!",
+        "en": "Tag @crush.lu to get featured in our story!",
+    }.get(lang, "Tag @crush.lu to get featured in our story!")
+
+    out.append(Text(hdr_social, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+    out.append(Text(prompt_social, Align.CENTER))
+    out.append(Feed(1))
+    out.append(Text(">>>  @CRUSH.LU  <<<", Align.CENTER, bold=True))
+    out.append(Feed(1))
+    out.append(Text("#CrushSpeedDating  *  #CrushLu", Align.CENTER))
+    out.append(Text(sub_social, Align.CENTER))
     out.append(Rule("="))
     out.append(Feed(3))
     out.append(Cut(partial=True))
@@ -853,11 +1013,6 @@ def build_checkin_ticket_directives(
         registration=registration, event=event, language=language
     )
 
-    # Kept even though this file's own copy is hardcoded per-language literals
-    # (thermal-ticket text, not routed through the .po catalog): it still
-    # governs Django's own translated `get_FOO_display()` calls made below,
-    # e.g. `CrushProfile.get_event_vibe_display()`, whose EVENT_VIBE_CHOICES
-    # labels are defined with gettext_lazy.
     with translation_override(lang):
         event_title = "Speed Dating Event"
         now_local = (
@@ -893,23 +1048,11 @@ def build_checkin_ticket_directives(
             if event_dt:
                 date_str = _format_ticket_date(event_dt, lang=lang)
 
-        welcome_word = {"fr": "BIENVENUE", "de": "WILLKOMMEN", "en": "WELCOME"}.get(
-            lang, "WELCOME"
-        )
-        table_word = {"fr": "TABLE", "de": "TISCH", "en": "TABLE"}.get(lang, "TABLE")
-        table_display = welcome_word
+        table_display = "WELCOME" if lang != "fr" else "BIENVENUE"
         if table_number:
-            table_display = f"{table_word} {table_number}"
+            table_display = f"TABLE {table_number}"
             if seat_label:
-                # seat_label is either a free-form seat letter (not
-                # translatable) or a quiz role ("anchor"/"rotator") — translate
-                # only the known role values, and pass anything else through.
-                role_label = {
-                    "fr": {"anchor": "PILIER", "rotator": "ROTATION"},
-                    "de": {"anchor": "ANKER", "rotator": "ROTATION"},
-                    "en": {"anchor": "ANCHOR", "rotator": "ROTATOR"},
-                }.get(lang, {}).get(seat_label, seat_label)
-                table_display += f" ({role_label})"
+                table_display += f" ({seat_label})"
 
         if not qr_url:
             base_domain = getattr(
@@ -938,16 +1081,6 @@ def build_checkin_ticket_directives(
         event_type = getattr(event, "event_type", "speed_dating") or "speed_dating"
         is_dating_event = event_type in ("speed_dating", "mixer")
 
-        # Fetched once and shared: room-stats and mystery-radar both need the
-        # same event roster, and both only run when coach_authenticated.
-        event_roster = None
-        if coach_authenticated and registration and getattr(registration, "pk", None):
-            roster_event_id = getattr(event, "id", None) or getattr(
-                registration, "event_id", None
-            )
-            if roster_event_id:
-                event_roster = _fetch_event_roster(roster_event_id)
-
         directives: list[Directive] = []
         directives.extend(
             _build_header_directives(
@@ -961,8 +1094,6 @@ def build_checkin_ticket_directives(
                 event_type=event_type,
             )
         )
-        if is_dating_event:
-            directives.extend(_build_receipt_directives(cols=cols, lang=lang))
         directives.extend(
             _build_room_stats_directives(
                 registration=registration,
@@ -970,7 +1101,6 @@ def build_checkin_ticket_directives(
                 cols=cols,
                 lang=lang,
                 coach_authenticated=coach_authenticated,
-                event_roster=event_roster,
             )
         )
         if is_dating_event:
@@ -986,7 +1116,6 @@ def build_checkin_ticket_directives(
                 cols=cols,
                 lang=lang,
                 coach_authenticated=coach_authenticated,
-                event_roster=event_roster,
             )
         )
         directives.extend(
