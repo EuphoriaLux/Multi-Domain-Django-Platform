@@ -1,0 +1,45 @@
+{% comment %}
+Per-gender seat availability for an event with active gender caps.
+
+Gender-balanced events (speed dating and friends) enforce capacity per pool,
+not against the total: `max_participants_m` / `_f` / `_nb`. Showing only the
+total tells a member seats are free that are not free for *them* -- they
+register against "4 spots left", event_register waitlists them because their
+own pool is full, and nothing on the page ever explained why (#866).
+
+Args:
+  pools      MeetupEvent.get_gender_pool_availability(): a list of dicts with
+             key / label / limit / confirmed / remaining / is_full. Empty for
+             an event without caps, so callers branch on it directly and keep
+             their total-only display.
+  user_pool  Optional. The viewing member's own row out of `pools`, or None --
+             anonymous visitors and members with no profile gender get the
+             per-pool chips but no personal line, because we cannot say which
+             pool would take them.
+{% endcomment %}
+{% load i18n %}
+<div class="flex items-center gap-1.5 flex-wrap">
+    {% for pool in pools %}
+        {% if pool.is_full %}
+            {% blocktrans asvar pool_label with name=pool.label %}{{ name }}: full{% endblocktrans %}
+            {% include "crush_lu/components/status_badge.html" with tone="danger" label=pool_label %}
+        {% elif pool.remaining <= 2 %}
+            {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+            {% include "crush_lu/components/status_badge.html" with tone="warning" label=pool_label %}
+        {% else %}
+            {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+            {% include "crush_lu/components/status_badge.html" with tone="success" label=pool_label %}
+        {% endif %}
+    {% endfor %}
+</div>
+{% if user_pool %}
+    {% if user_pool.is_full %}
+        <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+            {% trans "All spots for your gender group are taken — you can still join the waitlist." %}
+        </p>
+    {% else %}
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+            {% blocktrans count spots=user_pool.remaining %}{{ spots }} spot left for you.{% plural %}{{ spots }} spots left for you.{% endblocktrans %}
+        </p>
+    {% endif %}
+{% endif %}

@@ -515,6 +515,63 @@ class MeetupEvent(models.Model):
             return False
         return self.get_confirmed_count_for_gender(gender_code) >= limit
 
+    # Display labels for the three pools. Named here rather than in the
+    # template so the member-facing wording and the pool keys cannot drift
+    # apart, and so the admin's field verbose_names stay free to say
+    # "Max spots (Men)" without that phrasing leaking onto the event page.
+    GENDER_POOL_LABELS = {"m": _("Men"), "f": _("Women"), "nb": _("Other genders")}
+
+    def get_gender_pool_availability(self):
+        """Per-pool ``limit``/``confirmed``/``remaining``/``is_full`` rows.
+
+        Returns ``[]`` when the caps are not active, so callers can branch on
+        truthiness alone and an uncapped event keeps its total-only display.
+
+        One grouped query instead of three ``COUNT``s, because every caller
+        renders all three pools together -- the same reason the coach list
+        aggregates in a single pass (``views_coach._attach_event_gender_stats``).
+
+        Counting mirrors :meth:`get_confirmed_count_for_gender` exactly,
+        blind spots included: a seat held by someone with no ``CrushProfile``,
+        or with a gender outside ``POOL_TO_CODES``, belongs to no pool and is
+        counted in none of them. The two must agree -- this method decides what
+        the event page *shows*, and that one decides who actually gets
+        waitlisted, so a divergence would recreate the very mismatch this
+        exists to fix (#866).
+        """
+        if not self.gender_limits_active:
+            return []
+
+        # order_by() strips any default ordering: a Meta.ordering field would
+        # otherwise join the GROUP BY and split each gender into several rows.
+        counts = dict(
+            self.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
+            .order_by()
+            .values_list("user__crushprofile__gender")
+            .annotate(seats=models.Count("id"))
+        )
+
+        limits = {
+            "m": self.max_participants_m,
+            "f": self.max_participants_f,
+            "nb": self.max_participants_nb,
+        }
+        pools = []
+        for key in ("m", "f", "nb"):
+            limit = limits[key]
+            confirmed = sum(counts.get(code, 0) for code in self.POOL_TO_CODES[key])
+            pools.append(
+                {
+                    "key": key,
+                    "label": self.GENDER_POOL_LABELS[key],
+                    "limit": limit,
+                    "confirmed": confirmed,
+                    "remaining": max(0, limit - confirmed),
+                    "is_full": confirmed >= limit,
+                }
+            )
+        return pools
+
     def clean(self):
         """Validate event data before saving"""
         from django.core.exceptions import ValidationError

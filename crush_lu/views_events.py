@@ -843,9 +843,38 @@ def event_detail(request, event_id):
     # Premium (coach-assigned) members can claim reserved seats, so fullness is
     # evaluated against the full capacity for them and public capacity otherwise.
     user_is_premium = bool(user_profile and user_profile.assigned_coach_id)
-    event_full_for_user = event.is_full_for(is_premium=user_is_premium)
+    total_full_for_user = event.is_full_for(is_premium=user_is_premium)
+
+    # Per-gender availability. On a gender-balanced event capacity is enforced
+    # per pool, so a single total says seats are free that are not free for
+    # *this* member: they register against "4 spots left", get waitlisted by
+    # event_register, and nothing on the page ever said why (#866). Empty list
+    # for an uncapped event, which keeps the total-only display in the template.
+    gender_pool_availability = event.get_gender_pool_availability()
+    user_gender = getattr(user_profile, "gender", None)
+    user_gender_pool = None
+    if gender_pool_availability and user_gender:
+        user_pool_key = event.get_gender_pool(user_gender)
+        user_gender_pool = next(
+            (p for p in gender_pool_availability if p["key"] == user_pool_key),
+            None,
+        )
+    # Requiring a gender mirrors event_register's own condition: a member with
+    # no profile gender is never pool-waitlisted there, so nothing here may
+    # claim they would be.
+    user_pool_full = bool(user_gender_pool and user_gender_pool["is_full"])
+
+    # What the CTA reads to choose "Register" vs "Join Waitlist". It has to be
+    # the same disjunction event_register decides on -- that view waitlists when
+    # `total_full or gender_pool_full` -- or the button promises a seat the
+    # registration path will not hand out. Folded in here rather than at the six
+    # CTA sites so the two definitions cannot drift apart again.
+    event_full_for_user = total_full_for_user or user_pool_full
+
     # A reserved seat is available to this premium member specifically when the
-    # event is publicly full but not yet at total capacity.
+    # event is publicly full but not yet at total capacity. A full gender pool
+    # closes this too: premium buys a seat past `reserved_premium_seats`, not
+    # past a pool cap, so event_register waitlists them like everyone else.
     premium_reserved_seat_available = (
         user_is_premium
         and event.is_full_for(is_premium=False)
@@ -867,6 +896,9 @@ def event_detail(request, event_id):
         "user_profile": user_profile,
         "user_is_premium": user_is_premium,
         "event_full_for_user": event_full_for_user,
+        "gender_pool_availability": gender_pool_availability,
+        "user_gender_pool": user_gender_pool,
+        "user_pool_full": user_pool_full,
         "premium_reserved_seat_available": premium_reserved_seat_available,
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
