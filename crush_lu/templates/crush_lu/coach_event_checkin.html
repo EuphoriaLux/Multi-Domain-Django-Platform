@@ -107,8 +107,8 @@
         <div class="flex items-center gap-2">
             {# Thermal Printer Controls #}
             <button type="button" @click="togglePrinter" class="btn-sm inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors"
-                :class="printerEnabled ? 'bg-purple-50 text-crush-purple border-crush-purple/30 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-600' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'"
-                :title="printerEnabled ? '{% trans "Thermal printer active (RawBT)" %}' : '{% trans "Thermal printer disabled" %}'">
+                :class="printerButtonClass"
+                :title="printerButtonTitle">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                 </svg>
@@ -526,7 +526,9 @@ window._checkinI18n = {
     undoFailed: '{% filter escapejs %}{% trans "Could not undo this check-in" %}{% endfilter %}',
     printAction: '{% filter escapejs %}{% trans "Print" %}{% endfilter %}',
     printerOn: '{% filter escapejs %}{% trans "Printer: ON" %}{% endfilter %}',
-    printerOff: '{% filter escapejs %}{% trans "Printer: OFF" %}{% endfilter %}'
+    printerOff: '{% filter escapejs %}{% trans "Printer: OFF" %}{% endfilter %}',
+    printerActiveTitle: '{% filter escapejs %}{% trans "Thermal printer active (RawBT)" %}{% endfilter %}',
+    printerDisabledTitle: '{% filter escapejs %}{% trans "Thermal printer disabled" %}{% endfilter %}'
 };
 var _tableAssignments = {{ table_assignments_json|safe }};
 var _tableFill = {{ table_fill_json|safe }};
