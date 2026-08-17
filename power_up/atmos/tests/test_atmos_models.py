@@ -98,3 +98,31 @@ def test_tab_close_purges_removed_guest_names_too(venue):
     assert guest.display_name == ""
     assert guest.status == "removed"  # untouched — only active guests settle
     assert order.alias_snapshot == guest.alias
+
+
+@pytest.mark.django_db
+def test_tab_close_purges_stale_snapshot_with_already_blank_display_name(venue):
+    """Same race purge_stale_guest_names.py's own docstring documents: a
+    placement can commit guest.display (the personal name) into
+    Order.alias_snapshot, and display_name can already read "" by the time
+    the tab closes (staff cleared it directly, or an earlier purge already
+    ran) — a bare exclude(display_name="") would skip this guest entirely
+    and leave the personal name sitting in Order history forever."""
+    table = Table.objects.create(venue=venue, label="A1")
+    tab = Tab.objects.create(table=table, venue=venue)
+    guest = Guest.objects.create(
+        tab=tab, venue=venue, alias="The Velvet Silhouette", display_name=""
+    )
+    order = Order.objects.create(
+        guest=guest,
+        tab=tab,
+        venue=venue,
+        short_code="TA1-01",
+        alias_snapshot="Alice",  # stale personal name, display_name already "" here
+    )
+
+    tab.status = "closed"
+    tab.save(update_fields=["status"])
+
+    order.refresh_from_db()
+    assert order.alias_snapshot == guest.alias

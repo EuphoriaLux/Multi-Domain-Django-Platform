@@ -284,6 +284,7 @@ def test_join_rate_limit_survives_synchronized_burst(ordering_setup):
 
     class _BurstyRequest:
         META = {"REMOTE_ADDR": "10.0.0.1"}
+        method = "GET"
 
     thread_count = 10
     barrier = threading.Barrier(thread_count)
@@ -298,8 +299,32 @@ def test_join_rate_limit_survives_synchronized_burst(ordering_setup):
     for t in threads:
         t.join()
 
-    key = f"atmos:join_rl:10.0.0.1:{tab.id}"
+    key = f"atmos:join_rl:GET:10.0.0.1:{tab.id}"
     assert cache.get(key) == thread_count
+
+
+@pytest.mark.django_db
+def test_join_rate_limit_separates_get_and_post_buckets(ordering_setup):
+    """A venue's shared Wi-Fi IP means several guests' one-time initial-view
+    GET and confirm POST must not draw from the same budget as actual
+    reroll-spam GETs — otherwise a handful of guests joining together could
+    exhaust the limit before anyone even rerolls once."""
+    _venue, _table, tab, _guest, _category, _item = ordering_setup
+    cache.clear()
+
+    class _GetRequest:
+        META = {"REMOTE_ADDR": "10.0.0.3"}
+        method = "GET"
+
+    class _PostRequest:
+        META = {"REMOTE_ADDR": "10.0.0.3"}
+        method = "POST"
+
+    for _ in range(_JOIN_RATE_LIMIT):
+        assert _join_rate_limited(_GetRequest(), tab.id) is False
+    # The GET bucket above is now fully exhausted — a same-IP/tab POST
+    # confirmation still goes through because it draws from its own bucket.
+    assert _join_rate_limited(_PostRequest(), tab.id) is False
 
 
 @pytest.mark.django_db
@@ -311,6 +336,7 @@ def test_join_rate_limit_fails_open_on_cache_outage():
 
     class _Request:
         META = {"REMOTE_ADDR": "10.0.0.2"}
+        method = "GET"
 
     with patch("power_up.atmos.views.cache.incr", return_value=None):
         assert _join_rate_limited(_Request(), "some-tab-id") is False

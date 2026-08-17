@@ -61,13 +61,14 @@ MAX_ITEM_QTY = 9  # matches the menu form's advertised max — enforced here too
 # hand-copying "20" so the two can't drift out of sync again.
 _DISPLAY_NAME_MAX_LENGTH = Guest._meta.get_field("display_name").max_length
 
-# Per spec §7 (docs/specs/atmos-bar-ordering.md): the guest join page must
-# be rate-limited per-IP and per-tab. Before this, a single photographed QR
-# was enough to obtain the scan handoff once and then hit guest_join()
-# indefinitely — each hit runs a fresh active-alias query and full template
-# render (a new persona reroll), with nothing else in this app throttling
-# unauthenticated traffic. 20 requests/minute comfortably covers a real
-# guest mashing "reroll" a few times while still bounding sustained abuse.
+# Per spec §8.3 "Alias-roll abuse" (docs/specs/atmos-bar-ordering.md): the
+# guest join page must be rate-limited per-IP and per-tab. Before this, a
+# single photographed QR was enough to obtain the scan handoff once and
+# then hit guest_join() indefinitely — each hit runs a fresh active-alias
+# query and full template render (a new persona reroll), with nothing else
+# in this app throttling unauthenticated traffic. 20 requests/minute per
+# (IP, tab, method) bucket comfortably covers a real guest mashing "reroll"
+# a few times while still bounding sustained abuse.
 _JOIN_RATE_LIMIT = 20
 _JOIN_RATE_WINDOW_SECONDS = 60
 
@@ -99,11 +100,17 @@ def _client_ip(request) -> str:
 
 
 def _join_rate_limited(request, tab_id) -> bool:
-    """Fixed-window counter keyed on (client IP, tab) — both dimensions the
-    spec calls for. `cache` is Django's default cache (Redis in production
-    per `azureproject/settings.py`, LocMemCache otherwise), so this works
-    without any Atmos-specific configuration."""
-    key = f"atmos:join_rl:{_client_ip(request)}:{tab_id}"
+    """Fixed-window counter keyed on (client IP, tab, HTTP method) — the
+    spec's two dimensions plus a separate bucket per method, since GET
+    (initial view + "roll another persona") and POST (one-time confirm) are
+    different actions with very different abuse profiles. A venue's shared
+    Wi-Fi IP means several guests' one-time initial-view GET and confirm
+    POST would otherwise draw from the exact same budget as actual
+    reroll-spam GETs — a handful of guests joining together could exhaust
+    it before anyone even rerolls once. `cache` is Django's default cache
+    (Redis in production per `azureproject/settings.py`, LocMemCache
+    otherwise), so this works without any Atmos-specific configuration."""
+    key = f"atmos:join_rl:{request.method}:{_client_ip(request)}:{tab_id}"
     # add() is an atomic add-if-absent (Redis SETNX) — a synchronized burst
     # hitting an absent/expired key would otherwise each race incr()'s
     # ValueError and independently set(1), letting every one of them "win"

@@ -33,7 +33,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from power_up.storage import powerup_media_storage, powerup_upload_path
@@ -297,18 +297,36 @@ class Tab(models.Model):
             # GuestAdmin lets staff mark a guest "removed"/"settled" (e.g.
             # ejecting someone) before the tab itself closes, and that
             # guest's display_name/alias_snapshot must not survive close-of-
-            # night just because it already left the "active" bucket. Reset
-            # each named guest's own order snapshots to their alias BEFORE
-            # clearing display_name below, or their typed name would be
-            # left as the only remaining copy of something we're about to
-            # promise is gone.
+            # night just because it already left the "active" bucket.
             with transaction.atomic():
-                named_guests = list(self.guests.exclude(display_name=""))
-                for guest in named_guests:
+                # Same broadened selection purge_stale_guest_names.py uses
+                # (see its own comment for the exact race this covers):
+                # deliberately NOT a bare `exclude(display_name="")` — a
+                # guest whose display_name already reads "" (staff cleared
+                # it, or an earlier purge already ran) can still carry a
+                # leftover personal `Order.alias_snapshot` from a race where
+                # a placement committed `guest.display` just after that
+                # clear. Excluding on the (already-cleared) field alone
+                # would leave that leftover snapshot untouched forever.
+                stale_guests = list(
+                    self.guests.filter(
+                        Q(display_name__gt="")
+                        | (
+                            Q(orders__isnull=False)
+                            & ~Q(orders__alias_snapshot=F("alias"))
+                        )
+                    ).distinct()
+                )
+                # Reset each stale guest's own order snapshots to their
+                # alias BEFORE clearing display_name, or a typed name still
+                # only living in Order.alias_snapshot would be left as the
+                # sole remaining copy of something we're about to promise
+                # is gone.
+                for guest in stale_guests:
                     guest.orders.exclude(alias_snapshot=guest.alias).update(
                         alias_snapshot=guest.alias
                     )
-                self.guests.exclude(display_name="").update(display_name="")
+                self.guests.filter(display_name__gt="").update(display_name="")
                 # `uniq_active_alias_per_venue` treats every `status="active"`
                 # guest as occupying its alias, with no link to whether the
                 # guest's own tab is still open. Without this, a closed
