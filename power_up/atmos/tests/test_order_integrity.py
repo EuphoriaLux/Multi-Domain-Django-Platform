@@ -78,7 +78,16 @@ def test_unavailable_cart_item_stays_visible_and_removable(ordering_setup):
     assert total == Decimal("0.00")
 
 
-@pytest.mark.django_db(transaction=True)
+# Plain @pytest.mark.django_db, not transaction=True: _create_order_atomic's
+# own @transaction.atomic just becomes a savepoint under the test's outer
+# transaction, and select_for_update is a no-op on SQLite in tests anyway, so
+# there's nothing here that needs real commits. transaction=True would make
+# pytest-django flush (not just roll back) this worker's whole test database
+# afterward — wiping every crush_lu/hub table seeded by data migrations
+# (e.g. the Interest catalog) for the rest of the tests sharing that worker,
+# with no serialized_rollback to restore them. That flush-order bug is
+# exactly what broke crush_lu's WizardStep2Tests under pytest-xdist here.
+@pytest.mark.django_db
 def test_order_rejects_price_changed_since_cart_review(ordering_setup):
     _venue, _table, _tab, guest, _category, item = ordering_setup
     request = request_with_session("post", {"expected_total": "10.00"})
@@ -93,7 +102,7 @@ def test_order_rejects_price_changed_since_cart_review(ordering_setup):
     assert request.session[CART_SESSION_KEY] == {str(item.id): 1}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_order_rechecks_tab_status_inside_transaction(ordering_setup):
     _venue, _table, tab, guest, _category, item = ordering_setup
     tab.status = "closed"
