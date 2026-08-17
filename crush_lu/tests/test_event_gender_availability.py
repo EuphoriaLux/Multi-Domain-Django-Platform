@@ -30,7 +30,21 @@ class GenderPoolAvailabilityTestBase(TestCase):
     """Shared event/user fixtures for a gender-capped mixer."""
 
     def setUp(self):
+        from django.core.cache import cache
+
         from crush_lu.models import MeetupEvent
+
+        # event_register is @ratelimit(key="user", rate="5/h", method="POST")
+        # and the cache is NOT rolled back between tests, while the user PK
+        # sequence is -- on SQLite. Every test's viewer is therefore user 2,
+        # they all share one counter, and the sixth POST in this file gets a
+        # 429 that surfaces as a missing EventRegistration three lines later.
+        #
+        # Postgres hides this completely: its sequence keeps climbing through
+        # the rollback, so each viewer gets a fresh key and a fresh budget. That
+        # is the wrong way round from the usual warning -- here the local
+        # Postgres run is the permissive one and CI's SQLite is strict.
+        cache.clear()
 
         self.client = Client(HTTP_HOST="crush.lu")
         self.event = MeetupEvent.objects.create(
