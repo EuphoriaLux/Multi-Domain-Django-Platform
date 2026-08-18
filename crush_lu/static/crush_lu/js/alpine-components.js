@@ -1429,7 +1429,10 @@ document.addEventListener("alpine:init", function () {
                     "manual-undo-btn btn-link p-1.5 sm:px-2 sm:py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
                 undoBtn.setAttribute("data-undo-url", undoUrl);
                 undoBtn.setAttribute("data-reg-id", regId);
-                undoBtn.setAttribute("title", i18n.undoAction || "Undo");
+                undoBtn.setAttribute(
+                    "title",
+                    i18n.undoActionTitle || i18n.undoAction || "Undo check-in",
+                );
                 undoBtn.textContent = i18n.undoAction || "Undo";
                 // Bound directly rather than with x-on — Alpine only wires
                 // directives present when it walked the tree.
@@ -1452,7 +1455,7 @@ document.addEventListener("alpine:init", function () {
                 );
                 btn.setAttribute("data-reg-id", regId);
                 var label = i18n.printAction || "Print";
-                btn.setAttribute("title", label);
+                btn.setAttribute("title", i18n.reprintActionTitle || label);
                 btn.innerHTML =
                     '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
                     '<span class="hidden sm:inline">' +
