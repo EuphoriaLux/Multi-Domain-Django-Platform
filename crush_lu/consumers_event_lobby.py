@@ -41,8 +41,9 @@ class EventLobbyConsumer(BaseCrushWebsocketConsumer):
 
         self.lobby_group = f"event_lobby_{self.event_id}"
         self.user_group = f"event_lobby_{self.event_id}_user_{user.pk}"
-        await self.channel_layer.group_add(self.lobby_group, self.channel_name)
-        await self.channel_layer.group_add(self.user_group, self.channel_name)
+        if not await self._safe_group_adds(self.lobby_group, self.user_group):
+            await self.close()
+            return
         await self.accept()
 
     async def disconnect(self, close_code):
