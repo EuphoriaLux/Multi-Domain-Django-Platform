@@ -376,13 +376,24 @@ class GenderPoolAvailabilityPageTests(GenderPoolAvailabilityTestBase):
         self.assertNotContains(response, "spots left for you")
 
     def test_full_pool_is_labelled_full_not_counted_down(self):
-        self._set_caps(1, 4, 0)
+        self._set_caps(1, 4, 1)
         self._register(self._create_user_with_profile("m1@test.com", "M"))
+        self._register(self._create_user_with_profile("nb1@test.com", "NB"))
 
         response = self._get_detail()
         self.assertContains(response, "Men: full")
         self.assertContains(response, "Other genders: full")
         self.assertContains(response, "Women: 4 spots left")
+
+    def test_zero_cap_pool_suppressed_when_empty(self):
+        """When a gender pool is allocated 0 spots (e.g. Other genders = 0),
+        it is not displayed as 'full' on the event page."""
+        self._set_caps(4, 4, 0)
+
+        response = self._get_detail()
+        self.assertContains(response, "Men: 4 spots left")
+        self.assertContains(response, "Women: 4 spots left")
+        self.assertNotContains(response, "Other genders")
 
     def test_member_sees_their_own_pool_state(self):
         self._set_caps(4, 4, 2)

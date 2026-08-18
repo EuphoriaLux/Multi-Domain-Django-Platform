@@ -39,15 +39,17 @@ Args:
 {% load i18n %}
 <div class="flex items-center gap-1.5 flex-wrap">
     {% for pool in pools %}
-        {% if pool.is_full %}
-            {% blocktrans asvar pool_label with name=pool.label %}{{ name }}: full{% endblocktrans %}
-            {% include "crush_lu/components/status_badge.html" with tone="danger" label=pool_label %}
-        {% elif pool.remaining <= 2 %}
-            {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
-            {% include "crush_lu/components/status_badge.html" with tone="warning" label=pool_label %}
-        {% else %}
-            {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
-            {% include "crush_lu/components/status_badge.html" with tone="success" label=pool_label %}
+        {% if pool.limit > 0 or pool.confirmed > 0 %}
+            {% if pool.is_full %}
+                {% blocktrans asvar pool_label with name=pool.label %}{{ name }}: full{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="danger" label=pool_label %}
+            {% elif pool.remaining <= 2 %}
+                {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=pool_label %}
+            {% else %}
+                {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="success" label=pool_label %}
+            {% endif %}
         {% endif %}
     {% endfor %}
 </div>
