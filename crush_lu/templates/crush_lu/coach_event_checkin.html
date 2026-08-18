@@ -12,7 +12,7 @@
 {% endcomment %}
 <div x-data="coachCheckin" data-event-id="{{ event.id }}" data-summary-url="/api/events/{{ event.id }}/checkin-summary/">
 
-{{# Profile Toast Cards (fixed top-4, full width on mobile, max-w-sm on desktop) #}
+{# Profile Toast Cards (fixed top-4, full width on mobile, max-w-sm on desktop) #}
 <div class="fixed top-4 right-4 left-4 sm:left-auto z-50 space-y-3 pointer-events-none sm:max-w-sm">
     <div id="checkin-toasts-container" class="space-y-3"></div>
 </div>
@@ -544,9 +544,11 @@ window._checkinI18n = {
     torchOn: '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}',
     torchOff: '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}',
     undoAction: '{% filter escapejs %}{% trans "Undo" %}{% endfilter %}',
+    undoActionTitle: '{% filter escapejs %}{% trans "Undo check-in" %}{% endfilter %}',
     undoConfirm: '{% filter escapejs %}{% trans "Undo this check-in? They will be marked as not arrived again." %}{% endfilter %}',
     undoFailed: '{% filter escapejs %}{% trans "Could not undo this check-in" %}{% endfilter %}',
     printAction: '{% filter escapejs %}{% trans "Print" %}{% endfilter %}',
+    reprintActionTitle: '{% filter escapejs %}{% trans "Reprint Ticket" %}{% endfilter %}',
     printerOn: '{% filter escapejs %}{% trans "Printer: ON" %}{% endfilter %}',
     printerOff: '{% filter escapejs %}{% trans "Printer: OFF" %}{% endfilter %}',
     printerActiveTitle: '{% filter escapejs %}{% trans "Thermal printer active (RawBT)" %}{% endfilter %}',
