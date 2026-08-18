@@ -46,13 +46,22 @@ def is_selected_beta_tester(user):
     return bool(waitlist and waitlist.selected_as_tester)
 
 
+def is_event_verified_member(user):
+    """True if ``user`` has coach-verified in-person event attendance."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    profile = getattr(user, "crushprofile", None)
+    return bool(profile and profile.has_attended_event)
+
+
 def receiver_access_open(user):
-    """Whether this user's phase lets them reach the receiver track (Today's
-    Drop). Full launch opens it to every Premium member; the beta limits it to
-    staff + selected waitlist testers. Does NOT check coach/onboarded — callers
-    combine it with ``_user_is_connect_receiver_eligible``."""
+    """Whether this user's phase lets them reach the active discovery track
+    (Today's Drop / 7-Day Connect Cycle). Full launch opens it to all eligible members;
+    the beta opens it to Event-verified members, staff, and selected testers."""
     if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
         return True
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    return bool(getattr(user, "is_staff", False) or is_selected_beta_tester(user))
+    if getattr(user, "is_staff", False) or is_selected_beta_tester(user):
+        return True
+    return is_event_verified_member(user)

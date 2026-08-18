@@ -433,6 +433,166 @@ class ConnectQuestionAnswerAdmin(admin.ModelAdmin):
         "profile_owner__username",
         "profile_owner__first_name",
     )
-    raw_id_fields = ("responder", "profile_owner", "question")
-    readonly_fields = ("created_at",)
+    date_hierarchy = "created_at"
+
+
+# ---------------------------------------------------------------------------
+# Crush Connect 7-Day Deliberate Cycle Admins
+# ---------------------------------------------------------------------------
+class ConnectCycleCardInline(admin.TabularInline):
+    from crush_lu.models.crush_connect_cycle import ConnectCycleCard
+    model = ConnectCycleCard
+    extra = 0
+    raw_id_fields = ("target_user",)
+    readonly_fields = ("day_number", "card_index", "target_user", "generated_date", "is_completed", "completed_at", "is_expired")
+
+
+class ConnectWeekSessionAdmin(admin.ModelAdmin):
+    list_display = [
+        "user",
+        "current_day_number",
+        "status",
+        "is_review_open",
+        "started_at",
+        "review_expires_at",
+        "completed_at",
+    ]
+    list_select_related = ["user", "compatibility_highlight_user"]
+    list_filter = ["status", "is_review_open", "current_day_number"]
+    search_fields = ["user__username", "user__email", "user__first_name", "user__last_name"]
+    raw_id_fields = ["user", "compatibility_highlight_user"]
+    readonly_fields = ["started_at", "review_opened_at", "review_expires_at", "completed_at"]
+    inlines = [ConnectCycleCardInline]
+    date_hierarchy = "started_at"
+
+
+class ConnectCycleCardAdmin(admin.ModelAdmin):
+    list_display = [
+        "session",
+        "day_number",
+        "card_index",
+        "target_user",
+        "generated_date",
+        "is_completed",
+        "completed_at",
+        "is_expired",
+    ]
+    list_select_related = ["session__user", "target_user"]
+    list_filter = ["day_number", "is_completed", "is_expired", "generated_date"]
+    search_fields = ["session__user__username", "target_user__username", "target_user__email"]
+    raw_id_fields = ["session", "target_user"]
+    readonly_fields = ["completed_at"]
+    date_hierarchy = "generated_date"
+
+
+class ConnectWeeklyRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        "requester",
+        "recipient",
+        "status",
+        "sent_at",
+        "expires_at",
+        "responded_at",
+    ]
+    list_select_related = ["requester", "recipient", "session"]
+    list_filter = ["status", "sent_at"]
+    search_fields = ["requester__username", "recipient__username", "message"]
+    raw_id_fields = ["session", "requester", "recipient", "target_card"]
+    readonly_fields = ["sent_at", "expires_at", "responded_at"]
+    date_hierarchy = "sent_at"
+
+
+class ConnectChatMessageInline(admin.TabularInline):
+    from crush_lu.models.crush_connect_cycle import ConnectChatMessage
+    model = ConnectChatMessage
+    extra = 0
+    raw_id_fields = ("sender",)
+    readonly_fields = ("sender", "message", "sent_at", "read_at")
+
+
+class ConnectTemporaryChatAdmin(admin.ModelAdmin):
+    list_display = [
+        "participant_1",
+        "participant_2",
+        "status",
+        "created_at",
+        "expires_at",
+        "reminder_sent",
+        "closed_at",
+        "close_reason",
+    ]
+    list_select_related = ["participant_1", "participant_2", "request"]
+    list_filter = ["status", "close_reason", "reminder_sent", "created_at"]
+    search_fields = ["participant_1__username", "participant_2__username"]
+    raw_id_fields = ["request", "participant_1", "participant_2"]
+    readonly_fields = ["created_at", "expires_at", "closed_at"]
+    inlines = [ConnectChatMessageInline]
+    date_hierarchy = "created_at"
+
+
+class ConnectChatMessageAdmin(admin.ModelAdmin):
+    list_display = ["chat", "sender", "message_preview", "sent_at", "read_at"]
+    list_select_related = ["chat", "sender"]
+    list_filter = ["sent_at", "read_at"]
+    search_fields = ["sender__username", "message"]
+    raw_id_fields = ["chat", "sender"]
+    readonly_fields = ["sent_at"]
+    date_hierarchy = "sent_at"
+
+    @admin.display(description=_("Message"))
+    def message_preview(self, obj):
+        return (obj.message[:60] + "...") if len(obj.message) > 60 else obj.message
+
+
+class ConnectCoffeeDateAdmin(admin.ModelAdmin):
+    list_display = [
+        "chat",
+        "proposer",
+        "venue_display",
+        "proposed_date",
+        "proposed_time_slot",
+        "status",
+        "meeting_confirmed_at",
+    ]
+    list_select_related = ["chat", "proposer", "venue_location"]
+    list_filter = ["status", "proposed_date"]
+    search_fields = ["proposer__username", "venue_location__name", "custom_venue_name"]
+    raw_id_fields = ["chat", "proposer", "venue_location"]
+    readonly_fields = [
+        "participant_1_confirmed_at",
+        "participant_2_confirmed_at",
+        "meeting_confirmed_at",
+    ]
+    date_hierarchy = "proposed_date"
+
+    @admin.display(description=_("Venue"))
+    def venue_display(self, obj):
+        return obj.venue_location.name if obj.venue_location else (obj.custom_venue_name or _("Custom"))
+
+
+class ConnectPairExclusionAdmin(admin.ModelAdmin):
+    list_display = ["user_a", "user_b", "reason", "created_at"]
+    list_select_related = ["user_a", "user_b"]
+    list_filter = ["reason", "created_at"]
+    search_fields = ["user_a__username", "user_b__username"]
+    raw_id_fields = ["user_a", "user_b"]
+    readonly_fields = ["created_at"]
+    date_hierarchy = "created_at"
+
+
+class ConnectReportAdmin(admin.ModelAdmin):
+    list_display = [
+        "reporter",
+        "reported_user",
+        "reason",
+        "status",
+        "created_at",
+        "reviewed_by",
+        "reviewed_at",
+    ]
+    list_select_related = ["reporter", "reported_user", "reviewed_by__user"]
+    list_filter = ["status", "reason", "created_at"]
+    search_fields = ["reporter__username", "reported_user__username", "details", "admin_notes"]
+    raw_id_fields = ["reporter", "reported_user", "reviewed_by"]
+    readonly_fields = ["created_at"]
     date_hierarchy = "created_at"
