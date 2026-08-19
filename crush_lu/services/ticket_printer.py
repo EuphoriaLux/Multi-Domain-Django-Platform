@@ -1065,22 +1065,33 @@ def _build_member_stats_directives(
     )
 
     pool_count = 1
+    pool_rank = 1
     if event:
         try:
-            pool_count = max(
-                1,
+            confirmed_uids = list(
                 EventRegistration.objects.filter(
                     event=event, status__in=["confirmed", "attended"]
-                ).count(),
+                ).values_list("user_id", flat=True)
             )
+            pool_count = max(1, len(confirmed_uids))
+            if user_id and user_id in confirmed_uids:
+                confirmed_uids.sort()
+                pool_rank = confirmed_uids.index(user_id) + 1
         except Exception:
             pool_count = 1
+            pool_rank = 1
+
+    global_pct = (
+        max(1, min(99, int(round((user_id / total_members) * 100))))
+        if user_id and total_members
+        else 50
+    )
 
     hdr = {
-        "fr": "✨ STATUT MEMBRE // CRUSH.LU",
-        "de": "✨ MITGLIEDS-STATUS // CRUSH.LU",
-        "en": "✨ MEMBER STATUS // CRUSH.LU",
-    }.get(lang, "✨ MEMBER STATUS // CRUSH.LU")
+        "fr": "✨ STATUT MEMBRE & RANG DU SOIR",
+        "de": "✨ MITGLIEDS-STATUS & ABEND-RANG",
+        "en": "✨ MEMBER STATUS & TONIGHT RANK",
+    }.get(lang, "✨ MEMBER STATUS & TONIGHT RANK")
 
     if user_id:
         congrats = {
@@ -1109,24 +1120,34 @@ def _build_member_stats_directives(
         )
     )
     if is_verified:
-        verified_pill = "[ ✓ PROFIL VÉRIFIÉ ]" if lang == "fr" else ("[ ✓ VERIFIZIERT ]" if lang == "de" else "[ ✓ VERIFIED PROFILE ]")
+        verified_pill = "[ ✓ PROFIL VÉRIFIÉ ]" if lang == "fr" else ("[ ✓ VERIFIZIERT ]" if lang == "de" else "[ ✓ VERIFIED ]")
     else:
-        verified_pill = "[ ★ MEMBRE ACTIF ]" if lang == "fr" else ("[ ★ AKTIVES MITGLIED ]" if lang == "de" else "[ ★ ACTIVE MEMBER ]")
+        verified_pill = "[ ★ MEMBRE ACTIF ]" if lang == "fr" else ("[ ★ AKTIV ]" if lang == "de" else "[ ★ ACTIVE ]")
 
-    pool_pill = "[ 🌟 SÉLECTION DU SOIR ]" if lang == "fr" else ("[ 🌟 HEUTIGER POOL ]" if lang == "de" else "[ 🌟 TONIGHT POOL ]")
-    pills_line = f"{verified_pill}   {pool_pill}"
+    seniority_pill = {
+        "fr": f"[ 🏆 TOP {global_pct}% DES MEMBRES ]",
+        "de": f"[ 🏆 TOP {global_pct}% DER MITGLIEDER ]",
+        "en": f"[ 🏆 TOP {global_pct}% OF MEMBERS ]",
+    }.get(lang, f"[ 🏆 TOP {global_pct}% OF MEMBERS ]")
+    pills_line = f"{verified_pill}   {seniority_pill}"
 
     stat_line1 = {
+        "fr": f"• Ancienneté  : Top {global_pct}% des premiers inscrits",
+        "de": f"• Seniorität  : Top {global_pct}% der ersten Mitglieder",
+        "en": f"• Seniority   : Top {global_pct}% of earliest members",
+    }.get(lang, f"• Seniority   : Top {global_pct}% of earliest members")
+
+    stat_line2 = {
+        "fr": f"• Rang soirée : #{pool_rank}/{pool_count} dans la salle en ancienneté",
+        "de": f"• Abend-Rang  : #{pool_rank}/{pool_count} nach Seniorität im Raum",
+        "en": f"• Room Rank   : #{pool_rank}/{pool_count} in seniority in the room",
+    }.get(lang, f"• Room Rank   : #{pool_rank}/{pool_count} in seniority in the room")
+
+    stat_line3 = {
         "fr": f"• Plateforme  : {verified_str} profils certifiés & vérifiés",
         "de": f"• Plattform   : {verified_str} geprüfte & verifizierte Profile",
         "en": f"• Platform    : {verified_str} certified & verified profiles",
     }.get(lang, f"• Platform    : {verified_str} certified & verified profiles")
-
-    stat_line2 = {
-        "fr": f"• Pool du soir : {pool_count} participants matchés pour toi",
-        "de": f"• Heutiger Pool: {pool_count} gematchte Teilnehmer für dich",
-        "en": f"• Tonight Pool: {pool_count} matched attendees for you",
-    }.get(lang, f"• Tonight Pool: {pool_count} matched attendees for you")
 
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
@@ -1137,6 +1158,7 @@ def _build_member_stats_directives(
     out.append(Feed(1))
     out.append(Text(stat_line1, Align.LEFT))
     out.append(Text(stat_line2, Align.LEFT))
+    out.append(Text(stat_line3, Align.LEFT))
     out.append(Rule("="))
     return out
 
