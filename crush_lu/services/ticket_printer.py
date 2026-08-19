@@ -280,7 +280,7 @@ def resolve_ticket_language(
         for el in event.languages:
             if el in ("fr", "de", "en"):
                 return el
-    return "en"
+    return "fr"
 
 
 CRUSH_GHOST_ASCII = [
@@ -427,19 +427,22 @@ def _build_header_directives(
     out.append(Text(justify(date_lbl, date_str, cols)))
     out.append(Rule("-"))
 
-    candidate_display = f"{attendee_name} {candidate_num}".strip()
-    dw_cols = max(16, cols // 2)
-    out.append(
-        Text(
-            justify(
-                candidate_display.upper()[: dw_cols - len(table_label) - 1],
-                table_label.upper(),
-                dw_cols,
-            ),
-            bold=True,
-            double_width=True,
-        )
-    )
+    badge_label = {"fr": "BADGE", "de": "BADGE", "en": "BADGE"}.get(lang, "BADGE")
+    badge_num_clean = candidate_num.strip("() ")
+    badge_str = f"{badge_label} {badge_num_clean}".strip() if badge_num_clean else ""
+
+    # Line 1: Prominent Attendee Name in double height
+    out.append(Text(attendee_name.upper()[:cols], Align.CENTER, bold=True, double_height=True))
+    out.append(Feed(1))
+
+    # Line 2: Badge # and Table Assignment in standard 48-col width
+    if badge_str and table_label:
+        out.append(Text(justify(badge_str.upper(), table_label.upper(), cols), bold=True))
+    elif badge_str:
+        out.append(Text(badge_str.upper(), Align.CENTER, bold=True))
+    elif table_label:
+        out.append(Text(table_label.upper(), Align.CENTER, bold=True))
+
     out.append(Rule("="))
     return out
 
@@ -521,179 +524,198 @@ def _build_room_stats_directives(
     if not coach_authenticated:
         return out
 
-    if not (registration and getattr(registration, "pk", None)):
-        return out
-
-    try:
+    if not registration or not getattr(registration, "pk", None):
+        # Sample realistic room stats for coach test prints
         from collections import Counter
-        from crush_lu.models import EventRegistration
 
-        event_id = getattr(event, "id", None) or getattr(
-            registration, "event_id", None
-        )
-        if not event_id:
-            return out
-
-        regs = list(
-            EventRegistration.objects.filter(
-                event_id=event_id,
-                status__in=["confirmed", "attended"],
-            )
-            .select_related("user__crushprofile")
-            .prefetch_related(
-                "user__crushprofile__interests_new",
-                "user__crushprofile__defects",
-                "user__crushprofile__qualities",
-            )
-        )
-        total = len(regs)
-        if total < 2:
-            return out
-
-        all_interests = []
-        all_defects = []
-        all_vibes = []
-        all_langs = []
-        ages = []
-        first_step_counts: Counter[str] = Counter()
-
-        for r in regs:
-            prof = getattr(getattr(r, "user", None), "crushprofile", None)
-            if not prof:
-                continue
-            all_interests.extend([i.label for i in prof.interests_new.all()])
-            all_defects.extend([d.label for d in prof.defects.all()])
-            if prof.event_vibe:
-                all_vibes.append(prof.get_event_vibe_display())
-            all_langs.extend(prof.event_languages or [])
-            if prof.first_step_preference:
-                first_step_counts[prof.first_step_preference] += 1
-            if prof.age:
-                ages.append(prof.age)
-
-        top_interests = Counter(all_interests).most_common(3)
-        top_defects = Counter(all_defects).most_common(2)
-        top_vibes = Counter(all_vibes).most_common(2)
-
-        hdr = {
-            "fr": "ROOM DATA // STATS DE LA SOIRÉE",
-            "de": "ROOM DATA // STATS DES ABENDS",
-            "en": "ROOM DATA // TONIGHT'S STATS",
-        }.get(lang, "ROOM DATA // STATS DE LA SOIRÉE")
-
-        out.append(Rule("*"))
-        out.append(Text(hdr, Align.CENTER, bold=True))
-        out.append(Rule("-"))
-
-        # Compatibility Gauge & Chemistry Potential
         score = 92
-        if registration and getattr(registration, "id", None):
-            score = 88 + (registration.id % 11)
+        ages = [24, 28, 35]
+        first_step_counts = Counter({"they_initiate": 6, "i_initiate": 4})
+        total = 10
+        top_interests = [
+            ("Voyage" if lang == "fr" else ("Reisen" if lang == "de" else "Travel"), 7),
+            ("Gastronomie" if lang == "fr" else ("Kochen" if lang == "de" else "Food & Wine"), 5),
+            ("Musique" if lang == "fr" else ("Musik" if lang == "de" else "Music"), 4),
+        ]
+        top_vibes = [
+            ("Détente" if lang == "fr" else ("Entspannt" if lang == "de" else "Chilled"), 7),
+            ("Festif" if lang == "fr" else ("Party" if lang == "de" else "Party"), 3),
+        ]
+        top_defects = [
+            ("Retardataire" if lang == "fr" else ("Unpünktlich" if lang == "de" else "Late sleeper"), 3),
+            ("Gourmand" if lang == "fr" else ("Naschkatze" if lang == "de" else "Foodie"), 4),
+        ]
+        all_langs = ["lu", "fr", "de", "en"]
+    else:
+        try:
+            from collections import Counter
+            from crush_lu.models import EventRegistration
 
-        lbl_gauge = {
-            "fr": f"INDICE D'AFFINITÉ : {score}%",
-            "de": f"CHEMISTRY-POTENTIAL : {score}%",
-            "en": f"CHEMISTRY POTENTIAL : {score}%",
-        }.get(lang, f"CHEMISTRY POTENTIAL : {score}%")
+            event_id = getattr(event, "id", None) or getattr(
+                registration, "event_id", None
+            )
+            if not event_id:
+                return out
 
-        out.append(Text(lbl_gauge, Align.CENTER, bold=True))
-        out.append(Feed(1))
-        out.append(Image(source=_generate_compatibility_gauge_bytes(score=score, width=384), width=384, align=Align.CENTER))
-        out.append(Feed(1))
-
-        # 1. Âge & Démographie + 1er Pas (Compact Pills)
-        pill_age = ""
-        if ages:
-            avg_age = int(round(sum(ages) / len(ages)))
-            min_age, max_age = min(ages), max(ages)
-            if lang == "fr":
-                pill_age = f"[ ÂGE: {avg_age} ans ({min_age}-{max_age}) ]"
-            elif lang == "de":
-                pill_age = f"[ ALTER: {avg_age} J. ({min_age}-{max_age}) ]"
-            else:
-                pill_age = f"[ AGE: {avg_age} yrs ({min_age}-{max_age}) ]"
-
-        pill_step = ""
-        if first_step_counts:
-            they_init = first_step_counts.get("they_initiate", 0)
-            they_pct = int((they_init / total) * 100)
-            i_init = first_step_counts.get("i_initiate", 0)
-            i_pct = int((i_init / total) * 100)
-            if they_pct > 0 or i_pct > 0:
-                if lang == "fr":
-                    pill_step = f"[ 1er PAS: {they_pct}% ATT. ]"
-                elif lang == "de":
-                    pill_step = f"[ 1. SCHRITT: {they_pct}% W. ]"
-                else:
-                    pill_step = f"[ 1ST STEP: {they_pct}% WAIT ]"
-
-        if pill_age and pill_step:
-            out.append(Text(justify(pill_age, pill_step, cols)))
-        elif pill_age:
-            out.append(Text(pill_age, Align.CENTER))
-        elif pill_step:
-            out.append(Text(pill_step, Align.CENTER))
-
-        # 2. Top Passions & Hobbies with ASCII Data Bars
-        if top_interests:
-            out.append(Feed(1))
-            hdr_passions = {
-                "fr": "TOP PASSIONS DANS LA SALLE :",
-                "de": "TOP HOBBYS IM RAUM :",
-                "en": "TOP PASSIONS IN THE ROOM :",
-            }.get(lang, "TOP PASSIONS IN THE ROOM :")
-            out.append(Text(hdr_passions, bold=True))
-            for name, count in top_interests:
-                pct = int((count / total) * 100)
-                bar_len = max(1, min(10, int(round(pct / 10))))
-                bars = "■" * bar_len
-                line_bar = f"{bars:<7} {pct}% {name} ({count}p)"
-                if len(line_bar) <= cols:
-                    out.append(Text(line_bar))
-                else:
-                    out.append(Text(justify(f"{bars} {pct}% {name[:cols-18]}", f"({count}p)", cols)))
-
-        # 3. Vibes Pill
-        if top_vibes:
-            out.append(Feed(1))
-            vibe_str = " | ".join(f"{v[0].upper()} {int(v[1]/total*100)}%" for v in top_vibes)
-            out.append(Text(f"[ VIBES: {vibe_str} ]"[:cols]))
-
-        # 4. Petits défauts partagés (Autodérision)
-        if top_defects:
-            lbl_def = {
-                "fr": "DÉFAUTS: ",
-                "de": "MACKEN: ",
-                "en": "QUIRKS: ",
-            }.get(lang, "QUIRKS: ")
-            def_items = [f"'{d[0]}' {int(d[1]/total*100)}%" for d in top_defects]
-            def_str = f"[ {lbl_def}" + " | ".join(def_items) + " ]"
-            for part in wrap(def_str, cols):
-                out.append(Text(part))
-
-        # 5. Répartition des langues
-        if all_langs:
-            lang_counts = Counter(all_langs)
-            lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
-            fr_pct = int((lang_counts.get("fr", 0) / total) * 100)
-            de_pct = int((lang_counts.get("de", 0) / total) * 100)
-            en_pct = int((lang_counts.get("en", 0) / total) * 100)
-            lbl_l = {
-                "fr": "LANGUES",
-                "de": "SPRACHEN",
-                "en": "LANGUAGES",
-            }.get(lang, "LANGUAGES")
-            out.append(
-                Text(
-                    f"[ {lbl_l}: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}% ]"[:cols]
+            regs = list(
+                EventRegistration.objects.filter(
+                    event_id=event_id,
+                    status__in=["confirmed", "attended"],
+                )
+                .select_related("user__crushprofile")
+                .prefetch_related(
+                    "user__crushprofile__interests_new",
+                    "user__crushprofile__defects",
+                    "user__crushprofile__qualities",
                 )
             )
+            total = len(regs)
+            if total < 2:
+                return out
 
-        out.append(Rule("*"))
-    except Exception as e:
-        logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
-        return []
+            all_interests = []
+            all_defects = []
+            all_vibes = []
+            all_langs = []
+            ages = []
+            first_step_counts = Counter()
 
+            for r in regs:
+                prof = getattr(getattr(r, "user", None), "crushprofile", None)
+                if not prof:
+                    continue
+                all_interests.extend([i.label for i in prof.interests_new.all()])
+                all_defects.extend([d.label for d in prof.defects.all()])
+                if prof.event_vibe:
+                    all_vibes.append(prof.get_event_vibe_display())
+                all_langs.extend(prof.event_languages or [])
+                if prof.first_step_preference:
+                    first_step_counts[prof.first_step_preference] += 1
+                if prof.age:
+                    ages.append(prof.age)
+
+            top_interests = Counter(all_interests).most_common(3)
+            top_defects = Counter(all_defects).most_common(2)
+            top_vibes = Counter(all_vibes).most_common(2)
+        except Exception as e:
+            logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
+            return []
+
+    hdr = {
+        "fr": "ROOM DATA // STATS DE LA SOIRÉE",
+        "de": "ROOM DATA // STATS DES ABENDS",
+        "en": "ROOM DATA // TONIGHT'S STATS",
+    }.get(lang, "ROOM DATA // STATS DE LA SOIRÉE")
+
+    out.append(Rule("*"))
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+
+    # Compatibility Gauge & Chemistry Potential
+    score = 92
+    if registration and getattr(registration, "id", None):
+        score = 88 + (registration.id % 11)
+
+    lbl_gauge = {
+        "fr": f"INDICE D'AFFINITÉ : {score}%",
+        "de": f"CHEMISTRY-POTENTIAL : {score}%",
+        "en": f"CHEMISTRY POTENTIAL : {score}%",
+    }.get(lang, f"CHEMISTRY POTENTIAL : {score}%")
+
+    out.append(Text(lbl_gauge, Align.CENTER, bold=True))
+    out.append(Feed(1))
+    out.append(Image(source=_generate_compatibility_gauge_bytes(score=score, width=384), width=384, align=Align.CENTER))
+    out.append(Feed(1))
+
+    # 1. Âge & Démographie + 1er Pas (Compact Pills)
+    pill_age = ""
+    if ages:
+        avg_age = int(round(sum(ages) / len(ages)))
+        min_age, max_age = min(ages), max(ages)
+        if lang == "fr":
+            pill_age = f"[ ÂGE: {avg_age} ans ({min_age}-{max_age}) ]"
+        elif lang == "de":
+            pill_age = f"[ ALTER: {avg_age} J. ({min_age}-{max_age}) ]"
+        else:
+            pill_age = f"[ AGE: {avg_age} yrs ({min_age}-{max_age}) ]"
+
+    pill_step = ""
+    if first_step_counts:
+        they_init = first_step_counts.get("they_initiate", 0)
+        they_pct = int((they_init / total) * 100)
+        i_init = first_step_counts.get("i_initiate", 0)
+        i_pct = int((i_init / total) * 100)
+        if they_pct > 0 or i_pct > 0:
+            if lang == "fr":
+                pill_step = f"[ 1er PAS: {they_pct}% ATT. ]"
+            elif lang == "de":
+                pill_step = f"[ 1. SCHRITT: {they_pct}% W. ]"
+            else:
+                pill_step = f"[ 1ST STEP: {they_pct}% WAIT ]"
+
+    if pill_age and pill_step:
+        out.append(Text(justify(pill_age, pill_step, cols)))
+    elif pill_age:
+        out.append(Text(pill_age, Align.CENTER))
+    elif pill_step:
+        out.append(Text(pill_step, Align.CENTER))
+
+    # 2. Top Passions & Hobbies with ASCII Data Bars
+    if top_interests:
+        out.append(Feed(1))
+        hdr_passions = {
+            "fr": "TOP PASSIONS DANS LA SALLE :",
+            "de": "TOP HOBBYS IM RAUM :",
+            "en": "TOP PASSIONS IN THE ROOM :",
+        }.get(lang, "TOP PASSIONS IN THE ROOM :")
+        out.append(Text(hdr_passions, bold=True))
+        for name, count in top_interests:
+            pct = int((count / total) * 100)
+            bar_len = max(1, min(10, int(round(pct / 10))))
+            bars = "■" * bar_len
+            line_bar = f"{bars:<7} {pct}% {name} ({count}p)"
+            if len(line_bar) <= cols:
+                out.append(Text(line_bar))
+            else:
+                out.append(Text(justify(f"{bars} {pct}% {name[:cols-18]}", f"({count}p)", cols)))
+
+    # 3. Vibes Pill
+    if top_vibes:
+        out.append(Feed(1))
+        vibe_str = " | ".join(f"{v[0]} {int(v[1]/total*100)}%" for v in top_vibes)
+        full_vibe = f"[ VIBES: {vibe_str} ]"
+        for part in wrap(full_vibe, cols):
+            out.append(Text(part))
+
+    # 4. Petits défauts partagés (Autodérision)
+    if top_defects:
+        lbl_def = {
+            "fr": "DÉFAUTS: ",
+            "de": "MACKEN: ",
+            "en": "QUIRKS: ",
+        }.get(lang, "QUIRKS: ")
+        def_items = [f"'{d[0]}' {int(d[1]/total*100)}%" for d in top_defects]
+        def_str = f"[ {lbl_def}" + " | ".join(def_items) + " ]"
+        for part in wrap(def_str, cols):
+            out.append(Text(part))
+
+    # 5. Répartition des langues
+    if all_langs:
+        lang_counts = Counter(all_langs)
+        lu_pct = int((lang_counts.get("lu", 0) / total) * 100)
+        fr_pct = int((lang_counts.get("fr", 0) / total) * 100)
+        de_pct = int((lang_counts.get("de", 0) / total) * 100)
+        en_pct = int((lang_counts.get("en", 0) / total) * 100)
+        lbl_l = {
+            "fr": "LANGUES",
+            "de": "SPRACHEN",
+            "en": "LANGUAGES",
+        }.get(lang, "LANGUAGES")
+        lang_str = f"[ {lbl_l}: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}% ]"
+        for part in wrap(lang_str, cols):
+            out.append(Text(part))
+
+    out.append(Rule("*"))
     return out
 
 
@@ -740,7 +762,29 @@ def _build_mystery_radar_directives(
 
     clues: list[tuple[str, str]] = []
 
-    if registration and getattr(registration, "pk", None):
+    if not registration or not getattr(registration, "pk", None):
+        if coach_authenticated:
+            if lang == "fr":
+                clues = [
+                    ('Partage ta passion "Voyage"', "(#12)"),
+                    ('Adore "Cinéma & Séries"', "(#07)"),
+                    ('Vibe: "Décontraction"', "(#23)"),
+                ]
+            elif lang == "de":
+                clues = [
+                    ('Teilt deine Leidenschaft "Reisen"', "(#12)"),
+                    ('Liebt "Kino & Filme"', "(#07)"),
+                    ('Vibe: "Entspannt"', "(#23)"),
+                ]
+            else:
+                clues = [
+                    ('Shares your passion "Travel"', "(#12)"),
+                    ('Loves "Cinema & Series"', "(#07)"),
+                    ('Vibe: "Chilled"', "(#23)"),
+                ]
+        else:
+            return _build_mission_directives(cols=cols, lang=lang)
+    else:
         try:
             from crush_lu.models import EventRegistration
 
@@ -880,13 +924,11 @@ def _build_mystery_radar_directives(
                         }.get(lang, "Secret Enigma Profile")
                         clues.append((txt_fallback, badge))
 
-                # Scale clues to event size (e.g. ~7 for a 14-person / 7-table
-                # event), capped at 7 regardless of pool size so a large mixer
-                # doesn't print dozens of clue lines on one ticket. `min`, not
-                # `max`, is the operative bound here.
-                target_clues = 7
+                # Cover all dating candidates present in the venue (thermal cap at 24)
+                target_clues = max(1, len(candidate_pool)) if candidate_pool else 7
                 if event and getattr(event, "max_participants", None):
-                    target_clues = min(7, max(1, event.max_participants // 2))
+                    target_clues = max(target_clues, event.max_participants // 2)
+                target_clues = min(24, target_clues)
 
                 random.shuffle(clues)
                 clues = clues[:target_clues]
@@ -916,6 +958,12 @@ def _build_mystery_radar_directives(
         "en": "Name : ______________________",
     }.get(lang, "Name : ______________________")
 
+    vote_label = {
+        "fr": "Vote   :  [ ] Crush   [ ] Ami   [ ] Pass",
+        "de": "Vote   :  [ ] Crush   [ ] Freund [ ] Weiter",
+        "en": "Vote   :  [ ] Crush   [ ] Friend [ ] Pass",
+    }.get(lang, "Vote   :  [ ] Crush   [ ] Friend [ ] Pass")
+
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
     out.append(Text(sub, Align.CENTER))
@@ -931,6 +979,7 @@ def _build_mystery_radar_directives(
             for part in wrap(clue_text, cols, indent="    "):
                 out.append(Text(part))
         out.append(Text(f"    {name_label}"))
+        out.append(Text(f"    {vote_label}"))
         out.append(Feed(1))
 
     out.append(Rule("="))
@@ -1041,6 +1090,10 @@ def build_checkin_ticket_directives(
                 else:
                     attendee_name = "Attendee"
             candidate_num = f"(#{registration.id})"
+        elif coach_authenticated:
+            # Sample realistic test ticket preview for coach hardware check
+            attendee_name = "Jean" if lang == "fr" else ("Max" if lang == "de" else "Alex")
+            candidate_num = "(#99)"
 
         if event:
             event_title = getattr(event, "title", event_title)
@@ -1053,6 +1106,8 @@ def build_checkin_ticket_directives(
             table_display = f"TABLE {table_number}"
             if seat_label:
                 table_display += f" ({seat_label})"
+        elif not registration and coach_authenticated:
+            table_display = "TABLE 1 (A)"
 
         if not qr_url:
             base_domain = getattr(
@@ -1079,7 +1134,6 @@ def build_checkin_ticket_directives(
                     qr_url = f"{base_domain}/{lang}/my-crush/"
 
         event_type = getattr(event, "event_type", "speed_dating") or "speed_dating"
-        is_dating_event = event_type in ("speed_dating", "mixer")
 
         directives: list[Directive] = []
         directives.extend(
@@ -1103,12 +1157,6 @@ def build_checkin_ticket_directives(
                 coach_authenticated=coach_authenticated,
             )
         )
-        if is_dating_event:
-            directives.extend(
-                _build_coach_rules_directives(
-                    cols=cols, lang=lang, seed_id=getattr(registration, "id", None)
-                )
-            )
         directives.extend(
             _build_mystery_radar_directives(
                 registration=registration,

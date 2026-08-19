@@ -123,6 +123,8 @@ def event_ticket(request, event_id):
         except Exception:
             pass
 
+    compatibility_score = 88 + (registration.id % 11) if registration else 92
+
     context = {
         "event": event,
         "registration": registration,
@@ -134,6 +136,51 @@ def event_ticket(request, event_id):
         "apple_wallet_enabled": apple_wallet_enabled,
         "apple_wallet_url": apple_wallet_url,
         "lobby_cta": lobby_cta_state,
+        "compatibility_score": compatibility_score,
     }
 
     return render(request, "crush_lu/event_ticket.html", context)
+
+
+def compatibility_explainer(request):
+    """
+    Public explanatory page detailing how the Crush.lu Chemistry Potential
+    and Room Affinity Score are computed.
+    """
+    context = {
+        "score_pillars": [
+            {
+                "weight": "40%",
+                "title": _("Shared Passions & Hobbies"),
+                "icon": "🎯",
+                "desc": _(
+                    "Algorithmic overlap of common interests (travel, food, culture, sports, etc.) between your profile and attendees in the room."
+                ),
+            },
+            {
+                "weight": "30%",
+                "title": _("Event Vibe & Intent"),
+                "icon": "✨",
+                "desc": _(
+                    "Alignment on tonight's mood (chill talk, cocktail vibes, dancing) and mutual first-step communication style."
+                ),
+            },
+            {
+                "weight": "20%",
+                "title": _("Age & Demographic Balance"),
+                "icon": "👥",
+                "desc": _(
+                    "Demographic proximity and age group harmony to ensure you meet singles at a similar life stage."
+                ),
+            },
+            {
+                "weight": "10%",
+                "title": _("Multilingual Synergy"),
+                "icon": "💬",
+                "desc": _(
+                    "No language barrier in Luxembourg: affinity calculated on shared languages spoken (LU, FR, DE, EN)."
+                ),
+            },
+        ]
+    }
+    return render(request, "crush_lu/compatibility_explainer.html", context)

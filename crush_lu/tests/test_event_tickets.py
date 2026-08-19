@@ -249,6 +249,15 @@ class TestWebTicketPage:
         url = reverse("crush_lu:event_ticket", args=[confirmed_registration.event_id])
         response = client.get(url)
         assert response.status_code == 200
+        assert response.context["compatibility_score"] >= 88
+        assert b"Room Chemistry" in response.content or b"showScoreModal" in response.content
+
+    def test_compatibility_explainer_page(self, client):
+        url = reverse("crush_lu:compatibility_explainer")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert len(response.context["score_pillars"]) == 4
+        assert b"Shared Passions" in response.content or b"Passions" in response.content
 
 
 class TestEventTicketJWTView:
