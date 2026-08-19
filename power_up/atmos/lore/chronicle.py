@@ -79,23 +79,30 @@ class Chronicle:
         with self._lock:
             self._events.append(event)
 
-    def __len__(self) -> int:
-        with self._lock:
-            return len(self._events)
+    def _snapshot(self) -> tuple[ChronicleEvent, ...]:
+        """Every event currently in the window, oldest first.
 
-    def __iter__(self) -> Iterator[ChronicleEvent]:
-        with self._lock:
-            snapshot = tuple(self._events)
-        return iter(snapshot)
-
-    @property
-    def events(self) -> tuple[ChronicleEvent, ...]:
+        This is the single read primitive every method below is built on.
+        `CachedChronicle` (see `lore/persistence.py`) overrides only this
+        method and `record()` to proxy through Django's cache instead of
+        `self._events` — every read below inherits unchanged, so the
+        storage layer can be swapped without touching the narrative API.
+        """
         with self._lock:
             return tuple(self._events)
 
+    def __len__(self) -> int:
+        return len(self._snapshot())
+
+    def __iter__(self) -> Iterator[ChronicleEvent]:
+        return iter(self._snapshot())
+
+    @property
+    def events(self) -> tuple[ChronicleEvent, ...]:
+        return self._snapshot()
+
     def recent(self, limit: int | None = None) -> tuple[ChronicleEvent, ...]:
-        with self._lock:
-            items = tuple(self._events)
+        items = self._snapshot()
         if limit is None:
             return items
         # `items[-0:]` is the whole tuple, so a caller disabling context to cut
@@ -104,10 +111,8 @@ class Chronicle:
 
     def active_personas(self, *, exclude: str | None = None) -> tuple[str, ...]:
         """Distinct personas in the window, most recent last."""
-        with self._lock:
-            snapshot = tuple(self._events)
         seen: dict[str, None] = {}
-        for event in snapshot:
+        for event in self._snapshot():
             if exclude and event.persona.casefold() == exclude.casefold():
                 continue
             seen[event.persona] = None
