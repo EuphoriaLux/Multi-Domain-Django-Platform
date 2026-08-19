@@ -506,3 +506,57 @@ class TestCheckinPrintingAPI(TestCase):
         self.assertEqual(data.get("event_id"), self.event.id)
         self.assertIn("print_payload_base64", data)
         self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_member_stats_and_pool_seniority_rank(self):
+        # Create second user with higher ID to verify relative room rank
+        user2 = User.objects.create_user(
+            username="user2_rank@test.lu",
+            email="user2_rank@test.lu",
+            first_name="Alice",
+        )
+        CrushProfile.objects.create(
+            user=user2,
+            gender="F",
+            is_approved=True,
+        )
+        reg2 = EventRegistration.objects.create(
+            user=user2,
+            event=self.event,
+            status="confirmed",
+        )
+
+        plain_text_fr = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+            language="fr",
+        )
+        self.assertIn("STATUT MEMBRE & RANG DU SOIR", plain_text_fr)
+        self.assertIn(f"Membre #{self.attendee_user.id}", plain_text_fr)
+        self.assertIn("Ancienneté", plain_text_fr)
+        self.assertIn("Rang soirée", plain_text_fr)
+        self.assertIn("#1/2", plain_text_fr)
+
+        plain_text_en = preview_checkin_ticket_text(
+            registration=reg2,
+            event=self.event,
+            table_number=2,
+            coach_authenticated=True,
+            language="en",
+        )
+        self.assertIn("MEMBER STATUS & TONIGHT RANK", plain_text_en)
+        self.assertIn("Seniority", plain_text_en)
+        self.assertIn("Room Rank", plain_text_en)
+        self.assertIn("#2/2", plain_text_en)
+
+        plain_text_de = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+            language="de",
+        )
+        self.assertIn("MITGLIEDS-STATUS & ABEND-RANG", plain_text_de)
+        self.assertIn("Seniorität", plain_text_de)
+        self.assertIn("Abend-Rang", plain_text_de)

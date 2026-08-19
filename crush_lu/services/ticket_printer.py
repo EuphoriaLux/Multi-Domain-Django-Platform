@@ -815,27 +815,24 @@ def _build_mystery_radar_directives(
     clues: list[tuple[str, str]] = []
 
     if not registration or not getattr(registration, "pk", None):
-        if coach_authenticated:
-            if lang == "fr":
-                clues = [
-                    ('Partage ta passion "Voyage"', "(#12)"),
-                    ('Adore "Cinéma & Séries"', "(#07)"),
-                    ('Vibe: "Décontraction"', "(#23)"),
-                ]
-            elif lang == "de":
-                clues = [
-                    ('Teilt deine Leidenschaft "Reisen"', "(#12)"),
-                    ('Liebt "Kino & Filme"', "(#07)"),
-                    ('Vibe: "Entspannt"', "(#23)"),
-                ]
-            else:
-                clues = [
-                    ('Shares your passion "Travel"', "(#12)"),
-                    ('Loves "Cinema & Series"', "(#07)"),
-                    ('Vibe: "Chilled"', "(#23)"),
-                ]
+        if lang == "fr":
+            clues = [
+                ('Partage ta passion "Voyage"', "(#12)"),
+                ('Adore "Cinéma & Séries"', "(#07)"),
+                ('Vibe: "Décontraction"', "(#23)"),
+            ]
+        elif lang == "de":
+            clues = [
+                ('Teilt deine Leidenschaft "Reisen"', "(#12)"),
+                ('Liebt "Kino & Filme"', "(#07)"),
+                ('Vibe: "Entspannt"', "(#23)"),
+            ]
         else:
-            return _build_mission_directives(cols=cols, lang=lang)
+            clues = [
+                ('Shares your passion "Travel"', "(#12)"),
+                ('Loves "Cinema & Series"', "(#07)"),
+                ('Vibe: "Chilled"', "(#23)"),
+            ]
     else:
         try:
             from crush_lu.models import EventRegistration
@@ -1087,9 +1084,11 @@ def _build_member_stats_directives(
         from crush_lu.models import CrushProfile, EventRegistration
 
         total_members = User.objects.filter(is_active=True).count() or 1
+        total_users_all = User.objects.count() or 1
         verified_count = CrushProfile.objects.filter(is_approved=True).count()
     except Exception:
         total_members = 1
+        total_users_all = 1
         verified_count = 0
 
     # Format localized numbers with thousands separators
@@ -1127,11 +1126,18 @@ def _build_member_stats_directives(
             pool_count = 1
             pool_rank = 1
 
-    global_pct = (
-        max(1, min(99, int(round((user_id / total_members) * 100))))
-        if user_id and total_members
-        else 50
-    )
+    if user_id:
+        try:
+            from django.contrib.auth.models import User
+
+            earlier_users_count = User.objects.filter(id__lte=user_id).count()
+        except Exception:
+            earlier_users_count = user_id
+        global_pct = max(
+            1, min(99, int(round((earlier_users_count / total_users_all) * 100)))
+        )
+    else:
+        global_pct = 50
 
     hdr = {
         "fr": "✨ STATUT MEMBRE & RANG DU SOIR",

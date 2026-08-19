@@ -123,7 +123,7 @@ def event_ticket(request, event_id):
         except Exception:
             pass
 
-    compatibility_score = 88 + (registration.id % 11) if registration else 92
+    compatibility_score = 88 + (registration.id % 11)
 
     context = {
         "event": event,
