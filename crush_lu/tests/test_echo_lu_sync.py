@@ -220,6 +220,32 @@ class AddressParsingTests(TestCase):
         self.assertEqual(parsed["town"], "Luxembourg")
 
 
+class PostcodeCommuneTableTests(TestCase):
+    """Spot-checks pinning the CACLR-derived table, not just the wiring.
+
+    A bad regeneration of `echo_lu_postcodes.POSTCODE_TO_COMMUNE` (wrong
+    source columns, wrong ambiguity filter, ...) would not necessarily break
+    `_commune_for`'s logic, only its data. These pin known-correct answers
+    from the authoritative source cited in that module's docstring.
+    """
+
+    def test_rodange_resolves_to_petange(self):
+        self.assertEqual(echo_lu.POSTCODE_TO_COMMUNE["4802"], "Pétange")
+
+    def test_a_luxembourg_city_postcode_resolves_to_luxembourg(self):
+        self.assertEqual(echo_lu.POSTCODE_TO_COMMUNE["2229"], "Luxembourg")
+
+    def test_the_belval_campus_resolves_to_esch_sur_alzette_not_sanem(self):
+        # See the module docstring: this corrects the doc's prior "Belval is
+        # in Sanem" claim, which named the wrong neighbouring commune.
+        self.assertEqual(echo_lu.POSTCODE_TO_COMMUNE["4361"], "Esch-sur-Alzette")
+
+    def test_a_boundary_postcode_is_deliberately_absent(self):
+        # 4370 straddles Sanem's Belvaux locality and Esch-sur-Alzette --
+        # ambiguous, and excluded on purpose. See `_commune_for`.
+        self.assertNotIn("4370", echo_lu.POSTCODE_TO_COMMUNE)
+
+
 @override_settings(**ENABLED)
 class PayloadTests(TestCase):
     def test_core_fields_map_across(self):
@@ -269,6 +295,66 @@ class PayloadTests(TestCase):
 
         self.assertEqual(address["town"], "Differdange")
         self.assertEqual(address["commune"], "Differdange")
+
+    def test_commune_resolves_from_the_postcode_when_it_differs_from_the_town(self):
+        # Rodange is the doc's own worked example of the town/commune split:
+        # the venue's town is Rodange, but Rodange's commune is Petange. See
+        # docs/integrations/echo-lu-sync.md ("Known limitation").
+        event = make_event(
+            address_street="Avenue de la Gare",
+            address_postcode="4802",
+            address_town="Rodange",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["town"], "Rodange")
+        self.assertEqual(address["commune"], "Pétange")
+
+    def test_an_unmapped_postcode_falls_back_to_the_town(self):
+        # A postcode with no entry in POSTCODE_TO_COMMUNE at all -- must never
+        # regress to sending nothing, which is what "less informative than
+        # today" would mean here.
+        event = make_event(
+            address_street="Chemin Rural",
+            address_postcode="0001",
+            address_town="Nowhereville",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Nowhereville")
+
+    def test_an_ambiguous_postcode_falls_back_to_the_town(self):
+        # 4620 is the postcode the OTHER structured-field test above already
+        # uses for Differdange -- and turns out, per the authoritative CACLR
+        # registry, to be genuinely split between Differdange (Rue Emile
+        # Mark) and Sanem (a stretch of the Soleuvre bypass sharing the same
+        # four digits). A handful of postcodes like this straddle a commune
+        # border and are deliberately excluded from POSTCODE_TO_COMMUNE
+        # rather than guessed, so this must keep falling back to the town --
+        # exactly the behaviour this table did not change for it.
+        event = make_event(
+            address_street="rue Emile Mark",
+            address_postcode="4620",
+            address_town="Differdange",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Differdange")
+
+    def test_the_legacy_fallback_also_resolves_commune_from_a_parsed_postcode(self):
+        # The legacy branch (pre-structured-fields rows) gets the same
+        # postcode-first treatment as the structured branch, not just a town
+        # copy. 4802 parses out of the free text here exactly as "2229" does
+        # in test_the_legacy_fallback_still_sends_a_commune.
+        event = make_event(
+            address="Avenue de la Gare\nL-4802 Rodange",
+            address_street="",
+            address_postcode="",
+            address_town="",
+        )
+        address = echo_lu.build_experience_payload(event)["location"]["address"]
+
+        self.assertEqual(address["commune"], "Pétange")
 
     def test_empty_components_are_absent_rather_than_blank(self):
         # echo.lu treats "" as a supplied value and renders a blank line for it.

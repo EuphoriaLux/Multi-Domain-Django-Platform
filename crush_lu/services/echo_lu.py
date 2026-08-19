@@ -46,6 +46,8 @@ from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
 
+from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
+
 logger = logging.getLogger(__name__)
 
 # echo.lu does not document a rate limit. Retry only the statuses that are
@@ -622,6 +624,27 @@ def parse_address(address, canton=""):
     }
 
 
+def _commune_for(postcode, town):
+    """The commune for a postcode, falling back to the town name.
+
+    A Luxembourg commune usually shares its name with its principal town
+    (Differdange the town is Differdange the commune), but not always --
+    Rodange's commune is Petange, Belval straddles Esch-sur-Alzette and
+    Sanem, and a quarter like Ville-Haute is not a commune at all. See
+    ``crush_lu/services/echo_lu_postcodes.py`` for the authoritative source
+    and ``docs/integrations/echo-lu-sync.md`` ("Known limitation") for the
+    history.
+
+    A handful of rural postcodes straddle a commune border and are
+    deliberately absent from ``POSTCODE_TO_COMMUNE`` rather than guessed --
+    those, like an unmapped or missing postcode, fall back to the town
+    exactly as this field behaved before the table existed. This can only
+    ever return the town unchanged or replace it with a more specific
+    answer, so it never makes ``commune`` less informative than today.
+    """
+    return POSTCODE_TO_COMMUNE.get(postcode) or town
+
+
 def address_payload(event):
     """echo.lu's address object for an event.
 
@@ -648,14 +671,16 @@ def address_payload(event):
         # reinstate a number somebody removed on purpose. Everywhere else in
         # this change a house number is either known or absent, never inferred.
         legacy = parse_address(event.address, "") if event.address else {}
+        postcode = event.address_postcode or legacy.get("postcode", "")
+        town = event.address_town or legacy.get("town", "")
         payload = {
             "street": event.address_street,
             "number": event.address_number,
-            "postcode": event.address_postcode or legacy.get("postcode", ""),
+            "postcode": postcode,
             # The town is the town. This used to fall back to `canton`, which
             # published a canton name where echo.lu shows a locality.
-            "town": event.address_town or legacy.get("town", ""),
-            # `commune` is REQUIRED, and gets the town.
+            "town": town,
+            # `commune` is REQUIRED.
             #
             # It previously carried `canton`, which is the wrong administrative
             # level. Omitting it looked like the safe correction -- a wrong
@@ -665,11 +690,15 @@ def address_payload(event):
             # never publishes at all. Verified against the live API on
             # 2026-08-10, when six events failed at once.
             #
-            # The town is the right value, not a stand-in: a Luxembourg commune
-            # takes its name from its principal town, so Differdange the town
-            # is Differdange the commune. Where they differ, the town is still
-            # the closer answer of the two we hold.
-            "commune": event.address_town or legacy.get("town", ""),
+            # The town used to be sent unconditionally: a Luxembourg commune
+            # usually takes its name from its principal town, so Differdange
+            # the town is Differdange the commune. It is wrong where they
+            # differ -- Rodange's commune is Petange, for one -- so the
+            # postcode is looked up first and only falls back to the town
+            # when the postcode is unmapped or absent. See
+            # `crush_lu/services/echo_lu_postcodes.py` and the "Known
+            # limitation" section of docs/integrations/echo-lu-sync.md.
+            "commune": _commune_for(postcode, town),
             "country": "Luxembourg",
         }
         return {key: value for key, value in payload.items() if value}
@@ -681,11 +710,14 @@ def address_payload(event):
     # them afterwards, which cannot tell a canton that was substituted from a
     # town that genuinely shares its name.
     legacy = parse_address(event.address, "")
-    # `commune` is required, so the parsed town fills it here too. A legacy row
-    # with no readable town sends neither, and echo.lu will reject it -- which
-    # is the correct outcome: it has no address worth publishing, and `--audit`
-    # names it.
-    legacy["commune"] = legacy.get("town", "")
+    # `commune` is required, so the parsed postcode/town fill it here too, on
+    # the same postcode-first basis as the structured branch above. A legacy
+    # row with no readable town AND no readable/mapped postcode sends
+    # neither, and echo.lu will reject it -- which is the correct outcome: it
+    # has no address worth publishing, and `--audit` names it. A row with a
+    # readable postcode but no readable town now publishes a commune it
+    # could not before -- strictly more informative, never less.
+    legacy["commune"] = _commune_for(legacy.get("postcode", ""), legacy.get("town", ""))
     return {key: value for key, value in legacy.items() if value}
 
 
