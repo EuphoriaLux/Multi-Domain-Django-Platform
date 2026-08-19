@@ -867,6 +867,12 @@ def crush_connect_hub(request):
         and membership is not None
         and membership.is_onboarded
     )
+    # Mirrors staff_preview above: _connect_week_access_blocker fully bypasses
+    # onboarding for staff (same as _connect_access_blocker does for Today's
+    # Drop), but cycle_access itself requires onboarding even for staff — so
+    # an unonboarded staff member needs an explicit preview link, or they have
+    # no UI path in (only reachable by typing the URL directly).
+    cycle_staff_preview = bool(user.is_staff and not cycle_access)
 
     # Mirrors the sparks_received listing, including the coach/member pair
     # rule — a badge counting Sparks the list refuses to show is a dead end.
@@ -899,6 +905,7 @@ def crush_connect_hub(request):
         "track": "receiver" if is_receiver else "candidate",
         "is_receiver": is_receiver,
         "cycle_access": cycle_access,
+        "cycle_staff_preview": cycle_staff_preview,
         "staff_preview": staff_preview,
         "is_coach": bool(coach and coach.is_active),
         "pending_sparks_count": pending_sparks_count,

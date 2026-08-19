@@ -678,6 +678,28 @@ def test_week_card_answer_view_records_and_redirects(client, settings):
 
 
 @pytest.mark.django_db
+def test_week_card_answer_view_rejects_empty_gate_questions(client, settings):
+    """If the target's gate questions are gone by the time the POST lands
+    (re-picked, or a direct/racy POST with no prior render), the view must
+    NOT silently complete the card with zero recorded guesses — there's
+    nothing to score and it would burn that day's card slot for nothing."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    _seed_cycle_pool(me, n=3)
+    _login_eligible(client, me)
+    client.get(WEEK_HOME_URL)  # triggers session + card generation
+    card = ConnectCycleCard.objects.filter(session__user=me).first()
+    card.target_user.crush_connect_membership.gate_questions.all().delete()
+
+    resp = client.post(f"/en/crush-connect/week/card/{card.pk}/answer/", {})
+
+    assert resp.status_code in (302, 301)
+    card.refresh_from_db()
+    assert card.is_completed is False
+    assert card.answers_json == {}
+
+
+@pytest.mark.django_db
 def test_week_review_redirects_home_while_active(client, settings):
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
     me = _make_cycle_user("me")

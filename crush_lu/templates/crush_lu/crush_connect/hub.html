@@ -149,6 +149,21 @@
         {% endif %}
 
         {% comment %}
+        Staff keep a way into Connect Week even though the tile above still
+        requires onboarding — mirrors the Today's Drop staff-preview link
+        right below, since _connect_week_access_blocker DOES fully bypass
+        onboarding for staff (same as _connect_access_blocker), so this is
+        the only UI path in for an unonboarded staff account.
+        {% endcomment %}
+        {% if cycle_staff_preview %}
+        <a href="{% url 'crush_lu:connect_week_home' %}"
+           class="col-span-2 flex items-center gap-2 rounded-xl ring-1 ring-dashed ring-amber-400/60 bg-amber-50/60 dark:bg-amber-500/10 px-3 py-2 no-underline hover:ring-amber-500 transition-all">
+            {% include "shared/icons/star.html" with class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" %}
+            <span class="text-xs font-medium text-amber-800 dark:text-amber-300">{% trans "Staff preview: open Connect Week" %}</span>
+        </a>
+        {% endif %}
+
+        {% comment %}
         Staff keep a way into Today's Drop even though the track above now
         follows the real entitlement — the Drop page itself carries the
         staff-preview banner explaining that the pool will be empty.

@@ -134,6 +134,16 @@ def connect_week_card_answer(request, card_id: int):
 
     membership = getattr(card.target_user, "crush_connect_membership", None)
     gate_questions = list(membership.active_gate_questions) if membership else []
+    if not gate_questions:
+        # The target cleared/re-picked their gate questions between the card
+        # being rendered and this POST landing (or a direct/racy POST with no
+        # prior render) — nothing to score, so don't silently complete the
+        # card with zero guesses. The template only renders the answer form
+        # when gate_questions is non-empty; this is the view-layer guard for
+        # everything that bypasses the template (direct POST, stale tab).
+        messages.error(request, _("Please answer all three questions."))
+        return redirect("crush_lu:connect_week_home")
+
     guesses = {}
     for gq in gate_questions:
         raw = request.POST.get(f"answer_{gq.question_id}")
