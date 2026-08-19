@@ -35,7 +35,9 @@ from power_up.atmos.printing.transport import (
     NullTransport,
     Tcp9100Transport,
     TransportError,
+    WindowsRawTransport,
 )
+
 
 AT = datetime(2026, 8, 16, 21, 47)
 
@@ -287,3 +289,25 @@ class TestTransports:
         with pytest.raises(TransportError) as exc:
             Tcp9100Transport("127.0.0.1", port=9, timeout=0.25).send(b"x")
         assert "unreachable" in str(exc.value)
+
+    def test_windows_raw_transport_repr(self):
+        transport = WindowsRawTransport("POS-80C")
+        assert repr(transport) == "WindowsRawTransport('POS-80C')"
+
+    def test_windows_raw_transport_non_windows(self, monkeypatch):
+        monkeypatch.setattr("sys.platform", "linux")
+        transport = WindowsRawTransport("POS-80C")
+        with pytest.raises(TransportError) as exc:
+            transport.send(b"test")
+        assert "requires Windows" in str(exc.value)
+
+    def test_windows_raw_transport_nonexistent_printer(self):
+        import sys
+
+        if sys.platform != "win32":
+            pytest.skip("Windows only")
+        transport = WindowsRawTransport("__NONEXISTENT_PRINTER_NAME_XYZ__")
+        with pytest.raises(TransportError) as exc:
+            transport.send(b"test")
+        assert "cannot open Windows printer" in str(exc.value)
+
