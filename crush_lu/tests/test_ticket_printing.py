@@ -7,7 +7,6 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.signing import Signer
 from django.test import TestCase
-from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import CrushCoach, CrushProfile, EventRegistration, MeetupEvent
@@ -55,6 +54,7 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=4,
             seat_label="A",
+            language="en",
         )
         self.assertTrue(len(directives) > 10)
         # Check text representation
@@ -63,12 +63,13 @@ class TestTicketPrinter(TestCase):
             event=self.event,
             table_number=4,
             seat_label="A",
+            language="en",
         )
         self.assertIn("CRUSH.LU", plain_text)
         self.assertIn("SPEED DATING", plain_text)
         self.assertIn("MAX", plain_text)
-        self.assertIn("TABLE 4", plain_text)
-        self.assertIn("CRUSH COACH", plain_text)
+        self.assertIn("TABLE 4 (A)", plain_text)
+        self.assertIn("BADGE #", plain_text)
         self.assertIn("MYSTERY RADAR", plain_text)
         self.assertIn("SHARE YOUR STORY", plain_text)
 
@@ -80,7 +81,53 @@ class TestTicketPrinter(TestCase):
         )
         self.assertIn("CRUSH.LU", plain_text)
         self.assertIn("GUEST", plain_text)
-        self.assertIn("WELCOME", plain_text)
+        self.assertIn("BIENVENUE", plain_text)
+
+    def test_long_name_and_badge_not_truncated(self):
+        long_user = User.objects.create_user(
+            username="longname@test.lu",
+            email="longname@test.lu",
+            first_name="Jean-Sebastien",
+        )
+        CrushProfile.objects.create(
+            user=long_user,
+            gender="M",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
+        )
+        long_reg = EventRegistration.objects.create(
+            user=long_user,
+            event=self.event,
+            status="confirmed",
+        )
+        plain_text = preview_checkin_ticket_text(
+            registration=long_reg,
+            event=self.event,
+            table_number=12,
+            seat_label="B",
+            coach_authenticated=True,
+        )
+        # Verify 2-line layout: Full long name is printed
+        self.assertIn("JEAN-SEBASTIEN", plain_text)
+        # Verify badge number is NOT truncated
+        self.assertIn(f"BADGE #{long_reg.id}", plain_text)
+        # Verify table label is present
+        self.assertIn("TABLE 12 (B)", plain_text)
+
+    def test_coach_test_ticket_sample_data(self):
+        # Coach test bon with no registration
+        plain_text = preview_checkin_ticket_text(
+            registration=None,
+            event=self.event,
+            table_number=None,
+            coach_authenticated=True,
+            language="fr",
+        )
+        self.assertIn("JEAN", plain_text)
+        self.assertIn("BADGE #99", plain_text)
+        self.assertIn("TABLE 1 (A)", plain_text)
+        self.assertIn("ROOM DATA", plain_text)
+        self.assertIn("RENCONTRES MYSTÈRES", plain_text)
+        self.assertIn("MATCH #12", plain_text)
 
     def test_bytes_encoding_and_cp858(self):
         payload_bytes = build_checkin_ticket_bytes(
@@ -246,8 +293,8 @@ class TestTicketPrinter(TestCase):
             coach_authenticated=True,
         )
         # Should have generic event pass header
-        self.assertIn("EVENT // CHECK-IN PASS", plain_text)
-        # Should NOT have dating receipt or dating survival guide
+        self.assertIn("ÉVÉNEMENT // PASS ENREGISTREMENT", plain_text)
+        # Should NOT have dating receipt or dating passport
         self.assertNotIn("EVENT PASSPORT", plain_text)
         self.assertNotIn("PASSEPORT", plain_text)
 
@@ -294,7 +341,7 @@ class TestTicketPrinter(TestCase):
             date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
         )
         other_male_prof.interests_new.add(interest_books)
-        other_male_reg = EventRegistration.objects.create(
+        EventRegistration.objects.create(
             user=other_male,
             event=self.event,
             status="confirmed",
@@ -306,16 +353,16 @@ class TestTicketPrinter(TestCase):
             table_number=2,
             coach_authenticated=True,
         )
-        self.assertIn("MYSTERY", plain_text)
+        self.assertIn("RENCONTRES MYSTÈRES", plain_text)
         self.assertIn("MATCH", plain_text)
-        self.assertIn("Name :", plain_text)
+        self.assertIn("Prénom :", plain_text)
         self.assertIn(f"#{other_reg.id}", plain_text)
         # Mystery radar must be anonymous with badge number only (no attendee names in mystery clues)
         self.assertNotIn(f"Pos (#{other_reg.id})", plain_text)
         # Assert rich ROOM DATA statistics appear
         self.assertIn("ROOM DATA", plain_text)
         self.assertIn("PASSIONS", plain_text)
-        self.assertIn("AGE", plain_text)
+        self.assertIn("ÂGE", plain_text)
 
     def test_multilingual_ticket_generation(self):
         # 1. French
@@ -327,7 +374,7 @@ class TestTicketPrinter(TestCase):
             coach_authenticated=True,
         )
         self.assertIn("PARTAGE TA STORY", text_fr)
-        self.assertIn("GUIDE DE SURVIE", text_fr)
+        self.assertIn("MISSION SECRÈTE", text_fr)
 
         # 2. German
         text_de = preview_checkin_ticket_text(
@@ -338,7 +385,7 @@ class TestTicketPrinter(TestCase):
             coach_authenticated=True,
         )
         self.assertIn("TEILE DEINE STORY", text_de)
-        self.assertIn("SURVIVAL GUIDE", text_de)
+        self.assertIn("GEHEIMMISSION", text_de)
 
         # 3. English
         text_en = preview_checkin_ticket_text(
@@ -349,7 +396,7 @@ class TestTicketPrinter(TestCase):
             coach_authenticated=True,
         )
         self.assertIn("SHARE YOUR STORY", text_en)
-        self.assertIn("SURVIVAL GUIDE", text_en)
+        self.assertIn("SECRET MISSION", text_en)
 
 
 class TestCheckinPrintingAPI(TestCase):
@@ -433,7 +480,9 @@ class TestCheckinPrintingAPI(TestCase):
 
     def test_reprint_ticket_api(self):
         # Anonymous fails (redirects to login)
-        reprint_url = f"/api/events/{self.event.id}/print-ticket/{self.registration.id}/"
+        reprint_url = (
+            f"/api/events/{self.event.id}/print-ticket/{self.registration.id}/"
+        )
         anon_resp = self.client.get(reprint_url)
         self.assertEqual(anon_resp.status_code, 302)
 
@@ -457,3 +506,57 @@ class TestCheckinPrintingAPI(TestCase):
         self.assertEqual(data.get("event_id"), self.event.id)
         self.assertIn("print_payload_base64", data)
         self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_member_stats_and_pool_seniority_rank(self):
+        # Create second user with higher ID to verify relative room rank
+        user2 = User.objects.create_user(
+            username="user2_rank@test.lu",
+            email="user2_rank@test.lu",
+            first_name="Alice",
+        )
+        CrushProfile.objects.create(
+            user=user2,
+            gender="F",
+            is_approved=True,
+        )
+        reg2 = EventRegistration.objects.create(
+            user=user2,
+            event=self.event,
+            status="confirmed",
+        )
+
+        plain_text_fr = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+            language="fr",
+        )
+        self.assertIn("STATUT MEMBRE & RANG DU SOIR", plain_text_fr)
+        self.assertIn(f"Membre #{self.attendee_user.id}", plain_text_fr)
+        self.assertIn("Ancienneté", plain_text_fr)
+        self.assertIn("Rang soirée", plain_text_fr)
+        self.assertIn("#1/2", plain_text_fr)
+
+        plain_text_en = preview_checkin_ticket_text(
+            registration=reg2,
+            event=self.event,
+            table_number=2,
+            coach_authenticated=True,
+            language="en",
+        )
+        self.assertIn("MEMBER STATUS & TONIGHT RANK", plain_text_en)
+        self.assertIn("Seniority", plain_text_en)
+        self.assertIn("Room Rank", plain_text_en)
+        self.assertIn("#2/2", plain_text_en)
+
+        plain_text_de = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+            language="de",
+        )
+        self.assertIn("MITGLIEDS-STATUS & ABEND-RANG", plain_text_de)
+        self.assertIn("Seniorität", plain_text_de)
+        self.assertIn("Abend-Rang", plain_text_de)

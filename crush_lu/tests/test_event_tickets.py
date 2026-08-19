@@ -20,8 +20,8 @@ from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.views_ticket import _generate_checkin_token
 
-# All crush_lu HTTP tests must use the crush-specific URL config
-pytestmark = pytest.mark.urls("azureproject.urls_crush")
+# All crush_lu HTTP tests must use the crush-specific URL config and have db access
+pytestmark = [pytest.mark.urls("azureproject.urls_crush"), pytest.mark.django_db]
 
 
 @pytest.fixture
@@ -211,19 +211,25 @@ class TestWebTicketPage:
         assert response.status_code == 302
         assert "login" in response.url.lower()
 
-    def test_ticket_page_shows_for_confirmed_user(self, client, event_user, confirmed_registration):
+    def test_ticket_page_shows_for_confirmed_user(
+        self, client, event_user, confirmed_registration
+    ):
         client.login(username="ticketuser", password="testpass123")
         url = reverse("crush_lu:event_ticket", args=[confirmed_registration.event_id])
         response = client.get(url)
         assert response.status_code == 200
 
-    def test_ticket_page_404_for_unregistered_user(self, client, other_user, upcoming_event):
+    def test_ticket_page_404_for_unregistered_user(
+        self, client, other_user, upcoming_event
+    ):
         client.login(username="otheruser", password="testpass123")
         url = reverse("crush_lu:event_ticket", args=[upcoming_event.id])
         response = client.get(url)
         assert response.status_code == 404
 
-    def test_ticket_page_404_for_cancelled_registration(self, client, event_user, upcoming_event):
+    def test_ticket_page_404_for_cancelled_registration(
+        self, client, event_user, upcoming_event
+    ):
         EventRegistration.objects.create(
             event=upcoming_event,
             user=event_user,
@@ -234,13 +240,17 @@ class TestWebTicketPage:
         response = client.get(url)
         assert response.status_code == 404
 
-    def test_ticket_page_other_user_cannot_view(self, client, other_user, confirmed_registration):
+    def test_ticket_page_other_user_cannot_view(
+        self, client, other_user, confirmed_registration
+    ):
         client.login(username="otheruser", password="testpass123")
         url = reverse("crush_lu:event_ticket", args=[confirmed_registration.event_id])
         response = client.get(url)
         assert response.status_code == 404
 
-    def test_ticket_page_shows_checked_in_status(self, client, event_user, confirmed_registration):
+    def test_ticket_page_shows_checked_in_status(
+        self, client, event_user, confirmed_registration
+    ):
         confirmed_registration.status = "attended"
         confirmed_registration.checked_in_at = timezone.now()
         confirmed_registration.save()
@@ -249,6 +259,18 @@ class TestWebTicketPage:
         url = reverse("crush_lu:event_ticket", args=[confirmed_registration.event_id])
         response = client.get(url)
         assert response.status_code == 200
+        assert response.context["compatibility_score"] >= 88
+        assert (
+            b"Room Chemistry" in response.content
+            or b"showScoreModal" in response.content
+        )
+
+    def test_compatibility_explainer_page(self, client, db):
+        url = reverse("crush_lu:compatibility_explainer")
+        response = client.get(url)
+        assert response.status_code == 200
+        assert len(response.context["score_pillars"]) == 4
+        assert b"Shared Passions" in response.content or b"Passions" in response.content
 
 
 class TestEventTicketJWTView:
@@ -259,13 +281,17 @@ class TestEventTicketJWTView:
         response = client.get(url)
         assert response.status_code == 302
 
-    def test_jwt_endpoint_404_for_wrong_user(self, client, other_user, confirmed_registration):
+    def test_jwt_endpoint_404_for_wrong_user(
+        self, client, other_user, confirmed_registration
+    ):
         client.login(username="otheruser", password="testpass123")
         url = f"/wallet/google/event-ticket/{confirmed_registration.id}/jwt/"
         response = client.get(url)
         assert response.status_code == 404
 
-    def test_jwt_endpoint_returns_503_when_not_configured(self, client, event_user, confirmed_registration):
+    def test_jwt_endpoint_returns_503_when_not_configured(
+        self, client, event_user, confirmed_registration
+    ):
         client.login(username="ticketuser", password="testpass123")
         url = f"/wallet/google/event-ticket/{confirmed_registration.id}/jwt/"
         response = client.get(url)
