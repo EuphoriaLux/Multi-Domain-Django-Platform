@@ -8,7 +8,11 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.connect_phase import receiver_access_open, is_event_verified_member
+from crush_lu.connect_phase import (
+    cycle_access_open,
+    is_event_verified_member,
+    receiver_access_open,
+)
 from crush_lu.models.crush_connect_cycle import (
     ConnectWeekSession,
     ConnectCycleCard,
@@ -216,17 +220,28 @@ class ConnectPhaseGatingTests(TestCase):
         )
 
     @override_settings(CRUSH_CONNECT_CANDIDATE_OPEN=True, CRUSH_CONNECT_LAUNCHED=False)
-    def test_receiver_access_in_beta(self):
-        # Event verified user gets receiver access in beta
-        self.assertTrue(receiver_access_open(self.event_user))
+    def test_cycle_access_in_beta(self):
+        # Event verified user gets 7-Day Cycle access in beta
+        self.assertTrue(cycle_access_open(self.event_user))
 
-        # LuxID-only user is in candidate pool, not receiver in beta
-        self.assertFalse(receiver_access_open(self.luxid_user))
+        # LuxID-only user is in candidate pool, not cycle-eligible in beta
+        self.assertFalse(cycle_access_open(self.luxid_user))
 
-        # Unverified user has no receiver access
-        self.assertFalse(receiver_access_open(self.unverified_user))
+        # Unverified user has no cycle access
+        self.assertFalse(cycle_access_open(self.unverified_user))
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)
-    def test_receiver_access_at_full_launch(self):
-        self.assertTrue(receiver_access_open(self.event_user))
-        self.assertTrue(receiver_access_open(self.luxid_user))
+    def test_cycle_access_at_full_launch(self):
+        self.assertTrue(cycle_access_open(self.event_user))
+        self.assertTrue(cycle_access_open(self.luxid_user))
+
+    @override_settings(CRUSH_CONNECT_CANDIDATE_OPEN=True, CRUSH_CONNECT_LAUNCHED=False)
+    def test_receiver_access_stays_staff_and_selected_tester_only_in_beta(self):
+        """Today's Drop (the already-live feature) must NOT widen just because
+        the 7-Day Cycle's gate does — regression guard for the bug where
+        ``cycle_access_open``'s event-verified fallback leaked into
+        ``receiver_access_open`` (caught by
+        ``test_beta_premium_non_tester_treated_as_candidate``)."""
+        self.assertFalse(receiver_access_open(self.event_user))
+        self.assertFalse(receiver_access_open(self.luxid_user))
+        self.assertFalse(receiver_access_open(self.unverified_user))
