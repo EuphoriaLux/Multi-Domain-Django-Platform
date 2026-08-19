@@ -126,13 +126,11 @@ class TestChronicle:
 def _fresh_cache_key() -> str:
     """A collision-free cache key per test.
 
-    These tests share one process-wide `LocMemCache` (Django's default cache
-    with no `REDIS_URL` set, which is what local dev and CI both run under —
-    see `azureproject/settings.py`), so reusing a key across tests would leak
-    state between them the same way an un-cleared cache leaked state across
-    tests before (see the ai-memory-hub note on SQLite PK reuse + cache
-    pollution). A fresh key per test sidesteps that instead of relying on
-    `cache.clear()` in a fixture.
+    Tests in one worker process share the same `LocMemCache` singleton
+    (Django's default cache with no `REDIS_URL` set, which is what local dev
+    and CI both run under — see `azureproject/settings.py`), so reusing a
+    key across tests would leak state between them. A fresh key per test
+    sidesteps that instead of relying on `cache.clear()` in a fixture.
     """
     return f"test:{uuid.uuid4()}"
 
