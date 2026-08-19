@@ -8,11 +8,17 @@ on:
   issue_comment:
     types: [created]
 
-# A new push to the PR (or a fresh comment trigger) cancels the still-running
-# review of the previous one.
+# A new push to the PR cancels the still-running review of the previous
+# (now-stale) commit. Comment-triggered reviews (`@claude review`) do NOT
+# cancel each other: two triggers landing close together — e.g. a duplicate
+# webhook delivery, or two people nudging it — used to race under
+# cancel-in-progress:true, with the newer run winning even when it resolved
+# to a no-op (skipped) and killed a genuinely in-flight review. Scoping
+# cancellation to `pull_request` events only keeps the original "stale code"
+# intent without that self-cancellation failure mode.
 concurrency:
   group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   claude-review:
