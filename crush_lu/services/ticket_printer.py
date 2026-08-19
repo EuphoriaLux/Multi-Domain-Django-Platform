@@ -1035,16 +1035,16 @@ def _build_member_stats_directives(
     user = getattr(registration, "user", None) if registration else None
     profile = getattr(user, "crushprofile", None) if user else None
 
-    # Calculate real or baseline numbers
+    # Calculate 100% dynamic counts directly from the database
     try:
         from django.contrib.auth.models import User
         from crush_lu.models import CrushProfile, EventRegistration
 
-        total_members = max(150, User.objects.filter(is_active=True).count())
-        verified_count = max(45, CrushProfile.objects.filter(is_approved=True).count())
+        total_members = User.objects.filter(is_active=True).count() or 1
+        verified_count = CrushProfile.objects.filter(is_approved=True).count()
     except Exception:
-        total_members = 150
-        verified_count = 45
+        total_members = 1
+        verified_count = 0
 
     user_id = user.id if user else (42 if coach_authenticated else None)
     name = (
@@ -1053,17 +1053,17 @@ def _build_member_stats_directives(
         or ("Guest" if lang != "fr" else "Invité(e)")
     )
 
-    pool_count = 12
+    pool_count = 1
     if event:
         try:
             pool_count = max(
-                4,
+                1,
                 EventRegistration.objects.filter(
                     event=event, status__in=["confirmed", "attended"]
                 ).count(),
             )
         except Exception:
-            pool_count = 12
+            pool_count = 1
 
     hdr = {
         "fr": "✨ STATUT MEMBRE // CRUSH.LU",
@@ -1073,10 +1073,10 @@ def _build_member_stats_directives(
 
     if user_id:
         congrats = {
-            "fr": f"Félicitations {name} ! Membre officiel #{user_id}",
-            "de": f"Glückwunsch {name}! Offizielles Mitglied #{user_id}",
-            "en": f"Congratulations {name}! Official Member #{user_id}",
-        }.get(lang, f"Congratulations {name}! Official Member #{user_id}")
+            "fr": f"Félicitations {name} ! Membre #{user_id}",
+            "de": f"Glückwunsch {name}! Mitglied #{user_id}",
+            "en": f"Congratulations {name}! Member #{user_id}",
+        }.get(lang, f"Congratulations {name}! Member #{user_id}")
     else:
         congrats = {
             "fr": f"Bienvenue {name} au sein de Crush.lu !",
@@ -1085,10 +1085,10 @@ def _build_member_stats_directives(
         }.get(lang, f"Welcome {name} to Crush.lu!")
 
     sub_members = {
-        "fr": f"sur les {total_members}+ célibataires inscrits au Luxembourg.",
-        "de": f"von {total_members}+ angemeldeten Singles in Luxemburg.",
-        "en": f"among {total_members}+ registered singles in Luxembourg.",
-    }.get(lang, f"among {total_members}+ registered singles in Luxembourg.")
+        "fr": f"sur les {total_members} célibataires inscrits au Luxembourg.",
+        "de": f"von {total_members} angemeldeten Singles in Luxemburg.",
+        "en": f"among {total_members} registered singles in Luxembourg.",
+    }.get(lang, f"among {total_members} registered singles in Luxembourg.")
 
     is_verified = bool(
         profile
@@ -1106,10 +1106,10 @@ def _build_member_stats_directives(
     pills_line = f"{verified_pill}   {pool_pill}"
 
     stat_line1 = {
-        "fr": f"• Plateforme  : {verified_count}+ profils certifiés & vérifiés",
-        "de": f"• Plattform   : {verified_count}+ geprüfte & verifizierte Profile",
-        "en": f"• Platform    : {verified_count}+ certified & verified profiles",
-    }.get(lang, f"• Platform    : {verified_count}+ certified & verified profiles")
+        "fr": f"• Plateforme  : {verified_count} profils certifiés & vérifiés",
+        "de": f"• Plattform   : {verified_count} geprüfte & verifizierte Profile",
+        "en": f"• Platform    : {verified_count} certified & verified profiles",
+    }.get(lang, f"• Platform    : {verified_count} certified & verified profiles")
 
     stat_line2 = {
         "fr": f"• Pool du soir : {pool_count} participants matchés pour toi",
