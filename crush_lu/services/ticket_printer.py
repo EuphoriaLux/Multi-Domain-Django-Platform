@@ -856,6 +856,8 @@ def _build_mystery_radar_directives(
                     else (dating_pool + general_pool)
                 )
 
+                used_clue_keys: set[str] = set()
+
                 for other in candidate_pool:
                     op = getattr(
                         getattr(other, "user", None), "crushprofile", None
@@ -866,63 +868,104 @@ def _build_mystery_radar_directives(
                     badge = f"(#{other.id})"
 
                     other_interests = [i.label for i in op.interests_new.all()]
-                    common = my_interests.intersection(other_interests)
-                    other_defects = list(op.defects.all())
-                    other_qualities = list(op.qualities.all())
+                    common_interests = [i for i in other_interests if i in my_interests]
+                    other_defects = [d.label for d in op.defects.all()]
+                    other_qualities = [q.label for q in op.qualities.all()]
 
-                    if common:
-                        txt = {
-                            "fr": f'Partage ta passion "{list(common)[0]}"',
-                            "de": f'Teilt deine Leidenschaft "{list(common)[0]}"',
-                            "en": f'Shares your passion "{list(common)[0]}"',
-                        }.get(lang, f'Shares your passion "{list(common)[0]}"')
-                        clues.append((txt, badge))
-                    elif op.event_vibe:
-                        clues.append(
-                            (f'Vibe: "{op.get_event_vibe_display()}"', badge)
-                        )
-                    elif other_interests:
-                        txt = {
+                    chosen_clue = None
+
+                    # 1. Prioritize an unused common passion with this candidate
+                    for ci in common_interests:
+                        if ci not in used_clue_keys:
+                            chosen_clue = {
+                                "fr": f'Partage ta passion "{ci}"',
+                                "de": f'Teilt deine Leidenschaft "{ci}"',
+                                "en": f'Shares your passion "{ci}"',
+                            }.get(lang, f'Shares your passion "{ci}"')
+                            used_clue_keys.add(ci)
+                            break
+
+                    # 2. Distinct individual interest (not used yet)
+                    if not chosen_clue:
+                        for oi in other_interests:
+                            if oi not in used_clue_keys:
+                                chosen_clue = {
+                                    "fr": f'Adore "{oi}"',
+                                    "de": f'Liebt "{oi}"',
+                                    "en": f'Loves "{oi}"',
+                                }.get(lang, f'Loves "{oi}"')
+                                used_clue_keys.add(oi)
+                                break
+
+                    # 3. Fun Quirk / Defect (not used yet)
+                    if not chosen_clue:
+                        for od in other_defects:
+                            if od not in used_clue_keys:
+                                chosen_clue = {
+                                    "fr": f'Défaut: "{od}"',
+                                    "de": f'Macke: "{od}"',
+                                    "en": f'Quirk: "{od}"',
+                                }.get(lang, f'Quirk: "{od}"')
+                                used_clue_keys.add(od)
+                                break
+
+                    # 4. Vibe & Mood (if not used yet)
+                    if not chosen_clue and op.event_vibe:
+                        vibe_label = op.get_event_vibe_display()
+                        if vibe_label not in used_clue_keys:
+                            chosen_clue = f'Vibe: "{vibe_label}"'
+                            used_clue_keys.add(vibe_label)
+
+                    # 5. Quality / Strength (if not used yet)
+                    if not chosen_clue:
+                        for oq in other_qualities:
+                            if oq not in used_clue_keys:
+                                chosen_clue = {
+                                    "fr": f'Atout: "{oq}"',
+                                    "de": f'Stärke: "{oq}"',
+                                    "en": f'Strength: "{oq}"',
+                                }.get(lang, f'Strength: "{oq}"')
+                                used_clue_keys.add(oq)
+                                break
+
+                    # 6. Fallback to any common interest even if repeated once
+                    if not chosen_clue and common_interests:
+                        chosen_clue = {
+                            "fr": f'Partage ta passion "{common_interests[0]}"',
+                            "de": f'Teilt deine Leidenschaft "{common_interests[0]}"',
+                            "en": f'Shares your passion "{common_interests[0]}"',
+                        }.get(lang, f'Shares your passion "{common_interests[0]}"')
+
+                    # 7. Fallback to any distinct interest
+                    if not chosen_clue and other_interests:
+                        chosen_clue = {
                             "fr": f'Adore "{other_interests[0]}"',
                             "de": f'Liebt "{other_interests[0]}"',
                             "en": f'Loves "{other_interests[0]}"',
                         }.get(lang, f'Loves "{other_interests[0]}"')
-                        clues.append((txt, badge))
-                    elif other_defects:
-                        txt = {
-                            "fr": f'Défaut: "{other_defects[0].label}"',
-                            "de": f'Macke: "{other_defects[0].label}"',
-                            "en": f'Quirk: "{other_defects[0].label}"',
-                        }.get(lang, f'Quirk: "{other_defects[0].label}"')
-                        clues.append((txt, badge))
-                    elif other_qualities:
-                        txt = {
-                            "fr": f'Atout: "{other_qualities[0].label}"',
-                            "de": f'Stärke: "{other_qualities[0].label}"',
-                            "en": f'Strength: "{other_qualities[0].label}"',
-                        }.get(lang, f'Strength: "{other_qualities[0].label}"')
-                        clues.append((txt, badge))
-                    elif op.location:
-                        txt = {
-                            "fr": f'Vient de "{op.location}"',
-                            "de": f'Kommt aus "{op.location}"',
-                            "en": f'From "{op.location}"',
-                        }.get(lang, f'From "{op.location}"')
-                        clues.append((txt, badge))
-                    elif op.event_languages:
-                        txt = {
-                            "fr": f'Parle {op.event_languages[0].upper()}',
-                            "de": f'Spricht {op.event_languages[0].upper()}',
-                            "en": f'Speaks {op.event_languages[0].upper()}',
-                        }.get(lang, f'Speaks {op.event_languages[0].upper()}')
-                        clues.append((txt, badge))
-                    else:
-                        txt_fallback = {
-                            "fr": "Profil Énigme Mystère",
-                            "de": "Geheimes Mystery-Profil",
-                            "en": "Secret Enigma Profile",
-                        }.get(lang, "Secret Enigma Profile")
-                        clues.append((txt_fallback, badge))
+
+                    # 8. Location or Language fallback
+                    if not chosen_clue:
+                        if op.location:
+                            chosen_clue = {
+                                "fr": f'Vient de "{op.location}"',
+                                "de": f'Kommt aus "{op.location}"',
+                                "en": f'From "{op.location}"',
+                            }.get(lang, f'From "{op.location}"')
+                        elif op.event_languages:
+                            chosen_clue = {
+                                "fr": f'Parle {op.event_languages[0].upper()}',
+                                "de": f'Spricht {op.event_languages[0].upper()}',
+                                "en": f'Speaks {op.event_languages[0].upper()}',
+                            }.get(lang, f'Speaks {op.event_languages[0].upper()}')
+                        else:
+                            chosen_clue = {
+                                "fr": "Profil Énigme Mystère",
+                                "de": "Geheimes Mystery-Profil",
+                                "en": "Secret Enigma Profile",
+                            }.get(lang, "Secret Enigma Profile")
+
+                    clues.append((chosen_clue, badge))
 
                 # Cover all dating candidates present in the venue (thermal cap at 24)
                 target_clues = max(1, len(candidate_pool)) if candidate_pool else 7
