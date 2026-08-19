@@ -583,23 +583,41 @@ Note the back-office **editor** is not a reliable mirror either: section 2.4
 showed three empty slots for an experience that demonstrably held two stored
 videos. The preview is the instrument, not the form.
 
-**`commune` is required, and gets the town.** It once carried the event's
-`canton`, which is a region rather than a commune. Omitting it looked like the
-safe correction — echo.lu's commune filter is a controlled vocabulary where an
-unrecognised value 404s the venue search — but the field is mandatory: on
-2026-08-10 every event was rejected with `location.address: Missing or malformed
-address`, including three that were already live, and the whole integration
-stopped publishing until the town was sent.
+**`commune` is required, and resolves from the postcode, town as fallback.** It
+once carried the event's `canton`, which is a region rather than a commune.
+Omitting it looked like the safe correction — echo.lu's commune filter is a
+controlled vocabulary where an unrecognised value 404s the venue search — but
+the field is mandatory: on 2026-08-10 every event was rejected with
+`location.address: Missing or malformed address`, including three that were
+already live, and the whole integration stopped publishing until the town was
+sent.
 
-⚠️ **Known limitation.** A Luxembourg commune takes its name from its principal
-town, so this is right wherever the two coincide (Luxembourg, Differdange,
-Esch-sur-Alzette). It is wrong where they do not: **Rodange is in the commune of
-Pétange**, Belval is in Sanem, and a quarter like Ville-Haute is not a commune at
-all. Booking a venue in one of those will send a town where echo.lu expects a
-commune, and may be rejected or filed under the wrong municipality. Fixing it
-properly needs a postcode→commune table, or a `commune` field of its own on the
-event. Until then, check the listing after publishing an event outside the
-towns above.
+A Luxembourg commune usually takes its name from its principal town, so the
+town was right wherever the two coincide (Luxembourg, Differdange,
+Esch-sur-Alzette) — but wrong where they do not: **Rodange is in the commune
+of Pétange**, and a quarter like Ville-Haute is not a commune at all (it is
+part of Luxembourg City's). `address_payload()` now looks the event's postcode
+up in `crush_lu/services/echo_lu_postcodes.POSTCODE_TO_COMMUNE` — a static
+table built from Luxembourg's official national address registry (the
+"Registre national des localités et des rues" / CACLR, published by the
+Administration du cadastre et de la topographie on data.public.lu; see that
+module's docstring for the exact dataset, resource, and field layout used to
+regenerate it) — and only falls back to the town when the postcode is
+unmapped or absent, exactly as before this table existed. A handful of rural
+postcodes genuinely straddle a commune border and are deliberately left out of
+the table rather than guessed, so they also fall back to the town.
+
+⚠️ **Correction, 2026-08-19: Belval is not simply "in Sanem".** An earlier
+version of this note said so. The authoritative registry says the Belval
+campus's own postcodes (4361–4366 — Rockhal, Maison du Savoir, Belval Plaza)
+resolve to **Esch-sur-Alzette**, not Sanem; only the boundary postcodes
+4367–4375, shared with Sanem's neighbouring Belvaux locality, are genuinely
+ambiguous, and those are exactly the ones the table leaves unmapped. Treat any
+commune name this table produces that was never sent before as best-effort —
+see the module docstring's "NOT INDEPENDENTLY VERIFIED" note: the mapping from
+postcode to commune is authoritative, but the exact string echo.lu's own
+`commune` vocabulary expects it spelled as has not been checked against the
+live, authenticated `GET /communes` endpoint.
 
 **Blank contact and address fields** are dropped rather than sent — echo.lu
 treats an empty string as a supplied value and renders a blank line for it.
@@ -641,6 +659,7 @@ failure is recorded on the sync row and retried by the next hourly sweep.
 | File | Role |
 | --- | --- |
 | `crush_lu/services/echo_lu.py` | API client, payload mapping, eligibility, orchestration |
+| `crush_lu/services/echo_lu_postcodes.py` | static postcode → commune table for `address_payload()`, sourced from Luxembourg's national address registry |
 | `crush_lu/models/echo_lu.py` | `EchoExperienceSync` — experience id and sync health |
 | `crush_lu/management/commands/sync_events_to_echo.py` | the sweep / manual sync |
 | `crush_lu/management/commands/echo_taxonomy.py` | vocabulary discovery and slug check |
