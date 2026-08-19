@@ -1,0 +1,70 @@
+{% comment %}
+Per-gender seat availability for an event with active gender caps.
+
+Gender-balanced events (speed dating and friends) enforce capacity per pool,
+not against the total: `max_participants_m` / `_f` / `_nb`. Showing only the
+total tells a member seats are free that are not free for *them* -- they
+register against "4 spots left", event_register waitlists them because their
+own pool is full, and nothing on the page ever explained why (#866).
+
+Args:
+  pools      MeetupEvent.get_gender_pool_availability(): a list of dicts with
+             key / label / limit / confirmed / remaining / is_full. Empty for
+             an event without caps, so callers branch on it directly and keep
+             their total-only display.
+  user_pool  Optional. The viewing member's own row out of `pools`, or None --
+             anonymous visitors and members with no profile gender get the
+             per-pool chips but no personal line, because we cannot say which
+             pool would take them.
+  viewer_registration
+             Optional. The viewer's own non-cancelled EventRegistration. When
+             they already hold a seat their own registration is part of what
+             filled the pool, so "join the waitlist" would be advice on a page
+             that is simultaneously showing them their ticket -- and if they
+             are already waitlisted, they are on it. Either way the personal
+             line is suppressed; the chips stay, since the counts are still
+             true.
+  waitlist_reason
+             Optional. `"total"`, `"pool"` or None, straight from
+             views_events._registration_outlook(). It picks *which* explanation
+             the personal line gives, because `user_pool.is_full` cannot: that
+             flag folds the pool's own cap together with a total or
+             reserved-premium block, so a viewer stopped by overall capacity was
+             told their gender group was full when it was not. Reading the same
+             value the registration page reads keeps all three surfaces -- chip,
+             CTA and the flash after POST -- naming the same cause, and "total"
+             wins a tie there for the same reason it does here: when the whole
+             event is full, that is the plainer thing to tell someone.
+{% endcomment %}
+{% load i18n %}
+<div class="flex items-center gap-1.5 flex-wrap">
+    {% for pool in pools %}
+        {% if pool.limit > 0 or pool.confirmed > 0 %}
+            {% if pool.is_full %}
+                {% blocktrans asvar pool_label with name=pool.label %}{{ name }}: full{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="danger" label=pool_label %}
+            {% elif pool.remaining <= 2 %}
+                {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="warning" label=pool_label %}
+            {% else %}
+                {% blocktrans asvar pool_label with name=pool.label count spots=pool.remaining %}{{ name }}: {{ spots }} spot left{% plural %}{{ name }}: {{ spots }} spots left{% endblocktrans %}
+                {% include "crush_lu/components/status_badge.html" with tone="success" label=pool_label %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+</div>
+{% if user_pool and not viewer_registration %}
+    {% if waitlist_reason == "total" %}
+        <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+            {% trans "The event is fully booked — you can still join the waitlist." %}
+        </p>
+    {% elif waitlist_reason == "pool" %}
+        <p class="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
+            {% trans "All spots for your gender group are taken — you can still join the waitlist." %}
+        </p>
+    {% else %}
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+            {% blocktrans count spots=user_pool.remaining %}{{ spots }} spot left for you.{% plural %}{{ spots }} spots left for you.{% endblocktrans %}
+        </p>
+    {% endif %}
+{% endif %}

@@ -85,12 +85,12 @@ def _build_round_data(round_obj):
 
 
 class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
-    """Base WebSocket consumer with defensive channel group discard."""
+    """Base WebSocket consumer with defensive channel group join/discard."""
 
-    DISCARD_TIMEOUT_SECONDS: float = 2.0
+    GROUP_OP_TIMEOUT_SECONDS: float = 2.0
 
     async def _safe_group_discard(
-        self, group_name: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+        self, group_name: str | None, timeout: float = GROUP_OP_TIMEOUT_SECONDS
     ) -> None:
         """Discard single group membership safely without crashing disconnect on Redis hiccup."""
         if not group_name or not getattr(self, "channel_layer", None):
@@ -109,7 +109,7 @@ class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def _safe_group_discards(
-        self, *group_names: str | None, timeout: float = DISCARD_TIMEOUT_SECONDS
+        self, *group_names: str | None, timeout: float = GROUP_OP_TIMEOUT_SECONDS
     ) -> None:
         """Concurrently discard multiple groups bounded by a single timeout window.
 
@@ -127,6 +127,64 @@ class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
             ),
             return_exceptions=True,
         )
+
+    async def _safe_group_add(
+        self, group_name: str | None, timeout: float = GROUP_OP_TIMEOUT_SECONDS
+    ) -> bool:
+        """Join a single channel group; return False (never raise) on a Redis hiccup.
+
+        Used during connect() so a dropped/reset Redis connection produces a
+        clean reject-and-reconnect instead of an unhandled exception that
+        Channels surfaces to the ASGI server as a 500 (prod incident: a
+        connection reset mid group_add crashed CheckinConsumer.connect,
+        logged as "Exception in ASGI application" / "connection rejected
+        (500 Internal Server Error)"). The client's WS reconnect loop already
+        backs off and retries on any close, so failing closed here is safe.
+        """
+        if not group_name or not getattr(self, "channel_layer", None):
+            return False
+        try:
+            await asyncio.wait_for(
+                self.channel_layer.group_add(group_name, self.channel_name),
+                timeout=timeout,
+            )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Failed to add group %s for channel %s during connect: %s",
+                group_name,
+                getattr(self, "channel_name", "unknown"),
+                exc,
+            )
+            return False
+
+    async def _safe_group_adds(
+        self, *group_names: str | None, timeout: float = GROUP_OP_TIMEOUT_SECONDS
+    ) -> bool:
+        """Join every listed group, or none.
+
+        Groups are joined sequentially (not concurrently, unlike the discard
+        helper) so a failure can stop early instead of racing more doomed
+        calls on an already-broken connection. If a later group fails,
+        whatever this call already joined is unwound via
+        ``_safe_group_discards`` — a socket must never end up subscribed to
+        only some of its groups, since that would silently drop a subset of
+        its broadcasts instead of visibly failing to connect.
+
+        Returns True (vacuously) when there are no groups to join, so
+        callers can uniformly gate ``accept()`` on the result.
+        """
+        valid_groups = [g for g in group_names if g]
+        if not valid_groups or not getattr(self, "channel_layer", None):
+            return True
+        joined: list[str] = []
+        for group in valid_groups:
+            if await self._safe_group_add(group, timeout=timeout):
+                joined.append(group)
+            else:
+                await self._safe_group_discards(*joined, timeout=timeout)
+                return False
+        return True
 
 
 class QuizConsumer(BaseCrushWebsocketConsumer):
@@ -160,10 +218,9 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 self.display_group = f"quiz_{quiz_id}_display"
                 self.table_group = None
 
-                await self.channel_layer.group_add(self.quiz_group, self.channel_name)
-                await self.channel_layer.group_add(
-                    self.display_group, self.channel_name
-                )
+                if not await self._safe_group_adds(self.quiz_group, self.display_group):
+                    await self.close()
+                    return
                 await self.accept()
 
                 try:
@@ -232,9 +289,6 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             await self.close()
             return
 
-        # Join the quiz group
-        await self.channel_layer.group_add(self.quiz_group, self.channel_name)
-
         # A group for whoever is running the room. The host panel's table
         # overview has to refresh on a door action, and none of the existing
         # groups can carry that: `quiz_<id>_table_<pk>` reaches the players at
@@ -251,9 +305,9 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         self.host_group = None
         if await self.is_host(user):
             self.host_group = f"quiz_{self.quiz_id}_host"
-            await self.channel_layer.group_add(self.host_group, self.channel_name)
 
-        # Try to join table-specific group
+        # Resolve the table-specific group before joining anything below, so
+        # a failed lookup can't leave connect() half-subscribed.
         if user.is_authenticated:
             try:
                 table_id = await self.get_user_table_id(user.id)
@@ -266,7 +320,16 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 table_id = None
             if table_id:
                 self.table_group = f"quiz_{self.quiz_id}_table_{table_id}"
-                await self.channel_layer.group_add(self.table_group, self.channel_name)
+
+        # Join the quiz group plus whichever of host_group/table_group apply,
+        # all-or-nothing: a Redis hiccup here must not leave the socket
+        # subscribed to only some of its groups (it would silently miss a
+        # subset of broadcasts instead of visibly failing to connect).
+        if not await self._safe_group_adds(
+            self.quiz_group, self.host_group, self.table_group
+        ):
+            await self.close()
+            return
 
         await self.accept()
 
@@ -1999,7 +2062,9 @@ class CheckinConsumer(BaseCrushWebsocketConsumer):
         self.event_id = self.scope["url_route"]["kwargs"]["event_id"]
         self.checkin_group = f"checkin_{self.event_id}"
 
-        await self.channel_layer.group_add(self.checkin_group, self.channel_name)
+        if not await self._safe_group_adds(self.checkin_group):
+            await self.close()
+            return
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -2043,13 +2108,13 @@ class CacheHuntConsumer(BaseCrushWebsocketConsumer):
             return
 
         self.cache_group = f"cache_{self.hunt_id}"
-        await self.channel_layer.group_add(self.cache_group, self.channel_name)
+        self.cache_coach_group = (
+            f"cache_{self.hunt_id}_coach" if await self._cache_is_host(user) else None
+        )
 
-        if await self._cache_is_host(user):
-            self.cache_coach_group = f"cache_{self.hunt_id}_coach"
-            await self.channel_layer.group_add(
-                self.cache_coach_group, self.channel_name
-            )
+        if not await self._safe_group_adds(self.cache_group, self.cache_coach_group):
+            await self.close()
+            return
 
         await self.accept()
 

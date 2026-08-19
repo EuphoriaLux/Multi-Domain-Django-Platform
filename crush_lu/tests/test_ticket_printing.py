@@ -1,0 +1,459 @@
+"""
+Unit and integration tests for Crush.lu check-in thermal ticket printing (PEC 80 / ESC/POS / RawBT).
+"""
+
+import base64
+from datetime import timedelta
+from django.contrib.auth.models import User
+from django.core.signing import Signer
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from crush_lu.models import CrushCoach, CrushProfile, EventRegistration, MeetupEvent
+from crush_lu.services.ticket_printer import (
+    build_checkin_ticket_base64,
+    build_checkin_ticket_bytes,
+    build_checkin_ticket_directives,
+    preview_checkin_ticket_text,
+)
+from power_up.atmos.printing.escpos import CODEPAGE_CP858, INIT
+
+
+class TestTicketPrinter(TestCase):
+    """Test ticket formatting, ESC/POS byte encoding, and text preview."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="candidate1@test.lu",
+            email="candidate1@test.lu",
+            first_name="Max",
+            last_name="Mustermann",
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            gender="M",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 28),
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Speed Dating 25-35 @ Urban Bar",
+            date_time=timezone.now() + timedelta(hours=2),
+            registration_deadline=timezone.now() + timedelta(hours=1),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user,
+            event=self.event,
+            status="confirmed",
+        )
+
+    def test_directives_with_full_profile(self):
+        directives = build_checkin_ticket_directives(
+            registration=self.registration,
+            event=self.event,
+            table_number=4,
+            seat_label="A",
+        )
+        self.assertTrue(len(directives) > 10)
+        # Check text representation
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=4,
+            seat_label="A",
+        )
+        self.assertIn("CRUSH.LU", plain_text)
+        self.assertIn("SPEED DATING", plain_text)
+        self.assertIn("MAX", plain_text)
+        self.assertIn("TABLE 4", plain_text)
+        self.assertIn("CRUSH COACH", plain_text)
+        self.assertIn("MYSTERY RADAR", plain_text)
+        self.assertIn("SHARE YOUR STORY", plain_text)
+
+    def test_directives_fallback_without_registration(self):
+        plain_text = preview_checkin_ticket_text(
+            registration=None,
+            event=None,
+            table_number=None,
+        )
+        self.assertIn("CRUSH.LU", plain_text)
+        self.assertIn("GUEST", plain_text)
+        self.assertIn("WELCOME", plain_text)
+
+    def test_bytes_encoding_and_cp858(self):
+        payload_bytes = build_checkin_ticket_bytes(
+            registration=self.registration,
+            event=self.event,
+            table_number=3,
+        )
+        self.assertTrue(payload_bytes.startswith(INIT + CODEPAGE_CP858))
+        self.assertTrue(len(payload_bytes) > 100)
+
+    def test_base64_serialization(self):
+        b64 = build_checkin_ticket_base64(
+            registration=self.registration,
+            event=self.event,
+            table_number=3,
+        )
+        decoded = base64.b64decode(b64)
+        self.assertTrue(decoded.startswith(INIT + CODEPAGE_CP858))
+
+    def test_event_lobby_qr_url(self):
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=3,
+        )
+        self.assertIn(f"events/{self.event.id}/lobby/", plain_text)
+
+    def test_privacy_aware_attendee_fallback(self):
+        anon_user = User.objects.create_user(
+            username="secret_email@test.lu",
+            email="secret_email@test.lu",
+            first_name="",
+        )
+        anon_reg = EventRegistration.objects.create(
+            user=anon_user,
+            event=self.event,
+            status="confirmed",
+        )
+        # Public / unauthenticated call sees generic ATTENDEE fallback
+        plain_anon = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=False,
+        )
+        self.assertNotIn("secret_email@test.lu", plain_anon)
+        self.assertIn("ATTENDEE", plain_anon)
+
+        # Coach-authenticated call, but still no first_name to show: falls
+        # back to the generic label rather than the user's email-derived
+        # username — username is never a safe display name (signup is
+        # email-only, so it is generally the address itself).
+        plain_coach = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            table_number=1,
+            coach_authenticated=True,
+        )
+        self.assertNotIn("secret_email", plain_coach.lower())
+        self.assertIn("ATTENDEE", plain_coach)
+
+    def test_timezone_conversion_for_event_date(self):
+        import zoneinfo
+        from datetime import datetime
+
+        # Fixed datetime in winter (UTC+1)
+        fixed_dt = datetime(2026, 12, 1, 18, 30, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        event = MeetupEvent.objects.create(
+            title="Winter Speed Dating",
+            date_time=fixed_dt,
+            registration_deadline=fixed_dt - timedelta(hours=2),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=event,
+            table_number=1,
+            coach_authenticated=True,
+        )
+        self.assertIn("19:30", plain_text)
+        self.assertIn("Winter Speed Dating", plain_text)
+
+    def test_privacy_first_name_gated_on_coach_authenticated(self):
+        # User without CrushProfile but with first_name
+        anon_user = User.objects.create_user(
+            username="secret_email2@test.lu",
+            email="secret_email2@test.lu",
+            first_name="Jean-Luc",
+        )
+        anon_reg = EventRegistration.objects.create(
+            user=anon_user,
+            event=self.event,
+            status="confirmed",
+        )
+        # Unauthenticated self-scan: first_name must NOT leak
+        plain_anon = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            coach_authenticated=False,
+        )
+        self.assertNotIn("Jean-Luc", plain_anon)
+        self.assertNotIn("JEAN-LUC", plain_anon)
+        self.assertNotIn("secret_email2", plain_anon)
+        self.assertIn("ATTENDEE", plain_anon)
+
+        # Authenticated coach scan: first_name is shown (in uppercase on banner)
+        plain_coach = preview_checkin_ticket_text(
+            registration=anon_reg,
+            event=self.event,
+            coach_authenticated=True,
+        )
+        self.assertIn("JEAN-LUC", plain_coach)
+
+    def test_qr_code_lobby_url_contains_locale_prefix(self):
+        from power_up.atmos.printing.layout import QrCode
+
+        directives = build_checkin_ticket_directives(
+            registration=self.registration,
+            event=self.event,
+            language="fr",
+            coach_authenticated=True,
+        )
+        qr_directives = [d for d in directives if isinstance(d, QrCode)]
+        self.assertTrue(len(qr_directives) > 0)
+        qr_data = qr_directives[0].data
+        self.assertIn(f"events/{self.event.id}/lobby/", qr_data)
+
+    def test_resolve_ticket_language_explicitly_set(self):
+        from crush_lu.services.ticket_printer import resolve_ticket_language
+
+        # User has default en but not explicitly set
+        self.profile.preferred_language = "en"
+        self.profile.language_explicitly_set = False
+        self.profile.save()
+
+        # Event is in French
+        self.event.languages = ["fr"]
+        self.event.save()
+
+        resolved = resolve_ticket_language(
+            registration=self.registration,
+            event=self.event,
+        )
+        # Should fall through to event language "fr"
+        self.assertEqual(resolved, "fr")
+
+    def test_non_dating_event_ticket_layout(self):
+        quiz_event = MeetupEvent.objects.create(
+            title="Pub Quiz Night",
+            event_type="quiz_night",
+            date_time=timezone.now() + timedelta(hours=2),
+            registration_deadline=timezone.now() + timedelta(hours=1),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=quiz_event,
+            table_number=3,
+            coach_authenticated=True,
+        )
+        # Should have generic event pass header
+        self.assertIn("EVENT // CHECK-IN PASS", plain_text)
+        # Should NOT have dating receipt or dating survival guide
+        self.assertNotIn("EVENT PASSPORT", plain_text)
+        self.assertNotIn("PASSEPORT", plain_text)
+
+    def test_mystery_radar_with_attendee_clues_and_checkboxes(self):
+        from crush_lu.models import Interest
+
+        interest_books, _ = Interest.objects.get_or_create(
+            slug="reading", defaults={"label": "Reading", "category": "arts"}
+        )
+        interest_gaming, _ = Interest.objects.get_or_create(
+            slug="video-games", defaults={"label": "Video games", "category": "games"}
+        )
+
+        self.profile.interests_new.add(interest_books, interest_gaming)
+
+        other_user = User.objects.create_user(
+            username="candidate2@test.lu",
+            email="candidate2@test.lu",
+            first_name="Pos",
+        )
+        other_profile = CrushProfile.objects.create(
+            user=other_user,
+            gender="F",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 35),
+            event_vibe="at_the_bar",
+        )
+        other_profile.interests_new.add(interest_books)
+
+        other_reg = EventRegistration.objects.create(
+            user=other_user,
+            event=self.event,
+            status="confirmed",
+        )
+
+        # Also create another male attendee
+        other_male = User.objects.create_user(
+            username="male2@test.lu",
+            email="male2@test.lu",
+            first_name="Bob",
+        )
+        other_male_prof = CrushProfile.objects.create(
+            user=other_male,
+            gender="M",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
+        )
+        other_male_prof.interests_new.add(interest_books)
+        other_male_reg = EventRegistration.objects.create(
+            user=other_male,
+            event=self.event,
+            status="confirmed",
+        )
+
+        plain_text = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=2,
+            coach_authenticated=True,
+        )
+        self.assertIn("MYSTERY", plain_text)
+        self.assertIn("MATCH", plain_text)
+        self.assertIn("Name :", plain_text)
+        self.assertIn(f"#{other_reg.id}", plain_text)
+        # Mystery radar must be anonymous with badge number only (no attendee names in mystery clues)
+        self.assertNotIn(f"Pos (#{other_reg.id})", plain_text)
+        # Assert rich ROOM DATA statistics appear
+        self.assertIn("ROOM DATA", plain_text)
+        self.assertIn("PASSIONS", plain_text)
+        self.assertIn("AGE", plain_text)
+
+    def test_multilingual_ticket_generation(self):
+        # 1. French
+        text_fr = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="fr",
+            coach_authenticated=True,
+        )
+        self.assertIn("PARTAGE TA STORY", text_fr)
+        self.assertIn("GUIDE DE SURVIE", text_fr)
+
+        # 2. German
+        text_de = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="de",
+            coach_authenticated=True,
+        )
+        self.assertIn("TEILE DEINE STORY", text_de)
+        self.assertIn("SURVIVAL GUIDE", text_de)
+
+        # 3. English
+        text_en = preview_checkin_ticket_text(
+            registration=self.registration,
+            event=self.event,
+            table_number=1,
+            language="en",
+            coach_authenticated=True,
+        )
+        self.assertIn("SHARE YOUR STORY", text_en)
+        self.assertIn("SURVIVAL GUIDE", text_en)
+
+
+class TestCheckinPrintingAPI(TestCase):
+    """Integration test for check-in endpoints returning print payloads."""
+
+    def setUp(self):
+        self.coach_user = User.objects.create_user(
+            username="coach@crush.lu",
+            email="coach@crush.lu",
+            first_name="Coach",
+            password="secretpassword",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=self.coach_user,
+            is_active=True,
+        )
+        self.attendee_user = User.objects.create_user(
+            username="alex@test.lu",
+            email="alex@test.lu",
+            first_name="Alex",
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.attendee_user,
+            gender="F",
+            date_of_birth=timezone.now().date() - timedelta(days=365 * 26),
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Speed Dating 25-35",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            duration_minutes=120,
+            max_participants=20,
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.attendee_user,
+            event=self.event,
+            status="confirmed",
+        )
+        signer = Signer()
+        self.token = signer.sign(f"{self.registration.id}:{self.event.id}")
+
+    def test_checkin_api_returns_print_payload(self):
+        self.client.force_login(self.coach_user)
+        url = f"/api/events/checkin/{self.registration.id}/{self.token}/"
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertIn("print_payload_base64", data)
+        self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_rescan_already_checked_in_returns_print_payload(self):
+        self.registration.status = "attended"
+        self.registration.checked_in_at = timezone.now()
+        self.registration.save()
+
+        self.client.force_login(self.coach_user)
+        url = f"/api/events/checkin/{self.registration.id}/{self.token}/"
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertTrue(data.get("already_checked_in"))
+        self.assertIn("print_payload_base64", data)
+        self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_promote_from_waitlist_returns_print_payload(self):
+        self.registration.status = "waitlist"
+        self.registration.save()
+
+        self.client.force_login(self.coach_user)
+        url = f"/api/events/{self.event.id}/promote/{self.registration.id}/"
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data.get("success"))
+        self.assertTrue(data.get("promoted"))
+        self.assertIn("print_payload_base64", data)
+        self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_reprint_ticket_api(self):
+        # Anonymous fails (redirects to login)
+        reprint_url = f"/api/events/{self.event.id}/print-ticket/{self.registration.id}/"
+        anon_resp = self.client.get(reprint_url)
+        self.assertEqual(anon_resp.status_code, 302)
+
+        # Authenticated coach succeeds
+        self.client.force_login(self.coach_user)
+        resp = self.client.get(reprint_url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("registration_id"), self.registration.id)
+        self.assertIn("print_payload_base64", data)
+        self.assertTrue(len(data["print_payload_base64"]) > 50)
+
+    def test_test_ticket_api(self):
+        test_ticket_url = f"/api/events/{self.event.id}/test-ticket/"
+        self.client.force_login(self.coach_user)
+        resp = self.client.get(test_ticket_url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("event_id"), self.event.id)
+        self.assertIn("print_payload_base64", data)
+        self.assertTrue(len(data["print_payload_base64"]) > 50)

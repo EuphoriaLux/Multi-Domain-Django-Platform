@@ -197,6 +197,16 @@
                         <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
                             {% blocktrans with max=event.max_participants %}Max participants: {{ max }}{% endblocktrans %}
                         </p>
+                        {% if gender_pool_availability %}
+                            {% comment %}
+                            Gender-capped event: seats are allocated per pool, so the
+                            total-only badge below advertises seats this member may not
+                            be able to take (#866).
+                            {% endcomment %}
+                            <div class="ml-7 mt-1.5">
+                                {% include "crush_lu/components/gender_pool_availability.html" with pools=gender_pool_availability user_pool=user_gender_pool viewer_registration=user_registration waitlist_reason=registration_waitlist_reason %}
+                            </div>
+                        {% else %}
                         <div class="ml-7 mt-1.5 flex items-center gap-2 flex-wrap">
                             {% if event.spots_remaining <= 5 %}
                                 <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
@@ -217,6 +227,7 @@
                                 </span>
                             {% endif %}
                         </div>
+                        {% endif %}
                     </div>
 
                     {# Price card #}

@@ -437,6 +437,10 @@ document.addEventListener("alpine:init", function () {
             scanBusy: false,
             startPending: false,
 
+            // Thermal Printer state (PEC 80 / RawBT)
+            printerEnabled: localStorage.getItem("crush_printer_enabled") === "true",
+            autoPrint: localStorage.getItem("crush_autoprint_enabled") !== "false",
+
             // WebSocket state
             ws: null,
             connected: false,
@@ -504,6 +508,27 @@ document.addEventListener("alpine:init", function () {
                 return this.torchOn
                     ? i18n.torchOff || "Flash Off"
                     : i18n.torchOn || "Flash On";
+            },
+            get printerButtonText() {
+                var i18n = window._checkinI18n || {};
+                return this.printerEnabled
+                    ? i18n.printerOn || "Printer: ON"
+                    : i18n.printerOff || "Printer: OFF";
+            },
+            // Alpine runs under the CSP build here (no inline ternaries in
+            // directives) — these mirror printerButtonText so :class/:title
+            // can bind to a bare getter like every other conditional style
+            // in this file, instead of an inline ternary expression.
+            get printerButtonClass() {
+                return this.printerEnabled
+                    ? "bg-purple-50 text-crush-purple border-crush-purple/30 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-600"
+                    : "bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700";
+            },
+            get printerButtonTitle() {
+                var i18n = window._checkinI18n || {};
+                return this.printerEnabled
+                    ? i18n.printerActiveTitle || "Thermal printer active (RawBT)"
+                    : i18n.printerDisabledTitle || "Thermal printer disabled";
             },
 
             // --- HTML helpers (XSS protection) ---
@@ -759,6 +784,16 @@ document.addEventListener("alpine:init", function () {
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
                 this.showProfileToast(data);
+                // Secondary desk printer: auto-print on remote checkin if printer + autoPrint active
+                if (
+                    this.printerEnabled &&
+                    this.autoPrint &&
+                    data.print_payload_base64 &&
+                    !data.undone &&
+                    !data.rejected
+                ) {
+                    this.triggerRawBtPrint(data.print_payload_base64);
+                }
                 // Only a fresh arrival enters Recent Check-ins: a re-scan
                 // (already_checked_in) and a verification (no such flag at
                 // all) must not.
@@ -1025,7 +1060,7 @@ document.addEventListener("alpine:init", function () {
                 var i18n = window._checkinI18n || {};
                 var regId = row.registration_id;
                 var wrap = document.createElement("div");
-                wrap.className = "flex-shrink-0 flex items-center gap-2";
+                wrap.className = "flex-shrink-0 flex items-center gap-1 sm:gap-2";
                 wrap.setAttribute("data-row-actions", "");
                 // Verify sits outside the status split, exactly like the
                 // server-rendered twin: attended does not imply verified.
@@ -1038,7 +1073,7 @@ document.addEventListener("alpine:init", function () {
                 if (row.status === "attended") {
                     var checkedSpan = document.createElement("span");
                     checkedSpan.className =
-                        "px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
+                        "px-2 sm:px-3 py-1.5 text-xs font-medium text-green-600 dark:text-green-400";
                     checkedSpan.textContent = i18n.checkedIn || "Checked In";
                     wrap.appendChild(checkedSpan);
                     if (row.table_number) {
@@ -1047,7 +1082,7 @@ document.addEventListener("alpine:init", function () {
                         // clears along with the seat — without it an undone
                         // check-in left its "T3" on screen.
                         tableBadge.className =
-                            "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
+                            "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-1.5 sm:px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
                         tableBadge.setAttribute("data-user-id", row.user_id);
                         tableBadge.textContent = "T" + row.table_number;
                         wrap.appendChild(tableBadge);
@@ -1061,6 +1096,8 @@ document.addEventListener("alpine:init", function () {
                     // the button would offer a correction that can only
                     // answer 409.
                     if (row.checked_in_at) {
+                        var reprintBtn = this._buildReprintButton(regId);
+                        if (reprintBtn) wrap.appendChild(reprintBtn);
                         var undoUrl =
                             rowEl.getAttribute("data-undo-url") ||
                             this._apiUrl("undo-checkin", regId);
@@ -1073,7 +1110,7 @@ document.addEventListener("alpine:init", function () {
                         var checkinBtn = document.createElement("button");
                         checkinBtn.type = "button";
                         checkinBtn.className =
-                            "manual-checkin-btn btn-crush-solid btn-sm text-white";
+                            "manual-checkin-btn btn-crush-solid btn-sm text-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs";
                         checkinBtn.setAttribute("data-checkin-url", checkinUrl);
                         checkinBtn.setAttribute("data-reg-id", regId);
                         checkinBtn.textContent = i18n.checkIn || "Check In";
@@ -1389,9 +1426,13 @@ document.addEventListener("alpine:init", function () {
                 // sits next to rows that never left, and a drifted class list
                 // shows up as two differently-shaped buttons in the same list.
                 undoBtn.className =
-                    "manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
+                    "manual-undo-btn btn-link p-1.5 sm:px-2 sm:py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
                 undoBtn.setAttribute("data-undo-url", undoUrl);
                 undoBtn.setAttribute("data-reg-id", regId);
+                undoBtn.setAttribute(
+                    "title",
+                    i18n.undoActionTitle || i18n.undoAction || "Undo check-in",
+                );
                 undoBtn.textContent = i18n.undoAction || "Undo";
                 // Bound directly rather than with x-on — Alpine only wires
                 // directives present when it walked the tree.
@@ -1399,6 +1440,31 @@ document.addEventListener("alpine:init", function () {
                     self.undoCheckin(clickEvent);
                 });
                 return undoBtn;
+            },
+
+            _buildReprintButton: function (regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className =
+                    "manual-reprint-btn btn-link p-1.5 sm:px-2 sm:py-1.5 text-xs font-medium decoration-dotted transition-colors text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 inline-flex items-center gap-1";
+                btn.setAttribute(
+                    "data-print-url",
+                    this._apiUrl("print-ticket", regId),
+                );
+                btn.setAttribute("data-reg-id", regId);
+                var label = i18n.printAction || "Print";
+                btn.setAttribute("title", i18n.reprintActionTitle || label);
+                btn.innerHTML =
+                    '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
+                    '<span class="hidden sm:inline">' +
+                    self._esc(label) +
+                    "</span>";
+                btn.addEventListener("click", function (clickEvent) {
+                    self.reprintTicket(clickEvent);
+                });
+                return btn;
             },
 
             _buildVerifyButton: function (regId) {
@@ -1409,7 +1475,7 @@ document.addEventListener("alpine:init", function () {
                 // Must stay identical to the server-rendered twin in
                 // coach_event_checkin.html — see _buildUndoButton.
                 verifyBtn.className =
-                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white";
+                    "manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs";
                 verifyBtn.setAttribute(
                     "data-verify-url",
                     this._apiUrl("verify", regId),
@@ -1422,6 +1488,133 @@ document.addEventListener("alpine:init", function () {
                     self.markVerified(clickEvent);
                 });
                 return verifyBtn;
+            },
+
+            // --- Thermal Printer (RawBT Protocol) ---
+            togglePrinter: function () {
+                this.printerEnabled = !this.printerEnabled;
+                localStorage.setItem(
+                    "crush_printer_enabled",
+                    this.printerEnabled ? "true" : "false",
+                );
+            },
+
+            triggerRawBtPrint: function (base64Payload) {
+                if (!base64Payload || typeof base64Payload !== "string") return;
+                var trimmed = base64Payload.trim();
+                if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+
+                // Single source of truth for the Android intent fallback —
+                // previously rebuilt independently at every call site, which
+                // is exactly the class of string PR #872 already had to
+                // hand-fix once (wrong URI scheme format).
+                var fireIntentFallback = function () {
+                    // Re-validated here, right at the navigation, not just
+                    // once at function entry: this fires from async
+                    // WebSocket callbacks (onerror, a timeout, a caught
+                    // exception), so the check must hold at the sink, not
+                    // rely on control flow from an earlier point in the
+                    // call. The base64 charset excludes ":" and "#", so
+                    // `trimmed` can never alter the fixed "intent:" scheme
+                    // or inject a second "#Intent;...;end;" extras block —
+                    // window.location.href always begins with the literal
+                    // "intent:base64," prefix below, never attacker-chosen.
+                    if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+                    window.location.href =
+                        "intent:base64," +
+                        trimmed +
+                        "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+                };
+
+                // 1. Primary: Direct binary stream via local RawBT WebSocket (ws://127.0.0.1:40213)
+                try {
+                    var binaryString = atob(trimmed);
+                    var len = binaryString.length;
+                    var bytes = new Uint8Array(len);
+                    for (var i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    var ws = new WebSocket("ws://127.0.0.1:40213/");
+                    ws.binaryType = "arraybuffer";
+                    var wsHandled = false;
+
+                    var fallbackTimer = setTimeout(function () {
+                        if (!wsHandled && ws.readyState !== 1) {
+                            wsHandled = true;
+                            try { ws.close(); } catch (e) {}
+                            fireIntentFallback();
+                        }
+                    }, 400);
+
+                    ws.onopen = function () {
+                        wsHandled = true;
+                        clearTimeout(fallbackTimer);
+                        // send() can still throw (e.g. the socket closes in
+                        // the instant between onopen firing and send() being
+                        // called) — this runs asynchronously, outside the
+                        // protection of the outer try/catch below, so it
+                        // needs its own guard or the print job is silently
+                        // lost with wsHandled already true and no fallback.
+                        try {
+                            ws.send(bytes.buffer);
+                        } catch (e) {
+                            fireIntentFallback();
+                            return;
+                        }
+                        setTimeout(function () {
+                            try { ws.close(); } catch (e) {}
+                        }, 500);
+                    };
+
+                    ws.onerror = function () {
+                        if (!wsHandled) {
+                            wsHandled = true;
+                            clearTimeout(fallbackTimer);
+                            fireIntentFallback();
+                        }
+                    };
+                } catch (e) {
+                    fireIntentFallback();
+                }
+            },
+
+            testPrint: function () {
+                var self = this;
+                fetch("/api/events/" + this.eventId + "/test-ticket/")
+                    .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.success && data.print_payload_base64) {
+                            self.triggerRawBtPrint(data.print_payload_base64);
+                        }
+                    })
+                    .catch(function (err) {
+                        console.warn("Test ticket request failed:", err);
+                    });
+            },
+
+            reprintTicket: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var regId = btn.getAttribute("data-reg-id");
+                var url =
+                    btn.getAttribute("data-print-url") ||
+                    self._apiUrl("print-ticket", regId);
+                fetch(url)
+                    .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.success && data.print_payload_base64) {
+                            self.triggerRawBtPrint(data.print_payload_base64);
+                        }
+                    })
+                    .catch(function (err) {
+                        console.warn("Reprint ticket request failed:", err);
+                    });
             },
 
             // --- Scanner ---
@@ -1659,6 +1852,9 @@ document.addEventListener("alpine:init", function () {
                             self.showProfileToast(data);
                             self._applyRowState(data.row);
                             self._refetchSummary();
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                             // Only a fresh arrival enters Recent Check-ins —
                             // a re-scan of an already-attended badge must not.
                             if (data.already_checked_in === false) {
@@ -1716,6 +1912,9 @@ document.addEventListener("alpine:init", function () {
                             self.showProfileToast(data);
                             self._applyRowState(data.row);
                             self._refetchSummary();
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                             if (data.already_checked_in === false) {
                                 self._pushRecentCheckin(data);
                             }
@@ -1830,6 +2029,9 @@ document.addEventListener("alpine:init", function () {
                             self._applyRowState(data.row);
                             self._refetchSummary();
                             self._pushRecentCheckin(data);
+                            if (self.printerEnabled && data.print_payload_base64) {
+                                self.triggerRawBtPrint(data.print_payload_base64);
+                            }
                         } else {
                             btn.disabled = false;
                             btn.textContent = i18n.checkIn || "Check In";

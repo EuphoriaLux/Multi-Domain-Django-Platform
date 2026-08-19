@@ -26241,6 +26241,8 @@ msgid ""
 "All spots for your gender group are taken. You have been added to the "
 "waitlist."
 msgstr ""
+"All spots for your gender group are taken. You have been added to the "
+"waitlist."
 
 #: .\crush_lu\views_events.py:899
 msgid "Event is full. You have been added to the waitlist."
@@ -27160,3 +27162,37 @@ msgstr ""
 #: push_notifications.py:432
 msgid "Verification Not Approved"
 msgstr ""
+
+#: crush_lu/models/events.py:0
+msgid "Other genders"
+msgstr "Other genders"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(name)s: full"
+msgstr "%(name)s: full"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid ""
+"All spots for your gender group are taken — you can still join the waitlist."
+msgstr ""
+"All spots for your gender group are taken — you can still join the waitlist."
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "The event is fully booked — you can still join the waitlist."
+msgstr "The event is fully booked — you can still join the waitlist."
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(name)s: %(spots)s spot left"
+msgid_plural "%(name)s: %(spots)s spots left"
+msgstr[0] "%(name)s: %(spots)s spot left"
+msgstr[1] "%(name)s: %(spots)s spots left"
+
+#: crush_lu/templates/crush_lu/components/gender_pool_availability.html:0
+msgid "%(spots)s spot left for you."
+msgid_plural "%(spots)s spots left for you."
+msgstr[0] "%(spots)s spot left for you."
+msgstr[1] "%(spots)s spots left for you."
+
+#: crush_lu/templates/crush_lu/event_register.html:0
+msgid "Your gender group is full"
+msgstr "Your gender group is full"

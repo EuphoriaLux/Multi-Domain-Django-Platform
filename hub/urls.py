@@ -1,6 +1,12 @@
 from django.urls import path
 
 from . import views
+from .views_finance import (
+    PaymentsInView,
+    PaymentsOutView,
+    PayrollView,
+    RefundsView,
+)
 from .views_whatsapp import (
     WhatsAppInboxReadView,
     WhatsAppInboxView,
@@ -33,6 +39,15 @@ urlpatterns = [
     path("timeline/", views.TimelineView.as_view()),
     path("locations", views.LocationsView.as_view(), name="locations"),
     path("locations/", views.LocationsView.as_view()),
+    # Financials & Accounting Routes
+    path("payments-in", PaymentsInView.as_view(), name="payments_in"),
+    path("payments-in/", PaymentsInView.as_view()),
+    path("payments-out", PaymentsOutView.as_view(), name="payments_out"),
+    path("payments-out/", PaymentsOutView.as_view()),
+    path("payroll", PayrollView.as_view(), name="payroll"),
+    path("payroll/", PayrollView.as_view()),
+    path("refunds", RefundsView.as_view(), name="refunds"),
+    path("refunds/", RefundsView.as_view()),
     # Social Media Marketing Routes
     path("social/posts", SocialPostsView.as_view(), name="social_posts"),
     path("social/posts/", SocialPostsView.as_view()),
