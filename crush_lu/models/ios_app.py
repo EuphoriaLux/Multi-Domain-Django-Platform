@@ -9,9 +9,28 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
-def _hash_native_auth_code(code):
-    secret = settings.SECRET_KEY.encode("utf-8")
+def _hash_native_auth_code(code, secret_key=None):
+    secret = (secret_key if secret_key is not None else settings.SECRET_KEY).encode(
+        "utf-8"
+    )
     return hashlib.sha256(secret + code.encode("utf-8")).hexdigest()
+
+
+def _candidate_auth_code_hashes(code):
+    """Hashes of `code` under the current SECRET_KEY and every fallback.
+
+    This hand-rolled hash (not django.core.signing) gets no automatic
+    SECRET_KEY_FALLBACKS support — issue() always hashes under the *current*
+    key at write time, so a code issued just before a SECRET_KEY rotation
+    would otherwise be silently unmatchable at read time in consume(), even
+    though it's still well within its short TTL (IOS_AUTH_CODE_TTL_SECONDS,
+    default 300s). Walk the candidates by hand instead, same idea as
+    django.core.signing.Signer's fallback_keys walk.
+    """
+    return [
+        _hash_native_auth_code(code, key)
+        for key in (settings.SECRET_KEY, *settings.SECRET_KEY_FALLBACKS)
+    ]
 
 
 class IOSAppDevice(models.Model):
@@ -157,9 +176,9 @@ class IOSNativeAuthCode(models.Model):
 
     @classmethod
     def consume(cls, code):
-        code_hash = _hash_native_auth_code(code)
+        candidate_hashes = _candidate_auth_code_hashes(code)
         auth_code = cls.objects.select_related("user").filter(
-            code_hash=code_hash,
+            code_hash__in=candidate_hashes,
             consumed_at__isnull=True,
         ).first()
         if not auth_code or auth_code.is_expired:
