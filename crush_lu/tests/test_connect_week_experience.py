@@ -492,6 +492,32 @@ def test_respond_decline_creates_permanent_pair_exclusion():
 
 
 @pytest.mark.django_db
+def test_respond_decline_rolls_back_status_on_exclusion_write_failure():
+    """The decline branch's status save + exclude_pair() are one atomic
+    unit: this function only acts on status == PENDING, so a write that left
+    DECLINED without the exclusion row would never be retried by any future
+    call — a mid-write failure must roll the status back to PENDING instead
+    of stranding the pair un-excluded forever."""
+    from unittest.mock import patch
+
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, _card = _reviewable_session_with_card(me, target)
+    req = send_weekly_request(session, me, target)
+
+    with patch(
+        "crush_lu.models.crush_connect_cycle.ConnectPairExclusion.exclude_pair",
+        side_effect=RuntimeError("simulated DB failure"),
+    ):
+        with pytest.raises(RuntimeError):
+            respond_to_weekly_request(req, accept=False)
+
+    req.refresh_from_db()
+    assert req.status == ConnectWeeklyRequest.Status.PENDING
+    assert not ConnectPairExclusion.are_excluded(me, target)
+
+
+@pytest.mark.django_db
 def test_sync_request_state_expires_stale_pending_request():
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
@@ -506,6 +532,36 @@ def test_sync_request_state_expires_stale_pending_request():
 
     assert updated.status == ConnectWeeklyRequest.Status.EXPIRED
     assert ConnectPairExclusion.are_excluded(me, target)
+
+
+@pytest.mark.django_db
+def test_sync_request_state_rolls_back_status_on_exclusion_write_failure():
+    """Same atomicity guarantee as the decline path, for the expiry path:
+    a failure between the status save and exclude_pair() must roll back to
+    PENDING so the next sync_request_state call retries both writes,
+    instead of leaving an EXPIRED request whose exclusion never gets
+    written (the entry guard only matches status == PENDING)."""
+    from unittest.mock import patch
+
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, _card = _reviewable_session_with_card(me, target)
+    req = send_weekly_request(session, me, target)
+    ConnectWeeklyRequest.objects.filter(pk=req.pk).update(
+        expires_at=timezone.now() - timedelta(minutes=1)
+    )
+    req.refresh_from_db()
+
+    with patch(
+        "crush_lu.models.crush_connect_cycle.ConnectPairExclusion.exclude_pair",
+        side_effect=RuntimeError("simulated DB failure"),
+    ):
+        with pytest.raises(RuntimeError):
+            sync_request_state(req)
+
+    req.refresh_from_db()
+    assert req.status == ConnectWeeklyRequest.Status.PENDING
+    assert not ConnectPairExclusion.are_excluded(me, target)
 
 
 @pytest.mark.django_db

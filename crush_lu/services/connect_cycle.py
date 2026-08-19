@@ -476,20 +476,30 @@ def get_review_cards(session):
 def sync_request_state(weekly_request):
     """Flip a PENDING request past its 24h ``expires_at`` to EXPIRED and
     permanently exclude the pair — re-checked at every read/action point
-    since the row itself is immutable once sent."""
+    since the row itself is immutable once sent.
+
+    Both writes are one ``transaction.atomic()`` block: this function's only
+    entry guard is ``status == PENDING``, so a partial failure that left
+    ``status`` at EXPIRED without the exclusion row would never be retried —
+    every future call would see the row as already EXPIRED and skip both
+    writes, silently and permanently breaking the "expired requests exclude
+    the pair" guarantee. Atomicity makes a mid-write failure roll back to
+    PENDING instead, so the next sync retries both writes together.
+    """
     from crush_lu.models.crush_connect_cycle import ConnectPairExclusion, ConnectWeeklyRequest
 
     if (
         weekly_request.status == ConnectWeeklyRequest.Status.PENDING
         and timezone.now() > weekly_request.expires_at
     ):
-        weekly_request.status = ConnectWeeklyRequest.Status.EXPIRED
-        weekly_request.save(update_fields=["status"])
-        ConnectPairExclusion.exclude_pair(
-            weekly_request.requester,
-            weekly_request.recipient,
-            reason=ConnectPairExclusion.Reason.REQUEST_EXPIRED,
-        )
+        with transaction.atomic():
+            weekly_request.status = ConnectWeeklyRequest.Status.EXPIRED
+            weekly_request.save(update_fields=["status"])
+            ConnectPairExclusion.exclude_pair(
+                weekly_request.requester,
+                weekly_request.recipient,
+                reason=ConnectPairExclusion.Reason.REQUEST_EXPIRED,
+            )
     return weekly_request
 
 
@@ -602,25 +612,31 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
 
     weekly_request.responded_at = timezone.now()
 
+    # Each branch's status save + its dependent row (chat / permanent
+    # exclusion) is one atomic unit — same reasoning as sync_request_state's:
+    # this function only acts on status == PENDING, so a write that leaves
+    # the status changed without its dependent row would never be retried.
     if accept:
-        weekly_request.status = ConnectWeeklyRequest.Status.ACCEPTED
-        weekly_request.save(update_fields=["status", "responded_at"])
-        ConnectTemporaryChat.objects.get_or_create(
-            request=weekly_request,
-            defaults={
-                "participant_1": weekly_request.requester,
-                "participant_2": weekly_request.recipient,
-            },
-        )
+        with transaction.atomic():
+            weekly_request.status = ConnectWeeklyRequest.Status.ACCEPTED
+            weekly_request.save(update_fields=["status", "responded_at"])
+            ConnectTemporaryChat.objects.get_or_create(
+                request=weekly_request,
+                defaults={
+                    "participant_1": weekly_request.requester,
+                    "participant_2": weekly_request.recipient,
+                },
+            )
         _notify_weekly_request_accepted(weekly_request, request=request)
     else:
-        weekly_request.status = ConnectWeeklyRequest.Status.DECLINED
-        weekly_request.save(update_fields=["status", "responded_at"])
-        ConnectPairExclusion.exclude_pair(
-            weekly_request.requester,
-            weekly_request.recipient,
-            reason=ConnectPairExclusion.Reason.REQUEST_DECLINED,
-        )
+        with transaction.atomic():
+            weekly_request.status = ConnectWeeklyRequest.Status.DECLINED
+            weekly_request.save(update_fields=["status", "responded_at"])
+            ConnectPairExclusion.exclude_pair(
+                weekly_request.requester,
+                weekly_request.recipient,
+                reason=ConnectPairExclusion.Reason.REQUEST_DECLINED,
+            )
     return weekly_request
 
 
