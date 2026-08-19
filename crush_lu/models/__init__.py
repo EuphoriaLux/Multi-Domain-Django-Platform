@@ -28,4 +28,5 @@ from .event_lobby import *
 from .payments import *
 from .credits import *
 from .echo_lu import *
+from .crush_connect_cycle import *
 
