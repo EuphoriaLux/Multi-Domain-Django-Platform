@@ -3,56 +3,79 @@
 {% block title %}Your Round{% endblock %}
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
 {% block content %}
-<div class="tag" style="margin-bottom: 0.75rem;">
-  <span class="tag-badge">🍸 {{ guest.display }}</span>
-  <span class="tag-badge tag-badge-ghost">📍 Table {{ guest.tab.table.label }}</span>
+<div class="ident">
+  <div class="ident-name">{{ guest.display }}</div>
+  <div class="ident-table stub">TABLE {{ guest.tab.table.label }}</div>
 </div>
 
-<h1>Review Your Round</h1>
-<p class="tag" style="margin-bottom: 1.5rem;">Check your drinks before sending them to the bar.</p>
+<h1>Your round</h1>
+<p class="lede" style="margin-top: 0.3rem;">Check it over before it goes to the bar.</p>
 
 {% if unavailable_names %}
-<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
-  ⚠️ <strong>The bar just 86'd:</strong> {{ unavailable_names|join:", " }} — your round wasn't sent. Update the quantity to 0 to remove {% if unavailable_names|length > 1 %}them{% else %}it{% endif %}, then try again.
+<div class="notice notice-warn" style="margin-top: 1.25rem;">
+  <strong>The bar just ran out of {{ unavailable_names|join:", " }}.</strong>
+  Your round wasn't sent. Remove {% if unavailable_names|length > 1 %}them{% else %}it{% endif %} below, then send again.
 </div>
 {% endif %}
 
 {% if price_changed %}
-<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.45;">
-  ⚠️ <strong>The menu changed:</strong> your round wasn't sent. Review the refreshed drinks and total before trying again.
+<div class="notice notice-warn" style="margin-top: 1.25rem;">
+  <strong>The menu changed while you were deciding.</strong>
+  Your round wasn't sent. What's below is current — check it over and send again.
 </div>
 {% endif %}
 
 {% if lines %}
-<div class="panel">
+<div class="panel panel-flush" style="margin-top: 1.25rem;">
   {% for line in lines %}
-  <div class="item-row">
-    <div class="item-info">
-      <div class="item-name">{{ line.item.name }}</div>
-      {% if line.item.allergens %}<div class="muted" style="font-size: 0.78rem;">⚠️ Contains: {{ line.item.allergens }}</div>{% endif %}
+  <div class="row">
+    <div class="row-main">
+      <div class="row-name">{{ line.item.name }}</div>
+      {% if line.item.allergens %}<div class="allergen">Contains {{ line.item.allergens }}</div>{% endif %}
       {% if not line.is_orderable %}
-      <div style="color: #fca5a5; font-size: 0.8rem; margin-top: 0.25rem;">Unavailable — set quantity to 0 to remove</div>
+      <div class="allergen" style="color: var(--warn);">Sold out — remove it to send your round</div>
       {% endif %}
-      <form method="post" action="{% url 'atmos:cart_update' %}" class="qty-form" style="margin-top: 0.45rem;">
-        {% csrf_token %}
-        <input type="hidden" name="item_id" value="{{ line.item.id }}">
-        <span class="muted" style="font-size: 0.8rem;">Qty:</span>
-        <input type="number" name="quantity" value="{{ line.quantity }}" min="0" max="9" aria-label="Quantity">
-        <button class="btn btn-small btn-ghost" type="submit">Update</button>
-      </form>
+
+      {% comment %}Two one-tap forms rather than a number field: no numeric keyboard,
+      no spinner arrows, and both targets clear 44px. The POST contract
+      is unchanged — cart_update still receives an absolute quantity,
+      and quantity 0 still removes the line.{% endcomment %}
+      <div class="qty">
+        <form method="post" action="{% url 'atmos:cart_update' %}">
+          {% csrf_token %}
+          <input type="hidden" name="item_id" value="{{ line.item.id }}">
+          <input type="hidden" name="quantity" value="{{ line.quantity|add:'-1' }}">
+          <button type="submit" aria-label="{% if line.quantity == 1 %}Remove {{ line.item.name }}{% else %}One fewer {{ line.item.name }}{% endif %}">
+            <svg class="ico" aria-hidden="true"><use href="#ic-minus"/></svg>
+          </button>
+        </form>
+        <span class="qty-value" aria-live="polite">{{ line.quantity }}</span>
+        <form method="post" action="{% url 'atmos:cart_update' %}">
+          {% csrf_token %}
+          <input type="hidden" name="item_id" value="{{ line.item.id }}">
+          <input type="hidden" name="quantity" value="{{ line.quantity|add:'1' }}">
+          <button type="submit" aria-label="One more {{ line.item.name }}" {% if line.quantity >= 9 %}disabled{% endif %}>
+            <svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg>
+          </button>
+        </form>
+      </div>
     </div>
-    <div class="price" style="font-size: 1.05rem;">{% if line.is_orderable %}{{ guest.venue.currency_symbol }}{{ line.line_total }}{% else %}—{% endif %}</div>
+    {% comment %}No placeholder dash for a sold-out line: it sits inches from
+    the stepper's minus button and reads as a control. "Sold out" above
+    already says it.{% endcomment %}
+    <div class="row-price">{% if line.is_orderable %}{{ guest.venue.currency_symbol }}{{ line.line_total }}{% endif %}</div>
   </div>
   {% endfor %}
-  
-  <div class="item-row" style="border-bottom: none; margin-top: 0.75rem; padding-top: 1rem; border-top: 1px dashed var(--line);">
-    <div style="font-size: 1.1rem; font-weight: 700; color: var(--ink);">Total for this round</div>
-    <div class="price" style="font-size: 1.35rem; font-weight: 700; color: var(--gold-light);">{{ guest.venue.currency_symbol }}{{ total }}</div>
+
+  <div class="total">
+    <div class="total-label">Total</div>
+    <div class="total-value">{{ guest.venue.currency_symbol }}{{ total }}</div>
   </div>
 </div>
 
-<div style="background: rgba(212, 175, 55, 0.06); border: 1px solid var(--line-gold); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.45;">
-  🍸 <strong>Pay on delivery:</strong> Your round goes straight to the bar's screen and the team starts mixing right away. Pay your server when served or settle the table tab at the counter.
+<div class="notice" style="margin: 1.1rem 0 1.25rem;">
+  <strong>Pay at the table.</strong>
+  Your round goes straight to the bar screen and the team starts mixing. Settle with your server when it arrives, or at the counter before you leave.
 </div>
 
 <form method="post" action="{% url 'atmos:order_place' %}">
@@ -73,19 +96,27 @@
        _create_order_atomic() in views.py. -->
   <input type="hidden" name="expected_signature" value="{{ cart_signature }}">
   <input type="hidden" name="expected_currency" value="{{ guest.venue.currency }}">
-  <button class="btn" type="submit" style="padding: 1rem 1.25rem; font-size: 1.05rem;">Send Round to Bar →</button>
+  <button class="btn" type="submit">
+    Send to the bar
+    <svg class="ico" aria-hidden="true"><use href="#ic-arrow"/></svg>
+  </button>
 </form>
 
+<p style="text-align: center; margin-top: 1.25rem;">
+  <a class="backlink" href="{% url 'atmos:guest_menu' %}">
+    <svg class="ico" aria-hidden="true"><use href="#ic-back"/></svg>
+    Back to the menu
+  </a>
+</p>
+
 {% else %}
-<div class="panel" style="text-align: center; padding: 2.5rem 1.5rem;">
-  <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🍸</div>
-  <h2 style="margin-bottom: 0.5rem;">Your round is empty</h2>
-  <p class="muted" style="margin-bottom: 1.5rem;">Add some drinks from the menu to get started.</p>
-  <a class="btn" href="{% url 'atmos:guest_menu' %}">Browse Drink Menu →</a>
+<div class="panel empty" style="margin-top: 1.25rem;">
+  <h2>Nothing in your round yet</h2>
+  <p class="lede">Pick something from the menu and it'll show up here.</p>
+  <a class="btn" href="{% url 'atmos:guest_menu' %}">
+    See the menu
+    <svg class="ico" aria-hidden="true"><use href="#ic-arrow"/></svg>
+  </a>
 </div>
 {% endif %}
-
-<p style="margin-top: 1.5rem; text-align: center;">
-  <a href="{% url 'atmos:guest_menu' %}" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.9rem;">← Back to menu</a>
-</p>
 {% endblock %}

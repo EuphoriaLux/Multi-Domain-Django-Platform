@@ -3,26 +3,29 @@
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
 {% block refresh %}{% if order.status != "served" and order.status != "cancelled" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
-<div class="tag" style="margin-bottom: 0.5rem;">
-  <span class="tag-badge">🎟️ {{ order.short_code }}</span>
-  <span class="tag-badge {% if order.status == 'served' %}tag-badge-ghost{% endif %}">
-    {% if order.status != "served" and order.status != "cancelled" %}<span class="pulse-dot" style="margin-right: 0.2rem;"></span>{% endif %}
-    {{ order.get_status_display }}
-  </span>
+<div class="ident">
+  <div class="stub">{{ order.short_code }}</div>
+  {% if order.status == "served" %}
+    <span class="chip chip-live"><svg class="ico" aria-hidden="true"><use href="#ic-check"/></svg> Served</span>
+  {% elif order.status == "cancelled" %}
+    <span class="chip chip-warn">Cancelled</span>
+  {% else %}
+    <span class="chip chip-lamp"><span class="dot"></span> {{ order.get_status_display }}</span>
+  {% endif %}
 </div>
 
 <h1>{{ order.alias_snapshot }}</h1>
-<p class="tag" style="margin-bottom: 1.5rem;">
+<p class="lede" style="margin-top: 0.35rem;">
   {% if order.status == "served" %}
-    Your drinks have been delivered to your table. Cheers!
+    Delivered to table {{ guest.tab.table.label }}. Enjoy it.
   {% elif order.status == "cancelled" %}
-    This order was cancelled — no drinks are on their way. Head back to the menu to start a new round.
+    The bar stopped this one — nothing is on its way. Start a new round whenever you like.
   {% elif order.status == "preparing" %}
-    The barkeeper is currently crafting your round.
+    A barkeeper is making it now.
   {% elif order.status == "accepted" %}
-    Your order is queued at the bar.
+    The bar has your round and it's in the queue.
   {% else %}
-    Your order has been transmitted to the bar display.
+    Your round is on the bar's screen.
   {% endif %}
 </p>
 
@@ -30,60 +33,59 @@
 <!-- Cancelled is a terminal state outside the normal 4-stage flow — showing
      the stepper here would leave every step looking un-started, implying
      the order never began rather than that it was stopped. -->
-<div class="card" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; text-align: center;">
-  <div style="font-size: 1.5rem; margin-bottom: 0.35rem;">✕</div>
-  <div style="font-weight: 700; color: #fca5a5;">Order Cancelled</div>
+<div class="notice notice-warn" style="margin-top: 1.4rem;">
+  <strong>This round was cancelled.</strong>
+  If you weren't expecting that, ask a barkeeper — they can tell you why.
 </div>
 {% else %}
-<!-- 4-Stage Progress Stepper -->
-<div class="progress-stepper">
-  <div class="step-node {% if order.status == 'placed' %}active{% elif order.status == 'accepted' or order.status == 'preparing' or order.status == 'served' %}complete{% endif %}">
-    <div class="step-circle">1</div>
-    <div class="step-label">Placed</div>
-  </div>
-  <div class="step-node {% if order.status == 'accepted' %}active{% elif order.status == 'preparing' or order.status == 'served' %}complete{% endif %}">
-    <div class="step-circle">2</div>
-    <div class="step-label">Accepted</div>
-  </div>
-  <div class="step-node {% if order.status == 'preparing' %}active{% elif order.status == 'served' %}complete{% endif %}">
-    <div class="step-circle">3</div>
-    <div class="step-label">Mixing</div>
-  </div>
-  <div class="step-node {% if order.status == 'served' %}active complete{% endif %}">
-    <div class="step-circle">✓</div>
-    <div class="step-label">Served</div>
-  </div>
+{% comment %}A real typed sequence, so the order carries information: each segment is
+a state the ticket has actually passed through.{% endcomment %}
+<div class="rail" role="img" aria-label="Order progress: {{ order.get_status_display }}">
+  <span class="rail-seg {% if order.status == 'placed' %}now{% else %}done{% endif %}"></span>
+  <span class="rail-seg {% if order.status == 'accepted' %}now{% elif order.status == 'preparing' or order.status == 'served' %}done{% endif %}"></span>
+  <span class="rail-seg {% if order.status == 'preparing' %}now{% elif order.status == 'served' %}done{% endif %}"></span>
+  <span class="rail-seg {% if order.status == 'served' %}end{% endif %}"></span>
+</div>
+<div class="rail-labels">
+  <span class="{% if order.status == 'placed' %}now{% else %}done{% endif %}">Placed</span>
+  <span class="{% if order.status == 'accepted' %}now{% elif order.status == 'preparing' or order.status == 'served' %}done{% endif %}">Accepted</span>
+  <span class="{% if order.status == 'preparing' %}now{% elif order.status == 'served' %}done{% endif %}">Mixing</span>
+  <span class="{% if order.status == 'served' %}end{% endif %}">Served</span>
 </div>
 {% endif %}
 
-<!-- Speakeasy Event Experience Mission Card -->
-{% if mission %}
-<div class="card" style="background: rgba(212, 168, 83, 0.08); border: 1px solid rgba(212, 168, 83, 0.35); border-radius: 12px; padding: 1.1rem; margin-bottom: 1.5rem;">
-  <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold-light); font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
-    <span>🍸 Tonight's Speakeasy Mission</span>
-  </div>
-  <div style="font-size: 0.95rem; color: var(--ink); line-height: 1.45; font-style: italic;">
-    "{{ mission }}"
-  </div>
-  <div style="font-size: 0.74rem; color: var(--muted); margin-top: 0.5rem;">
-    Share this with your table or attempt the challenge before your round arrives!
-  </div>
+{% comment %}No mission on a cancelled order — every version of this copy
+promises a glass that is not coming.{% endcomment %}
+{% if mission and order.status != "cancelled" %}
+<div class="mission">
+  <div class="eyebrow">Tonight's mission</div>
+  <div class="mission-body">{{ mission }}</div>
+  <div class="mission-note">{% if order.status == "served" %}Still worth a try.{% else %}Try it before your glass arrives.{% endif %}</div>
 </div>
 {% endif %}
 
-<!-- Printed Bar Ticket Preview -->
-<div class="ticket-wrapper">
+{% comment %}The ticket outlives the order, so the label has to track the
+state: it is printing, then it has printed, then — if the bar stopped the
+round — it is only a record of what was asked for.{% endcomment %}
+<div class="rule">
+  <span class="eyebrow">
+    {% if order.status == "cancelled" %}What you ordered
+    {% elif order.status == "served" %}Your ticket
+    {% else %}Printing at the bar{% endif %}
+  </span>
+</div>
+<div class="ticket-wrap">
   <div class="ticket">{{ ticket_preview }}</div>
   <div class="ticket-tear"></div>
 </div>
 
 {% if order.vignette_source %}
-<p class="muted" style="text-align: center; margin-top: 0.75rem; font-size: 0.78rem;">
-  ✨ Speakeasy chronicle {% if order.vignette_source == "model" %}AI-authored{% else %}fallback-generated{% endif %} on your physical receipt
+<p class="fine" style="text-align: center; margin-top: 0.9rem;">
+  Your ticket carries a line of tonight's chronicle{% if order.vignette_source == "model" %}, written for this round{% endif %}.
 </p>
 {% endif %}
 
-<div style="margin-top: 1.75rem;">
-  <a class="btn btn-ghost" href="{% url 'atmos:guest_menu' %}">← Order more drinks</a>
+<div style="margin-top: 1.9rem;">
+  <a class="btn btn-quiet" href="{% url 'atmos:guest_menu' %}">Order another round</a>
 </div>
 {% endblock %}

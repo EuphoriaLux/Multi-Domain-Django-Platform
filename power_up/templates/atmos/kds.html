@@ -1,61 +1,54 @@
 {% extends "atmos/base.html" %}
 {% block bodyclass %}staff{% endblock %}
-{% block title %}{{ venue.name }} KDS{% endblock %}
+{% block title %}{{ venue.name }} bar screen{% endblock %}
 {% block venue_name %}{{ venue.name }}{% endblock %}
 {% block refresh %}<meta http-equiv="refresh" content="4">{% endblock %}
 {% block content %}
-<div class="kds-header">
+<div class="kds-head">
   <div>
-    <h1 style="font-size: 1.6rem; margin-bottom: 0.2rem;">{{ venue.name }} <span style="font-weight: 400; color: var(--dim);">· Bar KDS</span></h1>
-    <p class="muted"><a href="{% url 'atmos:staff_home' %}">← Switch Venue</a></p>
+    <h1 style="font-size: 1.55rem;">{{ venue.name }}</h1>
+    <a class="backlink" href="{% url 'atmos:staff_home' %}">
+      <svg class="ico" aria-hidden="true"><use href="#ic-back"/></svg>
+      All venues
+    </a>
   </div>
-  <div style="display: flex; align-items: center; gap: 0.75rem;">
-    <div class="tag-badge" style="background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.35); color: #4ade80;">
-      <span class="pulse-dot"></span> Live Feed (4s)
-    </div>
-  </div>
+  <span class="chip chip-live"><span class="dot"></span> Refreshing every 4s</span>
 </div>
 
-<div class="kds-board">
-  <div class="kds-col">
-    <div class="kds-col-header">
-      <span class="kds-col-title">🔔 New Orders</span>
-      <span class="kds-col-count">{{ columns.new|length }}</span>
+<div class="board">
+  <div class="col">
+    <div class="col-head">
+      <span class="col-title">New</span>
+      <span class="col-count">{{ columns.new|length }}</span>
     </div>
     {% for order in columns.new %}
       {% include "atmos/_kds_card.html" %}
     {% empty %}
-      <div style="text-align: center; padding: 3rem 1rem; color: var(--dim); font-size: 0.9rem;">
-        No incoming orders.
-      </div>
+      <p class="empty fine">Nothing waiting.</p>
     {% endfor %}
   </div>
 
-  <div class="kds-col">
-    <div class="kds-col-header">
-      <span class="kds-col-title">🍸 In Progress (Mixing)</span>
-      <span class="kds-col-count">{{ columns.in_progress|length }}</span>
+  <div class="col">
+    <div class="col-head">
+      <span class="col-title">Mixing</span>
+      <span class="col-count">{{ columns.in_progress|length }}</span>
     </div>
     {% for order in columns.in_progress %}
       {% include "atmos/_kds_card.html" %}
     {% empty %}
-      <div style="text-align: center; padding: 3rem 1rem; color: var(--dim); font-size: 0.9rem;">
-        Nothing currently mixing.
-      </div>
+      <p class="empty fine">Nothing on the go.</p>
     {% endfor %}
   </div>
 
-  <div class="kds-col">
-    <div class="kds-col-header">
-      <span class="kds-col-title">✅ Served (Recent)</span>
-      <span class="kds-col-count">{{ columns.done|length }}</span>
+  <div class="col">
+    <div class="col-head">
+      <span class="col-title">Delivered</span>
+      <span class="col-count">{{ columns.done|length }}</span>
     </div>
     {% for order in columns.done %}
       {% include "atmos/_kds_card.html" %}
     {% empty %}
-      <div style="text-align: center; padding: 3rem 1rem; color: var(--dim); font-size: 0.9rem;">
-        No completed orders in last 30m.
-      </div>
+      <p class="empty fine">Nothing in the last 30 minutes.</p>
     {% endfor %}
   </div>
 </div>

@@ -1,55 +1,59 @@
 {% extends "atmos/base.html" %}
-{% block title %}Drink Menu{% endblock %}
+{% block title %}Menu{% endblock %}
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
+{% block wrapclass %}{% if cart_count %}has-dock{% endif %}{% endblock %}
 {% block content %}
-<div class="tag" style="margin-bottom: 0.75rem;">
-  <span class="tag-badge">🍸 {{ guest.display }}</span>
-  <span class="tag-badge tag-badge-ghost">📍 Table {{ guest.tab.table.label }}</span>
+<div class="ident">
+  <div class="ident-name">{{ guest.display }}</div>
+  <div class="ident-table stub">TABLE {{ guest.tab.table.label }}</div>
 </div>
 
 <h1>{{ guest.venue.name }}</h1>
-<p class="tag" style="margin-bottom: 1.5rem;">Select drinks to add to your table's round.</p>
+<p class="lede" style="margin-top: 0.3rem;">Order as often as you like. Pay your server when the tray lands.</p>
 
 {% for category in categories %}
-  <div class="cat-title">{{ category.name }}</div>
-  <div class="panel" style="padding: 0.5rem 1.15rem;">
+  <div class="rule"><span class="eyebrow">{{ category.name }}</span></div>
+  <div class="panel panel-flush">
     {% for item in category.items.all %}
       {% if item.is_available %}
-      <div class="item-row">
-        <div class="item-info">
-          <div class="item-name">
-            {{ item.name }}
-            {% if item.contains_alcohol %}<span class="tag-badge-ghost" style="font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px;">18+</span>{% endif %}
+      {% comment %}id + :target give one-tap "added" feedback with no JavaScript —
+      cart_add redirects back to this anchor (see views.cart_add).{% endcomment %}
+      <div class="row" id="item-{{ item.id }}">
+        <div class="row-main">
+          <div class="row-name">
+            {{ item.name }}{% if item.contains_alcohol %}<span class="alc">18+</span>{% endif %}
           </div>
-          {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
-          {% if item.allergens %}<div class="item-desc" style="color: var(--muted);">⚠️ Contains: {{ item.allergens }}</div>{% endif %}
+          {% if item.description %}<div class="row-desc">{{ item.description }}</div>{% endif %}
+          {% if item.allergens %}<div class="allergen">Contains {{ item.allergens }}</div>{% endif %}
         </div>
-        <form method="post" action="{% url 'atmos:cart_add' %}" class="qty-form">
+        <div class="row-price">{{ guest.venue.currency_symbol }}{{ item.price }}</div>
+        <form method="post" action="{% url 'atmos:cart_add' %}">
           {% csrf_token %}
           <input type="hidden" name="item_id" value="{{ item.id }}">
-          <span class="price">{{ guest.venue.currency_symbol }}{{ item.price }}</span>
-          <input type="number" name="quantity" value="1" min="1" max="9" aria-label="Quantity">
-          <button class="btn btn-small" type="submit">+ Add</button>
+          <input type="hidden" name="quantity" value="1">
+          <button class="add" type="submit" aria-label="Add {{ item.name }} to your round">
+            <svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg>
+          </button>
         </form>
       </div>
       {% endif %}
     {% endfor %}
   </div>
 {% empty %}
-  <div class="panel" style="text-align: center; padding: 2rem 1rem;">
-    <p class="muted">The bar menu is currently being updated. Please check with your barkeeper.</p>
+  <div class="panel empty" style="margin-top: 1.5rem;">
+    <h2>The menu is being changed</h2>
+    <p class="lede">Ask a barkeeper what's pouring tonight.</p>
   </div>
 {% endfor %}
 
-<div class="cart-fab">
-  <a class="btn" href="{% url 'atmos:cart_detail' %}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.95rem 1.25rem;">
-    <span style="display: flex; align-items: center; gap: 0.5rem;">
-      <span>🍸 View Round</span>
-      {% if cart_count %}
-        <span style="background: rgba(0,0,0,0.25); padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700;">{{ cart_count }} item{{ cart_count|pluralize }}</span>
-      {% endif %}
-    </span>
-    <span>Review & Order →</span>
-  </a>
+{% if cart_count %}
+<div class="dock">
+  <div class="dock-inner">
+    <a class="btn" href="{% url 'atmos:cart_detail' %}">
+      <span>Review your round</span>
+      <span class="dock-count">{{ cart_count }}</span>
+    </a>
+  </div>
 </div>
+{% endif %}
 {% endblock %}

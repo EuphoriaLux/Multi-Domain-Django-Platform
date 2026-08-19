@@ -593,7 +593,12 @@ def cart_add(request):
     # not be able to stack past the advertised max.
     cart[str(item.id)] = min(MAX_ITEM_QTY, cart.get(str(item.id), 0) + qty)
     request.session[CART_SESSION_KEY] = cart
-    return redirect("atmos:guest_menu")
+    # Back to the row the guest just tapped, not the top of the menu. A bar
+    # menu is long, and bouncing someone to the top after every drink makes
+    # ordering a second round feel like starting over. The fragment also
+    # drives the CSS-only "added" flash (`.row:target` in base.html), which
+    # is the only add-feedback there is — the CSP story here rules out JS.
+    return redirect(f"{reverse('atmos:guest_menu')}#item-{item.id}")
 
 
 def cart_update(request):
