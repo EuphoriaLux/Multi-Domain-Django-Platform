@@ -95,6 +95,30 @@ if not SECRET_KEY:
             "The SECRET_KEY environment variable must be set in production."
         )
 
+# SECRET_KEY rotation (Task 5.4b). Comma-separated list of previous SECRET_KEY
+# values still accepted for VERIFYING existing signatures/sessions/tokens —
+# never used to create new ones (Django only ever signs with SECRET_KEY
+# itself; see django.core.signing.Signer). Empty by default, matching
+# Django's own default and this repo's comma-separated env var convention
+# (see WEEKLY_KPI_RECIPIENTS above). Keys must not contain a comma —
+# django.utils.crypto.get_random_secret_key()'s alphabet has none, so a key
+# generated that way is always safe to drop in here.
+#
+# This is Django's own SECRET_KEY_FALLBACKS mechanism (4.1+): the session
+# framework, django.contrib.auth's session-auth-hash check, and
+# django.core.signing.Signer/TimestampSigner (used directly, with no
+# explicit key=, for the QR check-in tokens in crush_lu/views_ticket.py and
+# crush_lu/views_checkin.py) all read it automatically. It does NOT cover
+# every SECRET_KEY consumer in this codebase — see
+# docs/ops/secret-key-rotation.md for the two known gaps (the Hub SSO JWTs
+# in SIMPLE_JWT below, and crush_lu/models/ios_app.py's native auth code
+# hash) and the rotation procedure itself.
+SECRET_KEY_FALLBACKS = [
+    key.strip()
+    for key in os.getenv("SECRET_KEY_FALLBACKS", "").split(",")
+    if key.strip()
+]
+
 # Required for django.template.context_processors.debug to expose 'debug' in templates
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -1095,6 +1119,16 @@ REST_FRAMEWORK = {
     },
 }
 
+# KNOWN GAP (Task 5.4b, docs/ops/secret-key-rotation.md): djangorestframework
+# -simplejwt's TokenBackend holds a single signing/verifying key with no
+# fallback-list support (unlike django.core.signing above), so SIGNING_KEY is
+# captured once at settings-module import time and does NOT read
+# SECRET_KEY_FALLBACKS. Rotating SECRET_KEY invalidates every outstanding Hub
+# SSO access/refresh token immediately — the Hub SPA's next API call 401s and
+# it re-runs the session→JWT exchange (azureproject/views_spa_auth.py) using
+# the staff member's still-valid crush.lu session (session auth DOES honour
+# SECRET_KEY_FALLBACKS, so that re-bounce succeeds without a fresh login).
+# Net effect: a one-time silent re-auth for Hub staff, not an outage.
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
