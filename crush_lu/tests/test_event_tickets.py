@@ -20,8 +20,8 @@ from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.views_ticket import _generate_checkin_token
 
-# All crush_lu HTTP tests must use the crush-specific URL config
-pytestmark = pytest.mark.urls("azureproject.urls_crush")
+# All crush_lu HTTP tests must use the crush-specific URL config and have db access
+pytestmark = [pytest.mark.urls("azureproject.urls_crush"), pytest.mark.django_db]
 
 
 @pytest.fixture
@@ -265,7 +265,7 @@ class TestWebTicketPage:
             or b"showScoreModal" in response.content
         )
 
-    def test_compatibility_explainer_page(self, client):
+    def test_compatibility_explainer_page(self, client, db):
         url = reverse("crush_lu:compatibility_explainer")
         response = client.get(url)
         assert response.status_code == 200
