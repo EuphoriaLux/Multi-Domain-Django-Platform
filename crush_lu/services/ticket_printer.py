@@ -314,57 +314,6 @@ def _get_social_icons_logo_path() -> str | None:
     return candidate if os.path.exists(candidate) else None
 
 
-def _generate_compatibility_gauge_bytes(
-    score: int = 92, width: int = 384, height: int = 70
-) -> bytes:
-    """Generates PNG bytes of a 1-bit monochrome compatibility progress gauge."""
-    import io
-    from PIL import Image as PILImage, ImageDraw
-
-    scale = 2
-    W = width * scale
-    H = height * scale
-    img = PILImage.new("L", (W, H), 255)
-    draw = ImageDraw.Draw(img)
-
-    draw.rounded_rectangle(
-        [4 * scale, 4 * scale, W - 4 * scale, H - 4 * scale],
-        radius=8 * scale,
-        outline=0,
-        width=2 * scale,
-    )
-
-    bar_x0 = int(W * 0.06)
-    bar_x1 = int(W * 0.94)
-    bar_y0 = int(H * 0.28)
-    bar_y1 = int(H * 0.72)
-    bar_w = bar_x1 - bar_x0
-    bar_h = bar_y1 - bar_y0
-
-    draw.rounded_rectangle(
-        [bar_x0, bar_y0, bar_x1, bar_y1], radius=bar_h // 2, outline=0, width=3 * scale
-    )
-
-    num_segs = 16
-    gap = 3 * scale
-    seg_w = (bar_w - 12 * scale - (num_segs - 1) * gap) / num_segs
-    filled = int((score / 100.0) * num_segs)
-
-    for i in range(num_segs):
-        sx0 = int(bar_x0 + 6 * scale + i * (seg_w + gap))
-        sx1 = int(sx0 + seg_w)
-        sy0 = bar_y0 + 4 * scale
-        sy1 = bar_y1 - 4 * scale
-        if i < filled:
-            draw.rounded_rectangle([sx0, sy0, sx1, sy1], radius=2 * scale, fill=0)
-
-    small = img.resize((width, height), PILImage.Resampling.LANCZOS)
-    mono = small.point(lambda p: 0 if p < 180 else 255, mode="1")
-    buf = io.BytesIO()
-    mono.save(buf, format="PNG")
-    return buf.getvalue()
-
-
 def _get_crush_ghost_logo_path() -> str | None:
     """Finds path to official thermal ghost logo asset if present."""
     import os
