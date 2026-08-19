@@ -314,7 +314,9 @@ def _get_social_icons_logo_path() -> str | None:
     return candidate if os.path.exists(candidate) else None
 
 
-def _generate_compatibility_gauge_bytes(score: int = 92, width: int = 384, height: int = 70) -> bytes:
+def _generate_compatibility_gauge_bytes(
+    score: int = 92, width: int = 384, height: int = 70
+) -> bytes:
     """Generates PNG bytes of a 1-bit monochrome compatibility progress gauge."""
     import io
     from PIL import Image as PILImage, ImageDraw
@@ -325,7 +327,12 @@ def _generate_compatibility_gauge_bytes(score: int = 92, width: int = 384, heigh
     img = PILImage.new("L", (W, H), 255)
     draw = ImageDraw.Draw(img)
 
-    draw.rounded_rectangle([4 * scale, 4 * scale, W - 4 * scale, H - 4 * scale], radius=8 * scale, outline=0, width=2 * scale)
+    draw.rounded_rectangle(
+        [4 * scale, 4 * scale, W - 4 * scale, H - 4 * scale],
+        radius=8 * scale,
+        outline=0,
+        width=2 * scale,
+    )
 
     bar_x0 = int(W * 0.06)
     bar_x1 = int(W * 0.94)
@@ -334,7 +341,9 @@ def _generate_compatibility_gauge_bytes(score: int = 92, width: int = 384, heigh
     bar_w = bar_x1 - bar_x0
     bar_h = bar_y1 - bar_y0
 
-    draw.rounded_rectangle([bar_x0, bar_y0, bar_x1, bar_y1], radius=bar_h // 2, outline=0, width=3 * scale)
+    draw.rounded_rectangle(
+        [bar_x0, bar_y0, bar_x1, bar_y1], radius=bar_h // 2, outline=0, width=3 * scale
+    )
 
     num_segs = 16
     gap = 3 * scale
@@ -366,7 +375,14 @@ def _get_crush_ghost_logo_path() -> str | None:
         return None
 
     candidates = [
-        os.path.join(str(base), "crush_lu", "static", "crush_lu", "images", "crush_ghost_thermal.png"),
+        os.path.join(
+            str(base),
+            "crush_lu",
+            "static",
+            "crush_lu",
+            "images",
+            "crush_ghost_thermal.png",
+        ),
         os.path.join(str(base), "crush_lu", "static", "crush_lu", "logo.png"),
     ]
     for c in candidates:
@@ -394,7 +410,7 @@ def _build_header_directives(
         out.append(Image(source=logo_path, width=192, align=Align.CENTER))
         out.append(Feed(1))
     else:
-        max_gw = max(len(l) for l in CRUSH_GHOST_ASCII)
+        max_gw = max(len(line) for line in CRUSH_GHOST_ASCII)
         for gl in CRUSH_GHOST_ASCII:
             out.append(Text(gl.ljust(max_gw), Align.CENTER))
         out.append(Feed(1))
@@ -412,12 +428,8 @@ def _build_header_directives(
             "en": "EVENT // CHECK-IN PASS",
         }.get(lang, "EVENT // CHECK-IN PASS")
 
-    event_lbl = {"fr": "ÉVÉNEMENT:", "de": "EVENT:", "en": "EVENT:"}.get(
-        lang, "EVENT:"
-    )
-    date_lbl = {"fr": "DATE:", "de": "DATUM:", "en": "DATE:"}.get(
-        lang, "DATE:"
-    )
+    event_lbl = {"fr": "ÉVÉNEMENT:", "de": "EVENT:", "en": "EVENT:"}.get(lang, "EVENT:")
+    date_lbl = {"fr": "DATE:", "de": "DATUM:", "en": "DATE:"}.get(lang, "DATE:")
 
     out.append(Text("CRUSH.LU", Align.CENTER, bold=True, double_height=True))
     out.append(Text(sub, Align.CENTER, bold=True))
@@ -432,12 +444,16 @@ def _build_header_directives(
     badge_str = f"{badge_label} {badge_num_clean}".strip() if badge_num_clean else ""
 
     # Line 1: Prominent Attendee Name in double height
-    out.append(Text(attendee_name.upper()[:cols], Align.CENTER, bold=True, double_height=True))
+    out.append(
+        Text(attendee_name.upper()[:cols], Align.CENTER, bold=True, double_height=True)
+    )
     out.append(Feed(1))
 
     # Line 2: Badge # and Table Assignment in standard 48-col width
     if badge_str and table_label:
-        out.append(Text(justify(badge_str.upper(), table_label.upper(), cols), bold=True))
+        out.append(
+            Text(justify(badge_str.upper(), table_label.upper(), cols), bold=True)
+        )
     elif badge_str:
         out.append(Text(badge_str.upper(), Align.CENTER, bold=True))
     elif table_label:
@@ -534,16 +550,36 @@ def _build_room_stats_directives(
         total = 10
         top_interests = [
             ("Voyage" if lang == "fr" else ("Reisen" if lang == "de" else "Travel"), 7),
-            ("Gastronomie" if lang == "fr" else ("Kochen" if lang == "de" else "Food & Wine"), 5),
+            (
+                "Gastronomie"
+                if lang == "fr"
+                else ("Kochen" if lang == "de" else "Food & Wine"),
+                5,
+            ),
             ("Musique" if lang == "fr" else ("Musik" if lang == "de" else "Music"), 4),
         ]
         top_vibes = [
-            ("Détente" if lang == "fr" else ("Entspannt" if lang == "de" else "Chilled"), 7),
+            (
+                "Détente"
+                if lang == "fr"
+                else ("Entspannt" if lang == "de" else "Chilled"),
+                7,
+            ),
             ("Festif" if lang == "fr" else ("Party" if lang == "de" else "Party"), 3),
         ]
         top_defects = [
-            ("Retardataire" if lang == "fr" else ("Unpünktlich" if lang == "de" else "Late sleeper"), 3),
-            ("Gourmand" if lang == "fr" else ("Naschkatze" if lang == "de" else "Foodie"), 4),
+            (
+                "Retardataire"
+                if lang == "fr"
+                else ("Unpünktlich" if lang == "de" else "Late sleeper"),
+                3,
+            ),
+            (
+                "Gourmand"
+                if lang == "fr"
+                else ("Naschkatze" if lang == "de" else "Foodie"),
+                4,
+            ),
         ]
         all_langs = ["lu", "fr", "de", "en"]
     else:
@@ -598,7 +634,9 @@ def _build_room_stats_directives(
             top_defects = Counter(all_defects).most_common(2)
             top_vibes = Counter(all_vibes).most_common(2)
         except Exception as e:
-            logger.warning("Failed to build room stats directives: %s", e, exc_info=True)
+            logger.warning(
+                "Failed to build room stats directives: %s", e, exc_info=True
+            )
             return []
 
     hdr = {
@@ -624,7 +662,13 @@ def _build_room_stats_directives(
 
     out.append(Text(lbl_gauge, Align.CENTER, bold=True))
     out.append(Feed(1))
-    out.append(Image(source=_generate_compatibility_gauge_bytes(score=score, width=384), width=384, align=Align.CENTER))
+    out.append(
+        Image(
+            source=_generate_compatibility_gauge_bytes(score=score, width=384),
+            width=384,
+            align=Align.CENTER,
+        )
+    )
     out.append(Feed(1))
 
     # 1. Âge & Démographie + 1er Pas (Compact Pills)
@@ -677,12 +721,18 @@ def _build_room_stats_directives(
             if len(line_bar) <= cols:
                 out.append(Text(line_bar))
             else:
-                out.append(Text(justify(f"{bars} {pct}% {name[:cols-18]}", f"({count}p)", cols)))
+                out.append(
+                    Text(
+                        justify(
+                            f"{bars} {pct}% {name[: cols - 18]}", f"({count}p)", cols
+                        )
+                    )
+                )
 
     # 3. Vibes Pill
     if top_vibes:
         out.append(Feed(1))
-        vibe_str = " | ".join(f"{v[0]} {int(v[1]/total*100)}%" for v in top_vibes)
+        vibe_str = " | ".join(f"{v[0]} {int(v[1] / total * 100)}%" for v in top_vibes)
         full_vibe = f"[ VIBES: {vibe_str} ]"
         for part in wrap(full_vibe, cols):
             out.append(Text(part))
@@ -694,7 +744,7 @@ def _build_room_stats_directives(
             "de": "MACKEN: ",
             "en": "QUIRKS: ",
         }.get(lang, "QUIRKS: ")
-        def_items = [f"'{d[0]}' {int(d[1]/total*100)}%" for d in top_defects]
+        def_items = [f"'{d[0]}' {int(d[1] / total * 100)}%" for d in top_defects]
         def_str = f"[ {lbl_def}" + " | ".join(def_items) + " ]"
         for part in wrap(def_str, cols):
             out.append(Text(part))
@@ -711,7 +761,9 @@ def _build_room_stats_directives(
             "de": "SPRACHEN",
             "en": "LANGUAGES",
         }.get(lang, "LANGUAGES")
-        lang_str = f"[ {lbl_l}: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}% ]"
+        lang_str = (
+            f"[ {lbl_l}: LU {lu_pct}% | FR {fr_pct}% | DE {de_pct}% | EN {en_pct}% ]"
+        )
         for part in wrap(lang_str, cols):
             out.append(Text(part))
 
@@ -807,9 +859,7 @@ def _build_mystery_radar_directives(
                 )
 
                 my_user = getattr(registration, "user", None)
-                my_profile = (
-                    getattr(my_user, "crushprofile", None) if my_user else None
-                )
+                my_profile = getattr(my_user, "crushprofile", None) if my_user else None
                 my_connect_membership = (
                     getattr(my_user, "crush_connect_membership", None)
                     if my_user
@@ -819,13 +869,13 @@ def _build_mystery_radar_directives(
                 my_gender = ""
                 my_pref_genders = []
                 if my_profile:
-                    my_interests = set(
-                        i.label for i in my_profile.interests_new.all()
-                    )
+                    my_interests = set(i.label for i in my_profile.interests_new.all())
                     my_gender = getattr(my_profile, "gender", "") or ""
                     my_pref_genders = getattr(my_profile, "preferred_genders", []) or []
 
-                if my_connect_membership and getattr(my_connect_membership, "preferred_genders", None):
+                if my_connect_membership and getattr(
+                    my_connect_membership, "preferred_genders", None
+                ):
                     my_pref_genders = my_connect_membership.preferred_genders or []
 
                 # Target dating genders: Men get clues about Women, Women about Men
@@ -840,9 +890,7 @@ def _build_mystery_radar_directives(
                 dating_pool = []
                 general_pool = []
                 for other in other_regs:
-                    op = getattr(
-                        getattr(other, "user", None), "crushprofile", None
-                    )
+                    op = getattr(getattr(other, "user", None), "crushprofile", None)
                     other_gender = getattr(op, "gender", "") if op else ""
                     if target_genders and other_gender in target_genders:
                         dating_pool.append(other)
@@ -859,9 +907,7 @@ def _build_mystery_radar_directives(
                 used_clue_keys: set[str] = set()
 
                 for other in candidate_pool:
-                    op = getattr(
-                        getattr(other, "user", None), "crushprofile", None
-                    )
+                    op = getattr(getattr(other, "user", None), "crushprofile", None)
                     if not op:
                         continue
                     # Anonymous badge number only: e.g. "(#6)"
@@ -954,10 +1000,10 @@ def _build_mystery_radar_directives(
                             }.get(lang, f'From "{op.location}"')
                         elif op.event_languages:
                             chosen_clue = {
-                                "fr": f'Parle {op.event_languages[0].upper()}',
-                                "de": f'Spricht {op.event_languages[0].upper()}',
-                                "en": f'Speaks {op.event_languages[0].upper()}',
-                            }.get(lang, f'Speaks {op.event_languages[0].upper()}')
+                                "fr": f"Parle {op.event_languages[0].upper()}",
+                                "de": f"Spricht {op.event_languages[0].upper()}",
+                                "en": f"Speaks {op.event_languages[0].upper()}",
+                            }.get(lang, f"Speaks {op.event_languages[0].upper()}")
                         else:
                             chosen_clue = {
                                 "fr": "Profil Énigme Mystère",
@@ -1120,9 +1166,17 @@ def _build_member_stats_directives(
         )
     )
     if is_verified:
-        verified_pill = "[ ✓ PROFIL VÉRIFIÉ ]" if lang == "fr" else ("[ ✓ VERIFIZIERT ]" if lang == "de" else "[ ✓ VERIFIED ]")
+        verified_pill = (
+            "[ ✓ PROFIL VÉRIFIÉ ]"
+            if lang == "fr"
+            else ("[ ✓ VERIFIZIERT ]" if lang == "de" else "[ ✓ VERIFIED ]")
+        )
     else:
-        verified_pill = "[ ★ MEMBRE ACTIF ]" if lang == "fr" else ("[ ★ AKTIV ]" if lang == "de" else "[ ★ ACTIVE ]")
+        verified_pill = (
+            "[ ★ MEMBRE ACTIF ]"
+            if lang == "fr"
+            else ("[ ★ AKTIV ]" if lang == "de" else "[ ★ ACTIVE ]")
+        )
 
     seniority_pill = {
         "fr": f"[ 🏆 TOP {global_pct}% DES MEMBRES ]",
@@ -1375,7 +1429,9 @@ def build_checkin_ticket_directives(
             candidate_num = f"(#{registration.id})"
         elif coach_authenticated:
             # Sample realistic test ticket preview for coach hardware check
-            attendee_name = "Jean" if lang == "fr" else ("Max" if lang == "de" else "Alex")
+            attendee_name = (
+                "Jean" if lang == "fr" else ("Max" if lang == "de" else "Alex")
+            )
             candidate_num = "(#99)"
 
         if event:
@@ -1392,7 +1448,9 @@ def build_checkin_ticket_directives(
         elif not registration and coach_authenticated:
             table_display = "TABLE 1 (A)"
 
-        has_activity_voting = bool(event and getattr(event, "enable_activity_voting", False))
+        has_activity_voting = bool(
+            event and getattr(event, "enable_activity_voting", False)
+        )
 
         if not qr_url:
             base_domain = getattr(
@@ -1406,9 +1464,13 @@ def build_checkin_ticket_directives(
                     from django.urls import reverse
 
                     if has_activity_voting:
-                        path = reverse("crush_lu:event_voting_lobby", kwargs={"event_id": event_id})
+                        path = reverse(
+                            "crush_lu:event_voting_lobby", kwargs={"event_id": event_id}
+                        )
                     else:
-                        path = reverse("crush_lu:event_lobby", kwargs={"event_id": event_id})
+                        path = reverse(
+                            "crush_lu:event_lobby", kwargs={"event_id": event_id}
+                        )
                     qr_url = f"{base_domain}{path}"
                 except Exception:
                     subpath = "voting/lobby" if has_activity_voting else "lobby"

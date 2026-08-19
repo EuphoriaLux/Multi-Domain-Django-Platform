@@ -7,7 +7,6 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.signing import Signer
 from django.test import TestCase
-from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import CrushCoach, CrushProfile, EventRegistration, MeetupEvent
@@ -90,7 +89,7 @@ class TestTicketPrinter(TestCase):
             email="longname@test.lu",
             first_name="Jean-Sebastien",
         )
-        long_profile = CrushProfile.objects.create(
+        CrushProfile.objects.create(
             user=long_user,
             gender="M",
             date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
@@ -342,7 +341,7 @@ class TestTicketPrinter(TestCase):
             date_of_birth=timezone.now().date() - timedelta(days=365 * 30),
         )
         other_male_prof.interests_new.add(interest_books)
-        other_male_reg = EventRegistration.objects.create(
+        EventRegistration.objects.create(
             user=other_male,
             event=self.event,
             status="confirmed",
@@ -481,7 +480,9 @@ class TestCheckinPrintingAPI(TestCase):
 
     def test_reprint_ticket_api(self):
         # Anonymous fails (redirects to login)
-        reprint_url = f"/api/events/{self.event.id}/print-ticket/{self.registration.id}/"
+        reprint_url = (
+            f"/api/events/{self.event.id}/print-ticket/{self.registration.id}/"
+        )
         anon_resp = self.client.get(reprint_url)
         self.assertEqual(anon_resp.status_code, 302)
 
