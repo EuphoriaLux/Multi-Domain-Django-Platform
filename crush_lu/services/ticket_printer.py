@@ -1022,6 +1022,95 @@ def _build_mystery_radar_directives(
     return out
 
 
+def _build_activity_voting_directives(
+    event: MeetupEvent | None = None,
+    cols: int = 48,
+    lang: str = "fr",
+) -> list[Directive]:
+    """Builds the Phase 1 Activity Voting teaser block when activity voting is enabled."""
+    if not event or not getattr(event, "enable_activity_voting", False):
+        return []
+
+    out: list[Directive] = []
+    hdr = {
+        "fr": "🗳️ PHASE 1 // VOTE DES ACTIVITÉS DU SOIR",
+        "de": "🗳️ PHASE 1 // ABSTIMMUNG ABEND-AKTIVITÄTEN",
+        "en": "🗳️ PHASE 1 // TONIGHT'S ACTIVITY VOTING",
+    }.get(lang, "🗳️ PHASE 1 // TONIGHT'S ACTIVITY VOTING")
+
+    sub = {
+        "fr": "Vote sur ton mobile avant le début des dates :",
+        "de": "Stimme auf deinem Smartphone vor Beginn ab:",
+        "en": "Vote on your phone before dates begin:",
+    }.get(lang, "Vote on your phone before dates begin:")
+
+    out.append(Text(hdr, Align.CENTER, bold=True))
+    out.append(Rule("-"))
+    out.append(Text(sub, Align.CENTER))
+    out.append(Feed(1))
+
+    try:
+        from crush_lu.models import GlobalActivityOption
+
+        p_styles = list(
+            GlobalActivityOption.objects.filter(
+                activity_type="presentation_style", is_active=True
+            ).order_by("sort_order")[:3]
+        )
+        t_twists = list(
+            GlobalActivityOption.objects.filter(
+                activity_type="speed_dating_twist", is_active=True
+            ).order_by("sort_order")[:3]
+        )
+
+        p_hdr = {
+            "fr": "🎭 1. FORMAT DE PRÉSENTATION :",
+            "de": "🎭 1. PRÄSENTATIONS-FORMAT :",
+            "en": "🎭 1. PRESENTATION STYLE :",
+        }.get(lang, "🎭 1. PRESENTATION STYLE :")
+        out.append(Text(p_hdr, Align.LEFT, bold=True))
+        if p_styles:
+            for p in p_styles:
+                name = p.get_display_name(lang)
+                out.append(Text(f"   • {name}", Align.LEFT))
+        else:
+            fallback_p = {
+                "fr": "   • 5 Questions prédéfinies\n   • Avec musique préférée",
+                "de": "   • 5 Vordefinierte Fragen\n   • Mit Lieblingsmusik",
+                "en": "   • 5 Predefined Questions\n   • With Favorite Music",
+            }.get(lang, "   • 5 Predefined Questions\n   • With Favorite Music")
+            for line in fallback_p.split("\n"):
+                out.append(Text(line, Align.LEFT))
+
+        out.append(Feed(1))
+
+        t_hdr = {
+            "fr": "⚡ 2. TWIST SPEED DATING DU SOIR :",
+            "de": "⚡ 2. SPEED-DATING-TWIST :",
+            "en": "⚡ 2. SPEED DATING TWIST :",
+        }.get(lang, "⚡ 2. SPEED DATING TWIST :")
+        out.append(Text(t_hdr, Align.LEFT, bold=True))
+        if t_twists:
+            for t in t_twists:
+                name = t.get_display_name(lang)
+                out.append(Text(f"   • {name}", Align.LEFT))
+        else:
+            fallback_t = {
+                "fr": "   • Questions pimentées\n   • Défi du mot interdit",
+                "de": "   • Pikante Fragen\n   • Verbotenes-Wort-Challenge",
+                "en": "   • Spicy Questions\n   • Forbidden Word Challenge",
+            }.get(lang, "   • Spicy Questions\n   • Forbidden Word Challenge")
+            for line in fallback_t.split("\n"):
+                out.append(Text(line, Align.LEFT))
+
+    except Exception:
+        pass
+
+    out.append(Feed(1))
+    out.append(Rule("="))
+    return out
+
+
 def _build_qr_footer_directives(
     qr_url: str,
     cols: int = 48,
@@ -1033,15 +1122,15 @@ def _build_qr_footer_directives(
 
     if has_activity_voting:
         hdr = {
-            "fr": "SCANNE POUR VOTER (ACTIVITÉS DU SOIR) :",
-            "de": "SCANNEN ZUM VOTEN (ABEND-AKTIVITÄTEN) :",
-            "en": "SCAN TO VOTE (TONIGHT'S ACTIVITIES) :",
-        }.get(lang, "SCAN TO VOTE (TONIGHT'S ACTIVITIES) :")
+            "fr": "SCANNE POUR VOTER EN DIRECT :",
+            "de": "SCANNEN ZUM LIVE-VOTEN :",
+            "en": "SCAN TO VOTE LIVE :",
+        }.get(lang, "SCAN TO VOTE LIVE :")
         prompt = {
-            "fr": "Choisis le format et le twist Speed Dating !",
-            "de": "Wähle das Format und den Speed-Dating-Twist!",
-            "en": "Vote for the presentation style & dating twist!",
-        }.get(lang, "Vote for the presentation style & dating twist!")
+            "fr": "Valide tes choix de présentation & twist !",
+            "de": "Wähle dein Präsentations- und Twist-Format!",
+            "en": "Select your presentation style & dating twist!",
+        }.get(lang, "Select your presentation style & dating twist!")
         out.append(Text(hdr, Align.CENTER, bold=True))
         out.append(Rule("-"))
         out.append(Text(prompt, Align.CENTER))
@@ -1225,6 +1314,14 @@ def build_checkin_ticket_directives(
                 coach_authenticated=coach_authenticated,
             )
         )
+        if has_activity_voting:
+            directives.extend(
+                _build_activity_voting_directives(
+                    event=event,
+                    cols=cols,
+                    lang=lang,
+                )
+            )
         directives.extend(
             _build_qr_footer_directives(
                 qr_url=qr_url,
