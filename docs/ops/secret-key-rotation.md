@@ -13,23 +13,32 @@ rotation support.
 
 | Consumer | Mechanism | Honours `SECRET_KEY_FALLBACKS`? |
 | --- | --- | --- |
-| Django sessions (all logged-in users, incl. staff) | `django.contrib.sessions` signing | Yes (Django 4.1+, built in) |
-| Session auth hash (`AbstractBaseUser.get_session_auth_hash`) | HMAC via `SECRET_KEY` | Yes — `get_session_auth_fallback_hash()` walks the list |
-| Password reset / allauth email confirmation tokens | `django.core.signing` | Yes |
+| Django sessions (all logged-in users, incl. staff) | `django.contrib.sessions` signing (`django.core.signing`) | Yes (Django 4.1+, built in) |
+| Session auth hash (`AbstractBaseUser.get_session_auth_hash`) | `salted_hmac` via `SECRET_KEY` | Yes — `get_session_auth_fallback_hash()` walks the list |
+| Password reset tokens (`django.contrib.auth.tokens.PasswordResetTokenGenerator`) | `salted_hmac`, its own key resolution (not `django.core.signing`) | Yes — its `_secret_fallbacks` property returns `settings.SECRET_KEY_FALLBACKS` when unset |
+| allauth email confirmation tokens (`allauth.account.models.EmailConfirmationHMAC`) | `django.core.signing.dumps()` / `.loads()`, called with no explicit `key=` | Yes — same mechanism as the QR tickets below |
 | Event check-in QR tickets (`crush_lu/views_ticket.py` `_generate_checkin_token`, verified in `crush_lu/views_checkin.py` `event_checkin_api`) | `django.core.signing.Signer()` called with no explicit `key=` | Yes |
 | Hub SSO access/refresh JWTs (`SIMPLE_JWT`, `azureproject/views_spa_auth.py`) | `djangorestframework-simplejwt` `TokenBackend` | **No — confirmed gap, see below** |
 | iOS native-app auth handoff code (`crush_lu/models/ios_app.py` `IOSNativeAuthCode`) | hand-rolled `sha256(SECRET_KEY + code)` | Fixed in this PR (was: no) |
 
-The first four rows work automatically once `SECRET_KEY_FALLBACKS` is set —
+The first five rows work automatically once `SECRET_KEY_FALLBACKS` is set —
 this is Django's own rotation mechanism (available since 4.1; this repo runs
-Django 6.0.8), not something built here. Verified by reading Django 6.0's
-installed source directly, not assumed:
+Django 6.0.8), not something built here. Verified by reading the installed
+source directly, not assumed — note these are **two different underlying
+mechanisms**, both of which happen to read the same setting:
 
 - `django/core/signing.py`, `Signer.__init__`: `self.fallback_keys =
   fallback_keys if fallback_keys is not None else settings.SECRET_KEY_FALLBACKS`,
-  and `unsign()` walks `[self.key, *self.fallback_keys]`. Both
-  `crush_lu/views_ticket.py` and `crush_lu/views_checkin.py` construct
-  `Signer()` with no arguments, so they get this automatically.
+  and `unsign()` walks `[self.key, *self.fallback_keys]`. Sessions,
+  allauth's `EmailConfirmationHMAC.key`/`.from_key()` (`signing.dumps()` /
+  `signing.loads()`, no explicit `key=`), and both `crush_lu/views_ticket.py`
+  and `crush_lu/views_checkin.py`'s bare `Signer()` all go through this path.
+- `django/contrib/auth/tokens.py`, `PasswordResetTokenGenerator`: a
+  *separate* implementation built on `salted_hmac`, not
+  `django.core.signing`. Its `secret_fallbacks` property returns
+  `settings.SECRET_KEY_FALLBACKS` whenever `_secret_fallbacks` hasn't been
+  explicitly set, and its token-checking loop tries the primary secret then
+  each fallback.
 - `django/contrib/auth/base_user.py`, `get_session_auth_fallback_hash()`:
   explicitly iterates `settings.SECRET_KEY_FALLBACKS`.
 
