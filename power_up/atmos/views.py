@@ -10,10 +10,13 @@ Deliberately trimmed for a fast, reliable demo rather than the full spec:
   redirect. The guest status page and staff KDS use a `<meta refresh>`
   instead of HTMX polling for "live" updates. Swap to HTMX once a nonce
   convention exists for `power_up`.
-- **Chronicle is a process-global dict below.** This is the exact
-  production gap flagged in review: it will not survive multiple WSGI
-  workers. Fine for `runserver`, wrong for App Service — a DB- or
-  cache-backed chronicle is a prerequisite for shipping this for real.
+- **Chronicle is cache-backed, not a process-global dict.** The earlier
+  version of this file kept a `dict[str, Chronicle]` here, which does not
+  survive multiple WSGI workers on App Service. `_chronicle_for()` now
+  returns a `lore.persistence.CachedChronicle`, which proxies every read
+  and write through Django's cache framework (Redis in production, keyed
+  per venue/service-night) — see that module's docstring for the
+  cache-vs-DB trade-off and the concurrency handling.
 - **No 2-hour window, no Settlement.** See `models.py`'s module docstring.
 """
 
@@ -21,7 +24,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import threading
 from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -41,6 +43,7 @@ from django.utils import timezone
 
 from .lore.chronicle import Chronicle, ChronicleEvent, DrinkLine
 from .lore.engine import generate_vignette
+from .lore.persistence import CachedChronicle, chronicle_cache_key
 from .lore.personas import NOIR_PERSONAS, random_persona
 from .lore.providers import GeminiProvider, OpenAIProvider
 from .lore.safety import PersonaRejected, sanitize_persona
@@ -187,33 +190,18 @@ class PlacementResult:
     actual_total: Decimal | None = None
 
 
-# Dev-only in-process chronicle store — see module docstring.
-_CHRONICLES: dict[str, Chronicle] = {}
-# Guards the check-then-act below: on a threaded server (runserver), two
-# near-simultaneous first-orders-of-the-night for the same venue could
-# otherwise both see no existing entry, both build a fresh Chronicle, and
-# the second assignment silently discard the first's ChronicleEvent.
-_CHRONICLES_LOCK = threading.Lock()
-
-
 def _chronicle_for(venue: Venue) -> Chronicle:
     # Keyed by (venue, local date), not just venue: a worker that survives
     # past midnight would otherwise hand the first orders of a new service
     # night a chronicle still full of last night's personas and events.
-    key = f"{venue.id}:{timezone.localdate().isoformat()}"
-    with _CHRONICLES_LOCK:
-        chronicle = _CHRONICLES.get(key)
-        if chronicle is None:
-            # Drop this venue's stale keys from previous days — without
-            # this the dict grows by one entry per (venue, day) forever,
-            # for the life of the process.
-            for stale_key in [
-                k for k in _CHRONICLES if k.startswith(f"{venue.id}:") and k != key
-            ]:
-                del _CHRONICLES[stale_key]
-            chronicle = Chronicle(venue.name, max_events=12)
-            _CHRONICLES[key] = chronicle
-        return chronicle
+    #
+    # No local registry and no lock here: `CachedChronicle` is a thin,
+    # stateless-on-this-side accessor over Django's cache (see
+    # lore/persistence.py), so every call can just build a fresh one —
+    # concurrent same-venue orders coordinate through the cache itself,
+    # not through anything held in this process.
+    key = chronicle_cache_key(venue.id, timezone.localdate().isoformat())
+    return CachedChronicle(venue.name, max_events=12, cache_key=key)
 
 
 def _provider():

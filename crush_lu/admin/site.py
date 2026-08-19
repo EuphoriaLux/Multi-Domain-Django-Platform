@@ -184,6 +184,16 @@ class CrushLuAdminSite(admin.AdminSite):
             'connectquestionanswer': {'order': 10, 'icon': '💭', 'group': 'Crush Connect'},
             'confirmedencounter': {'order': 11, 'icon': '🤝', 'group': 'Crush Connect'},
             'confirmedencounterremovalrequest': {'order': 12, 'icon': '🚫', 'group': 'Crush Connect'},
+            # Task 13.1: Connect 7-day cycle foundation (models only in this PR;
+            # the week experience, chat and coffee-planner UX ship in 13.2-13.4)
+            'connectweeksession': {'order': 13, 'icon': '🗓️', 'group': 'Crush Connect'},  # the 7-day cycle itself
+            'connectcyclecard': {'order': 14, 'icon': '🃏', 'group': 'Crush Connect'},  # daily 3-card drop
+            'connectweeklyrequest': {'order': 15, 'icon': '💌', 'group': 'Crush Connect'},  # "I want to meet you"
+            'connecttemporarychat': {'order': 16, 'icon': '⏳', 'group': 'Crush Connect'},  # 7-day inactivity timer
+            'connectchatmessage': {'order': 17, 'icon': '📨', 'group': 'Crush Connect'},
+            'connectcoffeedate': {'order': 18, 'icon': '☕', 'group': 'Crush Connect'},
+            'connectpairexclusion': {'order': 19, 'icon': '🙅', 'group': 'Crush Connect'},  # 1-click block
+            'connectreport': {'order': 20, 'icon': '🚨', 'group': 'Crush Connect'},  # coach-escalation report
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)

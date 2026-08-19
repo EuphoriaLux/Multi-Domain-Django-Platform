@@ -1,5 +1,6 @@
 """Chronicle window, prompt construction, fallback determinism, orchestration."""
 
+import uuid
 from datetime import datetime
 
 import pytest
@@ -12,6 +13,7 @@ from power_up.atmos.lore.chronicle import (
 )
 from power_up.atmos.lore.engine import generate_vignette
 from power_up.atmos.lore.fallback import generate_fallback_vignette
+from power_up.atmos.lore.persistence import CachedChronicle, chronicle_cache_key
 from power_up.atmos.lore.personas import NOIR_PERSONAS, random_persona
 from power_up.atmos.lore.providers import ProviderError, StaticProvider
 from power_up.atmos.lore.safety import DATA_CLOSE, DATA_OPEN
@@ -119,6 +121,132 @@ class TestChronicle:
 
         assert errors == []
         assert len(chronicle) == 20  # bounded window still holds
+
+
+def _fresh_cache_key() -> str:
+    """A collision-free cache key per test.
+
+    Tests in one worker process share the same `LocMemCache` singleton
+    (Django's default cache with no `REDIS_URL` set, which is what local dev
+    and CI both run under — see `azureproject/settings.py`), so reusing a
+    key across tests would leak state between them. A fresh key per test
+    sidesteps that instead of relying on `cache.clear()` in a fixture.
+    """
+    return f"test:{uuid.uuid4()}"
+
+
+class TestCachedChronicle:
+    """`CachedChronicle` (lore/persistence.py) is the storage-layer swap for
+    Task 11.3: same public API as `Chronicle`, backed by Django's cache
+    instead of a process-local deque, so it survives multiple WSGI workers
+    and a worker restart (modulo the cache's own eviction — see that
+    module's docstring)."""
+
+    def test_requires_a_cache_key(self):
+        with pytest.raises(ValueError):
+            CachedChronicle("The Velvet Hour")
+
+    def test_fresh_venue_date_has_no_prior_state(self):
+        # The exact scenario `_chronicle_for()` hits on the first order of a
+        # new venue/night: no cache entry exists yet.
+        chronicle = CachedChronicle("The Velvet Hour", cache_key=_fresh_cache_key())
+        assert len(chronicle) == 0
+        assert chronicle.events == ()
+        assert chronicle.recent() == ()
+        assert chronicle.recent(6) == ()
+        assert chronicle.active_personas() == ()
+        assert chronicle.context_lines() == ()
+        assert list(chronicle) == []
+
+    def test_state_persists_across_separate_instantiations(self):
+        # Simulates two different WSGI workers: neither object holds a
+        # reference to the other, only the same cache_key — exactly how
+        # `_chronicle_for()` builds a fresh `CachedChronicle` on every call.
+        key = _fresh_cache_key()
+        worker_a = CachedChronicle("The Velvet Hour", cache_key=key)
+        worker_a.record(event(persona="Vance"))
+
+        worker_b = CachedChronicle("The Velvet Hour", cache_key=key)
+        assert len(worker_b) == 1
+        assert worker_b.active_personas() == ("Vance",)
+
+        worker_b.record(event(persona="The Locksmith", code="T-02"))
+
+        worker_c = CachedChronicle("The Velvet Hour", cache_key=key)
+        assert len(worker_c) == 2
+        assert worker_c.active_personas() == ("Vance", "The Locksmith")
+
+    def test_window_is_bounded_through_the_cache(self):
+        key = _fresh_cache_key()
+        for i in range(10):
+            CachedChronicle("The Velvet Hour", max_events=3, cache_key=key).record(
+                event(persona=f"Guest {i}", code=f"T-{i}")
+            )
+        chronicle = CachedChronicle("The Velvet Hour", max_events=3, cache_key=key)
+        assert len(chronicle) == 3
+        assert chronicle.events[0].persona == "Guest 7"
+
+    def test_different_cache_keys_do_not_share_state(self):
+        chronicle_a = CachedChronicle("Venue A", cache_key=_fresh_cache_key())
+        chronicle_b = CachedChronicle("Venue B", cache_key=_fresh_cache_key())
+        chronicle_a.record(event(persona="Vance"))
+        assert len(chronicle_a) == 1
+        assert len(chronicle_b) == 0
+
+    def test_engine_records_through_the_cache(self):
+        # generate_vignette()'s calling convention is unchanged — it calls
+        # chronicle.record() exactly as it does for a plain Chronicle.
+        key = _fresh_cache_key()
+        chronicle = CachedChronicle("The Velvet Hour", cache_key=key)
+        generate_vignette(event(persona="Vance"), chronicle)
+
+        reread = CachedChronicle("The Velvet Hour", cache_key=key)
+        assert reread.active_personas() == ("Vance",)
+        assert reread.events[0].vignette
+
+    def test_concurrent_record_does_not_raise_or_lose_events(self):
+        """Simulates concurrent guests ordering at the same venue/night from
+        different (simulated) workers — each writer builds its own
+        `CachedChronicle` instance per call, like `_chronicle_for()` does.
+        Kept to modest contention (4 threads x 25 appends against an
+        in-process LocMemCache) so the assertion doesn't depend on
+        scheduler luck: see lore/persistence.py's LOCK_MAX_ATTEMPTS."""
+        import threading
+
+        key = _fresh_cache_key()
+        errors = []
+
+        def writer(n):
+            try:
+                for i in range(25):
+                    CachedChronicle(
+                        "The Velvet Hour", max_events=200, cache_key=key
+                    ).record(event(persona=f"Writer{n}-{i}", code=f"W{n}-{i}"))
+            except Exception as exc:  # noqa: BLE001 - assertion is "no exception"
+                errors.append(exc)
+
+        threads = [threading.Thread(target=writer, args=(n,)) for n in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        final = CachedChronicle("The Velvet Hour", max_events=200, cache_key=key)
+        # max_events (200) comfortably exceeds 4*25=100 appends, so a
+        # correctly-locked record() should drop none of them.
+        assert len(final) == 100
+
+    def test_cache_key_is_stable_and_scoped_by_venue_and_date(self):
+        assert chronicle_cache_key("venue-1", "2026-08-16") == chronicle_cache_key(
+            "venue-1", "2026-08-16"
+        )
+        assert chronicle_cache_key("venue-1", "2026-08-16") != chronicle_cache_key(
+            "venue-2", "2026-08-16"
+        )
+        assert chronicle_cache_key("venue-1", "2026-08-16") != chronicle_cache_key(
+            "venue-1", "2026-08-17"
+        )
 
 
 class TestBuildPrompt:

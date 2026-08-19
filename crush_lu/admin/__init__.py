@@ -200,6 +200,14 @@ from .crush_connect import (
     ConnectCoachPickAdmin,
     CuriositySparkAdmin,
     SparkPromptAdmin,
+    ConnectWeekSessionAdmin,
+    ConnectCycleCardAdmin,
+    ConnectWeeklyRequestAdmin,
+    ConnectTemporaryChatAdmin,
+    ConnectChatMessageAdmin,
+    ConnectCoffeeDateAdmin,
+    ConnectPairExclusionAdmin,
+    ConnectReportAdmin,
 )
 
 from .matching import TraitAdmin, MatchScoreAdmin
@@ -326,6 +334,14 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushConnectWaitlist,
     SparkPrompt,
+    ConnectWeekSession,
+    ConnectCycleCard,
+    ConnectWeeklyRequest,
+    ConnectTemporaryChat,
+    ConnectChatMessage,
+    ConnectCoffeeDate,
+    ConnectPairExclusion,
+    ConnectReport,
     Trait,
     MatchScore,
     QuizEvent,
@@ -478,7 +494,7 @@ crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
 
-# Crush Connect Waitlist
+# Crush Connect (Waitlist, Drops, and 7-Day Cycle System)
 crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 crush_admin_site.register(CrushConnectMembership, CrushConnectMembershipAdmin)
 crush_admin_site.register(ConnectDailyDrop, ConnectDailyDropAdmin)
@@ -489,6 +505,14 @@ crush_admin_site.register(ConnectCoachPick, ConnectCoachPickAdmin)
 crush_admin_site.register(ConnectQuestion, ConnectQuestionAdmin)
 crush_admin_site.register(ConnectQuestionWeek, ConnectQuestionWeekAdmin)
 crush_admin_site.register(ConnectQuestionAnswer, ConnectQuestionAnswerAdmin)
+crush_admin_site.register(ConnectWeekSession, ConnectWeekSessionAdmin)
+crush_admin_site.register(ConnectCycleCard, ConnectCycleCardAdmin)
+crush_admin_site.register(ConnectWeeklyRequest, ConnectWeeklyRequestAdmin)
+crush_admin_site.register(ConnectTemporaryChat, ConnectTemporaryChatAdmin)
+crush_admin_site.register(ConnectChatMessage, ConnectChatMessageAdmin)
+crush_admin_site.register(ConnectCoffeeDate, ConnectCoffeeDateAdmin)
+crush_admin_site.register(ConnectPairExclusion, ConnectPairExclusionAdmin)
+crush_admin_site.register(ConnectReport, ConnectReportAdmin)
 
 # Trust & Safety (peer reporting + blocking)
 crush_admin_site.register(UserReport, UserReportAdmin)

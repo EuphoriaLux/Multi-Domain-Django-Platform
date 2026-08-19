@@ -558,3 +558,55 @@ Steps 1–5 make the model real and demoable through admin alone. **Step 6 is th
 4. **One KDS for the venue, or split bar/kitchen queues?** Drinks and food have very different timings and mixing them hides the slow item.
 5. **Rank escalation on or off for the pilot?** Running it off for the first hour and on for the second is a cheap way to see whether the ladder adds anything over a plain alias.
 6. **Which bar is the pilot,** and on what hardware — their till browser or a tablet you supply?
+
+---
+
+## 12. Remote Treat & Social Drink Gifting (Spec Extension)
+
+### 12.1 Concept & Value Proposition
+A guest at a table (e.g. Table 4 with persona *"The Whispering Gambler"*) can share a link over social media (Instagram Story, WhatsApp, Discord, X/Twitter, SMS) allowing anyone—friends, dates, admirers, followers, or remote family—to **buy them a drink at their table in real-time**.
+
+Unlike regular orders (which are settled at the table by default), **remote treat orders require 100% advance online payment** before reaching the staff KDS or printing on the thermal ticket.
+
+### 12.2 User Journey
+1. **In-Venue Guest**:
+   - Taps *"🎁 Ask for a Drink / Share Table"* on the menu or order status screen.
+   - Generates a unique, expiring treat link: `https://power-up.lu/atmos/treat/<token>/`.
+   - Native share sheet / 1-tap copy with pre-filled noir caption:
+     *"I'm at Table 4 at The Velvet Hour as 'The Whispering Gambler'. Buy me a drink! 🍸 [link]"*
+2. **Remote Gifter**:
+   - Opens the link in any mobile/desktop browser.
+   - Sees the venue, table, recipient persona, and available drinks.
+   - Chooses a drink from the menu.
+   - Adds an optional Gifter Name / Handle (e.g., *"Sarah from London"*) and a personal message (e.g., *"Cheers from afar! Have one on me."*).
+   - Pays online via SumUp (Apple Pay, Google Pay, Credit Card).
+3. **Fulfillment & In-Venue Experience**:
+   - On payment confirmation (`PAID` webhook/return):
+     - An `Order` record is created on the guest's active `Tab` with `is_gift=True` and `payment_status="paid_online"`.
+     - A thermal ticket immediately prints on the bar's `POS-80C` printer with a prominent `🎁 REMOTE GIFT / TREAT (PAID ONLINE)` header, the gifter's name, and the personal note.
+     - The AI chronicle weaves the remote gift into the noir lore.
+     - The Staff KDS displays the order with a green `GIFT (PAID)` badge (staff knows not to charge the guest).
+     - The in-venue guest receives a live toast alert on their screen: *"🎉 Sarah from London just bought you an Old Fashioned!"*
+
+### 12.3 Data Model Additions
+- **`TreatLink`**:
+  - `id`: UUID primary key
+  - `guest`: FK to `Guest` (cascade delete)
+  - `token`: urlsafe unique token (indexed)
+  - `is_active`: Boolean (invalidated when tab is closed or guest leaves)
+  - `created_at`: DateTime
+- **`TreatPayment`**:
+  - `treat_link`: FK to `TreatLink`
+  - `order`: FK to `Order` (null until fulfilled)
+  - `gifter_name`: CharField(64)
+  - `gifter_message`: CharField(255)
+  - `menu_item`: FK to `MenuItem`
+  - `amount`: Decimal(6, 2)
+  - `sumup_checkout_id`: CharField(128, unique)
+  - `status`: `pending` | `paid` | `refunded` | `failed`
+
+### 12.4 Abuse & Safety Mitigations
+- **Table Active Guard**: If staff close the tab or deactivate the table before the remote payment completes, the payment cannot place an order and is refunded/rejected.
+- **Message Moderation**: `gifter_message` and `gifter_name` pass through sanitization / blocklist checks before rendering on paper or screens.
+- **Alcohol Duty of Care**: Tickets for remote-gifted alcoholic drinks retain the prominent `ALCOHOL - CHECK AT TABLE` banner so bartenders still verify recipient age and sobriety.
+

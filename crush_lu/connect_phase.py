@@ -19,9 +19,18 @@ Three phases, driven by two settings, so access can widen in stages:
 
 Keep the two access questions separate: ``candidate_access_open()`` gates the
 Mix/onboarding/catalogue/sparks surfaces; ``receiver_access_open(user)`` gates
-Today's Drop. Callers combine the latter with ``_user_is_connect_receiver_
-eligible`` (approved + coach) — this module only answers "does the *phase* let
-this user receive".
+the already-live Today's Drop. Callers combine the latter with
+``_user_is_connect_receiver_eligible`` (approved + coach) — this module only
+answers "does the *phase* let this user receive".
+
+``cycle_access_open(user)`` is the equivalent gate for the not-yet-shipped
+7-Day Connect Cycle (Task 13.2+): it deliberately widens beyond
+``receiver_access_open`` to also admit event-verified members, without
+touching Today's Drop's existing staff/selected-tester-only rule. The two
+must stay independent — folding the wider rule into ``receiver_access_open``
+would silently let any past event attendee into the live feature, which is
+exactly the beta-policy leak ``test_beta_premium_non_tester_treated_as_
+candidate`` exists to catch.
 """
 
 from django.conf import settings
@@ -46,6 +55,14 @@ def is_selected_beta_tester(user):
     return bool(waitlist and waitlist.selected_as_tester)
 
 
+def is_event_verified_member(user):
+    """True if ``user`` has coach-verified in-person event attendance."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    profile = getattr(user, "crushprofile", None)
+    return bool(profile and profile.has_attended_event)
+
+
 def receiver_access_open(user):
     """Whether this user's phase lets them reach the receiver track (Today's
     Drop). Full launch opens it to every Premium member; the beta limits it to
@@ -56,3 +73,18 @@ def receiver_access_open(user):
     if not user or not getattr(user, "is_authenticated", False):
         return False
     return bool(getattr(user, "is_staff", False) or is_selected_beta_tester(user))
+
+
+def cycle_access_open(user):
+    """Whether this user's phase lets them reach the 7-Day Connect Cycle
+    (Task 13.2+, not yet built). Full launch opens it to all eligible members;
+    the beta opens it to event-verified members, staff, and selected testers —
+    a deliberately wider rule than ``receiver_access_open``, kept in its own
+    function so it can never leak into Today's Drop's tighter gate."""
+    if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return True
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_staff", False) or is_selected_beta_tester(user):
+        return True
+    return is_event_verified_member(user)

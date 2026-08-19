@@ -24,7 +24,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
-from django.db import connection as db_connection, transaction
+from django.db import connection as db_connection
 from django.test import Client, RequestFactory
 from django.urls import reverse
 
@@ -47,65 +47,6 @@ from crush_lu.tests.test_event_lobby import (
 User = get_user_model()
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _restore_migration_seeded_rows(django_db_setup, django_db_blocker):
-    """Put the data-migration catalogues back after this module truncates them.
-
-    ``test_concurrent_declarations_never_exceed_limit`` needs real concurrency,
-    so it runs ``transaction=True`` — and a ``TransactionTestCase`` tears down
-    by flushing every table, which takes the rows the data migrations seeded
-    (Interest, Trait, SparkPrompt, ConnectQuestion…) with it. Django's own
-    runner sidesteps that by running TransactionTestCases last; pytest has no
-    such ordering, so under
-    ``-n auto --dist worksteal`` whichever modules land after this one on the
-    same worker see an empty catalogue — and with ``--reuse-db`` the damage
-    outlives the run entirely.
-
-    Module scope is what makes this work: a function-scoped fixture would be
-    finalized *before* the flush it needs to undo. Snapshot the seeded rows on
-    the way in, replay them on the way out.
-    """
-    from django.apps import apps as global_apps
-    from django.core import serializers
-    from django.core.management.color import no_style
-
-    # crush_lu only: ``django.contrib.sites`` is rebuilt by ``post_migrate`` and
-    # by conftest, and replaying its rows fights the ``SITE_ID`` row over pks.
-    models = [
-        model
-        for model in global_apps.get_models()
-        if model._meta.app_label == "crush_lu" and not model._meta.proxy
-    ]
-    with django_db_blocker.unblock():
-        # A pristine test DB holds nothing but migration-seeded rows here: every
-        # preceding test is a plain TestCase and rolled its own data back.
-        snapshot = serializers.serialize(
-            "json",
-            [obj for model in models for obj in model._base_manager.all()],
-        )
-
-    yield
-
-    with django_db_blocker.unblock():
-        # Constraint checks are deferred for the replay, exactly as Django's own
-        # ``deserialize_db_from_string`` does it: ``Trait.opposite`` points at
-        # another Trait, so no single insertion order satisfies every FK.
-        with transaction.atomic(), db_connection.constraint_checks_disabled():
-            for wrapped in serializers.deserialize(
-                "json", snapshot, ignorenonexistent=True
-            ):
-                wrapped.save()
-        db_connection.check_constraints()
-
-        # Replaying explicit pks leaves the sequences behind them, so the next
-        # insert would collide — reset them the way ``loaddata`` does.
-        reset_sql = db_connection.ops.sequence_reset_sql(no_style(), models)
-        if reset_sql:
-            with db_connection.cursor() as cursor:
-                for statement in reset_sql:
-                    cursor.execute(statement)
 
 
 @pytest.fixture(autouse=True)
