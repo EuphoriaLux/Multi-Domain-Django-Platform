@@ -314,57 +314,6 @@ def _get_social_icons_logo_path() -> str | None:
     return candidate if os.path.exists(candidate) else None
 
 
-def _generate_compatibility_gauge_bytes(
-    score: int = 92, width: int = 384, height: int = 70
-) -> bytes:
-    """Generates PNG bytes of a 1-bit monochrome compatibility progress gauge."""
-    import io
-    from PIL import Image as PILImage, ImageDraw
-
-    scale = 2
-    W = width * scale
-    H = height * scale
-    img = PILImage.new("L", (W, H), 255)
-    draw = ImageDraw.Draw(img)
-
-    draw.rounded_rectangle(
-        [4 * scale, 4 * scale, W - 4 * scale, H - 4 * scale],
-        radius=8 * scale,
-        outline=0,
-        width=2 * scale,
-    )
-
-    bar_x0 = int(W * 0.06)
-    bar_x1 = int(W * 0.94)
-    bar_y0 = int(H * 0.28)
-    bar_y1 = int(H * 0.72)
-    bar_w = bar_x1 - bar_x0
-    bar_h = bar_y1 - bar_y0
-
-    draw.rounded_rectangle(
-        [bar_x0, bar_y0, bar_x1, bar_y1], radius=bar_h // 2, outline=0, width=3 * scale
-    )
-
-    num_segs = 16
-    gap = 3 * scale
-    seg_w = (bar_w - 12 * scale - (num_segs - 1) * gap) / num_segs
-    filled = int((score / 100.0) * num_segs)
-
-    for i in range(num_segs):
-        sx0 = int(bar_x0 + 6 * scale + i * (seg_w + gap))
-        sx1 = int(sx0 + seg_w)
-        sy0 = bar_y0 + 4 * scale
-        sy1 = bar_y1 - 4 * scale
-        if i < filled:
-            draw.rounded_rectangle([sx0, sy0, sx1, sy1], radius=2 * scale, fill=0)
-
-    small = img.resize((width, height), PILImage.Resampling.LANCZOS)
-    mono = small.point(lambda p: 0 if p < 180 else 255, mode="1")
-    buf = io.BytesIO()
-    mono.save(buf, format="PNG")
-    return buf.getvalue()
-
-
 def _get_crush_ghost_logo_path() -> str | None:
     """Finds path to official thermal ghost logo asset if present."""
     import os
@@ -544,7 +493,6 @@ def _build_room_stats_directives(
         # Sample realistic room stats for coach test prints
         from collections import Counter
 
-        score = 92
         ages = [24, 28, 35]
         first_step_counts = Counter({"they_initiate": 6, "i_initiate": 4})
         total = 10
@@ -648,28 +596,6 @@ def _build_room_stats_directives(
     out.append(Rule("*"))
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
-
-    # Compatibility Gauge & Chemistry Potential
-    score = 92
-    if registration and getattr(registration, "id", None):
-        score = 88 + (registration.id % 11)
-
-    lbl_gauge = {
-        "fr": f"INDICE D'AFFINITÉ : {score}%",
-        "de": f"CHEMISTRY-POTENTIAL : {score}%",
-        "en": f"CHEMISTRY POTENTIAL : {score}%",
-    }.get(lang, f"CHEMISTRY POTENTIAL : {score}%")
-
-    out.append(Text(lbl_gauge, Align.CENTER, bold=True))
-    out.append(Feed(1))
-    out.append(
-        Image(
-            source=_generate_compatibility_gauge_bytes(score=score, width=384),
-            width=384,
-            align=Align.CENTER,
-        )
-    )
-    out.append(Feed(1))
 
     # 1. Âge & Démographie + 1er Pas (Compact Pills)
     pill_age = ""
@@ -1027,10 +953,10 @@ def _build_mystery_radar_directives(
 
     out: list[Directive] = []
     hdr = {
-        "fr": f"★ LES {len(clues)} RENCONTRES MYSTÈRES DU SOIR ★",
-        "de": f"★ DEINE {len(clues)} MYSTERY-DATES HEUTE ABEND ★",
-        "en": f"★ TONIGHT'S {len(clues)} MYSTERY CANDIDATES ★",
-    }.get(lang, f"★ TONIGHT'S {len(clues)} MYSTERY CANDIDATES ★")
+        "fr": f"* LES {len(clues)} RENCONTRES MYSTÈRES DU SOIR *",
+        "de": f"* DEINE {len(clues)} MYSTERY-DATES HEUTE ABEND *",
+        "en": f"* TONIGHT'S {len(clues)} MYSTERY CANDIDATES *",
+    }.get(lang, f"* TONIGHT'S {len(clues)} MYSTERY CANDIDATES *")
 
     sub = {
         "fr": "Devine qui se cache derrière chaque profil :",
@@ -1140,10 +1066,10 @@ def _build_member_stats_directives(
         global_pct = 50
 
     hdr = {
-        "fr": "✨ STATUT MEMBRE & RANG DU SOIR",
-        "de": "✨ MITGLIEDS-STATUS & ABEND-RANG",
-        "en": "✨ MEMBER STATUS & TONIGHT RANK",
-    }.get(lang, "✨ MEMBER STATUS & TONIGHT RANK")
+        "fr": "STATUT MEMBRE & RANG DU SOIR",
+        "de": "MITGLIEDS-STATUS & ABEND-RANG",
+        "en": "MEMBER STATUS & TONIGHT RANK",
+    }.get(lang, "MEMBER STATUS & TONIGHT RANK")
 
     if user_id:
         congrats = {
@@ -1163,33 +1089,6 @@ def _build_member_stats_directives(
         "de": f"von {total_str} angemeldeten Singles in Luxemburg.",
         "en": f"among {total_str} registered singles in Luxembourg.",
     }.get(lang, f"among {total_str} registered singles in Luxembourg.")
-
-    is_verified = bool(
-        profile
-        and (
-            getattr(profile, "is_approved", False)
-            or getattr(profile, "is_identity_verified", False)
-        )
-    )
-    if is_verified:
-        verified_pill = (
-            "[ ✓ PROFIL VÉRIFIÉ ]"
-            if lang == "fr"
-            else ("[ ✓ VERIFIZIERT ]" if lang == "de" else "[ ✓ VERIFIED ]")
-        )
-    else:
-        verified_pill = (
-            "[ ★ MEMBRE ACTIF ]"
-            if lang == "fr"
-            else ("[ ★ AKTIV ]" if lang == "de" else "[ ★ ACTIVE ]")
-        )
-
-    seniority_pill = {
-        "fr": f"[ 🏆 TOP {global_pct}% DES MEMBRES ]",
-        "de": f"[ 🏆 TOP {global_pct}% DER MITGLIEDER ]",
-        "en": f"[ 🏆 TOP {global_pct}% OF MEMBERS ]",
-    }.get(lang, f"[ 🏆 TOP {global_pct}% OF MEMBERS ]")
-    pills_line = f"{verified_pill}   {seniority_pill}"
 
     stat_line1 = {
         "fr": f"• Ancienneté  : Top {global_pct}% des premiers inscrits",
@@ -1214,8 +1113,6 @@ def _build_member_stats_directives(
     out.append(Text(congrats, Align.CENTER, bold=True))
     out.append(Text(sub_members, Align.CENTER))
     out.append(Feed(1))
-    out.append(Text(pills_line, Align.CENTER))
-    out.append(Feed(1))
     out.append(Text(stat_line1, Align.LEFT))
     out.append(Text(stat_line2, Align.LEFT))
     out.append(Text(stat_line3, Align.LEFT))
@@ -1234,10 +1131,10 @@ def _build_activity_voting_directives(
 
     out: list[Directive] = []
     hdr = {
-        "fr": "🗳️ PHASE 1 // VOTE DES ACTIVITÉS DU SOIR",
-        "de": "🗳️ PHASE 1 // ABSTIMMUNG ABEND-AKTIVITÄTEN",
-        "en": "🗳️ PHASE 1 // TONIGHT'S ACTIVITY VOTING",
-    }.get(lang, "🗳️ PHASE 1 // TONIGHT'S ACTIVITY VOTING")
+        "fr": "PHASE 1 // VOTE DES ACTIVITÉS DU SOIR",
+        "de": "PHASE 1 // ABSTIMMUNG ABEND-AKTIVITÄTEN",
+        "en": "PHASE 1 // TONIGHT'S ACTIVITY VOTING",
+    }.get(lang, "PHASE 1 // TONIGHT'S ACTIVITY VOTING")
 
     sub = {
         "fr": "Vote sur ton mobile avant le début des dates :",
@@ -1265,10 +1162,10 @@ def _build_activity_voting_directives(
         )
 
         p_hdr = {
-            "fr": "🎭 1. FORMAT DE PRÉSENTATION :",
-            "de": "🎭 1. PRÄSENTATIONS-FORMAT :",
-            "en": "🎭 1. PRESENTATION STYLE :",
-        }.get(lang, "🎭 1. PRESENTATION STYLE :")
+            "fr": "1. FORMAT DE PRÉSENTATION :",
+            "de": "1. PRÄSENTATIONS-FORMAT :",
+            "en": "1. PRESENTATION STYLE :",
+        }.get(lang, "1. PRESENTATION STYLE :")
         out.append(Text(p_hdr, Align.LEFT, bold=True))
         if p_styles:
             for p in p_styles:
@@ -1286,10 +1183,10 @@ def _build_activity_voting_directives(
         out.append(Feed(1))
 
         t_hdr = {
-            "fr": "⚡ 2. TWIST SPEED DATING DU SOIR :",
-            "de": "⚡ 2. SPEED-DATING-TWIST :",
-            "en": "⚡ 2. SPEED DATING TWIST :",
-        }.get(lang, "⚡ 2. SPEED DATING TWIST :")
+            "fr": "2. TWIST SPEED DATING DU SOIR :",
+            "de": "2. SPEED-DATING-TWIST :",
+            "en": "2. SPEED DATING TWIST :",
+        }.get(lang, "2. SPEED DATING TWIST :")
         out.append(Text(t_hdr, Align.LEFT, bold=True))
         if t_twists:
             for t in t_twists:

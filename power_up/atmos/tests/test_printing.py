@@ -214,7 +214,10 @@ class TestEscPos:
         data = "https://example.test/x"
         payload = encode_ticket([QrCode(data)])
         expected_len = len(data) + 3
-        assert bytes([expected_len & 0xFF, (expected_len >> 8) & 0xFF, 49, 80, 48]) in payload
+        assert (
+            bytes([expected_len & 0xFF, (expected_len >> 8) & 0xFF, 49, 80, 48])
+            in payload
+        )
 
     def test_qr_length_is_two_bytes_for_long_payloads(self):
         long_data = "x" * 400
@@ -237,7 +240,9 @@ class TestControlByteInjection:
         # `\x1d V A \x00` is a cut command. A drink called this would otherwise
         # sever the ticket mid-order.
         payload = encode_ticket(
-            render_ticket(ticket(lines=(TicketLine("Mojito\x1dVA\x00", 1, Decimal("7.00")),)))
+            render_ticket(
+                ticket(lines=(TicketLine("Mojito\x1dVA\x00", 1, Decimal("7.00")),))
+            )
         )
         assert payload.count(b"\x1dVA\x00") == 0
 
@@ -311,3 +316,13 @@ class TestTransports:
             transport.send(b"test")
         assert "cannot open Windows printer" in str(exc.value)
 
+
+def test_translit_extended_symbols_and_emojis():
+    assert encode_text("✓ Validé").decode("cp858") == "OK Validé"
+    assert encode_text("★ Star").decode("cp858") == "* Star"
+    assert encode_text("🏆 Top").decode("cp858") == "* Top"
+    assert encode_text("✨ Sparkle").decode("cp858") == "* Sparkle"
+    assert encode_text("Vote⚡Now").decode("cp858") == "Vote*Now"
+    assert encode_text("🎭 Cinema").decode("cp858") == "* Cinema"
+    assert encode_text("🗳 Ballot").decode("cp858") == "* Ballot"
+    assert encode_text("❤ Love").decode("cp858") == "<3 Love"
