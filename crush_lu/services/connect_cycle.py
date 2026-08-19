@@ -365,8 +365,9 @@ def sync_session_state(session):
     # REVIEW_OPEN
     if session.review_expires_at and now >= session.review_expires_at:
         session.status = Status.COMPLETED
+        session.is_review_open = False
         session.completed_at = now
-        session.save(update_fields=["status", "completed_at"])
+        session.save(update_fields=["status", "is_review_open", "completed_at"])
     return session
 
 
@@ -499,10 +500,18 @@ def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
     ``services.crush_connect.can_send_spark``, including its "the card is an
     immutable snapshot, re-check live eligibility before acting on it" rule —
     the completed card was pinned when it was generated; the recipient may
-    have been rejected, coach-excluded, or unlinked LuxID since."""
+    have been rejected, coach-excluded, or unlinked LuxID since. Also
+    re-checks ``is_assigned_coach_pair``: ``get_cycle_eligible_pool`` only
+    excludes coach/member pairs at card-*generation* time, and a coach
+    assignment made after that (the door assigns one on first attendance)
+    must retire the card, not just hide it from future pools — same
+    reasoning as ``can_send_spark``."""
     from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
     from crush_lu.services.blocking import is_blocked_pair
-    from crush_lu.services.crush_connect import is_catalogue_eligible
+    from crush_lu.services.crush_connect import (
+        is_assigned_coach_pair,
+        is_catalogue_eligible,
+    )
 
     if session.user_id != requester.pk:
         return False, "not_owner"
@@ -514,6 +523,8 @@ def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
         # One-or-none is a one-shot action: once used, it's used regardless of
         # the outcome (pending/accepted/declined/expired/cancelled).
         return False, "already_sent"
+    if is_assigned_coach_pair(requester, recipient):
+        return False, "recipient_unavailable"
     if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
     if is_blocked_pair(requester, recipient):
@@ -555,16 +566,17 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
     pair; the requester is never told a decline happened (only that it's no
     longer pending), matching Sparks' silent-decline privacy contract.
 
-    An accept where a block appeared, or the requester lost catalogue
-    eligibility (rejection, coach exclusion, LuxID unlink), since the request
-    was sent leaves the request untouched (still PENDING) rather than
-    silently declining it — same discipline as
-    ``services.crush_connect.respond_to_spark``. Unlike an explicit decline,
-    this is often a transient/recoverable state (re-verify, re-link), so it
-    must NOT write a permanent exclusion; the view layer's inbox listing
-    (``get_pending_inbox``) already hides it from the recipient in the
-    meantime, and this is the race-condition safety net for a request already
-    open in a stale tab.
+    An accept where a block appeared, the requester lost catalogue
+    eligibility (rejection, coach exclusion, LuxID unlink), or the pair
+    became an assigned coach/client pair (a door check-in during the 24h
+    response window), since the request was sent leaves the request
+    untouched (still PENDING) rather than silently declining it — same
+    discipline as ``services.crush_connect.respond_to_spark``. Unlike an
+    explicit decline, this is often a transient/recoverable state
+    (re-verify, re-link), so it must NOT write a permanent exclusion; the
+    view layer's inbox listing (``get_pending_inbox``) already hides it from
+    the recipient in the meantime, and this is the race-condition safety net
+    for a request already open in a stale tab.
     """
     from crush_lu.models.crush_connect_cycle import (
         ConnectPairExclusion,
@@ -572,7 +584,10 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
         ConnectWeeklyRequest,
     )
     from crush_lu.services.blocking import is_blocked_pair
-    from crush_lu.services.crush_connect import is_catalogue_eligible
+    from crush_lu.services.crush_connect import (
+        is_assigned_coach_pair,
+        is_catalogue_eligible,
+    )
 
     sync_request_state(weekly_request)
     if weekly_request.status != ConnectWeeklyRequest.Status.PENDING:
@@ -580,6 +595,7 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
 
     if accept and (
         is_blocked_pair(weekly_request.requester, weekly_request.recipient)
+        or is_assigned_coach_pair(weekly_request.requester, weekly_request.recipient)
         or not is_catalogue_eligible(weekly_request.requester)
     ):
         return weekly_request
@@ -610,18 +626,27 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
 
 def get_pending_inbox(user):
     """The recipient's live pending weekly requests — sync-checked for 24h
-    expiry, filtered against blocks, and hidden once the requester loses
-    catalogue eligibility (rejection, coach exclusion, LuxID unlink) since
-    sending, mirroring ``crush_connect_sparks_received``'s
-    ``is_sender_eligible`` filter: accepting a request from someone who can
-    no longer be reached on the platform must not be offered."""
+    expiry, filtered against blocks and assigned-coach pairs, and hidden once
+    the requester loses catalogue eligibility (rejection, coach exclusion,
+    LuxID unlink) since sending, mirroring
+    ``crush_connect_sparks_received``'s ``exclude_assigned_coach_pairs`` +
+    ``is_sender_eligible`` filters: accepting a request from someone who can
+    no longer be reached on the platform, or who has since become the
+    recipient's assigned coach/client, must not be offered."""
     from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
     from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import is_catalogue_eligible
+    from crush_lu.services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        is_catalogue_eligible,
+    )
 
     candidates = (
-        ConnectWeeklyRequest.objects.filter(
-            recipient=user, status=ConnectWeeklyRequest.Status.PENDING
+        exclude_assigned_coach_pairs(
+            ConnectWeeklyRequest.objects.filter(
+                recipient=user, status=ConnectWeeklyRequest.Status.PENDING
+            ),
+            user,
+            field="requester_id",
         )
         .exclude(requester_id__in=blocked_user_ids(user))
         .select_related(

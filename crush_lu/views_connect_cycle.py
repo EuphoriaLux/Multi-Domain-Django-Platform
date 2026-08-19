@@ -299,11 +299,15 @@ def connect_week_request_respond(request, request_id: int):
     )
     accept = request.POST.get("action") == "accept"
     updated = respond_to_weekly_request(weekly_request, accept=accept, request=request)
-    if accept:
-        if updated.status == ConnectWeeklyRequest.Status.ACCEPTED:
-            messages.success(request, _("It's mutual! Say hello — your chat is open."))
-        else:
-            messages.info(request, _("This request is no longer available."))
-    else:
+    # respond_to_weekly_request can no-op either direction (already resolved
+    # in another tab, or an accept left PENDING because the requester lost
+    # eligibility / a block appeared) — check the ACTUAL resulting status
+    # rather than trusting the requested action, so a no-op decline doesn't
+    # falsely tell the user "Declined" when nothing was recorded.
+    if updated.status == ConnectWeeklyRequest.Status.ACCEPTED:
+        messages.success(request, _("It's mutual! Say hello — your chat is open."))
+    elif updated.status == ConnectWeeklyRequest.Status.DECLINED:
         messages.info(request, _("Declined — they won't be told."))
+    else:
+        messages.info(request, _("This request is no longer available."))
     return redirect("crush_lu:connect_week_inbox")

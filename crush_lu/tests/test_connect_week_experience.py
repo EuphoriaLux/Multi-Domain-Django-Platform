@@ -13,6 +13,7 @@ convention already used by the other ``test_crush_connect_*`` suites).
 from datetime import timedelta
 
 import pytest
+from django.contrib.messages import get_messages
 from django.utils import timezone
 
 from crush_lu.models.crush_connect_cycle import (
@@ -271,6 +272,7 @@ def test_sync_session_state_closes_review_after_24h():
     me = _make_cycle_user("me")
     session = ConnectWeekSession.objects.create(user=me)
     session.open_weekly_review()
+    assert session.is_review_open is True
     ConnectWeekSession.objects.filter(pk=session.pk).update(
         review_expires_at=timezone.now() - timedelta(minutes=1)
     )
@@ -278,6 +280,13 @@ def test_sync_session_state_closes_review_after_24h():
 
     session = sync_session_state(session)
     assert session.status == ConnectWeekSession.Status.COMPLETED
+    # Regression: is_review_open is surfaced as an admin list_filter — it
+    # must flip back to False on close, or every ever-reviewed session
+    # (there's no sweep command; this only runs lazily on visit) reads as
+    # "review still open" forever.
+    assert session.is_review_open is False
+    session.refresh_from_db()
+    assert session.is_review_open is False
 
 
 @pytest.mark.django_db
@@ -339,6 +348,43 @@ def test_can_send_weekly_request_rejects_ineligible_recipient():
     session, _card = _reviewable_session_with_card(me, target)
     target.crush_connect_membership.excluded_by_coach = True
     target.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+
+    assert can_send_weekly_request(session, me, target) == (
+        False,
+        "recipient_unavailable",
+    )
+    with pytest.raises(ValueError, match="recipient_unavailable"):
+        send_weekly_request(session, me, target)
+
+
+def _make_assigned_coach_pair(member, coach_user):
+    """Make ``coach_user`` the CrushCoach assigned to ``member`` — the one
+    relationship that must never become a romantic pairing surface (see
+    services.crush_connect.is_assigned_coach_pair)."""
+    from crush_lu.models import CrushCoach
+
+    coach = CrushCoach.objects.create(
+        user=coach_user,
+        bio="x",
+        specializations="General",
+        phone_number="+352999999",
+        is_active=True,
+    )
+    member.crushprofile.assigned_coach = coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+    return coach
+
+
+@pytest.mark.django_db
+def test_can_send_weekly_request_rejects_assigned_coach_pair():
+    """get_cycle_eligible_pool only excludes coach/member pairs at
+    card-generation time; a coach assignment made after (a door check-in
+    during the review window) must retire the completed card too, not just
+    hide it from future pools. Mirrors can_send_spark's re-check."""
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, _card = _reviewable_session_with_card(me, target)
+    _make_assigned_coach_pair(me, target)
 
     assert can_send_weekly_request(session, me, target) == (
         False,
@@ -414,6 +460,24 @@ def test_respond_accept_leaves_pending_when_requester_lost_eligibility():
 
 
 @pytest.mark.django_db
+def test_respond_accept_leaves_pending_when_pair_becomes_assigned_coach():
+    """A coach assignment made during the 24h response window (door
+    check-in) must block the accept the same way a lost-eligibility state
+    does — no chat, no permanent exclusion, request stays PENDING."""
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, _card = _reviewable_session_with_card(me, target)
+    req = send_weekly_request(session, me, target)
+    _make_assigned_coach_pair(me, target)
+
+    updated = respond_to_weekly_request(req, accept=True)
+
+    assert updated.status == ConnectWeeklyRequest.Status.PENDING
+    assert not ConnectTemporaryChat.objects.filter(request=req).exists()
+    assert not ConnectPairExclusion.are_excluded(me, target)
+
+
+@pytest.mark.django_db
 def test_respond_decline_creates_permanent_pair_exclusion():
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
@@ -479,6 +543,22 @@ def test_get_pending_inbox_excludes_ineligible_requester():
 
     me.crush_connect_membership.excluded_by_coach = True
     me.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+
+    assert list(get_pending_inbox(target)) == []
+
+
+@pytest.mark.django_db
+def test_get_pending_inbox_excludes_assigned_coach_pair():
+    """A coach assignment made during the 24h response window must hide the
+    request from the inbox listing too, not just block the accept action —
+    mirrors crush_connect_sparks_received's exclude_assigned_coach_pairs."""
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, _card = _reviewable_session_with_card(me, target)
+    req = send_weekly_request(session, me, target)
+    assert list(get_pending_inbox(target)) == [req]
+
+    _make_assigned_coach_pair(target, me)
 
     assert list(get_pending_inbox(target)) == []
 
@@ -686,6 +766,37 @@ def test_week_request_respond_accept_view(client, settings):
     assert resp.status_code in (302, 301)
     req.refresh_from_db()
     assert req.status == ConnectWeeklyRequest.Status.ACCEPTED
+
+
+@pytest.mark.django_db
+def test_week_request_respond_decline_noop_does_not_claim_declined(client, settings):
+    """When a decline POST arrives for a request that's already resolved
+    (e.g. accepted from a second tab), respond_to_weekly_request no-ops and
+    leaves the request ACCEPTED — a ConnectTemporaryChat already exists and
+    no exclusion should ever be written for this pair. The view must reflect
+    the ACTUAL resulting status, not the requested action: showing
+    "Declined — they won't be told" here would be false (nothing was
+    declined). Before the fix, the decline branch showed that message
+    unconditionally regardless of respond_to_weekly_request's actual
+    (no-op) outcome."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    target = _make_cycle_user("target")
+    session, card = _reviewable_session_with_card(me, target)
+    req = send_weekly_request(session, me, target)
+    respond_to_weekly_request(req, accept=True)  # resolved out-of-band
+    _login_eligible(client, target)
+
+    resp = client.post(
+        f"/en/crush-connect/week/inbox/{req.pk}/respond/", {"action": "decline"}
+    )
+
+    assert resp.status_code in (302, 301)
+    req.refresh_from_db()
+    assert req.status == ConnectWeeklyRequest.Status.ACCEPTED
+    assert not ConnectPairExclusion.are_excluded(me, target)
+    messages_list = [str(m) for m in get_messages(resp.wsgi_request)]
+    assert not any("Declined" in m for m in messages_list)
 
 
 @pytest.mark.django_db
