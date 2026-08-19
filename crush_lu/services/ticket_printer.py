@@ -1026,16 +1026,33 @@ def _build_qr_footer_directives(
     qr_url: str,
     cols: int = 48,
     lang: str = "fr",
+    has_activity_voting: bool = False,
 ) -> list[Directive]:
     """Builds QR code voting portal and social media spotlight card."""
     out: list[Directive] = []
-    hdr = {
-        "fr": "SCANNE APRÈS L'ÉVÉNEMENT POUR VOTER :",
-        "de": "NACH DEM EVENT SCANNEN ZUM VOTEN :",
-        "en": "SCAN AFTER EVENT TO VOTE & MATCH :",
-    }.get(lang, "SCAN AFTER EVENT TO VOTE & MATCH :")
 
-    out.append(Text(hdr, Align.CENTER, bold=True))
+    if has_activity_voting:
+        hdr = {
+            "fr": "SCANNE POUR VOTER (ACTIVITÉS DU SOIR) :",
+            "de": "SCANNEN ZUM VOTEN (ABEND-AKTIVITÄTEN) :",
+            "en": "SCAN TO VOTE (TONIGHT'S ACTIVITIES) :",
+        }.get(lang, "SCAN TO VOTE (TONIGHT'S ACTIVITIES) :")
+        prompt = {
+            "fr": "Choisis le format et le twist Speed Dating !",
+            "de": "Wähle das Format und den Speed-Dating-Twist!",
+            "en": "Vote for the presentation style & dating twist!",
+        }.get(lang, "Vote for the presentation style & dating twist!")
+        out.append(Text(hdr, Align.CENTER, bold=True))
+        out.append(Rule("-"))
+        out.append(Text(prompt, Align.CENTER))
+    else:
+        hdr = {
+            "fr": "SCANNE APRÈS L'ÉVÉNEMENT POUR VOTER :",
+            "de": "NACH DEM EVENT SCANNEN ZUM VOTEN :",
+            "en": "SCAN AFTER EVENT TO VOTE & MATCH :",
+        }.get(lang, "SCAN AFTER EVENT TO VOTE & MATCH :")
+        out.append(Text(hdr, Align.CENTER, bold=True))
+
     out.append(Feed(1))
     if qr_url:
         out.append(QrCode(qr_url, size=6))
@@ -1145,6 +1162,8 @@ def build_checkin_ticket_directives(
         elif not registration and coach_authenticated:
             table_display = "TABLE 1 (A)"
 
+        has_activity_voting = bool(event and getattr(event, "enable_activity_voting", False))
+
         if not qr_url:
             base_domain = getattr(
                 settings, "CRUSH_LU_CANONICAL_DOMAIN", "https://crush.lu"
@@ -1156,10 +1175,14 @@ def build_checkin_ticket_directives(
                 try:
                     from django.urls import reverse
 
-                    path = reverse("crush_lu:event_lobby", kwargs={"event_id": event_id})
+                    if has_activity_voting:
+                        path = reverse("crush_lu:event_voting_lobby", kwargs={"event_id": event_id})
+                    else:
+                        path = reverse("crush_lu:event_lobby", kwargs={"event_id": event_id})
                     qr_url = f"{base_domain}{path}"
                 except Exception:
-                    qr_url = f"{base_domain}/{lang}/events/{event_id}/lobby/"
+                    subpath = "voting/lobby" if has_activity_voting else "lobby"
+                    qr_url = f"{base_domain}/{lang}/events/{event_id}/{subpath}/"
             else:
                 try:
                     from django.urls import reverse
@@ -1203,7 +1226,12 @@ def build_checkin_ticket_directives(
             )
         )
         directives.extend(
-            _build_qr_footer_directives(qr_url=qr_url, cols=cols, lang=lang)
+            _build_qr_footer_directives(
+                qr_url=qr_url,
+                cols=cols,
+                lang=lang,
+                has_activity_voting=has_activity_voting,
+            )
         )
 
         return directives
