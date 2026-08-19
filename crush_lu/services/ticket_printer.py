@@ -1046,6 +1046,17 @@ def _build_member_stats_directives(
         total_members = 1
         verified_count = 0
 
+    # Format localized numbers with thousands separators
+    if lang == "de":
+        total_str = f"{total_members:,}".replace(",", ".")
+        verified_str = f"{verified_count:,}".replace(",", ".")
+    elif lang == "fr":
+        total_str = f"{total_members:,}".replace(",", " ")
+        verified_str = f"{verified_count:,}".replace(",", " ")
+    else:
+        total_str = f"{total_members:,}"
+        verified_str = f"{verified_count:,}"
+
     user_id = user.id if user else (42 if coach_authenticated else None)
     name = (
         getattr(profile, "display_name", "")
@@ -1085,10 +1096,10 @@ def _build_member_stats_directives(
         }.get(lang, f"Welcome {name} to Crush.lu!")
 
     sub_members = {
-        "fr": f"sur les {total_members} célibataires inscrits au Luxembourg.",
-        "de": f"von {total_members} angemeldeten Singles in Luxemburg.",
-        "en": f"among {total_members} registered singles in Luxembourg.",
-    }.get(lang, f"among {total_members} registered singles in Luxembourg.")
+        "fr": f"sur les {total_str} célibataires inscrits au Luxembourg.",
+        "de": f"von {total_str} angemeldeten Singles in Luxemburg.",
+        "en": f"among {total_str} registered singles in Luxembourg.",
+    }.get(lang, f"among {total_str} registered singles in Luxembourg.")
 
     is_verified = bool(
         profile
@@ -1106,10 +1117,10 @@ def _build_member_stats_directives(
     pills_line = f"{verified_pill}   {pool_pill}"
 
     stat_line1 = {
-        "fr": f"• Plateforme  : {verified_count} profils certifiés & vérifiés",
-        "de": f"• Plattform   : {verified_count} geprüfte & verifizierte Profile",
-        "en": f"• Platform    : {verified_count} certified & verified profiles",
-    }.get(lang, f"• Platform    : {verified_count} certified & verified profiles")
+        "fr": f"• Plateforme  : {verified_str} profils certifiés & vérifiés",
+        "de": f"• Plattform   : {verified_str} geprüfte & verifizierte Profile",
+        "en": f"• Platform    : {verified_str} certified & verified profiles",
+    }.get(lang, f"• Platform    : {verified_str} certified & verified profiles")
 
     stat_line2 = {
         "fr": f"• Pool du soir : {pool_count} participants matchés pour toi",
