@@ -996,16 +996,10 @@ def _build_mystery_radar_directives(
     }.get(lang, "Discover who matches each profile during dates:")
 
     name_label = {
-        "fr": "Prénom : ____________________",
-        "de": "Name : ______________________",
-        "en": "Name : ______________________",
-    }.get(lang, "Name : ______________________")
-
-    vote_label = {
-        "fr": "Vote   :  [ ] Crush   [ ] Ami   [ ] Pass",
-        "de": "Vote   :  [ ] Crush   [ ] Freund [ ] Weiter",
-        "en": "Vote   :  [ ] Crush   [ ] Friend [ ] Pass",
-    }.get(lang, "Vote   :  [ ] Crush   [ ] Friend [ ] Pass")
+        "fr": "Prénom : ____________________________",
+        "de": "Name   : ____________________________",
+        "en": "Name   : ____________________________",
+    }.get(lang, "Name   : ____________________________")
 
     out.append(Text(hdr, Align.CENTER, bold=True))
     out.append(Rule("-"))
@@ -1022,7 +1016,6 @@ def _build_mystery_radar_directives(
             for part in wrap(clue_text, cols, indent="    "):
                 out.append(Text(part))
         out.append(Text(f"    {name_label}"))
-        out.append(Text(f"    {vote_label}"))
         out.append(Feed(1))
 
     out.append(Rule("="))
