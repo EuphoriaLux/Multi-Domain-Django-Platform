@@ -85,6 +85,42 @@ def test_authenticated_customer_sees_eur_european_comparison_and_change(
 
 
 @pytest.mark.django_db
+def test_price_decrease_renders_without_a_redundant_sign(client, regular_user):
+    """A price decrease must render as '▼ 16.67%', never '▼ -16.67%'.
+
+    change_percent is negative for a decrease -- the down arrow already
+    conveys direction, so the magnitude shown next to it must be unsigned.
+    Regression test for issue #896.
+    """
+    today = timezone.localdate()
+    first = {"Items": [azure_item("0.12000000")], "NextPageLink": None}
+    second = {"Items": [azure_item("0.10000000")], "NextPageLink": None}
+    sync_retail_prices(
+        snapshot_date=today - timedelta(days=1),
+        connector=FakeConnector(first),
+    )
+    sync_retail_prices(snapshot_date=today, connector=FakeConnector(second))
+    client.force_login(regular_user)
+
+    response = client.get(
+        "/finops/prices/",
+        {
+            "sku": "Standard_D2s_v5",
+            "currency": "EUR",
+            "region": "westeurope",
+            "price_type": "Consumption",
+            "purchase_model": "on_demand",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.context["decreased_count"] == 1
+    content = response.content.decode()
+    assert "▼ 16.67%" in content
+    assert "▼ -16.67%" not in content
+
+
+@pytest.mark.django_db
 def test_retail_sync_webhook_requires_token_and_invokes_command(
     client, settings, mocker
 ):

@@ -175,7 +175,7 @@
                             <td class="px-4 py-3"><div class="text-gray-900">{{ row.purchase_model|title }}</div><div class="text-xs text-gray-500">{{ row.price_type }}{% if row.term %} · {{ row.term }}{% endif %}</div></td>
                             <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{{ row.unit_price }} {{ row.currency }}<div class="text-xs font-normal text-gray-500">{{ row.unit_of_measure }}</div></td>
                             <td class="whitespace-nowrap px-4 py-3 text-right font-semibold {% if row.change_direction == 'up' %}text-red-700{% elif row.change_direction == 'down' %}text-green-700{% else %}text-gray-500{% endif %}">
-                                {% if row.change_direction == 'up' %}▲ +{{ row.change_percent }}%{% elif row.change_direction == 'down' %}▼ {{ row.change_percent }}%{% elif row.change_direction == 'same' %}— 0.00%{% else %}New{% endif %}
+                                {% if row.change_direction == 'up' %}▲ +{{ row.change_percent_abs }}%{% elif row.change_direction == 'down' %}▼ {{ row.change_percent_abs }}%{% elif row.change_direction == 'same' %}— 0.00%{% else %}New{% endif %}
                             </td>
                         </tr>
                         {% endfor %}
