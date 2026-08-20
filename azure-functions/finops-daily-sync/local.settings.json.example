@@ -4,7 +4,9 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "python",
     "DJANGO_WEBHOOK_URL": "http://localhost:8000/finops/api/sync/",
+    "DJANGO_RETAIL_PRICE_WEBHOOK_URL": "http://localhost:8000/finops/api/sync/retail-prices/",
     "SECRET_SYNC_TOKEN": "your-local-sync-token-here",
-    "FINOPS_SYNC_ENABLED": "true"
+    "FINOPS_SYNC_ENABLED": "true",
+    "RETAIL_PRICE_SYNC_ENABLED": "false"
   }
 }

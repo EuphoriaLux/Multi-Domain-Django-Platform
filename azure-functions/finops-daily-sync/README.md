@@ -1,6 +1,7 @@
 # FinOps Daily Sync - Azure Function
 
-Automated daily synchronization of Azure Cost Management data for the PowerUP FinOps Hub.
+Automated daily synchronization for the PowerUP FinOps Hub: Azure Cost
+Management data plus an independent public Azure retail-price catalogue snapshot.
 
 ## Overview
 
@@ -18,6 +19,11 @@ Management Command (sync_daily_costs)
 Cost Data Import + Aggregation
 ```
 
+The same Function App also runs `retail_price_daily_sync` at 04:00 UTC. It
+calls `/finops/api/sync/retail-prices/`, which archives every paginated Azure
+Retail Prices response and appends normalized EUR observations for the default
+European regions. It does not access customer Azure subscriptions.
+
 ## Configuration
 
 ### Azure Function Settings
@@ -29,6 +35,8 @@ Set these environment variables in Azure Portal:
 | `DJANGO_WEBHOOK_URL` | `https://power-up.lu/finops/api/sync/` | Django webhook endpoint |
 | `SECRET_SYNC_TOKEN` | `<secure-token>` | Shared secret for authentication |
 | `FINOPS_SYNC_ENABLED` | `true` | Enable/disable sync |
+| `DJANGO_RETAIL_PRICE_WEBHOOK_URL` | `https://power-up.lu/finops/api/sync/retail-prices/` | Retail price snapshot endpoint |
+| `RETAIL_PRICE_SYNC_ENABLED` | `true` | Enable/disable the independent retail price snapshot |
 | `FUNCTIONS_WORKER_RUNTIME` | `python` | Python runtime |
 | `FUNCTIONS_EXTENSION_VERSION` | `~4` | Functions v4 runtime |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | `<connection-string>` | Application Insights telemetry |
@@ -38,6 +46,10 @@ Set these environment variables in Azure Portal:
 - **Cron Expression:** `0 0 3 * * *`
 - **Frequency:** Daily at 3:00 AM UTC
 - **Timeout:** 10 minutes
+
+Retail price snapshots use `0 0 4 * * *` (daily at 4:00 AM UTC). Keep
+`RETAIL_PRICE_SYNC_ENABLED=false` until the Django migration and endpoint are
+deployed and the new webhook URL is configured.
 
 ## Local Development
 

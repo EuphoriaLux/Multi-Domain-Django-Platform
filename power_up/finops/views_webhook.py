@@ -63,6 +63,54 @@ def trigger_cost_sync(request):
         }, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def trigger_retail_price_sync(request):
+    """Capture today's public Azure retail-price catalogue for European regions."""
+    sync_token = request.headers.get("X-Sync-Token")
+    expected_token = os.getenv("SECRET_SYNC_TOKEN") or getattr(
+        settings, "SECRET_SYNC_TOKEN", None
+    )
+
+    if not expected_token:
+        return JsonResponse(
+            {"success": False, "error": "Sync token not configured on server"},
+            status=500,
+        )
+    if not sync_token or not secrets.compare_digest(sync_token, expected_token):
+        return JsonResponse(
+            {"success": False, "error": "Invalid sync token"}, status=403
+        )
+
+    try:
+        output_stream = io.StringIO()
+        error_stream = io.StringIO()
+        call_command(
+            "sync_retail_prices",
+            currency="EUR",
+            stdout=output_stream,
+            stderr=error_stream,
+        )
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Retail price snapshot completed successfully",
+                "output": output_stream.getvalue(),
+                "errors": error_stream.getvalue() or None,
+            }
+        )
+    except Exception:
+        logger.exception("Error during retail price sync triggered via webhook")
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Internal server error during retail price sync",
+                "message": "Retail price sync failed",
+            },
+            status=500,
+        )
+
+
 @require_http_methods(["GET"])
 def sync_status(request):
     """Check status of cost exports (public endpoint)"""
