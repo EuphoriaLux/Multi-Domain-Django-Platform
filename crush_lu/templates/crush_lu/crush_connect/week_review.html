@@ -1,0 +1,70 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Deine Connect-Woche" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-3xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-7">
+        <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
+            {% trans "24-hour review" %}
+        </p>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Deine Connect-Woche" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-md">
+            {% blocktrans count count=review_items|length %}Everyone you completed a card for this week — {{ count }} in total. Send exactly one request, or send none.{% plural %}Everyone you completed a card for this week — {{ count }} in total. Send exactly one request, or send none.{% endblocktrans %}
+        </p>
+        {% if review_active and session.review_expires_at %}
+        <p class="mt-2 text-xs font-medium text-crush-purple dark:text-crush-pink">
+            {% blocktrans with when=session.review_expires_at|date:"l H:i" %}This review closes {{ when }}.{% endblocktrans %}
+        </p>
+        {% elif not review_active %}
+        <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+            {% trans "This review has closed. Your next Connect Week starts fresh." %}
+        </p>
+        {% endif %}
+    </header>
+
+    {% if sent_request %}
+    <div class="mb-6 rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-crush-purple/30 p-4">
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+            {% include "shared/icons/heart.html" with class="w-4 h-4 inline text-crush-pink" %}
+            {% blocktrans with name=sent_request.recipient.first_name|default:_("them") %}You asked to get to know {{ name }}.{% endblocktrans %}
+        </p>
+        <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
+            {% if sent_request.status == "pending" %}
+                {% trans "Waiting for their answer — they have 24 hours to respond." %}
+            {% elif sent_request.status == "accepted" %}
+                {% trans "It's mutual! Your chat is open." %}
+            {% elif sent_request.status == "declined" %}
+                {% trans "They weren't able to connect right now." %}
+            {% elif sent_request.status == "expired" %}
+                {% trans "This request expired without a response." %}
+            {% else %}
+                {{ sent_request.get_status_display }}
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    {% if review_items %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for item in review_items %}
+                {% include "crush_lu/crush_connect/_review_card.html" with card=item.card target=item.target target_profile=item.target.crushprofile answers=item.answers highlight_user_id=highlight_user_id review_active=review_active sent_request=sent_request %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "No completed cards this week." %}
+            </h2>
+            <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
+                {% trans "You didn't answer any cards this cycle, so there's no one to review. Your next Connect Week starts fresh." %}
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
