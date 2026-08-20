@@ -273,6 +273,28 @@ class DetailEndpointTests(EventCancellationFixture):
         response = self.client.get("/hub/events/999999/cancellation")
         self.assertEqual(response.status_code, 404)
 
+    def test_restored_event_is_404_not_a_leak_of_every_past_cycle(self):
+        """A restored (no-longer-cancelled) event must 404, not silently
+
+        drop cycle-scoping and surface every EVENT_CANCELLED credit the
+        event's self-cancelled seats ever accumulated across past cycles.
+        """
+        event, registration, credit = self._cancelled_event_with_credit()
+        # Sanity: the endpoint serves the event while it's still cancelled.
+        self.assertEqual(
+            self.client.get(f"/hub/events/{event.pk}/cancellation").status_code, 200
+        )
+
+        # Restore: this is exactly what the admin's restore path does —
+        # ``is_cancelled=False`` and ``organiser_cancellation_started_at``
+        # reset to ``None`` (crush_lu/admin/events.py).
+        event.is_cancelled = False
+        event.organiser_cancellation_started_at = None
+        event.save(update_fields=["is_cancelled", "organiser_cancellation_started_at"])
+
+        response = self.client.get(f"/hub/events/{event.pk}/cancellation")
+        self.assertEqual(response.status_code, 404)
+
     def test_envelope_has_event_and_items(self):
         event, registration, credit = self._cancelled_event_with_credit()
         response = self.client.get(f"/hub/events/{event.pk}/cancellation")
@@ -341,6 +363,46 @@ class DetailEndpointTests(EventCancellationFixture):
         row = response.data["items"][0]
         self.assertIsNone(row["credit"])
         self.assertFalse(row["openCashRefund"])
+
+    def test_representative_credit_pick_is_deterministic_on_issued_at_ties(self):
+        """Two EVENT_CANCELLED credits on one registration with the exact
+
+        same ``issued_at`` (a payment-return credit plus a same-instant
+        bonus credit, both minted in the same atomic block — see
+        ``crush_lu/services/credits.py::_issue_cancelled_event_remedy``)
+        must resolve to the same representative credit every time, not
+        drift between requests depending on unspecified DB row order.
+        """
+        event = self._event(
+            is_cancelled=True, organiser_cancellation_started_at=timezone.now()
+        )
+        member = self._member("tie@crush.lu")
+        registration = self._registration(event, member)
+        payment = self._payment(registration)
+        same_instant = timezone.now()
+        # Neither credit is cash-refund-open, so the "open one wins" branch
+        # is not in play — this exercises the "most recently issued" tie
+        # purely on the ``-pk`` fallback.
+        first = self._credit(
+            member,
+            registration=registration,
+            payment=payment,
+            cash_refund_eligible=False,
+            issued_at=same_instant,
+        )
+        second = self._credit(
+            member,
+            registration=registration,
+            payment=payment,
+            cash_refund_eligible=False,
+            issued_at=same_instant,
+        )
+        winner_pk = str(max(first.pk, second.pk))
+
+        for _ in range(3):
+            response = self.client.get(f"/hub/events/{event.pk}/cancellation")
+            row = response.data["items"][0]
+            self.assertEqual(row["credit"]["id"], winner_pk)
 
     def test_no_n_plus_one_across_registration_count(self):
         small_event = self._event(

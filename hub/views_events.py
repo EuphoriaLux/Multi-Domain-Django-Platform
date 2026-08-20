@@ -163,9 +163,9 @@ class EventCancellationDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            event = MeetupEvent.objects.get(pk=pk)
+            event = MeetupEvent.objects.get(pk=pk, is_cancelled=True)
         except MeetupEvent.DoesNotExist:
-            return Response({"error": "Event not found"}, status=404)
+            return Response({"error": "Event not found or not cancelled"}, status=404)
 
         registrations = list(
             EventRegistration.objects.filter(event=event, status="cancelled")
@@ -187,7 +187,9 @@ class EventCancellationDetailView(APIView):
             credits_qs = credits_qs.filter(
                 issued_at__gte=event.organiser_cancellation_started_at
             )
-        credits = list(credits_qs.order_by("source_registration_id", "-issued_at"))
+        credits = list(
+            credits_qs.order_by("source_registration_id", "-issued_at", "-pk")
+        )
         open_ids = set(
             _open_cash_refund_credits(None, credits_qs).values_list("id", flat=True)
         )
