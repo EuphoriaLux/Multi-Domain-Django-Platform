@@ -96,12 +96,18 @@ def connect_week_home(request):
     cards = get_or_create_todays_cards(session)
     answered_ids = {c.target_user_id for c in cards if c.is_completed}
 
+    # "Your chats" entry point: the review page it's also linked from stops
+    # existing once the session completes (a new cycle starts here), so this
+    # home page must stay a reachable path back into an open chat.
+    from crush_lu.services.connect_chat import user_has_non_closed_chat
+
     context = {
         "session": session,
         "cards": cards,
         "answered_ids": answered_ids,
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
+        "has_non_closed_chat": user_has_non_closed_chat(user),
     }
     return render(request, "crush_lu/crush_connect/week_home.html", context)
 
@@ -200,7 +206,9 @@ def connect_week_review(request):
             for qid, guess in guesses.items()
             if int(qid) in questions_by_id
         ]
-        review_items.append({"card": card, "target": card.target_user, "answers": answers})
+        review_items.append(
+            {"card": card, "target": card.target_user, "answers": answers}
+        )
 
     # The requester's own review is the one page they reliably revisit — sync
     # it here so a stale PENDING request (recipient never opened their inbox)
@@ -280,10 +288,19 @@ def connect_week_inbox(request):
     ):
         return redirect("crush_lu:crush_connect_teaser")
 
+    # A LuxID-only recipient can accept and chat here without ever having
+    # cycle_access_open (see docstring) — connect_week_home's "Your chats"
+    # link is unreachable to them, so this is their only path back into an
+    # already-open chat once the accept redirect's tab is gone.
+    from crush_lu.services.connect_chat import user_has_non_closed_chat
+
     return render(
         request,
         "crush_lu/crush_connect/week_inbox.html",
-        {"requests": get_pending_inbox(user)},
+        {
+            "requests": get_pending_inbox(user),
+            "has_non_closed_chat": user_has_non_closed_chat(user),
+        },
     )
 
 
@@ -316,6 +333,10 @@ def connect_week_request_respond(request, request_id: int):
     # falsely tell the user "Declined" when nothing was recorded.
     if updated.status == ConnectWeeklyRequest.Status.ACCEPTED:
         messages.success(request, _("It's mutual! Say hello — your chat is open."))
+        # The chat row exists by now (respond_to_weekly_request opens it via
+        # get_or_create on this same accept), so land the recipient straight
+        # in it instead of the pending-requests inbox they just cleared.
+        return redirect("crush_lu:connect_week_chat_detail", chat_id=updated.chat.pk)
     elif updated.status == ConnectWeeklyRequest.Status.DECLINED:
         messages.info(request, _("Declined — they won't be told."))
     else:

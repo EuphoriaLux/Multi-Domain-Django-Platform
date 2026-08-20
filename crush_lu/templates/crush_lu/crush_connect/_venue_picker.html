@@ -1,0 +1,46 @@
+{% load i18n %}
+{% comment %}
+ConnectCoffeeDate propose/update form — posts to connect_week_chat_venue.
+Context (from chat_detail.html): chat, venues (hub.Location queryset,
+partnership_stage=Active only — name/address/city fields shown, nothing
+else), today (date, for the min= attr), coffee_date (optional, for
+prefilling an edit).
+{% endcomment %}
+<form method="post" action="{% url 'crush_lu:connect_week_chat_venue' chat.pk %}" x-data="connectVenuePicker" class="space-y-3 mt-3">
+    {% csrf_token %}
+
+    <div class="inline-flex rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
+        <label class="cursor-pointer">
+            <input type="radio" name="venue_mode" value="partner" {% if not coffee_date.custom_venue_name %}checked{% endif %} class="peer sr-only" @change="onModeChange">
+            <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">{% trans "Partner venue" %}</span>
+        </label>
+        <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
+            <input type="radio" name="venue_mode" value="custom" {% if coffee_date.custom_venue_name %}checked{% endif %} class="peer sr-only" @change="onModeChange">
+            <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">{% trans "Somewhere else" %}</span>
+        </label>
+    </div>
+
+    <div data-venue-partner-fields>
+        <select name="venue_location_id" class="form-select w-full">
+            <option value="">{% trans "Choose a partner café/bar…" %}</option>
+            {% for venue in venues %}
+            <option value="{{ venue.pk }}" {% if coffee_date.venue_location_id == venue.pk %}selected{% endif %}>{{ venue.name }} — {{ venue.city }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div data-venue-custom-fields class="space-y-2">
+        <input type="text" name="custom_venue_name" maxlength="255" placeholder="{% trans 'Venue name' %}"
+               value="{{ coffee_date.custom_venue_name|default:'' }}" class="input-crush w-full">
+        <input type="text" name="custom_venue_address" maxlength="255" placeholder="{% trans 'Address (optional)' %}"
+               value="{{ coffee_date.custom_venue_address|default:'' }}" class="input-crush w-full">
+    </div>
+
+    <div class="flex gap-2">
+        <input type="date" name="proposed_date" min="{{ today|date:'Y-m-d' }}" required
+               value="{{ coffee_date.proposed_date|date:'Y-m-d'|default:'' }}" class="input-crush flex-1">
+        <input type="text" name="proposed_time_slot" maxlength="50" placeholder="{% trans 'e.g. 18:30' %}"
+               value="{{ coffee_date.proposed_time_slot|default:'' }}" class="input-crush flex-1">
+    </div>
+
+    <button type="submit" class="btn-crush-solid btn-sm btn-block">{% trans "Save plan" %}</button>
+</form>

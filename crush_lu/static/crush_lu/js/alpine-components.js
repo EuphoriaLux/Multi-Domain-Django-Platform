@@ -15138,6 +15138,54 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Connect Cycle temp chat: venue picker mode toggle (partner venue vs a
+    // custom name/address). Mirrors connectGateCard's idiom — a bare-name
+    // @change handler that re-queries the checked radio via $root, then
+    // directly toggles the two field groups' visibility, rather than
+    // reactive x-show state (CSP build can't pass args to methods, so
+    // there's nothing to bind x-show to except a bare getter anyway; a
+    // direct DOM toggle keeps this consistent with connectGateCard).
+    Alpine.data("connectVenuePicker", function () {
+        return {
+            init: function () {
+                this._sync();
+            },
+            onModeChange: function () {
+                this._sync();
+            },
+            _sync: function () {
+                var checked = this.$root.querySelector('input[name="venue_mode"]:checked');
+                var mode = checked ? checked.value : "partner";
+                var partnerFields = this.$root.querySelector("[data-venue-partner-fields]");
+                var customFields = this.$root.querySelector("[data-venue-custom-fields]");
+                if (partnerFields) partnerFields.classList.toggle("hidden", mode !== "partner");
+                if (customFields) customFields.classList.toggle("hidden", mode !== "custom");
+            },
+        };
+    });
+
+    // Connect Cycle temp chat: 1-click block confirmation panel. Composes
+    // makeConfirm with the template-facing API the block partial expects
+    // (isInitial / showConfirm / cancel), same as sparkConfirm — but
+    // autoSubmit stays ON (the default): proceed() submits the enclosing
+    // block form directly, no HTMX involved.
+    Alpine.data("connectChatBlockConfirm", function () {
+        return mixin(makeConfirm(), {
+            get isInitial() {
+                return this.isIdle;
+            },
+            showConfirm() {
+                this.request();
+            },
+            cancel() {
+                this.cancelConfirm();
+            },
+            confirmBlock() {
+                this.proceed();
+            },
+        });
+    });
+
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({

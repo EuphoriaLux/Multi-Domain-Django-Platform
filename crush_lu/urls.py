@@ -7,6 +7,7 @@ from . import views
 from . import views_pre_screening
 from . import views_crush_connect
 from . import views_connect_cycle
+from . import views_connect_chat
 from . import views_moderation
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
@@ -241,6 +242,45 @@ urlpatterns = [
         'crush-connect/week/inbox/<int:request_id>/respond/',
         views_connect_cycle.connect_week_request_respond,
         name='connect_week_request_respond',
+    ),
+    # Connect Cycle temp chat: send/list messages, venue picker + coffee-date
+    # plan, post-meeting confirmation loop, 1-click block. See
+    # views_connect_chat.py. Opened by connect_week_request_respond's accept
+    # (views_connect_cycle.py) via ConnectTemporaryChat.get_or_create.
+    path(
+        'crush-connect/week/chats/',
+        views_connect_chat.connect_week_chats,
+        name='connect_week_chats',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/',
+        views_connect_chat.connect_week_chat_detail,
+        name='connect_week_chat_detail',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/send/',
+        views_connect_chat.connect_week_chat_send,
+        name='connect_week_chat_send',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/venue/',
+        views_connect_chat.connect_week_chat_venue,
+        name='connect_week_chat_venue',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/venue/respond/',
+        views_connect_chat.connect_week_chat_venue_respond,
+        name='connect_week_chat_venue_respond',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/confirm/',
+        views_connect_chat.connect_week_chat_confirm,
+        name='connect_week_chat_confirm',
+    ),
+    path(
+        'crush-connect/week/chats/<int:chat_id>/block/',
+        views_connect_chat.connect_week_chat_block,
+        name='connect_week_chat_block',
     ),
     # Peer safety — block / unblock / report another member.
     path(
