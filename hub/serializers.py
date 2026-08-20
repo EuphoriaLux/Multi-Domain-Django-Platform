@@ -390,6 +390,88 @@ class SocialPostSerializer(serializers.ModelSerializer):
         return value
 
 
+class EventCancellationSummarySerializer(serializers.Serializer):
+    """One cancelled event plus its bulk cancellation aggregates.
+
+    Backs both ``GET /hub/events/cancelled`` (one row per event) and, for the
+    single event it names, the ``"event"`` key of
+    ``GET /hub/events/<pk>/cancellation``. Source objects are plain
+    ``MeetupEvent`` rows annotated in the view with the four aggregate
+    attributes below — there is no model to serialize these off directly, see
+    ``hub/views_events.py``.
+    """
+
+    id = serializers.CharField(source="pk", read_only=True)
+    title = serializers.CharField(read_only=True)
+    eventType = serializers.SerializerMethodField()
+    dateTime = serializers.DateTimeField(source="date_time", read_only=True)
+    isCancelled = serializers.BooleanField(source="is_cancelled", read_only=True)
+    organiserCancellationStartedAt = serializers.DateTimeField(
+        source="organiser_cancellation_started_at", read_only=True
+    )
+    affectedRegistrations = serializers.IntegerField(
+        source="affected_registrations", read_only=True
+    )
+    issuedCreditsCount = serializers.IntegerField(
+        source="issued_credits_count", read_only=True
+    )
+    issuedCreditsTotalCents = serializers.IntegerField(
+        source="issued_credits_total_cents", read_only=True
+    )
+    openCashRefundTotalCents = serializers.IntegerField(
+        source="open_cash_refund_total_cents", read_only=True
+    )
+
+    def get_eventType(self, obj):
+        return obj.get_event_type_display()
+
+
+class LinkedCrushCreditSerializer(serializers.Serializer):
+    """The one EVENT_CANCELLED credit representing a cancelled registration.
+
+    Deliberately thin: this is a pointer into the real ledger
+    (``crush_lu.models.credits.CrushCredit``), not a copy of it. Staff follow
+    up in the Crush Credit admin for anything beyond these three fields.
+    """
+
+    id = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    amountCents = serializers.IntegerField(source="amount_cents", read_only=True)
+    cashRefundEligible = serializers.BooleanField(
+        source="cash_refund_eligible", read_only=True
+    )
+
+
+class EventCancellationRegistrationSerializer(serializers.Serializer):
+    """One self-cancelled registration for a cancelled event, credit attached.
+
+    Source rows are ``EventRegistration`` instances the view annotates with
+    ``linked_credit`` (a ``CrushCredit`` or ``None``) and ``open_cash_refund``
+    (a bool computed from the *exact* same predicate the staff cash-refund
+    queue uses — see ``CashRefundQueueFilter._open`` in
+    ``crush_lu/admin/credits.py`` and ``hub/views_events.py``).
+    """
+
+    id = serializers.CharField(source="pk", read_only=True)
+    userEmail = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
+    cancelledAt = serializers.DateTimeField(source="cancelled_at", read_only=True)
+    paymentConfirmed = serializers.BooleanField(
+        source="payment_confirmed", read_only=True
+    )
+    credit = serializers.SerializerMethodField()
+    openCashRefund = serializers.BooleanField(source="open_cash_refund", read_only=True)
+
+    def get_userEmail(self, obj):
+        return obj.user.email if obj.user_id else None
+
+    def get_credit(self, obj):
+        credit = getattr(obj, "linked_credit", None)
+        if credit is None:
+            return None
+        return LinkedCrushCreditSerializer(credit).data
+
+
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
 

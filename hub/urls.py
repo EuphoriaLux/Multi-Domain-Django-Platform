@@ -1,6 +1,10 @@
 from django.urls import path
 
 from . import views
+from .views_events import (
+    EventCancellationDetailView,
+    EventCancellationsView,
+)
 from .views_finance import (
     PaymentsInView,
     PaymentsOutView,
@@ -48,6 +52,19 @@ urlpatterns = [
     path("payroll/", PayrollView.as_view()),
     path("refunds", RefundsView.as_view(), name="refunds"),
     path("refunds/", RefundsView.as_view()),
+    # Event Cancellation Reporting Routes (read-only, live-read from crush_lu)
+    path(
+        "events/cancelled",
+        EventCancellationsView.as_view(),
+        name="event_cancellations",
+    ),
+    path("events/cancelled/", EventCancellationsView.as_view()),
+    path(
+        "events/<int:pk>/cancellation",
+        EventCancellationDetailView.as_view(),
+        name="event_cancellation_detail",
+    ),
+    path("events/<int:pk>/cancellation/", EventCancellationDetailView.as_view()),
     # Social Media Marketing Routes
     path("social/posts", SocialPostsView.as_view(), name="social_posts"),
     path("social/posts/", SocialPostsView.as_view()),
