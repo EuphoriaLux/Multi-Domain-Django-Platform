@@ -1,4 +1,5 @@
-"""One venue, a few tables, a small menu — enough to click through the pilot.
+"""One venue, 12 tables, ~25 menu items — spec size (§10 step 5), enough to
+click through the pilot with a realistic-looking floor and card.
 
 Venue name and table labels ("4", "9", "12") deliberately match
 `power_up.atmos.preview`'s SERVICE fixture, so a demo can walk the preview's
@@ -36,6 +37,11 @@ _ATMOS_MODELS = [Venue, Table, MenuCategory, MenuItem, Tab, Guest, Order, OrderI
 _SEEDED_EMAIL = "atmos-staff@example.com"
 
 ## (name, price, description, contains_alcohol)
+# Spec §10 step 5 calls for "one venue, 12 tables, ~25 items at realistic
+# Luxembourg prices" — the five items preview.py's SERVICE fixture prints
+# tickets for (Old Fashioned, Smoky Mezcalita, Rye Sour, French 75, Bar Nuts)
+# keep their original names/prices below so those printed tickets keep
+# matching what this command seeds; everything else is new to reach spec size.
 MENU = {
     "Cocktails": [
         ("Old Fashioned", "8.50", "", True),
@@ -43,20 +49,47 @@ MENU = {
         ("Rye Sour", "9.00", "", True),
         ("French 75", "11.00", "", True),
         ("Velvet Fizz (0%)", "6.50", "", False),
+        ("Gin Basil Smash", "9.50", "", True),
+        ("Espresso Martini", "10.50", "", True),
+        ("Negroni", "9.00", "", True),
+        ("Aperol Spritz", "8.50", "", True),
+        ("Virgin Mule (0%)", "6.00", "", False),
     ],
     "Beer & Wine": [
         ("Pilsner, 33cl", "4.50", "", True),
         ("House Red, glass", "6.00", "", True),
         ("House White, glass", "6.00", "", True),
+        ("Wheat Beer, 50cl", "5.50", "", True),
+        ("IPA, 33cl", "5.00", "", True),
+        ("Rosé, glass", "6.50", "", True),
+        ("Crémant, glass", "7.50", "", True),
+        ("Alcohol-Free Lager (0%)", "4.00", "", False),
     ],
     "Snacks": [
         ("Bar Nuts", "4.00", "A little salt never hurt anyone.", False),
         ("Olives", "4.50", "", False),
         ("Charcuterie Board", "14.00", "For the table.", False),
+        ("Cheese Board", "13.00", "For the table.", False),
+        ("Patatas Bravas", "7.50", "", False),
+        ("Croquettes (3 pcs)", "6.50", "", False),
+        ("Chips & Dip", "5.50", "", False),
     ],
 }
 
-TABLES = [("4", 4), ("9", 2), ("12", 6), ("7", 4)]
+TABLES = [
+    ("1", 2),
+    ("2", 4),
+    ("3", 4),
+    ("4", 4),
+    ("5", 2),
+    ("6", 6),
+    ("7", 4),
+    ("8", 2),
+    ("9", 2),
+    ("10", 4),
+    ("11", 8),
+    ("12", 6),
+]
 
 
 class Command(BaseCommand):
@@ -65,7 +98,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         venue, created = Venue.objects.get_or_create(
             slug="velvet-hour",
-            defaults={"name": "The Velvet Hour", "address": "12 Rue du Fossé, Luxembourg"},
+            defaults={
+                "name": "The Velvet Hour",
+                "address": "12 Rue du Fossé, Luxembourg",
+            },
         )
         self.stdout.write(("Created" if created else "Found") + f" venue: {venue.name}")
 
