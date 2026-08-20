@@ -23,6 +23,7 @@ Usage:
 import io
 import logging
 import random
+import secrets
 import requests
 from datetime import date
 
@@ -398,6 +399,18 @@ class Command(BaseCommand):
             help="Enrich all existing candidate/test profiles in the database",
         )
         parser.add_argument(
+            "--include-any-profile",
+            action="store_true",
+            help=(
+                "With --all, if no username/email matches the candidate naming "
+                "convention, also allow falling back to every non-staff user "
+                "with a CrushProfile. Off by default -- on a live-reachable "
+                "site this would silently overwrite real testers' bio/photos/"
+                "DOB/verification and reset their password. Only pass this on "
+                "a database you know holds nothing but seeded candidates."
+            ),
+        )
+        parser.add_argument(
             "--create-missing",
             type=int,
             default=0,
@@ -421,8 +434,13 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--password",
-            default="connect2025",
-            help="Default password for created/reset accounts",
+            default=None,
+            help=(
+                "Password for created/reset accounts. Omit to generate a "
+                "random one per run (printed once at the end) -- a fixed "
+                "default would be a predictable, publicly-visible credential "
+                "for every seeded account on a live-reachable site."
+            ),
         )
         parser.add_argument(
             "--dry-run",
@@ -436,6 +454,16 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING("DRY-RUN MODE — no changes will be saved")
             )
+
+        password = options["password"]
+        password_was_generated = password is None
+        if password_was_generated:
+            # A fixed default would be a predictable, publicly-visible
+            # credential (this file is in the OSS repo) for every seeded
+            # account on a live-reachable site -- generate one per run
+            # instead and print it once, below.
+            password = secrets.token_urlsafe(12)
+        options["password"] = password
 
         coach = CrushCoach.objects.filter(is_active=True).first()
         if not coach and not dry_run:
@@ -465,10 +493,27 @@ class Command(BaseCommand):
                 | User.objects.filter(username__startswith="debug_cand_")
                 | User.objects.filter(email__contains="candidate")
             )
-            if not targets:
-                # Fallback: all non-staff users with a CrushProfile
+            if not targets and options["include_any_profile"]:
+                # Opt-in only: every non-staff user with a CrushProfile. On a
+                # live-reachable site this would silently overwrite real
+                # testers' data and reset their password, so it never fires
+                # unless explicitly requested.
+                self.stdout.write(
+                    self.style.WARNING(
+                        "No candidate-named profiles found -- --include-any-profile "
+                        "is set, falling back to ALL non-staff CrushProfile users."
+                    )
+                )
                 targets = list(
                     User.objects.filter(is_staff=False, crushprofile__isnull=False)
+                )
+            elif not targets:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "No candidate-named profiles found. Pass --include-any-profile "
+                        "to fall back to every non-staff CrushProfile user (only safe "
+                        "on a database that holds nothing but seeded candidates)."
+                    )
                 )
 
         self.stdout.write(
@@ -565,6 +610,10 @@ class Command(BaseCommand):
                 f"✅ Successfully enriched {enriched_count} candidates on staging!"
             )
         )
+        if password_was_generated and not dry_run:
+            self.stdout.write(
+                self.style.WARNING(f"🔑 Generated password for this run: {password}")
+            )
         self.stdout.write("=" * 60)
 
     def _enrich_user(
@@ -708,8 +757,8 @@ class Command(BaseCommand):
                         "picked_week": week,
                     },
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Could not set gate questions for %s: %s", user.email, exc)
 
         # Waitlist tester status
         CrushConnectWaitlist.objects.update_or_create(

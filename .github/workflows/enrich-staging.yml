@@ -46,6 +46,15 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Fetch Staging App Settings & Run Enrichment
+        env:
+          # workflow_dispatch inputs must never be interpolated directly into
+          # a run: shell block (classic script-injection-to-secret-exfil
+          # path) -- especially not in the same step that exports
+          # DATABASE_URL/AZURE_ACCOUNT_KEY/SECRET_KEY below. Route them
+          # through env: and reference as shell variables instead.
+          CREATE_MISSING: ${{ github.event.inputs.create_missing }}
+          LEAVE_PENDING: ${{ github.event.inputs.leave_pending }}
+          REFRESH_DROPS: ${{ github.event.inputs.refresh_drops }}
         run: |
           echo "🔑 Fetching staging configuration from Azure..."
           SETTINGS_JSON=$(az webapp config appsettings list \
@@ -61,26 +70,39 @@ jobs:
           export AZURE_CRUSH_PRIVATE_CONTAINER="crush-lu-private"
           export SECRET_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="SECRET_KEY").value // empty')
 
+          # GitHub only auto-masks values sourced from the `secrets` context,
+          # not ones computed at runtime like these -- mask explicitly so an
+          # error whose message embeds the DSN (common with psycopg2) can't
+          # land the connection string in plaintext in the Actions log.
+          echo "::add-mask::$DATABASE_URL"
+          echo "::add-mask::$POSTGRESQLCONNSTR_DJANGO"
+          echo "::add-mask::$AZURE_ACCOUNT_KEY"
+          echo "::add-mask::$SECRET_KEY"
+
           if [ -z "$SECRET_KEY" ]; then
             export SECRET_KEY="ci-staging-run-key"
           fi
 
           REFRESH_FLAG=""
-          if [ "${{ github.event.inputs.refresh_drops }}" = "true" ]; then
+          if [ "$REFRESH_DROPS" = "true" ]; then
             REFRESH_FLAG="--refresh-drops"
           fi
 
           echo "🚀 Running enrich_staging_candidates..."
           python manage.py enrich_staging_candidates \
             --all \
-            --create-missing ${{ github.event.inputs.create_missing }} \
-            --leave-pending ${{ github.event.inputs.leave_pending }} \
+            --create-missing "$CREATE_MISSING" \
+            --leave-pending "$LEAVE_PENDING" \
             $REFRESH_FLAG
 
       - name: Post Summary
+        env:
+          CREATE_MISSING: ${{ github.event.inputs.create_missing }}
+          LEAVE_PENDING: ${{ github.event.inputs.leave_pending }}
+          REFRESH_DROPS: ${{ github.event.inputs.refresh_drops }}
         run: |
           echo "## ✅ Staging Candidates Enriched Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target candidates:** ${{ github.event.inputs.create_missing }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Left pending for coach QA:** ${{ github.event.inputs.leave_pending }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Refresh Daily Drops:** ${{ github.event.inputs.refresh_drops }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target candidates:** $CREATE_MISSING" >> $GITHUB_STEP_SUMMARY
+          echo "- **Left pending for coach QA:** $LEAVE_PENDING" >> $GITHUB_STEP_SUMMARY
+          echo "- **Refresh Daily Drops:** $REFRESH_DROPS" >> $GITHUB_STEP_SUMMARY
           echo "- **Test site:** [test.crush.lu](https://test.crush.lu)" >> $GITHUB_STEP_SUMMARY
