@@ -1,0 +1,44 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Sign in - Power Up" %}{% endblock %}
+
+{% block content %}
+<section class="min-h-[70vh] bg-slate-50 px-4 py-16">
+  <div class="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div class="mb-6">
+      <p class="text-sm font-semibold uppercase tracking-wide text-orange-600">Power Hub</p>
+      <h1 class="mt-2 text-3xl font-bold text-slate-900">{% trans "Sign in" %}</h1>
+      <p class="mt-2 text-sm text-slate-600">{% trans "Access the protected Azure price tracker." %}</p>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <label for="id_login" class="mb-1 block text-sm font-medium text-slate-700">{% trans "Email" %}</label>
+      <input id="id_login" name="login" type="email" value="{{ form.login.value|default:'' }}"
+             autocomplete="email" required
+             class="mb-1 w-full rounded-lg border border-slate-300 px-4 py-3 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200">
+      {% if form.login.errors %}<p class="mb-4 text-sm text-red-600">{{ form.login.errors.0 }}</p>{% else %}<div class="mb-4"></div>{% endif %}
+
+      <label for="id_password" class="mb-1 block text-sm font-medium text-slate-700">{% trans "Password" %}</label>
+      <input id="id_password" name="password" type="password" autocomplete="current-password" required
+             class="mb-1 w-full rounded-lg border border-slate-300 px-4 py-3 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200">
+      {% if form.password.errors %}<p class="mb-4 text-sm text-red-600">{{ form.password.errors.0 }}</p>{% else %}<div class="mb-6"></div>{% endif %}
+
+      {% if redirect_field_value %}
+        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+      {% endif %}
+
+      <button type="submit" class="w-full rounded-lg bg-orange-600 px-4 py-3 font-semibold text-white transition hover:bg-orange-700">
+        {% trans "Sign in" %}
+      </button>
+    </form>
+  </div>
+</section>
+{% endblock %}

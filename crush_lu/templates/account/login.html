@@ -2,7 +2,9 @@
 {# Routes to appropriate login template based on the request domain #}
 {# NOTE: login_powerup.html extends entreprinder's base.html which uses {% url 'entreprinder:...' %} #}
 {# so it can ONLY be used when the entreprinder namespace is registered (i.e. on entreprinder.lu) #}
-{% if 'entreprinder' in request.get_host %}
+{% if 'powerup' in request.get_host or 'power-up' in request.get_host %}
+{% include "account/login_power_up.html" %}
+{% elif 'entreprinder' in request.get_host %}
 {% include "account/login_powerup.html" %}
 {% else %}
 {# Default to Crush template - handles crush.lu, powerup.lu, vinsdelux.com, azurewebsites.net, #}
