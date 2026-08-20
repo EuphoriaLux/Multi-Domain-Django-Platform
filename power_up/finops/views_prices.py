@@ -46,6 +46,8 @@ def retail_price_dashboard(request):
     base = RetailPriceSnapshot.objects.filter(
         provider=provider,
         currency=currency,
+        service_category="compute",
+        resource_type="virtual_machines",
         snapshot_date__gte=start_date,
         snapshot_date__lte=end_date,
     )
@@ -164,14 +166,12 @@ def retail_price_dashboard(request):
             else:
                 row.change_direction = "same"
 
-    region_codes = list(
+    captured_region_codes = set(
         RetailPriceSnapshot.objects.filter(provider=provider)
         .values_list("region_code", flat=True)
         .distinct()
-        .order_by("region_code")
     )
-    if not region_codes:
-        region_codes = list(EUROPEAN_AZURE_REGIONS)
+    region_codes = sorted(set(EUROPEAN_AZURE_REGIONS) | captured_region_codes)
     region_options = [
         {
             "code": code,
@@ -179,17 +179,52 @@ def retail_price_dashboard(request):
             "scope": EUROPEAN_AZURE_REGIONS.get(code, {}).get(
                 "data_residency_scope", ""
             ),
+            "restricted_access": EUROPEAN_AZURE_REGIONS.get(code, {}).get(
+                "restricted_access", False
+            ),
+            "has_snapshot": code in captured_region_codes,
         }
         for code in region_codes
     ]
+    sku_options_query = RetailPriceSnapshot.objects.filter(
+        provider=provider,
+        currency=currency,
+        service_category="compute",
+        resource_type="virtual_machines",
+    )
+    if os_filter:
+        sku_options_query = sku_options_query.filter(operating_system=os_filter)
     sku_options = list(
-        RetailPriceSnapshot.objects.filter(provider=provider, currency=currency)
+        sku_options_query
         .values_list("provider_sku", flat=True)
         .distinct()
         .order_by("provider_sku")[:500]
     )
+    product_options_query = RetailPriceSnapshot.objects.filter(
+        provider=provider,
+        currency=currency,
+        service_category="compute",
+        resource_type="virtual_machines",
+    )
+    if active_sku:
+        product_options_query = product_options_query.filter(
+            provider_sku__iexact=active_sku
+        )
+    if os_filter:
+        product_options_query = product_options_query.filter(
+            operating_system=os_filter
+        )
+    product_options = list(
+        product_options_query.values_list("product_name", flat=True)
+        .distinct()
+        .order_by("product_name")[:200]
+    )
     os_options = list(
-        RetailPriceSnapshot.objects.filter(provider=provider)
+        RetailPriceSnapshot.objects.filter(
+            provider=provider,
+            service_category="compute",
+            resource_type="virtual_machines",
+        )
         .exclude(operating_system="")
         .values_list("operating_system", flat=True)
         .distinct()
@@ -221,6 +256,7 @@ def retail_price_dashboard(request):
             "sku_options": sku_options,
             "active_sku": active_sku,
             "product_filter": product_filter,
+            "product_options": product_options,
             "os_filter": os_filter,
             "os_options": os_options,
             "price_type": price_type,

@@ -69,6 +69,14 @@ def test_authenticated_customer_sees_eur_european_comparison_and_change(
     assert response.context["currency"] == "EUR"
     assert response.context["selected_regions"] == ["westeurope"]
     assert response.context["increased_count"] == 1
+    assert len(response.context["region_options"]) == 19
+    germany_north = next(
+        item
+        for item in response.context["region_options"]
+        if item["code"] == "germanynorth"
+    )
+    assert germany_north["restricted_access"] is True
+    assert germany_north["has_snapshot"] is False
     assert len(response.context["chart_series"][0]["data"]) == 2
     content = response.content.decode()
     assert "European Azure VM retail prices" in content
