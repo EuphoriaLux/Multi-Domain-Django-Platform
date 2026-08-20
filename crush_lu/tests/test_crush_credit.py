@@ -3100,3 +3100,457 @@ class CreditLockOrderTests(TestCase):
                 "EventRegistration; locking a payment at that point is the "
                 "ABBA the checkout path is commented to death about",
             )
+
+
+# ---------------------------------------------------------------------------
+# PR 2: the expiry sweep, the reminder email, and the staff-clicked refund
+# ---------------------------------------------------------------------------
+
+
+class CrushCreditExpirySweepTests(CreditFixture):
+    """``expire_crush_credits`` — flips exactly the right rows, and only those."""
+
+    def _backdate(self, credit, *, days_ago=1):
+        credit.expires_at = timezone.now() - timedelta(days=days_ago)
+        credit.save(update_fields=["expires_at"])
+        return credit
+
+    def test_flips_an_active_credit_past_its_expiry(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = self._backdate(
+            issue_credit(self.user, 500, CrushCredit.Reason.GOODWILL)
+        )
+
+        out = StringIO()
+        call_command("expire_crush_credits", stdout=out)
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.EXPIRED)
+        self.assertIn("Expired 1 credit", out.getvalue())
+
+    def test_leaves_a_not_yet_expired_active_credit_alone(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = issue_credit(
+            self.user, 500, CrushCredit.Reason.GOODWILL
+        )  # default 6mo out
+
+        call_command("expire_crush_credits", stdout=StringIO())
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
+    def test_never_touches_a_voided_or_consumed_row_even_if_stale(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        voided = self._backdate(
+            issue_credit(self.user, 500, CrushCredit.Reason.GOODWILL)
+        )
+        voided.status = CrushCredit.Status.VOID
+        voided.save(update_fields=["status"])
+
+        consumed = issue_credit(self.user, 100, CrushCredit.Reason.GOODWILL)
+        seat = self._registration(
+            self._event(hours_away=200, max_participants=5), self.user, status="pending"
+        )
+        # Spend it while it is still genuinely spendable (a future expiry —
+        # redeem_for_registration only considers expires_at > now), THEN
+        # backdate: the sweep must never touch a CONSUMED row, however stale.
+        redeem_for_registration(self.user, seat, 100)
+        consumed.refresh_from_db()
+        self.assertEqual(consumed.status, CrushCredit.Status.CONSUMED)
+        self._backdate(consumed)
+
+        call_command("expire_crush_credits", stdout=StringIO())
+
+        voided.refresh_from_db()
+        consumed.refresh_from_db()
+        self.assertEqual(voided.status, CrushCredit.Status.VOID)
+        self.assertEqual(consumed.status, CrushCredit.Status.CONSUMED)
+
+    def test_is_idempotent(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = self._backdate(
+            issue_credit(self.user, 500, CrushCredit.Reason.GOODWILL)
+        )
+
+        call_command("expire_crush_credits", stdout=StringIO())
+        second = StringIO()
+        call_command("expire_crush_credits", stdout=second)
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.EXPIRED)
+        self.assertIn("Expired 0 credit", second.getvalue())
+
+    def test_dry_run_writes_nothing(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = self._backdate(
+            issue_credit(self.user, 500, CrushCredit.Reason.GOODWILL)
+        )
+
+        call_command("expire_crush_credits", "--dry-run", stdout=StringIO())
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
+
+class CrushCreditExpiryReminderTests(CreditFixture):
+    """``send_crush_credit_expiry_reminders`` — one nudge per credit, ever."""
+
+    def _credit_expiring_in(self, days, *, amount_cents=2000, user=None):
+        from crush_lu.models.credits import CrushCreditExpiryReminder  # noqa: F401
+
+        credit = issue_credit(
+            user or self.user, amount_cents, CrushCredit.Reason.GOODWILL
+        )
+        credit.expires_at = timezone.now() + timedelta(days=days)
+        credit.save(update_fields=["expires_at"])
+        return credit
+
+    def test_reminds_a_credit_inside_the_default_window(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from crush_lu.models.credits import CrushCreditExpiryReminder
+
+        credit = self._credit_expiring_in(10)  # inside the default 14-day window
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertTrue(
+            CrushCreditExpiryReminder.objects.filter(credit=credit).exists()
+        )
+
+    def test_skips_a_credit_outside_the_window(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._credit_expiring_in(30)  # outside the default 14-day window
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_skips_an_already_expired_unswept_credit(self):
+        """The window is (now, now+N] — an unswept expired row is not "soon"."""
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = self._credit_expiring_in(5)
+        credit.expires_at = timezone.now() - timedelta(hours=1)
+        credit.save(update_fields=["expires_at"])
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_does_not_double_send_across_two_runs(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._credit_expiring_in(5)
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(
+            len(mail.outbox), 1, "the second run must find nothing left to remind"
+        )
+
+    def test_batches_two_credits_for_one_member_into_one_email(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from crush_lu.models.credits import CrushCreditExpiryReminder
+
+        self._credit_expiring_in(3)
+        self._credit_expiring_in(7)
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(
+            len(mail.outbox), 1, "one member, one email, however many credits"
+        )
+        self.assertEqual(CrushCreditExpiryReminder.objects.count(), 2)
+
+    def test_skips_a_credit_already_spent_out(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        credit = self._credit_expiring_in(5, amount_cents=100)
+        seat = self._registration(
+            self._event(hours_away=200, max_participants=5), self.user, status="pending"
+        )
+        redeem_for_registration(self.user, seat, 100)
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.CONSUMED)
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_skips_a_banned_or_deactivated_member(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._credit_expiring_in(5)
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_dry_run_sends_nothing(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        self._credit_expiring_in(5)
+
+        call_command(
+            "send_crush_credit_expiry_reminders", "--dry-run", stdout=StringIO()
+        )
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_the_cadence_is_configurable(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        # 20 days out is outside the default 14-day window...
+        self._credit_expiring_in(20)
+
+        with override_settings(CRUSH_CREDIT_EXPIRY_REMINDER_DAYS=25):
+            call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 1, "...but inside a widened one")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class RefundViaSumUpAdminActionTests(CreditFixture):
+    """The staff-clicked SumUp refund action — never automatic, never mis-scoped."""
+
+    def _cash_refund_eligible_credit(self, *, email="cashrefund@crush.lu"):
+        """A €20 event-cancellation credit backed by a real SUMUP PAID capture."""
+        event = self._event(hours_away=96, max_participants=5)
+        user = self._user(email)
+        self._paid_registration(event, user)
+        issued = credit_paid_registrations_for_cancelled_event(event)
+        self.assertEqual(len(issued), 1)
+        credit = issued[0]
+        self.assertTrue(credit.cash_refund_eligible)
+        return credit
+
+    def _staff(self):
+        staff = self._user("refundstaff@crush.lu")
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save(update_fields=["is_staff", "is_superuser"])
+        return staff
+
+    def _admin(self):
+        from crush_lu.admin import CrushCreditAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        return CrushCreditAdmin(CrushCredit, crush_admin_site)
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    @patch("crush_lu.admin.credits.SumUpClient.get_checkout")
+    def test_refunds_at_sumup_and_voids_the_credit(
+        self, mock_get_checkout, mock_refund
+    ):
+        credit = self._cash_refund_eligible_credit()
+        mock_get_checkout.return_value = {
+            "transactions": [
+                {
+                    "id": "txn-successful-1",
+                    "status": "SUCCESSFUL",
+                    "timestamp": "2026-08-01T10:00:00Z",
+                }
+            ]
+        }
+        mock_refund.return_value = {}
+
+        admin_obj = self._admin()
+        request = _admin_request(self._staff())
+        admin_obj.refund_via_sumup(request, CrushCredit.objects.filter(pk=credit.pk))
+
+        mock_get_checkout.assert_called_once_with(
+            credit.source_payment.sumup_checkout_id
+        )
+        # Full refund of what was CAPTURED (FEE, 1550c), never the credit's
+        # face value (the 2000c premium) — refund_transaction takes no amount
+        # kwarg at all for a full refund.
+        mock_refund.assert_called_once_with("txn-successful-1")
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        credit.source_payment.refresh_from_db()
+        self.assertEqual(
+            credit.source_payment.status, PaymentTransaction.Status.REFUNDED
+        )
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    @patch("crush_lu.admin.credits.SumUpClient.get_checkout")
+    def test_a_credit_already_spent_never_reaches_sumup(
+        self, mock_get_checkout, mock_refund
+    ):
+        """Not in CashRefundQueueFilter._open() -> skipped before any network call."""
+        credit = self._cash_refund_eligible_credit()
+        seat = self._registration(
+            self._event(hours_away=200, max_participants=5),
+            credit.user,
+            status="pending",
+        )
+        redeem_for_registration(credit.user, seat, 100)
+
+        admin_obj = self._admin()
+        request = _admin_request(self._staff())
+        admin_obj.refund_via_sumup(request, CrushCredit.objects.filter(pk=credit.pk))
+
+        mock_get_checkout.assert_not_called()
+        mock_refund.assert_not_called()
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    @patch("crush_lu.admin.credits.SumUpClient.get_checkout")
+    def test_a_goodwill_credit_is_never_cash_refund_eligible_so_is_skipped(
+        self, mock_get_checkout, mock_refund
+    ):
+        credit = issue_credit(self.user, 2000, CrushCredit.Reason.GOODWILL)
+        self.assertFalse(credit.cash_refund_eligible)
+
+        admin_obj = self._admin()
+        request = _admin_request(self._staff())
+        admin_obj.refund_via_sumup(request, CrushCredit.objects.filter(pk=credit.pk))
+
+        mock_get_checkout.assert_not_called()
+        mock_refund.assert_not_called()
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
+    def test_requires_the_dedicated_refund_permission(self):
+        admin_obj = self._admin()
+        staff = self._user("nopower@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = _admin_request(staff)
+
+        self.assertFalse(admin_obj.has_refund_permission(request))
+        with self.assertRaises(PermissionDenied):
+            admin_obj.refund_via_sumup(request, CrushCredit.objects.none())
+
+    def test_refund_permission_is_distinct_from_void_permission(self):
+        from django.contrib.auth.models import Permission
+
+        admin_obj = self._admin()
+        staff = self._user("voidonly@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        void_perm = Permission.objects.get(
+            codename="void_crushcredit",
+            content_type__app_label="crush_lu",
+            content_type__model="crushcredit",
+        )
+        staff.user_permissions.add(void_perm)
+        request = _admin_request(staff)
+
+        self.assertTrue(admin_obj.has_void_permission(request))
+        self.assertFalse(
+            admin_obj.has_refund_permission(request),
+            "voiding and refunding are separate grants — one flips a local "
+            "flag, the other moves real money at SumUp",
+        )
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    def test_a_sumup_error_voids_nothing_and_reports_loudly(self, mock_refund):
+        from crush_lu.services.sumup import SumUpError
+
+        mock_refund.side_effect = SumUpError("409 already refunded")
+        credit = self._cash_refund_eligible_credit()
+
+        with patch(
+            "crush_lu.admin.credits.SumUpClient.get_checkout",
+            return_value={
+                "transactions": [
+                    {"id": "txn-x", "status": "SUCCESSFUL", "timestamp": "t"}
+                ]
+            },
+        ):
+            admin_obj = self._admin()
+            request = _admin_request(self._staff())
+            admin_obj.refund_via_sumup(
+                request, CrushCredit.objects.filter(pk=credit.pk)
+            )
+
+        credit.refresh_from_db()
+        self.assertEqual(
+            credit.status,
+            CrushCredit.Status.ACTIVE,
+            "a failed SumUp call must never void the credit — nothing changed "
+            "here means nothing changed",
+        )
+
+
+class CrushCreditRefundNeverAutomaticTests(CreditFixture):
+    """Pin the safe/human-clicked line the whole PR is about."""
+
+    @patch("crush_lu.services.sumup.SumUpClient.refund_transaction")
+    def test_neither_scheduled_command_ever_calls_the_refund_client(self, mock_refund):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        event = self._event(hours_away=96, max_participants=5)
+        user = self._user("untouched@crush.lu")
+        self._paid_registration(event, user)
+        issued = credit_paid_registrations_for_cancelled_event(event)
+        credit = issued[0]
+        credit.expires_at = timezone.now() - timedelta(days=1)
+        credit.save(update_fields=["expires_at"])
+
+        call_command("expire_crush_credits", stdout=StringIO())
+        call_command("send_crush_credit_expiry_reminders", stdout=StringIO())
+
+        mock_refund.assert_not_called()
+
+    def test_neither_command_source_even_imports_the_refund_client(self):
+        """A structural pin, not just a mocked-call check — see
+        ``CreditRowsStayOutOfSumUpTests`` for the same idiom applied to
+        ``sumup_checkout_status``."""
+        import inspect
+
+        from crush_lu.management.commands import (
+            expire_crush_credits,
+            send_crush_credit_expiry_reminders,
+        )
+
+        for module in (expire_crush_credits, send_crush_credit_expiry_reminders):
+            src = inspect.getsource(module)
+            self.assertNotIn("SumUpClient", src)
+            self.assertNotIn("refund_transaction", src)

@@ -215,6 +215,11 @@ class CrushCredit(models.Model):
         permissions = [
             ("issue_crushcredit", "Can issue Crush Credit (goodwill)"),
             ("void_crushcredit", "Can void Crush Credit"),
+            # Separate from void_crushcredit: voiding only flips a local status
+            # flag, while this permission gates an action that calls SumUp and
+            # moves a real euro out of the merchant account. A void-only staffer
+            # should not be able to trigger that by selecting the wrong action.
+            ("refund_crushcredit", "Can refund Crush Credit via SumUp"),
         ]
 
     def __str__(self):
@@ -333,3 +338,37 @@ class CreditRedemption(models.Model):
             f"{format_cents(self.amount_cents, 'EUR')} off credit #{self.credit_id} "
             f"→ registration {self.event_registration_id}"
         )
+
+
+class CrushCreditExpiryReminder(models.Model):
+    """One "your credit expires soon" email, recorded so it is sent once.
+
+    Mirrors ``ProfileReminder``'s role rather than adding a field to
+    ``CrushCredit`` itself: that model's own docstring is explicit that
+    ``status`` is "the one mutable field" on an otherwise append-only ledger
+    row, and a reminder email is bookkeeping about outreach, not about the
+    credit's lifecycle. A ``OneToOne`` because a credit is only ever reminded
+    once — there is no "24h/72h/7d" cadence here, just a single nudge before
+    the clock runs out.
+
+    Created only after ``send_domain_email`` reports success (see
+    ``email_helpers.send_crush_credit_expiry_reminder``), so a crashed run
+    leaves no false "sent" record and the credit is simply picked up again by
+    the next sweep.
+    """
+
+    credit = models.OneToOneField(
+        CrushCredit,
+        on_delete=models.CASCADE,
+        related_name="expiry_reminder",
+    )
+    sent_at = models.DateTimeField(
+        auto_now_add=True, help_text=_("When the reminder was sent")
+    )
+
+    class Meta:
+        verbose_name = _("Crush Credit Expiry Reminder")
+        verbose_name_plural = _("Crush Credit Expiry Reminders")
+
+    def __str__(self):
+        return f"Expiry reminder for credit #{self.credit_id} ({self.sent_at.date()})"

@@ -1,0 +1,29 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Crush Credit expires soon" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Your Crush Credit expires soon" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans count counter=credit_lines|length %}You have Crush Credit that is about to expire:{% plural %}You have Crush Credit that is about to expire:{% endblocktrans %}</p>
+
+<div class="info-box">
+    <p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}{{ amount }} EUR still to spend{% endblocktrans %}</strong></p>
+    <ul style="margin: 10px 0;">
+        {% for line in credit_lines %}
+        <li>
+            {% blocktrans with amount=line.amount expiry=line.expires_at|date:"DATE_FORMAT" %}{{ amount }} EUR, valid until {{ expiry }}{% endblocktrans %}
+            {% if line.cash_refund_available %}&mdash; {% trans "the cash-refund option on this one closes the same day" %}{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<p>{% trans "Once a credit's date passes it can no longer be spent on an event seat. Book something before then and it's used automatically at checkout — no code to enter." %}</p>
+
+<p><a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}
