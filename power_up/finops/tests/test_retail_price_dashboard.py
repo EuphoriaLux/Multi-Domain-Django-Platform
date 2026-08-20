@@ -28,6 +28,19 @@ def test_price_dashboard_requires_login(client):
 
 
 @pytest.mark.django_db
+def test_power_up_login_page_uses_domain_safe_template(client):
+    response = client.get(
+        "/accounts/login/?next=/finops/prices/",
+        HTTP_HOST="test.powerup.lu",
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Power Hub" in content
+    assert "Access the protected Azure price tracker." in content
+
+
+@pytest.mark.django_db
 def test_authenticated_customer_sees_eur_european_comparison_and_change(
     client, regular_user
 ):
