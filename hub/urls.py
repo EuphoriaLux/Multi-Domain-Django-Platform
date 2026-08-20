@@ -1,6 +1,10 @@
 from django.urls import path
 
 from . import views
+from .views_events import (
+    EventCancellationDetailView,
+    EventCancellationsView,
+)
 from .views_finance import (
     PaymentsInView,
     PaymentsOutView,
@@ -25,6 +29,7 @@ from .views_social import (
     SocialPostsView,
     SocialUpcomingEventsView,
 )
+from .views_team import TeamMembersView
 
 app_name = "hub"
 
@@ -39,6 +44,8 @@ urlpatterns = [
     path("timeline/", views.TimelineView.as_view()),
     path("locations", views.LocationsView.as_view(), name="locations"),
     path("locations/", views.LocationsView.as_view()),
+    path("team", TeamMembersView.as_view(), name="team"),
+    path("team/", TeamMembersView.as_view()),
     # Financials & Accounting Routes
     path("payments-in", PaymentsInView.as_view(), name="payments_in"),
     path("payments-in/", PaymentsInView.as_view()),
@@ -48,6 +55,19 @@ urlpatterns = [
     path("payroll/", PayrollView.as_view()),
     path("refunds", RefundsView.as_view(), name="refunds"),
     path("refunds/", RefundsView.as_view()),
+    # Event Cancellation Reporting Routes (read-only, live-read from crush_lu)
+    path(
+        "events/cancelled",
+        EventCancellationsView.as_view(),
+        name="event_cancellations",
+    ),
+    path("events/cancelled/", EventCancellationsView.as_view()),
+    path(
+        "events/<int:pk>/cancellation",
+        EventCancellationDetailView.as_view(),
+        name="event_cancellation_detail",
+    ),
+    path("events/<int:pk>/cancellation/", EventCancellationDetailView.as_view()),
     # Social Media Marketing Routes
     path("social/posts", SocialPostsView.as_view(), name="social_posts"),
     path("social/posts/", SocialPostsView.as_view()),

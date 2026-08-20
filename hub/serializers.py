@@ -390,6 +390,155 @@ class SocialPostSerializer(serializers.ModelSerializer):
         return value
 
 
+class EventCancellationSummarySerializer(serializers.Serializer):
+    """One cancelled event plus its bulk cancellation aggregates.
+
+    Backs both ``GET /hub/events/cancelled`` (one row per event) and, for the
+    single event it names, the ``"event"`` key of
+    ``GET /hub/events/<pk>/cancellation``. Source objects are plain
+    ``MeetupEvent`` rows annotated in the view with the four aggregate
+    attributes below — there is no model to serialize these off directly, see
+    ``hub/views_events.py``.
+    """
+
+    id = serializers.CharField(source="pk", read_only=True)
+    title = serializers.CharField(read_only=True)
+    eventType = serializers.SerializerMethodField()
+    dateTime = serializers.DateTimeField(source="date_time", read_only=True)
+    isCancelled = serializers.BooleanField(source="is_cancelled", read_only=True)
+    organiserCancellationStartedAt = serializers.DateTimeField(
+        source="organiser_cancellation_started_at", read_only=True
+    )
+    affectedRegistrations = serializers.IntegerField(
+        source="affected_registrations", read_only=True
+    )
+    issuedCreditsCount = serializers.IntegerField(
+        source="issued_credits_count", read_only=True
+    )
+    issuedCreditsTotalCents = serializers.IntegerField(
+        source="issued_credits_total_cents", read_only=True
+    )
+    openCashRefundTotalCents = serializers.IntegerField(
+        source="open_cash_refund_total_cents", read_only=True
+    )
+
+    def get_eventType(self, obj):
+        return obj.get_event_type_display()
+
+
+class LinkedCrushCreditSerializer(serializers.Serializer):
+    """The one EVENT_CANCELLED credit representing a cancelled registration.
+
+    Deliberately thin: this is a pointer into the real ledger
+    (``crush_lu.models.credits.CrushCredit``), not a copy of it. Staff follow
+    up in the Crush Credit admin for anything beyond these three fields.
+    """
+
+    id = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    amountCents = serializers.IntegerField(source="amount_cents", read_only=True)
+    cashRefundEligible = serializers.BooleanField(
+        source="cash_refund_eligible", read_only=True
+    )
+
+
+class EventCancellationRegistrationSerializer(serializers.Serializer):
+    """One self-cancelled registration for a cancelled event, credit attached.
+
+    Source rows are ``EventRegistration`` instances the view annotates with
+    ``linked_credit`` (a ``CrushCredit`` or ``None``) and ``open_cash_refund``
+    (a bool computed from the *exact* same predicate the staff cash-refund
+    queue uses — see ``CashRefundQueueFilter._open`` in
+    ``crush_lu/admin/credits.py`` and ``hub/views_events.py``).
+    """
+
+    id = serializers.CharField(source="pk", read_only=True)
+    userEmail = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
+    cancelledAt = serializers.DateTimeField(source="cancelled_at", read_only=True)
+    paymentConfirmed = serializers.BooleanField(
+        source="payment_confirmed", read_only=True
+    )
+    credit = serializers.SerializerMethodField()
+    openCashRefund = serializers.BooleanField(source="open_cash_refund", read_only=True)
+
+    def get_userEmail(self, obj):
+        return obj.user.email if obj.user_id else None
+
+    def get_credit(self, obj):
+        credit = getattr(obj, "linked_credit", None)
+        if credit is None:
+            return None
+        return LinkedCrushCreditSerializer(credit).data
+
+
+TEAM_GRADIENT_PALETTE = [
+    "linear-gradient(135deg, #6366f1, #ec4899)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+]
+
+
+class TeamMemberSerializer(serializers.Serializer):
+    """Read-only shape for the CRM's ``/team`` page.
+
+    Field names mirror the SPA's ``TeamMember`` type in
+    ``Codex_Marketing_CRM/frontend/app/team/page.tsx`` exactly (``name``,
+    ``role``, ``initial``, ``gradient``, ``events``, ``presence``), so that
+    page can swap its hardcoded ``MEMBERS`` array for a fetch against this
+    endpoint without any shape change. Serializes a live
+    ``crush_lu.CrushCoach`` queryset (see ``hub/views_team.py``) rather than
+    a hub-only model -- there is no hub-specific write state the roster
+    needs.
+
+    Two fields have no CrushCoach-native source and are assumptions the PR
+    flags for Tom/frontend to confirm:
+      - ``role``: CrushCoach has no job-title field, so this falls back to
+        ``specializations`` (e.g. "Young professionals, Students") or the
+        literal string "Coach" when blank. It will not read "Fondateur" /
+        "Co-fondateur" the way the current mock does.
+      - ``presence``: there is no coach-attendance data source at all --
+        ``MeetupEvent.coaches`` is a plain M2M with no through/check-in
+        model -- so this always returns "-", the same placeholder value the
+        SPA mock itself uses today.
+    """
+
+    name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    initial = serializers.SerializerMethodField()
+    gradient = serializers.SerializerMethodField()
+    events = serializers.SerializerMethodField()
+    presence = serializers.SerializerMethodField()
+
+    def _display_name(self, obj):
+        user = obj.user
+        return user.get_full_name() or user.first_name or user.get_username()
+
+    def get_name(self, obj):
+        return self._display_name(obj)
+
+    def get_role(self, obj):
+        return obj.specializations or "Coach"
+
+    def get_initial(self, obj):
+        name = self._display_name(obj)
+        return name[0].upper() if name else "?"
+
+    def get_gradient(self, obj):
+        return TEAM_GRADIENT_PALETTE[obj.pk % len(TEAM_GRADIENT_PALETTE)]
+
+    def get_events(self, obj):
+        # The view annotates `events_count` (Count("assigned_events")) to
+        # avoid an N+1; fall back to a live count so this serializer stays
+        # correct if ever used against an un-annotated instance.
+        events_count = getattr(obj, "events_count", None)
+        if events_count is None:
+            events_count = obj.assigned_events.count()
+        return events_count
+
+    def get_presence(self, obj):
+        return "—"  # em dash, same placeholder value the SPA mock uses
+
+
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
 
