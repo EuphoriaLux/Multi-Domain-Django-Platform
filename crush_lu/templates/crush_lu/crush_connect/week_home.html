@@ -1,0 +1,52 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Connect Week" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-3xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-7">
+        <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
+            {% blocktrans with day=day_number total=cycle_length %}Day {{ day }} of {{ total }}{% endblocktrans %}
+        </p>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Your Connect Week" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-sm">
+            {% trans "Three fresh faces today. Answer their questions — your guesses are private and shape Sunday's review." %}
+        </p>
+        {# 7-day progress dots #}
+        <div class="flex items-center gap-1.5 mt-4" aria-hidden="true">
+            {% for d in "1234567" %}
+            <span class="h-1.5 flex-1 rounded-full {% if forloop.counter < day_number %}bg-crush-purple{% elif forloop.counter == day_number %}bg-gradient-to-r from-crush-purple to-crush-pink{% else %}bg-gray-200 dark:bg-slate-700{% endif %}"></span>
+            {% endfor %}
+        </div>
+    </header>
+
+    {% if cards %}
+        <div class="grid grid-cols-1 gap-6">
+            {% for card in cards %}
+                {% include "crush_lu/crush_connect/_cycle_card.html" with card=card target=card.target_user target_profile=card.target_user.crushprofile target_membership=card.target_user.crush_connect_membership answered_ids=answered_ids %}
+            {% endfor %}
+        </div>
+        <p class="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+            {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
+            <span>{% trans "Miss a day and its cards expire — they can't be caught up. Your answers stay private until Sunday's review." %}</span>
+        </p>
+    {% else %}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <div class="mx-auto w-20 h-20 mb-5 ghost-glow">
+                {% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}
+            </div>
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "No cards for today." %}
+            </h2>
+            <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
+                {% trans "We didn't find anyone new to introduce you to today. Come back tomorrow — your cycle keeps counting down." %}
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

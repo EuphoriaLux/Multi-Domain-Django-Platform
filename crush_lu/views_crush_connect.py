@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
-from crush_lu.connect_phase import candidate_access_open, receiver_access_open
+from crush_lu.connect_phase import candidate_access_open, cycle_access_open, receiver_access_open
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
@@ -858,6 +858,22 @@ def crush_connect_hub(request):
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
+    # 7-Day Connect Cycle (Task 13.2+) — event-verified members get a card
+    # deep-linking into their Connect Week alongside the Drop/catalogue tile.
+    # cycle_access_open widens beyond is_receiver in the beta (see its
+    # docstring); still requires onboarding like every other Connect surface.
+    cycle_access = bool(
+        (user.is_staff or cycle_access_open(user))
+        and membership is not None
+        and membership.is_onboarded
+    )
+    # Mirrors staff_preview above: _connect_week_access_blocker fully bypasses
+    # onboarding for staff (same as _connect_access_blocker does for Today's
+    # Drop), but cycle_access itself requires onboarding even for staff — so
+    # an unonboarded staff member needs an explicit preview link, or they have
+    # no UI path in (only reachable by typing the URL directly).
+    cycle_staff_preview = bool(user.is_staff and not cycle_access)
+
     # Mirrors the sparks_received listing, including the coach/member pair
     # rule — a badge counting Sparks the list refuses to show is a dead end.
     pending_sparks_count = (
@@ -888,6 +904,8 @@ def crush_connect_hub(request):
         "membership": membership,
         "track": "receiver" if is_receiver else "candidate",
         "is_receiver": is_receiver,
+        "cycle_access": cycle_access,
+        "cycle_staff_preview": cycle_staff_preview,
         "staff_preview": staff_preview,
         "is_coach": bool(coach and coach.is_active),
         "pending_sparks_count": pending_sparks_count,
