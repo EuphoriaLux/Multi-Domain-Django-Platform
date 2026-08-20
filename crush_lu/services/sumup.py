@@ -35,6 +35,39 @@ def clean_credential(value: Optional[str]) -> str:
     return cleaned
 
 
+def extract_successful_transaction_id(checkout_data: Dict[str, Any]) -> Optional[str]:
+    """Pick the transaction id to refund out of a checkout's ``transactions``.
+
+    ``SumUpClient.refund_transaction`` takes a transaction id, not a checkout
+    id — a checkout can carry more than one attempt (a declined card before
+    the one that worked), so this picks the latest SUCCESSFUL/PAID entry's
+    own ``id``. Mirrors the same defensive parsing
+    ``crush_lu.services.credits._replacement_capture_moment`` already does
+    over this exact payload shape.
+
+    Returns ``None`` when the checkout has no successful transaction to
+    refund (e.g. it never captured, or the payload shape is unexpected) —
+    callers must treat that as "cannot refund", not retry with a guess.
+    """
+    transactions = (
+        checkout_data.get("transactions") if isinstance(checkout_data, dict) else None
+    )
+    if not isinstance(transactions, list):
+        return None
+
+    candidates = [
+        entry
+        for entry in transactions
+        if isinstance(entry, dict)
+        and (entry.get("status") or "").upper() in ("SUCCESSFUL", "PAID")
+        and entry.get("id")
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda entry: entry.get("timestamp") or "")
+    return candidates[-1]["id"]
+
+
 class SumUpClient:
     """
     Wrapper for SumUp Online Payments REST API.
@@ -195,6 +228,90 @@ class SumUpClient:
         except requests.RequestException as exc:
             logger.error("SumUp create_customer failed: %s", exc)
             raise SumUpError(f"Failed to create SumUp customer {customer_id}") from exc
+
+    def refund_transaction(
+        self, transaction_id: str, amount: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Refund an already-captured transaction, in full or in part.
+
+        Endpoint: POST /v1.0/merchants/{merchant_code}/payments/{transaction_id}/refunds
+
+        Verified 2026-08-20 against the canonical spec at
+        https://github.com/sumup/sumup-openapi/blob/main/openapi.yaml
+        (operationId ``RefundTransaction``) — not written from memory. That
+        spec lists ``security: [apiKey: [], oauth2: [payments, refunds.write]]``,
+        so the same Bearer secret-key auth this client already uses for every
+        other call (create_checkout, get_checkout, ...) applies here too; the
+        older ``/v0.1/me/refund/{txn_id}`` guide page's "Authorization Code
+        flow only" note is about a different, OAuth-app-only endpoint and does
+        not apply to this one.
+
+        ⚠️ ``transaction_id`` is **not** a checkout id. It is the ``id`` of one
+        entry in a checkout's ``transactions`` array (see
+        :func:`extract_successful_transaction_id`) — SumUp returns 404 if
+        handed a checkout id here.
+
+        :param transaction_id: The SumUp transaction id to refund (a UUID from
+            the checkout's ``transactions`` array), never a checkout id.
+        :param amount: Omit for a full refund. Pass a EUR amount for a partial
+            refund — capped at what remains refundable on the transaction;
+            SumUp answers 422 if it is exceeded.
+
+        Returns the (usually empty) JSON body on a 201. Raises ``SumUpError``
+        on any non-2xx response, including SumUp's own "already refunded /
+        not in a refundable state" 409 — callers must not treat that as
+        silent success, and must not retry it as if it might yet work.
+
+        ⚠️ **Staff-clicked only.** The only caller in this codebase is
+        ``crush_lu.admin.credits.CrushCreditAdmin.refund_via_sumup``, a
+        Django admin action that requires an explicit row selection and
+        button click plus the ``refund_crushcredit`` permission. This method
+        must never be invoked from a management command, a signal, or a
+        scheduled sweep — see the module note in CLAUDE.md on
+        ``ImmediateBackend`` running tasks inline: there is no safe "fire and
+        forget" here, only a human deciding to move real money.
+        """
+        if not self.merchant_code:
+            raise SumUpError(
+                "SUMUP_MERCHANT_CODE is not configured — required to refund "
+                "(the endpoint is scoped to /merchants/{merchant_code}/...)."
+            )
+        url = (
+            f"{self.BASE_URL}/v1.0/merchants/{self.merchant_code}/payments/"
+            f"{transaction_id}/refunds"
+        )
+        payload: Optional[Dict[str, Any]] = None
+        if amount is not None:
+            payload = {"amount": round(float(amount), 2)}
+
+        try:
+            response = requests.post(
+                url, json=payload, headers=self._get_headers(), timeout=10
+            )
+            response.raise_for_status()
+            if not response.content:
+                return {}
+            return response.json()
+        except requests.RequestException as exc:
+            logger.error(
+                "SumUp refund_transaction failed for transaction %s: %s",
+                transaction_id,
+                exc,
+                exc_info=True,
+            )
+            err_msg = str(exc)
+            if hasattr(exc, "response") and exc.response is not None:
+                try:
+                    err_data = exc.response.json()
+                    err_msg = (
+                        err_data.get("detail")
+                        or err_data.get("message")
+                        or str(err_data)
+                    )
+                except Exception:
+                    err_msg = exc.response.text or str(exc)
+            raise SumUpError(f"SumUp Refund Error: {err_msg}") from exc
 
     def charge_recurring(
         self,

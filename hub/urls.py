@@ -29,6 +29,7 @@ from .views_social import (
     SocialPostsView,
     SocialUpcomingEventsView,
 )
+from .views_team import TeamMembersView
 
 app_name = "hub"
 
@@ -43,6 +44,8 @@ urlpatterns = [
     path("timeline/", views.TimelineView.as_view()),
     path("locations", views.LocationsView.as_view(), name="locations"),
     path("locations/", views.LocationsView.as_view()),
+    path("team", TeamMembersView.as_view(), name="team"),
+    path("team/", TeamMembersView.as_view()),
     # Financials & Accounting Routes
     path("payments-in", PaymentsInView.as_view(), name="payments_in"),
     path("payments-in/", PaymentsInView.as_view()),

@@ -12,14 +12,18 @@ Two staff surfaces beyond the ledger itself:
   answer, and a blank note makes it unanswerable a month later.
 * **The cash-refund queue**, a filter over ``cash_refund_eligible``. When
   Crush.lu cancels an event, Luxembourg consumer guidance entitles the member
-  to their money back if they ask, and a voucher is not a substitute. The
-  refund itself is still made by hand in the SumUp dashboard — this is how a
-  human finds everyone who may ask.
+  to their money back if they ask, and a voucher is not a substitute. Staff
+  can send the refund at SumUp and withdraw the credit in one click via
+  ``refund_via_sumup`` — the row still has to be found and selected by a
+  human, and the action never runs anywhere unattended.
 """
 
+import logging
+import time
 from decimal import ROUND_HALF_UP, Decimal
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -31,8 +35,28 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
-from crush_lu.services.credits import available_credit_cents, issue_credit, void_credit
+from crush_lu.models.payments import PaymentTransaction
+from crush_lu.services.credits import (
+    available_credit_cents,
+    issue_credit,
+    payment_amount_cents,
+    void_credit,
+)
+from crush_lu.services.sumup import (
+    SumUpClient,
+    SumUpError,
+    extract_successful_transaction_id,
+)
 from crush_lu.utils.formatting import format_cents
+
+logger = logging.getLogger(__name__)
+
+# Same bound as PaymentTransactionAdmin.recheck_with_sumup, and for the same
+# reason: no task worker, so this runs inline in the admin request, one
+# 10s-timeout call at a time, under a gunicorn timeout. Read per call, not at
+# import, so override_settings actually reaches them.
+DEFAULT_REFUND_LIMIT = 20
+DEFAULT_REFUND_BUDGET_SECONDS = 60.0
 
 _STATUS_COLOURS = {
     CrushCredit.Status.ACTIVE: ("#28a745", "💳"),
@@ -140,7 +164,7 @@ class CrushCreditAdmin(admin.ModelAdmin):
     date_hierarchy = "issued_at"
     ordering = ["-issued_at"]
     inlines = [CreditRedemptionInline]
-    actions = ["void_credits"]
+    actions = ["void_credits", "refund_via_sumup"]
 
     readonly_fields = (
         "user",
@@ -188,8 +212,11 @@ class CrushCreditAdmin(admin.ModelAdmin):
                 "description": (
                     "Set only when Crush.lu cancelled the event. Those members "
                     "may ask for their money back instead of the credit, and "
-                    "are entitled to it. Refund by hand in the SumUp dashboard, "
-                    "then void this credit."
+                    "are entitled to it. Select eligible rows on the changelist "
+                    "and use the &ldquo;Refund via SumUp&rdquo; action to send "
+                    "the money and void the credit in one step, or refund by "
+                    "hand in the SumUp dashboard and use &ldquo;Void selected "
+                    "credits&rdquo; instead."
                 ),
             },
         ),
@@ -338,6 +365,193 @@ class CrushCreditAdmin(admin.ModelAdmin):
                 level=messages.WARNING,
             )
 
+    @admin.action(
+        description="💶 Refund via SumUp (sends real money — staff click only)",
+        permissions=["refund"],
+    )
+    def refund_via_sumup(self, request, queryset):
+        """Actually send the cash back at SumUp, then withdraw the credit.
+
+        This is the automated half of the workflow the "Cash refund"
+        fieldset describes: until now a coach had to leave the admin, refund
+        by hand in the SumUp dashboard, come back, and run "Void selected
+        credits" separately — two systems, two steps, easy to do one and
+        forget the other. This action does both in one click, for exactly
+        the same rows ``void_credits`` would let through and no others.
+
+        **Never automated.** There is no scheduled job, signal, or
+        management command anywhere in this codebase that calls
+        ``SumUpClient.refund_transaction`` — this admin action, requiring an
+        explicit row selection, the "Go" button, and the
+        ``refund_crushcredit`` permission, is its only caller. See that
+        method's docstring for why.
+
+        Eligibility is intersected against
+        ``CashRefundQueueFilter._open()`` — the exact same predicate that
+        decides what the "May still ask for cash" filter shows — so a
+        credit that has been spent, voided, expired, or was never
+        cash-refund-eligible in the first place is silently skipped rather
+        than refunded. The refund amount is always the **payment's**
+        captured amount, never the credit's face value: the §4.3 premium
+        issues €20.00 credit against a €15.50 payment, and refunding €20.00
+        in cash on top of that would hand back more than was ever taken.
+
+        Bounded like ``PaymentTransactionAdmin.recheck_with_sumup`` — no
+        task worker, so this calls SumUp inline, one row at a time, under a
+        gunicorn timeout.
+        """
+        if not self.has_refund_permission(request):
+            raise PermissionDenied
+
+        eligible_pks = set(
+            CashRefundQueueFilter(None, {}, CrushCredit, self)
+            ._open(CrushCredit.objects.all())
+            .values_list("pk", flat=True)
+        )
+
+        limit = getattr(settings, "SUMUP_ADMIN_REFUND_LIMIT", DEFAULT_REFUND_LIMIT)
+        budget = getattr(
+            settings, "SUMUP_ADMIN_REFUND_BUDGET_SECONDS", DEFAULT_REFUND_BUDGET_SECONDS
+        )
+        deadline = time.monotonic() + budget
+
+        refunded = failed = skipped = 0
+        stopped_early = []
+
+        for credit in queryset.select_related("source_payment").order_by("pk"):
+            if credit.pk not in eligible_pks:
+                skipped += 1
+                continue
+
+            if refunded + failed >= limit or time.monotonic() > deadline:
+                stopped_early.append(credit.pk)
+                continue
+
+            payment = credit.source_payment
+            if (
+                payment is None
+                or payment.provider != PaymentTransaction.Provider.SUMUP
+                or payment.status != PaymentTransaction.Status.PAID
+                or not payment.sumup_checkout_id
+            ):
+                skipped += 1
+                self.message_user(
+                    request,
+                    f"Credit #{credit.pk}: no refundable SumUp payment attached — "
+                    "skipped.",
+                    level=messages.WARNING,
+                )
+                continue
+
+            try:
+                client = SumUpClient()
+                checkout_data = client.get_checkout(payment.sumup_checkout_id)
+                transaction_id = extract_successful_transaction_id(checkout_data)
+                if not transaction_id:
+                    raise SumUpError("no successful transaction found on this checkout")
+                # Full refund of what was actually captured — never the
+                # credit's face value. Omitting `amount` is a full refund.
+                client.refund_transaction(transaction_id)
+            except Exception as exc:  # noqa: BLE001 — never 500 the admin on a
+                # provider call. Mirrors recheck_with_sumup: a bare connection
+                # error must report exactly like a SumUpError, not crash the
+                # changelist mid-selection and leave later rows unattempted.
+                failed += 1
+                logger.error(
+                    "SumUp refund failed for credit %s (payment %s): %s",
+                    credit.pk,
+                    payment.pk,
+                    exc,
+                    exc_info=True,
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit.pk}: SumUp refund FAILED — {exc}. Nothing "
+                    "was changed here; the credit is still active and no cash "
+                    "moved (or SumUp already reports it as refunded/not "
+                    "refundable — check the SumUp dashboard before retrying).",
+                    level=messages.ERROR,
+                )
+                continue
+
+            # The money has now genuinely left the merchant account. From here
+            # on a failure must never look like "nothing happened" — wrap the
+            # local write separately so a DB hiccup still reaches staff with
+            # the one message that matters: reconcile by hand, the refund
+            # already went through.
+            try:
+                _credit, outcome = void_credit(
+                    credit.pk,
+                    note=(
+                        f"— refunded "
+                        f"{format_cents(payment_amount_cents(payment), payment.currency)} "
+                        f"via SumUp (txn {transaction_id}) by "
+                        f"{request.user.email or request.user}."
+                    ),
+                    mark_source_payment_refunded=True,
+                )
+            except Exception as exc:  # noqa: BLE001 — see comment above
+                logger.error(
+                    "Credit %s: SumUp refund (txn %s) succeeded but voiding "
+                    "the local ledger raised: %s",
+                    credit.pk,
+                    transaction_id,
+                    exc,
+                    exc_info=True,
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit.pk}: SumUp refund SUCCEEDED (txn "
+                    f"{transaction_id}) but recording it here raised an error "
+                    f"({exc}) — the member has already been refunded in cash; "
+                    "reconcile the credit ledger by hand now.",
+                    level=messages.ERROR,
+                )
+                continue
+
+            if outcome == "voided":
+                refunded += 1
+                self.message_user(
+                    request,
+                    f"Credit #{credit.pk}: refunded via SumUp and voided.",
+                    level=messages.SUCCESS,
+                )
+            else:
+                # The money is already gone at SumUp — this is not a state to
+                # retry, it is a state to reconcile by hand immediately.
+                self.message_user(
+                    request,
+                    f"Credit #{credit.pk}: SumUp refund SUCCEEDED (txn "
+                    f"{transaction_id}) but the credit could not be voided "
+                    f"automatically (outcome={outcome}) — the member has "
+                    "already been refunded in cash; reconcile the credit "
+                    "ledger by hand now.",
+                    level=messages.ERROR,
+                )
+
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} selected row(s) were not eligible (not in the open "
+                "cash-refund queue, or carry no refundable SumUp payment) and "
+                "were left alone.",
+                level=messages.WARNING,
+            )
+        if stopped_early:
+            self.message_user(
+                request,
+                f"Stopped after the limit/time budget — {len(stopped_early)} "
+                "eligible row(s) not attempted this run. Re-run the action on "
+                "those.",
+                level=messages.WARNING,
+            )
+        if refunded and not failed:
+            self.message_user(
+                request,
+                f"Refunded {refunded} credit(s) via SumUp.",
+                level=messages.SUCCESS,
+            )
+
     def has_add_permission(self, request):
         # Issued through services.credits.issue_credit, which is also what
         # clears payment_confirmed on the seat being credited. A hand-made row
@@ -350,6 +564,13 @@ class CrushCreditAdmin(admin.ModelAdmin):
     def has_void_permission(self, request):
         return request.user.is_superuser or request.user.has_perm(
             "crush_lu.void_crushcredit"
+        )
+
+    def has_refund_permission(self, request):
+        # Deliberately separate from has_void_permission: this one calls
+        # SumUp and moves a real euro, void only flips a local status flag.
+        return request.user.is_superuser or request.user.has_perm(
+            "crush_lu.refund_crushcredit"
         )
 
     def has_delete_permission(self, request, obj=None):
