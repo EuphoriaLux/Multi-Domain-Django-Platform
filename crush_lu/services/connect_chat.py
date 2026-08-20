@@ -294,6 +294,14 @@ def propose_venue(
             if coffee_date.status == ConnectCoffeeDate.Status.CONFIRMED_BY_BOTH:
                 raise ValueError("already_confirmed")
             was_accepted = coffee_date.status == ConnectCoffeeDate.Status.ACCEPTED
+            # Whoever edits now owns these terms — the self-accept guard in
+            # ``accept_venue`` compares against ``proposer_id``, so leaving
+            # this pointed at the original proposer would let the editor
+            # "accept" terms they themselves just rewrote (no one else's
+            # agreement obtained). Reassigning here is what keeps "the
+            # counterpart accepts" true after an edit, not just after the
+            # first proposal.
+            coffee_date.proposer = proposer
             coffee_date.venue_location = venue_location
             coffee_date.custom_venue_name = "" if venue_location else custom_venue_name
             coffee_date.custom_venue_address = (
@@ -321,9 +329,13 @@ def accept_venue(coffee_date, user):
     """The counterpart (not the proposer) accepts a pending plan.
 
     PROPOSED/RESCHEDULED -> ACCEPTED. Raises ``ValueError``:
-    ``not_participant``, ``cannot_self_accept`` (the proposer can't accept
-    their own plan — accepting is the *other* side's step), ``not_pending``
-    (already ACCEPTED/CONFIRMED_BY_BOTH/CANCELLED).
+    ``not_participant``, ``chat_closed`` (the chat has since gone
+    BLOCKED/CLOSED — synced first so a block/expiry that landed after the
+    plan was proposed is caught here too, not just on the next
+    ``chat_detail`` GET; mirrors ``send_message``/``propose_venue``),
+    ``cannot_self_accept`` (the proposer can't accept their own plan —
+    accepting is the *other* side's step), ``not_pending`` (already
+    ACCEPTED/CONFIRMED_BY_BOTH/CANCELLED).
     """
     from crush_lu.models.crush_connect_cycle import ConnectCoffeeDate
 
@@ -332,6 +344,11 @@ def accept_venue(coffee_date, user):
         coffee_date.chat.participant_2_id,
     ):
         raise ValueError("not_participant")
+
+    chat = sync_chat_state(coffee_date.chat)
+    if not chat_is_open(chat):
+        raise ValueError("chat_closed")
+
     if user.id == coffee_date.proposer_id:
         raise ValueError("cannot_self_accept")
     if coffee_date.status not in (
@@ -347,7 +364,8 @@ def accept_venue(coffee_date, user):
 
 def cancel_venue(coffee_date, user):
     """Either participant cancels the plan. Raises ``ValueError``:
-    ``not_participant``, ``already_confirmed`` (can't cancel a completed
+    ``not_participant``, ``chat_closed`` (synced first, same reasoning as
+    ``accept_venue``), ``already_confirmed`` (can't cancel a completed
     meeting)."""
     from crush_lu.models.crush_connect_cycle import ConnectCoffeeDate
 
@@ -356,6 +374,11 @@ def cancel_venue(coffee_date, user):
         coffee_date.chat.participant_2_id,
     ):
         raise ValueError("not_participant")
+
+    chat = sync_chat_state(coffee_date.chat)
+    if not chat_is_open(chat):
+        raise ValueError("chat_closed")
+
     if coffee_date.status == ConnectCoffeeDate.Status.CONFIRMED_BY_BOTH:
         raise ValueError("already_confirmed")
 
@@ -381,14 +404,22 @@ def confirm_meeting(chat, coffee_date, user):
     would re-run the both-confirmed branch and push ``expires_at`` another 3
     days out indefinitely, effectively an unbounded chat.
 
-    Raises ``ValueError``: ``not_participant``, ``already_confirmed``
-    (status is already CONFIRMED_BY_BOTH), ``not_accepted`` (the plan itself
-    was never mutually accepted — nothing to confirm attendance against).
+    Raises ``ValueError``: ``not_participant``, ``chat_closed`` (synced
+    first, same reasoning as ``accept_venue``/``cancel_venue`` — a block or
+    expiry that landed after the plan was ACCEPTED must not let a stale tab
+    still record a confirmed meeting), ``already_confirmed`` (status is
+    already CONFIRMED_BY_BOTH), ``not_accepted`` (the plan itself was never
+    mutually accepted — nothing to confirm attendance against).
     """
     from crush_lu.models.crush_connect_cycle import ConnectCoffeeDate
 
     if user.id not in (chat.participant_1_id, chat.participant_2_id):
         raise ValueError("not_participant")
+
+    chat = sync_chat_state(chat)
+    if not chat_is_open(chat):
+        raise ValueError("chat_closed")
+
     if coffee_date.status == ConnectCoffeeDate.Status.CONFIRMED_BY_BOTH:
         raise ValueError("already_confirmed")
     if coffee_date.status != ConnectCoffeeDate.Status.ACCEPTED:

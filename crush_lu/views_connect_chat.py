@@ -186,8 +186,11 @@ def connect_week_chat_venue_respond(request, chat_id: int):
         elif action == "cancel":
             cancel_venue(coffee_date, user)
             messages.info(request, _("Plan cancelled."))
-    except ValueError:
-        messages.info(request, _("That plan can't be changed right now."))
+    except ValueError as exc:
+        reasons = {"chat_closed": _("This conversation has ended.")}
+        messages.info(
+            request, reasons.get(str(exc), _("That plan can't be changed right now."))
+        )
     return redirect("crush_lu:connect_week_chat_detail", chat_id=chat_id)
 
 
@@ -207,6 +210,7 @@ def connect_week_chat_confirm(request, chat_id: int):
         confirm_meeting(chat, coffee_date, user)
     except ValueError as exc:
         reasons = {
+            "chat_closed": _("This conversation has ended."),
             "already_confirmed": _("Already confirmed — thanks!"),
             "not_accepted": _(
                 "Confirm the plan with your match before marking the meeting as done."

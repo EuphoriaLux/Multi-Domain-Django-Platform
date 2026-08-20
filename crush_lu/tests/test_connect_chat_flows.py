@@ -243,6 +243,46 @@ def test_accept_venue_by_counterpart():
 
 
 @pytest.mark.django_db
+def test_accept_venue_rejects_a_chat_closed_from_another_surface():
+    """A block placed from a completely different surface (not this chat's
+    own block flow) after the plan was proposed must stop a stale-tab
+    accept — accept_venue syncs first, matching send_message/propose_venue."""
+    me, target, chat = _make_open_chat()
+    coffee_date = propose_venue(
+        chat,
+        me,
+        custom_venue_name="Spot",
+        proposed_date=(timezone.localdate() + timedelta(days=1)).isoformat(),
+    )
+    UserBlock.objects.create(blocker=me, blocked=target)
+
+    with pytest.raises(ValueError, match="chat_closed"):
+        accept_venue(coffee_date, target)
+
+    coffee_date.refresh_from_db()
+    assert coffee_date.status == ConnectCoffeeDate.Status.PROPOSED
+
+
+@pytest.mark.django_db
+def test_cancel_venue_and_confirm_meeting_reject_a_closed_chat():
+    """Same guard as accept_venue, on cancel_venue and confirm_meeting."""
+    me, target, chat = _make_open_chat()
+    coffee_date = propose_venue(
+        chat,
+        me,
+        custom_venue_name="Spot",
+        proposed_date=(timezone.localdate() + timedelta(days=1)).isoformat(),
+    )
+    accept_venue(coffee_date, target)
+    UserBlock.objects.create(blocker=me, blocked=target)
+
+    with pytest.raises(ValueError, match="chat_closed"):
+        cancel_venue(coffee_date, me)
+    with pytest.raises(ValueError, match="chat_closed"):
+        confirm_meeting(chat, coffee_date, me)
+
+
+@pytest.mark.django_db
 def test_propose_venue_editing_an_accepted_plan_reschedules_and_clears_confirmations():
     me, target, chat = _make_open_chat()
     coffee_date = propose_venue(
@@ -265,6 +305,39 @@ def test_propose_venue_editing_an_accepted_plan_reschedules_and_clears_confirmat
     assert coffee_date.status == ConnectCoffeeDate.Status.RESCHEDULED
     assert coffee_date.participant_1_confirmed_at is None
     assert coffee_date.participant_2_confirmed_at is None
+
+
+@pytest.mark.django_db
+def test_editing_an_accepted_plan_reassigns_proposer_so_the_editor_cant_self_accept():
+    """A edits, target accepts, target edits again (RESCHEDULED) — target
+    must NOT then be able to accept_venue their own just-edited terms.
+    Before the fix, proposer stayed pinned to the original proposer (me),
+    so target's self-accept guard (user.id == proposer_id) never tripped."""
+    me, target, chat = _make_open_chat()
+    coffee_date = propose_venue(
+        chat,
+        me,
+        custom_venue_name="Spot",
+        proposed_date=(timezone.localdate() + timedelta(days=1)).isoformat(),
+    )
+    accept_venue(coffee_date, target)
+
+    propose_venue(
+        chat,
+        target,
+        custom_venue_name="New spot, my pick",
+        proposed_date=(timezone.localdate() + timedelta(days=2)).isoformat(),
+    )
+    coffee_date.refresh_from_db()
+    assert coffee_date.proposer_id == target.id
+
+    with pytest.raises(ValueError, match="cannot_self_accept"):
+        accept_venue(coffee_date, target)
+
+    # The original proposer (me) can still accept target's new terms.
+    accept_venue(coffee_date, me)
+    coffee_date.refresh_from_db()
+    assert coffee_date.status == ConnectCoffeeDate.Status.ACCEPTED
 
 
 @pytest.mark.django_db
@@ -414,7 +487,16 @@ def test_chats_list_requires_login(client):
 
 
 @pytest.mark.django_db
-def test_accept_redirects_recipient_straight_into_the_chat(client):
+def test_accept_redirects_recipient_straight_into_the_chat(client, settings):
+    # connect_week_request_respond gates non-staff users on
+    # candidate_access_open() before it will even call
+    # respond_to_weekly_request — without this override the test only
+    # passed locally because the repo's .env sets
+    # CRUSH_CONNECT_CANDIDATE_OPEN=true for dev; CI has no such env var, so
+    # the view silently redirected to the teaser instead of accepting and
+    # the chat was never created. Explicit override, matching every other
+    # settings-dependent test in this file.
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, card = _reviewable_session_with_card(me, target)
