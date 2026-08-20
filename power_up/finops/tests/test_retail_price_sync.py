@@ -41,6 +41,26 @@ def azure_item(price="0.10000000"):
     }
 
 
+def storage_item(price="0.02000000"):
+    return {
+        "currencyCode": "EUR",
+        "retailPrice": price,
+        "armRegionName": "westeurope",
+        "location": "EU West",
+        "effectiveStartDate": "2026-08-01T00:00:00Z",
+        "meterId": "storage-meter-1",
+        "meterName": "LRS Data Stored",
+        "productId": "storage-product-1",
+        "skuId": "storage-product-1/sku-1",
+        "productName": "Storage Blob Hot LRS",
+        "skuName": "Hot LRS",
+        "serviceName": "Storage",
+        "serviceFamily": "Storage",
+        "unitOfMeasure": "1 GB/Month",
+        "type": "Consumption",
+    }
+
+
 class FakeConnector:
     name = "Fake Azure connector"
     endpoint = "https://prices.example.test/api"
@@ -95,6 +115,21 @@ def test_sync_archives_raw_page_normalizes_savings_and_preserves_history():
             connector=FakeConnector(payload),
         )
     assert RetailPriceSyncRun.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_sync_normalizes_non_compute_catalogue_items_without_arm_sku():
+    payload = {"Items": [storage_item()], "NextPageLink": None}
+
+    sync_retail_prices(
+        snapshot_date=date(2026, 8, 18), connector=FakeConnector(payload)
+    )
+
+    row = RetailPriceSnapshot.objects.get()
+    assert row.provider_sku == "Hot LRS"
+    assert row.service_category == "storage"
+    assert row.resource_type == "storage"
+    assert row.purchase_model == "on_demand"
 
 
 @pytest.mark.django_db

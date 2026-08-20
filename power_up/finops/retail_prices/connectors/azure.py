@@ -1,4 +1,4 @@
-"""Azure Retail Prices connector for European virtual-machine prices."""
+"""Azure Retail Prices connector for the European public price catalogue."""
 
 from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
@@ -68,11 +68,9 @@ class AzureRetailPricesConnector(RetailPriceConnector):
         params = {
             "api-version": self.api_version,
             "currencyCode": f"'{currency.upper()}'",
-            "$filter": (
-                "serviceName eq 'Virtual Machines' and "
-                "serviceFamily eq 'Compute' and "
-                f"armRegionName eq '{region}'"
-            ),
+            # Keep every regional service, not only Compute. This captures
+            # Storage, Networking, Monitor, databases, Backup, Security, etc.
+            "$filter": f"armRegionName eq '{region}'",
         }
 
         while url:
@@ -97,7 +95,6 @@ class AzureRetailPricesConnector(RetailPriceConnector):
 
     def normalize_item(self, *, item, snapshot_date, run, raw_page, item_index):
         required = {
-            "armSkuName": item.get("armSkuName"),
             "armRegionName": item.get("armRegionName"),
             "currencyCode": item.get("currencyCode"),
             "productName": item.get("productName"),
@@ -118,15 +115,23 @@ class AzureRetailPricesConnector(RetailPriceConnector):
         effective = parse_datetime(item.get("effectiveStartDate") or "")
         region = item["armRegionName"].lower()
         region_metadata = EUROPEAN_AZURE_REGIONS.get(region, {})
+        service_name = item.get("serviceName") or "Azure service"
+        service_family = item.get("serviceFamily") or "Other"
+        provider_sku = (
+            item.get("armSkuName")
+            or item.get("skuName")
+            or item.get("productId")
+            or item["meterName"]
+        )
         base_values = {
             "provider": CloudProvider.AZURE,
             "snapshot_date": snapshot_date,
             "sync_run": run,
             "source_page": raw_page,
             "source_item_index": item_index,
-            "service_category": "compute",
-            "resource_type": "virtual_machine",
-            "provider_sku": item["armSkuName"],
+            "service_category": _service_category(service_family),
+            "resource_type": _resource_type(service_name),
+            "provider_sku": provider_sku,
             "sku_name": item.get("skuName") or "",
             "instance_family": item.get("productName") or "",
             "product_name": item["productName"],
@@ -197,12 +202,25 @@ def _purchase_model(item: dict, price_type: str) -> str:
     return "on_demand"
 
 
+def _service_category(service_family: str) -> str:
+    return service_family.lower().replace(" ", "_")[:50]
+
+
+def _resource_type(service_name: str) -> str:
+    return service_name.lower().replace(" ", "_")[:50]
+
+
 def _price_key(values: dict) -> str:
     identity = {
         key: values.get(key, "")
         for key in (
             "provider",
+            "service_category",
+            "resource_type",
             "provider_sku",
+            "sku_name",
+            "product_name",
+            "meter_name",
             "provider_product_id",
             "provider_meter_id",
             "region_code",

@@ -66,7 +66,7 @@ def trigger_cost_sync(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def trigger_retail_price_sync(request):
-    """Capture today's public Azure VM retail prices for European regions."""
+    """Capture today's public Azure retail-price catalogue for European regions."""
     sync_token = request.headers.get("X-Sync-Token")
     expected_token = os.getenv("SECRET_SYNC_TOKEN") or getattr(
         settings, "SECRET_SYNC_TOKEN", None

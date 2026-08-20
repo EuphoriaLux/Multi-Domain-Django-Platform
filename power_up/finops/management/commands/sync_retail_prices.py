@@ -1,4 +1,4 @@
-"""Capture an immutable daily snapshot of public cloud retail VM prices."""
+"""Capture an immutable daily snapshot of public Azure retail prices."""
 
 from datetime import date
 
@@ -15,7 +15,7 @@ from power_up.finops.retail_prices.connectors.azure import (
 
 class Command(BaseCommand):
     help = (
-        "Archive and normalize Azure VM retail prices for selected European "
+        "Archive and normalize the Azure retail-price catalogue for selected European "
         "regions without overwriting daily history."
     )
 

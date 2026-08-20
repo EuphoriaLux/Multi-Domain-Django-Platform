@@ -1,7 +1,7 @@
 # FinOps Daily Sync - Azure Function
 
 Automated daily synchronization for the PowerUP FinOps Hub: Azure Cost
-Management data plus an independent public Azure VM retail-price snapshot.
+Management data plus an independent public Azure retail-price catalogue snapshot.
 
 ## Overview
 
