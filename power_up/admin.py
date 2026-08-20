@@ -81,6 +81,9 @@ class PowerUpAdminSite(admin.AdminSite):
             "costforecast": {"order": 4, "icon": "🔮", "group": "FinOps Hub"},
             "reservationcost": {"order": 5, "icon": "🏷️", "group": "FinOps Hub"},
             "costbudget": {"order": 6, "icon": "💵", "group": "FinOps Hub"},
+            "retailpricesyncrun": {"order": 7, "icon": "🔄", "group": "FinOps Hub"},
+            "retailpricerawpage": {"order": 8, "icon": "🗄️", "group": "FinOps Hub"},
+            "retailpricesnapshot": {"order": 9, "icon": "🧾", "group": "FinOps Hub"},
         }
 
         # Ordered display groups

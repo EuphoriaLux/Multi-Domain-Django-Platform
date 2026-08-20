@@ -28,7 +28,7 @@ class FakeSession:
         return next(self.responses)
 
 
-def test_azure_connector_follows_next_page_and_scopes_european_catalogue_eur():
+def test_azure_connector_follows_next_page_and_scopes_european_vm_prices_eur():
     next_url = "https://prices.azure.com/api/retail/prices?$skip=1000"
     session = FakeSession(
         [
@@ -51,6 +51,5 @@ def test_azure_connector_follows_next_page_and_scopes_european_catalogue_eur():
     assert session.calls[1][1]["params"] is None
     first_params = session.calls[0][1]["params"]
     assert first_params["currencyCode"] == "'EUR'"
-    assert "serviceName" not in first_params["$filter"]
-    assert "serviceFamily" not in first_params["$filter"]
+    assert "serviceName eq 'Virtual Machines'" in first_params["$filter"]
     assert "armRegionName eq 'westeurope'" in first_params["$filter"]

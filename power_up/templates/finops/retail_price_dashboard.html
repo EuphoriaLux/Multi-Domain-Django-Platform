@@ -39,40 +39,45 @@
         </div>
 
         <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <strong>European-region focus:</strong> the default comparison includes West Europe, North Europe, and Germany West Central. Region labels support data-residency review, but the cheapest public price alone does not establish legal or contractual compliance.
+            <strong>European-region focus:</strong> the selector lists all 19 regions in Microsoft's current Azure Europe geography. Restricted-access regions are identified separately. Region labels support data-residency review, but the cheapest public price alone does not establish legal or contractual compliance.
         </div>
 
         <form method="get" class="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div class="mb-5">
+                <h2 class="text-lg font-semibold text-gray-900">Choose one comparable VM offer</h2>
+                <p class="mt-1 text-sm text-gray-500">Use the same operating system, VM size, product variant, and purchase model before comparing regions.</p>
+            </div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <label class="block text-sm font-medium text-gray-700">
+                <label class="block text-sm font-medium text-gray-700 lg:order-5">
                     Cloud provider
                     <select name="provider" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="azure" selected>Microsoft Azure</option>
                     </select>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    VM SKU
+                <label class="block text-sm font-medium text-gray-700 lg:order-2">
+                    2. VM size / SKU
                     <input name="sku" list="sku-options" value="{{ active_sku }}" placeholder="Standard_D2s_v5" class="mt-1 block w-full rounded-md border-gray-300">
                     <datalist id="sku-options">{% for sku in sku_options %}<option value="{{ sku }}">{% endfor %}</datalist>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Product contains
-                    <input name="product" value="{{ product_filter }}" placeholder="Dsv5 Series" class="mt-1 block w-full rounded-md border-gray-300">
+                <label class="block text-sm font-medium text-gray-700 lg:order-3">
+                    3. Product / licensing variant
+                    <input name="product" list="product-options" value="{{ product_filter }}" placeholder="Select or search a matching product" class="mt-1 block w-full rounded-md border-gray-300">
+                    <datalist id="product-options">{% for product in product_options %}<option value="{{ product }}">{% endfor %}</datalist>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Operating system
+                <label class="block text-sm font-medium text-gray-700 lg:order-1">
+                    1. Operating system
                     <select name="os" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="">All / unspecified</option>
                         {% for os in os_options %}<option value="{{ os }}" {% if os_filter == os %}selected{% endif %}>{{ os }}</option>{% endfor %}
                     </select>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
+                <label class="block text-sm font-medium text-gray-700 lg:order-6">
                     Currency
                     <select name="currency" class="mt-1 block w-full rounded-md border-gray-300">
                         {% for item in currency_options %}<option value="{{ item }}" {% if currency == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
                     </select>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
+                <label class="block text-sm font-medium text-gray-700 lg:order-7">
                     Price type
                     <select name="price_type" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="" {% if not price_type %}selected{% endif %}>All</option>
@@ -82,8 +87,8 @@
                         <option value="SavingsPlan" {% if price_type == 'SavingsPlan' %}selected{% endif %}>Savings plan</option>
                     </select>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Purchase model
+                <label class="block text-sm font-medium text-gray-700 lg:order-4">
+                    4. Purchase model
                     <select name="purchase_model" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="" {% if not purchase_model %}selected{% endif %}>All</option>
                         <option value="on_demand" {% if purchase_model == 'on_demand' %}selected{% endif %}>On demand</option>
@@ -93,7 +98,7 @@
                         <option value="dev_test" {% if purchase_model == 'dev_test' %}selected{% endif %}>Dev/Test</option>
                     </select>
                 </label>
-                <label class="block text-sm font-medium text-gray-700">
+                <label class="block text-sm font-medium text-gray-700 lg:order-8">
                     Time period
                     <select name="period" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="30" {% if period == 30 %}selected{% endif %}>30 days</option>
@@ -103,13 +108,14 @@
                     </select>
                 </label>
             </div>
-            <fieldset class="mt-5">
-                <legend class="text-sm font-medium text-gray-700">European Azure regions</legend>
-                <div class="mt-2 flex flex-wrap gap-4">
+            <fieldset class="mt-7 rounded-xl border-2 border-orange-100 bg-orange-50/40 p-5">
+                <legend class="px-2 text-base font-semibold text-gray-900">5. European Azure regions</legend>
+                <p class="mb-4 text-sm text-gray-600">Select any Azure region in Microsoft's Europe geography. Regions without today's snapshot become comparable after the next full import.</p>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {% for region in region_options %}
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="region" value="{{ region.code }}" {% if region.code in selected_regions %}checked{% endif %} class="rounded border-gray-300 text-orange-600">
-                        <span>{{ region.label }}{% if region.scope %} <span class="text-xs text-gray-500">({{ region.scope }})</span>{% endif %}</span>
+                    <label class="flex min-h-20 cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-sm hover:border-orange-300">
+                        <input type="checkbox" name="region" value="{{ region.code }}" {% if region.code in selected_regions %}checked{% endif %} class="mt-1 h-5 w-5 rounded border-gray-300 text-orange-600">
+                        <span><span class="block font-semibold text-gray-900">{{ region.label }}</span><span class="mt-1 block text-xs text-gray-500">{{ region.scope }}{% if region.restricted_access %} · Restricted access{% endif %}{% if not region.has_snapshot %} · Awaiting snapshot{% endif %}</span></span>
                     </label>
                     {% endfor %}
                 </div>
