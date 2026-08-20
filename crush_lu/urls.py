@@ -6,6 +6,7 @@ from allauth.account.views import LoginView, LogoutView
 from . import views
 from . import views_pre_screening
 from . import views_crush_connect
+from . import views_connect_cycle
 from . import views_moderation
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
@@ -208,6 +209,38 @@ urlpatterns = [
         'crush-connect/sparks/<int:spark_id>/respond/',
         views_crush_connect.crush_connect_spark_respond,
         name='crush_connect_spark_respond',
+    ),
+    # 7-Day Connect Cycle (Task 13.2): daily cards, 24h review, one-or-none
+    # weekly request, recipient inbox. See views_connect_cycle.py.
+    path(
+        'crush-connect/week/',
+        views_connect_cycle.connect_week_home,
+        name='connect_week_home',
+    ),
+    path(
+        'crush-connect/week/card/<int:card_id>/answer/',
+        views_connect_cycle.connect_week_card_answer,
+        name='connect_week_card_answer',
+    ),
+    path(
+        'crush-connect/week/review/',
+        views_connect_cycle.connect_week_review,
+        name='connect_week_review',
+    ),
+    path(
+        'crush-connect/week/review/<int:card_id>/request/',
+        views_connect_cycle.connect_week_request_send,
+        name='connect_week_request_send',
+    ),
+    path(
+        'crush-connect/week/inbox/',
+        views_connect_cycle.connect_week_inbox,
+        name='connect_week_inbox',
+    ),
+    path(
+        'crush-connect/week/inbox/<int:request_id>/respond/',
+        views_connect_cycle.connect_week_request_respond,
+        name='connect_week_request_respond',
     ),
     # Peer safety — block / unblock / report another member.
     path(

@@ -1,0 +1,75 @@
+{% comment %}
+Connect Week review card — one completed ConnectCycleCard in the 24h
+"Deine Connect-Woche" grid.
+
+Context:
+    card            — the completed ConnectCycleCard
+    target          — card.target_user
+    target_profile  — target.crushprofile
+    answers         — [{"text": question_text, "guess": bool}, ...] resolved
+                      from the card's STORED answers_json.guesses (never the
+                      target's current/live gate questions — those may have
+                      been re-picked since this card was answered). Never
+                      shows whether the guess was correct — only what was
+                      guessed, matching the "Read-the-Photo" privacy contract.
+    highlight_user_id — session.compatibility_highlight_user_id (may be None)
+    review_active   — session.is_review_active
+    sent_request    — the session's single ConnectWeeklyRequest, or None
+{% endcomment %}
+{% load i18n crush_media %}
+<article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col">
+    <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none"></div>
+
+        {% if target.pk == highlight_user_id %}
+        <div class="absolute top-3 left-3 z-10">
+            <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-crush-purple">
+                {% include "shared/icons/star.html" with class="w-3 h-3" %}
+                {% trans "Passt besonders gut zu dir" %}
+            </span>
+        </div>
+        {% endif %}
+
+        <div class="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+            <h3 class="font-display text-lg font-semibold leading-none text-white truncate">
+                {{ target.first_name|default:_("A member") }}
+            </h3>
+            {% if target_profile.age %}
+            <span class="shrink-0 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-crush-purple-dark">
+                {{ target_profile.age_range }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="p-3.5 flex flex-col gap-2 flex-1">
+        {% if answers %}
+        <ul class="space-y-1 mb-0 list-none pl-0 text-xs text-gray-600 dark:text-gray-300">
+            {% for answer in answers %}
+            <li class="truncate">
+                &ldquo;{{ answer.text }}&rdquo; —
+                <span class="font-medium text-gray-800 dark:text-gray-100">
+                    {% if answer.guess %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="mt-auto pt-2">
+            {% if sent_request and sent_request.recipient_id == target.pk %}
+                <span class="btn-crush-outline btn-block btn-sm text-center opacity-70 cursor-default">
+                    {% trans "Request sent" %}
+                </span>
+            {% elif review_active and not sent_request %}
+                <form method="post" action="{% url 'crush_lu:connect_week_request_send' card.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-crush-primary btn-block btn-sm">
+                        {% trans "Ich möchte dich kennenlernen" %}
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</article>

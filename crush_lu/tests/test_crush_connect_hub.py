@@ -95,6 +95,32 @@ def test_onboarded_receiver_sees_hub(client, settings):
     assert reverse("crush_lu:crush_connect_sparks_received") in body
 
 
+@pytest.mark.django_db
+def test_staff_without_onboarded_membership_sees_connect_week_preview_link(
+    client, settings
+):
+    """cycle_access requires onboarding even for staff (mirrors is_receiver),
+    but _connect_week_access_blocker fully bypasses onboarding for staff
+    (mirrors _connect_access_blocker) — so an unonboarded staff account has
+    no UI path into Connect Week without this preview link, exactly the gap
+    the existing Today's Drop staff-preview link already covers for the
+    receiver track."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    staffer = _make_user(username="staffer", onboarded=False)
+    staffer.is_staff = True
+    staffer.save(update_fields=["is_staff"])
+    _login_eligible(client, staffer)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    assert resp.context["cycle_access"] is False
+    assert resp.context["cycle_staff_preview"] is True
+    body = resp.content.decode()
+    assert reverse("crush_lu:connect_week_home") in body
+    assert "Staff preview: open Connect Week" in body
+
+
 # ---------------------------------------------------------------------------
 # Premium status is visible, and follows the ENTITLEMENT not the receiver gate
 #

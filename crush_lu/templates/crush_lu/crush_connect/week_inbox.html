@@ -1,0 +1,59 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{% trans "Connect Week requests" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-7">
+        <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
+            {% trans "Connect Week" %}
+        </p>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Someone chose you" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-sm">
+            {% trans "After a full week of new encounters, they picked you — no ranking, no pressure either way." %}
+        </p>
+    </header>
+
+    {% if requests %}
+        <div class="grid grid-cols-1 gap-4">
+            {% for req in requests %}
+            <article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex gap-4 p-4">
+                <div class="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+                    {% profile_photo req.requester.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=req.requester.first_name %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-gray-900 dark:text-white mb-0.5">
+                        {{ req.requester.first_name|default:_("A member") }}
+                        {% if req.requester.crushprofile.age %}<span class="font-normal text-gray-500 dark:text-gray-400">&middot; {{ req.requester.crushprofile.age_range }}</span>{% endif %}
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 italic mb-3">&ldquo;{{ req.message }}&rdquo;</p>
+                    <form method="post" action="{% url 'crush_lu:connect_week_request_respond' req.pk %}" class="flex items-center gap-2">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="accept" class="btn-crush-primary btn-sm flex-1">
+                            {% trans "Yes, let's chat" %}
+                        </button>
+                        <button type="submit" name="action" value="decline" class="btn-crush-outline btn-sm flex-1">
+                            {% trans "Not now" %}
+                        </button>
+                    </form>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "No requests right now." %}
+            </h2>
+            <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
+                {% trans "When someone completes their Connect Week and chooses you, it'll show up here." %}
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
