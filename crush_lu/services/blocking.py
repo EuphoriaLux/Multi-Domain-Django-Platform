@@ -117,6 +117,38 @@ def decline_active_sparks(user_a, user_b) -> int:
     )
 
 
+def apply_block(blocker, blocked, reason="") -> None:
+    """Create the block (idempotent) and terminate every in-flight
+    facilitation surface between the pair.
+
+    The single choke point behind every "block" entry point on the platform:
+    the member-card/report flow (``views_moderation._block``, a thin wrapper
+    around this) and the Connect Cycle temp-chat 1-click block
+    (``services.connect_chat.block_chat_partner``) both call this so a block
+    placed from either surface reaches the other's facilitation queues too.
+    Declining EventConnections/coach picks/Sparks is what makes the block
+    actually stop contact, not just hide it from member pages.
+
+    Connect Cycle re-matching and the temp chat itself are NOT touched here
+    — a general block doesn't know about Cycle-specific rows, and not every
+    block happens from inside an active Cycle chat. Callers that need that
+    (the temp-chat block flow) layer ``ConnectPairExclusion.exclude_pair``
+    and chat closure on top, via ``services.connect_chat``.
+    """
+    from crush_lu.models import UserBlock
+
+    valid = {c for c, _label in UserBlock.REASON_CHOICES}
+    UserBlock.objects.get_or_create(
+        blocker=blocker,
+        blocked=blocked,
+        defaults={"reason": reason if reason in valid else ""},
+    )
+    terminate_active_connections(blocker, blocked)
+    withdraw_active_coach_picks(blocker, blocked)
+    decline_active_sparks(blocker, blocked)
+    cancel_legacy_sparks(blocker, blocked)
+
+
 def cancel_legacy_sparks(user_a, user_b) -> int:
     """Cancel any in-flight legacy ``CrushSpark`` (Wonderland journey) between the pair.
 

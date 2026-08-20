@@ -47,28 +47,13 @@ _MAX_POSITIVE_INT = 2147483647
 def _block(blocker, blocked, reason=""):
     """Create the block (idempotent) and terminate any in-flight connections.
 
-    Declining existing connections is what makes the block actually stop contact
-    in the coach-facilitation workflow, not just hide it from member pages.
+    Thin wrapper — the actual choke point is ``services.blocking.apply_block``,
+    reused by the Connect Cycle temp-chat 1-click block flow too (see
+    ``services.connect_chat.block_chat_partner``).
     """
-    from .services.blocking import (
-        cancel_legacy_sparks,
-        decline_active_sparks,
-        terminate_active_connections,
-        withdraw_active_coach_picks,
-    )
+    from .services.blocking import apply_block
 
-    valid = {c for c, _label in UserBlock.REASON_CHOICES}
-    UserBlock.objects.get_or_create(
-        blocker=blocker,
-        blocked=blocked,
-        defaults={"reason": reason if reason in valid else ""},
-    )
-    # Take the pair out of every facilitation surface (member pages already
-    # filter; these terminate the coach-facing queues too).
-    terminate_active_connections(blocker, blocked)
-    withdraw_active_coach_picks(blocker, blocked)
-    decline_active_sparks(blocker, blocked)
-    cancel_legacy_sparks(blocker, blocked)
+    apply_block(blocker, blocked, reason)
 
 
 @crush_login_required

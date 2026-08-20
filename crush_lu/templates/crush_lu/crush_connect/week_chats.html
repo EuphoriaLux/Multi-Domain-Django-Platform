@@ -1,0 +1,61 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{% trans "Your Connect chats" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-7">
+        <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
+            {% trans "Connect Week" %}
+        </p>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Your chats" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-sm">
+            {% trans "Opened once a weekly request becomes mutual. Plan a coffee date, then confirm you both showed up." %}
+        </p>
+    </header>
+
+    {% if chats %}
+        <div class="grid grid-cols-1 gap-3">
+            {% for chat in chats %}
+                <a href="{% url 'crush_lu:connect_week_chat_detail' chat.pk %}"
+                   class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+                    <div class="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+                        {% profile_photo chat.partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=chat.partner.first_name %}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-900 dark:text-white mb-0.5 truncate">
+                            {{ chat.partner.first_name|default:_("A member") }}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                            {% if chat.status == "active" %}{% trans "Say hello" %}
+                            {% elif chat.status == "meeting_scheduled" %}{% trans "Coffee date planned" %}
+                            {% elif chat.status == "meeting_confirmed" %}{% trans "Met — chat closes soon" %}
+                            {% comment %}
+                            BLOCKED and the ordinary CLOSED terminal state read identically —
+                            the silent-block contract used everywhere else in Connect (a
+                            blocked member is never told they were blocked) applies here too.
+                            {% endcomment %}
+                            {% else %}{% trans "Closed" %}{% endif %}
+                        </p>
+                    </div>
+                    {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-gray-300 dark:text-slate-600 shrink-0" %}
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "No chats yet." %}
+            </h2>
+            <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
+                {% trans "When your Sunday review request becomes mutual, the chat opens here." %}
+            </p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
