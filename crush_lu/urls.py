@@ -401,6 +401,7 @@ urlpatterns = [
     path('events/<int:event_id>/feedback/', views.event_feedback, name='event_feedback'),
     path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
     path('events/<int:event_id>/ticket/', views_ticket.event_ticket, name='event_ticket'),
+    path('compatibility/', views_ticket.compatibility_explainer, name='compatibility_explainer'),
 
     # Speed Dating TV Display (no auth required)
     path('events/<int:event_id>/tv/', views.speed_dating_tv_display, name='speed_dating_tv_display'),

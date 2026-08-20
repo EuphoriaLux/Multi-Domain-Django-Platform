@@ -1,0 +1,94 @@
+{% extends 'crush_lu/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans "How Chemistry Potential is Calculated" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6">
+    {# Breadcrumb / Back button #}
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:home' %}" class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-crush-purple dark:text-gray-400 dark:hover:text-pink-400 transition-colors">
+            {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
+            {% trans "Back to Crush.lu" %}
+        </a>
+    </div>
+
+    {# Hero Section #}
+    <div class="text-center mb-10">
+        <div class="inline-flex items-center justify-center p-3 bg-gradient-to-br from-crush-purple/10 to-pink-500/10 rounded-2xl mb-4 border border-crush-purple/20">
+            <span class="text-3xl">✨</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-3">
+            {% trans "How We Calculate Your Chemistry Potential" %}
+        </h1>
+        <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            {% trans "Our live room algorithm matches shared passions, energy vibes, and conversational synergy to spark effortless connections." %}
+        </p>
+    </div>
+
+    {# Overview Card #}
+    <div class="bg-gradient-to-r from-crush-purple to-crush-pink rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-10">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white">{% trans "Real-Time Room Algorithm" %}</span>
+                <h2 class="text-2xl font-bold mt-2">{% trans "The 4 Chemistry Pillars" %}</h2>
+                <p class="text-white/90 text-sm mt-1">
+                    {% trans "Every ticket and event room analyzes dynamic synergy to make breaking the ice 10x easier." %}
+                </p>
+            </div>
+            <div class="bg-white/15 backdrop-blur-md rounded-2xl p-4 text-center border border-white/20 min-w-[140px]">
+                <div class="text-3xl font-black">90%+</div>
+                <div class="text-xs font-medium text-white/80 mt-1">{% trans "Avg. Room Affinity" %}</div>
+            </div>
+        </div>
+    </div>
+
+    {# Pillars Grid #}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        {% for pillar in score_pillars %}
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-2xl">
+                    {{ pillar.icon }}
+                </div>
+                <span class="text-sm font-black px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-950/60 dark:to-pink-950/60 text-crush-purple dark:text-pink-300 rounded-full">
+                    {{ pillar.weight }}
+                </span>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                {{ pillar.title }}
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {{ pillar.desc }}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# Coach Tips Box #}
+    <div class="bg-purple-50/50 dark:bg-gray-800/60 border border-purple-100 dark:border-gray-700 rounded-2xl p-6 sm:p-8 mb-10">
+        <div class="flex items-start gap-4">
+            <div class="text-3xl flex-shrink-0">💡</div>
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1">
+                    {% trans "Coach Tip: Maximize Your Match Quality" %}
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {% trans "The more authentic you are in your Crush profile — your real passions, quirks, and your vibe for the night — the better our mystery radar can generate relevant conversational clues on your paper pass!" %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# Bottom CTA #}
+    <div class="text-center">
+        <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-95 text-white font-bold rounded-xl shadow-md transition-all transform hover:-translate-y-0.5">
+            {% trans "Explore Upcoming Events" %}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+        </a>
+    </div>
+</div>
+{% endblock %}
