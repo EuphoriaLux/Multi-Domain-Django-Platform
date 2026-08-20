@@ -7,9 +7,11 @@ db_table meta options preserve the original 'finops_hub_*' table names.
 """
 
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 import json
 import hashlib
+import uuid
 
 
 class CostExport(models.Model):
@@ -543,3 +545,189 @@ class CostBudget(models.Model):
             total=Sum('billed_cost')
         )
         return result['total'] or 0
+
+
+class CloudProvider:
+    """Known connector identifiers; the database field remains extensible."""
+
+    AZURE = "azure"
+    LABELS = {AZURE: "Microsoft Azure"}
+
+
+class RetailPriceSyncRun(models.Model):
+    """One append-only attempt to capture a provider's prices for a day."""
+
+    class Status(models.TextChoices):
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    provider = models.CharField(max_length=50, db_index=True)
+    snapshot_date = models.DateField(db_index=True)
+    currency = models.CharField(max_length=3, default="EUR", db_index=True)
+    regions = models.JSONField(default=list)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True
+    )
+    connector_name = models.CharField(max_length=100)
+    source_endpoint = models.URLField(max_length=500)
+    page_count = models.PositiveIntegerField(default=0)
+    raw_item_count = models.PositiveIntegerField(default=0)
+    normalized_item_count = models.PositiveIntegerField(default=0)
+    invalid_item_count = models.PositiveIntegerField(default=0)
+    duplicate_item_count = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "finops_hub_retailpricesyncrun"
+        ordering = ["-snapshot_date", "-started_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "snapshot_date", "currency"],
+                condition=models.Q(status="completed"),
+                name="finops_one_completed_price_sync_per_day",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["provider", "snapshot_date", "status"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values("status").first()
+            if previous and previous["status"] == self.Status.COMPLETED:
+                raise ValidationError("Completed retail price sync runs are immutable.")
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_provider_display()} {self.snapshot_date} ({self.currency})"
+
+    def get_provider_display(self):
+        return CloudProvider.LABELS.get(self.provider, self.provider)
+
+
+class ImmutableRetailPriceModel(models.Model):
+    """Prevent normal ORM saves from rewriting archived price history."""
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError(f"{type(self).__name__} records are immutable.")
+        return super().save(*args, **kwargs)
+
+
+class RetailPriceRawPage(ImmutableRetailPriceModel):
+    """Compressed byte-for-byte archive of one provider API response page."""
+
+    sync_run = models.ForeignKey(
+        RetailPriceSyncRun, on_delete=models.PROTECT, related_name="raw_pages"
+    )
+    page_number = models.PositiveIntegerField()
+    source_url = models.URLField(max_length=2000)
+    next_page_url = models.URLField(max_length=2000, blank=True)
+    response_sha256 = models.CharField(max_length=64, db_index=True)
+    payload_gzip = models.BinaryField()
+    item_count = models.PositiveIntegerField(default=0)
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "finops_hub_retailpricerawpage"
+        ordering = ["sync_run", "page_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sync_run", "page_number"],
+                name="finops_unique_raw_page_per_sync",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.sync_run_id} page {self.page_number}"
+
+
+class RetailPriceSnapshot(ImmutableRetailPriceModel):
+    """Canonical, provider-neutral retail VM price observed on one day."""
+
+    provider = models.CharField(max_length=50, db_index=True)
+    snapshot_date = models.DateField(db_index=True)
+    sync_run = models.ForeignKey(
+        RetailPriceSyncRun, on_delete=models.PROTECT, related_name="prices"
+    )
+    source_page = models.ForeignKey(
+        RetailPriceRawPage, on_delete=models.PROTECT, related_name="prices"
+    )
+    source_item_index = models.PositiveIntegerField()
+
+    service_category = models.CharField(max_length=50, default="compute")
+    resource_type = models.CharField(max_length=50, default="virtual_machine")
+    provider_sku = models.CharField(max_length=200, db_index=True)
+    sku_name = models.CharField(max_length=200, blank=True)
+    instance_family = models.CharField(max_length=200, blank=True)
+    product_name = models.CharField(max_length=300, db_index=True)
+    meter_name = models.CharField(max_length=300)
+    operating_system = models.CharField(max_length=100, blank=True, db_index=True)
+
+    # These canonical hardware fields enable future equivalent-instance matching.
+    # Azure Retail Prices does not supply them, so the MVP intentionally leaves
+    # them null until a provider catalogue connector can enrich the SKU.
+    vcpu_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    memory_gib = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    gpu_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    architecture = models.CharField(max_length=50, blank=True)
+
+    region_code = models.CharField(max_length=100, db_index=True)
+    location_name = models.CharField(max_length=200, blank=True)
+    data_residency_scope = models.CharField(max_length=50, blank=True, db_index=True)
+    currency = models.CharField(max_length=3, db_index=True)
+    price_type = models.CharField(max_length=50, db_index=True)
+    purchase_model = models.CharField(max_length=50, db_index=True)
+    term = models.CharField(max_length=50, blank=True)
+    unit_price = models.DecimalField(max_digits=20, decimal_places=8)
+    unit_of_measure = models.CharField(max_length=100)
+    effective_start_date = models.DateTimeField(null=True, blank=True)
+
+    provider_item_id = models.CharField(max_length=200, blank=True)
+    provider_product_id = models.CharField(max_length=200, blank=True)
+    provider_meter_id = models.CharField(max_length=200, blank=True)
+    is_primary_meter = models.BooleanField(null=True, blank=True)
+    price_key = models.CharField(max_length=64, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "finops_hub_retailpricesnapshot"
+        ordering = ["-snapshot_date", "provider_sku", "region_code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "snapshot_date", "price_key"],
+                name="finops_unique_daily_provider_price",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["provider", "provider_sku", "snapshot_date"],
+                name="finops_price_sku_date_idx",
+            ),
+            models.Index(
+                fields=["provider", "region_code", "snapshot_date"],
+                name="finops_price_region_date_idx",
+            ),
+            models.Index(
+                fields=["currency", "purchase_model", "snapshot_date"],
+                name="finops_price_offer_date_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.get_provider_display()} {self.provider_sku} "
+            f"{self.region_code}: {self.unit_price} {self.currency}"
+        )
+
+    def get_provider_display(self):
+        return CloudProvider.LABELS.get(self.provider, self.provider)
