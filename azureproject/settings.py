@@ -907,6 +907,21 @@ CRUSH_CREDIT_EVENT_CANCELLED_PREMIUM_CENTS = int(
 CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT = int(
     os.environ.get("CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", "50")
 )
+# How many days before expires_at the one-time "your credit expires soon"
+# email goes out (send_crush_credit_expiry_reminders). 14 is a judgment call,
+# not a published promise like the figures above — flag for Tom to confirm.
+CRUSH_CREDIT_EXPIRY_REMINDER_DAYS = int(
+    os.environ.get("CRUSH_CREDIT_EXPIRY_REMINDER_DAYS", "14")
+)
+
+# The "Refund via SumUp" admin action calls SumUp inline, one row at a time —
+# same bound as PaymentTransactionAdmin.recheck_with_sumup, and for the same
+# reason (no task worker). Read per call, not at import, so override_settings
+# reaches them.
+SUMUP_ADMIN_REFUND_LIMIT = int(os.environ.get("SUMUP_ADMIN_REFUND_LIMIT", "20"))
+SUMUP_ADMIN_REFUND_BUDGET_SECONDS = float(
+    os.environ.get("SUMUP_ADMIN_REFUND_BUDGET_SECONDS", "60")
+)
 
 # ============================================================================
 # ECHO.LU EVENT SYNC

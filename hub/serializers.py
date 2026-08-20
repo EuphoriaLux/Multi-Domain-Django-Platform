@@ -390,6 +390,73 @@ class SocialPostSerializer(serializers.ModelSerializer):
         return value
 
 
+TEAM_GRADIENT_PALETTE = [
+    "linear-gradient(135deg, #6366f1, #ec4899)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+]
+
+
+class TeamMemberSerializer(serializers.Serializer):
+    """Read-only shape for the CRM's ``/team`` page.
+
+    Field names mirror the SPA's ``TeamMember`` type in
+    ``Codex_Marketing_CRM/frontend/app/team/page.tsx`` exactly (``name``,
+    ``role``, ``initial``, ``gradient``, ``events``, ``presence``), so that
+    page can swap its hardcoded ``MEMBERS`` array for a fetch against this
+    endpoint without any shape change. Serializes a live
+    ``crush_lu.CrushCoach`` queryset (see ``hub/views_team.py``) rather than
+    a hub-only model -- there is no hub-specific write state the roster
+    needs.
+
+    Two fields have no CrushCoach-native source and are assumptions the PR
+    flags for Tom/frontend to confirm:
+      - ``role``: CrushCoach has no job-title field, so this falls back to
+        ``specializations`` (e.g. "Young professionals, Students") or the
+        literal string "Coach" when blank. It will not read "Fondateur" /
+        "Co-fondateur" the way the current mock does.
+      - ``presence``: there is no coach-attendance data source at all --
+        ``MeetupEvent.coaches`` is a plain M2M with no through/check-in
+        model -- so this always returns "-", the same placeholder value the
+        SPA mock itself uses today.
+    """
+
+    name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    initial = serializers.SerializerMethodField()
+    gradient = serializers.SerializerMethodField()
+    events = serializers.SerializerMethodField()
+    presence = serializers.SerializerMethodField()
+
+    def _display_name(self, obj):
+        user = obj.user
+        return user.get_full_name() or user.first_name or user.get_username()
+
+    def get_name(self, obj):
+        return self._display_name(obj)
+
+    def get_role(self, obj):
+        return obj.specializations or "Coach"
+
+    def get_initial(self, obj):
+        name = self._display_name(obj)
+        return name[0].upper() if name else "?"
+
+    def get_gradient(self, obj):
+        return TEAM_GRADIENT_PALETTE[obj.pk % len(TEAM_GRADIENT_PALETTE)]
+
+    def get_events(self, obj):
+        # The view annotates `events_count` (Count("assigned_events")) to
+        # avoid an N+1; fall back to a live count so this serializer stays
+        # correct if ever used against an un-annotated instance.
+        events_count = getattr(obj, "events_count", None)
+        if events_count is None:
+            events_count = obj.assigned_events.count()
+        return events_count
+
+    def get_presence(self, obj):
+        return "—"  # em dash, same placeholder value the SPA mock uses
+
+
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
 

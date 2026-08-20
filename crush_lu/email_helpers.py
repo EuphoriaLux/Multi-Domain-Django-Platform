@@ -2149,3 +2149,84 @@ def send_connect_spark_accepted_email(spark, request):
             exc_info=True,
         )
         return 0
+
+
+# =============================================================================
+# CRUSH CREDIT EXPIRY REMINDER
+# =============================================================================
+
+
+def send_crush_credit_expiry_reminder(user, credits, request=None):
+    """Warn a member that some of their Crush Credit is about to expire.
+
+    One email per USER per sweep run, not one per credit: ``credits`` is
+    every credit of theirs that entered the reminder window in *this* run
+    (see ``send_crush_credit_expiry_reminders``), so a member holding two
+    credits expiring the same week gets one email listing both, not two
+    separate ones. ``credit_lines`` mirrors the shape
+    ``send_event_cancelled_by_organiser`` already renders for multi-credit
+    context.
+
+    Idempotency is the CALLER's job, not this function's: a credit is
+    reminded at most once ever (``CrushCreditExpiryReminder`` is a
+    ``OneToOne``), and the sweep only writes that row for a credit actually
+    included in a successfully-sent email here.
+
+    ``can_send_email`` is asked about an email_type with no dedicated
+    ``EmailPreference`` column ("crush_credit_expiry"); ``can_send`` falls
+    back to ``True`` for any type it does not recognise, so this is gated
+    only by the master ``unsubscribed_all`` switch — deliberately: this is a
+    financial notice about the member's own money, not marketing, so it does
+    not ride the "profile_updates" or "marketing" toggles.
+
+    Returns:
+        int: number of emails sent (1 on success, 0 on skip/failure)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    credits = list(credits)
+    if not credits:
+        return 0
+
+    if not can_send_email(user, "crush_credit_expiry"):
+        logger.info(
+            f"Skipping Crush Credit expiry reminder to {user.email} - unsubscribed"
+        )
+        return 0
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        request,
+        first_name=user.first_name,
+        credit_lines=[
+            {
+                "amount": format_cents(credit.remaining_cents),
+                "expires_at": credit.expires_at,
+                "cash_refund_available": credit.cash_refund_still_available,
+            }
+            for credit in credits
+        ],
+        credit_total=sum(credit.remaining_cents for credit in credits) / 100,
+    )
+
+    with translation.override(lang):
+        subject = _("Your Crush Credit expires soon")
+        html_message = render_to_string(
+            "crush_lu/emails/crush_credit_expiry_reminder.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        # Batch sender (management command) has no request — without an
+        # explicit domain the config falls back to the PowerUp sender.
+        domain="crush.lu",
+        fail_silently=False,
+    )
