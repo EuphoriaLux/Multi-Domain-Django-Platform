@@ -1,0 +1,185 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{{ partner.first_name|default:_("Chat") }}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <a href="{% url 'crush_lu:connect_week_chats' %}" class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-crush-purple mb-4 no-underline">
+        {% include "shared/icons/arrow-left.html" with class="w-3.5 h-3.5" %}
+        {% trans "All chats" %}
+    </a>
+
+    <header class="flex items-center gap-4 mb-6">
+        <div class="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+            {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name %}
+        </div>
+        <div class="min-w-0">
+            <h1 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">
+                {{ partner.first_name|default:_("A member") }}
+            </h1>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+                {% if chat.status == "meeting_confirmed" %}
+                    {% blocktrans with when=chat.expires_at|date:"l H:i" %}You both confirmed — this chat closes {{ when }}.{% endblocktrans %}
+                {% elif not is_open %}
+                    {% trans "This conversation has ended." %}
+                {% else %}
+                    {% trans "Say hello and plan a coffee date." %}
+                {% endif %}
+            </p>
+        </div>
+    </header>
+
+    {# --- Coffee date plan --------------------------------------------- #}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 shadow-crush-sm p-5 mb-6">
+        <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+            {% include "shared/icons/calendar-check.html" with class="w-4 h-4" %}
+            {% trans "Coffee date plan" %}
+        </h2>
+
+        {% if coffee_date and coffee_date.status != "cancelled" %}
+            <div class="rounded-xl bg-gray-50 dark:bg-slate-900/40 p-4 mb-3">
+                <p class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-1.5">
+                    {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-crush-purple shrink-0" %}
+                    {% if coffee_date.venue_location %}
+                        {{ coffee_date.venue_location.name }}
+                        <span class="font-normal text-gray-500 dark:text-gray-400">&middot; {{ coffee_date.venue_location.city }}</span>
+                    {% else %}
+                        {{ coffee_date.custom_venue_name }}
+                    {% endif %}
+                </p>
+                {% if not coffee_date.venue_location and coffee_date.custom_venue_address %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-6">{{ coffee_date.custom_venue_address }}</p>
+                {% elif coffee_date.venue_location.address %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1 ml-6">{{ coffee_date.venue_location.address }}</p>
+                {% endif %}
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 flex items-center gap-1.5">
+                    {% include "shared/icons/clock.html" with class="w-4 h-4 text-gray-400 shrink-0" %}
+                    {{ coffee_date.proposed_date|date:"l, j F" }}{% if coffee_date.proposed_time_slot %} &middot; {{ coffee_date.proposed_time_slot }}{% endif %}
+                </p>
+
+                <p class="text-xs font-semibold mt-2 mb-0
+                    {% if coffee_date.status == 'confirmed_by_both' %}text-emerald-600 dark:text-emerald-400
+                    {% elif coffee_date.status == 'accepted' %}text-crush-purple dark:text-crush-pink
+                    {% else %}text-amber-600 dark:text-amber-400{% endif %}">
+                    {% if coffee_date.status == "proposed" %}{% trans "Waiting for them to accept." %}
+                    {% elif coffee_date.status == "rescheduled" %}{% trans "Plan changed — waiting for them to accept." %}
+                    {% elif coffee_date.status == "accepted" %}{% trans "Both agreed — enjoy your coffee!" %}
+                    {% elif coffee_date.status == "confirmed_by_both" %}{% trans "You both confirmed you met." %}
+                    {% endif %}
+                </p>
+            </div>
+
+            {% if is_open %}
+                {% if coffee_date.status == "proposed" or coffee_date.status == "rescheduled" %}
+                    {% if not is_proposer %}
+                    <form method="post" action="{% url 'crush_lu:connect_week_chat_venue_respond' chat.pk %}" class="flex gap-2 mb-3">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="accept" class="btn-crush-primary btn-sm flex-1">{% trans "Accept plan" %}</button>
+                        <button type="submit" name="action" value="cancel" class="btn-crush-outline btn-sm flex-1">{% trans "Not this one" %}</button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{% url 'crush_lu:connect_week_chat_venue_respond' chat.pk %}" class="mb-3">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="cancel" class="btn-crush-outline btn-sm">{% trans "Cancel this plan" %}</button>
+                    </form>
+                    {% endif %}
+                {% elif coffee_date.status == "accepted" %}
+                    <form method="post" action="{% url 'crush_lu:connect_week_chat_confirm' chat.pk %}" class="mb-3">
+                        {% csrf_token %}
+                        {% if my_confirmed_at %}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "You confirmed you met — waiting for them." %}</p>
+                        {% else %}
+                        <button type="submit" class="btn-crush-solid btn-sm">
+                            {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
+                            {% trans "We met — confirm" %}
+                        </button>
+                        {% endif %}
+                    </form>
+                {% endif %}
+
+                {% if coffee_date.status != "confirmed_by_both" %}
+                <details class="text-xs">
+                    <summary class="cursor-pointer text-gray-400 dark:text-gray-500 hover:text-crush-purple select-none">{% trans "Change the plan" %}</summary>
+                    {% include "crush_lu/crush_connect/_venue_picker.html" %}
+                </details>
+                {% endif %}
+            {% endif %}
+        {% elif is_open %}
+            {% include "crush_lu/crush_connect/_venue_picker.html" %}
+        {% else %}
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "No plan was made." %}</p>
+        {% endif %}
+    </section>
+
+    {# --- Messages -------------------------------------------------------- #}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 shadow-crush-sm p-5 mb-6">
+        <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+            {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4" %}
+            {% trans "Messages" %}
+        </h2>
+
+        <div class="flex flex-col gap-2 max-h-96 overflow-y-auto mb-4 pr-1">
+            {% for msg in chat_messages %}
+                <div class="max-w-[85%] rounded-2xl px-3.5 py-2 text-sm
+                    {% if msg.sender_id == user.id %}self-end bg-gradient-to-br from-crush-purple to-crush-pink text-white
+                    {% else %}self-start bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-100{% endif %}">
+                    <p class="mb-0 whitespace-pre-wrap break-words">{{ msg.message }}</p>
+                </div>
+            {% empty %}
+                <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6 mb-0">{% trans "No messages yet — say hello!" %}</p>
+            {% endfor %}
+        </div>
+
+        {% if is_open %}
+        <form method="post" action="{% url 'crush_lu:connect_week_chat_send' chat.pk %}" class="flex gap-2">
+            {% csrf_token %}
+            <textarea name="message" rows="1" maxlength="{{ message_max_length }}" required
+                      placeholder="{% trans 'Type a message…' %}"
+                      class="input-crush flex-1 resize-none"></textarea>
+            <button type="submit" class="btn-crush-primary btn-sm shrink-0">
+                {% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
+            </button>
+        </form>
+        {% else %}
+        <p class="text-xs text-gray-400 dark:text-gray-500 text-center mb-0">{% trans "This conversation has ended." %}</p>
+        {% endif %}
+    </section>
+
+    {# --- Safety: 1-click block ------------------------------------------- #}
+    {% if is_open %}
+    <details class="mt-2 group">
+        <summary class="list-none cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none">
+            {% trans "Safety options" %}
+        </summary>
+        <div class="mt-2 rounded-xl bg-gray-50 dark:bg-slate-900/40 ring-1 ring-gray-200 dark:ring-slate-700 p-3">
+            <div x-data="connectChatBlockConfirm">
+                <button type="button" x-show="isInitial" @click="showConfirm"
+                        class="text-sm font-medium text-red-600 dark:text-red-400 hover:underline">
+                    {% trans "Block this member" %}
+                </button>
+                <form x-show="isConfirming" x-cloak method="post" action="{% url 'crush_lu:connect_week_chat_block' chat.pk %}" class="space-y-2">
+                    {% csrf_token %}
+                    <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
+                        {% trans "They won't be able to reach you, and you won't see each other again. This can't be undone." %}
+                    </p>
+                    <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" name="escalate_to_coach" value="1" class="rounded border-gray-300 text-crush-purple">
+                        {% trans "Also let a Crush Coach know" %}
+                    </label>
+                    <textarea name="details" rows="2" maxlength="2000"
+                              placeholder="{% trans 'Anything a coach should know? (optional)' %}"
+                              class="input-crush w-full text-sm"></textarea>
+                    <div class="flex gap-2">
+                        <button type="button" @click="confirmBlock" class="btn-danger btn-sm">{% trans "Yes, block" %}</button>
+                        <button type="button" @click="cancel" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">{% trans "Cancel" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </details>
+    {% endif %}
+
+</div>
+{% endblock %}

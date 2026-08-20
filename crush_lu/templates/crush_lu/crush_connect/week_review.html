@@ -38,6 +38,7 @@
                 {% trans "Waiting for their answer — they have 24 hours to respond." %}
             {% elif sent_request.status == "accepted" %}
                 {% trans "It's mutual! Your chat is open." %}
+                <a href="{% url 'crush_lu:connect_week_chat_detail' sent_request.chat.pk %}" class="ml-1 font-semibold text-crush-purple dark:text-crush-pink hover:underline">{% trans "Open chat" %}</a>
             {% elif sent_request.status == "declined" %}
                 {% trans "They weren't able to connect right now." %}
             {% elif sent_request.status == "expired" %}
