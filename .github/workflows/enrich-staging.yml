@@ -1,0 +1,86 @@
+name: Enrich Staging Candidates
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_missing:
+        description: 'Target count of curated candidates (creates missing if fewer)'
+        required: true
+        default: '16'
+        type: string
+      leave_pending:
+        description: 'Number of candidates to leave in pending review for Coach testing'
+        required: true
+        default: '3'
+        type: string
+      refresh_drops:
+        description: 'Refresh Today Daily Drops for receiver accounts'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Login to Azure
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Fetch Staging App Settings & Run Enrichment
+        run: |
+          echo "🔑 Fetching staging configuration from Azure..."
+          SETTINGS_JSON=$(az webapp config appsettings list \
+            --name django-app-ajfffwjb5ie3s-app-service \
+            --resource-group django-app-rg \
+            --slot staging -o json)
+
+          # Extract critical connection variables
+          export DATABASE_URL=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="DATABASE_URL").value // empty')
+          export POSTGRESQLCONNSTR_DJANGO=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="POSTGRESQLCONNSTR_DJANGO").value // empty')
+          export AZURE_ACCOUNT_NAME=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_ACCOUNT_NAME").value // empty')
+          export AZURE_ACCOUNT_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_ACCOUNT_KEY").value // empty')
+          export AZURE_CRUSH_PRIVATE_CONTAINER="crush-lu-private"
+          export SECRET_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="SECRET_KEY").value // empty')
+
+          if [ -z "$SECRET_KEY" ]; then
+            export SECRET_KEY="ci-staging-run-key"
+          fi
+
+          REFRESH_FLAG=""
+          if [ "${{ github.event.inputs.refresh_drops }}" = "true" ]; then
+            REFRESH_FLAG="--refresh-drops"
+          fi
+
+          echo "🚀 Running enrich_staging_candidates..."
+          python manage.py enrich_staging_candidates \
+            --all \
+            --create-missing ${{ github.event.inputs.create_missing }} \
+            --leave-pending ${{ github.event.inputs.leave_pending }} \
+            $REFRESH_FLAG
+
+      - name: Post Summary
+        run: |
+          echo "## ✅ Staging Candidates Enriched Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target candidates:** ${{ github.event.inputs.create_missing }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Left pending for coach QA:** ${{ github.event.inputs.leave_pending }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Refresh Daily Drops:** ${{ github.event.inputs.refresh_drops }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test site:** [test.crush.lu](https://test.crush.lu)" >> $GITHUB_STEP_SUMMARY
