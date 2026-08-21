@@ -91,7 +91,14 @@ def analytics_head(context):
 
     # Get CSP nonce from request (if available)
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`, not truthiness: request._csp_nonce is a django.utils.csp.LazyNonce
+    # whose __bool__ is False until the value has actually been generated. analytics_head
+    # renders first in <head>, before any {{ csp_nonce }}, so a truthiness test always
+    # saw False and emitted the gtag scripts with no nonce at all. Harmless while the
+    # policy is report-only; the moment SECURE_CSP_REPORT_ONLY becomes SECURE_CSP those
+    # scripts get blocked (CSP3 ignores 'unsafe-inline' once a nonce is present) and
+    # analytics goes dark. Interpolating the nonce below is what forces generation.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     # Check existing consent from cookies
     # Returns True if consented, False if declined, True if not yet decided
@@ -164,7 +171,8 @@ def analytics_body(context):
 
     # Get CSP nonce from request (if available)
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     if not has_marketing_consent:
         # Return placeholder that can be activated later
@@ -224,7 +232,8 @@ def ga4_event(context, event_name, **params):
 
     request = context.get('request')
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
@@ -252,7 +261,8 @@ def fb_event(context, event_name, **params):
 
     request = context.get('request')
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
@@ -299,7 +309,8 @@ def appinsights_head(context):
 
     request = context.get('request')
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     # Get user ID for authenticated user tracking (anonymous if not logged in)
     user_id = ''
@@ -352,7 +363,8 @@ def appinsights_event(context, event_name, **params):
 
     request = context.get('request')
     nonce = get_nonce(request) if request else None
-    nonce_attr = f' nonce="{nonce}"' if nonce else ''
+    # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
     # Build properties object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
