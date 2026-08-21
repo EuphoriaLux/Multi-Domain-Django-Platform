@@ -7,6 +7,7 @@ use ``/en/crush-connect/…`` URLs which only resolve under ``urls_crush``.
 """
 
 import pytest
+from django.contrib.messages import get_messages
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -19,6 +20,7 @@ from crush_lu.templatetags.crush_connect_tags import (  # noqa: E402
 from crush_lu.tests.test_crush_connect import (  # noqa: E402
     _login_eligible,
     _make_user,
+    _set_gate_questions,
 )
 
 HUB_URL = "/en/crush-connect/home/"
@@ -43,9 +45,7 @@ def test_flag_off_redirects_to_teaser(client, settings):
 @pytest.mark.django_db
 def test_not_eligible_redirects_to_teaser(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", onboarded=False, premium=False, has_luxid=False
-    )
+    me = _make_user(username="me", onboarded=False, premium=False, has_luxid=False)
     _login_eligible(client, me)
     resp = client.get(HUB_URL)
     assert resp.status_code in (301, 302)
@@ -53,15 +53,27 @@ def test_not_eligible_redirects_to_teaser(client, settings):
 
 
 @pytest.mark.django_db
-def test_eligible_not_onboarded_redirects_to_onboarding(client, settings):
+def test_eligible_not_onboarded_sees_preparation_checklist(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", onboarded=False, premium=False, has_luxid=True
-    )
+    me = _make_user(username="me", onboarded=False, premium=False, has_luxid=True)
     _login_eligible(client, me)
     resp = client.get(HUB_URL)
-    assert resp.status_code in (301, 302)
-    assert "/crush-connect/onboarding/" in resp.url
+    assert resp.status_code == 200
+    readiness = resp.context["connect_readiness"]
+    steps = {step["key"]: step for step in readiness["steps"]}
+    assert steps["onboarding"]["complete"] is False
+    assert steps["onboarding"]["cta_url"] == reverse(
+        "crush_lu:crush_connect_onboarding"
+    )
+    body = resp.content.decode()
+    assert "Continue onboarding" in body
+    assert (
+        "You are not visible in Connect until you explicitly finish onboarding."
+        in body
+    )
+    # Seeing preparation does not expose any gated feature surface.
+    assert reverse("crush_lu:connect_week_home") not in body
+    assert reverse("crush_lu:crush_connect_home") not in body
 
 
 @pytest.mark.django_db
@@ -198,9 +210,7 @@ def test_premium_badge_is_translated(client, settings, prefix, expected):
 @pytest.mark.django_db
 def test_candidate_without_premium_sees_no_premium_badge(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", onboarded=True, premium=False, has_luxid=True
-    )
+    me = _make_user(username="me", onboarded=True, premium=False, has_luxid=True)
     _login_eligible(client, me)
 
     resp = client.get(HUB_URL)
@@ -210,9 +220,7 @@ def test_candidate_without_premium_sees_no_premium_badge(client, settings):
 
 
 @pytest.mark.django_db
-def test_premium_badge_shows_during_beta_even_when_not_a_receiver(
-    client, settings
-):
+def test_premium_badge_shows_during_beta_even_when_not_a_receiver(client, settings):
     """The badge must key off the entitlement, not ``is_receiver``.
 
     In the beta phase ``is_receiver`` is (entitlement AND the phase lets them
@@ -236,9 +244,7 @@ def test_premium_badge_shows_during_beta_even_when_not_a_receiver(
 @pytest.mark.django_db
 def test_onboarded_candidate_sees_catalogue_card(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", onboarded=True, premium=False, has_luxid=True
-    )
+    me = _make_user(username="me", onboarded=True, premium=False, has_luxid=True)
     _login_eligible(client, me)
     resp = client.get(HUB_URL)
     assert resp.status_code == 200
@@ -246,6 +252,195 @@ def test_onboarded_candidate_sees_catalogue_card(client, settings):
     assert resp.context["is_receiver"] is False
     # Candidate hero links to the catalogue status, not Today's Drop.
     assert reverse("crush_lu:crush_connect_catalogue_status") in resp.content.decode()
+
+
+# ---------------------------------------------------------------------------
+# Readiness checklist and privacy-safe trust labels
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "has_luxid,event_verified,kind,label",
+    [
+        (True, False, "luxid", "Identity confirmed by LuxID"),
+        (False, True, "event", "Verified at a Crush event"),
+        (True, True, "double", "Double verification: LuxID + Crush event"),
+    ],
+)
+def test_hub_shows_the_three_member_facing_trust_states(
+    client, settings, has_luxid, event_verified, kind, label
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username=f"trust_{kind}",
+        onboarded=True,
+        premium=False,
+        has_luxid=has_luxid,
+    )
+    if event_verified:
+        me.crushprofile.verification_method = "coach_event"
+        me.crushprofile.save(update_fields=["verification_method"])
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    trust = resp.context["connect_readiness"]["trust_status"]
+    assert trust["kind"] == kind
+    assert str(trust["label"]) == label
+    body = resp.content.decode()
+    assert f'data-trust-status="{kind}"' in body
+    assert label in body
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "prefix,has_luxid,event_verified,expected",
+    [
+        ("fr", True, False, "Identité confirmée par LuxID"),
+        ("fr", False, True, "Vérifié lors d’un événement Crush"),
+        ("fr", True, True, "Double vérification : LuxID + événement Crush"),
+        ("de", True, False, "Identität durch LuxID bestätigt"),
+        ("de", False, True, "Bei einem Crush-Event verifiziert"),
+        ("de", True, True, "Doppelte Verifizierung: LuxID + Crush-Event"),
+    ],
+)
+def test_trust_labels_are_translated_without_exposing_verification_details(
+    client, settings, prefix, has_luxid, event_verified, expected
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username=f"{prefix}_{'event' if event_verified else 'luxid'}_{has_luxid}",
+        onboarded=True,
+        premium=False,
+        has_luxid=has_luxid,
+    )
+    if event_verified:
+        me.crushprofile.verification_method = "coach_event"
+        me.crushprofile.save(update_fields=["verification_method"])
+    _login_eligible(client, me)
+
+    resp = client.get(f"/{prefix}/crush-connect/home/")
+
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert expected in body
+    # Only the approved status text is rendered; no provider/check-in fields
+    # or machine-readable provenance are added to the page.
+    assert "verification_method" not in body
+    assert "checkin_attested_photo_key" not in body
+
+
+@pytest.mark.django_db
+def test_luxid_only_status_explains_event_unlock_and_links_to_events(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(
+        username="luxid_only", onboarded=True, premium=False, has_luxid=True
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Identity confirmed by LuxID" in body
+    assert (
+        "Taking part in a Crush event unlocks the active Connect journey and your "
+        "three daily suggestions" in body
+    )
+    assert reverse("crush_lu:event_list") in body
+    steps = {step["key"]: step for step in resp.context["connect_readiness"]["steps"]}
+    assert steps["active_verification"]["complete"] is False
+    assert steps["active_verification"]["cta_url"] == reverse("crush_lu:event_list")
+
+
+@pytest.mark.django_db
+def test_missing_photo_stays_on_hub_with_direct_cta_and_explicit_blocker_message(
+    client, settings
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="no_photo", onboarded=True, premium=False)
+    me.crushprofile.verification_method = "coach_event"
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["verification_method", "photo_1"])
+    _login_eligible(client, me)
+
+    hub = client.get(HUB_URL)
+
+    assert hub.status_code == 200
+    steps = {step["key"]: step for step in hub.context["connect_readiness"]["steps"]}
+    assert steps["photo"]["complete"] is False
+    assert steps["photo"]["cta_url"].endswith("/profile/edit/?section=photos")
+    body = hub.content.decode()
+    assert 'data-readiness-step="photo"' in body
+    assert "A profile photo is required for your daily Connect suggestions." in body
+
+    week = client.get(reverse("crush_lu:connect_week_home"))
+    assert week.status_code in (301, 302)
+    assert week.url.endswith("/profile/edit/?section=photos")
+    notices = [str(message) for message in get_messages(week.wsgi_request)]
+    assert any(
+        "It blocks access to your three daily Connect Week suggestions" in notice
+        for notice in notices
+    )
+
+
+@pytest.mark.django_db
+def test_consent_and_questions_use_the_connect_questions_screen(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="missing_connect_steps",
+        onboarded=True,
+        premium=False,
+        photo_share_consent=False,
+    )
+    me.crushprofile.verification_method = "coach_event"
+    me.crushprofile.save(update_fields=["verification_method"])
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    steps = {step["key"]: step for step in resp.context["connect_readiness"]["steps"]}
+    questions_url = (
+        reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
+    )
+    assert steps["photo_consent"]["complete"] is False
+    assert steps["photo_consent"]["cta_url"] == questions_url
+    assert steps["questions"]["complete"] is False
+    assert steps["questions"]["cta_url"] == questions_url
+    body = resp.content.decode()
+    assert "Review photo consent" in body
+    assert "Choose my questions" in body
+
+
+@pytest.mark.django_db
+def test_complete_checklist_uses_real_member_state_and_no_activity_pseudogate(
+    client, settings
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="ready", onboarded=True, premium=False)
+    me.crushprofile.verification_method = "coach_event"
+    me.crushprofile.save(update_fields=["verification_method"])
+    _set_gate_questions(me)
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    readiness = resp.context["connect_readiness"]
+    assert readiness["is_complete"] is True
+    assert readiness["completed_count"] == readiness["total_count"] == 6
+    assert {step["key"] for step in readiness["steps"]} == {
+        "identity",
+        "active_verification",
+        "photo",
+        "photo_consent",
+        "onboarding",
+        "questions",
+    }
 
 
 @pytest.mark.django_db

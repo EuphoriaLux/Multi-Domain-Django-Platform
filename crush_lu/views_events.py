@@ -16,6 +16,7 @@ from .models import (
     EventRegistration,
     EventInvitation,
     EventFeedback,
+    PremiumMembership,
 )
 from .models.event_polls import EventPoll
 from .models.events import SEAT_HOLDING_STATUSES
@@ -217,23 +218,32 @@ def _promote_from_waitlist(event, cancelled_user=None, resale_source_registratio
         return None
 
     # Prefetch profiles in a separate query (no FOR UPDATE conflict). Used for
-    # both gender pools and premium (coach-assigned) capacity checks.
+    # the gender pools; the premium check reads its own set just below.
     waitlisted_list = list(waitlisted)
     user_ids = [reg.user_id for reg in waitlisted_list]
     profiles_by_user = {
         p.user_id: p for p in CrushProfile.objects.filter(user_id__in=user_ids)
     }
+    # Premium is an ACTIVE PremiumMembership -- the entitlement
+    # `CrushProfile.has_active_premium` names -- and NOT `assigned_coach`, which
+    # is also granted free on first attendance and by the 0150 backfill.
+    # Read as one set rather than through that property: this decides every
+    # waitlisted row and the property costs a query per call.
+    premium_user_ids = set(
+        PremiumMembership.objects.filter(
+            user_id__in=user_ids, status="active"
+        ).values_list("user_id", flat=True)
+    )
 
     def _get_gender(reg):
         profile = profiles_by_user.get(reg.user_id)
         return profile.gender if profile else None
 
     def _is_premium(reg):
-        # Premium = personal coach assigned. Premium members may take a
-        # reserved seat (measured against total capacity); general members are
-        # capped at public_capacity so the reserved block stays held back.
-        profile = profiles_by_user.get(reg.user_id)
-        return bool(profile and profile.assigned_coach_id)
+        # Premium members may take a reserved seat (measured against total
+        # capacity); general members are capped at public_capacity so the
+        # reserved block stays held back.
+        return reg.user_id in premium_user_ids
 
     def _promote(candidate):
         candidate.status = _admitted_status(event, candidate)
@@ -698,7 +708,7 @@ def _registration_outlook(event, profile, gender=None):
     first. Anything that changes who gets waitlisted must change here too, or
     both pages go back to guessing.
     """
-    is_premium = bool(profile and profile.assigned_coach_id)
+    is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
     # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a
     # registration committing between two queries here would let the chips
@@ -919,9 +929,12 @@ def event_detail(request, event_id):
         and event.date_time > now
     )
 
-    # Premium (coach-assigned) members can claim reserved seats, so fullness is
-    # evaluated against the full capacity for them and public capacity otherwise.
-    user_is_premium = bool(user_profile and user_profile.assigned_coach_id)
+    # Premium members can claim reserved seats, so fullness is evaluated against
+    # the full capacity for them and public capacity otherwise. The entitlement is
+    # an ACTIVE PremiumMembership, NOT `assigned_coach` -- a coach is also granted
+    # free on first attendance, which handed the reserved block to every past
+    # attendee. See CrushProfile.has_active_premium.
+    user_is_premium = bool(user_profile and user_profile.has_active_premium)
 
     # Per-gender availability plus the one answer both the event page and the
     # registration page need: will registration actually seat this viewer?
@@ -1442,10 +1455,11 @@ def event_register(request, event_id):
                     registration.user = request.user
 
                 # Determine confirmed vs waitlist using both total and gender caps.
-                # Premium (coach-assigned) members can claim reserved seats, so
-                # their fullness is measured against the full capacity.
+                # Premium members -- an ACTIVE PremiumMembership, not merely an
+                # `assigned_coach` -- can claim reserved seats, so their fullness
+                # is measured against the full capacity.
                 user_gender = getattr(profile, "gender", None)
-                is_premium = bool(profile and profile.assigned_coach_id)
+                is_premium = bool(profile and profile.has_active_premium)
                 total_full = locked_event.is_full_for(is_premium=is_premium)
                 gender_pool_full = (
                     locked_event.gender_limits_active

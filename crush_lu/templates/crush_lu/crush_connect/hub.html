@@ -17,7 +17,11 @@
             {% trans "Curated, never swiped." %}
         </h1>
         <p class="relative text-sm leading-relaxed text-white/90 max-w-[16rem] mb-0">
-            {% if is_receiver %}
+            {% if not membership.is_onboarded and not user.is_staff %}
+                {% trans "Complete your setup below. You are not visible in Connect until you explicitly finish onboarding." %}
+            {% elif not connect_readiness.is_complete %}
+                {% trans "Complete the steps below to prepare your active Connect route and three daily suggestions." %}
+            {% elif is_receiver %}
                 {% trans "One Coach Pick a week — plus fresh faces in your Drop every morning. No feed, no games." %}
             {% else %}
                 {% trans "You're in the mix. Coaches can pick you, Sparks can find you — no feed, no games." %}
@@ -59,6 +63,13 @@
         </div>
     </div>
 
+    {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
+
+    {% comment %}
+    Pre-onboarding members may use this personal hub as preparation, but no
+    Connect feature surface is exposed until the existing opt-in gate is met.
+    {% endcomment %}
+    {% if membership.is_onboarded or user.is_staff %}
     {# Coach's pick takes the hero slot for receivers when one is open. #}
     {% if coach_pick %}
     <a href="{% url 'crush_lu:crush_connect_home' %}"
@@ -235,6 +246,7 @@
         {% endif %}
 
     </div>
+    {% endif %}
 
     <div class="mt-5 flex items-start gap-2.5">
         {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}

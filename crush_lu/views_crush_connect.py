@@ -18,11 +18,16 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
-from crush_lu.connect_phase import candidate_access_open, cycle_access_open, receiver_access_open
+from crush_lu.connect_phase import (
+    candidate_access_open,
+    cycle_access_open,
+    receiver_access_open,
+)
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
@@ -175,8 +180,9 @@ def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
 
     Mirrors ``_connect_access_blocker`` but the hub is the shared landing for
-    BOTH onboarded tracks, so it never bounces a candidate onward to the
-    catalogue page — both receivers and candidates render the hub.
+    both onboarded tracks and the preparation surface for eligible members who
+    have not opted in yet. It never bounces a candidate onward to the catalogue
+    page; feature routes retain their own onboarding gates.
     """
     if user.is_staff:
         return None
@@ -191,9 +197,157 @@ def _hub_access_blocker(user):
     if membership is None or membership.onboarded_at is None:
         if not _user_passes_pre_onboarding_gate(user):
             return redirect("crush_lu:crush_connect_teaser")
-        return redirect("crush_lu:crush_connect_onboarding")
+        # The personal hub is also the preparation surface. Members who have
+        # already passed the existing beta/identity gate may see their real
+        # checklist here before opting in; every actual Connect feature keeps
+        # its own onboarding gate, so this does not widen access to cards.
+        return None
 
     return None
+
+
+def _connect_trust_status(profile):
+    """Return the member-facing verification label, and nothing sensitive.
+
+    LuxID claims and event/check-in provenance deliberately stay server-side.
+    The hub receives only the three approved labels and the LuxID-only product
+    explanation.
+    """
+    if profile is None:
+        return None
+
+    has_luxid = profile.has_luxid_connected
+    has_event_verification = profile.has_attended_event
+    if has_luxid and has_event_verification:
+        return {
+            "kind": "double",
+            "label": _("Double verification: LuxID + Crush event"),
+            "explanation": _(
+                "Your identity is confirmed digitally and through an in-person Crush event."
+            ),
+        }
+    if has_event_verification:
+        return {
+            "kind": "event",
+            "label": _("Verified at a Crush event"),
+            "explanation": _(
+                "A Crush coach confirmed your participation at an in-person event."
+            ),
+        }
+    if has_luxid:
+        return {
+            "kind": "luxid",
+            "label": _("Identity confirmed by LuxID"),
+            "explanation": _(
+                "LuxID confirms your identity. Taking part in a Crush event unlocks the active Connect journey and your three daily suggestions, once the other steps are complete."
+            ),
+        }
+    return None
+
+
+def _connect_readiness(user):
+    """Build the personal, real-state checklist for the active Connect route.
+
+    This is guidance, not a second entitlement system: the existing phase,
+    opt-in, Premium and feature-specific gates remain authoritative. Recent
+    activity is intentionally absent because it is not a requester-side gate
+    for receiving Connect Week cards; ``last_login`` only filters people who
+    may be presented as candidates, and the cycle requester gate does not read
+    it.
+    """
+    profile = getattr(user, "crushprofile", None)
+    membership = getattr(user, "crush_connect_membership", None)
+
+    profile_approved = bool(profile and profile.is_approved)
+    identity_verified = bool(profile and profile.is_connect_identity_verified)
+    event_verified = bool(profile and profile.has_attended_event)
+    has_photo = bool(profile and profile.photo_1)
+    has_photo_consent = bool(membership and membership.photo_share_consent)
+    is_onboarded = bool(membership and membership.is_onboarded)
+    has_questions = bool(membership and membership.has_gate_questions)
+
+    onboarding_url = reverse("crush_lu:crush_connect_onboarding")
+    questions_url = (
+        reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
+        if is_onboarded
+        else onboarding_url
+    )
+    identity_url = (
+        reverse("crush_lu:profile_submitted")
+        if profile_approved
+        else reverse("crush_lu:edit_profile")
+    )
+
+    steps = [
+        {
+            "key": "identity",
+            "complete": profile_approved and identity_verified,
+            "title": _("Verified profile and identity"),
+            "description": _(
+                "Your Crush profile must be approved and your identity confirmed before Connect can show you suggestions."
+            ),
+            "cta_label": _("Complete verification"),
+            "cta_url": identity_url,
+        },
+        {
+            "key": "active_verification",
+            "complete": event_verified,
+            "title": _("Crush event verification"),
+            "description": _(
+                "A confirmed participation at a Crush event unlocks the active journey with three suggestions per day."
+            ),
+            "cta_label": _("Browse upcoming events"),
+            "cta_url": reverse("crush_lu:event_list"),
+        },
+        {
+            "key": "photo",
+            "complete": has_photo,
+            "title": _("Profile photo"),
+            "description": _(
+                "A profile photo is required for your daily Connect suggestions."
+            ),
+            "cta_label": _("Add a photo"),
+            "cta_url": reverse("crush_lu:edit_profile") + "?section=photos",
+        },
+        {
+            "key": "photo_consent",
+            "complete": has_photo_consent,
+            "title": _("Photo sharing consent"),
+            "description": _(
+                "Confirm that your clear photo may be shown only to the few verified members matched with you."
+            ),
+            "cta_label": _("Review photo consent"),
+            "cta_url": questions_url,
+        },
+        {
+            "key": "onboarding",
+            "complete": is_onboarded,
+            "title": _("Connect onboarding"),
+            "description": _(
+                "Complete the Connect onboarding to set your preferences and explicitly opt in."
+            ),
+            "cta_label": _("Continue onboarding"),
+            "cta_url": onboarding_url,
+        },
+        {
+            "key": "questions",
+            "complete": has_questions,
+            "title": _("Your three Connect questions"),
+            "description": _(
+                "Choose and answer three questions so matched members can discover you in the same respectful way."
+            ),
+            "cta_label": _("Choose my questions"),
+            "cta_url": questions_url,
+        },
+    ]
+    completed_count = sum(step["complete"] for step in steps)
+    return {
+        "steps": steps,
+        "completed_count": completed_count,
+        "total_count": len(steps),
+        "is_complete": completed_count == len(steps),
+        "trust_status": _connect_trust_status(profile),
+    }
 
 
 def _next_drop_at(now=None):
@@ -824,18 +978,11 @@ def _gate_stat_rows(user, membership):
 def crush_connect_hub(request):
     """Crush Connect home — the member's hub that aggregates every Connect
     surface (Today's Drop / catalogue, Sparks, Coach's Pick, profile) with
-    quick links and status badges. Shared landing for both onboarded tracks;
-    the dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
+    quick links and status badges, and now explains preparation before opt-in.
+    The dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
     user = request.user
     profile = getattr(user, "crushprofile", None)
-    if not user.is_staff and profile and not profile.photo_1:
-        from django.contrib import messages
-
-        messages.warning(
-            request, _("Please upload a profile photo to use Crush Connect.")
-        )
-        return redirect("crush_lu:edit_profile")
 
     from crush_lu.models import CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
@@ -924,6 +1071,7 @@ def crush_connect_hub(request):
         # Naming the coach is most of the point: it is the thing being sold, and
         # the hub never told the member who theirs is.
         "premium_coach": getattr(profile, "assigned_coach", None) if profile else None,
+        "connect_readiness": _connect_readiness(user),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 
@@ -943,9 +1091,12 @@ def crush_connect_home(request):
         from django.contrib import messages
 
         messages.warning(
-            request, _("Please upload a profile photo to use Crush Connect.")
+            request,
+            _(
+                "Your profile photo is missing. It blocks access to your daily Connect suggestions; add it now in Photos."
+            ),
         )
-        return redirect("crush_lu:edit_profile")
+        return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
 
     blocker = _connect_access_blocker(user)
     if blocker is not None:

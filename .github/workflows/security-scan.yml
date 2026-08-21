@@ -21,6 +21,7 @@ concurrency:
 # Minimal permissions for security
 permissions:
   contents: read
+  pull-requests: read
   security-events: write
 
 jobs:

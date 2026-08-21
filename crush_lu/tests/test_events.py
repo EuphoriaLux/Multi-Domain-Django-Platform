@@ -582,8 +582,13 @@ class WaitlistPromotionTests(TestCase):
         )
 
     def _make_premium(self, user):
-        """Attach an assigned coach so the user counts as premium."""
-        from crush_lu.models import CrushCoach, CrushProfile
+        """Give the user the real Premium entitlement: an ACTIVE membership.
+
+        NOT `assigned_coach` on its own -- a coach is granted free on first
+        attendance and by the 0150 backfill, and the reserved-seat gates
+        deliberately do not accept it.
+        """
+        from crush_lu.models import CrushCoach, CrushProfile, PremiumMembership
 
         coach_user = User.objects.create_user(
             username=f"coach_{user.username}",
@@ -591,7 +596,14 @@ class WaitlistPromotionTests(TestCase):
             password="testpass123",
         )
         coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        # Mirror PremiumMembership.confirm(): it writes BOTH the membership and
+        # the coach FK. The membership is what the gates read -- see
+        # CrushProfile.has_active_premium -- but a fixture that set only one of
+        # the two would not resemble any real premium member.
         CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        PremiumMembership.objects.create(
+            user=user, coach=coach, status="active", payment_confirmed=True
+        )
         return coach
 
     def test_reserved_seat_not_filled_by_general_waitlist(self):
@@ -650,6 +662,73 @@ class WaitlistPromotionTests(TestCase):
         self.assertEqual(promoted.user, u4)
         reg4.refresh_from_db()
         self.assertEqual(reg4.status, 'confirmed')
+
+    def _make_coach_only(self, user):
+        """A coach with NO PremiumMembership -- what the attendance auto-assign
+        signal (signals.py) and the 0150 backfill leave behind."""
+        from crush_lu.models import CrushCoach, CrushProfile
+
+        coach_user = User.objects.create_user(
+            username=f"freecoach_{user.username}",
+            email=f"freecoach_{user.username}",
+            password="testpass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        return coach
+
+    def _fill_public_capacity_leaving_one_reserved(self):
+        """max=3, 1 reserved -> public 2/2 full, total 2/3. One reserved seat left."""
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._register(self._create_user_with_profile("g1@test.com", "M"), "confirmed")
+        self._register(self._create_user_with_profile("g2@test.com", "F"), "confirmed")
+
+    def _run_promotion(self):
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            return _promote_from_waitlist(locked)
+
+    def test_reserved_seat_not_filled_by_coach_without_membership(self):
+        """An assigned coach is not the Premium entitlement.
+
+        A coach is granted free on first attendance, so keying the reserved
+        block on the FK promoted every past attendee into seats held back for
+        paying members.
+        """
+        self._fill_public_capacity_leaving_one_reserved()
+        u3 = self._create_user_with_profile("c3@test.com", "F")
+        self._make_coach_only(u3)
+        self._register(u3, "waitlist")
+
+        self.assertIsNone(self._run_promotion())
+
+    def test_reserved_seat_opens_once_the_membership_is_active(self):
+        """The same waitlisted member, same coach -- promoted once they pay.
+
+        Paired with the test above, this pins the gate to the membership rather
+        than to the coach FK: only the PremiumMembership row differs.
+        """
+        from crush_lu.models import PremiumMembership
+
+        self._fill_public_capacity_leaving_one_reserved()
+        u3 = self._create_user_with_profile("c3@test.com", "F")
+        coach = self._make_coach_only(u3)
+        reg3 = self._register(u3, "waitlist")
+
+        PremiumMembership.objects.create(
+            user=u3, coach=coach, status="active", payment_confirmed=True
+        )
+
+        promoted = self._run_promotion()
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.user, u3)
+        reg3.refresh_from_db()
+        self.assertEqual(reg3.status, "confirmed")
 
     def test_fifo_promotion_on_cancel(self):
         """When no gender limits, first waitlisted user is promoted (FIFO)."""

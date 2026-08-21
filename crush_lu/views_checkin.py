@@ -703,8 +703,10 @@ def coach_mark_verified(request, event_id, registration_id):
 
     A coach running the event can flip an unverified attendee to ``verified``.
     For ordinary walk-ins any active coach may do this (method ``coach_event``).
-    For a premium member (one with an ``assigned_coach``) only that assigned
-    coach may verify them, and the method is recorded as ``premium_coach``.
+    For a premium member (one holding an active ``PremiumMembership`` — NOT
+    merely an ``assigned_coach``, which is granted free on first attendance)
+    only their own assigned coach may verify them, and the method is recorded
+    as ``premium_coach``.
     """
     coach = request.coach
     now = timezone.now()
