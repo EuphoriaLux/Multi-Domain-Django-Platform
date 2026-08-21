@@ -112,8 +112,33 @@ fi
 echo "✅ Migrations complete. Starting Gunicorn..."
 
 # Gunicorn + Uvicorn ASGI settings
-# OPTIMIZATION: Increased workers from 2 to 4 for P0v3 plan (2 vCPU, 8GB RAM)
-# Formula: (2 * CPU_CORES) + 1 = (2 * 2) + 1 = 5 workers (using 4 for safety)
+# Staging and production share the same App Service worker and therefore the
+# same memory pool. DJANGO_ENV is slot-sticky, so keep staging at one Gunicorn
+# process while preserving four processes in production. WEB_CONCURRENCY can
+# override either default for an intentional, slot-specific tuning change.
+GUNICORN_WORKERS="${WEB_CONCURRENCY:-}"
+if [ -z "$GUNICORN_WORKERS" ]; then
+    if [ "${DJANGO_ENV:-production}" = "staging" ]; then
+        GUNICORN_WORKERS=1
+    else
+        GUNICORN_WORKERS=4
+    fi
+fi
+
+case "$GUNICORN_WORKERS" in
+    ''|*[!0-9]*)
+        echo "❌ Invalid Gunicorn worker count '$GUNICORN_WORKERS'. WEB_CONCURRENCY must be a positive integer."
+        exit 1
+        ;;
+esac
+
+if [ "$GUNICORN_WORKERS" -lt 1 ]; then
+    echo "❌ Invalid Gunicorn worker count '$GUNICORN_WORKERS'. WEB_CONCURRENCY must be at least 1."
+    exit 1
+fi
+
+echo "🔧 Starting Gunicorn with $GUNICORN_WORKERS worker(s) for ${DJANGO_ENV:-production}."
+
 # Using UvicornWorker for ASGI support (HTTP + WebSocket via Django Channels)
 # Access logs sent to stderr for Azure Log Stream visibility (minimal format)
 # Application Insights also captures requests via OpenTelemetry for full telemetry
@@ -124,7 +149,7 @@ echo "✅ Migrations complete. Starting Gunicorn..."
 # worker whose asgiref sync-executor gets wedged mid-uptime: instead of serving
 # 500s until a manual restart, it is retired and replaced automatically. The
 # UvicornWorker honors these via uvicorn's limit_max_requests.
-gunicorn --workers 4 --timeout 120 \
+gunicorn --workers "$GUNICORN_WORKERS" --timeout 120 \
     --max-requests 1000 --max-requests-jitter 100 \
     -k azureproject.worker.AsyncioUvicornWorker \
     --access-logfile '-' --access-logformat '%(h)s %(m)s %(U)s %(s)s %(D)sms' \
