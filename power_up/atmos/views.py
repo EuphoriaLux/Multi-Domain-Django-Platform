@@ -591,9 +591,24 @@ def cart_add(request):
     cart = request.session.get(CART_SESSION_KEY, {})
     # Clamp the running total too, not just this add — repeated adds must
     # not be able to stack past the advertised max.
-    cart[str(item.id)] = min(MAX_ITEM_QTY, cart.get(str(item.id), 0) + qty)
+    before = cart.get(str(item.id), 0)
+    after = min(MAX_ITEM_QTY, before + qty)
+    cart[str(item.id)] = after
     request.session[CART_SESSION_KEY] = cart
-    return redirect("atmos:guest_menu")
+
+    if after == before:
+        # Already at the per-item cap, so this tap changed nothing. The
+        # fragment drives the "added" flash, and firing it here would show
+        # positive feedback for a no-op — the flash and the cart would say
+        # different things. Send them back without it instead of lying.
+        return redirect("atmos:guest_menu")
+
+    # Back to the row the guest just tapped, not the top of the menu. A bar
+    # menu is long, and bouncing someone to the top after every drink makes
+    # ordering a second round feel like starting over. The fragment also
+    # drives the CSS-only "added" flash (`.row:target` in base.html), which
+    # is the only add-feedback there is — the CSP story here rules out JS.
+    return redirect(f"{reverse('atmos:guest_menu')}#item-{item.id}")
 
 
 def cart_update(request):

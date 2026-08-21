@@ -431,6 +431,17 @@ class Order(models.Model):
         "cancelled": "cancelled_at",
     }
 
+    # The guest-facing progress rail. "cancelled" is deliberately absent: it is
+    # not a stage the order passes through, it replaces the rail entirely.
+    # Labels are guest copy, not STATUS_CHOICES — the bar says "Mixing", the
+    # model says "preparing".
+    PROGRESS_STAGES = [
+        ("placed", "Placed"),
+        ("accepted", "Accepted"),
+        ("preparing", "Mixing"),
+        ("served", "Served"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     guest = models.ForeignKey(Guest, related_name="orders", on_delete=models.CASCADE)
     tab = models.ForeignKey(Tab, related_name="orders", on_delete=models.CASCADE)
@@ -465,6 +476,35 @@ class Order(models.Model):
     class Meta:
         ordering = ["-placed_at"]
         indexes = [models.Index(fields=["venue", "status", "placed_at"])]
+
+    @property
+    def progress(self):
+        """The rail as data: ``[{"label", "state"}, ...]``.
+
+        ``state`` is ``done``, ``now``, ``end`` or ``""``. Derived once because
+        order_status.html used to restate the same four comparisons twice — for
+        the segments and again for their labels — so a change to the sequence
+        had to land in eight places and the two halves could silently disagree
+        about which stage was current.
+        """
+        names = [name for name, _ in self.PROGRESS_STAGES]
+        last = len(names) - 1
+        try:
+            current = names.index(self.status)
+        except ValueError:
+            # cancelled, or any status that is not on the rail
+            current = -1
+
+        stages = []
+        for index, (_name, label) in enumerate(self.PROGRESS_STAGES):
+            if index < current:
+                state = "done"
+            elif index == current:
+                state = "end" if index == last else "now"
+            else:
+                state = ""
+            stages.append({"label": label, "state": state})
+        return stages
 
     def __str__(self) -> str:
         return f"{self.short_code} — {self.alias_snapshot}"
