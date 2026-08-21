@@ -372,3 +372,34 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertContains(response, reverse("crush_lu:event_list"))
         self.assertNotContains(response, self.CONNECT_WEEK)
         self.assertNotContains(response, self.IN_MIX)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_connect_week_tier_renders_in_german_and_french(self):
+        """New tier strings must ship translated — staging has shown English
+        fallbacks on /de/ and /fr/ pages for untranslated Connect copy."""
+        self._mark_event_verified(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+
+        german = self.client.get("/de/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(german.status_code, 200)
+        self.assertContains(german, "Deine Connect-Woche ist offen")
+        self.assertNotContains(german, self.CONNECT_WEEK)
+
+        french = self.client.get("/fr/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(french.status_code, 200)
+        self.assertContains(french, "Votre Semaine Connect est ouverte")
+        self.assertNotContains(french, self.CONNECT_WEEK)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_unverified_tier_renders_in_german_and_french(self):
+        german = self.client.get("/de/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(german.status_code, 200)
+        self.assertContains(german, "Verifiziere Dich für Crush Connect")
+        self.assertNotContains(german, self.LUXID_BANNER)
+
+        french = self.client.get("/fr/dashboard/", HTTP_HOST="crush.lu")
+        self.assertEqual(french.status_code, 200)
+        self.assertContains(french, "Faites-vous vérifier pour rejoindre Crush Connect")
+        self.assertNotContains(french, self.LUXID_BANNER)

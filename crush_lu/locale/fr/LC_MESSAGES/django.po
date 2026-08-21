@@ -39814,13 +39814,17 @@ msgstr[1] "%(spots)s places restantes pour vous."
 #: crush_lu/templates/crush_lu/event_register.html:0
 msgid "Your gender group is full"
 msgstr "Votre groupe de genre est complet"
+
 #: crush_lu/views_crush_connect.py
 msgid "Double verification: LuxID + Crush event"
 msgstr "Double vérification : LuxID + événement Crush"
 
 #: crush_lu/views_crush_connect.py
-msgid "Your identity is confirmed digitally and through an in-person Crush event."
-msgstr "Ton identité est confirmée numériquement et lors d’un événement Crush en personne."
+msgid ""
+"Your identity is confirmed digitally and through an in-person Crush event."
+msgstr ""
+"Ton identité est confirmée numériquement et lors d’un événement Crush en "
+"personne."
 
 #: crush_lu/views_crush_connect.py
 msgid "Verified at a Crush event"
@@ -39828,23 +39832,34 @@ msgstr "Vérifié lors d’un événement Crush"
 
 #: crush_lu/views_crush_connect.py
 msgid "A Crush coach confirmed your participation at an in-person event."
-msgstr "Un coach Crush a confirmé ta participation à un événement en personne."
+msgstr ""
+"Un coach Crush a confirmé ta participation à un événement en personne."
 
 #: crush_lu/views_crush_connect.py
 msgid "Identity confirmed by LuxID"
 msgstr "Identité confirmée par LuxID"
 
 #: crush_lu/views_crush_connect.py
-msgid "LuxID confirms your identity. Taking part in a Crush event unlocks the active Connect journey and your three daily suggestions, once the other steps are complete."
-msgstr "LuxID confirme ton identité. Participer à un événement Crush débloque le parcours Connect actif et tes trois propositions quotidiennes, une fois les autres étapes terminées."
+msgid ""
+"LuxID confirms your identity. Taking part in a Crush event unlocks the "
+"active Connect journey and your three daily suggestions, once the other "
+"steps are complete."
+msgstr ""
+"LuxID confirme ton identité. Participer à un événement Crush débloque le "
+"parcours Connect actif et tes trois propositions quotidiennes, une fois les "
+"autres étapes terminées."
 
 #: crush_lu/views_crush_connect.py
 msgid "Verified profile and identity"
 msgstr "Profil et identité vérifiés"
 
 #: crush_lu/views_crush_connect.py
-msgid "Your Crush profile must be approved and your identity confirmed before Connect can show you suggestions."
-msgstr "Ton profil Crush doit être approuvé et ton identité confirmée avant que Connect puisse te proposer des profils."
+msgid ""
+"Your Crush profile must be approved and your identity confirmed before "
+"Connect can show you suggestions."
+msgstr ""
+"Ton profil Crush doit être approuvé et ton identité confirmée avant que "
+"Connect puisse te proposer des profils."
 
 #: crush_lu/views_crush_connect.py
 msgid "Complete verification"
@@ -39855,12 +39870,17 @@ msgid "Crush event verification"
 msgstr "Vérification lors d’un événement Crush"
 
 #: crush_lu/views_crush_connect.py
-msgid "A confirmed participation at a Crush event unlocks the active journey with three suggestions per day."
-msgstr "Une participation confirmée à un événement Crush débloque le parcours actif avec trois propositions par jour."
+msgid ""
+"A confirmed participation at a Crush event unlocks the active journey with "
+"three suggestions per day."
+msgstr ""
+"Une participation confirmée à un événement Crush débloque le parcours actif "
+"avec trois propositions par jour."
 
 #: crush_lu/views_crush_connect.py
 msgid "A profile photo is required for your daily Connect suggestions."
-msgstr "Une photo de profil est requise pour tes propositions quotidiennes Connect."
+msgstr ""
+"Une photo de profil est requise pour tes propositions quotidiennes Connect."
 
 #: crush_lu/views_crush_connect.py
 msgid "Add a photo"
@@ -39871,8 +39891,12 @@ msgid "Photo sharing consent"
 msgstr "Consentement au partage de la photo"
 
 #: crush_lu/views_crush_connect.py
-msgid "Confirm that your clear photo may be shown only to the few verified members matched with you."
-msgstr "Confirme que ta photo nette peut être montrée uniquement aux quelques membres vérifiés qui te sont proposés."
+msgid ""
+"Confirm that your clear photo may be shown only to the few verified members "
+"matched with you."
+msgstr ""
+"Confirme que ta photo nette peut être montrée uniquement aux quelques "
+"membres vérifiés qui te sont proposés."
 
 #: crush_lu/views_crush_connect.py
 msgid "Review photo consent"
@@ -39883,8 +39907,12 @@ msgid "Connect onboarding"
 msgstr "Onboarding Connect"
 
 #: crush_lu/views_crush_connect.py
-msgid "Complete the Connect onboarding to set your preferences and explicitly opt in."
-msgstr "Termine l’onboarding Connect pour définir tes préférences et donner explicitement ton accord."
+msgid ""
+"Complete the Connect onboarding to set your preferences and explicitly opt "
+"in."
+msgstr ""
+"Termine l’onboarding Connect pour définir tes préférences et donner "
+"explicitement ton accord."
 
 #: crush_lu/views_crush_connect.py
 msgid "Continue onboarding"
@@ -39895,8 +39923,12 @@ msgid "Your three Connect questions"
 msgstr "Tes trois questions Connect"
 
 #: crush_lu/views_crush_connect.py
-msgid "Choose and answer three questions so matched members can discover you in the same respectful way."
-msgstr "Choisis trois questions et réponds-y pour que les membres proposés puissent te découvrir de la même manière respectueuse."
+msgid ""
+"Choose and answer three questions so matched members can discover you in the"
+" same respectful way."
+msgstr ""
+"Choisis trois questions et réponds-y pour que les membres proposés puissent "
+"te découvrir de la même manière respectueuse."
 
 #: crush_lu/views_crush_connect.py
 msgid "Choose my questions"
@@ -39911,21 +39943,348 @@ msgid "To receive your 3 suggestions each day, complete these steps"
 msgstr "Pour recevoir tes 3 propositions par jour, complète ces étapes"
 
 #: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
-msgid "Each status below comes from your current profile. Incomplete steps link directly to the right screen."
-msgstr "Chaque statut ci-dessous vient de ton profil actuel. Les étapes incomplètes mènent directement au bon écran."
+msgid ""
+"Each status below comes from your current profile. Incomplete steps link "
+"directly to the right screen."
+msgstr ""
+"Chaque statut ci-dessous vient de ton profil actuel. Les étapes incomplètes "
+"mènent directement au bon écran."
 
 #: crush_lu/views_crush_connect.py
-msgid "Your profile photo is missing. It blocks access to your daily Connect suggestions; add it now in Photos."
-msgstr "Ta photo de profil manque. Cela bloque l’accès à tes propositions quotidiennes Connect ; ajoute-la maintenant dans Photos."
+msgid ""
+"Your profile photo is missing. It blocks access to your daily Connect "
+"suggestions; add it now in Photos."
+msgstr ""
+"Ta photo de profil manque. Cela bloque l’accès à tes propositions "
+"quotidiennes Connect ; ajoute-la maintenant dans Photos."
 
 #: crush_lu/views_connect_cycle.py
-msgid "Your profile photo is missing. It blocks access to your three daily Connect Week suggestions; add it now in Photos."
-msgstr "Ta photo de profil manque. Cela bloque l’accès à tes trois propositions quotidiennes de la Connect Week ; ajoute-la maintenant dans Photos."
+msgid ""
+"Your profile photo is missing. It blocks access to your three daily Connect "
+"Week suggestions; add it now in Photos."
+msgstr ""
+"Ta photo de profil manque. Cela bloque l’accès à tes trois propositions "
+"quotidiennes de la Connect Week ; ajoute-la maintenant dans Photos."
 
 #: crush_lu/templates/crush_lu/crush_connect/hub.html
-msgid "Complete your setup below. You are not visible in Connect until you explicitly finish onboarding."
-msgstr "Termine ta préparation ci-dessous. Tu n’es pas visible dans Connect tant que tu n’as pas explicitement terminé l’onboarding."
+msgid ""
+"Complete your setup below. You are not visible in Connect until you "
+"explicitly finish onboarding."
+msgstr ""
+"Termine ta préparation ci-dessous. Tu n’es pas visible dans Connect tant que"
+" tu n’as pas explicitement terminé l’onboarding."
 
 #: crush_lu/templates/crush_lu/crush_connect/hub.html
-msgid "Complete the steps below to prepare your active Connect route and three daily suggestions."
-msgstr "Termine les étapes ci-dessous pour préparer ton parcours Connect actif et tes trois propositions quotidiennes."
+msgid ""
+"Complete the steps below to prepare your active Connect route and three "
+"daily suggestions."
+msgstr ""
+"Termine les étapes ci-dessous pour préparer ton parcours Connect actif et "
+"tes trois propositions quotidiennes."
+
+msgid "Get verified to join Crush Connect"
+msgstr "Faites-vous vérifier pour rejoindre Crush Connect"
+
+msgid ""
+"Everyone in Connect is a verified, real person. Link your LuxID, or verify "
+"in person with a Crush Coach at any event — event verification also unlocks "
+"the full Connect Week."
+msgstr ""
+"Chaque personne dans Connect est vérifiée et bien réelle. Liez votre LuxID, "
+"ou faites-vous vérifier en personne par un Crush Coach lors d'un événement —"
+" la vérification en événement débloque en plus toute la Semaine Connect."
+
+msgid "See events"
+msgstr "Voir les événements"
+
+msgid "Almost in Crush Connect"
+msgstr "Presque dans Crush Connect"
+
+msgid ""
+"Photo sharing is off, so nobody can see you yet. Turn it on to appear in "
+"Connect."
+msgstr ""
+"Le partage de photo est désactivé, personne ne peut donc encore vous voir. "
+"Activez-le pour apparaître dans Connect."
+
+msgid "Your Connect Week is open"
+msgstr "Votre Semaine Connect est ouverte"
+
+msgid ""
+"LuxID and in-person verified — the highest trust level. Three new profiles a"
+" day for seven days, then 24 hours to choose the one person you ask to meet."
+msgstr ""
+"Vérifié par LuxID et en personne — le plus haut niveau de confiance. Trois "
+"nouveaux profils par jour pendant sept jours, puis 24 heures pour choisir la"
+" seule personne que vous inviterez."
+
+msgid ""
+"Verified in person at an event. Three new profiles a day for seven days, "
+"then 24 hours to choose the one person you ask to meet."
+msgstr ""
+"Vérifié en personne lors d'un événement. Trois nouveaux profils par jour "
+"pendant sept jours, puis 24 heures pour choisir la seule personne que vous "
+"inviterez."
+
+msgid "Open my Connect Week"
+msgstr "Ouvrir ma Semaine Connect"
+
+msgid ""
+"Members can see you and ask to meet you — you decide who to answer. Verify "
+"in person at an event to also browse three profiles a day yourself."
+msgstr ""
+"Les membres peuvent vous voir et vous proposer de vous rencontrer — vous "
+"décidez à qui répondre. Faites-vous vérifier en personne lors d'un événement"
+" pour découvrir vous aussi trois profils par jour."
+
+msgid "My requests"
+msgstr "Mes demandes"
+
+msgid "Your Connect Week is waiting"
+msgstr "Votre Semaine Connect vous attend"
+
+msgid ""
+"You're verified in person, so the full Connect Week is yours: three profiles"
+" a day for a week, then one request to the person you'd most like to meet. "
+"Opt in free — you choose what you share."
+msgstr ""
+"Vous êtes vérifié en personne : toute la Semaine Connect vous revient — "
+"trois profils par jour pendant une semaine, puis une demande adressée à la "
+"personne que vous aimeriez le plus rencontrer. Participation gratuite : vous"
+" choisissez ce que vous partagez."
+
+msgid "Start my Connect Week"
+msgstr "Démarrer ma Semaine Connect"
+
+msgid "You're not in Crush Connect yet"
+msgstr "Vous n'êtes pas encore dans Crush Connect"
+
+msgid ""
+"Opt in free to become visible in the Mix: members can ask to meet you, and "
+"you decide who to answer. You choose what you share."
+msgstr ""
+"Participez gratuitement pour devenir visible : les membres peuvent vous "
+"proposer de vous rencontrer, et vous décidez à qui répondre. Vous choisissez"
+" ce que vous partagez."
+
+msgid "How was your Connect Week?"
+msgstr "Comment s'est passée votre Semaine Connect ?"
+
+msgid ""
+"Two taps. Your answer is private, goes to the Crush.lu team only, and shapes"
+" how the next weeks work."
+msgstr ""
+"Deux clics. Votre réponse est privée, ne va qu'à l'équipe Crush.lu et "
+"façonne le déroulement des prochaines semaines."
+
+msgid "Overall"
+msgstr "Dans l'ensemble"
+
+msgid "Did the daily profiles feel like a fit?"
+msgstr "Les profils quotidiens vous correspondaient-ils ?"
+
+msgid "Anything else?"
+msgstr "Autre chose ?"
+
+msgid "What worked, what didn't…"
+msgstr "Ce qui a marché, ce qui n'a pas marché…"
+
+msgid "Send feedback"
+msgstr "Envoyer mon avis"
+
+msgid "No thanks, don't ask again"
+msgstr "Non merci, ne plus me le demander"
+
+msgid "Good week"
+msgstr "Bonne semaine"
+
+msgid "Mixed"
+msgstr "Mitigée"
+
+msgid "Please tell us how the week went."
+msgstr "Dites-nous comment s'est passée la semaine."
+
+msgid "Thank you — that helps us shape the next week."
+msgstr "Merci — cela nous aide à façonner la semaine prochaine."
+
+msgid "Crush Connect is open for you"
+msgstr "Crush Connect est ouvert pour vous"
+
+msgid "Two steps to Crush Connect"
+msgstr "Deux étapes vers Crush Connect"
+
+msgid "Almost there"
+msgstr "Vous y êtes presque"
+
+msgid "Your invitation is here"
+msgstr "Votre invitation est arrivée"
+
+msgid "Hi {{ first_name }},"
+msgstr "Bonjour {{ first_name }},"
+
+msgid "You're in the first group to try Crush Connect."
+msgstr "Vous faites partie du premier groupe à essayer Crush Connect."
+
+msgid ""
+"You verified in person at one of our events, which unlocks the full Connect "
+"Week — the deliberate, seven-day way to meet someone here."
+msgstr ""
+"Vous vous êtes fait vérifier en personne lors d'un de nos événements, ce qui"
+" débloque toute la Semaine Connect — la façon posée, en sept jours, de "
+"rencontrer quelqu'un ici."
+
+msgid "How your week works:"
+msgstr "Comment se déroule votre semaine :"
+
+msgid "Three profiles a day, for seven days — no endless feed, no swiping"
+msgstr ""
+"Trois profils par jour, pendant sept jours — pas de fil sans fin, pas de "
+"swipe"
+
+msgid ""
+"For each one you privately guess three things about them from their photo"
+msgstr ""
+"Pour chacun, vous devinez en privé trois choses sur la personne à partir de "
+"sa photo"
+
+msgid "Miss a day and those cards are gone; the rhythm is the point"
+msgstr ""
+"Si vous manquez un jour, ces cartes disparaissent : le rythme fait tout "
+"l'intérêt"
+
+msgid ""
+"On day eight you get 24 hours to look back at everyone — including one "
+"person we think fits you especially well"
+msgstr ""
+"Le huitième jour, vous avez 24 heures pour revoir tout le monde — dont une "
+"personne qui, selon nous, vous correspond particulièrement bien"
+
+msgid ""
+"You may send exactly one \"Ich möchte dich kennenlernen\" request. One. "
+"Choose well."
+msgstr ""
+"Vous pouvez envoyer exactement une demande « Ich möchte dich kennenlernen »."
+" Une seule. Choisissez bien."
+
+msgid "If they say yes"
+msgstr "Si la personne dit oui"
+
+msgid ""
+"A temporary chat opens so the two of you can arrange a coffee. It is not a "
+"permanent inbox — it closes again if no meeting comes of it."
+msgstr ""
+"Un chat temporaire s'ouvre pour que vous puissiez convenir d'un café. Ce "
+"n'est pas une messagerie permanente : il se referme si aucune rencontre n'en"
+" découle."
+
+msgid "Crush Connect is open, and you're in the Mix."
+msgstr "Crush Connect est ouvert, et vous êtes de la partie."
+
+msgid ""
+"Your LuxID is verified, so you are visible to other members and can receive "
+"and accept a connection request — and chat, once you accept one."
+msgstr ""
+"Votre LuxID est vérifié : vous êtes donc visible pour les autres membres et "
+"pouvez recevoir et accepter une demande de contact — puis discuter."
+
+msgid "What that means right now:"
+msgstr "Ce que cela signifie dès maintenant :"
+
+msgid ""
+"Members going through their Connect Week can see your card and choose you"
+msgstr ""
+"Les membres qui vivent leur Semaine Connect voient votre carte et peuvent "
+"vous choisir"
+
+msgid ""
+"If someone picks you, the request lands in your inbox and you have 24 hours "
+"to answer"
+msgstr ""
+"Si quelqu'un vous choisit, la demande arrive dans votre boîte de réception "
+"et vous avez 24 heures pour répondre"
+
+msgid ""
+"Accepting opens a temporary chat to arrange a coffee — declining tells them "
+"nothing"
+msgstr ""
+"Accepter ouvre un chat temporaire pour convenir d'un café — refuser ne lui "
+"apprend rien"
+
+msgid "Your full name and exact age are never shown"
+msgstr "Votre nom complet et votre âge exact ne sont jamais affichés"
+
+msgid "Want to do the choosing too?"
+msgstr "Vous voulez choisir vous aussi ?"
+
+msgid ""
+"Come to one event and verify in person with a Crush Coach. That unlocks the "
+"active Connect Week: three profiles a day and your own weekly request to "
+"send."
+msgstr ""
+"Venez à un événement et faites-vous vérifier en personne par un Crush Coach."
+" Cela débloque la Semaine Connect active : trois profils par jour et votre "
+"propre demande hebdomadaire."
+
+msgid "See my Connect status"
+msgstr "Voir mon statut Connect"
+
+msgid ""
+"Browse what's coming up on the <a href=\"{{ events_url }}\">events page</a>."
+msgstr ""
+"Découvrez ce qui arrive sur la <a href=\"{{ events_url }}\">page des "
+"événements</a>."
+
+msgid ""
+"Crush Connect has opened for the waitlist — and your seat is being held."
+msgstr ""
+"Crush Connect est ouvert pour la liste d'attente — et votre place est "
+"réservée."
+
+msgid ""
+"One thing is still missing before you can join: we verify that every member "
+"is a real, of-age person before anyone appears in Connect."
+msgstr ""
+"Il manque encore une chose avant que vous puissiez nous rejoindre : nous "
+"vérifions que chaque membre est une personne réelle et majeure avant qu'elle"
+" n'apparaisse dans Connect."
+
+msgid "Two ways to get verified — either one is enough:"
+msgstr "Deux façons de vous faire vérifier — l'une suffit :"
+
+msgid ""
+"Link your LuxID. It takes about a minute and confirms your identity and age "
+"instantly."
+msgstr ""
+"Liez votre LuxID. Cela prend environ une minute et confirme instantanément "
+"votre identité et votre âge."
+
+msgid ""
+"Come to a Crush.lu event. A Crush Coach verifies you in person at the door —"
+" and that route also unlocks the full Connect Week."
+msgstr ""
+"Venez à un événement Crush.lu. Un Crush Coach vous vérifie en personne à "
+"l'entrée — et cette voie débloque en plus toute la Semaine Connect."
+
+msgid "Why we insist on this"
+msgstr "Pourquoi nous y tenons"
+
+msgid ""
+"Every single person in Crush Connect has been verified. That is the whole "
+"promise, and it only holds if it has no exceptions."
+msgstr ""
+"Chaque personne dans Crush Connect a été vérifiée. C'est toute la promesse, "
+"et elle ne tient que sans exception."
+
+msgid ""
+"Prefer to meet us in person first? Have a look at the <a href=\"{{ "
+"events_url }}\">upcoming events</a>."
+msgstr ""
+"Vous préférez d'abord nous rencontrer en personne ? Jetez un œil aux <a "
+"href=\"{{ events_url }}\">prochains événements</a>."
+
+msgid ""
+"You can change what you share, or leave Crush Connect, anytime from your <a "
+"href=\"{{ dashboard_url }}\">dashboard</a>."
+msgstr ""
+"Vous pouvez à tout moment modifier ce que vous partagez, ou quitter Crush "
+"Connect, depuis votre <a href=\"{{ dashboard_url }}\">tableau de bord</a>."

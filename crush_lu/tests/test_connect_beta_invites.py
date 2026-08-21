@@ -351,12 +351,14 @@ def test_wave_body_matches_the_cohort():
     mail.outbox = []
     call_command("send_connect_beta_invites", wave=1)
     w1_body = mail.outbox[0].body
-    assert "Connect Week" in w1_body
+    assert "Start my Connect Week" in w1_body
 
     mail.outbox = []
     call_command("send_connect_beta_invites", wave=2)
     w2_body = mail.outbox[0].body
     assert "in the Mix" in w2_body
+    # A wave 2 member has no cycle access — inviting them to start a Connect
+    # Week would be a link straight back to the teaser.
     assert "Start my Connect Week" not in w2_body
 
 
@@ -370,3 +372,36 @@ def test_a_second_run_is_skipped_while_the_lock_is_held():
     call_command("send_connect_beta_invites", wave=1)
 
     assert mail.outbox == []
+
+
+@pytest.mark.django_db
+def test_invite_is_sent_in_the_members_language():
+    """The invite must ship translated. A member on DE getting the English
+    body is the failure mode staging has shown before for new Connect copy."""
+    row = _waitlist(_event_verified("de_member"))
+    profile = row.user.crushprofile
+    profile.preferred_language = "de"
+    profile.save(update_fields=["preferred_language"])
+
+    mail.outbox = []
+    call_command("send_connect_beta_invites", wave=1)
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].subject == "Crush Connect ist für Dich offen"
+    # `body` is the HTML: send_domain_email sends HTML-only platform-wide
+    # (body = html_message, content_subtype = "html").
+    assert "Du gehörst zur ersten Gruppe" in mail.outbox[0].body
+    assert "You're in the first group" not in mail.outbox[0].body
+
+
+@pytest.mark.django_db
+def test_wave_three_subject_differs_from_the_invite_waves():
+    """Wave 3 is not an invitation — telling an unverified member "Crush
+    Connect is open for you" would promise a door their verification keeps
+    shut."""
+    _waitlist(_unverified("subject_w3"))
+
+    mail.outbox = []
+    call_command("send_connect_beta_invites", wave=3)
+
+    assert mail.outbox[0].subject == "Two steps to Crush Connect"
