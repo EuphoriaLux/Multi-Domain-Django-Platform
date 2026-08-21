@@ -440,16 +440,16 @@ class LinkedCrushCreditSerializer(serializers.Serializer):
     cashRefundEligible = serializers.BooleanField(
         source="cash_refund_eligible", read_only=True
     )
+    note = serializers.CharField(read_only=True)
 
 
 class EventCancellationRegistrationSerializer(serializers.Serializer):
     """One self-cancelled registration for a cancelled event, credit attached.
 
     Source rows are ``EventRegistration`` instances the view annotates with
-    ``linked_credit`` (a ``CrushCredit`` or ``None``) and ``open_cash_refund``
-    (a bool computed from the *exact* same predicate the staff cash-refund
-    queue uses — see ``CashRefundQueueFilter._open`` in
-    ``crush_lu/admin/credits.py`` and ``hub/views_events.py``).
+    ``linked_credit`` (a ``CrushCredit`` or ``None``), ``open_cash_refund``,
+    ``cancellation_origin`` ("member" | "organiser"), ``payment_status`` ("paid" | "refunded" | "none"),
+    and ``refund_amount_cents``.
     """
 
     id = serializers.CharField(source="pk", read_only=True)
@@ -461,6 +461,15 @@ class EventCancellationRegistrationSerializer(serializers.Serializer):
     )
     credit = serializers.SerializerMethodField()
     openCashRefund = serializers.BooleanField(source="open_cash_refund", read_only=True)
+    cancellationOrigin = serializers.CharField(
+        source="cancellation_origin", read_only=True, default="organiser"
+    )
+    paymentStatus = serializers.CharField(
+        source="payment_status", read_only=True, default="none"
+    )
+    refundAmountCents = serializers.IntegerField(
+        source="refund_amount_cents", read_only=True, allow_null=True, default=None
+    )
 
     def get_userEmail(self, obj):
         return obj.user.email if obj.user_id else None
