@@ -231,10 +231,20 @@ class Command(BaseCommand):
 
             try:
                 remote_data = client.get_checkout(tx_obj.sumup_checkout_id)
-            except SumUpError as exc:
+            except (SumUpError, ValueError) as exc:
+                # ValueError too: get_checkout() wraps only requests.RequestException,
+                # so a 2xx with a malformed or non-JSON body (a proxy returning an
+                # HTML error page, a truncated response) makes response.json() raise
+                # JSONDecodeError — a ValueError, not a RequestException — which
+                # would escape uncaught and kill the sweep.
+                #
+                # Fixed here rather than in SumUpClient because get_checkout has five
+                # callers including the live payment path in views_payments; making
+                # it raise SumUpError for malformed bodies is the better contract but
+                # changes behaviour for callers this PR does not test.
                 errors_count += 1
                 logger.error(
-                    "Failed to fetch SumUp checkout %s: %s",
+                    "Failed to fetch or parse SumUp checkout %s: %s",
                     tx_obj.sumup_checkout_id,
                     exc,
                 )

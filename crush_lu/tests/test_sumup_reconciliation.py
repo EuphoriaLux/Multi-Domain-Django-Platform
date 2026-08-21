@@ -404,6 +404,40 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertTrue(other.pk)
 
 
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_malformed_json_body_does_not_kill_the_sweep(self, mock_get_checkout):
+        """A 2xx with a non-JSON body raises JSONDecodeError, not SumUpError.
+
+        SumUpClient.get_checkout() wraps only requests.RequestException, so a
+        proxy returning an HTML error page with a 200 escapes as a bare
+        ValueError and would abort every remaining row.
+        """
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-42-after-bad-body",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="chk_after",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event=self.event,
+            raw_response={"status": "PAID"},
+        )
+        mock_get_checkout.side_effect = [
+            json.JSONDecodeError("Expecting value", "<html>502</html>", 0),
+            {"id": "chk_after", "status": "PAID"},
+        ]
+
+        out = io.StringIO()
+        call_command("reconcile_sumup_payments", stdout=out)
+
+        self.assertEqual(mock_get_checkout.call_count, 2)
+        output = out.getvalue()
+        self.assertIn("Sweep complete", output)
+        self.assertIn("1 error(s)", output)
+
+
 class ExternalRefundRegressionTests(TestCase):
     """Regressions for the four review findings on PR #903."""
 
