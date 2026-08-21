@@ -11,6 +11,7 @@ References:
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/indexing"]
 DEFAULT_LANGUAGES = ["en", "fr", "de"]
+
+
+def is_indexing_enabled() -> bool:
+    """Check whether Google Indexing API integration is enabled."""
+    return getattr(settings, "GOOGLE_INDEXING_ENABLED", True)
 
 
 def get_google_indexing_credentials() -> Optional[Any]:
@@ -79,7 +85,7 @@ def get_google_indexing_credentials() -> Optional[Any]:
 
 def get_google_indexing_service() -> Optional[Any]:
     """Build the Google Indexing API v3 service resource."""
-    if not getattr(settings, "GOOGLE_INDEXING_ENABLED", True):
+    if not is_indexing_enabled():
         logger.debug("Google Indexing API is disabled by settings.GOOGLE_INDEXING_ENABLED")
         return None
 
@@ -156,14 +162,17 @@ def build_event_list_urls(domain: str = "crush.lu") -> List[str]:
 
 
 def notify_url_indexing(
-    url: str, action: str = "URL_UPDATED", service: Optional[Any] = None
+    url: str,
+    action: str = "URL_UPDATED",
+    service: Optional[Any] = None,
+    timeout: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Notify Googlebot of a URL change (URL_UPDATED or URL_DELETED).
 
     Safe execution: catches errors, logs diagnostic information, and never raises.
     """
-    if not getattr(settings, "GOOGLE_INDEXING_ENABLED", True):
+    if not is_indexing_enabled():
         return None
 
     srv = service or get_google_indexing_service()
@@ -194,14 +203,17 @@ def notify_url_indexing(
 
 
 def notify_event_indexing(
-    event, action: str = "URL_UPDATED", include_event_list: bool = True
+    event,
+    action: str = "URL_UPDATED",
+    max_budget_seconds: float = 8.0,
 ) -> List[Dict[str, Any]]:
     """
     Notify Googlebot of an event creation, update, or deletion across all languages.
 
-    Also pings the event directory pages on updates to refresh listings immediately.
+    Only submits specific event detail URLs (/en/events/<id>/, etc.).
+    Uses a strict wall-clock budget to prevent blocking the worker.
     """
-    if not getattr(settings, "GOOGLE_INDEXING_ENABLED", True):
+    if not is_indexing_enabled():
         return []
 
     service = get_google_indexing_service()
@@ -209,11 +221,18 @@ def notify_event_indexing(
         return []
 
     urls_to_ping = build_event_indexing_urls(event)
-    if include_event_list and action == "URL_UPDATED":
-        urls_to_ping.extend(build_event_list_urls())
+    deadline = time.monotonic() + max_budget_seconds
 
     results = []
     for url in urls_to_ping:
+        if time.monotonic() > deadline:
+            logger.warning(
+                "Google Indexing budget exhausted (%ss). Skipping remaining URLs for event %s.",
+                max_budget_seconds,
+                getattr(event, "pk", None),
+            )
+            break
+
         res = notify_url_indexing(url, action=action, service=service)
         if res:
             results.append(res)

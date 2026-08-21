@@ -795,6 +795,16 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=True)
         _enqueue_echo_sync(event_ids)
+
+        # Real-time Google Indexing update
+        try:
+            from crush_lu.services.google_indexing import notify_event_indexing
+
+            for event in MeetupEvent.objects.filter(pk__in=event_ids):
+                notify_event_indexing(event, action="URL_UPDATED")
+        except Exception:
+            logger.exception("Error sending Google indexing notifications on publish")
+
         django_messages.success(
             request, _("Published {count} event(s)").format(count=updated)
         )
@@ -804,6 +814,16 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=False)
         _enqueue_echo_sync(event_ids)
+
+        # Real-time Google Indexing removal
+        try:
+            from crush_lu.services.google_indexing import notify_event_indexing
+
+            for event in MeetupEvent.objects.filter(pk__in=event_ids):
+                notify_event_indexing(event, action="URL_DELETED")
+        except Exception:
+            logger.exception("Error sending Google indexing removals on unpublish")
+
         django_messages.success(
             request, _("Unpublished {count} event(s)").format(count=updated)
         )
@@ -1029,21 +1049,47 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     @admin.action(description=_("🔍 Ping Google Search Indexing for selected events"))
     def ping_google_indexing(self, request, queryset):
         """Send immediate Googlebot indexing notification for selected events across all languages."""
-        from crush_lu.services.google_indexing import notify_event_indexing
+        from crush_lu.services.google_indexing import (
+            build_event_indexing_urls,
+            notify_event_indexing,
+        )
 
-        succeeded = 0
-        for event in queryset:
-            results = notify_event_indexing(event, action="URL_UPDATED", include_event_list=True)
-            if results:
-                succeeded += 1
+        events = list(queryset)
+        total_urls = sum(len(build_event_indexing_urls(ev)) for ev in events)
+        successful_urls = 0
+        fully_synced_events = 0
 
-        if succeeded > 0:
-            django_messages.success(
-                request,
-                _("Google Indexing ping sent for {count} event(s) across all active languages.").format(
-                    count=succeeded
-                ),
+        for event in events:
+            expected_count = len(build_event_indexing_urls(event))
+            action = (
+                "URL_UPDATED"
+                if (event.is_published and not event.is_cancelled)
+                else "URL_DELETED"
             )
+            results = notify_event_indexing(event, action=action)
+            successful_urls += len(results)
+            if len(results) == expected_count and expected_count > 0:
+                fully_synced_events += 1
+
+        if successful_urls > 0:
+            if successful_urls == total_urls:
+                django_messages.success(
+                    request,
+                    _(
+                        "Google Indexing: all {count} URL(s) successfully notified across {events} event(s)."
+                    ).format(count=successful_urls, events=len(events)),
+                )
+            else:
+                django_messages.warning(
+                    request,
+                    _(
+                        "Google Indexing: {success}/{total} URL(s) successfully notified across {events} event(s)."
+                    ).format(
+                        success=successful_urls,
+                        total=total_urls,
+                        events=len(events),
+                    ),
+                )
         else:
             django_messages.warning(
                 request,

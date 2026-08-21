@@ -4601,7 +4601,10 @@ def delete_quiz_question_media(sender, instance, **kwargs):
 # ---------------------------------------------------------------------------
 @receiver(post_save, sender=MeetupEvent)
 def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, **kwargs):
-    """Notify Googlebot immediately when a MeetupEvent is created or updated.
+    """Notify Googlebot immediately when a MeetupEvent changes state.
+
+    - Published & active events -> URL_UPDATED
+    - Unpublished / drafts / cancelled events -> URL_DELETED
 
     Deferred to transaction.on_commit so the database commit completes before
     Googlebot receives the crawl notification.
@@ -4612,12 +4615,15 @@ def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, 
     from crush_lu.services.google_indexing import notify_event_indexing
 
     event_pk = instance.pk
+    is_published = instance.is_published
+    is_cancelled = instance.is_cancelled
+    action = "URL_UPDATED" if (is_published and not is_cancelled) else "URL_DELETED"
 
     def _notify():
         try:
             event = MeetupEvent.objects.filter(pk=event_pk).first()
             if event:
-                notify_event_indexing(event, action="URL_UPDATED", include_event_list=True)
+                notify_event_indexing(event, action=action)
         except Exception:
             logger.exception(
                 "Error triggering Google indexing notification on save for event %s",
