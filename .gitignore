@@ -6,6 +6,8 @@ __pycache__/
 certs/
 crush-pass-key.pem
 crush-pass.csr
+scripts/*_key.json
+scripts/*_token.json
 .codex-pr-repo/
 
 # C extensions

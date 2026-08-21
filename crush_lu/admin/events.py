@@ -485,6 +485,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "export_attendees_csv",
         "sync_to_echo_lu",
         "withdraw_from_echo_lu",
+        "ping_google_indexing",
     ]
     filter_horizontal = ("invited_users", "coaches")
     # get_echo_lu_status renders one column per row; without this the changelist
@@ -1024,6 +1025,34 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     "removal is recorded and the hourly sync keeps retrying it."
                 ).format(count=len(deferred)),
             )
+
+    @admin.action(description=_("🔍 Ping Google Search Indexing for selected events"))
+    def ping_google_indexing(self, request, queryset):
+        """Send immediate Googlebot indexing notification for selected events across all languages."""
+        from crush_lu.services.google_indexing import notify_event_indexing
+
+        succeeded = 0
+        for event in queryset:
+            results = notify_event_indexing(event, action="URL_UPDATED", include_event_list=True)
+            if results:
+                succeeded += 1
+
+        if succeeded > 0:
+            django_messages.success(
+                request,
+                _("Google Indexing ping sent for {count} event(s) across all active languages.").format(
+                    count=succeeded
+                ),
+            )
+        else:
+            django_messages.warning(
+                request,
+                _(
+                    "No Google Indexing pings were sent. Check that GOOGLE_INDEXING_ENABLED=True "
+                    "and service account credentials are configured."
+                ),
+            )
+
 
     @staticmethod
     def _google_holders_for_cancellation(events):

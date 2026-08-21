@@ -4594,3 +4594,61 @@ def delete_quiz_question_media(sender, instance, **kwargs):
         field.storage.delete(name)
     except Exception:
         logger.exception("Failed to delete quiz media Blob: %s", name)
+
+
+# ---------------------------------------------------------------------------
+# Google Search Indexing API real-time notifications
+# ---------------------------------------------------------------------------
+@receiver(post_save, sender=MeetupEvent)
+def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, **kwargs):
+    """Notify Googlebot immediately when a MeetupEvent is created or updated.
+
+    Deferred to transaction.on_commit so the database commit completes before
+    Googlebot receives the crawl notification.
+    """
+    if raw:
+        return
+
+    from crush_lu.services.google_indexing import notify_event_indexing
+
+    event_pk = instance.pk
+
+    def _notify():
+        try:
+            event = MeetupEvent.objects.filter(pk=event_pk).first()
+            if event:
+                notify_event_indexing(event, action="URL_UPDATED", include_event_list=True)
+        except Exception:
+            logger.exception(
+                "Error triggering Google indexing notification on save for event %s",
+                event_pk,
+            )
+
+    transaction.on_commit(_notify)
+
+
+@receiver(post_delete, sender=MeetupEvent)
+def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
+    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED)."""
+    from crush_lu.services.google_indexing import notify_event_indexing
+
+    urls = []
+    try:
+        from crush_lu.services.google_indexing import build_event_indexing_urls
+        urls = build_event_indexing_urls(instance)
+    except Exception:
+        pass
+
+    def _notify():
+        try:
+            from crush_lu.services.google_indexing import notify_url_indexing
+            for url in urls:
+                notify_url_indexing(url, action="URL_DELETED")
+        except Exception:
+            logger.exception(
+                "Error triggering Google indexing notification on delete for event %s",
+                getattr(instance, "pk", None),
+            )
+
+    transaction.on_commit(_notify)
+
