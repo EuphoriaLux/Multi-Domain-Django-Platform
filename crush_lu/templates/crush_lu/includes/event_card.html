@@ -12,7 +12,7 @@
         {% if is_past %}
         <span class="absolute top-3 left-3 inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-700/80 text-white rounded-full backdrop-blur-sm">{% trans "Past Event" %}</span>
         {% elif event.is_live %}
-        <span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-red-500 text-white rounded-full backdrop-blur-sm">
+        <span class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-red-600 text-white rounded-full backdrop-blur-sm">
             <span class="animate-pulse w-2 h-2 rounded-full bg-white"></span>{% trans "Live now" %}
         </span>
         {% endif %}
@@ -34,7 +34,7 @@
                     {{ event.get_event_type_display }}
                 </span>
                 {% if event.is_live and not is_past %}
-                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full backdrop-blur-sm">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full backdrop-blur-sm">
                     <span class="animate-pulse w-2 h-2 rounded-full bg-white"></span>{% trans "Live now" %}
                 </span>
                 {% endif %}
@@ -62,7 +62,7 @@
         {% if is_past %}
         {# Simplified past event card body #}
         <div class="flex justify-between items-start mb-3">
-            <h5 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h5>
+            <h3 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h3>
             <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
         </div>
 
@@ -88,7 +88,7 @@
         </div>
         {% endif %}
         <div class="flex justify-between items-start mb-3">
-            <h5 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h5>
+            <h3 class="font-semibold text-lg mb-0 dark:text-white">{{ event.title }}</h3>
             <span class="badge-crush-soft">{{ event.get_event_type_display }}</span>
         </div>
 
@@ -115,7 +115,7 @@
             <div class="flex justify-between items-center mb-3">
                 <small class="text-gray-500 dark:text-gray-400">
                     {% if event.is_full %}
-                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded-full">{% trans "Full" %}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full">{% trans "Full" %}</span>
                     {% else %}
                         {% blocktrans count counter=event.spots_remaining %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktrans %}
                     {% endif %}

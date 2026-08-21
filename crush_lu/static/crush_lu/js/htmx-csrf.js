@@ -4,8 +4,8 @@
  * Sets HTMX headers from hidden input for CSRF protection.
  * Works correctly when CSRF_COOKIE_HTTPONLY=True.
  *
- * This must run synchronously before HTMX initializes, so it's
- * loaded without defer attribute.
+ * Loaded with defer, which still runs this before the deferred HTMX bundle
+ * (defer preserves document order) while keeping it off the critical path.
  */
 (function () {
     "use strict";

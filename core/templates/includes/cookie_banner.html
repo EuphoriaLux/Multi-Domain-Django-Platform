@@ -6,7 +6,7 @@
 <div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
-            <h4 id="cookie-banner-title">{% trans "Cookie Settings" %}</h4>
+            <p id="cookie-banner-title" class="cookie-banner-title">{% trans "Cookie Settings" %}</p>
             <p id="cookie-banner-description">
                 {% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}
             </p>
@@ -121,14 +121,21 @@ html.dark .cookie-banner {
     min-width: 300px;
 }
 
-html.dark .cookie-banner-text h4,
+html.dark .cookie-banner-text .cookie-banner-title,
 html.dark .cookie-modal-header h4 {
     color: #f1f5f9;
 }
 
-.cookie-banner-text h4 {
+/* Dialog title. A paragraph, not a heading: role="dialog" is named via
+   aria-labelledby, so no heading is needed here — and as a level-4 heading appended
+   after the footer it broke the page's heading outline (Lighthouse heading-order).
+   Specificity is deliberate: .cookie-banner-text p would otherwise win on `color`
+   and shrink the title to body text. */
+.cookie-banner-text .cookie-banner-title {
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
+    font-weight: 700;
+    color: inherit;
 }
 
 .cookie-banner-text p {
