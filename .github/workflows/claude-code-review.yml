@@ -1,15 +1,21 @@
 name: Claude Code Review
 
 on:
+  # Reviews run once, when the PR first becomes reviewable — NOT on every push.
+  # `synchronize` used to be here and was the single biggest cost multiplier: a
+  # full review (see the fan-out note on the plugin step below) fired on every
+  # commit, so an iterative PR paid for 5-6 reviews of code that was still
+  # moving. Re-review a finished branch on demand with "@claude review".
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [opened, ready_for_review, reopened]
   # Lets anyone with write access re-run a review on demand by commenting
   # "@claude review" on the PR — no need to push a new commit.
   issue_comment:
     types: [created]
 
-# A new push to the PR cancels the still-running review of the previous
-# (now-stale) commit. Comment-triggered reviews (`@claude review`) do NOT
+# Reviews of the same PR never run concurrently. `pull_request` triggers still
+# cancel an in-flight predecessor (cheap insurance against a reopen/ready
+# double-fire). Comment-triggered reviews (`@claude review`) do NOT
 # cancel each other: two triggers landing close together — e.g. a duplicate
 # webhook delivery, or two people nudging it — used to race under
 # cancel-in-progress:true, with the newer run winning even when it resolved
@@ -61,14 +67,29 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        # Pinned to a SHA, not the floating `v1` tag. `v1` moves on every action
+        # release, so a regression upstream lands here unannounced and bills at
+        # full price — see anthropics/claude-code-action#1644, where v1.0.190/191
+        # exited "success" after 5-10 turns without reviewing anything, ~50% of
+        # runs. This SHA is v1.0.198, past that window and verified posting real
+        # reviews on this repo. Bump deliberately.
+        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1.0.198
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Keep a visible claude[bot] comment updated while the review runs.
           track_progress: true
           display_report: true
+          # NB: the marketplace is cloned unpinned at run time, so the review's
+          # cost profile can shift upstream with no diff here. If per-run spend
+          # jumps while this file is untouched, diff the plugin command first.
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
+          # This one prompt fans out to ~8-20 subagents inside the run: a Haiku
+          # eligibility check, a Haiku CLAUDE.md scan, a Sonnet PR summary, 4
+          # parallel reviewers (2 Sonnet CLAUDE.md + 2 Opus bug hunters), then an
+          # Opus/Sonnet validator per flagged issue. Measured 2026-08-21 at
+          # $0.51-$3.20 of token spend per run. That is the per-review floor;
+          # the trigger list above is what controls how often you pay it.
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ steps.pr.outputs.number }} --comment'
           claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
