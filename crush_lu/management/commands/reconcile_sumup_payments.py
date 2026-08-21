@@ -53,12 +53,20 @@ def _to_decimal(value) -> Decimal:
     """
     if value is None:
         return Decimal("0")
-    if isinstance(value, Decimal):
-        return value
     try:
-        return Decimal(str(value))
+        parsed = value if isinstance(value, Decimal) else Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal("0")
+
+    # "Infinity" and "NaN" are valid Decimal literals, and the stdlib json
+    # module parses those tokens by default — so response.json() can hand us
+    # either. Neither raises here; NaN raises InvalidOperation later, from the
+    # max() comparison in refunded_amount(), which sits outside the caller's
+    # try/except and would kill the sweep. Same guard as the donation-amount
+    # parse in views_payments.
+    if not parsed.is_finite():
+        return Decimal("0")
+    return parsed
 
 
 def refunded_amount(data: dict) -> Decimal:

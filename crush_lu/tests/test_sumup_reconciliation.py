@@ -3,6 +3,7 @@ Tests for Tier-2 SumUp refund reconciliation sweep (reconcile_sumup_payments).
 """
 
 import io
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -421,6 +422,25 @@ class ExternalRefundRegressionTests(TestCase):
         )
         # Garbage must degrade to "not refunded", never explode.
         self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": "not-a-number"}))
+
+    def test_nan_and_infinity_do_not_kill_the_sweep(self):
+        """json.loads parses NaN/Infinity by default, and Decimal accepts both.
+
+        Neither raises on construction; NaN raises InvalidOperation from the
+        max() comparison inside refunded_amount(), which is outside the
+        caller's try/except. Same guard as views_payments' donation parse.
+        """
+        for token in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(token=token):
+                self.assertEqual(
+                    refunded_amount({"amount_refunded": token}), Decimal("0")
+                )
+                self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": token}))
+
+        # And the real json path, not just the literal strings.
+        payload = json.loads('{"status": "PAID", "amount_refunded": NaN}')
+        self.assertEqual(refunded_amount(payload), Decimal("0"))
+        self.assertFalse(is_checkout_refunded(payload))
 
     def test_refunded_amount_reads_every_payload_shape(self):
         self.assertEqual(refunded_amount({"amount_refunded": "2.50"}), Decimal("2.50"))
