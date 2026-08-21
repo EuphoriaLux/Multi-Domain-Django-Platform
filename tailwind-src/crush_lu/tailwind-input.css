@@ -6478,6 +6478,56 @@ html.dark .section-card {
     pointer-events: none;
 }
 
+/* Busy state for social buttons.
+   Driven purely by aria-busy so the announcement to assistive tech and the
+   visible state cannot drift apart, and so the JS that sets it never has to
+   touch the button's text. That matters here: the handlers used to overwrite
+   textContent with an English string ("Redirecting to Google..."), which both
+   discarded the provider logo and shipped untranslated copy to a site that
+   serves DE and FR.
+
+   Deliberately unlayered, matching .social-login-btn immediately above.
+   Unlayered rules outrank everything in @layer components/utilities, so this
+   reliably beats the Tailwind utility classes the buttons also carry
+   (hover:bg-*, transition-*) rather than half-applying. */
+.social-login-btn[aria-busy="true"] {
+    opacity: 0.65;
+    pointer-events: none;
+    cursor: progress;
+    transform: none;
+    box-shadow: none;
+}
+
+/* The spinner rides in a pseudo-element so the button keeps its logo and its
+   translated label. currentColor makes one rule serve every provider: the
+   white-on-gradient LuxID button and the dark-on-white Google button both get
+   a legible ring without a per-provider override. */
+.social-login-btn[aria-busy="true"]::after {
+    content: "";
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: crush-social-spin 0.7s linear infinite;
+}
+
+@keyframes crush-social-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Respect a reduced-motion preference: keep the state legible, drop the
+   rotation rather than the indicator. */
+@media (prefers-reduced-motion: reduce) {
+    .social-login-btn[aria-busy="true"]::after {
+        animation: none;
+        opacity: 0.6;
+    }
+}
+
 .social-login-btn .social-icon {
     width: 20px;
     height: 20px;

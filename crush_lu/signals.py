@@ -1524,23 +1524,31 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
                 access_token = sociallogin.token.token if sociallogin.token else None
 
                 # Download and save profile photo if available and not already set
+                photo_saved = False
                 if not profile.photo_1:
                     photo_url = _get_facebook_photo_url(extra_data, access_token)
                     if photo_url:
                         if download_and_save_facebook_photo(
                             profile, photo_url, sociallogin.user.id
                         ):
+                            photo_saved = True
                             logger.info(
                                 f"Saved Facebook photo for user {sociallogin.user.email}"
                             )
 
-                # Update profile data from Facebook
-                update_profile_from_facebook_data(profile, extra_data)
+                # Update profile data from Facebook. This already reports
+                # whether it changed anything; the return value used to be
+                # discarded and the save made unconditionally, so a repeat
+                # login by a member whose birthday and gender were long since
+                # filled in still rewrote the row and fired the full post_save
+                # fan-out (Outlook Graph sync included) on the request thread.
+                fields_changed = update_profile_from_facebook_data(profile, extra_data)
 
-                profile.save()
-                logger.info(
-                    f"Updated CrushProfile for existing user {sociallogin.user.email}"
-                )
+                if photo_saved or fields_changed:
+                    profile.save()
+                    logger.info(
+                        f"Updated CrushProfile for existing user {sociallogin.user.email}"
+                    )
 
             except CrushProfile.DoesNotExist:
                 logger.info(
@@ -1955,20 +1963,33 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
                 profile = CrushProfile.objects.get(user=sociallogin.user)
 
                 # Download and save profile photo if available and not already set
+                photo_saved = False
                 if not profile.photo_1:
                     photo_url = get_high_res_google_photo_url(extra_data)
                     if photo_url:
                         if download_and_save_google_photo(
                             profile, photo_url, sociallogin.user.id
                         ):
+                            photo_saved = True
                             logger.info(
                                 f"Saved Google photo for user {sociallogin.user.email}"
                             )
 
-                profile.save()
-                logger.info(
-                    f"Updated CrushProfile for existing Google user {sociallogin.user.email}"
-                )
+                # Save only when the photo download actually attached a file.
+                # download_and_save_google_photo() uses save=False and returns
+                # whether it set photo_1, so this is the only thing on this
+                # path that can have changed the row. The save used to be
+                # unconditional, which meant every repeat Google login rewrote
+                # the whole profile and — because a save with no update_fields
+                # reads downstream as "everything changed" — pulled the Outlook
+                # Graph sync onto the request thread for a member whose profile
+                # was already correct.
+                if photo_saved:
+                    profile.save()
+                    logger.info(
+                        f"Updated CrushProfile for existing Google user "
+                        f"{sociallogin.user.email}"
+                    )
 
             except CrushProfile.DoesNotExist:
                 logger.info(
@@ -2150,23 +2171,21 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
             f"mail={extra_data.get('mail')}, userPrincipalName={extra_data.get('userPrincipalName')}"
         )
 
-        # If user exists, update their CrushProfile
+        # Microsoft's extra_data feeds nothing on CrushProfile — unlike Google
+        # and Facebook there is no photo URL and no birthday/gender claim, as
+        # get_microsoft_photo_url() above documents by returning None. The
+        # bare profile.save() that used to stand here therefore changed no
+        # column, and paid for it twice: CrushProfile.save() issues its own
+        # SELECT for the preserve-verified-fields comparison and then rewrites
+        # every column, and the resulting post_save carries update_fields=None,
+        # which sync_profile_to_outlook reads as "full save - sync to be safe"
+        # and answers with a Microsoft Graph round trip on the request thread
+        # (see the same reasoning already recorded in
+        # trigger_wallet_pass_update_on_profile_change). Nothing downstream
+        # depends on the write, so the login no longer makes it.
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
-            try:
-                profile = CrushProfile.objects.get(user=sociallogin.user)
-                profile.save()
-                logger.info(
-                    f"Updated CrushProfile for existing Microsoft user {sociallogin.user.email}"
-                )
-
-            except CrushProfile.DoesNotExist:
-                logger.info(
-                    f"No CrushProfile exists yet for user {sociallogin.user.email}"
-                )
-
-        # Refresh persisted social photo cache (fresh token available now)
-        # Only for existing users - new users are handled in post_save
-        if hasattr(sociallogin.user, "id") and sociallogin.user.id:
+            # Refresh persisted social photo cache (fresh token available now)
+            # Only for existing users - new users are handled in post_save
             try:
                 from .social_photos import refresh_social_photo_cache
 
@@ -2562,10 +2581,17 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 birthdate = _claims.get("birthdate")
                 if birthdate and (_prov == "luxid" or not profile.date_of_birth):
                     try:
-                        profile.date_of_birth = datetime.strptime(
-                            birthdate, "%Y-%m-%d"
-                        ).date()
-                        updated_fields.append("date_of_birth")
+                        parsed_dob = datetime.strptime(birthdate, "%Y-%m-%d").date()
+                        # Only a value that actually MOVED belongs in
+                        # updated_fields. LuxID re-releases the same birthdate
+                        # on every login, so appending on presence rather than
+                        # on change made every repeat login write the column
+                        # back to its own value — and, because update_fields
+                        # feeds the post_save fan-out, dragged the Outlook
+                        # Graph sync onto the request thread behind it.
+                        if profile.date_of_birth != parsed_dob:
+                            profile.date_of_birth = parsed_dob
+                            updated_fields.append("date_of_birth")
                     except (ValueError, TypeError):
                         logger.warning("Invalid birthdate format from LuxID")
 
@@ -2575,7 +2601,12 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 gender = (_claims.get("gender") or "").lower()
                 if gender:
                     mapped = LUXID_GENDER_MAP.get(gender, "")
-                    if mapped and (_prov == "luxid" or not profile.gender):
+                    # Same change-not-presence rule as birthdate above.
+                    if (
+                        mapped
+                        and (_prov == "luxid" or not profile.gender)
+                        and profile.gender != mapped
+                    ):
                         profile.gender = mapped
                         updated_fields.append("gender")
 
@@ -2652,30 +2683,76 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # lock blocks that switch's UPDATE until this commits, so the
                 # check and the write see one state.
                 locale = _claims.get("locale", "")
-                with transaction.atomic():
-                    locked = (
-                        CrushProfile.objects.select_for_update()
-                        .filter(pk=profile.pk)
-                        .values("preferred_language", "language_explicitly_set")
-                        .first()
-                    )
-                    if (
-                        locale
-                        and locked
-                        and locked["preferred_language"] == "en"
-                        and not locked["language_explicitly_set"]
-                    ):
-                        lang_code = locale[:2].lower()
-                        if lang_code in ("de", "fr"):
+                lang_code = locale[:2].lower() if locale else ""
+
+                # Unlocked pre-gate, read off the instance fetched moments ago
+                # at the top of this block. Its only job is to decide whether
+                # the locked re-check below can possibly write anything; when
+                # it cannot, the whole transaction — a FOR UPDATE row lock
+                # taken on every single LuxID login, overwhelmingly to
+                # discover there was nothing to do — is skipped.
+                #
+                # What makes skipping safe is the direction the guard moves in.
+                # For the fast path to be wrong, another transaction would have
+                # to move this row INTO the (en, not-explicitly-set) state
+                # between that SELECT and here. Nothing in the request paths
+                # does: views_language always writes the flag True,
+                # views.py re-reads and preserves it, and
+                # sync_language_preference_on_login only ever moves away from
+                # "en". The single writer that can produce that state is an
+                # admin un-ticking the flag by hand — and for it to matter it
+                # would have to land in the microseconds between the two
+                # statements of this same request, on this same profile. The
+                # outcome in that case is that LuxID's locale does not
+                # overwrite what the admin just set, which is the behaviour one
+                # would want anyway.
+                #
+                # When the pre-gate DOES pass, the lock is still taken and the
+                # condition re-checked under it, because the race it was
+                # written for — a language switch committing in another tab
+                # mid-login — is real and unchanged.
+                locale_may_apply = (
+                    lang_code in ("de", "fr")
+                    and profile.preferred_language == "en"
+                    and not profile.language_explicitly_set
+                )
+
+                if locale_may_apply:
+                    with transaction.atomic():
+                        locked = (
+                            CrushProfile.objects.select_for_update()
+                            .filter(pk=profile.pk)
+                            .values("preferred_language", "language_explicitly_set")
+                            .first()
+                        )
+                        if (
+                            locked
+                            and locked["preferred_language"] == "en"
+                            and not locked["language_explicitly_set"]
+                        ):
                             profile.preferred_language = lang_code
                             updated_fields.append("preferred_language")
 
-                    if updated_fields:
-                        _luxid_save_profile(profile, updated_fields)
-                        logger.info(
-                            f"Updated CrushProfile for LuxID user "
-                            f"{sociallogin.user.email}: {updated_fields}"
-                        )
+                        if updated_fields:
+                            _luxid_save_profile(profile, updated_fields)
+                            logger.info(
+                                f"Updated CrushProfile for LuxID user "
+                                f"{sociallogin.user.email}: {updated_fields}"
+                            )
+                elif updated_fields:
+                    # preferred_language is not among these, so there is
+                    # nothing here for that lock to protect.
+                    _luxid_save_profile(profile, updated_fields)
+                    logger.info(
+                        f"Updated CrushProfile for LuxID user "
+                        f"{sociallogin.user.email}: {updated_fields}"
+                    )
+                else:
+                    logger.debug(
+                        "[LUXID] claims match stored profile for user_pk=%s; "
+                        "skipping lock and write",
+                        profile.pk,
+                    )
 
             except CrushProfile.DoesNotExist:
                 logger.info(

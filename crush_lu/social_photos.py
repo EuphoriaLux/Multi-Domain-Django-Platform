@@ -31,6 +31,13 @@ SOCIAL_PHOTO_CACHE_TIMEOUT = 3600
 # Shorter cache timeout for persisted storage URLs (SAS tokens expire in 30 min)
 PERSISTED_PHOTO_CACHE_TIMEOUT = 1500  # 25 minutes
 
+# How often a login is allowed to re-download and re-persist a social photo.
+# Profile pictures change on the order of months; the login path was paying a
+# full image download plus image processing plus a blob-storage write on every
+# single sign-in. One refresh per day per account keeps the persisted copy
+# usably fresh for the token-expiry fallback at a fraction of the cost.
+SOCIAL_PHOTO_REFRESH_INTERVAL = 24 * 3600  # 24 hours
+
 # Provider display names
 PROVIDER_DISPLAY_NAMES = {
     'facebook': 'Facebook',
@@ -168,21 +175,62 @@ def _get_persisted_social_photo_url(social_account):
     return None
 
 
-def refresh_social_photo_cache(social_account, token=None):
+def refresh_social_photo_cache(social_account, token=None, force=False):
     """
     Download and persist the social photo for a given account.
 
     Should be called during social login when we have a fresh token.
     This ensures the persisted copy stays up-to-date.
 
+    Throttled to at most once per SOCIAL_PHOTO_REFRESH_INTERVAL per account.
+    Every call here is a full image download followed by
+    ``process_uploaded_image`` and a blob-storage delete-and-write, and it sat
+    unconditionally on the login request thread: production telemetry over 90
+    days measured graph.facebook.com at avg 677ms / p90 1451ms per call (and
+    Facebook makes two — one for the URL, one for the image), which is most of
+    that provider's 3.86s callback. Profile pictures change on the order of
+    months, so re-fetching one on every login bought nothing.
+
+    The throttle marker is set only where network work is actually attempted,
+    not at entry. Marking on the cheap early returns instead — no token, token
+    expired, no picture URL — would mean a member who reconnects an expired
+    account still waits out the full interval before their photo is refreshed.
+
     Args:
         social_account: SocialAccount instance
         token: Optional SocialToken (if not provided, will be looked up)
+        force: Skip the throttle (for management commands / explicit refresh)
 
     Returns:
         bool: True if photo was persisted successfully
     """
     provider = social_account.provider
+    throttle_key = f"social_photo_refresh_attempted_{social_account.id}"
+
+    if not force:
+        try:
+            if cache.get(throttle_key):
+                logger.debug(
+                    f"Skipping {provider} photo refresh for account "
+                    f"{social_account.id}: refreshed recently"
+                )
+                return False
+        except Exception:
+            # A cache outage must not stop a login; fall through and refresh.
+            pass
+
+    def _mark_attempted():
+        """Record the attempt, successes and failures alike.
+
+        Backing off on failure too is deliberate: an account whose token has
+        gone permanently stale would otherwise pay the full network timeout on
+        every single login, which is the exact cost this throttle exists to
+        remove.
+        """
+        try:
+            cache.set(throttle_key, True, SOCIAL_PHOTO_REFRESH_INTERVAL)
+        except Exception:
+            pass
 
     if provider == 'google':
         # Google photo URLs are public and don't expire, but we persist
@@ -196,6 +244,7 @@ def refresh_social_photo_cache(social_account, token=None):
         if '=s' in picture_url:
             picture_url = re.sub(r'=s\d+(-c)?', '=s720-c', picture_url)
 
+        _mark_attempted()
         try:
             response = requests.get(picture_url, timeout=10)
             response.raise_for_status()
@@ -221,6 +270,7 @@ def refresh_social_photo_cache(social_account, token=None):
             f"?width=720&height=720&redirect=false"
             f"&access_token={token.token}"
         )
+        _mark_attempted()
         try:
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
@@ -244,6 +294,7 @@ def refresh_social_photo_cache(social_account, token=None):
         if not token or _is_token_expired(token):
             return False
 
+        _mark_attempted()
         try:
             response = requests.get(
                 'https://graph.microsoft.com/v1.0/me/photo/$value',
