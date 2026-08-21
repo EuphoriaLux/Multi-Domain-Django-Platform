@@ -34,7 +34,7 @@ from django.utils import timezone
 from crush_lu.models.credits import CrushCredit
 from crush_lu.models.events import EventRegistration
 from crush_lu.models.payments import PaymentTransaction
-from crush_lu.models.profiles import PremiumMembership
+from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.credits import void_credit
 from crush_lu.services.sumup import SumUpClient, SumUpError
 
@@ -428,6 +428,44 @@ class Command(BaseCommand):
                         "Reconciled premium membership %s to cancelled after external refund.",
                         pm.pk,
                     )
+
+                    # PremiumMembership.confirm() writes CrushProfile.assigned_coach
+                    # and there is no symmetric undo — cancel() only handles pending
+                    # memberships. Leaving it set is not cosmetic: the premium
+                    # reserved-seat gates read `profile.assigned_coach_id` directly
+                    # (views_events.py:701, :924, :1448), so a refunded member would
+                    # keep claiming premium-reserved seats even though
+                    # has_active_premium correctly says otherwise.
+                    #
+                    # Cleared only when this membership is what assigned it. A coach
+                    # the member holds for another reason (the attendance auto-assign
+                    # in signals.py, the 0150 backfill) names a different coach and is
+                    # left alone. Accepted edge: a member who earned coach A by
+                    # attending and then bought premium with the same coach A loses
+                    # the assignment here — EventRegistration.checkin_granted_coach
+                    # records that provenance, but restoring from it is a separate
+                    # product decision.
+                    #
+                    # Lock order mirrors confirm(): PremiumMembership then
+                    # CrushProfile, with PaymentTransaction already held above.
+                    profile = (
+                        CrushProfile.objects.select_for_update()
+                        .filter(user_id=pm.user_id)
+                        .first()
+                    )
+                    if profile and profile.assigned_coach_id == pm.coach_id:
+                        profile.assigned_coach = None
+                        profile.assigned_coach_at = None
+                        profile.save(
+                            update_fields=["assigned_coach", "assigned_coach_at"]
+                        )
+                        logger.warning(
+                            "Cleared assigned_coach %s from profile %s: the premium "
+                            "membership that assigned it was cancelled by external refund on %s.",
+                            pm.coach_id,
+                            profile.pk,
+                            ref,
+                        )
 
             # 3. Reconcile linked CrushCredits (to prevent double-dip of cash refund + active credit)
             #

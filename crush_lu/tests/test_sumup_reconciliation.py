@@ -438,6 +438,75 @@ class SumUpReconciliationCommandTests(TestCase):
         self.assertIn("1 error(s)", output)
 
 
+    def _make_coach(self, username):
+        coach_user = User.objects.create_user(
+            username=username, email=f"{username}@crush.lu", password="password123"
+        )
+        return CrushCoach.objects.create(
+            user=coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=10,
+        )
+
+    def _premium_payment(self, pm, checkout_id):
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-PREM-{checkout_id}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=checkout_id,
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.user,
+            premium_membership=pm,
+            raw_response={"status": "PAID"},
+        )
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_refund_clears_the_coach_that_membership_assigned(self, mock_get_checkout):
+        """The premium reserved-seat gates read assigned_coach_id directly
+        (views_events.py:701, :924, :1448), so a stale coach keeps a refunded
+        member claiming premium seats."""
+        coach = self._make_coach("coach_clears")
+        pm = PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="active"
+        )
+        self._premium_payment(pm, "chk_clear_coach")
+        self.profile.assigned_coach = coach
+        self.profile.assigned_coach_at = timezone.now()
+        self.profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+
+        mock_get_checkout.return_value = {"id": "chk_clear_coach", "status": "REFUNDED"}
+        call_command("reconcile_sumup_payments", checkout_id="chk_clear_coach", quiet=True)
+
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.assigned_coach_id)
+        self.assertIsNone(self.profile.assigned_coach_at)
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_refund_leaves_a_coach_this_membership_did_not_assign(self, mock_get_checkout):
+        """A coach held for another reason (attendance auto-assign, the 0150
+        backfill) names a different coach and must survive the refund."""
+        membership_coach = self._make_coach("coach_membership")
+        other_coach = self._make_coach("coach_attendance")
+        pm = PremiumMembership.objects.create(
+            user=self.user, coach=membership_coach, status="active"
+        )
+        self._premium_payment(pm, "chk_keep_coach")
+        self.profile.assigned_coach = other_coach
+        self.profile.assigned_coach_at = timezone.now()
+        self.profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+
+        mock_get_checkout.return_value = {"id": "chk_keep_coach", "status": "REFUNDED"}
+        call_command("reconcile_sumup_payments", checkout_id="chk_keep_coach", quiet=True)
+
+        self.profile.refresh_from_db()
+        pm.refresh_from_db()
+        self.assertEqual(pm.status, "cancelled")
+        self.assertEqual(self.profile.assigned_coach_id, other_coach.pk)
+
+
 class ExternalRefundRegressionTests(TestCase):
     """Regressions for the four review findings on PR #903."""
 
