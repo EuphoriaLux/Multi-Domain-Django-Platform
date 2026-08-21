@@ -45,7 +45,7 @@
           {% csrf_token %}
           <input type="hidden" name="item_id" value="{{ line.item.id }}">
           <input type="hidden" name="quantity" value="{{ line.quantity|add:'-1' }}">
-          <button type="submit" aria-label="{% if line.quantity == 1 %}Remove {{ line.item.name }}{% else %}One fewer {{ line.item.name }}{% endif %}">
+          <button type="submit" aria-label="{% if line.quantity == 1 %}Remove {{ line.item.name }}{% else %}One fewer {{ line.item.name }}{% endif %}"{% if not line.is_orderable %} disabled{% endif %}>
             <svg class="ico" aria-hidden="true"><use href="#ic-minus"/></svg>
           </button>
         </form>
@@ -54,7 +54,7 @@
           {% csrf_token %}
           <input type="hidden" name="item_id" value="{{ line.item.id }}">
           <input type="hidden" name="quantity" value="{{ line.quantity|add:'1' }}">
-          <button type="submit" aria-label="One more {{ line.item.name }}" {% if line.quantity >= 9 %}disabled{% endif %}>
+          <button type="submit" aria-label="One more {{ line.item.name }}" {% if line.quantity >= 9 or not line.is_orderable %}disabled{% endif %}>
             <svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg>
           </button>
         </form>
@@ -62,13 +62,20 @@
         a time, but the sold-out / price-changed notices above tell the guest to
         "remove it below" as if it were one action. For a line of 2+ that would
         be 2+ full page round trips, so multi-unit lines get a direct remove.
-        Same POST contract: quantity 0 pops the line in cart_update.{% endcomment %}
-        {% if line.quantity > 1 %}
+        Same POST contract: quantity 0 pops the line in cart_update.
+
+        A sold-out line always gets it, at any quantity, because the stepper is
+        disabled there: cart_update's qty > 0 branch runs the id back through
+        _resolve_menu_item, which filters is_available=True, so stepping a
+        since-86'd line would post, resolve to None and redirect unchanged —
+        a dead control with no feedback. Quantity 0 skips that validation, so
+        Remove is the only control that still works.{% endcomment %}
+        {% if line.quantity > 1 or not line.is_orderable %}
         <form method="post" action="{% url 'atmos:cart_update' %}">
           {% csrf_token %}
           <input type="hidden" name="item_id" value="{{ line.item.id }}">
           <input type="hidden" name="quantity" value="0">
-          <button class="qty-remove" type="submit" aria-label="Remove all {{ line.quantity }} {{ line.item.name }} from your round">Remove</button>
+          <button class="qty-remove" type="submit" aria-label="Remove {% if line.quantity > 1 %}all {{ line.quantity }} {% endif %}{{ line.item.name }} from your round">Remove</button>
         </form>
         {% endif %}
       </div>
