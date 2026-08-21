@@ -196,7 +196,23 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         queryset = MeetupEvent.objects.filter(pk=self.event.pk)
         self.admin.ping_google_indexing(request, queryset)
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_fires_url_deleted_for_private_invitation(self, mock_notify_event):
+        """Saving a private invitation event sends URL_DELETED to protect private URLs."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.is_private_invitation = True
+            self.event.save()
+
+        mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_admin_cancel_action_notifies_google(self, mock_notify_event):
+        """cancel_events bulk action notifies Google Indexing with URL_DELETED."""
+        request = MagicMock()
+        queryset = MeetupEvent.objects.filter(pk=self.event.pk)
+        self.admin.cancel_events(request, queryset)
+
+        mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""
@@ -208,3 +224,4 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             "https://crush.lu/en/events/15/",
             "--dry-run",
         )
+

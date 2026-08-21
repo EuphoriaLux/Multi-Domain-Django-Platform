@@ -30,6 +30,24 @@ def is_indexing_enabled() -> bool:
     return getattr(settings, "GOOGLE_INDEXING_ENABLED", True)
 
 
+def should_index_event(event) -> bool:
+    """
+    Determine if an event is eligible for public Google Search indexing.
+
+    Requires:
+    - is_published = True
+    - is_cancelled = False
+    - is_private_invitation = False (mirrors echo.lu policy)
+    """
+    if not getattr(event, "is_published", False):
+        return False
+    if getattr(event, "is_cancelled", False):
+        return False
+    if getattr(event, "is_private_invitation", False):
+        return False
+    return True
+
+
 def get_google_indexing_credentials() -> Optional[Any]:
     """
     Load Google Service Account credentials for the Indexing API.

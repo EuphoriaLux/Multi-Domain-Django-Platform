@@ -1241,6 +1241,18 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # is the most visible way this action can go wrong.
         _enqueue_echo_sync(event_ids)
 
+        # Real-time Google Indexing removal for cancelled events
+        try:
+            from crush_lu.services.google_indexing import notify_event_indexing
+
+            for event in MeetupEvent.objects.filter(pk__in=event_ids):
+                notify_event_indexing(event, action="URL_DELETED")
+        except Exception:
+            logger.exception(
+                "Error sending Google indexing removals on event cancellation"
+            )
+
+
         # .update() emits no signals, so nothing else tells Apple Wallet these
         # tickets are dead. Without this, a cancelled event's installed passes
         # keep rendering as valid at the door (the rebuild sets `voided`, but

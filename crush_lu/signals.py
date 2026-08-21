@@ -4603,8 +4603,8 @@ def delete_quiz_question_media(sender, instance, **kwargs):
 def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, **kwargs):
     """Notify Googlebot immediately when a MeetupEvent changes state.
 
-    - Published & active events -> URL_UPDATED
-    - Unpublished / drafts / cancelled events -> URL_DELETED
+    - Published, public & active events -> URL_UPDATED
+    - Unpublished / drafts / cancelled / private-invitation events -> URL_DELETED
 
     Deferred to transaction.on_commit so the database commit completes before
     Googlebot receives the crawl notification.
@@ -4612,12 +4612,10 @@ def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, 
     if raw:
         return
 
-    from crush_lu.services.google_indexing import notify_event_indexing
+    from crush_lu.services.google_indexing import notify_event_indexing, should_index_event
 
     event_pk = instance.pk
-    is_published = instance.is_published
-    is_cancelled = instance.is_cancelled
-    action = "URL_UPDATED" if (is_published and not is_cancelled) else "URL_DELETED"
+    action = "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
 
     def _notify():
         try:
@@ -4636,18 +4634,21 @@ def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, 
 @receiver(post_delete, sender=MeetupEvent)
 def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
     """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED)."""
-    from crush_lu.services.google_indexing import notify_event_indexing
-
     urls = []
     try:
         from crush_lu.services.google_indexing import build_event_indexing_urls
+
         urls = build_event_indexing_urls(instance)
     except Exception:
-        pass
+        logger.warning(
+            "Failed building indexing URLs for deleted event %s",
+            getattr(instance, "pk", None),
+        )
 
     def _notify():
         try:
             from crush_lu.services.google_indexing import notify_url_indexing
+
             for url in urls:
                 notify_url_indexing(url, action="URL_DELETED")
         except Exception:
