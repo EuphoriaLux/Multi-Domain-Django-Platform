@@ -2,8 +2,20 @@
 {% load socialaccount %}
 {% load static i18n %}
 {% load analytics %}
+{% load social_tags %}
 
 {% block title %}{% trans "Sign Up - Crush.lu" %}{% endblock %}
+
+{% block extra_css %}
+{% comment %}
+Warm the TCP+TLS handshake to the identity providers offered below while the
+member is still reading the page, so the redirect that follows their tap does
+not start from a cold connection. Resolved from the SocialApps actually
+configured for this site — LuxID's host differs between staging and
+production, so it must never be hardcoded here.
+{% endcomment %}
+{% social_login_preconnect %}
+{% endblock %}
 
 {% block content %}
 {# Track signup page view in Application Insights #}
@@ -283,7 +295,12 @@ var _i18n = {
                     // Show loading state
                     button.classList.add('disabled', 'opacity-75');
                     button.setAttribute('aria-busy', 'true');
-                    button.textContent = 'Opening ' + browserInfo.name + '...';
+                    // Text is deliberately left alone: the label is already
+                    // translated and the aria-busy attribute above now drives a
+                    // CSS spinner (see .social-login-btn[aria-busy] in
+                    // tailwind-input.css). Overwriting textContent here shipped an
+                    // untranslated English string to a DE/FR site and discarded the
+                    // provider logo along with it.
 
                     // Samsung Internet PWA doesn't support Intent URLs properly
                     if (browserInfo.package === 'com.sec.android.app.sbrowser') {

@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load socialaccount %}
 {% load static %}
+{% load social_tags %}
 
 {% block title %}{% if mode == 'signup' %}{% trans "Join" %}{% else %}{% trans "Login" %}{% endif %} - Crush.lu{% endblock %}
 
@@ -361,6 +362,9 @@
 {% endblock %}
 
 {% block extra_css %}
+{# See login_crush.html: warm the IdP connections before the member taps. #}
+{% social_login_preconnect %}
+
 <style>
 /* Social login divider */
 .social-login-divider {
