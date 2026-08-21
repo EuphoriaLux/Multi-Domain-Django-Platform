@@ -24,7 +24,7 @@
             {{ item.name }}{% if item.contains_alcohol %}<span class="alc">18+</span>{% endif %}
           </div>
           {% if item.description %}<div class="row-desc">{{ item.description }}</div>{% endif %}
-          {% if item.allergens %}<div class="allergen">Contains {{ item.allergens }}</div>{% endif %}
+          {% if item.allergens %}<div class="allergen"><svg class="ico" aria-hidden="true"><use href="#ic-alert"/></svg>Contains {{ item.allergens }}</div>{% endif %}
         </div>
         <div class="row-price">{{ guest.venue.currency_symbol }}{{ item.price }}</div>
         <form method="post" action="{% url 'atmos:cart_add' %}">

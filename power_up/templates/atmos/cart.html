@@ -31,9 +31,9 @@
   <div class="row">
     <div class="row-main">
       <div class="row-name">{{ line.item.name }}</div>
-      {% if line.item.allergens %}<div class="allergen">Contains {{ line.item.allergens }}</div>{% endif %}
+      {% if line.item.allergens %}<div class="allergen"><svg class="ico" aria-hidden="true"><use href="#ic-alert"/></svg>Contains {{ line.item.allergens }}</div>{% endif %}
       {% if not line.is_orderable %}
-      <div class="allergen" style="color: var(--warn);">Sold out — remove it to send your round</div>
+      <div class="allergen allergen-warn"><svg class="ico" aria-hidden="true"><use href="#ic-alert"/></svg>Sold out — remove it to send your round</div>
       {% endif %}
 
       {% comment %}Two one-tap forms rather than a number field: no numeric keyboard,
@@ -58,6 +58,19 @@
             <svg class="ico" aria-hidden="true"><use href="#ic-plus"/></svg>
           </button>
         </form>
+        {% comment %}The minus button alone can only walk a line down one tap at
+        a time, but the sold-out / price-changed notices above tell the guest to
+        "remove it below" as if it were one action. For a line of 2+ that would
+        be 2+ full page round trips, so multi-unit lines get a direct remove.
+        Same POST contract: quantity 0 pops the line in cart_update.{% endcomment %}
+        {% if line.quantity > 1 %}
+        <form method="post" action="{% url 'atmos:cart_update' %}">
+          {% csrf_token %}
+          <input type="hidden" name="item_id" value="{{ line.item.id }}">
+          <input type="hidden" name="quantity" value="0">
+          <button class="qty-remove" type="submit" aria-label="Remove all {{ line.quantity }} {{ line.item.name }} from your round">Remove</button>
+        </form>
+        {% endif %}
       </div>
     </div>
     {% comment %}No placeholder dash for a sold-out line: it sits inches from

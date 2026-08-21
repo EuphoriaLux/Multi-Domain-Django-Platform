@@ -503,7 +503,19 @@
     white-space: nowrap;
   }
 
-  .allergen { color: var(--ash-dim); font-size: 0.78rem; margin-top: 0.25rem; }
+  /* Allergens are safety copy, not a caption. They sit one step brighter
+     than --ash-dim and lead with the alert glyph so they don't read as
+     just another piece of de-emphasised secondary text. */
+  .allergen {
+    color: var(--ash);
+    font-size: 0.78rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .allergen .ico { width: 0.85em; height: 0.85em; flex: none; color: var(--warn); }
+  .allergen-warn { color: var(--warn); }
 
   /* The row you just added lights briefly. Pure CSS: cart_add redirects
      back with #item-<id>, so :target fires once per add, no JS. */
@@ -539,6 +551,20 @@
     touch-action: manipulation;
   }
   .qty button:disabled { color: var(--ash-dim); cursor: default; }
+  /* Overrides the 44px square above: this one carries a word, so it sizes to
+     its text while keeping the same 44px tap height. Divider on the left ties
+     it to the stepper it belongs to. */
+  .qty .qty-remove {
+    width: auto;
+    padding: 0 0.85rem;
+    border-left: 1px solid var(--line-strong);
+    color: var(--ash);
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .qty .qty-remove:hover { color: var(--warn); }
   .qty button:active:not(:disabled) { background: var(--lamp-soft); }
   .qty .ico { width: 16px; height: 16px; }
   .qty-value {
@@ -654,16 +680,22 @@
     background: var(--bone);
     color: #1c1815;
     border-radius: 3px 3px 0 0;
-    padding: 1.25rem 0.7rem 0.9rem;
+    --ticket-pad-x: 0.7rem;
+    padding: 1.25rem var(--ticket-pad-x) 0.9rem;
     font-family: var(--mono);
     /* 48 columns at ~0.6em advance = 28.8em of text. Subtract the padding
        from the container width and divide, and the ticket lands at exactly
        the width of the paper it will print on, at any screen size. The
        divisor carries a little slack for monos wider than 0.6em. The plain
        px value below it is what a browser without container queries gets —
-       small, but still narrow enough not to wrap on a phone. */
+       small, but still narrow enough not to wrap on a phone.
+       The subtraction is derived from --ticket-pad-x rather than restated, so
+       retuning the padding can't silently break the "48 columns fit" promise.
+       Column count itself still mirrors Paper.MM80 (48) in
+       power_up/atmos/printing/layout.py — see the follow-up thread on making
+       that a passed-in --ticket-cols for 58mm/32-column rolls. */
     font-size: 11px;
-    font-size: calc((100cqi - 1.5rem) / 29.5);
+    font-size: calc((100cqi - (var(--ticket-pad-x) * 2)) / 29.5);
     line-height: 1.32;
     white-space: pre;
     overflow-x: auto;
