@@ -67,12 +67,19 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        # Pinned to a SHA, not the floating `v1` tag. `v1` moves on every action
-        # release, so a regression upstream lands here unannounced and bills at
-        # full price — see anthropics/claude-code-action#1644, where v1.0.190/191
-        # exited "success" after 5-10 turns without reviewing anything, ~50% of
-        # runs. This SHA is v1.0.198, past that window and verified posting real
-        # reviews on this repo. Bump deliberately.
+        # Pinned to a SHA, not the floating `v1` tag, so upstream changes land
+        # here deliberately instead of silently.
+        #
+        # ⚠️ This version (v1.0.198) IS affected by
+        # anthropics/claude-code-action#1644: the agent exits "success" after
+        # 5-10 turns without finishing the review, leaving the sticky comment
+        # frozen mid-todo ("Claude is reviewing this PR" with unchecked boxes)
+        # while the job reports green. Measured on this repo 2026-08-21:
+        # 8 of 67 review comments across PRs #880-908 (12%) are frozen, and the
+        # frozen runs are the EXPENSIVE ones — 6-8 turns at $1.42-$3.20, versus
+        # 15-46 turns at $0.51-$1.97 for runs that complete. The Opus fan-out is
+        # dispatched and paid for, then abandoned before anything is posted.
+        # The issue reports v1.0.183 as the last known-good version.
         uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1.0.198
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
