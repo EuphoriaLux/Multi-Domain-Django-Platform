@@ -4,9 +4,10 @@
 
   Rendered at the top of the Connect Week home when the member's PREVIOUS
   cycle completed and still owes a verdict. Expects `feedback_session` (the
-  completed ConnectWeekSession) and `feedback_sentiments`
-  (ConnectCycleFeedback.Sentiment.choices); the caller renders nothing when
-  `feedback_session` is None.
+  completed ConnectWeekSession) plus `feedback_sentiments` and
+  `feedback_match_qualities` (the two questions' choices — same stored values,
+  different labels, since "Good week" is not an answer to "did they fit?");
+  the caller renders nothing when `feedback_session` is None.
 
   Two forms, not one with two buttons: the "not now" path must post cleanly
   without dragging the unfilled radio group's validation with it. Both post to
@@ -57,7 +58,7 @@
                 {% trans "Did the daily profiles feel like a fit?" %}
             </legend>
             <div class="flex flex-wrap gap-2">
-                {% for value, label in feedback_sentiments %}
+                {% for value, label in feedback_match_qualities %}
                 <label class="cursor-pointer">
                     <input type="radio" name="match_quality" value="{{ value }}" class="peer sr-only">
                     <span class="inline-block rounded-lg border border-gray-300 dark:border-slate-600 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 transition-colors peer-checked:border-crush-purple peer-checked:bg-crush-purple peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple peer-focus-visible:ring-offset-2">

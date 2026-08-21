@@ -336,3 +336,24 @@ def test_feedback_requires_login(client):
     resp = client.post(WEEK_FEEDBACK_URL, {"sentiment": "good"})
     assert resp.status_code in (301, 302)
     assert not ConnectCycleFeedback.objects.exists()
+
+
+@pytest.mark.django_db
+def test_the_two_questions_have_distinct_labels(client, settings):
+    """Shared values, separate wording: "Good week" is not an answer to "did
+    the daily profiles feel like a fit?"."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("fb_labels")
+    _completed_session(me, days_ago=1)
+    _login_eligible(client, me)
+
+    body = client.get(WEEK_HOME_URL).content.decode()
+
+    assert "Good week" in body
+    assert "Good fit" in body
+    assert "Not for me" in body
+    assert "Not really" in body
+    # The scales must stay comparable even though the labels differ.
+    assert [c.value for c in ConnectCycleFeedback.Sentiment] == [
+        c.value for c in ConnectCycleFeedback.MatchQuality
+    ]

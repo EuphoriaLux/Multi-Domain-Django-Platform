@@ -540,6 +540,19 @@ class ConnectCycleFeedback(models.Model):
         MIXED = "mixed", _("Mixed")
         POOR = "poor", _("Not for me")
 
+    class MatchQuality(models.TextChoices):
+        """Same stored values as ``Sentiment``, different labels.
+
+        The two questions share a scale but not a wording: "Good week" is not
+        an answer to "did the daily profiles feel like a fit?". Keeping the
+        values identical means the pair can still be compared and charted
+        directly; only what the member reads differs.
+        """
+
+        GOOD = "good", _("Good fit")
+        MIXED = "mixed", _("Mixed")
+        POOR = "poor", _("Not really")
+
     session = models.OneToOneField(
         ConnectWeekSession,
         on_delete=models.CASCADE,
@@ -561,7 +574,7 @@ class ConnectCycleFeedback(models.Model):
     )
     match_quality = models.CharField(
         max_length=10,
-        choices=Sentiment.choices,
+        choices=MatchQuality.choices,
         blank=True,
         help_text=_("Whether the three daily cards felt like a fit"),
     )

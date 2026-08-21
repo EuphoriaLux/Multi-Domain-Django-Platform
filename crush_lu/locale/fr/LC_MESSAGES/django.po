@@ -40288,3 +40288,9 @@ msgid ""
 msgstr ""
 "Vous pouvez à tout moment modifier ce que vous partagez, ou quitter Crush "
 "Connect, depuis votre <a href=\"{{ dashboard_url }}\">tableau de bord</a>."
+
+msgid "Good fit"
+msgstr "Bonne correspondance"
+
+msgid "Not really"
+msgstr "Pas vraiment"

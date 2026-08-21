@@ -40153,3 +40153,9 @@ msgid ""
 msgstr ""
 "Du kannst jederzeit über Dein <a href=\"{{ dashboard_url }}\">Dashboard</a> "
 "ändern, was Du teilst, oder Crush Connect verlassen."
+
+msgid "Good fit"
+msgstr "Hat gepasst"
+
+msgid "Not really"
+msgstr "Eher nicht"

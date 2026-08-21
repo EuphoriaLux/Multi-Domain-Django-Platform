@@ -120,6 +120,7 @@ def connect_week_home(request):
         # above has already started the member's next week.
         "feedback_session": get_pending_feedback_session(user),
         "feedback_sentiments": ConnectCycleFeedback.Sentiment.choices,
+        "feedback_match_qualities": ConnectCycleFeedback.MatchQuality.choices,
     }
     return render(request, "crush_lu/crush_connect/week_home.html", context)
 
@@ -388,14 +389,17 @@ def connect_week_feedback(request):
         return redirect("crush_lu:connect_week_home")
 
     sentiment = request.POST.get("sentiment", "")
-    valid = {choice.value for choice in ConnectCycleFeedback.Sentiment}
-    if sentiment not in valid:
+    if sentiment not in {c.value for c in ConnectCycleFeedback.Sentiment}:
         messages.error(request, _("Please tell us how the week went."))
         return redirect("crush_lu:connect_week_home")
 
+    # The second question is optional, so a junk value costs the member that
+    # one answer rather than their whole submission. Validated against its own
+    # choices even though the values currently match Sentiment's — the two
+    # scales are separate questions and may diverge.
     match_quality = request.POST.get("match_quality", "")
-    if match_quality not in valid:
-        match_quality = ""  # optional second question
+    if match_quality not in {c.value for c in ConnectCycleFeedback.MatchQuality}:
+        match_quality = ""
 
     record_cycle_feedback(
         session,
