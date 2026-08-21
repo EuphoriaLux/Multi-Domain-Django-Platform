@@ -1,0 +1,59 @@
+{% load i18n %}
+
+<section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-5 mb-5"
+         aria-labelledby="connect-readiness-title">
+    <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1">
+                {% trans "Your Connect readiness" %}
+            </p>
+            <h2 id="connect-readiness-title" class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-1">
+                {% trans "To receive your 3 suggestions each day, complete these steps" %}
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+                {% trans "Each status below comes from your current profile. Incomplete steps link directly to the right screen." %}
+            </p>
+        </div>
+        <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {% if readiness.is_complete %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300{% else %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+            {{ readiness.completed_count }}/{{ readiness.total_count }}
+        </span>
+    </div>
+
+    {% if readiness.trust_status %}
+    <div class="rounded-xl bg-crush-purple/5 dark:bg-crush-purple/10 ring-1 ring-crush-purple/20 px-3.5 py-3 mb-4"
+         data-trust-status="{{ readiness.trust_status.kind }}">
+        <div class="flex items-center gap-2 mb-1">
+            {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0" %}
+            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{{ readiness.trust_status.label }}</p>
+        </div>
+        <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0 pl-6">
+            {{ readiness.trust_status.explanation }}
+        </p>
+    </div>
+    {% endif %}
+
+    <ol class="space-y-3 mb-0">
+        {% for step in readiness.steps %}
+        <li class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl p-3 ring-1 {% if step.complete %}bg-emerald-50/70 dark:bg-emerald-900/10 ring-emerald-200 dark:ring-emerald-800/60{% else %}bg-amber-50/70 dark:bg-amber-900/10 ring-amber-200 dark:ring-amber-800/60{% endif %}"
+            data-readiness-step="{{ step.key }}"
+            data-complete="{{ step.complete|yesno:'true,false' }}">
+            <div class="flex items-start gap-3 flex-1 min-w-0">
+                <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full {% if step.complete %}bg-emerald-600 text-white{% else %}bg-amber-500 text-white{% endif %}"
+                      aria-hidden="true">
+                    {% if step.complete %}✓{% else %}{{ forloop.counter }}{% endif %}
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{{ step.title }}</p>
+                    <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0">{{ step.description }}</p>
+                </div>
+            </div>
+            {% if not step.complete %}
+            <a href="{{ step.cta_url }}" class="btn-crush-outline btn-sm inline-flex items-center justify-center gap-1.5 sm:shrink-0">
+                {{ step.cta_label }}
+                {% include "shared/icons/arrow-right.html" with class="w-3.5 h-3.5" %}
+            </a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</section>

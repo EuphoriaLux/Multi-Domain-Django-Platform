@@ -13,6 +13,7 @@ docstring for this PR's documented scope simplifications.
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.connect_phase import candidate_access_open, cycle_access_open
@@ -24,7 +25,6 @@ from crush_lu.models.crush_connect_cycle import (
 )
 from crush_lu.services.connect_cycle import (
     CYCLE_LENGTH_DAYS,
-    can_send_weekly_request,
     get_or_create_active_session,
     get_or_create_todays_cards,
     get_pending_inbox,
@@ -80,9 +80,12 @@ def connect_week_home(request):
     profile = getattr(user, "crushprofile", None)
     if not user.is_staff and profile and not profile.photo_1:
         messages.warning(
-            request, _("Please upload a profile photo to use Crush Connect.")
+            request,
+            _(
+                "Your profile photo is missing. It blocks access to your three daily Connect Week suggestions; add it now in Photos."
+            ),
         )
-        return redirect("crush_lu:edit_profile")
+        return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
 
     blocker = _connect_week_access_blocker(user)
     if blocker is not None:
