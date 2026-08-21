@@ -40,17 +40,14 @@
 {% else %}
 {% comment %}A real typed sequence, so the order carries information: each segment is
 a state the ticket has actually passed through.{% endcomment %}
+{% comment %}Both rows walk the same Order.progress list, so a segment and the
+label under it cannot disagree about which stage is current — they used to be
+eight hand-written comparisons that could drift apart.{% endcomment %}
 <div class="rail" role="img" aria-label="Order progress: {{ order.get_status_display }}">
-  <span class="rail-seg {% if order.status == 'placed' %}now{% else %}done{% endif %}"></span>
-  <span class="rail-seg {% if order.status == 'accepted' %}now{% elif order.status == 'preparing' or order.status == 'served' %}done{% endif %}"></span>
-  <span class="rail-seg {% if order.status == 'preparing' %}now{% elif order.status == 'served' %}done{% endif %}"></span>
-  <span class="rail-seg {% if order.status == 'served' %}end{% endif %}"></span>
+  {% for stage in order.progress %}<span class="rail-seg {{ stage.state }}"></span>{% endfor %}
 </div>
 <div class="rail-labels">
-  <span class="{% if order.status == 'placed' %}now{% else %}done{% endif %}">Placed</span>
-  <span class="{% if order.status == 'accepted' %}now{% elif order.status == 'preparing' or order.status == 'served' %}done{% endif %}">Accepted</span>
-  <span class="{% if order.status == 'preparing' %}now{% elif order.status == 'served' %}done{% endif %}">Mixing</span>
-  <span class="{% if order.status == 'served' %}end{% endif %}">Served</span>
+  {% for stage in order.progress %}<span class="{{ stage.state }}">{{ stage.label }}</span>{% endfor %}
 </div>
 {% endif %}
 

@@ -3,10 +3,7 @@
 {% block title %}Your Round{% endblock %}
 {% block venue_name %}{{ guest.venue.name }}{% endblock %}
 {% block content %}
-<div class="ident">
-  <div class="ident-name">{{ guest.display }}</div>
-  <div class="ident-table stub">TABLE {{ guest.tab.table.label }}</div>
-</div>
+{% include "atmos/_ident.html" %}
 
 <h1>Your round</h1>
 <p class="lede" style="margin-top: 0.3rem;">Check it over before it goes to the bar.</p>

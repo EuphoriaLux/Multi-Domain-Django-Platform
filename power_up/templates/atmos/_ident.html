@@ -1,0 +1,7 @@
+{% comment %}Who the bar will shout for, and where to bring it. Shared by the
+menu and the cart so the two cannot drift — the same pattern as _kds_card.html.
+Expects `guest` in context.{% endcomment %}
+<div class="ident">
+  <div class="ident-name">{{ guest.display }}</div>
+  <div class="ident-table stub">TABLE {{ guest.tab.table.label }}</div>
+</div>
