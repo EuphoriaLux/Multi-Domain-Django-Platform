@@ -22,9 +22,27 @@
     <link rel="dns-prefetch" href="https://js.monitor.azure.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Editorial display serif for hero / section headlines (body stays on Inter). -->
+    <!-- Editorial display serif for hero / section headlines (body stays on Inter).
+         Loaded OFF the critical path: a render-blocking stylesheet here cost ~771ms of
+         FCP/LCP (Lighthouse 2026-08-21, mobile). The preload keeps it at high priority,
+         media="print" keeps it from blocking first paint, and the nonce'd script below
+         promotes it to media="all" once it lands. Safe because the face is requested
+         with display=swap and .hero-title falls back to Georgia, so the LCP heading
+         paints immediately and swaps in Fraunces when it arrives. -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&display=swap">
+    <link id="crush-display-font" rel="stylesheet" media="print" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&display=swap">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&display=swap"></noscript>
+    <script nonce="{{ csp_nonce }}">
+        // Promote the display face to a live stylesheet. Kept in a nonce'd external
+        // block rather than an onload="" attribute: an inline event handler is exactly
+        // what the nonce CSP is meant to reject.
+        (function () {
+            var link = document.getElementById('crush-display-font');
+            if (!link) { return; }
+            var promote = function () { link.media = 'all'; };
+            if (link.sheet) { promote(); } else { link.addEventListener('load', promote); }
+        })();
+    </script>
 
     <!-- SEO: Canonical URL (self-referencing - each language version is its own canonical) -->
     <link rel="canonical" href="{% block canonical_url %}{% canonical_url %}{% endblock %}">
@@ -156,7 +174,7 @@
         .hero-section{background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);color:#fff;padding:5rem 1rem;width:100vw;margin-left:calc(-50vw + 50%);margin-top:-2rem!important;position:relative;overflow:hidden;border-radius:0 0 50px 50px}
         html.dark .hero-section{background:linear-gradient(135deg,#581C87 0%,#9F1239 100%)}
         .hero-content{position:relative;z-index:1;max-width:1200px;margin:0 auto}
-        .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;margin-bottom:1.5rem;line-height:1.2}
+        .hero-title{font-family:"Fraunces",Georgia,"Times New Roman",serif;font-size:clamp(2.75rem,6.5vw,5rem);font-weight:600;font-variation-settings:"opsz" 144;letter-spacing:-.02em;line-height:1.05;margin-bottom:1.5rem}
         .hero-subtitle{font-size:clamp(1.1rem,2.5vw,1.5rem);opacity:.95;margin-bottom:2.5rem;max-width:700px}
         .hero-emoji{font-size:clamp(8rem,20vw,15rem);display:inline-block}
         .hero-ghost-svg{width:clamp(8rem,20vw,15rem);height:auto;display:inline-block;filter:drop-shadow(0 10px 30px rgba(0,0,0,.15))}
@@ -185,8 +203,12 @@
     {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
-    {# External script for CSP compliance - runs synchronously before HTMX #}
-    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/htmx-csrf.js' %}"></script>
+    {% comment %}
+       External script for CSP compliance. Deferred, not parser-blocking: defer keeps
+       document order among src'd scripts, so this still runs before the deferred HTMX
+       bundle at the bottom of the page, which is the ordering that actually matters.
+    {% endcomment %}
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/htmx-csrf.js' %}"></script>
     {% include "includes/staging_banner.html" %}
     {% analytics_body %}
     <!-- Skip to main content link for keyboard/screen reader users -->
@@ -1340,8 +1362,11 @@
     <!-- JavaScript i18n catalog (must load before components that use gettext()).
          Pass the page's language explicitly: the catalog route sits outside
          i18n_patterns, so it would otherwise be negotiated from the cookie /
-         Accept-Language and could disagree with this page. -->
-    <script nonce="{{ csp_nonce }}" src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
+         Accept-Language and could disagree with this page.
+         Deferred: no template calls gettext() inline at parse time, and defer preserves
+         document order, so the catalog still lands before every deferred consumer
+         below (toast, confirm-sheet, alpine-components). -->
+    <script nonce="{{ csp_nonce }}" defer src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
     <!-- HTMX (HTML-driven interactivity) - deferred for non-blocking load -->
     <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"

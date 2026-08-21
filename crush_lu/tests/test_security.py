@@ -8,8 +8,10 @@ Tests for:
 - Permissions-Policy headers
 - PII masking in logs
 """
+import os
 import re
 from datetime import date
+from unittest import mock
 
 from django.test import Client, TestCase, override_settings
 from django.contrib.auth import get_user_model
@@ -183,6 +185,33 @@ class TestCSPInlineScriptNonces(SiteTestCase):
         client = Client(HTTP_HOST='entreprinder.lu')
         response = client.get('/login_complete/')
         self._assert_all_inline_scripts_nonced(response, '/login_complete/')
+
+    @mock.patch.dict(os.environ, {'GA4_CRUSH_LU': 'G-TESTNONCE1'})
+    def test_analytics_head_inline_scripts_carry_nonce(self):
+        """{% analytics_head %} renders the first inline scripts in <head>.
+
+        Regression test for the gtag blocks shipping with no nonce at all
+        (found on production 2026-08-21 via the browser console; Lighthouse
+        surfaced it as two /csp-report/ POSTs and an inspector-issues fail).
+
+        The cause is subtle enough to be worth pinning: request._csp_nonce is a
+        django.utils.csp.LazyNonce whose __bool__ stays False until the value is
+        generated, so the tag's `if nonce` truthiness check was False for the
+        first tag to render — and analytics_head is line 9 of base.html, before
+        any {{ csp_nonce }}. The sibling tests above never caught it
+        because analytics_context reads GA4_CRUSH_LU off os.environ and matches
+        request.get_host() exactly — both unset/mismatched in tests — so analytics_head returns '' and emits no scripts at
+        all. Hence the explicit 'dataLayer' guard below: without it this test
+        passes vacuously, which is exactly how the bug reached production.
+        """
+        client = Client(HTTP_HOST='crush.lu')
+        response = client.get('/en/')
+        self.assertIn(
+            'dataLayer', response.content.decode(),
+            'analytics_head did not render — analytics_context matches the host '
+            'exactly, so this test would otherwise pass vacuously'
+        )
+        self._assert_all_inline_scripts_nonced(response, '/en/ (with GA4 configured)')
 
     def test_power_up_finops_dashboard_inline_scripts_carry_nonce(self):
         """Power Up FinOps dashboard renders config as JSON data blocks —
