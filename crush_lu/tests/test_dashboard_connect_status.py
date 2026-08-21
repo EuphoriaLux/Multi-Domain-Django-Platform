@@ -1,12 +1,17 @@
 """
-Tests for the Crush Connect opt-in status strip on the crush.lu dashboard
+Tests for the Crush Connect status strip on the crush.lu dashboard
 (the verified NON-premium slot).
 
+The strip is TIERED by verification (Task 13.4): what a member can do in
+Connect depends on how they were verified, not on Premium.
+
 States exercised (see crush_lu/templates/crush_lu/partials/_connect_status_strip.html):
-  0. No LuxID            → "Connect LuxID" banner (visible even pre-launch).
-  X. Coach-excluded      → nothing (exclusion is never surfaced to the member).
-  1. LuxID, not opted-in → purple "Join the Mix" CTA (launch flag / staff only).
-  2. LuxID, opted-in     → green "You're in the Mix" confirmation (flag / staff).
+  X.  Coach-excluded         → nothing (exclusion is never surfaced).
+  0.  Not verified           → "Get verified" card, both routes (even pre-launch).
+  1.  Verified, not opted-in → purple CTA, worded per tier (flag / staff only).
+  2a. Opted-in, no photo     → amber "Almost in Crush Connect".
+  2b. Opted-in + event       → green Connect Week card (active discovery).
+  2c. Opted-in, LuxID only   → blue "You're in the Mix" (visible, reply-only).
 
 Plus the matching "LuxID Verify" card footer in _products.html.
 """
@@ -31,8 +36,13 @@ def _link_luxid(user):
 class DashboardConnectStatusStripTests(TestCase):
     JOIN_CTA = "Join the Mix"
     IN_MIX = "You're in the Mix"
-    ALMOST = "Almost in the Mix"
-    LUXID_BANNER = "Connect LuxID to join Crush Connect"
+    ALMOST = "Almost in Crush Connect"
+    # State 0's heading. Named for the LuxID route it still offers, but the
+    # card now offers the event route beside it — verification, not LuxID, is
+    # what the member is missing.
+    LUXID_BANNER = "Get verified to join Crush Connect"
+    CONNECT_WEEK = "Your Connect Week is open"
+    WEEK_CTA = "Open my Connect Week"
 
     def setUp(self):
         self.user = _make_member("dash@example.com")
@@ -269,3 +279,96 @@ class DashboardConnectStatusStripTests(TestCase):
         # Launch gate off for a non-staff member → the strip shows nothing.
         self.assertNotContains(response, self.IN_MIX)
         self.assertNotContains(response, self.JOIN_CTA)
+
+    # ------------------------------------------------------------------
+    # Tiered states (Task 13.4) — the strip's offer follows verification.
+    # ------------------------------------------------------------------
+
+    def _mark_event_verified(self, user):
+        """Give ``user`` coach-verified in-person attendance, which is what
+        ``has_attended_event`` (and so ``cycle_access_open``) reads. Reuses
+        the Connect suite's own fixtures rather than hand-building the event,
+        so the two stay in step."""
+        from crush_lu.tests.test_crush_connect import _mark_attended
+
+        return _mark_attended(user)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_event_verified_member_is_offered_the_connect_week(self):
+        """Event verification is what opens active discovery
+        (connect_phase.cycle_access_open), so an onboarded event-verified
+        member must be sent to the Week — not to the reply-only Mix card."""
+        self._mark_event_verified(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["has_attended_event"])
+        self.assertContains(response, self.CONNECT_WEEK)
+        self.assertContains(response, self.WEEK_CTA)
+        self.assertNotContains(response, self.IN_MIX)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_dual_verified_member_gets_the_connect_week_tier(self):
+        """LuxID + event is the strictly larger capability, so the dual-verified
+        member is shown the Week, never given a second, smaller Mix card."""
+        _link_luxid(self.user)
+        self._mark_event_verified(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["has_luxid_connected"])
+        self.assertTrue(response.context["has_attended_event"])
+        self.assertContains(response, self.CONNECT_WEEK)
+        self.assertNotContains(response, self.IN_MIX)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_luxid_only_member_is_never_linked_to_the_connect_week(self):
+        """The regression this tier exists to prevent: cycle_access_open is
+        False without event verification, so offering a LuxID-only member the
+        Week would be a link straight back to the teaser."""
+        _link_luxid(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["has_attended_event"])
+        self.assertContains(response, self.IN_MIX)
+        self.assertNotContains(response, self.CONNECT_WEEK)
+        # Asserted on the strip's own CTA label, not on the week_home URL: an
+        # onboarded member also gets that URL from the persistent Connect nav
+        # (crush_connect_nav_visible), so a page-wide URL check would say
+        # nothing about the strip.
+        self.assertNotContains(response, self.WEEK_CTA)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_event_verified_not_opted_in_gets_week_worded_invitation(self):
+        """State 1 is tier-aware too: an event-verified member is invited to
+        the Week they have already unlocked, not merely into the Mix."""
+        self._mark_event_verified(self.user)
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["connect_onboarded"])
+        self.assertContains(response, "Your Connect Week is waiting")
+        self.assertContains(response, "Start my Connect Week")
+        self.assertContains(response, reverse("crush_lu:crush_connect_onboarding"))
+        # NOT asserted via JOIN_CTA: _products.html emits that label for any
+        # verified, not-onboarded member regardless of tier, so its absence
+        # would not be evidence about the strip. The strip's own heading is.
+        self.assertNotContains(response, "You're not in Crush Connect yet")
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_unverified_card_offers_both_verification_routes(self):
+        """Neither LuxID nor event → the member is not in Connect at all, and
+        the card must name both doors, not only LuxID."""
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_identity_verified"])
+        self.assertContains(response, self.LUXID_BANNER)
+        self.assertContains(response, reverse("crush_lu:event_list"))
+        self.assertNotContains(response, self.CONNECT_WEEK)
+        self.assertNotContains(response, self.IN_MIX)

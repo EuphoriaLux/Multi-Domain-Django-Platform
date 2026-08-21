@@ -1,0 +1,94 @@
+{% load i18n %}
+{% comment %}
+  Post-cycle feedback prompt (Task 13.4).
+
+  Rendered at the top of the Connect Week home when the member's PREVIOUS
+  cycle completed and still owes a verdict. Expects `feedback_session` (the
+  completed ConnectWeekSession) and `feedback_sentiments`
+  (ConnectCycleFeedback.Sentiment.choices); the caller renders nothing when
+  `feedback_session` is None.
+
+  Two forms, not one with two buttons: the "not now" path must post cleanly
+  without dragging the unfilled radio group's validation with it. Both post to
+  the same view, which re-resolves the pending session itself — no session id
+  travels in the form, so a stale tab cannot write feedback for the wrong week.
+
+  Plain radios and a plain POST, deliberately: this page is served under a CSP
+  that forbids inline handlers, and a survey that only works with JavaScript
+  would silently collect nothing from the members most worth hearing from.
+{% endcomment %}
+<section class="mb-7 rounded-2xl border border-crush-purple/25 bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 p-5"
+         aria-labelledby="cycle-feedback-heading">
+    <div class="flex items-start gap-3 mb-4">
+        <div class="w-9 h-9 rounded-full bg-crush-purple/10 flex items-center justify-center shrink-0">
+            {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-5 h-5 text-crush-purple dark:text-crush-pink" %}
+        </div>
+        <div class="min-w-0">
+            <h2 id="cycle-feedback-heading" class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-0.5">
+                {% trans "How was your Connect Week?" %}
+            </h2>
+            <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
+                {% trans "Two taps. Your answer is private, goes to the Crush.lu team only, and shapes how the next weeks work." %}
+            </p>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'crush_lu:connect_week_feedback' %}" class="space-y-4">
+        {% csrf_token %}
+
+        <fieldset>
+            <legend class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-2">
+                {% trans "Overall" %}
+            </legend>
+            <div class="flex flex-wrap gap-2">
+                {% for value, label in feedback_sentiments %}
+                <label class="cursor-pointer">
+                    <input type="radio" name="sentiment" value="{{ value }}" class="peer sr-only" required>
+                    <span class="inline-block rounded-lg border border-gray-300 dark:border-slate-600 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 transition-colors peer-checked:border-crush-purple peer-checked:bg-crush-purple peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple peer-focus-visible:ring-offset-2">
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-2">
+                {% trans "Did the daily profiles feel like a fit?" %}
+            </legend>
+            <div class="flex flex-wrap gap-2">
+                {% for value, label in feedback_sentiments %}
+                <label class="cursor-pointer">
+                    <input type="radio" name="match_quality" value="{{ value }}" class="peer sr-only">
+                    <span class="inline-block rounded-lg border border-gray-300 dark:border-slate-600 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 transition-colors peer-checked:border-crush-purple peer-checked:bg-crush-purple peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-crush-purple peer-focus-visible:ring-offset-2">
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <div>
+            <label for="cycle-feedback-comment" class="block text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-2">
+                {% trans "Anything else?" %} <span class="font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400">{% trans "(optional)" %}</span>
+            </label>
+            {% trans "What worked, what didn't…" as comment_placeholder %}
+            <textarea id="cycle-feedback-comment" name="comment" rows="3" maxlength="1000"
+                      placeholder="{{ comment_placeholder }}"
+                      class="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-crush-purple focus:ring-1 focus:ring-crush-purple"></textarea>
+        </div>
+
+        <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-crush-purple hover:bg-crush-purple/90 px-4 py-2.5 text-sm font-semibold text-white transition-colors">
+            {% trans "Send feedback" %}
+        </button>
+    </form>
+
+    {# Separate form: "not now" must post without the radio group's required validation. #}
+    <form method="post" action="{% url 'crush_lu:connect_week_feedback' %}" class="mt-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="dismiss">
+        <button type="submit" class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2 transition-colors">
+            {% trans "No thanks, don't ask again" %}
+        </button>
+    </form>
+</section>
