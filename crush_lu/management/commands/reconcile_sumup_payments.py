@@ -24,6 +24,7 @@ Usage::
 import logging
 import time
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -34,9 +35,56 @@ from crush_lu.models.credits import CrushCredit
 from crush_lu.models.events import EventRegistration
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
+from crush_lu.services.credits import void_credit
 from crush_lu.services.sumup import SumUpClient, SumUpError
 
 logger = logging.getLogger(__name__)
+
+
+def _to_decimal(value) -> Decimal:
+    """Coerce a SumUp amount to Decimal, never raising.
+
+    SumUp is not consistent about whether amounts come back as numbers or as
+    numeric strings, and a bare ``"0.00" > 0`` raises TypeError on Python 3.
+    ``is_checkout_refunded()`` is called *outside* the per-row try/except in
+    ``handle()``, so an uncaught TypeError there would kill the entire sweep
+    rather than skip one checkout. Everything numeric from SumUp goes through
+    here — the same defensive coercion ``views_payments`` already applies.
+    """
+    if value is None:
+        return Decimal("0")
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0")
+
+
+def refunded_amount(data: dict) -> Decimal:
+    """Best available total refunded on this checkout.
+
+    Returns ``Decimal("0")`` when SumUp signals a refund by status alone and
+    reports no amount — callers must treat that as "amount unknown", not as
+    "nothing was refunded".
+    """
+    if not isinstance(data, dict):
+        return Decimal("0")
+
+    candidates = [_to_decimal(data.get("amount_refunded"))]
+
+    per_tx_total = Decimal("0")
+    refunds_total = Decimal("0")
+    for tx in data.get("transactions") or []:
+        if not isinstance(tx, dict):
+            continue
+        per_tx_total += _to_decimal(tx.get("amount_refunded"))
+        for refund in tx.get("refunds") or []:
+            if isinstance(refund, dict):
+                refunds_total += _to_decimal(refund.get("amount"))
+
+    candidates.extend([per_tx_total, refunds_total])
+    return max(candidates)
 
 
 def is_checkout_refunded(data: dict) -> bool:
@@ -47,6 +95,9 @@ def is_checkout_refunded(data: dict) -> bool:
     - Any transaction entry status == "REFUNDED"
     - Any transaction entry has non-empty "refunds" list or amount_refunded > 0
     - Top-level amount_refunded > 0
+
+    Detection only. Whether the refund was full or partial is decided by the
+    caller against the captured amount — see ``handle()``.
     """
     if not isinstance(data, dict):
         return False
@@ -55,7 +106,7 @@ def is_checkout_refunded(data: dict) -> bool:
     if status == "REFUNDED":
         return True
 
-    if (data.get("amount_refunded") or 0) > 0:
+    if _to_decimal(data.get("amount_refunded")) > 0:
         return True
 
     transactions = data.get("transactions") or []
@@ -65,7 +116,7 @@ def is_checkout_refunded(data: dict) -> bool:
         tx_status = (tx.get("status") or "").upper()
         if tx_status == "REFUNDED":
             return True
-        if tx.get("refunds") or (tx.get("amount_refunded") or 0) > 0:
+        if tx.get("refunds") or _to_decimal(tx.get("amount_refunded")) > 0:
             return True
 
     return False
@@ -80,6 +131,15 @@ class Command(BaseCommand):
             type=int,
             default=30,
             help="Number of lookback days for PAID transactions (default: 30)",
+        )
+        parser.add_argument(
+            "--include-partial",
+            action="store_true",
+            help=(
+                "Also reconcile refunds smaller than the captured amount. Off by "
+                "default: a partial refund would otherwise cancel a still-mostly-paid "
+                "registration and free its seat."
+            ),
         )
         parser.add_argument(
             "--dry-run",
@@ -109,6 +169,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         days = options["days"]
         dry_run = options["dry_run"]
+        include_partial = options["include_partial"]
         quiet = options["quiet"]
         checkout_id = options.get("checkout_id")
         reference = options.get("reference")
@@ -154,6 +215,7 @@ class Command(BaseCommand):
         checked = 0
         refunded_count = 0
         errors_count = 0
+        partial_count = 0
 
         for tx_obj in qs:
             checked += 1
@@ -176,7 +238,56 @@ class Command(BaseCommand):
                 )
                 continue
 
-            if is_checkout_refunded(remote_data):
+            try:
+                refunded = is_checkout_refunded(remote_data)
+            except Exception as exc:  # defensive: never let one payload kill the sweep
+                errors_count += 1
+                logger.exception(
+                    "Could not interpret SumUp payload for checkout %s: %s",
+                    tx_obj.sumup_checkout_id,
+                    exc,
+                )
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Unreadable payload for checkout {tx_obj.sumup_checkout_id} "
+                        f"({tx_obj.transaction_reference}): {exc}"
+                    )
+                )
+                continue
+
+            if refunded:
+                # A partial refund is not a cancellation. Reconciling one would
+                # unbook a still-mostly-paid seat, release it to the waitlist and
+                # void the member's credit over what may be a small goodwill
+                # adjustment. Amount 0 means SumUp signalled the refund by status
+                # alone and told us no amount — treated as full, as before.
+                refunded_amt = refunded_amount(remote_data)
+                captured_amt = tx_obj.amount or Decimal("0")
+                is_partial = (
+                    refunded_amt > 0
+                    and captured_amt > 0
+                    and refunded_amt < captured_amt
+                )
+
+                if is_partial and not include_partial:
+                    partial_count += 1
+                    logger.warning(
+                        "PARTIAL refund on %s (checkout %s): %s of %s refunded. "
+                        "Left unreconciled for manual review — rerun with "
+                        "--include-partial to force it.",
+                        tx_obj.transaction_reference,
+                        tx_obj.sumup_checkout_id,
+                        refunded_amt,
+                        captured_amt,
+                    )
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"⚠ PARTIAL refund {refunded_amt}/{captured_amt} on "
+                            f"{tx_obj.transaction_reference} — needs manual review, not reconciled."
+                        )
+                    )
+                    continue
+
                 refunded_count += 1
                 self._reconcile_refunded(tx_obj, remote_data, dry_run=dry_run)
             elif not quiet:
@@ -186,6 +297,7 @@ class Command(BaseCommand):
 
         summary_msg = (
             f"Sweep complete: {checked} checked, {refunded_count} external refund(s) reconciled, "
+            f"{partial_count} partial refund(s) flagged for manual review, "
             f"{errors_count} error(s)."
         )
         if dry_run:
@@ -277,41 +389,67 @@ class Command(BaseCommand):
                     )
 
             # 3. Reconcile linked CrushCredits (to prevent double-dip of cash refund + active credit)
+            #
+            # The registration clause is deliberately narrowed to credits with no
+            # payment of their own. EventRegistration rows are REUSED across
+            # re-registration cycles (see EventRegistration.save()), so matching on
+            # registration alone would also catch a still-active credit issued in an
+            # earlier cycle against a different payment — silently destroying credit
+            # the member is genuinely owed. A credit naming its own source_payment
+            # is only ours when that payment is the one being refunded.
             credit_filters = Q(source_payment=locked_tx)
             if locked_tx.event_registration_id:
-                credit_filters |= Q(source_registration_id=locked_tx.event_registration_id)
+                credit_filters |= Q(
+                    source_registration_id=locked_tx.event_registration_id,
+                    source_payment__isnull=True,
+                )
 
-            linked_credits = (
-                CrushCredit.objects.select_for_update()
-                .filter(credit_filters)
+            # Model instances, not values_list: redeemed_cents is a computed
+            # property over the redemption rows, not a column.
+            linked_credits = list(
+                CrushCredit.objects.filter(credit_filters).filter(
+                    status=CrushCredit.Status.ACTIVE
+                )
             )
-            for credit in linked_credits:
-                if credit.status == CrushCredit.Status.ACTIVE:
-                    if credit.redeemed_cents == 0:
-                        credit.status = CrushCredit.Status.VOID
-                        credit.note = (
-                            f"{credit.note}\nVoided: External SumUp cash refund reconciled."
-                        ).strip()
-                        credit.save(update_fields=["status", "note"])
-                        logger.info(
-                            "Voided unused CrushCredit #%s following external cash refund on payment %s.",
-                            credit.pk,
-                            ref,
-                        )
-                    else:
-                        credit.status = CrushCredit.Status.VOID
-                        credit.note = (
-                            f"{credit.note}\nVoided (WARNING: {credit.redeemed_cents} cents already redeemed): "
-                            f"External SumUp cash refund reconciled."
-                        ).strip()
-                        credit.save(update_fields=["status", "note"])
-                        logger.warning(
-                            "CrushCredit #%s had %s cents already redeemed when external cash refund on payment %s was reconciled!",
-                            credit.pk,
-                            credit.redeemed_cents,
-                            ref,
-                        )
+            for linked in linked_credits:
+                credit_pk = linked.pk
+                redeemed_cents = linked.redeemed_cents
+                # Voiding goes through services.credits.void_credit(), the single
+                # guarded door that module's docstring requires, rather than a
+                # second hand-rolled copy of the same lifecycle that can drift.
+                # require_unspent=False: a cash refund supersedes a partly spent
+                # credit, and the note records that it was already drawn on.
+                if redeemed_cents:
+                    note = (
+                        f"Voided (WARNING: {redeemed_cents} cents already redeemed): "
+                        "External SumUp cash refund reconciled."
+                    )
+                else:
+                    note = "Voided: External SumUp cash refund reconciled."
 
+                _credit, outcome = void_credit(
+                    credit_pk, note=note, require_unspent=False
+                )
+                if outcome != "voided":
+                    logger.info(
+                        "CrushCredit #%s not voided (%s) during reconciliation of %s.",
+                        credit_pk,
+                        outcome,
+                        ref,
+                    )
+                elif redeemed_cents:
+                    logger.warning(
+                        "CrushCredit #%s had %s cents already redeemed when external cash refund on payment %s was reconciled!",
+                        credit_pk,
+                        redeemed_cents,
+                        ref,
+                    )
+                else:
+                    logger.info(
+                        "Voided unused CrushCredit #%s following external cash refund on payment %s.",
+                        credit_pk,
+                        ref,
+                    )
         self.stdout.write(
             self.style.SUCCESS(
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"

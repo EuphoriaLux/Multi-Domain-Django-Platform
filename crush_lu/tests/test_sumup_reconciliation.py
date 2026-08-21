@@ -12,7 +12,10 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from crush_lu.management.commands.reconcile_sumup_payments import is_checkout_refunded
+from crush_lu.management.commands.reconcile_sumup_payments import (
+    is_checkout_refunded,
+    refunded_amount,
+)
 from crush_lu.models.credits import CrushCredit, CreditRedemption
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
@@ -265,3 +268,131 @@ class SumUpReconciliationCommandTests(TestCase):
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
         self.assertIn("1 error(s)", out.getvalue())
+
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_partial_refund_is_not_reconciled(self, mock_get_checkout):
+        """A EUR2 goodwill refund on a EUR15.50 seat must not unbook the seat."""
+        mock_get_checkout.return_value = {
+            "id": "chk_refund_123",
+            "status": "PAID",
+            "amount_refunded": "2.00",
+        }
+
+        out = io.StringIO()
+        call_command("reconcile_sumup_payments", stdout=out)
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(self.registration.payment_confirmed)
+        self.assertIn("PARTIAL", out.getvalue())
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_partial_refund_reconciles_when_forced(self, mock_get_checkout):
+        mock_get_checkout.return_value = {
+            "id": "chk_refund_123",
+            "status": "PAID",
+            "amount_refunded": "2.00",
+        }
+
+        call_command("reconcile_sumup_payments", include_partial=True, quiet=True)
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_full_refund_still_reconciles(self, mock_get_checkout):
+        mock_get_checkout.return_value = {
+            "id": "chk_refund_123",
+            "status": "PAID",
+            "amount_refunded": "15.50",
+        }
+
+        call_command("reconcile_sumup_payments", quiet=True)
+
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.registration.status, "cancelled")
+
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_credit_from_an_earlier_cycle_is_not_voided(self, mock_get_checkout):
+        """EventRegistration rows are reused across re-registration cycles.
+
+        A credit issued against payment A must survive a refund on payment B,
+        even though both name the same registration row.
+        """
+        payment_a = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-42-cycle-one",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="chk_cycle_one",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            event=self.event,
+            raw_response={"status": "PAID"},
+        )
+        earlier_credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=payment_a,
+            source_registration=self.registration,
+            cash_refund_eligible=True,
+        )
+
+        # Only the *second* payment is refunded externally.
+        mock_get_checkout.side_effect = lambda cid: (
+            {"id": cid, "status": "REFUNDED"}
+            if cid == "chk_refund_123"
+            else {"id": cid, "status": "PAID"}
+        )
+
+        call_command("reconcile_sumup_payments", quiet=True)
+
+        earlier_credit.refresh_from_db()
+        self.assertEqual(
+            earlier_credit.status,
+            CrushCredit.Status.ACTIVE,
+            "credit from payment A's cycle must not be voided by a refund on payment B",
+        )
+
+
+class ExternalRefundRegressionTests(TestCase):
+    """Regressions for the four review findings on PR #903."""
+
+    def test_numeric_string_amount_does_not_raise(self):
+        """SumUp may return amounts as strings; `"0.00" > 0` is a TypeError.
+
+        is_checkout_refunded() is called outside the per-row try/except in
+        handle(), so an uncaught TypeError here killed the whole sweep.
+        """
+        self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": "0.00"}))
+        self.assertTrue(is_checkout_refunded({"status": "PAID", "amount_refunded": "2.50"}))
+        self.assertFalse(
+            is_checkout_refunded(
+                {"status": "PAID", "transactions": [{"status": "SUCCESSFUL", "amount_refunded": "0.00"}]}
+            )
+        )
+        # Garbage must degrade to "not refunded", never explode.
+        self.assertFalse(is_checkout_refunded({"status": "PAID", "amount_refunded": "not-a-number"}))
+
+    def test_refunded_amount_reads_every_payload_shape(self):
+        self.assertEqual(refunded_amount({"amount_refunded": "2.50"}), Decimal("2.50"))
+        self.assertEqual(
+            refunded_amount({"transactions": [{"amount_refunded": 4}]}), Decimal("4")
+        )
+        self.assertEqual(
+            refunded_amount({"transactions": [{"refunds": [{"amount": "1.25"}, {"amount": "0.75"}]}]}),
+            Decimal("2.00"),
+        )
+        # Status-only refund reports no amount: 0 means "unknown", not "nothing".
+        self.assertEqual(refunded_amount({"status": "REFUNDED"}), Decimal("0"))
