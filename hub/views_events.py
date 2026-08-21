@@ -55,6 +55,7 @@ from rest_framework.views import APIView
 from crush_lu.admin.credits import CashRefundQueueFilter
 from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.models.credits import CrushCredit
+from crush_lu.models.payments import PaymentTransaction
 
 from .serializers import (
     EventCancellationRegistrationSerializer,
@@ -138,26 +139,34 @@ class EventCancellationsView(APIView):
         # ``base_credits`` is already cycle-scoped (see
         # ``_event_cancelled_credits``), so this total is too.
         open_totals = {
-            row["_event_id"]: row["open_total_cents"]
+            row["_event_id"]: row
             for row in _open_cash_refund_credits(None, base_credits)
             .values("_event_id")
-            .annotate(open_total_cents=Coalesce(Sum("amount_cents"), 0))
+            .annotate(
+                open_count=Count("id"),
+                open_total_cents=Coalesce(Sum("amount_cents"), 0),
+            )
         }
 
         for event in events:
-            issued = issued_totals.get(event.pk, {})
-            event.affected_registrations = affected_counts.get(event.pk, 0)
-            event.issued_credits_count = issued.get("issued_count", 0)
-            event.issued_credits_total_cents = issued.get("issued_total_cents", 0)
-            event.open_cash_refund_total_cents = open_totals.get(event.pk, 0)
+            pk = event.pk
+            event.affected_registrations = affected_counts.get(pk, 0)
+            event.issued_credits_count = issued_totals.get(pk, {}).get(
+                "issued_count", 0
+            )
+            event.issued_credits_total_cents = issued_totals.get(pk, {}).get(
+                "issued_total_cents", 0
+            )
+            event.open_cash_refund_total_cents = open_totals.get(pk, {}).get(
+                "open_total_cents", 0
+            )
 
-        return Response(
-            {"items": EventCancellationSummarySerializer(events, many=True).data}
-        )
+        serializer = EventCancellationSummarySerializer(events, many=True)
+        return Response({"items": serializer.data})
 
 
 class EventCancellationDetailView(APIView):
-    """Self-cancelled seats for one cancelled event, each with its credit."""
+    """The cancelled registrations for one cancelled event, with attached credits."""
 
     permission_classes = [IsAdminUser]
 
@@ -209,6 +218,26 @@ class EventCancellationDetailView(APIView):
             ):
                 credit_by_registration[reg_id] = credit
 
+        # Fetch payment transactions linked to these registrations or users for this event
+        user_ids = [r.user_id for r in registrations if r.user_id]
+        txs = list(
+            PaymentTransaction.objects.filter(
+                Q(event_registration_id__in=registration_ids)
+                | Q(event=event, user_id__in=user_ids)
+            ).order_by("-updated_at")
+        )
+
+        tx_by_registration = {}
+        for tx in txs:
+            reg_id = tx.event_registration_id
+            if reg_id and reg_id not in tx_by_registration:
+                tx_by_registration[reg_id] = tx
+            elif tx.user_id:
+                for r in registrations:
+                    if r.user_id == tx.user_id and r.pk not in tx_by_registration:
+                        tx_by_registration[r.pk] = tx
+                        break
+
         issued_total_cents = sum(credit.amount_cents for credit in credits)
         open_total_cents = sum(
             credit.amount_cents for credit in credits if credit.pk in open_ids
@@ -216,8 +245,36 @@ class EventCancellationDetailView(APIView):
 
         for registration in registrations:
             credit = credit_by_registration.get(registration.pk)
+            tx = tx_by_registration.get(registration.pk)
             registration.linked_credit = credit
             registration.open_cash_refund = bool(credit and credit.pk in open_ids)
+
+            # Determine cancellation origin
+            registration.cancellation_origin = (
+                "member" if registration.cancelled_at else "organiser"
+            )
+
+            # Determine payment & refund status
+            if tx and tx.status == PaymentTransaction.Status.REFUNDED:
+                registration.payment_status = "refunded"
+                registration.refund_amount_cents = (
+                    int(round(tx.amount * 100)) if tx.amount else None
+                )
+            elif (
+                credit
+                and credit.status == CrushCredit.Status.VOID
+                and "refund" in (credit.note or "").lower()
+            ):
+                registration.payment_status = "refunded"
+                registration.refund_amount_cents = credit.amount_cents
+            elif registration.payment_confirmed or (
+                tx and tx.status == PaymentTransaction.Status.PAID
+            ):
+                registration.payment_status = "paid"
+                registration.refund_amount_cents = None
+            else:
+                registration.payment_status = "none"
+                registration.refund_amount_cents = None
 
         event.affected_registrations = len(registrations)
         event.issued_credits_count = len(credits)

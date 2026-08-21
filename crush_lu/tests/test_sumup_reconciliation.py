@@ -74,6 +74,39 @@ class IsCheckoutRefundedTests(TestCase):
         self.assertFalse(is_checkout_refunded({}))
         self.assertFalse(is_checkout_refunded(None))
 
+    def test_history_map_matching_transaction_code(self):
+        payload = {
+            "status": "PAID",
+            "transaction_code": "TX123",
+            "transactions": [
+                {"id": "txn-1", "status": "SUCCESSFUL", "amount": 15.50}
+            ],
+        }
+        history_map = {
+            "TX123": {
+                "transaction_code": "TX123",
+                "status": "REFUNDED",
+                "amount": 15.50,
+            }
+        }
+        self.assertTrue(is_checkout_refunded(payload, history_map=history_map))
+
+    def test_history_map_matching_nested_transaction_code(self):
+        payload = {
+            "status": "PAID",
+            "transactions": [
+                {"id": "txn-1", "transaction_code": "TX456", "status": "SUCCESSFUL", "amount": 15.50}
+            ],
+        }
+        history_map = {
+            "TX456": {
+                "transaction_code": "TX456",
+                "status": "REFUNDED",
+                "amount_refunded": 15.50,
+            }
+        }
+        self.assertTrue(is_checkout_refunded(payload, history_map=history_map))
+
 
 class SumUpReconciliationCommandTests(TestCase):
     def setUp(self):
@@ -556,3 +589,103 @@ class ExternalRefundRegressionTests(TestCase):
         )
         # Status-only refund reports no amount: 0 means "unknown", not "nothing".
         self.assertEqual(refunded_amount({"status": "REFUNDED"}), Decimal("0"))
+
+    def test_refunded_amount_from_history_map(self):
+        payload = {
+            "status": "PAID",
+            "amount": 15.50,
+            "transaction_code": "TX999",
+            "transactions": [{"id": "t1", "status": "SUCCESSFUL", "amount": 15.50}],
+        }
+        history_map = {
+            "TX999": {
+                "transaction_code": "TX999",
+                "status": "REFUNDED",
+                "amount_refunded": "15.50",
+            }
+        }
+        self.assertEqual(refunded_amount(payload, history_map=history_map), Decimal("15.50"))
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_transactions_history")
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_reconciles_refund_detected_only_in_transaction_history(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """Dashboard refunds do not mutate the checkout resource, but appear in transaction history.
+
+        This test proves that a checkout returning status='PAID' is still reconciled to REFUNDED
+        when its transaction_code is marked REFUNDED in get_transactions_history.
+        """
+        user = User.objects.create_user(username="dash_refund", email="dash_refund@crush.lu")
+        event = MeetupEvent.objects.create(
+            title="Quiz Night #99",
+            event_type="quiz_night",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timedelta(days=5),
+            registration_deadline=timezone.now() + timedelta(days=4),
+            registration_fee=Decimal("15.50"),
+            is_published=True,
+        )
+        reg = EventRegistration.objects.create(
+            event=event, user=user, status="confirmed", payment_confirmed=True
+        )
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-99-dash-ref",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="chk_dash_refund",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=user,
+            event_registration=reg,
+            event=event,
+        )
+        credit = CrushCredit.objects.create(
+            user=user,
+            amount_cents=2000,
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+            source_registration=reg,
+            source_payment=tx,
+            status=CrushCredit.Status.ACTIVE,
+        )
+
+        # Checkout payload still shows PAID and SUCCESSFUL transaction (how SumUp API behaves)
+        mock_get_checkout.return_value = {
+            "id": "chk_dash_refund",
+            "status": "PAID",
+            "transaction_code": "TX_DASH_123",
+            "transactions": [
+                {
+                    "id": "txn-uuid-1",
+                    "status": "SUCCESSFUL",
+                    "transaction_code": "TX_DASH_123",
+                    "amount": 15.50,
+                }
+            ],
+        }
+        # Transaction history reports the actual external dashboard refund
+        mock_get_history.return_value = {
+            "items": [
+                {
+                    "transaction_code": "TX_DASH_123",
+                    "status": "REFUNDED",
+                    "amount": 15.50,
+                    "amount_refunded": 15.50,
+                    "type": "PAYMENT",
+                }
+            ]
+        }
+
+        call_command("reconcile_sumup_payments", checkout_id="chk_dash_refund", quiet=True)
+
+        tx.refresh_from_db()
+        reg.refresh_from_db()
+        credit.refresh_from_db()
+
+        self.assertEqual(tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertFalse(reg.payment_confirmed)
+        self.assertEqual(reg.status, "cancelled")
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
