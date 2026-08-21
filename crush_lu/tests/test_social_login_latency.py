@@ -188,6 +188,39 @@ class LuxIDUserinfoSkipTests(TestCase):
         )
         fetch_userinfo.assert_not_called()
 
+    def test_no_id_token_fetches_even_when_setting_says_not_to(self):
+        """fetch_userinfo=False must not be able to produce an empty envelope.
+
+        With no id_token, /userinfo is the only source of claims. Honouring
+        the setting here would hand sociallogin_from_response() a {}, whose
+        extract_uid() raises KeyError("sub") and 500s the callback. Upstream
+        encodes the same precedence.
+        """
+        adapter = _make_adapter()
+        token = MagicMock()
+        token.token = "access-token"
+
+        with patch.object(
+            LuxIDOAuth2Adapter,
+            "_fetch_user_info",
+            return_value={"sub": "from-userinfo"},
+        ) as fetch_userinfo:
+            sociallogin_from_response = MagicMock()
+            adapter.get_provider.return_value.sociallogin_from_response = (
+                sociallogin_from_response
+            )
+            adapter.complete_login(
+                _make_request(),
+                _FakeApp({"fetch_userinfo": False}),
+                token,
+                response={},
+            )
+
+        fetch_userinfo.assert_called_once()
+        envelope = sociallogin_from_response.call_args[0][1]
+        self.assertIn("userinfo", envelope)
+        self.assertNotEqual(envelope, {})
+
     def test_no_id_token_falls_back_to_userinfo(self):
         adapter = _make_adapter()
         token = MagicMock()
@@ -817,3 +850,88 @@ class LuxIDDownstreamFanoutTests(TestCase):
             )
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.date_of_birth, date(1985, 6, 30))
+
+
+class LuxIDNewUserSignupTests(TestCase):
+    """A brand-new LuxID signup still lands every Annex C6 claim.
+
+    This is the create_crush_profile_from_luxid (post_save on SocialAccount)
+    path, not the relogin path. It is not modified by this work, but it reads
+    the same _luxid_claims() envelope the adapter now builds without a
+    "userinfo" key — so it is pinned here to prove the skipped fetch did not
+    quietly starve the signup flow.
+    """
+
+    def setUp(self):
+        cache.clear()
+        # The handler refuses to run unless the crush.lu LuxID login flag is
+        # set; pre_social_login normally sets it.
+        crush_signals._thread_local.is_crush_luxid_login = True
+
+    def tearDown(self):
+        crush_signals._thread_local.is_crush_luxid_login = False
+
+    def _signup(self, envelope):
+        user = User.objects.create_user(
+            username="newbie@example.com",
+            email="newbie@example.com",
+            password="pass123",
+        )
+        # Creating the SocialAccount fires the post_save receiver.
+        SocialAccount.objects.create(
+            user=user, provider="luxid", uid="luxid-sub-new", extra_data=envelope
+        )
+        return user
+
+    def test_signup_from_id_token_only_envelope(self):
+        """The shape the adapter now produces when /userinfo is skipped."""
+        user = self._signup({"id_token": _complete_id_token()})
+
+        profile = CrushProfile.objects.get(user=user)
+        self.assertEqual(profile.date_of_birth, date(1990, 1, 1))
+        self.assertEqual(profile.gender, "F")
+        self.assertEqual(profile.phone_number, "+352691234567")
+        self.assertTrue(profile.phone_verified)
+        self.assertIsNotNone(profile.phone_verified_at)
+        self.assertEqual(profile.preferred_language, "fr")
+
+    def test_signup_from_both_sources_lets_userinfo_win(self):
+        """Unchanged merge rule: userinfo overrides id_token per-key."""
+        user = self._signup(
+            {
+                "id_token": _complete_id_token(gender="male"),
+                "userinfo": {"gender": "female"},
+            }
+        )
+
+        profile = CrushProfile.objects.get(user=user)
+        self.assertEqual(profile.gender, "F")
+        # id_token-only claims survive the merge.
+        self.assertEqual(profile.date_of_birth, date(1990, 1, 1))
+
+    def test_signup_skips_untrusted_country_phone(self):
+        """Unchanged guard, pinned so the skip cannot silently widen it."""
+        user = self._signup(
+            {"id_token": _complete_id_token(phone_number="+15551234567")}
+        )
+
+        profile = CrushProfile.objects.get(user=user)
+        self.assertFalse(profile.phone_verified)
+        self.assertNotEqual(profile.phone_number, "+15551234567")
+
+    def test_signup_without_optional_claims_still_creates_profile(self):
+        """A member who withheld everything optional still gets an account."""
+        user = self._signup(
+            {
+                "id_token": {
+                    "sub": "s",
+                    "email": "newbie@example.com",
+                    "given_name": "Ada",
+                    "family_name": "Lovelace",
+                }
+            }
+        )
+
+        profile = CrushProfile.objects.get(user=user)
+        self.assertIsNone(profile.date_of_birth)
+        self.assertFalse(profile.phone_verified)

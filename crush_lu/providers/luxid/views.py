@@ -168,15 +168,23 @@ class LuxIDOAuth2Adapter(OpenIDConnectOAuth2Adapter):
         is a missed optimization, not a defect, and is preferable to
         inferring completeness from an absence that has two possible causes.
         """
-        # An explicit admin setting wins in both directions — this is a
-        # government CIAM integration, so the optimization must be
+        # With no id_token there is nothing to build a login from, so
+        # /userinfo is the only source of claims and must be fetched — this
+        # check comes FIRST, ahead of the admin setting, so that a
+        # fetch_userinfo=False cannot produce an empty envelope. Upstream
+        # encodes the same precedence as `if fetch_userinfo or (not
+        # id_token_str)`; inverting it would hand
+        # sociallogin_from_response() a {} whose extract_uid() raises
+        # KeyError("sub") and 500s the callback.
+        if not id_token:
+            return True
+
+        # Otherwise an explicit admin setting wins in both directions — this
+        # is a government CIAM integration, so the optimization must be
         # switchable from the Django admin without a redeploy.
         configured = (app.settings or {}).get("fetch_userinfo")
         if configured is not None:
             return bool(configured)
-
-        if not id_token:
-            return True
 
         missing = [c for c in LUXID_CORE_CLAIMS if not id_token.get(c)]
         if missing:
