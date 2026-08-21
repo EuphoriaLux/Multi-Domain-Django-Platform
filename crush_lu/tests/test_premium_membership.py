@@ -377,6 +377,64 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.assigned_coach_id, coach.id)
 
+    def test_cancel_active_ends_membership_and_returns_the_coach(self):
+        """The counterpart to confirm(): the entitlement and the coach both go."""
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("nadia")
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+        membership.confirm()
+
+        self.assertTrue(membership.cancel_active(reason="test refund"))
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "cancelled")
+        self.assertFalse(membership.payment_confirmed)
+        self.assertIsNone(membership.payment_date)
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.assigned_coach_id)
+        self.assertIsNone(self.profile.assigned_coach_at)
+        self.assertFalse(self.profile.has_active_premium)
+
+    def test_cancel_active_leaves_a_coach_it_did_not_assign(self):
+        """A coach earned by attending is the service relationship, not the
+        entitlement -- ending a payment must not confiscate it."""
+        from crush_lu.models import PremiumMembership
+
+        earned = self._make_coach("earned")
+        paid = self._make_coach("paid")
+        self.CrushProfile.objects.filter(pk=self.profile.pk).update(
+            assigned_coach=earned
+        )
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=paid, status="active", payment_confirmed=True
+        )
+
+        self.assertTrue(membership.cancel_active())
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "cancelled")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.assigned_coach_id, earned.id)
+        # The coach survives; the entitlement does not.
+        self.assertFalse(self.profile.has_active_premium)
+
+    def test_cancel_active_refuses_a_pending_membership(self):
+        """Pending has no coach to unwind -- that case belongs to cancel()."""
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("pendy")
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+
+        self.assertFalse(membership.cancel_active())
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "pending")
+
     def test_cancel_requires_post(self):
         self.client.force_login(self.member)
         resp = self.client.get(reverse("crush_lu:premium_cancel_membership"))

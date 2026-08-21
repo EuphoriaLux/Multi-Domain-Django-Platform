@@ -599,7 +599,8 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
     """A reserved premium seat does not survive a full gender pool."""
 
     def _make_premium(self, user):
-        from crush_lu.models import CrushCoach, CrushProfile
+        """The real Premium entitlement: an ACTIVE membership, not just a coach."""
+        from crush_lu.models import CrushCoach, CrushProfile, PremiumMembership
 
         coach_user = User.objects.create_user(
             username=f"coach_{user.username}",
@@ -607,7 +608,14 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
             password="testpass123",
         )
         coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        # Mirror PremiumMembership.confirm(): it writes BOTH the membership and
+        # the coach FK. The membership is what the gates read -- see
+        # CrushProfile.has_active_premium -- but a fixture that set only one of
+        # the two would not resemble any real premium member.
         CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        PremiumMembership.objects.create(
+            user=user, coach=coach, status="active", payment_confirmed=True
+        )
 
     def test_reserved_seat_banner_hidden_when_the_pool_is_full(self):
         """Premium buys a seat past `reserved_premium_seats`, not past a pool
@@ -644,6 +652,46 @@ class GenderPoolPremiumReservedSeatTests(GenderPoolAvailabilityTestBase):
         response = self._get_detail()
         self.assertTrue(response.context["premium_reserved_seat_available"])
         self.assertContains(response, "A seat is reserved for you")
+
+    def _make_coach_only(self, user):
+        """A coach with NO membership -- the free grant, not the entitlement.
+
+        What the attendance auto-assign signal and the 0150 backfill leave
+        behind, and precisely the case the reserved-seat gates used to admit.
+        """
+        from crush_lu.models import CrushCoach, CrushProfile
+
+        coach_user = User.objects.create_user(
+            username=f"freecoach_{user.username}",
+            email=f"freecoach_{user.username}",
+            password="testpass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        return coach
+
+    def test_reserved_seat_banner_hidden_for_a_coach_without_membership(self):
+        """A coach alone is not Premium.
+
+        Same setup as the test above, which DOES show the banner -- the only
+        difference is the missing PremiumMembership. A coach is granted free on
+        first attendance, so accepting it here held the reserved block open to
+        every past attendee.
+        """
+        self.event.max_participants = 2
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+        self._set_caps(2, 2, 0)
+        self._register(self._create_user_with_profile("f1@test.com", "F"))
+
+        viewer = self._create_user_with_profile("viewer@test.com", "M")
+        self._make_coach_only(viewer)
+        self.client.force_login(viewer)
+
+        response = self._get_detail()
+        self.assertFalse(response.context["user_is_premium"])
+        self.assertFalse(response.context["premium_reserved_seat_available"])
+        self.assertNotContains(response, "A seat is reserved for you")
 
 
 class WaitlistCtaSurvivesAValidationErrorTests(GenderPoolAvailabilityTestBase):
