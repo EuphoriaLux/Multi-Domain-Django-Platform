@@ -1,78 +1,70 @@
-<div class="kds-card">
-  <div class="kds-card-top">
-    <div class="kds-persona">{{ order.alias_snapshot }}</div>
-    <span class="kds-table-badge">📍 Table {{ order.tab.table.label }}</span>
-  </div>
-
-  <div class="kds-meta">
-    <span>🎟️ {{ order.short_code }}</span>
-    <span>·</span>
-    <span>⏱️ {{ order.placed_at|timesince }} ago</span>
+<div class="ticketcard">
+  {% comment %}The name is the largest thing on the card because it is the thing a
+  barkeeper reads off it and shouts across the room.{% endcomment %}
+  <div class="kds-name">{{ order.alias_snapshot }}</div>
+  <div class="kds-stub">
+    <span class="stub">TABLE {{ order.tab.table.label }}</span>
+    <span class="stub">{{ order.short_code }}</span>
+    <span class="stub">{{ order.placed_at|timesince }} ago</span>
   </div>
 
   {% if order.contains_alcohol %}
-  <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 0.35rem 0.6rem; border-radius: 6px; margin: 0.5rem 0;">
-    🔞 Contains alcohol — check age at delivery
+  <div class="kds-alert">
+    <svg class="ico" aria-hidden="true"><use href="#ic-alert"/></svg>
+    Alcohol — check age at delivery
   </div>
   {% endif %}
 
-  <ul class="kds-items">
+  <ul class="kds-lines">
     {% for item in order.items.all %}
     <li>
-      <span class="item-qty">{{ item.quantity }}×</span>
-      <span>{{ item.name_snapshot }}</span>
-      {% if item.contains_alcohol_snapshot %}<span class="muted" title="Contains alcohol">🔞</span>{% endif %}
-      {% if item.note %}<span class="muted">({{ item.note }})</span>{% endif %}
+      <span class="kds-qty">{{ item.quantity }}&times;</span>
+      <span>{{ item.name_snapshot }}{% if item.contains_alcohol_snapshot %}<span class="alc">18+</span>{% endif %}</span>
+      {% if item.note %}<span class="fine">({{ item.note }})</span>{% endif %}
     </li>
     {% endfor %}
   </ul>
 
-  {% if order.status == "placed" %}
-  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}" style="margin-top: 0.75rem;">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="accepted">
-    <button class="btn" type="submit" style="padding: 0.65rem 1rem; font-size: 0.9rem;">
-      Accept Order →
-    </button>
-  </form>
-  {% elif order.status == "accepted" %}
-  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}" style="margin-top: 0.75rem;">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="preparing">
-    <button class="btn" type="submit" style="padding: 0.65rem 1rem; font-size: 0.9rem; background: var(--info); border-color: var(--info); color: #082f49;">
-      🍸 Start Mixing →
-    </button>
-  </form>
-  {% elif order.status == "preparing" %}
-  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}" style="margin-top: 0.75rem;">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="served">
-    <button class="btn" type="submit" style="padding: 0.65rem 1rem; font-size: 0.9rem; background: var(--success); border-color: var(--success); color: #052e16;">
-      ✓ Mark Delivered / Served
-    </button>
-  </form>
-  {% endif %}
+  <div class="kds-actions">
+    {% if order.status == "placed" %}
+    <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="accepted">
+      <button class="btn" type="submit">Accept</button>
+    </form>
+    {% elif order.status == "accepted" %}
+    <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="preparing">
+      <button class="btn btn-go" type="submit">Start mixing</button>
+    </form>
+    {% elif order.status == "preparing" %}
+    <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="served">
+      <button class="btn btn-done" type="submit">Delivered</button>
+    </form>
+    {% endif %}
 
-  {% if order.status == "placed" or order.status == "accepted" or order.status == "preparing" %}
-  <!-- Order.transition_to() supports cancelled from every active status
-       (spec §4.10) but nothing in this UI could reach it before — the
-       admin's status field is readonly (on purpose, see admin.py), so a
-       mistaken or impossible order had no application path to cancel
-       through, only shell/crafted-request access. -->
-  <form method="post" action="{% url 'atmos:order_set_status' order.pk %}" style="margin-top: 0.4rem;">
-    {% csrf_token %}
-    <input type="hidden" name="status" value="cancelled">
-    <button class="btn btn-ghost btn-small" type="submit" style="padding: 0.45rem 0.8rem; font-size: 0.78rem; color: #fca5a5;">
-      ✕ Cancel Order
-    </button>
-  </form>
-  {% endif %}
+    {% if order.status == "placed" or order.status == "accepted" or order.status == "preparing" %}
+    <!-- Order.transition_to() supports cancelled from every active status
+         (spec §4.10) but nothing in this UI could reach it before — the
+         admin's status field is readonly (on purpose, see admin.py), so a
+         mistaken or impossible order had no application path to cancel
+         through, only shell/crafted-request access. -->
+    <form method="post" action="{% url 'atmos:order_set_status' order.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="cancelled">
+      <button class="btn btn-cancel" type="submit">Cancel this order</button>
+    </form>
+    {% endif %}
+  </div>
 
   {% if order.vignette %}
-  <div class="kds-vignette">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
-      <span style="font-weight: 700; color: var(--ink-secondary);">Ticket Story</span>
-      <span class="muted" style="font-size: 0.7rem;">{% if order.vignette_source == "model" %}✨ AI Lore{% else %}⚙️ Fallback{% endif %}</span>
+  <div class="vignette">
+    <div class="vignette-head">
+      <span>Ticket story</span>
+      <span>{% if order.vignette_source == "model" %}Written{% else %}Fallback{% endif %}</span>
     </div>
     {{ order.vignette }}
   </div>

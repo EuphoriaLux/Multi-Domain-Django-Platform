@@ -179,8 +179,8 @@ class CostAnomalyAdmin(admin.ModelAdmin):
             color = '#28a745'  # Green
 
         return format_html(
-            '<span style="color: {}; font-weight: bold;">+{:.1f}%</span>',
-            color, obj.deviation_percent
+            '<span style="color: {}; font-weight: bold;">+{}%</span>',
+            color, f'{obj.deviation_percent:.1f}'
         )
     deviation_display.short_description = 'Deviation'
 
@@ -209,9 +209,14 @@ class CostForecastAdmin(admin.ModelAdmin):
 
     def confidence_interval(self, obj):
         """Display confidence interval range"""
+        # format_html escapes its args to strings before interpolating, so a
+        # numeric format spec like {:.2f} on the raw Decimal always raises
+        # ValueError ("Unknown format code 'f' for object of type
+        # 'SafeString'") -- format the numbers first, then hand format_html
+        # plain strings.
         return format_html(
-            '€{:.2f} - €{:.2f}',
-            obj.lower_bound, obj.upper_bound
+            '€{} - €{}',
+            f'{obj.lower_bound:.2f}', f'{obj.upper_bound:.2f}'
         )
     confidence_interval.short_description = 'Confidence Interval (95%)'
 

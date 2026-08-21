@@ -130,10 +130,14 @@ def retail_price_dashboard(request):
     history_keys = {row.price_key for row in history_rows}
     history_by_key = defaultdict(list)
     if history_keys:
+        # Only price_key/snapshot_date/unit_price are read below -- .only()
+        # keeps the SELECT to those columns instead of the full row.
         previous_candidates = RetailPriceSnapshot.objects.filter(
             price_key__in=history_keys,
             snapshot_date__gte=start_date - timedelta(days=365),
-        ).order_by("price_key", "-snapshot_date")
+        ).only("price_key", "snapshot_date", "unit_price").order_by(
+            "price_key", "-snapshot_date"
+        )
         for candidate in previous_candidates:
             history_by_key[candidate.price_key].append(candidate)
 
@@ -149,12 +153,17 @@ def retail_price_dashboard(request):
         )
         row.previous_unit_price = previous.unit_price if previous else None
         row.change_percent = None
+        row.change_percent_abs = None
         row.change_direction = "new"
         if previous and previous.unit_price:
             change = (
                 (row.unit_price - previous.unit_price) / previous.unit_price
             ) * Decimal("100")
             row.change_percent = change.quantize(Decimal("0.01"))
+            # The template prefixes an explicit +/- arrow, so the magnitude
+            # shown alongside it must not carry its own redundant sign
+            # (e.g. "▼ -16.67%").
+            row.change_percent_abs = abs(row.change_percent)
             if change > 0:
                 row.change_direction = "up"
                 increased_count += 1

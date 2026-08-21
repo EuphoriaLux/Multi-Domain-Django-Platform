@@ -144,17 +144,47 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning(f"[{timestamp}] Retail price timer is past due")
 
-    response = requests.post(
-        webhook_url,
-        headers={
-            "X-Sync-Token": sync_token,
-            "User-Agent": "Azure-Function-Power-Hub-Retail-Price-Sync/1.0",
-        },
-        timeout=220,
-    )
-    response.raise_for_status()
-    result = response.json()
-    logging.info(
-        f"[{timestamp}] Retail price sync result: "
-        f"{result.get('message', 'No message provided')}"
-    )
+    logging.info(f"[{timestamp}] Initiating retail price sync")
+    logging.info(f"[{timestamp}] Target webhook: {webhook_url}")
+
+    try:
+        response = requests.post(
+            webhook_url,
+            headers={
+                "X-Sync-Token": sync_token,
+                "User-Agent": "Azure-Function-Power-Hub-Retail-Price-Sync/1.0",
+            },
+            timeout=220,
+        )
+        response.raise_for_status()
+        result = response.json()
+        logging.info(
+            f"[{timestamp}] Retail price sync result: "
+            f"{result.get('message', 'No message provided')}"
+        )
+
+    except requests.exceptions.Timeout:
+        logging.error(f"[{timestamp}] Retail price sync request timed out after 220s")
+        raise
+
+    except requests.exceptions.HTTPError as e:
+        logging.error(f"[{timestamp}] HTTP error during retail price sync: {e}")
+        logging.error(f"[{timestamp}] Response status: {e.response.status_code}")
+        logging.error(f"[{timestamp}] Response body: {e.response.text}")
+        raise
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"[{timestamp}] Network error during retail price sync: {str(e)}")
+        raise
+
+    except ValueError as e:
+        # JSON parsing error
+        logging.error(f"[{timestamp}] Invalid JSON response from webhook: {str(e)}")
+        logging.error(f"[{timestamp}] Response text: {response.text}")
+        raise
+
+    except Exception as e:
+        logging.error(f"[{timestamp}] Unexpected error during retail price sync: {str(e)}")
+        raise
+
+    logging.info(f"[{timestamp}] Retail price daily sync function completed")
