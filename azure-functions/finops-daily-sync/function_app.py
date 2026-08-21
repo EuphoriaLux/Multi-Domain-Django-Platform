@@ -114,3 +114,77 @@ def daily_cost_sync(timer: func.TimerRequest) -> None:
         raise
 
     logging.info(f'[{timestamp}] FinOps daily sync function completed')
+
+
+@app.function_name(name="retail_price_daily_sync")
+@app.timer_trigger(
+    schedule="0 0 4 * * *",  # 4:00 AM UTC daily, after the cost import timer
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def daily_retail_price_sync(timer: func.TimerRequest) -> None:
+    """Trigger the append-only European Azure retail-price snapshot."""
+    timestamp = datetime.utcnow().isoformat()
+    if os.getenv("RETAIL_PRICE_SYNC_ENABLED", "false").lower() != "true":
+        logging.info(
+            f"[{timestamp}] Retail price sync is disabled "
+            "(RETAIL_PRICE_SYNC_ENABLED=false)"
+        )
+        return
+
+    webhook_url = os.getenv("DJANGO_RETAIL_PRICE_WEBHOOK_URL")
+    sync_token = os.getenv("SECRET_SYNC_TOKEN")
+    if not webhook_url:
+        raise ValueError(
+            "DJANGO_RETAIL_PRICE_WEBHOOK_URL environment variable is required"
+        )
+    if not sync_token:
+        raise ValueError("SECRET_SYNC_TOKEN environment variable is required")
+    if timer.past_due:
+        logging.warning(f"[{timestamp}] Retail price timer is past due")
+
+    logging.info(f"[{timestamp}] Initiating retail price sync")
+    logging.info(f"[{timestamp}] Target webhook: {webhook_url}")
+
+    try:
+        response = requests.post(
+            webhook_url,
+            headers={
+                "X-Sync-Token": sync_token,
+                "User-Agent": "Azure-Function-Power-Hub-Retail-Price-Sync/1.0",
+            },
+            timeout=220,
+        )
+        response.raise_for_status()
+        result = response.json()
+        logging.info(
+            f"[{timestamp}] Retail price sync result: "
+            f"{result.get('message', 'No message provided')}"
+        )
+
+    except requests.exceptions.Timeout:
+        logging.error(f"[{timestamp}] Retail price sync request timed out after 220s")
+        raise
+
+    except requests.exceptions.HTTPError as e:
+        logging.error(f"[{timestamp}] HTTP error during retail price sync: {e}")
+        logging.error(f"[{timestamp}] Response status: {e.response.status_code}")
+        logging.error(f"[{timestamp}] Response body: {e.response.text}")
+        raise
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"[{timestamp}] Network error during retail price sync: {str(e)}")
+        raise
+
+    except ValueError as e:
+        # JSON parsing error
+        logging.error(f"[{timestamp}] Invalid JSON response from webhook: {str(e)}")
+        logging.error(f"[{timestamp}] Response text: {response.text}")
+        raise
+
+    except Exception as e:
+        logging.error(f"[{timestamp}] Unexpected error during retail price sync: {str(e)}")
+        raise
+
+    logging.info(f"[{timestamp}] Retail price daily sync function completed")

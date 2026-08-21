@@ -15,6 +15,9 @@ from .models import (
     CostForecast,
     ReservationCost,
     CostBudget,
+    RetailPriceRawPage,
+    RetailPriceSnapshot,
+    RetailPriceSyncRun,
 )
 
 
@@ -176,8 +179,8 @@ class CostAnomalyAdmin(admin.ModelAdmin):
             color = '#28a745'  # Green
 
         return format_html(
-            '<span style="color: {}; font-weight: bold;">+{:.1f}%</span>',
-            color, obj.deviation_percent
+            '<span style="color: {}; font-weight: bold;">+{}%</span>',
+            color, f'{obj.deviation_percent:.1f}'
         )
     deviation_display.short_description = 'Deviation'
 
@@ -206,9 +209,14 @@ class CostForecastAdmin(admin.ModelAdmin):
 
     def confidence_interval(self, obj):
         """Display confidence interval range"""
+        # format_html escapes its args to strings before interpolating, so a
+        # numeric format spec like {:.2f} on the raw Decimal always raises
+        # ValueError ("Unknown format code 'f' for object of type
+        # 'SafeString'") -- format the numbers first, then hand format_html
+        # plain strings.
         return format_html(
-            '€{:.2f} - €{:.2f}',
-            obj.lower_bound, obj.upper_bound
+            '€{} - €{}',
+            f'{obj.lower_bound:.2f}', f'{obj.upper_bound:.2f}'
         )
     confidence_interval.short_description = 'Confidence Interval (95%)'
 
@@ -273,6 +281,63 @@ class CostBudgetAdmin(admin.ModelAdmin):
     search_fields = ['name', 'dimension_value']
 
 
+class ImmutableRetailPriceAdmin(admin.ModelAdmin):
+    """Read-only inspection for append-only public price history."""
+
+    actions = None
+
+    def get_readonly_fields(self, request, obj=None):
+        return [field.name for field in self.model._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class RetailPriceSyncRunAdmin(ImmutableRetailPriceAdmin):
+    list_display = [
+        "snapshot_date", "provider", "currency", "status", "page_count",
+        "raw_item_count", "normalized_item_count", "invalid_item_count",
+        "started_at", "completed_at",
+    ]
+    list_filter = ["provider", "currency", "status", "snapshot_date"]
+    search_fields = ["connector_name", "source_endpoint"]
+    date_hierarchy = "snapshot_date"
+
+
+class RetailPriceRawPageAdmin(ImmutableRetailPriceAdmin):
+    list_display = [
+        "sync_run", "page_number", "item_count", "response_sha256", "fetched_at"
+    ]
+    list_filter = ["sync_run__provider", "sync_run__snapshot_date"]
+    search_fields = ["response_sha256", "source_url"]
+    list_select_related = ["sync_run"]
+    exclude = ["payload_gzip"]
+
+
+class RetailPriceSnapshotAdmin(ImmutableRetailPriceAdmin):
+    list_display = [
+        "snapshot_date", "provider_sku", "operating_system", "region_code",
+        "purchase_model", "term", "unit_price", "currency", "unit_of_measure",
+    ]
+    list_filter = [
+        "snapshot_date", "region_code", "operating_system", "purchase_model",
+        "price_type", "currency",
+    ]
+    search_fields = [
+        "provider_sku", "product_name", "meter_name", "provider_product_id",
+        "provider_meter_id",
+    ]
+    date_hierarchy = "snapshot_date"
+    list_select_related = ["sync_run", "source_page"]
+    list_per_page = 100
+
+
 # Register models with power_up_admin_site
 power_up_admin_site.register(CostExport, CostExportAdmin)
 power_up_admin_site.register(CostRecord, CostRecordAdmin)
@@ -281,3 +346,6 @@ power_up_admin_site.register(CostAnomaly, CostAnomalyAdmin)
 power_up_admin_site.register(CostForecast, CostForecastAdmin)
 power_up_admin_site.register(ReservationCost, ReservationCostAdmin)
 power_up_admin_site.register(CostBudget, CostBudgetAdmin)
+power_up_admin_site.register(RetailPriceSyncRun, RetailPriceSyncRunAdmin)
+power_up_admin_site.register(RetailPriceRawPage, RetailPriceRawPageAdmin)
+power_up_admin_site.register(RetailPriceSnapshot, RetailPriceSnapshotAdmin)

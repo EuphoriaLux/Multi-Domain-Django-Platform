@@ -2,11 +2,10 @@
 Tests for FinOps Hub access control.
 
 FinOps exposes the operator's internal Azure billing data (subscription/service
-names, resource IDs, per-service spend), so every dashboard view, cost API, and
-export must require an authenticated staff/superuser. These tests assert that
-lockdown: dashboards use ``@staff_member_required`` and the DRF endpoints use
-``IsAdminOrStaff``. They replace an earlier suite that (incorrectly) asserted
-the dashboards were publicly accessible.
+names, resource IDs, per-service spend), so the internal cost dashboard views,
+cost APIs, and exports require an authenticated staff/superuser. These tests
+assert that lockdown. The separate public-retail-price tracker contains no
+customer subscription data and has its own login-required customer tests.
 """
 
 import pytest

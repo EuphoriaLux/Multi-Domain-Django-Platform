@@ -7,7 +7,7 @@ These URL patterns are included from urls_power_up.py under the 'finops/' prefix
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import views, api_views, views_webhook
+from . import views, api_views, views_prices, views_webhook
 
 # App namespace for template URL tags ({% url 'finops_hub:dashboard' %})
 app_name = 'finops_hub'
@@ -19,6 +19,9 @@ router.register(r'records', api_views.CostRecordViewSet, basename='record')
 router.register(r'aggregations', api_views.CostAggregationViewSet, basename='aggregation')
 
 urlpatterns = [
+    # Login-protected public retail price intelligence
+    path('prices/', views_prices.retail_price_dashboard, name='retail_prices'),
+
     # Dashboard views
     path('', views.dashboard, name='dashboard'),
     path('subscriptions/', views.subscription_view, name='subscriptions'),
@@ -46,5 +49,6 @@ urlpatterns = [
 
     # Webhook endpoints for automated sync
     path('api/sync/', views_webhook.trigger_cost_sync, name='webhook_sync'),
+    path('api/sync/retail-prices/', views_webhook.trigger_retail_price_sync, name='webhook_retail_price_sync'),
     path('api/sync/status/', views_webhook.sync_status, name='webhook_status'),
 ]
