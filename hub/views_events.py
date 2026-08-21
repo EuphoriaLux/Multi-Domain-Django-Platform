@@ -46,6 +46,8 @@ Read-only: there is no cancel-event write endpoint here.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 from rest_framework.permissions import IsAdminUser
@@ -249,10 +251,18 @@ class EventCancellationDetailView(APIView):
             registration.linked_credit = credit
             registration.open_cash_refund = bool(credit and credit.pk in open_ids)
 
-            # Determine cancellation origin
-            registration.cancellation_origin = (
-                "member" if registration.cancelled_at else "organiser"
-            )
+            # Determine cancellation origin:
+            # A member cancellation occurred prior to the organizer cancellation cycle.
+            # If cancelled_at is None, or if cancelled_at is within the organizer cancellation window (>= cycle start - 1 min),
+            # it is an organizer-driven event cancellation.
+            cycle_start = event.organiser_cancellation_started_at
+            if registration.cancelled_at and (
+                cycle_start is None
+                or registration.cancelled_at < cycle_start - timedelta(minutes=1)
+            ):
+                registration.cancellation_origin = "member"
+            else:
+                registration.cancellation_origin = "organiser"
 
             # Determine payment & refund status
             if tx and tx.status == PaymentTransaction.Status.REFUNDED:
