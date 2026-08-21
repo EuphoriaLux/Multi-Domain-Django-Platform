@@ -25,6 +25,7 @@ import logging
 import time
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -69,8 +70,8 @@ def _to_decimal(value) -> Decimal:
     return parsed
 
 
-def refunded_amount(data: dict) -> Decimal:
-    """Best available total refunded on this checkout.
+def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
+    """Best available total refunded on this checkout or transaction history.
 
     Returns ``Decimal("0")`` when SumUp signals a refund by status alone and
     reports no amount — callers must treat that as "amount unknown", not as
@@ -91,18 +92,39 @@ def refunded_amount(data: dict) -> Decimal:
             if isinstance(refund, dict):
                 refunds_total += _to_decimal(refund.get("amount"))
 
+        tx_code = tx.get("transaction_code")
+        if tx_code and history_map and tx_code in history_map:
+            hist_item = history_map[tx_code]
+            hist_amt_ref = _to_decimal(hist_item.get("amount_refunded"))
+            if hist_amt_ref > 0:
+                candidates.append(hist_amt_ref)
+            elif (hist_item.get("status") or "").upper() == "REFUNDED":
+                candidates.append(_to_decimal(hist_item.get("amount") or data.get("amount")))
+
+    code = data.get("transaction_code")
+    if code and history_map and code in history_map:
+        hist_item = history_map[code]
+        hist_amt_ref = _to_decimal(hist_item.get("amount_refunded"))
+        if hist_amt_ref > 0:
+            candidates.append(hist_amt_ref)
+        elif (hist_item.get("status") or "").upper() == "REFUNDED":
+            candidates.append(_to_decimal(hist_item.get("amount") or data.get("amount")))
+
     candidates.extend([per_tx_total, refunds_total])
     return max(candidates)
 
 
-def is_checkout_refunded(data: dict) -> bool:
-    """Determine if a SumUp checkout resource indicates an external refund.
+def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool:
+    """Determine if a SumUp checkout resource or transaction history indicates an external refund.
 
     Checks:
     - Checkout-level status == "REFUNDED"
     - Any transaction entry status == "REFUNDED"
     - Any transaction entry has non-empty "refunds" list or amount_refunded > 0
     - Top-level amount_refunded > 0
+    - Transaction history matching by transaction_code reports status == "REFUNDED",
+      type == "REFUND", or amount_refunded > 0 (for external dashboard/POS refunds
+      where SumUp does not mutate the static /v0.1/checkouts resource).
 
     Detection only. Whether the refund was full or partial is decided by the
     caller against the captured amount — see ``handle()``.
@@ -125,6 +147,27 @@ def is_checkout_refunded(data: dict) -> bool:
         if tx_status == "REFUNDED":
             return True
         if tx.get("refunds") or _to_decimal(tx.get("amount_refunded")) > 0:
+            return True
+        tx_code = tx.get("transaction_code")
+        if tx_code and history_map and tx_code in history_map:
+            hist_item = history_map[tx_code]
+            if (
+                (hist_item.get("status") or "").upper() == "REFUNDED"
+                or (hist_item.get("type") or "").upper() == "REFUND"
+                or _to_decimal(hist_item.get("amount_refunded")) > 0
+                or len(hist_item.get("refunds") or []) > 0
+            ):
+                return True
+
+    code = data.get("transaction_code")
+    if code and history_map and code in history_map:
+        hist_item = history_map[code]
+        if (
+            (hist_item.get("status") or "").upper() == "REFUNDED"
+            or (hist_item.get("type") or "").upper() == "REFUND"
+            or _to_decimal(hist_item.get("amount_refunded")) > 0
+            or len(hist_item.get("refunds") or []) > 0
+        ):
             return True
 
     return False
@@ -219,6 +262,18 @@ class Command(BaseCommand):
             return
 
         client = SumUpClient()
+        history_map = {}
+        try:
+            # Prefetch recent merchant transaction history to catch refunds done via
+            # the dashboard/POS terminal that do not mutate the static checkout resource.
+            history_data = client.get_transactions_history(limit=100, order="desc")
+            for item in history_data.get("items", []):
+                code = item.get("transaction_code")
+                if code:
+                    history_map[code] = item
+        except Exception as exc:
+            logger.warning("Could not prefetch SumUp transaction history: %s", exc)
+
         checked = 0
         refunded_count = 0
         errors_count = 0
@@ -256,7 +311,29 @@ class Command(BaseCommand):
                 continue
 
             try:
-                refunded = is_checkout_refunded(remote_data)
+                refunded = is_checkout_refunded(remote_data, history_map=history_map)
+                if not refunded:
+                    # If not found in prefetched history_map, attempt fallback lookup by transaction_code
+                    code = remote_data.get("transaction_code")
+                    if not code:
+                        tx_list = remote_data.get("transactions") or []
+                        for t in tx_list:
+                            if isinstance(t, dict) and t.get("transaction_code"):
+                                code = t.get("transaction_code")
+                                break
+                    if code and code not in history_map:
+                        try:
+                            code_data = client.get_transactions_history(
+                                limit=10, transaction_code=code
+                            )
+                            for item in code_data.get("items", []):
+                                if item.get("transaction_code") == code:
+                                    history_map[code] = item
+                            refunded = is_checkout_refunded(
+                                remote_data, history_map=history_map
+                            )
+                        except Exception:
+                            pass
             except Exception as exc:  # defensive: never let one payload kill the sweep
                 errors_count += 1
                 logger.exception(
@@ -278,7 +355,7 @@ class Command(BaseCommand):
                 # void the member's credit over what may be a small goodwill
                 # adjustment. Amount 0 means SumUp signalled the refund by status
                 # alone and told us no amount — treated as full, as before.
-                refunded_amt = refunded_amount(remote_data)
+                refunded_amt = refunded_amount(remote_data, history_map=history_map)
                 captured_amt = tx_obj.amount or Decimal("0")
                 is_partial = (
                     refunded_amt > 0

@@ -229,6 +229,45 @@ class SumUpClient:
             logger.error("SumUp create_customer failed: %s", exc)
             raise SumUpError(f"Failed to create SumUp customer {customer_id}") from exc
 
+    def get_transactions_history(
+        self,
+        limit: int = 100,
+        order: str = "desc",
+        oldest_ref: Optional[str] = None,
+        statuses: Optional[list] = None,
+        transaction_code: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Fetches merchant transaction history from SumUp.
+        Endpoint: GET /v0.1/me/transactions/history
+
+        Used by refund reconciliation to inspect actual transaction lifecycle
+        and refund states that do not mutate the static /v0.1/checkouts resource.
+        """
+        url = f"{self.BASE_URL}/v0.1/me/transactions/history"
+        params: Dict[str, Any] = {
+            "limit": min(max(1, limit), 100),
+            "order": order,
+        }
+        if oldest_ref:
+            params["oldest_ref"] = oldest_ref
+        if statuses:
+            params["statuses[]"] = statuses
+        if transaction_code:
+            params["transaction_code"] = transaction_code
+
+        try:
+            response = requests.get(
+                url, params=params, headers=self._get_headers(), timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            logger.error("SumUp get_transactions_history failed: %s", exc)
+            raise SumUpError(
+                f"Failed to fetch SumUp transaction history: {exc}"
+            ) from exc
+
     def refund_transaction(
         self, transaction_id: str, amount: Optional[float] = None
     ) -> Dict[str, Any]:
