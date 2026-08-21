@@ -4,6 +4,7 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
+import logging
 import os
 import uuid
 
@@ -11,6 +12,8 @@ import uuid
 # Using storages.backends ensures consistent migration state across environments
 # because Django stores the alias reference, not the evaluated storage instance
 from django.core.files.storage import storages, default_storage
+
+logger = logging.getLogger(__name__)
 
 
 def get_crush_photo_storage():
@@ -2771,9 +2774,13 @@ class PremiumMembership(models.Model):
     """A member's request to go premium with a self-chosen coach.
 
     Payment is handled out-of-band (mirrors event registrations, where an admin
-    toggles ``payment_confirmed``). Confirming the membership is the single place
-    that writes ``CrushProfile.assigned_coach`` — keep it that way so the
-    premium gating (which keys off ``assigned_coach``) stays consistent.
+    toggles ``payment_confirmed``). Confirming a membership assigns the chosen
+    coach, but it is *not* the only writer of ``CrushProfile.assigned_coach``:
+    the attendance auto-assign signal grants one free (``signals.py``), the 0150
+    migration backfilled it from approved submissions, and ``coach_undo_checkin``
+    takes it back. Which is exactly why premium gating must NOT key off that FK
+    — the entitlement is ``CrushProfile.has_active_premium``, and an ``active``
+    row of this model is what that property reads.
     """
 
     STATUS_CHOICES = [
@@ -2861,10 +2868,11 @@ class PremiumMembership(models.Model):
     def cancel(self, by_user=None):
         """Cancel a still-pending membership request.
 
-        Only ``pending`` requests can be cancelled — once ``active`` the coach
-        has been assigned and confirmed, which is out of scope here. No coach is
-        ever assigned while pending, so there is nothing to unwind on the
-        profile. Returns True on success, False if not cancellable.
+        Only ``pending`` requests can be cancelled here — no coach is ever
+        assigned while pending, so there is nothing to unwind on the profile.
+        An ``active`` membership has a coach to give back and goes through
+        :meth:`cancel_active` instead. Returns True on success, False if not
+        cancellable.
 
         Locks the membership row and re-checks status at write time so this
         cannot race a concurrent confirm() (admin action) and clobber a
@@ -2878,4 +2886,58 @@ class PremiumMembership(models.Model):
                 return False
             self.status = "cancelled"
             self.save(update_fields=["status"])
+        return True
+
+    def cancel_active(self, reason=""):
+        """End an ``active`` membership and give back the coach it assigned.
+
+        The counterpart to :meth:`confirm`, and the one guarded door for ending a
+        paid membership. :meth:`cancel` covers only the ``pending`` case, which
+        left ``reconcile_sumup_payments`` writing ``CrushProfile.assigned_coach``
+        by hand after an external refund; this gives the invariant an owner, so a
+        second caller (a staff-clicked cancellation, a lapsed subscription) does
+        not have to rediscover the rules below.
+
+        The coach is cleared only when *this* membership is what assigned it. A
+        coach held for another reason (the attendance auto-assign, the 0150
+        backfill) names a different coach and is left alone — that one is the
+        service relationship, not the entitlement, and ending a payment must not
+        confiscate it. Accepted edge, carried over from the sweep this replaces:
+        a member who earned coach A by attending and later bought Premium with
+        that same coach A does lose the assignment here.
+        ``EventRegistration.checkin_granted_coach`` records the earned provenance,
+        but restoring from it is a separate product decision.
+
+        Lock order mirrors :meth:`confirm` — PremiumMembership, then CrushProfile
+        — so the two cannot deadlock against each other.
+
+        Returns True on success, False when the membership is not ``active``.
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            locked = PremiumMembership.objects.select_for_update().get(pk=self.pk)
+            if locked.status != "active":
+                return False
+            self.status = "cancelled"
+            self.payment_confirmed = False
+            self.payment_date = None
+            self.save(update_fields=["status", "payment_confirmed", "payment_date"])
+
+            profile = (
+                CrushProfile.objects.select_for_update()
+                .filter(user_id=self.user_id)
+                .first()
+            )
+            if profile and profile.assigned_coach_id == self.coach_id:
+                profile.assigned_coach = None
+                profile.assigned_coach_at = None
+                profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+                logger.warning(
+                    "Cleared assigned_coach %s from profile %s: the premium "
+                    "membership that assigned it was cancelled (%s).",
+                    self.coach_id,
+                    profile.pk,
+                    reason or "no reason given",
+                )
         return True
