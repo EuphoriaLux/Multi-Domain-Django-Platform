@@ -192,10 +192,9 @@ class Command(BaseCommand):
             qs = qs.filter(transaction_reference=reference)
         else:
             cutoff = timezone.now() - timedelta(days=days)
-            qs = qs.filter(
-                created_at__gte=cutoff,
-                sumup_checkout_id__isnull=False,
-            ).exclude(sumup_checkout_id="")
+            # sumup_checkout_id is CharField(blank=True) with no null=True, so
+            # the column is never NULL — excluding "" is the whole filter.
+            qs = qs.filter(created_at__gte=cutoff).exclude(sumup_checkout_id="")
 
         qs = qs.order_by("-created_at")
         total_count = qs.count()
@@ -288,8 +287,32 @@ class Command(BaseCommand):
                     )
                     continue
 
+                # The write path needs the same boundary as the read path.
+                # _reconcile_refunded writes across four models and calls
+                # void_credit(), which opens with an unguarded .get() — a
+                # DoesNotExist, IntegrityError or deadlock would otherwise
+                # propagate out of this loop and kill the run. Worse, the
+                # queryset is ordered with no per-run offset, so one poisoned
+                # row would abort every future sweep at the same place.
+                try:
+                    self._reconcile_refunded(tx_obj, remote_data, dry_run=dry_run)
+                except Exception as exc:
+                    errors_count += 1
+                    logger.exception(
+                        "Failed to reconcile refund for %s (checkout %s): %s",
+                        tx_obj.transaction_reference,
+                        tx_obj.sumup_checkout_id,
+                        exc,
+                    )
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f"Error reconciling {tx_obj.transaction_reference} "
+                            f"({tx_obj.sumup_checkout_id}): {exc}"
+                        )
+                    )
+                    continue
+
                 refunded_count += 1
-                self._reconcile_refunded(tx_obj, remote_data, dry_run=dry_run)
             elif not quiet:
                 self.stdout.write(
                     f"✓ {tx_obj.transaction_reference} ({tx_obj.sumup_checkout_id}): still PAID"
@@ -412,44 +435,49 @@ class Command(BaseCommand):
                 )
             )
             for linked in linked_credits:
-                credit_pk = linked.pk
-                redeemed_cents = linked.redeemed_cents
                 # Voiding goes through services.credits.void_credit(), the single
                 # guarded door that module's docstring requires, rather than a
                 # second hand-rolled copy of the same lifecycle that can drift.
                 # require_unspent=False: a cash refund supersedes a partly spent
                 # credit, and the note records that it was already drawn on.
-                if redeemed_cents:
-                    note = (
-                        f"Voided (WARNING: {redeemed_cents} cents already redeemed): "
-                        "External SumUp cash refund reconciled."
-                    )
-                else:
-                    note = "Voided: External SumUp cash refund reconciled."
-
-                _credit, outcome = void_credit(
-                    credit_pk, note=note, require_unspent=False
+                credit, outcome = void_credit(
+                    linked.pk,
+                    note="Voided: External SumUp cash refund reconciled.",
+                    require_unspent=False,
                 )
                 if outcome != "voided":
                     logger.info(
                         "CrushCredit #%s not voided (%s) during reconciliation of %s.",
-                        credit_pk,
+                        linked.pk,
                         outcome,
                         ref,
                     )
-                elif redeemed_cents:
+                    continue
+
+                # Read the redemption total off the row void_credit LOCKED, not
+                # off the unlocked snapshot the candidate query returned. A
+                # concurrent redemption between those two points would otherwise
+                # write a wrong number onto an append-only ledger row.
+                redeemed_cents = credit.redeemed_cents
+                if redeemed_cents:
+                    credit.note = (
+                        f"{credit.note}\nWARNING: {redeemed_cents} cents already "
+                        "redeemed before this void."
+                    ).strip()
+                    credit.save(update_fields=["note"])
                     logger.warning(
                         "CrushCredit #%s had %s cents already redeemed when external cash refund on payment %s was reconciled!",
-                        credit_pk,
+                        credit.pk,
                         redeemed_cents,
                         ref,
                     )
                 else:
                     logger.info(
                         "Voided unused CrushCredit #%s following external cash refund on payment %s.",
-                        credit_pk,
+                        credit.pk,
                         ref,
                     )
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"

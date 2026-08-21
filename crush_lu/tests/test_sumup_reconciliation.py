@@ -366,6 +366,43 @@ class SumUpReconciliationCommandTests(TestCase):
         )
 
 
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.Command._reconcile_refunded")
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout")
+    def test_write_failure_does_not_abort_the_sweep(
+        self, mock_get_checkout, mock_reconcile
+    ):
+        """One poisoned row must cost one row, not the whole run.
+
+        The queryset is ordered with no per-run offset, so an unguarded write
+        failure would abort every future sweep at the same transaction.
+        """
+        other = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-42-second",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="chk_second",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event=self.event,
+            raw_response={"status": "PAID"},
+        )
+        mock_get_checkout.return_value = {"id": "x", "status": "REFUNDED"}
+        mock_reconcile.side_effect = [RuntimeError("deadlock"), None]
+
+        out = io.StringIO()
+        call_command("reconcile_sumup_payments", stdout=out)
+
+        # Both rows were attempted despite the first one blowing up.
+        self.assertEqual(mock_reconcile.call_count, 2)
+        output = out.getvalue()
+        self.assertIn("Error reconciling", output)
+        self.assertIn("Sweep complete", output)
+        self.assertIn("1 error(s)", output)
+        self.assertTrue(other.pk)
+
+
 class ExternalRefundRegressionTests(TestCase):
     """Regressions for the four review findings on PR #903."""
 
