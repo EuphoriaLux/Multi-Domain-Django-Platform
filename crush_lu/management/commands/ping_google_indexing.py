@@ -14,7 +14,6 @@ from django.utils import timezone
 from crush_lu.models import MeetupEvent
 from crush_lu.services.google_indexing import (
     build_event_indexing_urls,
-    build_event_list_urls,
     notify_event_indexing,
     notify_url_indexing,
 )
@@ -88,9 +87,6 @@ class Command(BaseCommand):
                 return
 
             urls = build_event_indexing_urls(event)
-            if action == "URL_UPDATED":
-                urls.extend(build_event_list_urls())
-
             self.stdout.write(f"Event: [{event.id}] {event.title} ({len(urls)} URLs)")
             for u in urls:
                 self.stdout.write(f"  - {u}")
@@ -99,7 +95,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS("Dry-run completed."))
                 return
 
-            results = notify_event_indexing(event, action=action, include_event_list=True)
+            results = notify_event_indexing(event, action=action)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"✅ Successfully sent {len(results)} notification(s) to Googlebot."
@@ -128,16 +124,11 @@ class Command(BaseCommand):
             total_notified = 0
             for ev in events:
                 self.stdout.write(f"Pinging event [{ev.id}] {ev.title}...")
-                results = notify_event_indexing(ev, action=action, include_event_list=False)
+                results = notify_event_indexing(ev, action=action)
                 total_notified += len(results)
-
-            # Also ping the directory list once
-            list_urls = build_event_list_urls()
-            for u in list_urls:
-                notify_url_indexing(u, action="URL_UPDATED")
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"✅ Complete: Dispatched {total_notified + len(list_urls)} Google indexing notification(s)."
+                    f"✅ Complete: Dispatched {total_notified} Google indexing notification(s)."
                 )
             )

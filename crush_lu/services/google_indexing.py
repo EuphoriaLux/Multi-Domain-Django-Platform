@@ -83,23 +83,23 @@ def get_google_indexing_credentials() -> Optional[Any]:
     return None
 
 
-def get_google_indexing_service() -> Optional[Any]:
-    """Build the Google Indexing API v3 service resource."""
+def get_google_indexing_session() -> Optional[Any]:
+    """Build an authorized HTTP session for Google Indexing API."""
     if not is_indexing_enabled():
         logger.debug("Google Indexing API is disabled by settings.GOOGLE_INDEXING_ENABLED")
         return None
 
     try:
-        from googleapiclient.discovery import build
+        from google.auth.transport.requests import AuthorizedSession
 
         creds = get_google_indexing_credentials()
         if not creds:
             logger.debug("No Google indexing credentials available. Skipping indexing ping.")
             return None
 
-        return build("indexing", "v3", credentials=creds, cache_discovery=False)
+        return AuthorizedSession(creds)
     except Exception as e:
-        logger.warning("Failed to build Google Indexing service: %s", e)
+        logger.warning("Failed to build Google Indexing authorized session: %s", e)
         return None
 
 
@@ -141,57 +141,52 @@ def build_event_indexing_urls(event, domain: str = "crush.lu") -> List[str]:
     return urls
 
 
-def build_event_list_urls(domain: str = "crush.lu") -> List[str]:
-    """Build canonical URLs for the events directory page (/en/events/, /fr/events/, /de/events/)."""
-    languages = getattr(settings, "LANGUAGES", None)
-    lang_codes = [code for code, _ in languages] if languages else DEFAULT_LANGUAGES
-
-    urls = []
-    for lang in lang_codes:
-        try:
-            with override(lang):
-                path = reverse(
-                    "crush_lu:event_list",
-                    urlconf="azureproject.urls_crush",
-                )
-                urls.append(f"https://{domain}{path}")
-        except Exception as e:
-            logger.warning("Failed to reverse event_list for lang %s: %s", lang, e)
-
-    return urls
-
-
 def notify_url_indexing(
     url: str,
     action: str = "URL_UPDATED",
-    service: Optional[Any] = None,
+    session: Optional[Any] = None,
     timeout: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Notify Googlebot of a URL change (URL_UPDATED or URL_DELETED).
+    Notify Googlebot of a URL change (URL_UPDATED or URL_DELETED) with strict HTTP timeout.
 
     Safe execution: catches errors, logs diagnostic information, and never raises.
     """
     if not is_indexing_enabled():
         return None
 
-    srv = service or get_google_indexing_service()
-    if not srv:
+    sess = session or get_google_indexing_session()
+    if not sess:
         return None
 
+    timeout_seconds = timeout or getattr(settings, "GOOGLE_INDEXING_TIMEOUT_SECONDS", 3)
     body = {
         "url": url,
         "type": action,
     }
 
     try:
-        response = srv.urlNotifications().publish(body=body).execute()
-        logger.info(
-            "Google Indexing notification sent: %s (%s) -> 200 OK",
-            url,
-            action,
+        response = sess.post(
+            "https://indexing.googleapis.com/v3/urlNotifications:publish",
+            json=body,
+            timeout=timeout_seconds,
         )
-        return response
+        if response.status_code == 200:
+            logger.info(
+                "Google Indexing notification sent: %s (%s) -> 200 OK",
+                url,
+                action,
+            )
+            return response.json()
+        else:
+            logger.warning(
+                "Google Indexing notification returned %s for %s (%s): %s",
+                response.status_code,
+                url,
+                action,
+                response.text,
+            )
+            return None
     except Exception as e:
         logger.warning(
             "Failed to send Google Indexing notification for %s (%s): %s",
@@ -211,13 +206,13 @@ def notify_event_indexing(
     Notify Googlebot of an event creation, update, or deletion across all languages.
 
     Only submits specific event detail URLs (/en/events/<id>/, etc.).
-    Uses a strict wall-clock budget to prevent blocking the worker.
+    Uses a strict per-request socket timeout and overall wall-clock budget.
     """
     if not is_indexing_enabled():
         return []
 
-    service = get_google_indexing_service()
-    if not service:
+    session = get_google_indexing_session()
+    if not session:
         return []
 
     urls_to_ping = build_event_indexing_urls(event)
@@ -233,7 +228,7 @@ def notify_event_indexing(
             )
             break
 
-        res = notify_url_indexing(url, action=action, service=service)
+        res = notify_url_indexing(url, action=action, session=session)
         if res:
             results.append(res)
 

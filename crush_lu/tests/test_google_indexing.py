@@ -15,9 +15,8 @@ from crush_lu.admin.events import MeetupEventAdmin
 from crush_lu.models import MeetupEvent
 from crush_lu.services.google_indexing import (
     build_event_indexing_urls,
-    build_event_list_urls,
     get_google_indexing_credentials,
-    get_google_indexing_service,
+    get_google_indexing_session,
     is_indexing_enabled,
     notify_event_indexing,
     notify_url_indexing,
@@ -63,50 +62,51 @@ class GoogleIndexingServiceTests(TestCase):
     def test_disabled_by_settings(self):
         """Service respects GOOGLE_INDEXING_ENABLED=False."""
         self.assertFalse(is_indexing_enabled())
-        self.assertIsNone(get_google_indexing_service())
+        self.assertIsNone(get_google_indexing_session())
         self.assertIsNone(notify_url_indexing("https://crush.lu/en/events/15/"))
         self.assertEqual(notify_event_indexing(self.event), [])
 
-    @patch("crush_lu.services.google_indexing.get_google_indexing_service")
-    def test_notify_url_indexing_success(self, mock_get_service):
-        """notify_url_indexing sends URL_UPDATED payload and returns response."""
-        mock_service = MagicMock()
-        mock_publish = MagicMock()
-        mock_publish.execute.return_value = {
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
+    def test_notify_url_indexing_success(self, mock_get_session):
+        """notify_url_indexing sends URL_UPDATED payload with timeout and returns JSON response."""
+        mock_session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
             "urlNotificationMetadata": {"url": "https://crush.lu/en/events/15/"}
         }
-        mock_service.urlNotifications.return_value.publish.return_value = mock_publish
-        mock_get_service.return_value = mock_service
+        mock_session.post.return_value = mock_resp
+        mock_get_session.return_value = mock_session
 
-        resp = notify_url_indexing("https://crush.lu/en/events/15/", action="URL_UPDATED")
+        resp = notify_url_indexing("https://crush.lu/en/events/15/", action="URL_UPDATED", timeout=5)
 
         self.assertIsNotNone(resp)
         self.assertEqual(
             resp["urlNotificationMetadata"]["url"], "https://crush.lu/en/events/15/"
         )
-        mock_service.urlNotifications().publish.assert_called_once_with(
-            body={"url": "https://crush.lu/en/events/15/", "type": "URL_UPDATED"}
+        mock_session.post.assert_called_once_with(
+            "https://indexing.googleapis.com/v3/urlNotifications:publish",
+            json={"url": "https://crush.lu/en/events/15/", "type": "URL_UPDATED"},
+            timeout=5,
         )
 
-    @patch("crush_lu.services.google_indexing.get_google_indexing_service")
-    def test_notify_url_indexing_handles_exception_gracefully(self, mock_get_service):
-        """API errors do not raise exceptions and return None."""
-        mock_service = MagicMock()
-        mock_service.urlNotifications.return_value.publish.return_value.execute.side_effect = (
-            Exception("API quota exceeded")
-        )
-        mock_get_service.return_value = mock_service
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
+    def test_notify_url_indexing_handles_exception_gracefully(self, mock_get_session):
+        """API errors and timeouts do not raise exceptions and return None."""
+        mock_session = MagicMock()
+        mock_session.post.side_effect = Exception("Network timeout")
+        mock_get_session.return_value = mock_session
 
         resp = notify_url_indexing("https://crush.lu/en/events/15/", action="URL_UPDATED")
         self.assertIsNone(resp)
 
     @patch("crush_lu.services.google_indexing.notify_url_indexing")
-    @patch("crush_lu.services.google_indexing.get_google_indexing_service")
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
     def test_notify_event_indexing_dispatches_detail_urls(
-        self, mock_get_service, mock_notify_url
+        self, mock_get_session, mock_notify_url
     ):
         """notify_event_indexing pings the 3 language detail URLs."""
-        mock_get_service.return_value = MagicMock()
+        mock_get_session.return_value = MagicMock()
         mock_notify_url.return_value = {"status": "ok"}
 
         results = notify_event_indexing(self.event, action="URL_UPDATED")
@@ -153,6 +153,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
     @patch("crush_lu.services.google_indexing.notify_url_indexing")
     def test_signal_fires_on_delete_commit(self, mock_notify_url):
         """Deleting an event triggers URL_DELETED notification on commit."""
+        event_id = self.event.id
         with self.captureOnCommitCallbacks(execute=True):
             self.event.delete()
 
@@ -197,8 +198,8 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
 
-    def test_management_command_dry_run(self):
-        """Management command runs cleanly with --dry-run flag."""
+    def test_management_command_dry_run_and_execution(self):
+        """Management command runs cleanly with --dry-run flag and execution."""
         call_command("ping_google_indexing", "--event", str(self.event.id), "--dry-run")
         call_command("ping_google_indexing", "--all", "--dry-run")
         call_command(
