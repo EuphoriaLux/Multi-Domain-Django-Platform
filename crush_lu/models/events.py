@@ -264,9 +264,10 @@ class MeetupEvent(models.Model):
         default=0,
         verbose_name=_("Reserved premium seats"),
         help_text=_(
-            "Seats within the total capacity held back for premium "
-            "(coach-assigned) members. General members fill only "
-            "(max participants − reserved). 0 = no reservation."
+            "Seats within the total capacity held back for Premium members "
+            "(an active paid membership — an assigned coach alone does not "
+            "count). General members fill only (max participants − reserved). "
+            "0 = no reservation."
         ),
     )
     max_participants_m = models.PositiveIntegerField(
@@ -774,8 +775,10 @@ class MeetupEvent(models.Model):
         came back zero, beside a CTA still promising a seat because fullness was
         counted a moment earlier. Anything that needs both must take them here.
 
-        Premium (coach-assigned) members measure fullness against the total
-        ``max_participants``; everyone else against ``public_capacity``.
+        Premium members measure fullness against the total ``max_participants``;
+        everyone else against ``public_capacity``. Premium here is an active
+        ``PremiumMembership`` — ``CrushProfile.has_active_premium``, NOT
+        ``assigned_coach``, which is also granted free on first attendance.
         """
         cap = self.max_participants if is_premium else self.public_capacity
         remaining = max(0, cap - self.get_confirmed_count())
@@ -787,8 +790,10 @@ class MeetupEvent(models.Model):
     def is_full_for(self, is_premium=False):
         """Capacity check that respects reserved premium seats.
 
-        Premium (coach-assigned) members measure fullness against the total
-        ``max_participants``; everyone else against ``public_capacity``.
+        Premium members measure fullness against the total ``max_participants``;
+        everyone else against ``public_capacity``. Premium here is an active
+        ``PremiumMembership`` — ``CrushProfile.has_active_premium``, NOT
+        ``assigned_coach``, which is also granted free on first attendance.
         """
         return self.capacity_snapshot(is_premium=is_premium)[0]
 
