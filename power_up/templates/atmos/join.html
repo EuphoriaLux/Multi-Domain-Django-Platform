@@ -2,41 +2,54 @@
 {% block title %}Join Table {{ tab.table.label }}{% endblock %}
 {% block venue_name %}{{ tab.venue.name }}{% endblock %}
 {% block content %}
-<div class="tag-badge" style="margin-bottom: 0.5rem;">📍 Table {{ tab.table.label }}</div>
-<h1>Welcome to {{ tab.venue.name }}</h1>
-<p class="tag">What should we shout when your drinks are ready?</p>
+<div class="stub" style="margin-bottom: 1rem;">{{ tab.venue.name|upper }} &nbsp;·&nbsp; TABLE {{ tab.table.label }}</div>
 
-{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<h1>What should we shout when your round lands?</h1>
 
-<div class="panel panel-gold" style="text-align: center; padding: 1.5rem 1.25rem;">
-  <span class="tag-badge" style="margin-bottom: 0.25rem;">🎲 Tonight's Persona</span>
-  <h2 style="font-size: 1.65rem; color: var(--gold-light); margin: 0.6rem 0 1.25rem; letter-spacing: -0.01em; line-height: 1.25;">{{ rolled_alias }}</h2>
-  
-  <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+{% if error %}
+<div class="notice notice-warn" style="margin-top: 1.1rem;">
+  <svg class="ico" aria-hidden="true"><use href="#ic-alert"/></svg> {{ error }}
+</div>
+{% endif %}
+
+{% comment %}The hatcheck tag. Every load of this page is an intentional reroll, so
+the staged reveal replays each time — that is the point of it. No other
+page carries .reveal; the ones that auto-refresh must never have it.{% endcomment %}
+<div class="tag reveal" style="margin-top: 1.4rem;">
+  <div class="tag-eyebrow">Tonight you are</div>
+  {% if rolled_alias|slice:":4" == "The " %}
+    <div class="tag-article">The</div>
+    <div class="tag-name">{{ rolled_alias|slice:"4:" }}</div>
+  {% else %}
+    <div class="tag-name" style="margin-top: 1.1rem;">{{ rolled_alias }}</div>
+  {% endif %}
+  <div class="tag-stub">Table {{ tab.table.label }} &nbsp;·&nbsp; {{ tab.venue.name }}</div>
+
+  <div class="tag-actions">
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
-      <button class="btn" type="submit">That's me, enter bar →</button>
+      <button class="btn btn-ink" type="submit">
+        That's me
+        <svg class="ico" aria-hidden="true"><use href="#ic-arrow"/></svg>
+      </button>
     </form>
-    <a class="btn btn-ghost" href="{% url 'atmos:guest_join' %}">🎲 Roll another persona</a>
+    <a class="btn btn-quiet-ink" href="{% url 'atmos:guest_join' %}">
+      <svg class="ico" aria-hidden="true"><use href="#ic-shuffle"/></svg>
+      Roll another
+    </a>
   </div>
 </div>
 
-<div style="margin: 2rem 0 1rem; position: relative; text-align: center;">
-  <div style="height: 1px; background: var(--line); position: absolute; top: 50%; left: 0; right: 0;"></div>
-  <span style="position: relative; background: var(--bg); padding: 0 0.85rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim);">or enter your name</span>
-</div>
+<div class="rule" style="margin-top: 2.1rem;"><span class="eyebrow">Or use your own</span></div>
 
-<div class="panel" style="padding: 1.25rem;">
-  <form method="post">
-    {% csrf_token %}
-    <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
-    <input type="text" name="display_name" placeholder="Your name or nickname" maxlength="20" autocomplete="off" autocorrect="off" style="margin-bottom: 0.75rem;">
-    <button class="btn btn-ghost" type="submit">Use this name</button>
-  </form>
-</div>
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="rolled_alias" value="{{ rolled_alias }}">
+  <label class="fine" for="display_name">The bar will read this out loud.</label>
+  <input class="field" type="text" id="display_name" name="display_name" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off">
+  <button class="btn btn-quiet" type="submit">Use this name</button>
+</form>
 
-<p class="muted" style="text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--dim-subtle);">
-  🔒 Anonymous & temporary · Session cleared at close of night
-</p>
+<p class="fine" style="text-align: center; margin-top: 1.75rem;">We only keep this for tonight.</p>
 {% endblock %}

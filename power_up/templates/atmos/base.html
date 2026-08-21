@@ -16,674 +16,885 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0908">
 <title>{% block title %}Atmos{% endblock %} — {% block venue_name %}Atmos{% endblock %}</title>
 {% block refresh %}{% endblock %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* ==========================================================================
+     ATMOS — "lamplight and ink"
+
+     Four materials, each with exactly one job:
+       ink     the room you are sitting in — every ground
+       velvet  the house's own stain — surfaces and rails, NEVER text
+       bone    paper — the hatcheck tag and the printed ticket, and the
+               primary action (see the contrast rule below)
+       lamp    the single light in the room — live states, active steps
+
+     Two rules the whole system hangs off:
+       1. The primary action is always the inverse of its ground.
+          Bone on ink, ink on bone. One per screen, never two.
+       2. If it prints on the thermal ticket, it is set in mono.
+          Table label, ticket code, timestamp, price, quantity — and
+          nothing else. The mono is not decoration; it marks the things
+          that become physical.
+     ========================================================================== */
+
   :root {
     color-scheme: dark;
-    --bg: #0d0b0a;
-    --bg-subtle: #14110f;
-    --panel: #181412;
-    --panel-card: #201b18;
-    --panel-hover: #26201c;
-    --line: rgba(255, 255, 255, 0.08);
-    --line-subtle: rgba(255, 255, 255, 0.04);
-    --line-gold: rgba(212, 175, 55, 0.28);
-    
-    --ink: #f7f3eb;
-    --ink-secondary: #c4b9aa;
-    --dim: #8e8477;
-    --dim-subtle: #575047;
-    
-    --gold: #d4af37;
-    --gold-light: #ecd178;
-    --gold-hover: #e2be49;
-    --gold-active: #bc9829;
-    --gold-subtle: rgba(212, 175, 55, 0.12);
-    --gold-glow: rgba(212, 175, 55, 0.22);
-    
-    --danger: #ef4444;
-    --danger-subtle: rgba(239, 68, 68, 0.14);
-    --success: #22c55e;
-    --success-subtle: rgba(34, 197, 94, 0.14);
-    --info: #38bdf8;
-    --info-subtle: rgba(56, 189, 248, 0.14);
 
-    --radius-xs: 4px;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 18px;
-    --radius-full: 9999px;
+    --ink: #0a0908;
+    --ink-raised: #14100e;
+    --ink-sunk: #060505;
+    --velvet: #2b1519;
+    --velvet-line: #452127;
 
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
-    --shadow-gold: 0 4px 18px rgba(212, 175, 55, 0.15);
+    --bone: #f2ecdf;
+    --bone-shade: #ded5c3;
+    --bone-ink: #1a1613;
 
-    --font-serif: "Playfair Display", Georgia, "Times New Roman", serif;
-    --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", "Consolas", monospace;
+    --ash: #9a9084;
+    /* Dimmed but still legible. A darker value read fine on a desk monitor
+       and vanished on a phone at 20% brightness in an actual dark bar —
+       which is the only place this app is ever used. */
+    --ash-dim: #7d746a;
 
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --lamp: #de8c3e;
+    --lamp-soft: rgba(222, 140, 62, 0.14);
+    --lamp-line: rgba(222, 140, 62, 0.32);
+
+    --absinthe: #93a97b;
+    --absinthe-soft: rgba(147, 169, 123, 0.14);
+    --warn: #c4573c;
+    --warn-soft: rgba(196, 87, 60, 0.14);
+
+    --line: rgba(242, 236, 223, 0.09);
+    --line-strong: rgba(242, 236, 223, 0.16);
+
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 16px;
+    --r-pill: 999px;
+
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+    --ease: cubic-bezier(0.2, 0.8, 0.25, 1);
+
+    /* Thumb-reachable minimum. Every interactive box is measured against it. */
+    --tap: 46px;
+
+    --gutter: 1.15rem;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { -webkit-text-size-adjust: 100%; }
 
   body {
-    background-color: var(--bg);
-    background-image: radial-gradient(circle at 50% 0%, #1f1813 0%, var(--bg) 75%);
+    background: var(--ink);
+    /* One lamp, hung above the room. Fixed so it doesn't travel on scroll. */
+    background-image: radial-gradient(120% 60% at 50% -10%, #241a15 0%, var(--ink) 62%);
     background-attachment: fixed;
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 15px;
+    color: var(--bone);
+    font-family: var(--sans);
+    font-size: 16px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: rgba(222, 140, 62, 0.18);
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .wrap {
-    max-width: 460px;
+    max-width: 430px;
     margin: 0 auto;
-    padding: 1.5rem 1.15rem 5rem;
-    position: relative;
+    padding:
+      calc(1.5rem + env(safe-area-inset-top))
+      calc(var(--gutter) + env(safe-area-inset-right))
+      calc(2.5rem + env(safe-area-inset-bottom))
+      calc(var(--gutter) + env(safe-area-inset-left));
   }
 
-  /* Typography */
-  h1, h2, h3 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    color: var(--ink);
-    letter-spacing: -0.01em;
-  }
+  /* Pages carrying the fixed dock reserve room for it, so the last menu row
+     is never parked underneath the button. */
+  .wrap.has-dock { padding-bottom: calc(7.25rem + env(safe-area-inset-bottom)); }
+
+  /* ---------------------------------------------------------------- type */
+
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.015em; }
 
   h1 {
-    font-size: 1.75rem;
-    line-height: 1.25;
-    margin-bottom: 0.35rem;
+    font-size: clamp(1.5rem, 6.2vw, 1.9rem);
+    line-height: 1.15;
+    text-wrap: balance;
   }
 
-  h2 {
-    font-size: 1.35rem;
-    line-height: 1.3;
+  h2 { font-size: 1.25rem; line-height: 1.2; }
+
+  /* The utility voice: everything that ends up printed. */
+  .stub {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    color: var(--ash);
+    font-variant-numeric: tabular-nums;
   }
 
-  .tag {
-    color: var(--ink-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 1.25rem;
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.69rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ash);
+  }
+
+  .lede { color: var(--ash); font-size: 0.95rem; line-height: 1.45; }
+
+  .fine { color: var(--ash); font-size: 0.8rem; line-height: 1.45; }
+
+  a { color: var(--lamp); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  :focus-visible {
+    outline: 2px solid var(--lamp);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* ------------------------------------------------------------- fixtures */
+
+  /* Header stub: who you are and where you're sitting. Persona in the
+     display face, table in mono because the table label is printed. */
+  .ident {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1.35rem;
+    border-bottom: 1px solid var(--line);
   }
+  .ident-name {
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .ident-table { white-space: nowrap; }
 
-  .tag-badge {
+  .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.65rem;
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    gap: 0.4rem;
+    padding: 0.22rem 0.6rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    background: var(--gold-subtle);
-    color: var(--gold-light);
-    border: 1px solid var(--line-gold);
+    color: var(--ash);
+    white-space: nowrap;
+  }
+  .chip-lamp { color: var(--lamp); border-color: var(--lamp-line); background: var(--lamp-soft); }
+  .chip-live { color: var(--absinthe); border-color: rgba(147, 169, 123, 0.35); background: var(--absinthe-soft); }
+  .chip-warn { color: var(--warn); border-color: rgba(196, 87, 60, 0.4); background: var(--warn-soft); }
+
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+    flex: none;
+    animation: breathe 2.4s var(--ease) infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
   }
 
-  .tag-badge-ghost {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--ink-secondary);
-    border: 1px solid var(--line);
+  .ico { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.9rem 0 0.85rem;
+  }
+  .rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--line-strong), transparent);
   }
 
-  /* Containers & Panels */
+  /* --------------------------------------------------------------- panels */
+
   .panel {
-    background: var(--panel);
+    background: var(--ink-raised);
     border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-    box-shadow: var(--shadow-sm);
-    transition: border-color 0.2s var(--ease-smooth);
+    border-radius: var(--r-lg);
+    padding: 1.1rem var(--gutter);
   }
+  .panel + .panel { margin-top: 0.85rem; }
 
-  .panel-card {
-    background: var(--panel-card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    transition: transform 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
+  .panel-flush { padding: 0.25rem var(--gutter); }
+
+  .notice {
+    border: 1px solid var(--line-strong);
+    border-left: 2px solid var(--lamp);
+    background: var(--ink-raised);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    padding: 0.85rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ash);
   }
+  .notice strong { color: var(--bone); font-weight: 600; }
+  .notice-warn { border-left-color: var(--warn); }
+  .notice-warn strong { color: var(--warn); }
 
-  .panel-gold {
-    background: linear-gradient(135deg, rgba(212, 175, 55, 0.08) 0%, rgba(20, 17, 15, 0.95) 100%);
-    border: 1px solid var(--line-gold);
-    box-shadow: var(--shadow-gold);
+  .empty {
+    text-align: center;
+    padding: 3rem 1.25rem;
+    color: var(--ash);
   }
+  .empty h2 { color: var(--bone); margin-bottom: 0.4rem; }
+  .empty p { margin-bottom: 1.5rem; }
 
-  /* Buttons */
+  /* -------------------------------------------------------------- buttons */
+
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
-    text-align: center;
-    padding: 0.85rem 1.25rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--gold);
-    background: var(--gold);
-    color: #120e0b;
-    font-family: var(--font-sans);
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    box-shadow: 0 2px 10px rgba(212, 175, 55, 0.25);
-    transition: transform 0.12s var(--ease-out), background-color 0.15s var(--ease-smooth), box-shadow 0.15s var(--ease-smooth);
-    user-select: none;
-  }
-
-  @media (hover: hover) {
-    .btn:hover {
-      background: var(--gold-hover);
-      border-color: var(--gold-hover);
-      box-shadow: 0 4px 14px rgba(212, 175, 55, 0.35);
-      text-decoration: none;
-    }
-  }
-
-  .btn:active {
-    transform: scale(0.97);
-    background: var(--gold-active);
-  }
-
-  .btn-ghost {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--line-gold);
-    color: var(--gold-light);
-    box-shadow: none;
-  }
-
-  @media (hover: hover) {
-    .btn-ghost:hover {
-      background: var(--gold-subtle);
-      border-color: var(--gold);
-      color: var(--gold);
-      box-shadow: 0 2px 10px rgba(212, 175, 55, 0.15);
-      text-decoration: none;
-    }
-  }
-
-  .btn-small {
-    width: auto;
-    padding: 0.45rem 0.85rem;
-    font-size: 0.82rem;
-    border-radius: var(--radius-xs);
-  }
-
-  .btn-row {
-    display: flex;
-    gap: 0.75rem;
-  }
-  .btn-row .btn { flex: 1; }
-
-  /* Inputs */
-  input[type=text], input[type=number] {
-    width: 100%;
-    padding: 0.8rem 1rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--line);
-    background: #080605;
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 0.95rem;
-    transition: border-color 0.15s var(--ease-smooth), box-shadow 0.15s var(--ease-smooth);
-  }
-
-  input[type=text]:focus, input[type=number]:focus {
-    outline: none;
-    border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-  }
-
-  input::placeholder {
-    color: var(--dim-subtle);
-  }
-
-  a {
-    color: var(--gold);
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-  a:hover {
-    color: var(--gold-light);
-    text-decoration: underline;
-  }
-
-  .muted {
-    color: var(--dim);
-    font-size: 0.85rem;
-  }
-
-  /* Menu Item Rows */
-  .item-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.85rem 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .item-row:last-child { border-bottom: none; }
-
-  .item-info { flex: 1; min-width: 0; }
-  .item-name {
+    min-height: 52px;
+    padding: 0.8rem 1.25rem;
+    border: 1px solid var(--bone);
+    border-radius: var(--r-md);
+    background: var(--bone);
+    color: var(--bone-ink);
+    font-family: var(--sans);
     font-size: 1rem;
     font-weight: 600;
-    color: var(--ink);
-    display: flex;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    touch-action: manipulation;
+    transition: transform 0.1s var(--ease), background-color 0.15s var(--ease);
+  }
+  .btn:hover { text-decoration: none; }
+  .btn:active { transform: scale(0.985); background: var(--bone-shade); }
+
+  /* Inverse ground: the primary action sitting ON paper. */
+  .btn-ink {
+    background: var(--bone-ink);
+    border-color: var(--bone-ink);
+    color: var(--bone);
+  }
+  .btn-ink:active { background: #000; }
+
+  /* Secondary. Never competes — no fill, no glow. */
+  .btn-quiet {
+    background: transparent;
+    border-color: var(--line-strong);
+    color: var(--bone);
+    font-weight: 500;
+  }
+  .btn-quiet:active { background: rgba(242, 236, 223, 0.06); }
+
+  .btn-quiet-ink {
+    background: transparent;
+    border-color: rgba(26, 22, 19, 0.25);
+    color: var(--bone-ink);
+    font-weight: 500;
+  }
+  .btn-quiet-ink:active { background: rgba(26, 22, 19, 0.07); }
+
+  .btn-row { display: flex; gap: 0.6rem; }
+  .btn-row > * { flex: 1; }
+
+  .tag-actions { display: flex; flex-direction: column; gap: 0.55rem; }
+
+  /* 16px minimum is not a style choice — anything smaller makes iOS Safari
+     zoom the whole page on focus, and the guest never finds their way back. */
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+    margin: 0.5rem 0 0.6rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: var(--ink-sunk);
+    color: var(--bone);
+    font-family: var(--sans);
+    font-size: 16px;
+    transition: border-color 0.15s var(--ease);
+  }
+  .field::placeholder { color: var(--ash-dim); }
+  .field:focus { outline: none; border-color: var(--lamp); }
+  .field:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+
+  .backlink {
+    display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    flex-wrap: wrap;
+    gap: 0.45rem;
+    min-height: var(--tap);
+    color: var(--ash);
+    font-size: 0.9rem;
   }
-  .item-desc {
-    color: var(--ink-secondary);
-    font-size: 0.82rem;
-    margin-top: 0.2rem;
-    line-height: 1.4;
+  .backlink:hover { color: var(--bone); text-decoration: none; }
+
+  /* ---------------------------------------------------------------- paper */
+
+  /* The hatcheck tag. Clipped top corners and a punched hole — the shape
+     does the talking, so nothing else on this screen needs to shout. */
+  .tag {
+    position: relative;
+    background: var(--bone);
+    color: var(--bone-ink);
+    border-radius: 3px;
+    padding: 3.15rem 1.35rem 1.5rem;
+    text-align: center;
+    clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%, 0 22px);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
   }
-  .price {
-    color: var(--gold-light);
+  /* A punched hole, not a dot: the room shows through it, the paper casts a
+     lip on the top inside edge, and the ink picks up the lamp on the bottom. */
+  .tag::after {
+    content: "";
+    position: absolute;
+    top: 0.85rem; left: 50%;
+    width: 16px; height: 16px;
+    margin-left: -8px;
+    border-radius: 50%;
+    background: #0d0a09;
+    box-shadow:
+      inset 0 -1px 2px rgba(222, 140, 62, 0.3),
+      0 1px 3px rgba(26, 22, 19, 0.55);
+  }
+
+  .tag-eyebrow {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #8a8072;
+  }
+
+  .tag-article {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: #6d6357;
+    margin-top: 1.1rem;
+    line-height: 1;
+  }
+
+  .tag-name {
+    font-family: var(--serif);
     font-weight: 600;
+    font-size: clamp(2.1rem, 11.5vw, 3.05rem);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    margin: 0.25rem 0 1.15rem;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .tag-stub {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6d6357;
+    padding-top: 0.9rem;
+    border-top: 1px dashed rgba(26, 22, 19, 0.22);
+    margin-bottom: 1.35rem;
+  }
+
+  /* Reveal. Scoped to the join screen only — every load there is an
+     intentional reroll, so replaying it is the point. Pages that
+     auto-refresh must never carry this. */
+  .reveal > * { animation: rise 0.5s var(--ease) both; }
+  .reveal > *:nth-child(2) { animation-delay: 0.06s; }
+  .reveal > *:nth-child(3) { animation-delay: 0.1s; }
+  .reveal > *:nth-child(4) { animation-delay: 0.18s; }
+  .reveal > *:nth-child(5) { animation-delay: 0.24s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(9px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ------------------------------------------------------------ menu rows */
+
+  .row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: none; }
+
+  .row-main { flex: 1; min-width: 0; }
+
+  .row-name {
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--bone);
+  }
+
+  .row-desc { color: var(--ash); font-size: 0.825rem; line-height: 1.4; margin-top: 0.2rem; }
+
+  .row-price {
+    font-family: var(--mono);
     font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
+    white-space: nowrap;
+    padding-top: 0.08rem;
+  }
+
+  /* Quiet outlined affordance — 25 of these on a menu, so none of them
+     may be a filled button (rule 1: one primary per screen, and here it's
+     the dock). */
+  .add {
+    width: var(--tap);
+    height: var(--tap);
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--bone);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.1s var(--ease), border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  }
+  .add .ico { width: 18px; height: 18px; stroke-width: 1.8; }
+  .add:active { transform: scale(0.92); background: var(--lamp-soft); border-color: var(--lamp-line); }
+
+  /* Tiny inline marker for alcohol. Non-blocking by design (spec §8.5) —
+     the real check happens when a human hands over the glass. */
+  .alc {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--ash-dim);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+    vertical-align: 0.12em;
+    margin-left: 0.35rem;
     white-space: nowrap;
   }
 
-  .qty-form {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-  }
-  .qty-form input {
-    width: 2.8rem;
-    text-align: center;
-    padding: 0.45rem 0.2rem;
-    font-weight: 600;
-  }
-
-  .cat-title {
-    margin: 1.75rem 0 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+  /* Allergens are safety copy, not a caption. They sit one step brighter
+     than --ash-dim and lead with the alert glyph so they don't read as
+     just another piece of de-emphasised secondary text. */
+  .allergen {
+    color: var(--ash);
     font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--gold);
+    margin-top: 0.25rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.3rem;
   }
-  .cat-title::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, var(--line-gold) 0%, transparent 100%);
+  .allergen .ico { width: 0.85em; height: 0.85em; flex: none; color: var(--warn); }
+  .allergen-warn { color: var(--warn); }
+
+  /* The row you just added lights briefly. Pure CSS: cart_add redirects
+     back with #item-<id>, so :target fires once per add, no JS. */
+  .row:target { animation: added 1.8s var(--ease); }
+  @keyframes added {
+    0% { background: var(--lamp-soft); }
+    100% { background: transparent; }
   }
 
-  /* Thermal Receipt / Ticket */
-  .ticket-wrapper {
-    position: relative;
-    margin: 1.25rem 0;
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
-  }
+  /* ---------------------------------------------------------- quantity */
 
-  .ticket {
-    background: #fdfbf7;
-    color: #1a1715;
-    border-radius: 4px 4px 0 0;
-    padding: 1.35rem 1.15rem;
-    font-family: var(--font-mono);
-    white-space: pre-wrap;
-    font-size: 0.82rem;
-    line-height: 1.4;
-    overflow-x: auto;
-    border: 1px solid #ded6c8;
-    border-bottom: none;
-    position: relative;
-  }
-
-  .ticket-tear {
-    height: 12px;
-    background-color: #fdfbf7;
-    background-image: radial-gradient(circle at 10px -5px, transparent 12px, #fdfbf7 13px);
-    background-size: 20px 20px;
-    background-repeat: repeat-x;
-    border-left: 1px solid #ded6c8;
-    border-right: 1px solid #ded6c8;
-  }
-
-  /* Status Pills & Progress Stepper */
-  .status-pill {
+  /* Two one-tap forms, no numeric keyboard, no spinners. Each posts an
+     absolute quantity to cart_update, so the contract is unchanged. */
+  .qty {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-full);
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border: 1px solid var(--gold);
-    color: var(--gold-light);
-    background: var(--gold-subtle);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    margin-top: 0.6rem;
   }
-
-  .progress-stepper {
-    display: flex;
-    justify-content: space-between;
-    margin: 1.25rem 0 1.5rem;
-    position: relative;
-  }
-  .progress-stepper::before {
-    content: "";
-    position: absolute;
-    top: 14px;
-    left: 15px;
-    right: 15px;
-    height: 2px;
-    background: var(--line);
-    z-index: 1;
-  }
-  .step-node {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    flex: 1;
-  }
-  .step-circle {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: var(--panel);
-    border: 2px solid var(--dim-subtle);
-    display: flex;
+  .qty form { display: flex; }
+  .qty button {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--dim);
-    transition: all 0.2s var(--ease-out);
+    border: 0;
+    background: transparent;
+    color: var(--bone);
+    cursor: pointer;
+    touch-action: manipulation;
   }
-  .step-label {
-    font-size: 0.72rem;
-    color: var(--dim);
-    text-transform: uppercase;
+  .qty button:disabled { color: var(--ash-dim); cursor: default; }
+  /* Overrides the 44px square above: this one carries a word, so it sizes to
+     its text while keeping the same 44px tap height. Divider on the left ties
+     it to the stepper it belongs to. */
+  .qty .qty-remove {
+    width: auto;
+    padding: 0 0.85rem;
+    border-left: 1px solid var(--line-strong);
+    color: var(--ash);
+    font-family: var(--sans);
+    font-size: 0.78rem;
     letter-spacing: 0.04em;
-    font-weight: 500;
+    text-transform: uppercase;
+  }
+  .qty .qty-remove:hover { color: var(--warn); }
+  .qty button:active:not(:disabled) { background: var(--lamp-soft); }
+  .qty .ico { width: 16px; height: 16px; }
+  .qty-value {
+    min-width: 2.3rem;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    border-left: 1px solid var(--line-strong);
+    border-right: 1px solid var(--line-strong);
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .step-node.active .step-circle {
-    border-color: var(--gold);
-    background: var(--gold);
-    color: #120e0b;
-    box-shadow: 0 0 12px var(--gold-glow);
+  .total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.35rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--line-strong);
   }
-  .step-node.active .step-label {
-    color: var(--gold-light);
-    font-weight: 700;
-  }
-
-  .step-node.complete .step-circle {
-    border-color: var(--success);
-    background: var(--success);
-    color: #ffffff;
-  }
-  .step-node.complete .step-label {
-    color: var(--ink-secondary);
+  .total-label { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+  .total-value {
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
   }
 
-  .alert {
-    border: 1px solid var(--danger);
-    background: var(--danger-subtle);
-    color: #fca5a5;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-sm);
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-  }
+  /* ----------------------------------------------------------- the dock */
 
-  /* Cart Floating Bar (Sticky CTA) */
-  .cart-fab {
+  .dock {
     position: fixed;
-    bottom: 1.25rem;
-    left: 1rem;
-    right: 1rem;
-    max-width: 440px;
-    margin: 0 auto;
-    z-index: 100;
+    left: 0; right: 0; bottom: 0;
+    z-index: 40;
+    padding: 0.85rem var(--gutter) calc(0.85rem + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--ink) 62%, rgba(10, 9, 8, 0));
+    pointer-events: none;
   }
-  .cart-fab .btn {
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(212, 175, 55, 0.35);
+  .dock-inner { max-width: 430px; margin: 0 auto; pointer-events: auto; }
+  .dock .btn { justify-content: space-between; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); }
+
+  .dock-count {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    background: rgba(26, 22, 19, 0.12);
+    border-radius: var(--r-pill);
+    padding: 0.15rem 0.6rem;
   }
 
-  /* Live Pulse Animation */
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--success);
-    display: inline-block;
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-    animation: pulseLive 2s infinite;
-  }
+  /* --------------------------------------------------------- order state */
 
-  @keyframes pulseLive {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  .rail { display: flex; gap: 0.35rem; margin: 1.5rem 0 0.75rem; }
+  .rail-seg {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--line-strong);
   }
+  .rail-seg.done { background: var(--ash-dim); }
+  .rail-seg.now { background: var(--lamp); box-shadow: 0 0 12px rgba(222, 140, 62, 0.5); }
+  .rail-seg.end { background: var(--absinthe); box-shadow: 0 0 12px rgba(147, 169, 123, 0.45); }
 
-  /* Staff KDS Dashboard Theme (body.staff) */
-  body.staff {
-    --bg: #0b0f19;
-    --bg-subtle: #111827;
-    --panel: #182234;
-    --panel-card: #1f2d44;
-    --panel-hover: #263650;
-    --line: #2d3e58;
-    --line-gold: rgba(56, 189, 248, 0.35);
-    --ink: #f8fafc;
-    --ink-secondary: #cbd5e1;
-    --dim: #94a3b8;
-    --gold: #38bdf8;
-    --gold-light: #7dd3fc;
-    --gold-hover: #0ea5e9;
-    --gold-active: #0284c7;
-    --gold-subtle: rgba(56, 189, 248, 0.12);
-    --font-serif: var(--font-sans);
-    background-image: radial-gradient(circle at 50% 0%, #172554 0%, #0b0f19 75%);
-  }
-
-  body.staff .wrap {
-    max-width: 1200px;
-    padding: 1.5rem;
-  }
-
-  .kds-header {
+  .rail-labels {
     display: flex;
     justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ash-dim);
+    margin-bottom: 1.6rem;
+  }
+  .rail-labels .now { color: var(--lamp); }
+  .rail-labels .done { color: var(--ash); }
+  .rail-labels .end { color: var(--absinthe); }
+
+  .mission {
+    border: 1px solid var(--velvet-line);
+    background: var(--velvet);
+    border-radius: var(--r-lg);
+    padding: 1.15rem var(--gutter);
+  }
+  .mission-body {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 1.02rem;
+    line-height: 1.45;
+    color: var(--bone);
+    margin-top: 0.55rem;
+    text-wrap: pretty;
+  }
+  .mission-note { color: #a08a86; font-size: 0.79rem; margin-top: 0.7rem; }
+
+  /* ------------------------------------------------------------- ticket */
+
+  /* The printed artifact. render_ticket() lays this out to a fixed 48
+     columns for 80mm paper — at a phone's width that wraps and the rules
+     and prices shred into nonsense. Container units size the type so all
+     48 columns always fit exactly, whatever the screen. */
+  .ticket-wrap {
+    container-type: inline-size;
+    filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.6));
+    margin: 1.5rem 0 0;
+  }
+  .ticket {
+    background: var(--bone);
+    color: #1c1815;
+    border-radius: 3px 3px 0 0;
+    --ticket-pad-x: 0.7rem;
+    padding: 1.25rem var(--ticket-pad-x) 0.9rem;
+    font-family: var(--mono);
+    /* 48 columns at ~0.6em advance = 28.8em of text. Subtract the padding
+       from the container width and divide, and the ticket lands at exactly
+       the width of the paper it will print on, at any screen size. The
+       divisor carries a little slack for monos wider than 0.6em. The plain
+       px value below it is what a browser without container queries gets —
+       small, but still narrow enough not to wrap on a phone.
+       The subtraction is derived from --ticket-pad-x rather than restated, so
+       retuning the padding can't silently break the "48 columns fit" promise.
+       Column count itself still mirrors Paper.MM80 (48) in
+       power_up/atmos/printing/layout.py — see the follow-up thread on making
+       that a passed-in --ticket-cols for 58mm/32-column rolls. */
+    font-size: 11px;
+    font-size: calc((100cqi - (var(--ticket-pad-x) * 2)) / 29.5);
+    line-height: 1.32;
+    white-space: pre;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ticket-tear {
+    height: 10px;
+    background: var(--bone);
+    -webkit-mask-image: radial-gradient(circle at 6px 10px, transparent 5.5px, #000 6px);
+    mask-image: radial-gradient(circle at 6px 10px, transparent 5.5px, #000 6px);
+    -webkit-mask-size: 12px 10px;
+    mask-size: 12px 10px;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+  }
+
+  /* ==========================================================================
+     Staff — the same materials, relit for a bright back-bar and read from
+     a metre away. Denser, higher contrast, bigger names. No new palette:
+     staff and guests are visibly the same product.
+     ========================================================================== */
+
+  body.staff {
+    --ink: #0e0c0b;
+    --ink-raised: #191513;
+    --line: rgba(242, 236, 223, 0.11);
+    --line-strong: rgba(242, 236, 223, 0.2);
+    background-image: radial-gradient(120% 45% at 50% -10%, #29201a 0%, #0e0c0b 60%);
+  }
+
+  body.staff .wrap { max-width: 1280px; padding-left: 1.5rem; padding-right: 1.5rem; }
+
+  .kds-head {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 1.5rem;
+    justify-content: space-between;
+    gap: 1rem;
     padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--line);
   }
 
-  .kds-board {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-  @media (min-width: 768px) {
-    .kds-board { grid-template-columns: repeat(3, 1fr); }
-  }
+  .board { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+  @media (min-width: 900px) { .board { grid-template-columns: repeat(3, 1fr); } }
 
-  .kds-col {
-    background: rgba(15, 23, 42, 0.6);
+  .col {
+    background: rgba(0, 0, 0, 0.28);
     border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    padding: 1rem;
-    min-height: 480px;
+    border-radius: var(--r-lg);
+    padding: 0.9rem;
+    min-height: 220px;
   }
-
-  .kds-col-header {
+  .col-head {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.65rem;
-    border-bottom: 2px solid var(--line);
-  }
-
-  .kds-col-title {
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 700;
-    color: var(--ink-secondary);
-  }
-
-  .kds-col-count {
-    background: var(--panel-card);
-    padding: 0.15rem 0.55rem;
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--gold-light);
-    border: 1px solid var(--line);
-  }
-
-  .kds-card {
-    background: var(--panel-card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-    margin-bottom: 0.85rem;
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
-  }
-
-  .kds-card:hover {
-    border-color: var(--gold);
-  }
-
-  .kds-card-top {
-    display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.5rem;
-    margin-bottom: 0.4rem;
+    gap: 0.75rem;
+    padding-bottom: 0.7rem;
+    margin-bottom: 0.9rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .col-title {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ash);
+  }
+  .col-count {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
   }
 
-  .kds-persona {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1.25;
+  .ticketcard {
+    background: var(--ink-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    padding: 0.95rem 1rem;
   }
+  .ticketcard + .ticketcard { margin-top: 0.75rem; }
 
-  .kds-table-badge {
-    background: var(--gold-subtle);
-    color: var(--gold-light);
-    border: 1px solid var(--line-gold);
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    font-weight: 700;
-    white-space: nowrap;
+  /* The name is the whole job of this card — it is what gets shouted
+     across the room. Everything else is reference. */
+  .kds-name {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 1.42rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
   }
-
-  .kds-meta {
-    color: var(--dim);
-    font-size: 0.8rem;
-    margin-bottom: 0.75rem;
+  .kds-stub {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.9rem;
+    margin-top: 0.45rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid var(--line);
   }
 
-  .kds-items {
-    list-style: none;
-    font-size: 0.95rem;
-    margin: 0.75rem 0;
-    border-top: 1px solid var(--line);
-    padding-top: 0.65rem;
-  }
-
-  .kds-items li {
-    padding: 0.35rem 0;
+  .kds-lines { list-style: none; margin: 0.7rem 0 0; }
+  .kds-lines li {
     display: flex;
     align-items: baseline;
-    gap: 0.4rem;
-    color: var(--ink);
+    gap: 0.55rem;
+    padding: 0.22rem 0;
+    font-size: 1.02rem;
+  }
+  .kds-qty {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--lamp);
+    min-width: 1.6rem;
   }
 
-  .kds-items .item-qty {
-    font-weight: 700;
-    color: var(--gold-light);
+  .kds-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.7rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid rgba(196, 87, 60, 0.4);
+    background: var(--warn-soft);
+    border-radius: var(--r-sm);
+    color: var(--warn);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
-  .kds-vignette {
-    font-family: var(--font-mono);
-    font-size: 0.76rem;
-    color: var(--dim);
-    background: #0f172a;
-    border: 1px dashed var(--line);
-    border-radius: var(--radius-sm);
-    padding: 0.65rem;
-    margin-top: 0.75rem;
-    line-height: 1.4;
+  .kds-actions { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.45rem; }
+  .kds-actions .btn { min-height: 50px; font-size: 0.95rem; }
+
+  .btn-go { background: var(--lamp); border-color: var(--lamp); color: #1c1004; }
+  .btn-done { background: var(--absinthe); border-color: var(--absinthe); color: #16200e; }
+  .btn-cancel {
+    min-height: 40px;
+    font-size: 0.83rem;
+    font-weight: 500;
+    background: transparent;
+    border-color: rgba(196, 87, 60, 0.35);
+    color: var(--warn);
+  }
+
+  .vignette {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: var(--ash);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r-sm);
+    padding: 0.65rem 0.7rem;
+    margin-top: 0.8rem;
     /* Vignette text is joined with real newlines into short lines (see
        lore/safety.py's guard_vignette / lore/fallback.py) — without this,
        HTML collapses them under the default white-space:normal and the
        story renders as one run-on sentence instead of the intended lines. */
     white-space: pre-line;
   }
-
-  table.venues {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-  }
-  table.venues th {
-    text-align: left;
-    padding: 0.75rem 1rem;
-    background: var(--panel-card);
-    color: var(--ink-secondary);
-    font-size: 0.8rem;
+  .vignette-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: var(--ash-dim);
+  }
+
+  .venues { width: 100%; border-collapse: collapse; }
+  .venues th {
+    text-align: left;
+    padding: 0.7rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ash);
     border-bottom: 1px solid var(--line);
   }
-  table.venues td {
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--line);
-    color: var(--ink);
-  }
-  table.venues tr:hover td {
-    background: rgba(255, 255, 255, 0.02);
-  }
+  .venues td { padding: 0.9rem 1rem; border-bottom: 1px solid var(--line); }
+  .venues tr:last-child td { border-bottom: none; }
+  .venues .btn { width: auto; min-height: 44px; padding: 0.5rem 1rem; font-size: 0.9rem; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
+      /* The delay has to go too, not just the duration: .reveal staggers its
+         children with `both` fill, so a surviving delay would leave the
+         persona name blank for a quarter second and then snap in. */
+      animation-delay: 0s !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
@@ -692,7 +903,16 @@
 {% block extra_head %}{% endblock %}
 </head>
 <body class="{% block bodyclass %}{% endblock %}">
-<div class="wrap">
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="ic-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="ic-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="ic-back" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="ic-shuffle" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+  <symbol id="ic-alert" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+</svg>
+<div class="wrap {% block wrapclass %}{% endblock %}">
 {% block content %}{% endblock %}
 </div>
 </body>
