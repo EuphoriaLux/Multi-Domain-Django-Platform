@@ -39685,3 +39685,118 @@ msgstr[1] "Noch %(spots)s Plätze für dich."
 #: crush_lu/templates/crush_lu/event_register.html:0
 msgid "Your gender group is full"
 msgstr "Deine Geschlechtergruppe ist ausgebucht"
+#: crush_lu/views_crush_connect.py
+msgid "Double verification: LuxID + Crush event"
+msgstr "Doppelte Verifizierung: LuxID + Crush-Event"
+
+#: crush_lu/views_crush_connect.py
+msgid "Your identity is confirmed digitally and through an in-person Crush event."
+msgstr "Deine Identität wurde digital und bei einem Crush-Event vor Ort bestätigt."
+
+#: crush_lu/views_crush_connect.py
+msgid "Verified at a Crush event"
+msgstr "Bei einem Crush-Event verifiziert"
+
+#: crush_lu/views_crush_connect.py
+msgid "A Crush coach confirmed your participation at an in-person event."
+msgstr "Ein Crush Coach hat deine Teilnahme an einem Event vor Ort bestätigt."
+
+#: crush_lu/views_crush_connect.py
+msgid "Identity confirmed by LuxID"
+msgstr "Identität durch LuxID bestätigt"
+
+#: crush_lu/views_crush_connect.py
+msgid "LuxID confirms your identity. Taking part in a Crush event unlocks the active Connect journey and your three daily suggestions, once the other steps are complete."
+msgstr "LuxID bestätigt deine Identität. Die Teilnahme an einem Crush-Event schaltet den aktiven Connect-Weg und deine drei täglichen Vorschläge frei, sobald die übrigen Schritte abgeschlossen sind."
+
+#: crush_lu/views_crush_connect.py
+msgid "Verified profile and identity"
+msgstr "Profil und Identität verifiziert"
+
+#: crush_lu/views_crush_connect.py
+msgid "Your Crush profile must be approved and your identity confirmed before Connect can show you suggestions."
+msgstr "Dein Crush-Profil muss freigegeben und deine Identität bestätigt sein, bevor Connect dir Vorschläge zeigen kann."
+
+#: crush_lu/views_crush_connect.py
+msgid "Complete verification"
+msgstr "Verifizierung abschließen"
+
+#: crush_lu/views_crush_connect.py
+msgid "Crush event verification"
+msgstr "Verifizierung beim Crush-Event"
+
+#: crush_lu/views_crush_connect.py
+msgid "A confirmed participation at a Crush event unlocks the active journey with three suggestions per day."
+msgstr "Eine bestätigte Teilnahme an einem Crush-Event schaltet den aktiven Weg mit drei Vorschlägen pro Tag frei."
+
+#: crush_lu/views_crush_connect.py
+msgid "A profile photo is required for your daily Connect suggestions."
+msgstr "Für deine täglichen Connect-Vorschläge ist ein Profilfoto erforderlich."
+
+#: crush_lu/views_crush_connect.py
+msgid "Add a photo"
+msgstr "Foto hinzufügen"
+
+#: crush_lu/views_crush_connect.py
+msgid "Photo sharing consent"
+msgstr "Zustimmung zur Fotofreigabe"
+
+#: crush_lu/views_crush_connect.py
+msgid "Confirm that your clear photo may be shown only to the few verified members matched with you."
+msgstr "Bestätige, dass dein unverpixeltes Foto nur den wenigen verifizierten Mitgliedern gezeigt werden darf, die dir vorgeschlagen werden."
+
+#: crush_lu/views_crush_connect.py
+msgid "Review photo consent"
+msgstr "Foto-Zustimmung prüfen"
+
+#: crush_lu/views_crush_connect.py
+msgid "Connect onboarding"
+msgstr "Connect-Onboarding"
+
+#: crush_lu/views_crush_connect.py
+msgid "Complete the Connect onboarding to set your preferences and explicitly opt in."
+msgstr "Schließe das Connect-Onboarding ab, um deine Präferenzen festzulegen und ausdrücklich teilzunehmen."
+
+#: crush_lu/views_crush_connect.py
+msgid "Continue onboarding"
+msgstr "Onboarding fortsetzen"
+
+#: crush_lu/views_crush_connect.py
+msgid "Your three Connect questions"
+msgstr "Deine drei Connect-Fragen"
+
+#: crush_lu/views_crush_connect.py
+msgid "Choose and answer three questions so matched members can discover you in the same respectful way."
+msgstr "Wähle drei Fragen und beantworte sie, damit vorgeschlagene Mitglieder dich auf dieselbe respektvolle Weise kennenlernen können."
+
+#: crush_lu/views_crush_connect.py
+msgid "Choose my questions"
+msgstr "Meine Fragen auswählen"
+
+#: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
+msgid "Your Connect readiness"
+msgstr "Deine Connect-Bereitschaft"
+
+#: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
+msgid "To receive your 3 suggestions each day, complete these steps"
+msgstr "Um täglich deine 3 Vorschläge zu erhalten, schließe diese Schritte ab"
+
+#: crush_lu/templates/crush_lu/crush_connect/_readiness_checklist.html
+msgid "Each status below comes from your current profile. Incomplete steps link directly to the right screen."
+msgstr "Jeder Status unten stammt aus deinem aktuellen Profil. Unvollständige Schritte führen direkt zum richtigen Bildschirm."
+
+#: crush_lu/views_crush_connect.py
+msgid "Your profile photo is missing. It blocks access to your daily Connect suggestions; add it now in Photos."
+msgstr "Dein Profilfoto fehlt. Dadurch sind deine täglichen Connect-Vorschläge gesperrt; füge es jetzt unter Fotos hinzu."
+
+#: crush_lu/views_connect_cycle.py
+msgid "Your profile photo is missing. It blocks access to your three daily Connect Week suggestions; add it now in Photos."
+msgstr "Dein Profilfoto fehlt. Dadurch sind deine drei täglichen Vorschläge der Connect-Woche gesperrt; füge es jetzt unter Fotos hinzu."
+
+#: crush_lu/templates/crush_lu/crush_connect/hub.html
+msgid "Complete your setup below. You are not visible in Connect until you explicitly finish onboarding."
+msgstr "Schließe deine Vorbereitung unten ab. Du bist in Connect erst sichtbar, wenn du das Onboarding ausdrücklich abgeschlossen hast."
+
+#: crush_lu/templates/crush_lu/crush_connect/hub.html
+msgid "Complete the steps below to prepare your active Connect route and three daily suggestions."
+msgstr "Schließe die Schritte unten ab, um deinen aktiven Connect-Weg und deine drei täglichen Vorschläge vorzubereiten."
