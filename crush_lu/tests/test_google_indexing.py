@@ -19,12 +19,16 @@ from crush_lu.services.google_indexing import (
     get_google_indexing_session,
     is_indexing_enabled,
     notify_event_indexing,
+    notify_events_indexing,
     notify_url_indexing,
+    notify_urls_indexing,
+    should_index_event,
 )
 
 User = get_user_model()
 
 
+@override_settings(GOOGLE_INDEXING_ENABLED=True)
 class GoogleIndexingServiceTests(TestCase):
     """Test URL builders, credentials loading, and Google Indexing API service methods."""
 
@@ -58,6 +62,21 @@ class GoogleIndexingServiceTests(TestCase):
         urls = build_event_indexing_urls(unsaved)
         self.assertEqual(urls, [])
 
+    def test_should_index_event_logic(self):
+        """should_index_event returns True only for published, non-cancelled, non-private events."""
+        self.assertTrue(should_index_event(self.event))
+
+        self.event.is_published = False
+        self.assertFalse(should_index_event(self.event))
+
+        self.event.is_published = True
+        self.event.is_cancelled = True
+        self.assertFalse(should_index_event(self.event))
+
+        self.event.is_cancelled = False
+        self.event.is_private_invitation = True
+        self.assertFalse(should_index_event(self.event))
+
     @override_settings(GOOGLE_INDEXING_ENABLED=False)
     def test_disabled_by_settings(self):
         """Service respects GOOGLE_INDEXING_ENABLED=False."""
@@ -65,6 +84,7 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertIsNone(get_google_indexing_session())
         self.assertIsNone(notify_url_indexing("https://crush.lu/en/events/15/"))
         self.assertEqual(notify_event_indexing(self.event), [])
+        self.assertEqual(notify_events_indexing([self.event])["success_count"], 0)
 
     @patch("crush_lu.services.google_indexing.get_google_indexing_session")
     def test_notify_url_indexing_success(self, mock_get_session):
@@ -114,7 +134,21 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertEqual(len(results), 3)  # 3 detail language URLs
         self.assertEqual(mock_notify_url.call_count, 3)
 
+    @patch("crush_lu.services.google_indexing.notify_url_indexing")
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
+    def test_notify_events_indexing_batch_budget(self, mock_get_session, mock_notify_url):
+        """notify_events_indexing batches multiple events within a single session and deadline."""
+        mock_get_session.return_value = MagicMock()
+        mock_notify_url.return_value = {"status": "ok"}
 
+        res = notify_events_indexing([self.event], action="URL_UPDATED", max_budget_seconds=5.0)
+
+        self.assertEqual(res["success_count"], 3)
+        self.assertEqual(res["total_expected"], 3)
+        self.assertEqual(res["deferred_count"], 0)
+
+
+@override_settings(GOOGLE_INDEXING_ENABLED=True)
 class GoogleIndexingSignalAndAdminTests(TestCase):
     """Test signal handlers, admin actions, and management command."""
 
@@ -142,6 +176,14 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_skips_on_wallet_class_nested_save(self, mock_notify_event):
+        """Saving with update_fields containing only internal fields skips signal."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.save(update_fields=["google_wallet_event_class_id"])
+
+        mock_notify_event.assert_not_called()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_fires_url_deleted_for_draft_or_cancelled(self, mock_notify_event):
         """Saving an unpublished or cancelled event sends URL_DELETED."""
         with self.captureOnCommitCallbacks(execute=True):
@@ -150,20 +192,28 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
 
-    @patch("crush_lu.services.google_indexing.notify_url_indexing")
-    def test_signal_fires_on_delete_commit(self, mock_notify_url):
-        """Deleting an event triggers URL_DELETED notification on commit."""
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_fires_url_deleted_for_private_invitation(self, mock_notify_event):
+        """Saving a private invitation event sends URL_DELETED to protect private URLs."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.is_private_invitation = True
+            self.event.save()
+
+        mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
+
+    @patch("crush_lu.services.google_indexing.notify_urls_indexing")
+    def test_signal_fires_on_delete_commit(self, mock_notify_urls):
+        """Deleting an event triggers notify_urls_indexing with URL_DELETED on commit."""
         event_id = self.event.id
         with self.captureOnCommitCallbacks(execute=True):
             self.event.delete()
 
-        mock_notify_url.assert_called()
-        calls = [c[1]["action"] for c in mock_notify_url.call_args_list]
-        self.assertTrue(all(action == "URL_DELETED" for action in calls))
+        mock_notify_urls.assert_called()
+        self.assertEqual(mock_notify_urls.call_args[1]["action"], "URL_DELETED")
 
-    @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_admin_publish_action_notifies_google(self, mock_notify_event):
-        """publish_events bulk action notifies Google Indexing with URL_UPDATED."""
+    @patch("crush_lu.services.google_indexing.notify_events_indexing")
+    def test_admin_publish_action_notifies_google(self, mock_notify_events):
+        """publish_events bulk action notifies Google Indexing with batch helper."""
         self.event.is_published = False
         self.event.address_street = "Grand-Rue"
         self.event.address_number = "1"
@@ -176,43 +226,40 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         queryset = MeetupEvent.objects.filter(pk=self.event.pk)
         self.admin.publish_events(request, queryset)
 
-        mock_notify_event.assert_called_with(self.event, action="URL_UPDATED")
+        mock_notify_events.assert_called()
 
-    @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_admin_unpublish_action_notifies_google(self, mock_notify_event):
+    @patch("crush_lu.services.google_indexing.notify_events_indexing")
+    def test_admin_unpublish_action_notifies_google(self, mock_notify_events):
         """unpublish_events bulk action notifies Google Indexing with URL_DELETED."""
         request = MagicMock()
         queryset = MeetupEvent.objects.filter(pk=self.event.pk)
         self.admin.unpublish_events(request, queryset)
 
-        mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
+        mock_notify_events.assert_called()
 
-    @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_admin_action_ping_google_indexing(self, mock_notify_event):
-        """MeetupEventAdmin ping_google_indexing action reports success."""
-        mock_notify_event.return_value = [{"status": "ok"}, {"status": "ok"}, {"status": "ok"}]
-        request = MagicMock()
-
-        queryset = MeetupEvent.objects.filter(pk=self.event.pk)
-        self.admin.ping_google_indexing(request, queryset)
-
-    @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_signal_fires_url_deleted_for_private_invitation(self, mock_notify_event):
-        """Saving a private invitation event sends URL_DELETED to protect private URLs."""
-        with self.captureOnCommitCallbacks(execute=True):
-            self.event.is_private_invitation = True
-            self.event.save()
-
-        mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
-
-    @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_admin_cancel_action_notifies_google(self, mock_notify_event):
+    @patch("crush_lu.services.google_indexing.notify_events_indexing")
+    def test_admin_cancel_action_notifies_google(self, mock_notify_events):
         """cancel_events bulk action notifies Google Indexing with URL_DELETED."""
         request = MagicMock()
         queryset = MeetupEvent.objects.filter(pk=self.event.pk)
         self.admin.cancel_events(request, queryset)
 
-        mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
+        mock_notify_events.assert_called()
+
+    @patch("crush_lu.services.google_indexing.notify_events_indexing")
+    def test_admin_action_ping_google_indexing(self, mock_notify_events):
+        """MeetupEventAdmin ping_google_indexing action reports success."""
+        mock_notify_events.return_value = {
+            "success_count": 3,
+            "total_expected": 3,
+            "deferred_count": 0,
+        }
+        request = MagicMock()
+
+        queryset = MeetupEvent.objects.filter(pk=self.event.pk)
+        self.admin.ping_google_indexing(request, queryset)
+
+        mock_notify_events.assert_called_once()
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""
@@ -224,4 +271,3 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             "https://crush.lu/en/events/15/",
             "--dry-run",
         )
-

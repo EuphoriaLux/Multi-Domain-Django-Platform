@@ -675,3 +675,12 @@ SILENCED_SYSTEM_CHECKS = [
 # This is intentional — no separate db_worker process is running on Azure.
 # Switch to DatabaseBackend when async execution is needed (requires adding
 # `python manage.py db_worker &` to startup.sh or a separate Azure WebJob).
+
+# =============================================================================
+# GOOGLE SEARCH INDEXING API
+# =============================================================================
+# Enabled in production (crush.lu), disabled in staging unless explicitly overridden.
+GOOGLE_INDEXING_ENABLED = _env_bool(
+    "GOOGLE_INDEXING_ENABLED", DJANGO_ENV == "production"
+)
+

@@ -107,6 +107,7 @@ class Command(BaseCommand):
             events = MeetupEvent.objects.filter(
                 is_published=True,
                 is_cancelled=False,
+                is_private_invitation=False,
                 date_time__gte=timezone.now(),
             ).order_by("date_time")
 

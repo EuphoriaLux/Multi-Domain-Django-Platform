@@ -81,8 +81,8 @@ WEEKLY_KPI_RECIPIENTS = [
     if addr.strip()
 ]
 
-# Google Search Indexing API real-time notifications for Crush.lu events
-GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", True)
+# Google Search Indexing API real-time notifications for Crush.lu events (disabled by default outside production)
+GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", False)
 GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")
 GOOGLE_INDEXING_TIMEOUT_SECONDS = int(os.getenv("GOOGLE_INDEXING_TIMEOUT_SECONDS", "3"))
 

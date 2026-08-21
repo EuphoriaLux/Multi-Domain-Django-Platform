@@ -159,6 +159,26 @@ def build_event_indexing_urls(event, domain: str = "crush.lu") -> List[str]:
     return urls
 
 
+def build_event_list_urls(domain: str = "crush.lu") -> List[str]:
+    """Build canonical URLs for the events directory page (/en/events/, /fr/events/, /de/events/)."""
+    languages = getattr(settings, "LANGUAGES", None)
+    lang_codes = [code for code, _ in languages] if languages else DEFAULT_LANGUAGES
+
+    urls = []
+    for lang in lang_codes:
+        try:
+            with override(lang):
+                path = reverse(
+                    "crush_lu:event_list",
+                    urlconf="azureproject.urls_crush",
+                )
+                urls.append(f"https://{domain}{path}")
+        except Exception as e:
+            logger.warning("Failed to reverse event_list for lang %s: %s", lang, e)
+
+    return urls
+
+
 def notify_url_indexing(
     url: str,
     action: str = "URL_UPDATED",
@@ -217,7 +237,9 @@ def notify_url_indexing(
 
 def notify_event_indexing(
     event,
-    action: str = "URL_UPDATED",
+    action: Optional[str] = None,
+    session: Optional[Any] = None,
+    deadline: Optional[float] = None,
     max_budget_seconds: float = 8.0,
 ) -> List[Dict[str, Any]]:
     """
@@ -229,25 +251,111 @@ def notify_event_indexing(
     if not is_indexing_enabled():
         return []
 
-    session = get_google_indexing_session()
-    if not session:
+    sess = session or get_google_indexing_session()
+    if not sess:
         return []
 
+    resolved_action = action or (
+        "URL_UPDATED" if should_index_event(event) else "URL_DELETED"
+    )
     urls_to_ping = build_event_indexing_urls(event)
-    deadline = time.monotonic() + max_budget_seconds
+    end_time = (
+        deadline
+        if deadline is not None
+        else (time.monotonic() + max_budget_seconds)
+    )
 
     results = []
     for url in urls_to_ping:
-        if time.monotonic() > deadline:
+        if time.monotonic() > end_time:
             logger.warning(
-                "Google Indexing budget exhausted (%ss). Skipping remaining URLs for event %s.",
-                max_budget_seconds,
+                "Google Indexing budget exhausted. Skipping remaining URLs for event %s.",
                 getattr(event, "pk", None),
             )
             break
 
-        res = notify_url_indexing(url, action=action, session=session)
+        res = notify_url_indexing(url, action=resolved_action, session=sess)
         if res:
             results.append(res)
 
+    return results
+
+
+def notify_events_indexing(
+    events,
+    action: Optional[str] = None,
+    max_budget_seconds: float = 12.0,
+) -> Dict[str, Any]:
+    """
+    Notify Googlebot for a collection/queryset of events within a single request budget.
+
+    Uses a single shared AuthorizedSession and one global wall-clock deadline across
+    all selected events, preventing N*8s timeout explosion on bulk admin operations.
+    """
+    if not is_indexing_enabled():
+        return {"success_count": 0, "total_expected": 0, "deferred_count": 0}
+
+    sess = get_google_indexing_session()
+    if not sess:
+        return {"success_count": 0, "total_expected": 0, "deferred_count": 0}
+
+    event_list = list(events)
+    deadline = time.monotonic() + max_budget_seconds
+    total_expected = sum(len(build_event_indexing_urls(ev)) for ev in event_list)
+    successful_urls = 0
+    deferred_count = 0
+
+    for i, event in enumerate(event_list):
+        if time.monotonic() > deadline:
+            remaining = len(event_list) - i
+            deferred_count = sum(
+                len(build_event_indexing_urls(ev)) for ev in event_list[i:]
+            )
+            logger.warning(
+                "Google Indexing batch budget exhausted (%ss). Deferred %d URLs across %d events.",
+                max_budget_seconds,
+                deferred_count,
+                remaining,
+            )
+            break
+
+        results = notify_event_indexing(
+            event,
+            action=action,
+            session=sess,
+            deadline=deadline,
+        )
+        successful_urls += len(results)
+
+    return {
+        "success_count": successful_urls,
+        "total_expected": total_expected,
+        "deferred_count": deferred_count,
+    }
+
+
+def notify_urls_indexing(
+    urls: List[str],
+    action: str = "URL_DELETED",
+    max_budget_seconds: float = 5.0,
+) -> List[Dict[str, Any]]:
+    """Notify Googlebot for a list of raw URLs (e.g. deleted event URLs) within a single budget."""
+    if not is_indexing_enabled() or not urls:
+        return []
+
+    sess = get_google_indexing_session()
+    if not sess:
+        return []
+
+    deadline = time.monotonic() + max_budget_seconds
+    results = []
+    for url in urls:
+        if time.monotonic() > deadline:
+            logger.warning(
+                "Google Indexing URL budget exhausted (%ss).", max_budget_seconds
+            )
+            break
+        res = notify_url_indexing(url, action=action, session=sess)
+        if res:
+            results.append(res)
     return results

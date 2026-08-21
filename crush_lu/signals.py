@@ -4599,8 +4599,29 @@ def delete_quiz_question_media(sender, instance, **kwargs):
 # ---------------------------------------------------------------------------
 # Google Search Indexing API real-time notifications
 # ---------------------------------------------------------------------------
+INDEXING_RELEVANT_FIELDS = frozenset({
+    "title",
+    "description",
+    "date_time",
+    "end_time",
+    "location",
+    "is_published",
+    "is_cancelled",
+    "is_private_invitation",
+    "address_street",
+    "address_number",
+    "address_town",
+    "address_postcode",
+    "canton",
+    "languages",
+    "event_type",
+})
+
+
 @receiver(post_save, sender=MeetupEvent)
-def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, **kwargs):
+def trigger_google_indexing_on_event_save(
+    sender, instance, created, raw=False, update_fields=None, **kwargs
+):
     """Notify Googlebot immediately when a MeetupEvent changes state.
 
     - Published, public & active events -> URL_UPDATED
@@ -4611,6 +4632,12 @@ def trigger_google_indexing_on_event_save(sender, instance, created, raw=False, 
     """
     if raw:
         return
+
+    # Deduplicate nested/internal saves (e.g. google_wallet_event_class_id updates)
+    if update_fields is not None:
+        fields = set(update_fields)
+        if not fields.intersection(INDEXING_RELEVANT_FIELDS):
+            return
 
     from crush_lu.services.google_indexing import notify_event_indexing, should_index_event
 
@@ -4647,10 +4674,9 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
 
     def _notify():
         try:
-            from crush_lu.services.google_indexing import notify_url_indexing
+            from crush_lu.services.google_indexing import notify_urls_indexing
 
-            for url in urls:
-                notify_url_indexing(url, action="URL_DELETED")
+            notify_urls_indexing(urls, action="URL_DELETED")
         except Exception:
             logger.exception(
                 "Error triggering Google indexing notification on delete for event %s",

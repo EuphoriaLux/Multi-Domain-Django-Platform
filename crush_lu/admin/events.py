@@ -796,12 +796,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         updated = queryset.update(is_published=True)
         _enqueue_echo_sync(event_ids)
 
-        # Real-time Google Indexing update
+        # Real-time Google Indexing update (single-budget batch, dynamic privacy check)
         try:
-            from crush_lu.services.google_indexing import notify_event_indexing
+            from crush_lu.services.google_indexing import notify_events_indexing
 
-            for event in MeetupEvent.objects.filter(pk__in=event_ids):
-                notify_event_indexing(event, action="URL_UPDATED")
+            notify_events_indexing(
+                MeetupEvent.objects.filter(pk__in=event_ids),
+                action=None,
+                max_budget_seconds=12.0,
+            )
         except Exception:
             logger.exception("Error sending Google indexing notifications on publish")
 
@@ -815,12 +818,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         updated = queryset.update(is_published=False)
         _enqueue_echo_sync(event_ids)
 
-        # Real-time Google Indexing removal
+        # Real-time Google Indexing removal (single-budget batch)
         try:
-            from crush_lu.services.google_indexing import notify_event_indexing
+            from crush_lu.services.google_indexing import notify_events_indexing
 
-            for event in MeetupEvent.objects.filter(pk__in=event_ids):
-                notify_event_indexing(event, action="URL_DELETED")
+            notify_events_indexing(
+                MeetupEvent.objects.filter(pk__in=event_ids),
+                action="URL_DELETED",
+                max_budget_seconds=12.0,
+            )
         except Exception:
             logger.exception("Error sending Google indexing removals on unpublish")
 
@@ -1049,27 +1055,14 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     @admin.action(description=_("🔍 Ping Google Search Indexing for selected events"))
     def ping_google_indexing(self, request, queryset):
         """Send immediate Googlebot indexing notification for selected events across all languages."""
-        from crush_lu.services.google_indexing import (
-            build_event_indexing_urls,
-            notify_event_indexing,
-        )
+        from crush_lu.services.google_indexing import notify_events_indexing
 
         events = list(queryset)
-        total_urls = sum(len(build_event_indexing_urls(ev)) for ev in events)
-        successful_urls = 0
-        fully_synced_events = 0
+        res = notify_events_indexing(events, action=None, max_budget_seconds=15.0)
 
-        for event in events:
-            expected_count = len(build_event_indexing_urls(event))
-            action = (
-                "URL_UPDATED"
-                if (event.is_published and not event.is_cancelled)
-                else "URL_DELETED"
-            )
-            results = notify_event_indexing(event, action=action)
-            successful_urls += len(results)
-            if len(results) == expected_count and expected_count > 0:
-                fully_synced_events += 1
+        successful_urls = res["success_count"]
+        total_urls = res["total_expected"]
+        deferred = res["deferred_count"]
 
         if successful_urls > 0:
             if successful_urls == total_urls:
@@ -1083,11 +1076,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 django_messages.warning(
                     request,
                     _(
-                        "Google Indexing: {success}/{total} URL(s) successfully notified across {events} event(s)."
+                        "Google Indexing: {success}/{total} URL(s) notified across {events} event(s)"
+                        "{deferred_msg}."
                     ).format(
                         success=successful_urls,
                         total=total_urls,
                         events=len(events),
+                        deferred_msg=f" ({deferred} deferred due to time limit)"
+                        if deferred
+                        else "",
                     ),
                 )
         else:
@@ -1241,12 +1238,15 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # is the most visible way this action can go wrong.
         _enqueue_echo_sync(event_ids)
 
-        # Real-time Google Indexing removal for cancelled events
+        # Real-time Google Indexing removal for cancelled events (single-budget batch)
         try:
-            from crush_lu.services.google_indexing import notify_event_indexing
+            from crush_lu.services.google_indexing import notify_events_indexing
 
-            for event in MeetupEvent.objects.filter(pk__in=event_ids):
-                notify_event_indexing(event, action="URL_DELETED")
+            notify_events_indexing(
+                MeetupEvent.objects.filter(pk__in=event_ids),
+                action="URL_DELETED",
+                max_budget_seconds=12.0,
+            )
         except Exception:
             logger.exception(
                 "Error sending Google indexing removals on event cancellation"
