@@ -289,6 +289,15 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
 
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_fires_on_expanded_fields_save(self, mock_notify_event):
+        """Saving with update_fields for registration_fee, max_participants, etc. triggers indexing update."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.registration_fee = 35.00
+            self.event.save(update_fields=["registration_fee"])
+
+        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):
         """Single event ping command sends URL_DELETED for unpublished events unless --delete is passed."""
@@ -297,6 +306,29 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         call_command("ping_google_indexing", "--event", str(self.event.id))
         mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
+
+    @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
+    def test_management_command_all_includes_in_progress_events(
+        self, mock_notify_event
+    ):
+        """ping_google_indexing --all includes currently in-progress events (end_time >= now)."""
+        now = timezone.now()
+        # Started 30 mins ago, duration 120 mins -> ends 90 mins in the future
+        in_progress = MeetupEvent.objects.create(
+            title="In-Progress Event",
+            description="Testing live lookback inclusion.",
+            event_type="speed_dating",
+            date_time=now - timedelta(minutes=30),
+            duration_minutes=120,
+            location="Luxembourg City",
+            registration_deadline=now - timedelta(hours=1),
+            is_published=True,
+        )
+
+        call_command("ping_google_indexing", "--all")
+        called_events = [call.args[0] for call in mock_notify_event.call_args_list]
+        self.assertIn(in_progress, called_events)
+        self.assertIn(self.event, called_events)
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""

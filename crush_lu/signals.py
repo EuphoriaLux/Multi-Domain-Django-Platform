@@ -13,7 +13,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
-from django.db import connection, transaction
+from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -4602,20 +4602,40 @@ def delete_quiz_question_media(sender, instance, **kwargs):
 INDEXING_RELEVANT_FIELDS = frozenset(
     {
         "title",
+        "title_en",
+        "title_fr",
+        "title_de",
         "description",
+        "description_en",
+        "description_fr",
+        "description_de",
         "date_time",
         "duration_minutes",
         "location",
-        "is_published",
-        "is_cancelled",
-        "is_private_invitation",
+        "address",
         "address_street",
         "address_number",
         "address_town",
         "address_postcode",
         "canton",
-        "languages",
+        "latitude",
+        "longitude",
+        "image",
         "event_type",
+        "languages",
+        "max_participants",
+        "max_participants_m",
+        "max_participants_f",
+        "max_participants_nb",
+        "reserved_premium_seats",
+        "min_age",
+        "max_age",
+        "profile_requirement",
+        "registration_deadline",
+        "registration_fee",
+        "is_published",
+        "is_cancelled",
+        "is_private_invitation",
     }
 )
 

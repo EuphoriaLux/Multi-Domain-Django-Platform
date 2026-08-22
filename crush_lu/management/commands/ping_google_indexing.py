@@ -115,15 +115,18 @@ class Command(BaseCommand):
             return
 
         if all_events:
-            events = MeetupEvent.objects.filter(
+            now = timezone.now()
+            generous_cutoff = MeetupEvent.live_lookback_cutoff(now)
+            candidate_events = MeetupEvent.objects.filter(
                 is_published=True,
                 is_cancelled=False,
                 is_private_invitation=False,
-                date_time__gte=timezone.now(),
+                date_time__gte=generous_cutoff,
             ).order_by("date_time")
+            events = [ev for ev in candidate_events if ev.end_time >= now]
 
-            count = events.count()
-            self.stdout.write(f"Found {count} upcoming published event(s).")
+            count = len(events)
+            self.stdout.write(f"Found {count} upcoming/in-progress published event(s).")
 
             if dry_run:
                 for ev in events:
