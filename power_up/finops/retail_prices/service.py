@@ -15,10 +15,7 @@ from ..models import (
     RetailPriceSnapshot,
     RetailPriceSyncRun,
 )
-from .connectors.azure import (
-    AzureRetailPricesConnector,
-    DEFAULT_EUROPEAN_REGIONS,
-)
+from .connectors.azure import AzureRetailPricesConnector
 
 
 class SnapshotAlreadyExists(RuntimeError):
@@ -30,24 +27,32 @@ def sync_retail_prices(
     provider: str = CloudProvider.AZURE,
     snapshot_date: date | None = None,
     currency: str = "EUR",
-    regions: list[str] | None = None,
+    region: str,
     connector=None,
 ) -> RetailPriceSyncRun:
-    """Fetch, archive, and append one complete daily retail-price snapshot."""
+    """Fetch, archive, and append one region's daily retail-price snapshot.
+
+    Deliberately scoped to a single region: the full European catalogue is
+    ~200k rows across 208 pages, far more than one App Service request can
+    carry before the Azure load balancer cuts it off at ~240s. A day's
+    snapshot is assembled from one completed run per region, so a region that
+    fails costs only that region rather than the whole day.
+    """
 
     snapshot_date = snapshot_date or timezone.localdate()
     currency = currency.upper()
-    regions = [region.lower() for region in (regions or DEFAULT_EUROPEAN_REGIONS)]
+    region = region.lower()
 
     if RetailPriceSyncRun.objects.filter(
         provider=provider,
         snapshot_date=snapshot_date,
         currency=currency,
+        region=region,
         status=RetailPriceSyncRun.Status.COMPLETED,
     ).exists():
         raise SnapshotAlreadyExists(
             f"A completed {provider} {currency} snapshot already exists for "
-            f"{snapshot_date}; history was not overwritten."
+            f"{region} on {snapshot_date}; history was not overwritten."
         )
 
     if connector is None:
@@ -59,7 +64,8 @@ def sync_retail_prices(
         provider=provider,
         snapshot_date=snapshot_date,
         currency=currency,
-        regions=regions,
+        region=region,
+        regions=[region],
         connector_name=connector.name,
         source_endpoint=connector.endpoint,
     )
@@ -73,7 +79,7 @@ def sync_retail_prices(
 
     try:
         for page_count, page in enumerate(
-            connector.iter_pages(regions=regions, currency=currency), start=1
+            connector.iter_pages(regions=[region], currency=currency), start=1
         ):
             items = page.payload["Items"]
             raw_item_count += len(items)

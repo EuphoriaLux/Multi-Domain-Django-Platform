@@ -49,9 +49,12 @@ def test_authenticated_customer_sees_eur_european_comparison_and_change(
     second = {"Items": [azure_item("0.12000000")], "NextPageLink": None}
     sync_retail_prices(
         snapshot_date=today - timedelta(days=1),
+        region="westeurope",
         connector=FakeConnector(first),
     )
-    sync_retail_prices(snapshot_date=today, connector=FakeConnector(second))
+    sync_retail_prices(
+        snapshot_date=today, region="westeurope", connector=FakeConnector(second)
+    )
     client.force_login(regular_user)
 
     response = client.get(
@@ -97,9 +100,12 @@ def test_price_decrease_renders_without_a_redundant_sign(client, regular_user):
     second = {"Items": [azure_item("0.10000000")], "NextPageLink": None}
     sync_retail_prices(
         snapshot_date=today - timedelta(days=1),
+        region="westeurope",
         connector=FakeConnector(first),
     )
-    sync_retail_prices(snapshot_date=today, connector=FakeConnector(second))
+    sync_retail_prices(
+        snapshot_date=today, region="westeurope", connector=FakeConnector(second)
+    )
     client.force_login(regular_user)
 
     response = client.get(
@@ -130,10 +136,62 @@ def test_retail_sync_webhook_requires_token_and_invokes_command(
     assert client.post("/finops/api/sync/retail-prices/").status_code == 403
     response = client.post(
         "/finops/api/sync/retail-prices/",
+        data={"region": "westeurope"},
+        content_type="application/json",
         HTTP_X_SYNC_TOKEN="expected-token",
     )
 
     assert response.status_code == 200
+    assert response.json()["region"] == "westeurope"
     command.assert_called_once()
     assert command.call_args.args[0] == "sync_retail_prices"
     assert command.call_args.kwargs["currency"] == "EUR"
+    assert command.call_args.kwargs["regions"] == ["westeurope"]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"region": ""}, {"region": "us-east-1"}],
+    ids=["missing", "blank", "unknown"],
+)
+def test_retail_sync_webhook_rejects_a_request_without_a_valid_region(
+    client, settings, mocker, body
+):
+    """A region-less POST must fail loudly rather than fall back to all 19.
+
+    Syncing the whole catalogue in one request is what timed out every night;
+    silently accepting the old payload shape would reintroduce it.
+    """
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+    command = mocker.patch("power_up.finops.views_webhook.call_command")
+
+    response = client.post(
+        "/finops/api/sync/retail-prices/",
+        data=body,
+        content_type="application/json",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+
+    assert response.status_code == 400
+    command.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_retail_sync_regions_endpoint_requires_token_and_lists_every_region(
+    client, settings
+):
+    from power_up.finops.retail_prices.connectors.azure import (
+        DEFAULT_EUROPEAN_REGIONS,
+    )
+
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+
+    assert client.get("/finops/api/sync/retail-prices/regions/").status_code == 403
+    response = client.get(
+        "/finops/api/sync/retail-prices/regions/",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["regions"] == list(DEFAULT_EUROPEAN_REGIONS)

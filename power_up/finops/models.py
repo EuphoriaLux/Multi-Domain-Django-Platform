@@ -566,6 +566,13 @@ class RetailPriceSyncRun(models.Model):
     provider = models.CharField(max_length=50, db_index=True)
     snapshot_date = models.DateField(db_index=True)
     currency = models.CharField(max_length=3, default="EUR", db_index=True)
+    # One run captures exactly one region, so a day's snapshot is assembled from
+    # one run per region. The whole European catalogue is ~200k rows across 208
+    # pages, which cannot be fetched inside a single App Service request (the
+    # Azure load balancer caps one at ~240s on Linux).
+    region = models.CharField(max_length=50, default="", db_index=True)
+    # Retained for historical rows captured before per-region chunking; always
+    # equal to ``[region]`` for runs created since.
     regions = models.JSONField(default=list)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True
@@ -586,13 +593,14 @@ class RetailPriceSyncRun(models.Model):
         ordering = ["-snapshot_date", "-started_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["provider", "snapshot_date", "currency"],
+                fields=["provider", "snapshot_date", "currency", "region"],
                 condition=models.Q(status="completed"),
-                name="finops_one_completed_price_sync_per_day",
+                name="finops_one_completed_price_sync_per_region_day",
             )
         ]
         indexes = [
             models.Index(fields=["provider", "snapshot_date", "status"]),
+            models.Index(fields=["provider", "snapshot_date", "region"]),
         ]
 
     def save(self, *args, **kwargs):

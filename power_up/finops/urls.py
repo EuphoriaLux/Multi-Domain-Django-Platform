@@ -50,5 +50,6 @@ urlpatterns = [
     # Webhook endpoints for automated sync
     path('api/sync/', views_webhook.trigger_cost_sync, name='webhook_sync'),
     path('api/sync/retail-prices/', views_webhook.trigger_retail_price_sync, name='webhook_retail_price_sync'),
+    path('api/sync/retail-prices/regions/', views_webhook.retail_price_sync_regions, name='webhook_retail_price_sync_regions'),
     path('api/sync/status/', views_webhook.sync_status, name='webhook_status'),
 ]

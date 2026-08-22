@@ -20,9 +20,28 @@ Cost Data Import + Aggregation
 ```
 
 The same Function App also runs `retail_price_daily_sync` at 04:00 UTC. It
-calls `/finops/api/sync/retail-prices/`, which archives every paginated Azure
-Retail Prices response and appends normalized EUR observations for the default
-European regions. It does not access customer Azure subscriptions.
+archives every paginated Azure Retail Prices response and appends normalized
+EUR observations for the default European regions. It does not access customer
+Azure subscriptions.
+
+**It syncs one region per HTTP request, and this is load-bearing.** The full
+European catalogue is roughly 200,000 rows across 208 pages; no single App
+Service request can carry that, because the Azure load balancer cuts a request
+off at about 240s on Linux regardless of any client-side timeout. The original
+whole-catalogue POST therefore failed *every* night. The timer now:
+
+1. `GET`s `/finops/api/sync/retail-prices/regions/` for the region list, so the
+   Function App and Django cannot drift out of step about which regions are
+   captured;
+2. `POST`s `{"region": "<code>"}` to `/finops/api/sync/retail-prices/` once per
+   region — each is 6-16 pages and finishes well inside the ceiling;
+3. attempts every region before failing, so one bad region costs one region
+   rather than the whole day, and stops early against a wall-clock budget so a
+   slow night ends with a logged summary instead of a silent kill.
+
+A region-less POST is rejected with `400` rather than falling back to the whole
+catalogue — the old payload shape must fail loudly, not quietly reintroduce the
+timeout.
 
 ## Configuration
 
@@ -50,6 +69,11 @@ Set these environment variables in Azure Portal:
 Retail price snapshots use `0 0 4 * * *` (daily at 4:00 AM UTC). Keep
 `RETAIL_PRICE_SYNC_ENABLED=false` until the Django migration and endpoint are
 deployed and the new webhook URL is configured.
+
+Deploy order matters: **Django first, then the Function App.** Django and this
+Function App ship on separate pipelines, and the per-region endpoint is what
+the new timer calls. Deploying the Function App first means every region POST
+gets a `400` until Django catches up.
 
 ## Local Development
 

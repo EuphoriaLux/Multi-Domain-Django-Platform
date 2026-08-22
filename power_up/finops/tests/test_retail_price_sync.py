@@ -4,6 +4,8 @@ import json
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 
 from power_up.finops.models import (
     RetailPriceRawPage,
@@ -18,11 +20,11 @@ from power_up.finops.retail_prices.service import (
 )
 
 
-def azure_item(price="0.10000000"):
+def azure_item(price="0.10000000", region="westeurope"):
     return {
         "currencyCode": "EUR",
         "retailPrice": price,
-        "armRegionName": "westeurope",
+        "armRegionName": region,
         "location": "EU West",
         "effectiveStartDate": "2026-08-01T00:00:00Z",
         "meterId": "meter-1",
@@ -88,6 +90,7 @@ def test_sync_archives_raw_page_normalizes_savings_and_preserves_history():
 
     run = sync_retail_prices(
         snapshot_date=date(2026, 8, 20),
+        region="westeurope",
         connector=FakeConnector(payload),
     )
 
@@ -112,6 +115,7 @@ def test_sync_archives_raw_page_normalizes_savings_and_preserves_history():
     with pytest.raises(SnapshotAlreadyExists):
         sync_retail_prices(
             snapshot_date=date(2026, 8, 20),
+            region="westeurope",
             connector=FakeConnector(payload),
         )
     assert RetailPriceSyncRun.objects.count() == 1
@@ -122,7 +126,9 @@ def test_sync_normalizes_non_compute_catalogue_items_without_arm_sku():
     payload = {"Items": [storage_item()], "NextPageLink": None}
 
     sync_retail_prices(
-        snapshot_date=date(2026, 8, 18), connector=FakeConnector(payload)
+        snapshot_date=date(2026, 8, 18),
+        region="westeurope",
+        connector=FakeConnector(payload),
     )
 
     row = RetailPriceSnapshot.objects.get()
@@ -133,10 +139,124 @@ def test_sync_normalizes_non_compute_catalogue_items_without_arm_sku():
 
 
 @pytest.mark.django_db
+def test_each_region_gets_its_own_completed_run_on_the_same_day():
+    """A day's snapshot is assembled from one completed run per region.
+
+    The old constraint allowed a single completed run per day, which is what
+    forced the whole 208-page catalogue into one request. Chunking per region
+    only works if same-day runs for different regions can both complete.
+    """
+    today = date(2026, 8, 21)
+    west_payload = {"Items": [azure_item(region="westeurope")], "NextPageLink": None}
+    north_payload = {"Items": [azure_item(region="northeurope")], "NextPageLink": None}
+
+    west = sync_retail_prices(
+        snapshot_date=today, region="westeurope", connector=FakeConnector(west_payload)
+    )
+    north = sync_retail_prices(
+        snapshot_date=today,
+        region="northeurope",
+        connector=FakeConnector(north_payload),
+    )
+
+    assert west.status == RetailPriceSyncRun.Status.COMPLETED
+    assert north.status == RetailPriceSyncRun.Status.COMPLETED
+    assert west.region == "westeurope"
+    assert north.region == "northeurope"
+    # ``regions`` is kept in step for rows written before the region column.
+    assert west.regions == ["westeurope"]
+    assert RetailPriceSyncRun.objects.filter(snapshot_date=today).count() == 2
+
+    # ...but the same region twice in one day is still refused.
+    with pytest.raises(SnapshotAlreadyExists):
+        sync_retail_prices(
+            snapshot_date=today,
+            region="westeurope",
+            connector=FakeConnector(west_payload),
+        )
+
+
+@pytest.mark.django_db
+def test_a_failing_region_does_not_discard_the_regions_that_worked():
+    """One bad region must cost only that region, not the whole day."""
+    payload = {"Items": [azure_item()], "NextPageLink": None}
+    today = date(2026, 8, 22)
+
+    class ExplodingConnector(FakeConnector):
+        def iter_pages(self, *, regions, currency):
+            raise RuntimeError("prices.azure.com is having a bad day")
+            yield  # pragma: no cover - generator marker
+
+    sync_retail_prices(
+        snapshot_date=today, region="westeurope", connector=FakeConnector(payload)
+    )
+    with pytest.raises(RuntimeError):
+        sync_retail_prices(
+            snapshot_date=today,
+            region="northeurope",
+            connector=ExplodingConnector(payload),
+        )
+
+    assert RetailPriceSnapshot.objects.filter(snapshot_date=today).exists()
+    statuses = dict(
+        RetailPriceSyncRun.objects.filter(snapshot_date=today).values_list(
+            "region", "status"
+        )
+    )
+    assert statuses == {
+        "westeurope": RetailPriceSyncRun.Status.COMPLETED,
+        "northeurope": RetailPriceSyncRun.Status.FAILED,
+    }
+
+
+@pytest.mark.django_db
+def test_command_syncs_only_the_requested_regions(mocker):
+    """Covers the seam the webhook relies on: ``call_command(regions=[one])``.
+
+    The view passes the region through as a management-command kwarg, so a
+    regression here would silently sync all nineteen again.
+    """
+    payload = {"Items": [azure_item(region="northeurope")], "NextPageLink": None}
+    mocker.patch(
+        "power_up.finops.retail_prices.connectors.azure.AzureRetailPricesConnector",
+        return_value=FakeConnector(payload),
+    )
+
+    call_command("sync_retail_prices", regions=["northeurope"], currency="EUR")
+
+    runs = RetailPriceSyncRun.objects.all()
+    assert [run.region for run in runs] == ["northeurope"]
+    assert runs.get().status == RetailPriceSyncRun.Status.COMPLETED
+
+
+@pytest.mark.django_db
+def test_command_fails_loudly_when_a_region_fails(mocker):
+    """The webhook turns a CommandError into a 500 so the timer alerts."""
+
+    class ExplodingConnector(FakeConnector):
+        def iter_pages(self, *, regions, currency):
+            raise RuntimeError("prices.azure.com is having a bad day")
+            yield  # pragma: no cover - generator marker
+
+    mocker.patch(
+        "power_up.finops.retail_prices.connectors.azure.AzureRetailPricesConnector",
+        return_value=ExplodingConnector({}),
+    )
+
+    with pytest.raises(CommandError):
+        call_command("sync_retail_prices", regions=["westeurope"], currency="EUR")
+
+    assert RetailPriceSyncRun.objects.get().status == (
+        RetailPriceSyncRun.Status.FAILED
+    )
+
+
+@pytest.mark.django_db
 def test_completed_runs_and_raw_pages_are_immutable():
     payload = {"Items": [azure_item()], "NextPageLink": None}
     run = sync_retail_prices(
         snapshot_date=date(2026, 8, 19),
+        region="westeurope",
         connector=FakeConnector(payload),
     )
     run.error_message = "attempted rewrite"
