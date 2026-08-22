@@ -27,7 +27,7 @@ DEFAULT_LANGUAGES = ["en", "fr", "de"]
 
 def is_indexing_enabled() -> bool:
     """Check whether Google Indexing API integration is enabled."""
-    return getattr(settings, "GOOGLE_INDEXING_ENABLED", True)
+    return getattr(settings, "GOOGLE_INDEXING_ENABLED", False)
 
 
 def should_index_event(event) -> bool:
@@ -104,7 +104,9 @@ def get_google_indexing_credentials() -> Optional[Any]:
 def get_google_indexing_session() -> Optional[Any]:
     """Build an authorized HTTP session for Google Indexing API."""
     if not is_indexing_enabled():
-        logger.debug("Google Indexing API is disabled by settings.GOOGLE_INDEXING_ENABLED")
+        logger.debug(
+            "Google Indexing API is disabled by settings.GOOGLE_INDEXING_ENABLED"
+        )
         return None
 
     try:
@@ -112,7 +114,9 @@ def get_google_indexing_session() -> Optional[Any]:
 
         creds = get_google_indexing_credentials()
         if not creds:
-            logger.debug("No Google indexing credentials available. Skipping indexing ping.")
+            logger.debug(
+                "No Google indexing credentials available. Skipping indexing ping."
+            )
             return None
 
         return AuthorizedSession(creds)
@@ -260,9 +264,7 @@ def notify_event_indexing(
     )
     urls_to_ping = build_event_indexing_urls(event)
     end_time = (
-        deadline
-        if deadline is not None
-        else (time.monotonic() + max_budget_seconds)
+        deadline if deadline is not None else (time.monotonic() + max_budget_seconds)
     )
 
     results = []

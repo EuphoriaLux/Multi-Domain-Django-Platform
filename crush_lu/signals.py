@@ -13,7 +13,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -4599,23 +4599,25 @@ def delete_quiz_question_media(sender, instance, **kwargs):
 # ---------------------------------------------------------------------------
 # Google Search Indexing API real-time notifications
 # ---------------------------------------------------------------------------
-INDEXING_RELEVANT_FIELDS = frozenset({
-    "title",
-    "description",
-    "date_time",
-    "end_time",
-    "location",
-    "is_published",
-    "is_cancelled",
-    "is_private_invitation",
-    "address_street",
-    "address_number",
-    "address_town",
-    "address_postcode",
-    "canton",
-    "languages",
-    "event_type",
-})
+INDEXING_RELEVANT_FIELDS = frozenset(
+    {
+        "title",
+        "description",
+        "date_time",
+        "duration_minutes",
+        "location",
+        "is_published",
+        "is_cancelled",
+        "is_private_invitation",
+        "address_street",
+        "address_number",
+        "address_town",
+        "address_postcode",
+        "canton",
+        "languages",
+        "event_type",
+    }
+)
 
 
 @receiver(post_save, sender=MeetupEvent)
@@ -4639,7 +4641,10 @@ def trigger_google_indexing_on_event_save(
         if not fields.intersection(INDEXING_RELEVANT_FIELDS):
             return
 
-    from crush_lu.services.google_indexing import notify_event_indexing, should_index_event
+    from crush_lu.services.google_indexing import (
+        notify_event_indexing,
+        should_index_event,
+    )
 
     event_pk = instance.pk
     action = "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
@@ -4660,7 +4665,11 @@ def trigger_google_indexing_on_event_save(
 
 @receiver(post_delete, sender=MeetupEvent)
 def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
-    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED)."""
+    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED).
+
+    Coalesces URLs across the transaction so bulk deletions execute in one
+    bounded batch on commit rather than spawning N callbacks and sessions.
+    """
     urls = []
     try:
         from crush_lu.services.google_indexing import build_event_indexing_urls
@@ -4672,16 +4681,34 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
             getattr(instance, "pk", None),
         )
 
-    def _notify():
-        try:
-            from crush_lu.services.google_indexing import notify_urls_indexing
+    if not urls:
+        return
 
-            notify_urls_indexing(urls, action="URL_DELETED")
-        except Exception:
-            logger.exception(
-                "Error triggering Google indexing notification on delete for event %s",
-                getattr(instance, "pk", None),
-            )
+    # If connection has no active on_commit callbacks (e.g. fresh transaction), reset stale tracker
+    if not getattr(connection, "run_on_commit", None):
+        connection._pending_indexing_delete_urls = None
 
-    transaction.on_commit(_notify)
+    pending = getattr(connection, "_pending_indexing_delete_urls", None)
+    if pending is None:
+        pending = []
+        connection._pending_indexing_delete_urls = pending
 
+        def _flush_deletions():
+            urls_to_notify = getattr(connection, "_pending_indexing_delete_urls", [])
+            connection._pending_indexing_delete_urls = None
+            if urls_to_notify:
+                try:
+                    from crush_lu.services.google_indexing import notify_urls_indexing
+
+                    deduped = list(dict.fromkeys(urls_to_notify))
+                    notify_urls_indexing(
+                        deduped, action="URL_DELETED", max_budget_seconds=8.0
+                    )
+                except Exception:
+                    logger.exception(
+                        "Error triggering Google indexing notification on delete"
+                    )
+
+        transaction.on_commit(_flush_deletions)
+
+    pending.extend(urls)

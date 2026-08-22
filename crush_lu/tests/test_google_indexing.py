@@ -85,6 +85,18 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertIsNone(notify_url_indexing("https://crush.lu/en/events/15/"))
         self.assertEqual(notify_event_indexing(self.event), [])
         self.assertEqual(notify_events_indexing([self.event])["success_count"], 0)
+        self.assertEqual(notify_urls_indexing(["https://crush.lu/en/events/15/"]), [])
+
+    @override_settings(
+        GOOGLE_INDEXING_KEY_JSON='{"type": "service_account", "client_email": "test@crush.iam.gserviceaccount.com"}'
+    )
+    @patch("google.oauth2.service_account.Credentials.from_service_account_info")
+    def test_get_google_indexing_credentials_from_json(self, mock_from_info):
+        """Credentials load successfully from GOOGLE_INDEXING_KEY_JSON setting."""
+        mock_from_info.return_value = MagicMock()
+        creds = get_google_indexing_credentials()
+        self.assertIsNotNone(creds)
+        mock_from_info.assert_called_once()
 
     @patch("crush_lu.services.google_indexing.get_google_indexing_session")
     def test_notify_url_indexing_success(self, mock_get_session):
@@ -98,7 +110,9 @@ class GoogleIndexingServiceTests(TestCase):
         mock_session.post.return_value = mock_resp
         mock_get_session.return_value = mock_session
 
-        resp = notify_url_indexing("https://crush.lu/en/events/15/", action="URL_UPDATED", timeout=5)
+        resp = notify_url_indexing(
+            "https://crush.lu/en/events/15/", action="URL_UPDATED", timeout=5
+        )
 
         self.assertIsNotNone(resp)
         self.assertEqual(
@@ -117,7 +131,9 @@ class GoogleIndexingServiceTests(TestCase):
         mock_session.post.side_effect = Exception("Network timeout")
         mock_get_session.return_value = mock_session
 
-        resp = notify_url_indexing("https://crush.lu/en/events/15/", action="URL_UPDATED")
+        resp = notify_url_indexing(
+            "https://crush.lu/en/events/15/", action="URL_UPDATED"
+        )
         self.assertIsNone(resp)
 
     @patch("crush_lu.services.google_indexing.notify_url_indexing")
@@ -136,12 +152,16 @@ class GoogleIndexingServiceTests(TestCase):
 
     @patch("crush_lu.services.google_indexing.notify_url_indexing")
     @patch("crush_lu.services.google_indexing.get_google_indexing_session")
-    def test_notify_events_indexing_batch_budget(self, mock_get_session, mock_notify_url):
+    def test_notify_events_indexing_batch_budget(
+        self, mock_get_session, mock_notify_url
+    ):
         """notify_events_indexing batches multiple events within a single session and deadline."""
         mock_get_session.return_value = MagicMock()
         mock_notify_url.return_value = {"status": "ok"}
 
-        res = notify_events_indexing([self.event], action="URL_UPDATED", max_budget_seconds=5.0)
+        res = notify_events_indexing(
+            [self.event], action="URL_UPDATED", max_budget_seconds=5.0
+        )
 
         self.assertEqual(res["success_count"], 3)
         self.assertEqual(res["total_expected"], 3)
@@ -204,7 +224,6 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
     @patch("crush_lu.services.google_indexing.notify_urls_indexing")
     def test_signal_fires_on_delete_commit(self, mock_notify_urls):
         """Deleting an event triggers notify_urls_indexing with URL_DELETED on commit."""
-        event_id = self.event.id
         with self.captureOnCommitCallbacks(execute=True):
             self.event.delete()
 
@@ -260,6 +279,44 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.admin.ping_google_indexing(request, queryset)
 
         mock_notify_events.assert_called_once()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_fires_on_duration_minutes_save(self, mock_notify_event):
+        """Saving with update_fields=['duration_minutes'] triggers indexing update."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.duration_minutes = 150
+            self.event.save(update_fields=["duration_minutes"])
+
+        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_urls_indexing")
+    def test_signal_coalesces_on_bulk_delete(self, mock_notify_urls):
+        """Bulk deleting multiple events coalesces all URLs into a single batch notification on commit."""
+        event2 = MeetupEvent.objects.create(
+            title="Second Event",
+            description="Testing bulk delete.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=4),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=2),
+            is_published=True,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            MeetupEvent.objects.filter(pk__in=[self.event.pk, event2.pk]).delete()
+
+        mock_notify_urls.assert_called_once()
+        urls_called = mock_notify_urls.call_args[0][0]
+        self.assertEqual(len(urls_called), 6)  # 3 URLs per event * 2 events
+        self.assertEqual(mock_notify_urls.call_args[1]["action"], "URL_DELETED")
+
+    @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
+    def test_management_command_single_event_eligibility(self, mock_notify_event):
+        """Single event ping command sends URL_DELETED for unpublished events unless --delete is passed."""
+        self.event.is_published = False
+        self.event.save()
+
+        call_command("ping_google_indexing", "--event", str(self.event.id))
+        mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""

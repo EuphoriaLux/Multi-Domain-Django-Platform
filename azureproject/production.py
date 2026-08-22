@@ -16,7 +16,7 @@ DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
 from django.http import request as django_request
 
 from .settings import *  # noqa
-from .settings import BASE_DIR, channel_layer_hosts
+from .settings import BASE_DIR, _env_bool, channel_layer_hosts
 
 _original_validate_host = django_request.validate_host
 
@@ -683,4 +683,3 @@ SILENCED_SYSTEM_CHECKS = [
 GOOGLE_INDEXING_ENABLED = _env_bool(
     "GOOGLE_INDEXING_ENABLED", DJANGO_ENV == "production"
 )
-

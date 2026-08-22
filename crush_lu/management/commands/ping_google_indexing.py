@@ -16,6 +16,7 @@ from crush_lu.services.google_indexing import (
     build_event_indexing_urls,
     notify_event_indexing,
     notify_url_indexing,
+    should_index_event,
 )
 
 
@@ -72,10 +73,14 @@ class Command(BaseCommand):
 
             res = notify_url_indexing(explicit_url, action=action)
             if res:
-                self.stdout.write(self.style.SUCCESS(f"✅ Notified Googlebot for {explicit_url}"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"✅ Notified Googlebot for {explicit_url}")
+                )
             else:
                 self.stdout.write(
-                    self.style.WARNING(f"⚠️ Notification skipped or failed for {explicit_url}")
+                    self.style.WARNING(
+                        f"⚠️ Notification skipped or failed for {explicit_url}"
+                    )
                 )
             return
 
@@ -83,7 +88,9 @@ class Command(BaseCommand):
             try:
                 event = MeetupEvent.objects.get(pk=event_id)
             except MeetupEvent.DoesNotExist:
-                self.stdout.write(self.style.ERROR(f"Event with ID {event_id} not found."))
+                self.stdout.write(
+                    self.style.ERROR(f"Event with ID {event_id} not found.")
+                )
                 return
 
             urls = build_event_indexing_urls(event)
@@ -95,10 +102,14 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS("Dry-run completed."))
                 return
 
+            # Respect event eligibility (published, active, non-private) unless explicit --delete
+            if not options["delete"]:
+                action = "URL_UPDATED" if should_index_event(event) else "URL_DELETED"
+
             results = notify_event_indexing(event, action=action)
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"✅ Successfully sent {len(results)} notification(s) to Googlebot."
+                    f"✅ Successfully sent {len(results)} notification(s) ({action}) to Googlebot."
                 )
             )
             return
@@ -119,7 +130,9 @@ class Command(BaseCommand):
                     self.stdout.write(f"\n[{ev.id}] {ev.title}")
                     for u in build_event_indexing_urls(ev):
                         self.stdout.write(f"  - {u}")
-                self.stdout.write(self.style.SUCCESS(f"\nDry-run completed for {count} event(s)."))
+                self.stdout.write(
+                    self.style.SUCCESS(f"\nDry-run completed for {count} event(s).")
+                )
                 return
 
             total_notified = 0
