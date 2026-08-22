@@ -13,6 +13,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
+from django.core.signals import request_finished
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
@@ -4640,6 +4641,16 @@ INDEXING_RELEVANT_FIELDS = frozenset(
 )
 
 
+_indexing_local = threading.local()
+
+
+def _get_indexing_state():
+    if not hasattr(_indexing_local, "pending_saves"):
+        _indexing_local.pending_saves = {}
+        _indexing_local.pending_deletes = set()
+    return _indexing_local
+
+
 @receiver(post_save, sender=MeetupEvent)
 def trigger_google_indexing_on_event_save(
     sender, instance, created, raw=False, update_fields=None, **kwargs
@@ -4650,7 +4661,8 @@ def trigger_google_indexing_on_event_save(
     - Unpublished / drafts / cancelled / private-invitation events -> URL_DELETED
 
     Deferred to transaction.on_commit so the database commit completes before
-    Googlebot receives the crawl notification.
+    Googlebot receives the crawl notification. Coalesces multiple event saves
+    within the same transaction into a single bounded post-commit run.
     """
     if raw:
         return
@@ -4661,31 +4673,55 @@ def trigger_google_indexing_on_event_save(
         if not fields.intersection(INDEXING_RELEVANT_FIELDS):
             return
 
-    from crush_lu.services.google_indexing import (
-        notify_event_indexing,
-        should_index_event,
-    )
+    from crush_lu.services.google_indexing import should_index_event
 
-    event_pk = instance.pk
+    state = _get_indexing_state()
     action = "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
+    state.pending_saves[instance.pk] = action
 
-    def _notify():
+    def _notify_saves():
+        state = _get_indexing_state()
+        items = dict(state.pending_saves)
+        state.pending_saves.clear()
+
+        if not items:
+            return
+
         try:
-            event = MeetupEvent.objects.filter(pk=event_pk).first()
-            if event:
-                notify_event_indexing(event, action=action)
-        except Exception:
-            logger.exception(
-                "Error triggering Google indexing notification on save for event %s",
-                event_pk,
+            from crush_lu.services.google_indexing import (
+                get_google_indexing_session,
+                notify_event_indexing,
             )
 
-    transaction.on_commit(_notify)
+            events = list(MeetupEvent.objects.filter(pk__in=list(items.keys())))
+            events_by_id = {ev.pk: ev for ev in events}
+            sess = get_google_indexing_session()
+
+            deadline = time.monotonic() + 8.0
+            for pk, act in items.items():
+                if time.monotonic() > deadline:
+                    logger.warning(
+                        "Google Indexing save budget exhausted. Skipping remaining events."
+                    )
+                    break
+                event = events_by_id.get(pk)
+                if event:
+                    notify_event_indexing(
+                        event, action=act, session=sess, deadline=deadline
+                    )
+        except Exception:
+            logger.exception("Error triggering Google indexing notification on save")
+
+    transaction.on_commit(_notify_saves)
 
 
 @receiver(post_delete, sender=MeetupEvent)
 def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
-    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED)."""
+    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED).
+
+    Coalesces multiple event deletions within a single transaction into one
+    batch callback bounded by a single wall-clock budget (max 5.0s).
+    """
     urls = []
     try:
         from crush_lu.services.google_indexing import build_event_indexing_urls
@@ -4700,15 +4736,32 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
     if not urls:
         return
 
-    def _notify():
+    state = _get_indexing_state()
+    state.pending_deletes.update(urls)
+
+    def _notify_deletes():
+        state = _get_indexing_state()
+        urls_to_notify = list(state.pending_deletes)
+        state.pending_deletes.clear()
+
+        if not urls_to_notify:
+            return
+
         try:
             from crush_lu.services.google_indexing import notify_urls_indexing
 
-            notify_urls_indexing(urls, action="URL_DELETED", max_budget_seconds=5.0)
-        except Exception:
-            logger.exception(
-                "Error triggering Google indexing notification on delete for event %s",
-                getattr(instance, "pk", None),
+            notify_urls_indexing(
+                urls_to_notify, action="URL_DELETED", max_budget_seconds=5.0
             )
+        except Exception:
+            logger.exception("Error triggering Google indexing notification on delete")
 
-    transaction.on_commit(_notify)
+    transaction.on_commit(_notify_deletes)
+
+
+@receiver(request_finished)
+def cleanup_indexing_thread_state(**kwargs):
+    """Clean up uncommitted thread-local indexing state on request teardown."""
+    state = _get_indexing_state()
+    state.pending_saves.clear()
+    state.pending_deletes.clear()

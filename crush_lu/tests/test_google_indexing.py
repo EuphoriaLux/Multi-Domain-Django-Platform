@@ -220,7 +220,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             self.event.title = "Updated Speed Dating Title"
             self.event.save()
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_skips_on_wallet_class_nested_save(self, mock_notify_event):
@@ -237,7 +239,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             self.event.is_published = False
             self.event.save()
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_DELETED")
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_fires_url_deleted_for_private_invitation(self, mock_notify_event):
@@ -246,7 +250,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             self.event.is_private_invitation = True
             self.event.save()
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_DELETED")
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_DELETED")
 
     @patch("crush_lu.services.google_indexing.notify_urls_indexing")
     def test_signal_fires_on_delete_commit(self, mock_notify_urls):
@@ -314,7 +320,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             self.event.duration_minutes = 150
             self.event.save(update_fields=["duration_minutes"])
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_fires_on_expanded_fields_save(self, mock_notify_event):
@@ -323,7 +331,51 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             self.event.registration_fee = 35.00
             self.event.save(update_fields=["registration_fee"])
 
-        mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_urls_indexing")
+    def test_bulk_delete_coalesces_into_single_budgeted_callback(
+        self, mock_notify_urls
+    ):
+        """Bulk deleting multiple events inside one transaction coalesces into a single notify_urls_indexing call."""
+        event2 = MeetupEvent.objects.create(
+            title="Second Event",
+            description="Second Event Description",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=10),
+            registration_deadline=timezone.now() + timedelta(days=9),
+            location="Luxembourg City",
+            is_published=True,
+        )
+
+        event1_id = self.event.id
+        event2_id = event2.id
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.delete()
+            event2.delete()
+
+        mock_notify_urls.assert_called_once()
+        urls_passed = mock_notify_urls.call_args[0][0]
+        self.assertEqual(mock_notify_urls.call_args[1]["action"], "URL_DELETED")
+        self.assertEqual(mock_notify_urls.call_args[1]["max_budget_seconds"], 5.0)
+        self.assertTrue(any(f"/events/{event1_id}/" in u for u in urls_passed))
+        self.assertTrue(any(f"/events/{event2_id}/" in u for u in urls_passed))
+
+    def test_cleanup_indexing_thread_state_on_request_finished(self):
+        """cleanup_indexing_thread_state clears pending saves and deletes from thread-local state."""
+        from crush_lu.signals import _get_indexing_state, cleanup_indexing_thread_state
+
+        state = _get_indexing_state()
+        state.pending_saves[999] = "URL_UPDATED"
+        state.pending_deletes.add("https://crush.lu/en/events/999/")
+
+        cleanup_indexing_thread_state()
+
+        self.assertEqual(len(state.pending_saves), 0)
+        self.assertEqual(len(state.pending_deletes), 0)
 
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):
