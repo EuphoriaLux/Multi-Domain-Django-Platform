@@ -20,6 +20,7 @@ from crush_lu.connect_phase import candidate_access_open, cycle_access_open
 from crush_lu.decorators import crush_login_required
 from crush_lu.models.crush_connect_cycle import (
     ConnectCycleCard,
+    ConnectCycleFeedback,
     ConnectWeeklyRequest,
     ConnectWeekSession,
 )
@@ -27,9 +28,11 @@ from crush_lu.services.connect_cycle import (
     CYCLE_LENGTH_DAYS,
     get_or_create_active_session,
     get_or_create_todays_cards,
+    get_pending_feedback_session,
     get_pending_inbox,
     get_review_cards,
     record_card_answer,
+    record_cycle_feedback,
     respond_to_weekly_request,
     send_weekly_request,
     sync_request_state,
@@ -111,6 +114,13 @@ def connect_week_home(request):
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
         "has_non_closed_chat": user_has_non_closed_chat(user),
+        # The cycle that just ENDED, if it is still owed a verdict. This page
+        # is the only reliable place to ask: a completed session has no page of
+        # its own (the review closes with it) and `get_or_create_active_session`
+        # above has already started the member's next week.
+        "feedback_session": get_pending_feedback_session(user),
+        "feedback_sentiments": ConnectCycleFeedback.Sentiment.choices,
+        "feedback_match_qualities": ConnectCycleFeedback.MatchQuality.choices,
     }
     return render(request, "crush_lu/crush_connect/week_home.html", context)
 
@@ -345,3 +355,57 @@ def connect_week_request_respond(request, request_id: int):
     else:
         messages.info(request, _("This request is no longer available."))
     return redirect("crush_lu:connect_week_inbox")
+
+
+@crush_login_required
+def connect_week_feedback(request):
+    """Record the member's verdict on their last completed cycle (POST only).
+
+    ``action=dismiss`` stores a dismissal so the prompt stops asking (see
+    ``get_pending_feedback_session`` for why absence cannot mean "no"); any
+    other action stores the answers.
+
+    The session is re-resolved through ``get_pending_feedback_session`` rather
+    than trusted from a posted id, so this endpoint can only ever write
+    feedback for a cycle of the poster's own that is genuinely awaiting an
+    answer — a stale form, a replayed POST, or a hand-crafted session id all
+    land on "nothing pending" instead of writing a row.
+    """
+    if request.method != "POST":
+        return redirect("crush_lu:connect_week_home")
+
+    blocker = _connect_week_access_blocker(request.user)
+    if blocker is not None:
+        return blocker
+
+    session = get_pending_feedback_session(request.user)
+    if session is None:
+        # Already answered, dismissed, or outside the window — say nothing and
+        # send them back; a second tab that submitted first is not an error.
+        return redirect("crush_lu:connect_week_home")
+
+    if request.POST.get("action") == "dismiss":
+        record_cycle_feedback(session, dismissed=True)
+        return redirect("crush_lu:connect_week_home")
+
+    sentiment = request.POST.get("sentiment", "")
+    if sentiment not in {c.value for c in ConnectCycleFeedback.Sentiment}:
+        messages.error(request, _("Please tell us how the week went."))
+        return redirect("crush_lu:connect_week_home")
+
+    # The second question is optional, so a junk value costs the member that
+    # one answer rather than their whole submission. Validated against its own
+    # choices even though the values currently match Sentiment's — the two
+    # scales are separate questions and may diverge.
+    match_quality = request.POST.get("match_quality", "")
+    if match_quality not in {c.value for c in ConnectCycleFeedback.MatchQuality}:
+        match_quality = ""
+
+    record_cycle_feedback(
+        session,
+        sentiment=sentiment,
+        match_quality=match_quality,
+        comment=request.POST.get("comment", ""),
+    )
+    messages.success(request, _("Thank you — that helps us shape the next week."))
+    return redirect("crush_lu:connect_week_home")

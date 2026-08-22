@@ -196,6 +196,8 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
         "joined_at",
         "notification_preference",
         "is_eligible",
+        "beta_invite_wave",
+        "beta_invited_at",
         "selected_as_tester",
         "selected_at",
         "payment_confirmed",
@@ -207,10 +209,21 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
         "payment_confirmed",
         "joined_at",
         "notification_preference",
+        "beta_invite_wave",
     ]
     search_fields = ["user__email", "user__first_name", "user__last_name", "user__username"]
     raw_id_fields = ["user", "confirmed_by"]
-    readonly_fields = ["joined_at", "selected_at", "payment_date", "confirmed_by"]
+    readonly_fields = [
+        "joined_at",
+        "selected_at",
+        "payment_date",
+        "confirmed_by",
+        # Written only by send_connect_beta_invites, and only after an email
+        # actually left. Editable here, a cleared timestamp would silently
+        # re-mail the member on the next run.
+        "beta_invited_at",
+        "beta_invite_wave",
+    ]
     actions = ["select_as_tester", "confirm_payment"]
 
     def is_eligible(self, obj):
@@ -596,3 +609,45 @@ class ConnectReportAdmin(admin.ModelAdmin):
     raw_id_fields = ["reporter", "reported_user", "reviewed_by"]
     readonly_fields = ["created_at"]
     date_hierarchy = "created_at"
+
+
+class ConnectCycleFeedbackAdmin(admin.ModelAdmin):
+    """Read the beta's post-cycle verdicts (Task 13.4).
+
+    Fully read-only: every field is written by the member through
+    ``connect_week_feedback``, and an editable survey answer is no longer
+    survey data. ``dismissed`` rows are kept in the list on purpose — the
+    dismissal rate is itself a signal about the prompt, and hiding them would
+    make the answered rows look like the whole population.
+    """
+
+    list_display = [
+        "user",
+        "session",
+        "sentiment",
+        "match_quality",
+        "dismissed",
+        "has_comment",
+        "created_at",
+    ]
+    list_select_related = ["user", "session"]
+    list_filter = ["sentiment", "match_quality", "dismissed", "created_at"]
+    search_fields = ["user__username", "user__email", "comment"]
+    raw_id_fields = ["session", "user"]
+    readonly_fields = [
+        "session",
+        "user",
+        "sentiment",
+        "match_quality",
+        "comment",
+        "dismissed",
+        "created_at",
+    ]
+    date_hierarchy = "created_at"
+
+    @admin.display(boolean=True, description=_("Comment"))
+    def has_comment(self, obj):
+        return bool(obj.comment)
+
+    def has_add_permission(self, request):
+        return False

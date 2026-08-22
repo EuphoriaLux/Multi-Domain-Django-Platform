@@ -243,6 +243,14 @@ urlpatterns = [
         views_connect_cycle.connect_week_request_respond,
         name='connect_week_request_respond',
     ),
+    # Post-cycle feedback: the member's verdict on the week that just ended,
+    # or their dismissal of the prompt. Takes no session id — the view
+    # re-resolves the pending cycle itself (views_connect_cycle.py).
+    path(
+        'crush-connect/week/feedback/',
+        views_connect_cycle.connect_week_feedback,
+        name='connect_week_feedback',
+    ),
     # Connect Cycle temp chat: send/list messages, venue picker + coffee-date
     # plan, post-meeting confirmation loop, 1-click block. See
     # views_connect_chat.py. Opened by connect_week_request_respond's accept

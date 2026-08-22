@@ -513,3 +513,96 @@ class ConnectReport(models.Model):
 
     def __str__(self):
         return f"Report #{self.pk}: {self.reporter.username} -> {self.reported_user.username} ({self.status})"
+
+
+class ConnectCycleFeedback(models.Model):
+    """One member's verdict on one finished Connect Week (Task 13.4).
+
+    The beta's only structured read on whether the 7-day rhythm works. Kept as
+    a ``OneToOne`` on the session rather than a free-standing survey row so the
+    prompt is answerable exactly once per cycle and can never be double-counted
+    by a resubmitted form.
+
+    ``dismissed`` is why this row exists even when the member says nothing.
+    ``connect_week_home`` opens a *new* session the moment the old one
+    completes, so there is no page that naturally stops asking — without a
+    recorded "no thanks" the prompt would follow the member into every
+    subsequent cycle. A dismissal is a real answer about the survey, not a
+    missing answer about the week, so it is stored, not inferred from absence.
+
+    A submitted row keeps ``dismissed = False``: the two states are exclusive
+    and ``was_answered`` reads the sentiment, so an accidental double-POST that
+    dismissed after submitting could not erase the verdict.
+    """
+
+    class Sentiment(models.TextChoices):
+        GOOD = "good", _("Good week")
+        MIXED = "mixed", _("Mixed")
+        POOR = "poor", _("Not for me")
+
+    class MatchQuality(models.TextChoices):
+        """Same stored values as ``Sentiment``, different labels.
+
+        The two questions share a scale but not a wording: "Good week" is not
+        an answer to "did the daily profiles feel like a fit?". Keeping the
+        values identical means the pair can still be compared and charted
+        directly; only what the member reads differs.
+        """
+
+        GOOD = "good", _("Good fit")
+        MIXED = "mixed", _("Mixed")
+        POOR = "poor", _("Not really")
+
+    session = models.OneToOneField(
+        ConnectWeekSession,
+        on_delete=models.CASCADE,
+        related_name="feedback",
+    )
+    # Denormalised from ``session.user`` so per-member feedback history and the
+    # admin changelist need no join; the view always writes ``session.user``.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_cycle_feedback",
+    )
+    sentiment = models.CharField(
+        max_length=10,
+        choices=Sentiment.choices,
+        blank=True,
+        db_index=True,
+        help_text=_("Overall verdict on the 7-day cycle (blank when dismissed)"),
+    )
+    match_quality = models.CharField(
+        max_length=10,
+        choices=MatchQuality.choices,
+        blank=True,
+        help_text=_("Whether the three daily cards felt like a fit"),
+    )
+    comment = models.TextField(
+        max_length=1000,
+        blank=True,
+        help_text=_("Optional free-text note from the member"),
+    )
+    dismissed = models.BooleanField(
+        default=False,
+        help_text=_("Member closed the prompt without answering; never ask again"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Connect Cycle Feedback")
+        verbose_name_plural = _("Connect Cycle Feedback")
+
+    def __str__(self):
+        if self.dismissed:
+            return f"Feedback (dismissed): {self.user.username} - Cycle #{self.session_id}"
+        return f"Feedback ({self.sentiment or 'blank'}): {self.user.username} - Cycle #{self.session_id}"
+
+    @property
+    def was_answered(self) -> bool:
+        """True when the member actually gave a verdict, as opposed to
+        dismissing the prompt. Reads ``sentiment`` rather than ``not
+        dismissed`` so a stray dismissal POST landing after a submit cannot
+        turn a real answer into a non-answer."""
+        return bool(self.sentiment)

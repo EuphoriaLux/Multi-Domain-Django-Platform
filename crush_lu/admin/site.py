@@ -194,6 +194,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'connectcoffeedate': {'order': 18, 'icon': '☕', 'group': 'Crush Connect'},
             'connectpairexclusion': {'order': 19, 'icon': '🙅', 'group': 'Crush Connect'},  # 1-click block
             'connectreport': {'order': 20, 'icon': '🚨', 'group': 'Crush Connect'},  # coach-escalation report
+            'connectcyclefeedback': {'order': 21, 'icon': '🗣️', 'group': 'Crush Connect'},  # post-cycle verdict (Task 13.4)
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
