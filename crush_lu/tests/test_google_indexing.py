@@ -289,26 +289,6 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         mock_notify_event.assert_called_once_with(self.event, action="URL_UPDATED")
 
-    @patch("crush_lu.services.google_indexing.notify_urls_indexing")
-    def test_signal_coalesces_on_bulk_delete(self, mock_notify_urls):
-        """Bulk deleting multiple events coalesces all URLs into a single batch notification on commit."""
-        event2 = MeetupEvent.objects.create(
-            title="Second Event",
-            description="Testing bulk delete.",
-            event_type="speed_dating",
-            date_time=timezone.now() + timedelta(days=4),
-            location="Luxembourg City",
-            registration_deadline=timezone.now() + timedelta(days=2),
-            is_published=True,
-        )
-        with self.captureOnCommitCallbacks(execute=True):
-            MeetupEvent.objects.filter(pk__in=[self.event.pk, event2.pk]).delete()
-
-        mock_notify_urls.assert_called_once()
-        urls_called = mock_notify_urls.call_args[0][0]
-        self.assertEqual(len(urls_called), 6)  # 3 URLs per event * 2 events
-        self.assertEqual(mock_notify_urls.call_args[1]["action"], "URL_DELETED")
-
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):
         """Single event ping command sends URL_DELETED for unpublished events unless --delete is passed."""

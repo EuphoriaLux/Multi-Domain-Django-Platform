@@ -4665,11 +4665,7 @@ def trigger_google_indexing_on_event_save(
 
 @receiver(post_delete, sender=MeetupEvent)
 def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
-    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED).
-
-    Coalesces URLs across the transaction so bulk deletions execute in one
-    bounded batch on commit rather than spawning N callbacks and sessions.
-    """
+    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED)."""
     urls = []
     try:
         from crush_lu.services.google_indexing import build_event_indexing_urls
@@ -4684,31 +4680,15 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
     if not urls:
         return
 
-    # If connection has no active on_commit callbacks (e.g. fresh transaction), reset stale tracker
-    if not getattr(connection, "run_on_commit", None):
-        connection._pending_indexing_delete_urls = None
+    def _notify():
+        try:
+            from crush_lu.services.google_indexing import notify_urls_indexing
 
-    pending = getattr(connection, "_pending_indexing_delete_urls", None)
-    if pending is None:
-        pending = []
-        connection._pending_indexing_delete_urls = pending
+            notify_urls_indexing(urls, action="URL_DELETED", max_budget_seconds=5.0)
+        except Exception:
+            logger.exception(
+                "Error triggering Google indexing notification on delete for event %s",
+                getattr(instance, "pk", None),
+            )
 
-        def _flush_deletions():
-            urls_to_notify = getattr(connection, "_pending_indexing_delete_urls", [])
-            connection._pending_indexing_delete_urls = None
-            if urls_to_notify:
-                try:
-                    from crush_lu.services.google_indexing import notify_urls_indexing
-
-                    deduped = list(dict.fromkeys(urls_to_notify))
-                    notify_urls_indexing(
-                        deduped, action="URL_DELETED", max_budget_seconds=8.0
-                    )
-                except Exception:
-                    logger.exception(
-                        "Error triggering Google indexing notification on delete"
-                    )
-
-        transaction.on_commit(_flush_deletions)
-
-    pending.extend(urls)
+    transaction.on_commit(_notify)
