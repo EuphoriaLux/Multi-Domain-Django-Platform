@@ -169,12 +169,18 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     }
 
     # Ask Django which regions to walk rather than duplicating the list here;
-    # a stale local copy would silently stop capturing a region.
+    # a stale local copy would silently stop capturing a region. The same call
+    # pins the snapshot date for the whole invocation: each region is a
+    # separate request, so without a fixed date a walk that straddled local
+    # midnight would file its regions under two dates and complete neither.
+    # Django supplies it so it cannot drift from this side's clock or timezone.
     regions_url = webhook_url.rstrip("/") + "/regions/"
     try:
         regions_response = requests.get(regions_url, headers=headers, timeout=30)
         regions_response.raise_for_status()
-        regions = regions_response.json()["regions"]
+        plan = regions_response.json()
+        regions = plan["regions"]
+        snapshot_date = plan.get("snapshot_date")
     except Exception as e:
         logging.error(
             f"[{timestamp}] Could not fetch the region list from {regions_url}: {e}"
@@ -184,7 +190,10 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     if not regions:
         raise RuntimeError("The retail price endpoint returned an empty region list")
 
-    logging.info(f"[{timestamp}] Syncing {len(regions)} region(s) one at a time")
+    logging.info(
+        f"[{timestamp}] Syncing {len(regions)} region(s) one at a time "
+        f"for snapshot date {snapshot_date or 'unset (server default)'}"
+    )
 
     succeeded: list[str] = []
     attempted: list[str] = []
@@ -206,11 +215,14 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
             break
 
         attempted.append(region)
+        payload = {"region": region}
+        if snapshot_date:
+            payload["snapshot_date"] = snapshot_date
         try:
             response = requests.post(
                 webhook_url,
                 headers=headers,
-                json={"region": region},
+                json=payload,
                 timeout=min(PER_REGION_TIMEOUT, max(remaining, 1)),
             )
             response.raise_for_status()

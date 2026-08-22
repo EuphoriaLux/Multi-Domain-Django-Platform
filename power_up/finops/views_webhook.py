@@ -11,6 +11,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.core.management import call_command
+from django.utils import timezone
+from datetime import date
 import json
 import os
 import io
@@ -80,10 +82,17 @@ def trigger_cost_sync(request):
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def retail_price_sync_regions(request):
-    """List the regions a caller must walk to assemble one day's snapshot.
+    """Open one day's snapshot: the regions to walk, and the date they belong to.
 
     The scheduler fetches this instead of hard-coding the list, so the Function
     App and Django cannot silently disagree about which regions get captured.
+
+    The date is handed out here rather than computed per request because every
+    region arrives as a separate call: letting each one evaluate
+    ``timezone.localdate()`` again would split a single invocation across two
+    snapshot dates if it straddled local midnight — which a past-due timer can
+    do — leaving neither date holding a complete catalogue. Django owns the
+    value so it cannot drift from the scheduler's own clock or timezone.
     """
     denied = _reject_invalid_sync_token(request)
     if denied is not None:
@@ -91,7 +100,13 @@ def retail_price_sync_regions(request):
 
     from .retail_prices.connectors.azure import DEFAULT_EUROPEAN_REGIONS
 
-    return JsonResponse({"success": True, "regions": list(DEFAULT_EUROPEAN_REGIONS)})
+    return JsonResponse(
+        {
+            "success": True,
+            "regions": list(DEFAULT_EUROPEAN_REGIONS),
+            "snapshot_date": timezone.localdate().isoformat(),
+        }
+    )
 
 
 @csrf_exempt
@@ -138,6 +153,22 @@ def trigger_retail_price_sync(request):
             status=400,
         )
 
+    # Pinned by the caller so every region of one invocation lands on the same
+    # date even if the walk straddles local midnight. Omitting it still works
+    # and falls back to today, which is what a manual one-off wants.
+    snapshot_date = (body.get("snapshot_date") or "").strip()
+    if snapshot_date:
+        try:
+            date.fromisoformat(snapshot_date)
+        except ValueError:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "snapshot_date must use YYYY-MM-DD",
+                },
+                status=400,
+            )
+
     try:
         output_stream = io.StringIO()
         error_stream = io.StringIO()
@@ -145,6 +176,7 @@ def trigger_retail_price_sync(request):
             "sync_retail_prices",
             currency="EUR",
             regions=[region],
+            snapshot_date=snapshot_date or None,
             stdout=output_stream,
             stderr=error_stream,
         )

@@ -252,6 +252,46 @@ def test_command_fails_loudly_when_a_region_fails(mocker):
 
 
 @pytest.mark.django_db
+def test_reversing_the_region_migration_is_refused_once_regions_exist():
+    """The reverse re-adds a constraint the per-region data would violate.
+
+    Better to refuse up front with the offending days named than to die on the
+    final operation with the migration half-applied.
+    """
+    from importlib import import_module
+
+    from django.apps import apps as global_apps
+    from django.db.migrations.exceptions import IrreversibleError
+
+    guard = import_module(
+        "power_up.finops.migrations.0009_retailpricesyncrun_region"
+    )._refuse_reverse_once_regions_exist
+
+    payload = {"Items": [azure_item(region="westeurope")], "NextPageLink": None}
+    today = date(2026, 8, 23)
+
+    # A single region a day is still reversible.
+    sync_retail_prices(
+        snapshot_date=today, region="westeurope", connector=FakeConnector(payload)
+    )
+    guard(global_apps, None)
+
+    # A second region for the same day is not.
+    sync_retail_prices(
+        snapshot_date=today,
+        region="northeurope",
+        connector=FakeConnector(
+            {"Items": [azure_item(region="northeurope")], "NextPageLink": None}
+        ),
+    )
+    with pytest.raises(IrreversibleError) as excinfo:
+        guard(global_apps, None)
+
+    assert "2026-08-23" in str(excinfo.value)
+    assert "2 runs" in str(excinfo.value)
+
+
+@pytest.mark.django_db
 def test_completed_runs_and_raw_pages_are_immutable():
     payload = {"Items": [azure_item()], "NextPageLink": None}
     run = sync_retail_prices(

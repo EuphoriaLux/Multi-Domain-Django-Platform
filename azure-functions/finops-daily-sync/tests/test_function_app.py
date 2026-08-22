@@ -82,7 +82,14 @@ def transport(timer_app, monkeypatch):
 
     def fake_get(url, **kwargs):
         calls.region_list_url = url
-        return FakeResponse(200, {"success": True, "regions": list(REGIONS)})
+        return FakeResponse(
+            200,
+            {
+                "success": True,
+                "regions": list(REGIONS),
+                "snapshot_date": "2026-08-21",
+            },
+        )
 
     def fake_post(url, **kwargs):
         calls.urls.append(url)
@@ -107,7 +114,36 @@ def test_posts_each_region_separately_to_the_documented_urls(timer_app, transpor
     assert transport.region_list_url == WEBHOOK.rstrip("/") + "/regions/"
     assert transport.posted == REGIONS
     assert transport.urls == [WEBHOOK] * len(REGIONS)
-    assert transport.bodies == [{"region": region} for region in REGIONS]
+    assert transport.bodies == [
+        {"region": region, "snapshot_date": "2026-08-21"} for region in REGIONS
+    ]
+
+
+def test_every_region_of_one_invocation_shares_the_same_snapshot_date(
+    timer_app, transport
+):
+    """A walk that straddles local midnight must not split across two dates.
+
+    The date is fixed once from the region-list response rather than being
+    re-derived per request, so a past-due invocation cannot file half its
+    regions under yesterday and half under today.
+    """
+    run(timer_app)
+
+    dates = {body["snapshot_date"] for body in transport.bodies}
+    assert dates == {"2026-08-21"}
+
+
+def test_a_server_that_omits_the_date_falls_back_to_its_own_default(
+    timer_app, transport
+):
+    transport.set_get(
+        lambda url, **kwargs: FakeResponse(200, {"regions": ["westeurope"]})
+    )
+
+    run(timer_app)
+
+    assert transport.bodies == [{"region": "westeurope"}]
 
 
 def test_one_failing_region_does_not_stop_the_others(timer_app, transport):

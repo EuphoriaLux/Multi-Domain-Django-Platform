@@ -195,3 +195,50 @@ def test_retail_sync_regions_endpoint_requires_token_and_lists_every_region(
 
     assert response.status_code == 200
     assert response.json()["regions"] == list(DEFAULT_EUROPEAN_REGIONS)
+    # Handed out once so every region of an invocation shares a date.
+    assert response.json()["snapshot_date"] == timezone.localdate().isoformat()
+
+
+@pytest.mark.django_db
+def test_retail_sync_webhook_pins_the_snapshot_date_it_is_given(
+    client, settings, mocker
+):
+    """Each region arrives as its own request, so the date must be caller-pinned.
+
+    Left to itself every call would re-evaluate ``localdate()``, and a walk
+    straddling local midnight would file its regions under two dates and
+    complete neither.
+    """
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+    command = mocker.patch("power_up.finops.views_webhook.call_command")
+
+    response = client.post(
+        "/finops/api/sync/retail-prices/",
+        data={"region": "westeurope", "snapshot_date": "2026-08-21"},
+        content_type="application/json",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+
+    assert response.status_code == 200
+    assert command.call_args.kwargs["snapshot_date"] == "2026-08-21"
+
+    # Omitting it is fine for a manual one-off: the command falls back to today.
+    command.reset_mock()
+    client.post(
+        "/finops/api/sync/retail-prices/",
+        data={"region": "westeurope"},
+        content_type="application/json",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+    assert command.call_args.kwargs["snapshot_date"] is None
+
+    # A malformed date is refused rather than silently ignored.
+    command.reset_mock()
+    bad = client.post(
+        "/finops/api/sync/retail-prices/",
+        data={"region": "westeurope", "snapshot_date": "21-08-2026"},
+        content_type="application/json",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+    assert bad.status_code == 400
+    command.assert_not_called()

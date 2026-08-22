@@ -30,11 +30,16 @@ Service request can carry that, because the Azure load balancer cuts a request
 off at about 240s on Linux regardless of any client-side timeout. The original
 whole-catalogue POST therefore failed *every* night. The timer now:
 
-1. `GET`s `/finops/api/sync/retail-prices/regions/` for the region list, so the
-   Function App and Django cannot drift out of step about which regions are
-   captured;
-2. `POST`s `{"region": "<code>"}` to `/finops/api/sync/retail-prices/` once per
-   region — each is 6-16 pages and finishes well inside the ceiling;
+1. `GET`s `/finops/api/sync/retail-prices/regions/` for the region list **and
+   the snapshot date**, so the Function App and Django cannot drift out of step
+   about which regions are captured or which day they belong to;
+2. `POST`s `{"region": "<code>", "snapshot_date": "<YYYY-MM-DD>"}` to
+   `/finops/api/sync/retail-prices/` once per region — each is 6-16 pages and
+   finishes well inside the ceiling. The date is pinned for the whole
+   invocation because every region is a separate request: left to itself each
+   call would re-evaluate "today", and a walk straddling local midnight (which
+   a past-due timer can do) would file its regions under two dates and complete
+   neither;
 3. attempts every region before failing, so one bad region costs one region
    rather than the whole day, and stops early against a wall-clock budget so a
    slow night ends with a logged summary instead of a silent kill.
