@@ -1,16 +1,41 @@
 {% load i18n %}
 {% load crush_connect_tags %}
 {% comment %}
-  Crush Connect status strip for the verified NON-premium dashboard slot.
-  Expects: has_luxid_connected, luxid_connect_url, connect_onboarded,
-           connect_excluded, connect_photo_consent, user.
-  States (top-down, mutually exclusive):
-    X. Excluded by coach     → nothing (exclusion is never surfaced — checked FIRST so an
-                               excluded member is never prompted, even with no LuxID linked).
-    0. No LuxID              → "Connect LuxID" banner (visible pre-launch too).
-    1. Not opted in          → "Join the Mix" CTA (launch flag / staff only).
-    2a. Opted in, no photo   → amber "Almost in the Mix" nudge (not actually discoverable).
-    2b. Opted in + photo     → green "You're in the Mix" confirmation (launch flag / staff).
+  Crush Connect status strip for the dashboard (Task 13.4 — tiered states).
+
+  Expects: has_luxid_connected, has_attended_event, is_identity_verified,
+           luxid_connect_url, connect_onboarded, connect_excluded,
+           connect_photo_consent, user.
+  All supplied by ``views.dashboard``'s context.
+
+  The strip answers one question — "what can I do in Connect right now?" —
+  and the answer differs by VERIFICATION TIER, not by Premium. The 2026-08-17
+  blueprint separates trust levels without paywalling basic access:
+
+    event-verified  → active discovery (the 7-day Connect Week, 3 cards/day,
+                      one weekly request). Gate: connect_phase.cycle_access_open.
+    LuxID-only      → "In the Mix": visible in the pool, can receive and accept
+                      a request and chat, but cannot browse or send. The Week
+                      would only bounce them, so never offer it here.
+    neither         → not in Connect at all; offer the two verification routes.
+
+  Dual-verified members are shown the Connect Week tier: it is the strictly
+  larger capability, and their Mix visibility is mentioned inside that card
+  rather than given a fourth box that would say almost the same thing.
+
+  States, top-down and mutually exclusive:
+    X.  Excluded by coach     → nothing (exclusion is never surfaced — checked
+                                FIRST so an excluded member is never prompted,
+                                even with no LuxID linked).
+    0.  Not verified          → indigo "get verified" card, both routes.
+    1.  Verified, not opted in→ purple "join" CTA, tier-aware copy.
+    2a. Opted in, no photo    → amber "almost there" (not actually discoverable).
+    2b. Opted in + event      → green Connect Week card → connect_week_home.
+    2c. Opted in, LuxID only  → blue In the Mix card → catalogue status.
+
+  States 1/2 render only when ``crush_connect_visible`` (launch flag, beta
+  candidate-open, or staff) — the verification card at state 0 is deliberately
+  outside that gate, since getting verified is worth doing pre-launch too.
 {% endcomment %}
 {% if connect_excluded %}
 {% comment %}
@@ -18,62 +43,98 @@
    member (even one with no LuxID linked, or who unlinks it after exclusion) is
    never invited into a Connect flow the onboarding gate would only bounce.
 {% endcomment %}
-{% elif not is_identity_verified and not has_luxid_connected and not has_attended_event %}
-{# Identity verification catalogue prompt — not selectable in Crush Connect until LuxID is linked or event attended #}
-<div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
+{% elif not is_identity_verified %}
+{# ─── State 0: not verified — the only two doors into Connect ─── #}
+<div class="flex items-start gap-3 mb-5 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
     <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
         {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-indigo-600 dark:text-indigo-400" %}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-0">{% trans "Verify your identity to join Crush Connect" %}</p>
-        <p class="text-indigo-800 dark:text-indigo-300 text-xs mb-0">{% trans "Verified members can be hand-picked by a Crush Coach as a match for Premium members — free, no subscription needed." %}</p>
+        <p class="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-0">{% trans "Get verified to join Crush Connect" %}</p>
+        <p class="text-indigo-800 dark:text-indigo-300 text-xs mb-2">{% trans "Everyone in Connect is a verified, real person. Link your LuxID, or verify in person with a Crush Coach at any event — event verification also unlocks the full Connect Week." %}</p>
+        <div class="flex flex-wrap items-center gap-2">
+            {% if luxid_connect_url %}
+            <a href="{{ luxid_connect_url }}" class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+                {% trans "Connect LuxID" %}
+            </a>
+            {% endif %}
+            <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-1 rounded-lg border border-indigo-300 dark:border-indigo-600 px-3 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 no-underline hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                {% trans "See events" %}
+            </a>
+        </div>
     </div>
-    {% if luxid_connect_url %}
-    <a href="{{ luxid_connect_url }}" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
-        {% trans "Connect LuxID" %}
-    </a>
-    {% endif %}
 </div>
 {% elif user|crush_connect_visible %}
 {% if connect_onboarded and not connect_photo_consent %}
-{# Opted in but photo sharing is off → not actually discoverable yet (mirrors services.crush_connect.is_catalogue_eligible) #}
+{# ─── State 2a: opted in, photo sharing off → not actually discoverable ─── #}
+{# Mirrors services.crush_connect.is_catalogue_eligible, which requires photo_share_consent. #}
 <div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
     <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-0">{% trans "Almost in the Mix" %}</p>
-        <p class="text-amber-800 dark:text-amber-300 text-xs mb-0">{% trans "Turn on photo sharing so a Crush Coach can introduce you to Premium members." %}</p>
+        <p class="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-0">{% trans "Almost in Crush Connect" %}</p>
+        <p class="text-amber-800 dark:text-amber-300 text-xs mb-0">{% trans "Photo sharing is off, so nobody can see you yet. Turn it on to appear in Connect." %}</p>
     </div>
     <a href="{% url 'crush_lu:crush_connect_profile_edit' %}?section=questions" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
         {% trans "Turn on photo sharing" %}
     </a>
 </div>
-{% elif connect_onboarded %}
-<div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+{% elif connect_onboarded and has_attended_event %}
+{# ─── State 2b: event-verified (incl. dual) → the active Connect Week ─── #}
+<div class="flex items-start gap-3 mb-5 p-4 rounded-xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
     <div class="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
-        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-green-600 dark:text-green-400" %}
+        {% include "shared/icons/calendar-check.html" with class="w-5 h-5 text-green-600 dark:text-green-400" %}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-semibold text-green-900 dark:text-green-200 text-sm mb-0">{% trans "You're in the Mix" %} ✓</p>
-        <p class="text-green-800 dark:text-green-300 text-xs mb-0">{% trans "Crush Coaches can hand-pick you as an introduction for Premium members." %}</p>
+        <p class="font-semibold text-green-900 dark:text-green-200 text-sm mb-0">{% trans "Your Connect Week is open" %} ✓</p>
+        <p class="text-green-800 dark:text-green-300 text-xs mb-2">
+            {% if has_luxid_connected %}{% trans "LuxID and in-person verified — the highest trust level. Three new profiles a day for seven days, then 24 hours to choose the one person you ask to meet." %}{% else %}{% trans "Verified in person at an event. Three new profiles a day for seven days, then 24 hours to choose the one person you ask to meet." %}{% endif %}
+        </p>
+        <a href="{% url 'crush_lu:connect_week_home' %}" class="inline-flex items-center gap-1 rounded-lg bg-green-600 hover:bg-green-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+            {% trans "Open my Connect Week" %}
+        </a>
     </div>
-    <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-green-600 hover:bg-green-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
-        {% trans "View my status" %}
-    </a>
+</div>
+{% elif connect_onboarded %}
+{# ─── State 2c: LuxID-only → In the Mix (visible + reply-capable, cannot browse) ─── #}
+{# Never link connect_week_home here: cycle_access_open is False without event #}
+{# verification, so the Week would bounce them straight back to the teaser. #}
+<div class="flex items-start gap-3 mb-5 p-4 rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+    <div class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+        {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-blue-600 dark:text-blue-400" %}
+    </div>
+    <div class="flex-1 min-w-0">
+        <p class="font-semibold text-blue-900 dark:text-blue-200 text-sm mb-0">{% trans "You're in the Mix" %} ✓</p>
+        <p class="text-blue-800 dark:text-blue-300 text-xs mb-2">{% trans "Members can see you and ask to meet you — you decide who to answer. Verify in person at an event to also browse three profiles a day yourself." %}</p>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'crush_lu:connect_week_inbox' %}" class="inline-flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+                {% trans "My requests" %}
+            </a>
+            <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}" class="inline-flex items-center gap-1 rounded-lg border border-blue-300 dark:border-blue-600 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 no-underline hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                {% trans "View my status" %}
+            </a>
+        </div>
+    </div>
 </div>
 {% else %}
-<div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20">
+{# ─── State 1: verified but not opted in — tier-aware invitation ─── #}
+<div class="flex items-start gap-3 mb-5 p-4 rounded-xl border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20">
     <div class="w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
         {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-purple-600 dark:text-purple-400" %}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-semibold text-purple-900 dark:text-purple-200 text-sm mb-0">{% trans "You're not in the Mix yet" %}</p>
-        <p class="text-purple-800 dark:text-purple-300 text-xs mb-0">{% trans "Opt in free so a Crush Coach can introduce you to Premium members — you choose what you share." %}</p>
+        {% if has_attended_event %}
+        <p class="font-semibold text-purple-900 dark:text-purple-200 text-sm mb-0">{% trans "Your Connect Week is waiting" %}</p>
+        <p class="text-purple-800 dark:text-purple-300 text-xs mb-2">{% trans "You're verified in person, so the full Connect Week is yours: three profiles a day for a week, then one request to the person you'd most like to meet. Opt in free — you choose what you share." %}</p>
+        {% else %}
+        <p class="font-semibold text-purple-900 dark:text-purple-200 text-sm mb-0">{% trans "You're not in Crush Connect yet" %}</p>
+        <p class="text-purple-800 dark:text-purple-300 text-xs mb-2">{% trans "Opt in free to become visible in the Mix: members can ask to meet you, and you decide who to answer. You choose what you share." %}</p>
+        {% endif %}
+        <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="inline-flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+            {% if has_attended_event %}{% trans "Start my Connect Week" %}{% else %}{% trans "Join the Mix" %}{% endif %}
+        </a>
     </div>
-    <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-purple-600 hover:bg-purple-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
-        {% trans "Join the Mix" %}
-    </a>
 </div>
 {% endif %}
 {% endif %}
