@@ -208,6 +208,7 @@ from .crush_connect import (
     ConnectCoffeeDateAdmin,
     ConnectPairExclusionAdmin,
     ConnectReportAdmin,
+    ConnectCycleFeedbackAdmin,
 )
 
 from .matching import TraitAdmin, MatchScoreAdmin
@@ -342,6 +343,7 @@ from crush_lu.models import (
     ConnectCoffeeDate,
     ConnectPairExclusion,
     ConnectReport,
+    ConnectCycleFeedback,
     Trait,
     MatchScore,
     QuizEvent,
@@ -513,6 +515,7 @@ crush_admin_site.register(ConnectChatMessage, ConnectChatMessageAdmin)
 crush_admin_site.register(ConnectCoffeeDate, ConnectCoffeeDateAdmin)
 crush_admin_site.register(ConnectPairExclusion, ConnectPairExclusionAdmin)
 crush_admin_site.register(ConnectReport, ConnectReportAdmin)
+crush_admin_site.register(ConnectCycleFeedback, ConnectCycleFeedbackAdmin)
 
 # Trust & Safety (peer reporting + blocking)
 crush_admin_site.register(UserReport, UserReportAdmin)
@@ -718,6 +721,7 @@ __all__ = [
     'SparkPromptAdmin',
     'CuriositySparkAdmin',
     'ConnectCoachPickAdmin',
+    'ConnectCycleFeedbackAdmin',
 
     # Matching
     'TraitAdmin',

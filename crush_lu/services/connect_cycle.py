@@ -738,3 +738,77 @@ def _notify_weekly_request_accepted(weekly_request, request=None):
         logging.getLogger(__name__).exception(
             "Connect Week request-accepted notification failed"
         )
+
+
+# ---------------------------------------------------------------------------
+# Post-cycle feedback (Task 13.4)
+# ---------------------------------------------------------------------------
+
+FEEDBACK_PROMPT_WINDOW_DAYS = 7
+
+
+def get_pending_feedback_session(user):
+    """The member's most recently COMPLETED cycle that still deserves a
+    feedback prompt, or ``None``.
+
+    Three conditions, and all three matter:
+
+    - **Completed.** A cycle in REVIEW_OPEN is still being played; asking "how
+      was your week" before the member has sent their one request would bias
+      the answer and cost them the review time.
+    - **No feedback row.** ``ConnectCycleFeedback`` is a ``OneToOne``, and a
+      dismissal writes a row just like a submission does — so a member who
+      closed the prompt is never asked about that cycle again.
+    - **Completed within ``FEEDBACK_PROMPT_WINDOW_DAYS``.** This is the exit.
+      ``connect_week_home`` opens a NEW session the moment the old one
+      completes, so no page ever naturally stops rendering the prompt; without
+      a recency window an unanswered, undismissed cycle would follow the member
+      into every future week forever. A week-old verdict is also worth little,
+      so nothing is lost by letting it lapse.
+
+    Only the latest completed session is considered — a member returning after
+    a long absence is asked about the week they just finished, never handed a
+    backlog of surveys.
+    """
+    from crush_lu.models.crush_connect_cycle import ConnectWeekSession
+
+    cutoff = timezone.now() - timedelta(days=FEEDBACK_PROMPT_WINDOW_DAYS)
+    return (
+        ConnectWeekSession.objects.filter(
+            user=user,
+            status=ConnectWeekSession.Status.COMPLETED,
+            completed_at__isnull=False,
+            completed_at__gte=cutoff,
+            feedback__isnull=True,
+        )
+        .order_by("-completed_at")
+        .first()
+    )
+
+
+def record_cycle_feedback(
+    session, sentiment="", match_quality="", comment="", dismissed=False
+):
+    """Store one member's verdict on ``session`` (or their dismissal).
+
+    ``get_or_create`` on the session, not ``create``: the prompt is a plain
+    form POST, so a double-submit (impatient tap, back button) must land on the
+    existing row rather than raising ``IntegrityError`` at the user. The first
+    answer wins — a later POST for the same cycle is ignored, which is also why
+    a stray dismissal cannot erase a verdict already given.
+
+    Returns:
+        tuple[ConnectCycleFeedback, bool]: the row and whether it was created.
+    """
+    from crush_lu.models.crush_connect_cycle import ConnectCycleFeedback
+
+    return ConnectCycleFeedback.objects.get_or_create(
+        session=session,
+        defaults={
+            "user": session.user,
+            "sentiment": sentiment,
+            "match_quality": match_quality,
+            "comment": (comment or "").strip()[:1000],
+            "dismissed": dismissed,
+        },
+    )

@@ -1,0 +1,94 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% comment %}
+  Crush Connect beta launch invite — one template, three waves (Task 13.4).
+
+  `wave` is 1, 2 or 3 and decides which body renders. They are kept in one
+  file rather than three because the header, footer, unsubscribe and
+  base-email chrome are identical; only the middle paragraph and the CTA
+  differ, and a three-file split made the copy drift apart in review.
+
+  Context: first_name, wave, cta_url, dashboard_url, events_url (from
+  get_email_base_urls), plus everything get_email_context_with_unsubscribe
+  adds.
+{% endcomment %}
+
+{% block title %}{% if wave == 3 %}{% trans "Two steps to Crush Connect" %}{% else %}{% trans "Crush Connect is open for you" %}{% endif %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% if wave == 3 %}{% trans "Almost there" %} ✨{% else %}{% trans "Your invitation is here" %} 💜{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }},{% endblocktrans %}</h2>
+
+{% if wave == 1 %}
+{# Wave 1 — event-verified and dual-verified waitlist members: full Connect Week. #}
+<p><strong>{% trans "You're in the first group to try Crush Connect." %}</strong>
+{% trans "You verified in person at one of our events, which unlocks the full Connect Week — the deliberate, seven-day way to meet someone here." %}</p>
+
+<p><strong>{% trans "How your week works:" %}</strong></p>
+<ul>
+    <li>{% trans "Three profiles a day, for seven days — no endless feed, no swiping" %}</li>
+    <li>{% trans "For each one you privately guess three things about them from their photo" %}</li>
+    <li>{% trans "Miss a day and those cards are gone; the rhythm is the point" %}</li>
+    <li>{% trans "On day eight you get 24 hours to look back at everyone — including one person we think fits you especially well" %}</li>
+    <li>{% trans "You may send exactly one \"Ich möchte dich kennenlernen\" request. One. Choose well." %}</li>
+</ul>
+
+<div class="info-box">
+    <strong>{% trans "If they say yes" %}</strong>
+    <p>{% trans "A temporary chat opens so the two of you can arrange a coffee. It is not a permanent inbox — it closes again if no meeting comes of it." %}</p>
+</div>
+
+<a href="{{ cta_url }}" class="button">{% trans "Start my Connect Week" %}</a>
+
+{% elif wave == 2 %}
+{# Wave 2 — LuxID-verified but never attended an event: In the Mix (visible + reply-capable). #}
+<p><strong>{% trans "Crush Connect is open, and you're in the Mix." %}</strong>
+{% trans "Your LuxID is verified, so you are visible to other members and can receive and accept a connection request — and chat, once you accept one." %}</p>
+
+<p><strong>{% trans "What that means right now:" %}</strong></p>
+<ul>
+    <li>{% trans "Members going through their Connect Week can see your card and choose you" %}</li>
+    <li>{% trans "If someone picks you, the request lands in your inbox and you have 24 hours to answer" %}</li>
+    <li>{% trans "Accepting opens a temporary chat to arrange a coffee — declining tells them nothing" %}</li>
+    <li>{% trans "Your full name and exact age are never shown" %}</li>
+</ul>
+
+<div class="info-box">
+    <strong>{% trans "Want to do the choosing too?" %}</strong>
+    <p>{% trans "Come to one event and verify in person with a Crush Coach. That unlocks the active Connect Week: three profiles a day and your own weekly request to send." %}</p>
+</div>
+
+<a href="{{ cta_url }}" class="button">{% trans "See my Connect status" %}</a>
+
+<p>{% blocktrans %}Browse what's coming up on the <a href="{{ events_url }}">events page</a>.{% endblocktrans %}</p>
+
+{% else %}
+{# Wave 3 — on the waitlist but not yet verified for Connect. #}
+<p><strong>{% trans "Crush Connect has opened for the waitlist — and your seat is being held." %}</strong>
+{% trans "One thing is still missing before you can join: we verify that every member is a real, of-age person before anyone appears in Connect." %}</p>
+
+<p><strong>{% trans "Two ways to get verified — either one is enough:" %}</strong></p>
+<ul>
+    <li>{% trans "Link your LuxID. It takes about a minute and confirms your identity and age instantly." %}</li>
+    <li>{% trans "Come to a Crush.lu event. A Crush Coach verifies you in person at the door — and that route also unlocks the full Connect Week." %}</li>
+</ul>
+
+<div class="info-box">
+    <strong>{% trans "Why we insist on this" %}</strong>
+    <p>{% trans "Every single person in Crush Connect has been verified. That is the whole promise, and it only holds if it has no exceptions." %}</p>
+</div>
+
+<a href="{{ cta_url }}" class="button">{% trans "Get verified" %}</a>
+
+<p>{% blocktrans %}Prefer to meet us in person first? Have a look at the <a href="{{ events_url }}">upcoming events</a>.{% endblocktrans %}</p>
+{% endif %}
+
+<p>{% blocktrans %}You can change what you share, or leave Crush Connect, anytime from your <a href="{{ dashboard_url }}">dashboard</a>.{% endblocktrans %}</p>
+
+<p>
+    {% trans "See you soon," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
