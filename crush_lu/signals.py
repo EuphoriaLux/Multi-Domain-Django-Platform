@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta
+from typing import Optional
 
 import requests
 from django.conf import settings
@@ -4648,7 +4649,53 @@ def _get_indexing_context():
     if not hasattr(_indexing_local, "deadline"):
         _indexing_local.deadline = None
         _indexing_local.session = None
+        _indexing_local.last_active = 0.0
     return _indexing_local
+
+
+def _schedule_event_indexing_notification(
+    event_pk: int, action: Optional[str] = None
+):
+    """Schedule a savepoint-safe post-commit indexing notification for an event PK."""
+
+    def _notify():
+        ctx = _get_indexing_context()
+        now = time.monotonic()
+        if ctx.deadline is None or (now - ctx.last_active > 1.0):
+            ctx.deadline = now + 8.0
+            ctx.session = None
+        elif now >= ctx.deadline:
+            logger.warning(
+                "Google Indexing save budget exhausted. Skipping notification for event %s.",
+                event_pk,
+            )
+            ctx.last_active = now
+            return
+
+        ctx.last_active = time.monotonic()
+        try:
+            from crush_lu.services.google_indexing import (
+                get_google_indexing_session,
+                notify_event_indexing,
+            )
+
+            event = MeetupEvent.objects.filter(pk=event_pk).first()
+            if event:
+                if ctx.session is None:
+                    ctx.session = get_google_indexing_session()
+                notify_event_indexing(
+                    event,
+                    action=action,
+                    session=ctx.session,
+                    deadline=ctx.deadline,
+                )
+        except Exception:
+            logger.exception(
+                "Error triggering Google indexing notification for event %s",
+                event_pk,
+            )
+
+    transaction.on_commit(_notify)
 
 
 @receiver(post_save, sender=MeetupEvent)
@@ -4675,44 +4722,33 @@ def trigger_google_indexing_on_event_save(
 
     from crush_lu.services.google_indexing import should_index_event
 
-    event_pk = instance.pk
     action = "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
+    _schedule_event_indexing_notification(instance.pk, action=action)
 
-    def _notify():
-        ctx = _get_indexing_context()
-        now = time.monotonic()
-        if ctx.deadline is None:
-            ctx.deadline = now + 8.0
-        elif now >= ctx.deadline:
-            logger.warning(
-                "Google Indexing save budget exhausted. Skipping notification for event %s.",
-                event_pk,
-            )
-            return
 
-        try:
-            from crush_lu.services.google_indexing import (
-                get_google_indexing_session,
-                notify_event_indexing,
-            )
+@receiver(post_save, sender=EventRegistration)
+def trigger_google_indexing_on_registration_save(
+    sender, instance, created, raw=False, update_fields=None, **kwargs
+):
+    """Notify Googlebot when registration status changes event capacity or availability."""
+    if raw:
+        return
 
-            event = MeetupEvent.objects.filter(pk=event_pk).first()
-            if event:
-                if ctx.session is None:
-                    ctx.session = get_google_indexing_session()
-                notify_event_indexing(
-                    event,
-                    action=action,
-                    session=ctx.session,
-                    deadline=ctx.deadline,
-                )
-        except Exception:
-            logger.exception(
-                "Error triggering Google indexing notification on save for event %s",
-                event_pk,
-            )
+    if update_fields is not None and "status" not in update_fields:
+        return
 
-    transaction.on_commit(_notify)
+    event_id = getattr(instance, "event_id", None)
+    if event_id:
+        _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
+
+
+@receiver(post_delete, sender=EventRegistration)
+def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
+    """Notify Googlebot when a seat-holding registration is deleted, reopening capacity."""
+    if getattr(instance, "status", None) in SEAT_HOLDING_STATUSES:
+        event_id = getattr(instance, "event_id", None)
+        if event_id:
+            _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
 
 
 @receiver(post_delete, sender=MeetupEvent)
@@ -4739,14 +4775,17 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
     def _notify():
         ctx = _get_indexing_context()
         now = time.monotonic()
-        if ctx.deadline is None:
+        if ctx.deadline is None or (now - ctx.last_active > 1.0):
             ctx.deadline = now + 5.0
+            ctx.session = None
         elif now >= ctx.deadline:
             logger.warning(
                 "Google Indexing delete budget exhausted. Skipping %d URLs.", len(urls)
             )
+            ctx.last_active = now
             return
 
+        ctx.last_active = time.monotonic()
         try:
             from crush_lu.services.google_indexing import (
                 get_google_indexing_session,
@@ -4773,3 +4812,4 @@ def cleanup_indexing_thread_state(**kwargs):
     ctx = _get_indexing_context()
     ctx.deadline = None
     ctx.session = None
+    ctx.last_active = 0.0

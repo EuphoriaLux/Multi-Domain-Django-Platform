@@ -14,7 +14,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.admin.events import MeetupEventAdmin
-from crush_lu.models import MeetupEvent
+from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.services.google_indexing import (
     build_event_indexing_urls,
     get_google_indexing_credentials,
@@ -388,6 +388,74 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(mock_notify_event.call_count, 1)
         self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_registration_save_and_delete_triggers_indexing_notification(
+        self, mock_notify_event
+    ):
+        """EventRegistration status change or deletion notifies indexing to update capacity/availability."""
+        user = User.objects.create_user(username="attendee1", email="attendee1@example.com")
+
+        # 1. Registration creation
+        with self.captureOnCommitCallbacks(execute=True):
+            reg = EventRegistration.objects.create(
+                event=self.event,
+                user=user,
+                status="confirmed",
+            )
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+        # 2. Status change (confirmed -> cancelled)
+        mock_notify_event.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "cancelled"
+            reg.save(update_fields=["status"])
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+        # 3. Non-status update does not trigger indexing
+        mock_notify_event.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.special_requests = "Vegetarian please"
+            reg.save(update_fields=["special_requests"])
+
+        self.assertEqual(mock_notify_event.call_count, 0)
+
+        # 4. Deleting a seat-holding registration triggers indexing
+        reg.status = "confirmed"
+        reg.save()
+        mock_notify_event.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.delete()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_expired_deadline_resets_on_subsequent_batches_outside_http_request(
+        self, mock_notify_event
+    ):
+        """In non-request processes (e.g. CLI/shell), a previous batch's expired deadline is reset."""
+        from crush_lu.signals import _get_indexing_context
+
+        ctx = _get_indexing_context()
+        # Simulate an old batch that finished 10 seconds ago
+        ctx.deadline = time.monotonic() - 100.0
+        ctx.last_active = time.monotonic() - 10.0
+        ctx.session = "old_session"
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Fresh Batch Title"
+            self.event.save()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertGreater(ctx.deadline, time.monotonic())
+
     def test_cleanup_indexing_context_on_request_finished(self):
         """cleanup_indexing_thread_state clears deadline and session from thread-local context."""
         from crush_lu.signals import (
@@ -398,11 +466,13 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         ctx = _get_indexing_context()
         ctx.deadline = time.monotonic() + 10.0
         ctx.session = "dummy_session"
+        ctx.last_active = time.monotonic()
 
         cleanup_indexing_thread_state()
 
         self.assertIsNone(ctx.deadline)
         self.assertIsNone(ctx.session)
+        self.assertEqual(ctx.last_active, 0.0)
 
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):
