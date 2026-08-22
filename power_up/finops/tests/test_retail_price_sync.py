@@ -290,6 +290,44 @@ def test_a_region_gives_up_on_its_budget_instead_of_holding_the_worker():
     run = RetailPriceSyncRun.objects.get(snapshot_date=date(2026, 8, 24))
     assert run.status == RetailPriceSyncRun.Status.FAILED
     assert "budget" in run.error_message
+    # The page that triggered the deadline was fetched but never archived.
+    # These rows are immutable, so page_count must not claim it.
+    assert run.page_count == run.raw_pages.count() == 0
+    assert run.raw_item_count == 0
+
+
+@pytest.mark.django_db
+def test_page_count_only_ever_counts_pages_that_were_archived():
+    """Failed-run metadata is immutable, so it must not overcount."""
+    payloads = [
+        {"Items": [azure_item(region="westeurope")], "NextPageLink": "next"},
+        {"Items": [azure_item(price="0.2", region="westeurope")], "NextPageLink": None},
+    ]
+
+    class FailsOnSecondPage(FakeConnector):
+        def iter_pages(self, *, regions, currency):
+            for index, page in enumerate(payloads):
+                if index == 1:
+                    raise RuntimeError("upstream died mid-walk")
+                raw = json.dumps(page, separators=(",", ":")).encode("utf-8")
+                yield ConnectorPage(
+                    source_url="https://prices.example.test/api",
+                    next_page_url="next",
+                    payload=page,
+                    raw_content=raw,
+                )
+
+    with pytest.raises(RuntimeError):
+        sync_retail_prices(
+            snapshot_date=date(2026, 8, 26),
+            region="westeurope",
+            connector=FailsOnSecondPage(payloads[0]),
+        )
+
+    run = RetailPriceSyncRun.objects.get(snapshot_date=date(2026, 8, 26))
+    assert run.status == RetailPriceSyncRun.Status.FAILED
+    assert run.page_count == run.raw_pages.count() == 1
+    assert run.raw_pages.get().page_number == 1
 
 
 @pytest.mark.django_db

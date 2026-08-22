@@ -96,9 +96,7 @@ def sync_retail_prices(
     deadline = None if max_seconds is None else monotonic() + max_seconds
 
     try:
-        for page_count, page in enumerate(
-            connector.iter_pages(regions=[region], currency=currency), start=1
-        ):
+        for page in connector.iter_pages(regions=[region], currency=currency):
             # Checked between pages: the connector is a generator, so bailing
             # here stops it before it asks for the next page. Bounds how long
             # this worker can stay occupied to roughly the budget plus one
@@ -106,20 +104,24 @@ def sync_retail_prices(
             if deadline is not None and monotonic() > deadline:
                 raise RegionSyncTimedOut(
                     f"{region} exceeded its {max_seconds:g}s budget after "
-                    f"{page_count - 1} page(s); giving up so the worker is "
+                    f"{page_count} page(s); giving up so the worker is "
                     "released rather than abandoned mid-request."
                 )
             items = page.payload["Items"]
-            raw_item_count += len(items)
             raw_page = RetailPriceRawPage.objects.create(
                 sync_run=run,
-                page_number=page_count,
+                page_number=page_count + 1,
                 source_url=page.source_url,
                 next_page_url=page.next_page_url,
                 response_sha256=hashlib.sha256(page.raw_content).hexdigest(),
                 payload_gzip=gzip.compress(page.raw_content),
                 item_count=len(items),
             )
+            # Both counters advance only once the page is durably archived, so
+            # a run that dies mid-walk cannot leave immutable metadata
+            # claiming a page that was never stored.
+            page_count += 1
+            raw_item_count += len(items)
             for item_index, item in enumerate(items):
                 try:
                     rows = connector.normalize_item(

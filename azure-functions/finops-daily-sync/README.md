@@ -92,10 +92,25 @@ Retail price snapshots use `0 0 4 * * *` (daily at 4:00 AM UTC). Keep
 `RETAIL_PRICE_SYNC_ENABLED=false` until the Django migration and endpoint are
 deployed and the new webhook URL is configured.
 
-Deploy order matters: **Django first, then the Function App.** Django and this
-Function App ship on separate pipelines, and the per-region endpoint is what
-the new timer calls. Deploying the Function App first means every region POST
-gets a `400` until Django catches up.
+### Deploy order — and why the pipelines fight it
+
+**Django must be live in production before this Function App calls it.** The
+pipelines do not enforce that, and in fact default to the wrong order:
+
+| | Workflow | Where a merge to `main` lands it |
+|---|---|---|
+| This Function App | `deploy-finops-sync-function.yml` | **straight to production** `finops-daily-sync` |
+| Django | `deploy-azure-app-service-optimized.yml` | the **staging slot** only — production swap is manual in the Azure Portal |
+
+So merging a change here ships the new timer to production while production
+Django may still be running the old build without `/regions/`. The timer detects
+that case and fails with an explicit message telling you to swap, rather than a
+bare 404 — and it deliberately does **not** fall back to the old
+whole-catalogue POST, which is the request that timed out every night.
+
+Nothing is lost in that window: the snapshot is append-only and daily, so the
+timer recovers on its next run once the swap happens. **Swap production
+promptly after merging**, or the nightly alert keeps firing.
 
 ## Local Development
 

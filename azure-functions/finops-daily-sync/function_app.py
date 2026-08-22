@@ -182,6 +182,20 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     regions_url = webhook_url.rstrip("/") + "/regions/"
     try:
         regions_response = requests.get(regions_url, headers=headers, timeout=30)
+        if regions_response.status_code == 404:
+            # This Function App deploys straight to production on merge, while
+            # the Django side lands on the staging slot and waits for a manual
+            # portal swap. So there is a window where the new timer is live
+            # against the old production app, and /regions/ does not exist yet.
+            # Say so plainly: the old whole-catalogue POST is NOT a safe
+            # fallback — it is the request that timed out every night, and
+            # nineteen of them would be far worse.
+            raise RuntimeError(
+                f"{regions_url} returned 404. The production Django slot has "
+                "not been swapped to a build containing the per-region retail "
+                "price endpoint yet. Swap it in the Azure Portal; this timer "
+                "will recover on its next run. No regions were synced."
+            )
         regions_response.raise_for_status()
         plan = regions_response.json()
         regions = plan["regions"]

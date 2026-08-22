@@ -223,6 +223,26 @@ def test_an_unreachable_region_list_aborts_before_syncing_anything(
     assert transport.posted == [], "synced without knowing which regions to walk"
 
 
+def test_a_404_region_list_explains_the_pending_production_swap(
+    timer_app, transport
+):
+    """This app auto-deploys to production; Django waits on a manual swap.
+
+    That window is real, so the failure has to name it — and must never fall
+    back to the old whole-catalogue POST, which is the request that timed out
+    every night in the first place.
+    """
+    transport.set_get(lambda url, **kwargs: FakeResponse(404, {"detail": "nope"}))
+
+    with pytest.raises(RuntimeError) as excinfo:
+        run(timer_app)
+
+    message = str(excinfo.value)
+    assert "swap" in message.lower()
+    assert "No regions were synced" in message
+    assert transport.posted == [], "fell back to syncing without a region list"
+
+
 def test_an_empty_region_list_is_treated_as_a_failure(timer_app, transport):
     transport.set_get(lambda url, **kwargs: FakeResponse(200, {"regions": []}))
 
