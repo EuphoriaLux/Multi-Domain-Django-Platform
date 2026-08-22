@@ -301,11 +301,11 @@ class ImmutableRetailPriceAdmin(admin.ModelAdmin):
 
 class RetailPriceSyncRunAdmin(ImmutableRetailPriceAdmin):
     list_display = [
-        "snapshot_date", "provider", "currency", "status", "page_count",
+        "snapshot_date", "provider", "region", "currency", "status", "page_count",
         "raw_item_count", "normalized_item_count", "invalid_item_count",
         "started_at", "completed_at",
     ]
-    list_filter = ["provider", "currency", "status", "snapshot_date"]
+    list_filter = ["provider", "region", "currency", "status", "snapshot_date"]
     search_fields = ["connector_name", "source_endpoint"]
     date_hierarchy = "snapshot_date"
 

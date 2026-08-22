@@ -38,21 +38,78 @@ EUROPEAN_AZURE_REGIONS = {
 DEFAULT_EUROPEAN_REGIONS = list(EUROPEAN_AZURE_REGIONS)
 
 
+class _BoundedRetry(Retry):
+    """A ``Retry`` whose ``Retry-After`` sleep cannot outlast the caller.
+
+    urllib3 sleeps for the server-supplied duration verbatim; nothing in the
+    timeout configuration constrains it. Capping it keeps a throttled upstream
+    from parking a web worker for minutes inside a request that the scheduler
+    has already stopped waiting on.
+    """
+
+    #: Longest ``Retry-After`` this client will honour before giving up.
+    #:
+    #: Waiting minutes inside a request nobody is reading any more buys
+    #: nothing — the region is re-attempted on the next daily snapshot either
+    #: way — while parking a web worker for the whole duration.
+    max_retry_after: float = 10
+
+    def get_retry_after(self, response):
+        retry_after = super().get_retry_after(response)
+        if retry_after is None:
+            return None
+        return min(retry_after, self.max_retry_after)
+
+    def new(self, **kw):
+        # urllib3 rebuilds the Retry on every increment and only carries its
+        # own known kwargs across, so the cap has to be re-attached by hand or
+        # it silently reverts to the class default mid-sequence.
+        retry = super().new(**kw)
+        retry.max_retry_after = self.max_retry_after
+        return retry
+
+
 class AzureRetailPricesConnector(RetailPriceConnector):
     provider = "azure"
     name = "Azure Retail Prices API"
     endpoint = "https://prices.azure.com/api/retail/prices"
     api_version = "2023-01-01-preview"
 
-    def __init__(self, *, timeout: int = 45, session=None):
+    #: Read timeout for a single page request.
+    #:
+    #: Kept deliberately tight, along with the retry budget below. The caller
+    #: is an HTTP request that a scheduler is waiting on, so the worst case for
+    #: one page has to stay well under that client's timeout: otherwise the
+    #: client gives up, moves to the next region, and leaves this worker still
+    #: fetching. A handful of those and the site has no workers left. Worst
+    #: case here is 2 attempts x (5s connect + 20s read) + 0.5s backoff, so
+    #: about 50s.
+    DEFAULT_TIMEOUT = 20
+    CONNECT_TIMEOUT = 5
+
+    def __init__(self, *, timeout: int = DEFAULT_TIMEOUT, session=None):
         self.timeout = timeout
         self.session = session or self._build_session()
 
+    #: Single source of truth for the cap; see :class:`_BoundedRetry`.
+    #:
+    #: ``respect_retry_after_header`` makes urllib3 sleep for whatever the
+    #: server asks, and that sleep is bounded by nothing — not the connect
+    #: timeout, not the read timeout, not the backoff cap. A
+    #: ``Retry-After: 300`` from a throttled ``prices.azure.com`` would blow
+    #: straight through the region budget and the caller's timeout alike,
+    #: which is the exact worker-abandonment this class exists to prevent.
+    MAX_RETRY_AFTER = _BoundedRetry.max_retry_after
+
     @staticmethod
     def _build_session():
-        retry = Retry(
-            total=3,
-            backoff_factor=1,
+        retry = _BoundedRetry(
+            # One retry, not three. A retry storm here used to be able to run
+            # ~227s for a single page. Losing a region to a transient 429 is
+            # cheap now that runs are per-region: it is reported by name and
+            # re-attempted on the next daily snapshot.
+            total=1,
+            backoff_factor=0.5,
             status_forcelist=(429, 500, 502, 503, 504),
             allowed_methods=("GET",),
             respect_retry_after_header=True,
@@ -86,7 +143,7 @@ class AzureRetailPricesConnector(RetailPriceConnector):
             response = self.session.get(
                 url,
                 params=params,
-                timeout=(10, self.timeout),
+                timeout=(self.CONNECT_TIMEOUT, self.timeout),
             )
             response.raise_for_status()
             payload = response.json()

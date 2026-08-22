@@ -34,7 +34,7 @@
             <div class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
                 <div class="font-semibold text-gray-900">Latest immutable snapshot</div>
                 <div class="mt-1">{% if latest_snapshot %}{{ latest_snapshot }}{% else %}No price snapshot yet{% endif %}</div>
-                {% if latest_sync %}<div class="mt-1 text-xs text-gray-500">{{ latest_sync.normalized_item_count }} normalized rows · {{ latest_sync.currency }}</div>{% endif %}
+                {% if latest_sync %}<div class="mt-1 text-xs text-gray-500">{{ latest_sync_rows }} normalized rows across {{ latest_sync_regions }} region{{ latest_sync_regions|pluralize }} · {{ latest_sync.currency }}</div>{% endif %}
             </div>
         </div>
 

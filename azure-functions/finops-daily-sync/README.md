@@ -20,9 +20,50 @@ Cost Data Import + Aggregation
 ```
 
 The same Function App also runs `retail_price_daily_sync` at 04:00 UTC. It
-calls `/finops/api/sync/retail-prices/`, which archives every paginated Azure
-Retail Prices response and appends normalized EUR observations for the default
-European regions. It does not access customer Azure subscriptions.
+archives every paginated Azure Retail Prices response and appends normalized
+EUR observations for the default European regions. It does not access customer
+Azure subscriptions.
+
+**It syncs one region per HTTP request, and this is load-bearing.** The full
+European catalogue is roughly 200,000 rows across 208 pages; no single App
+Service request can carry that, because the Azure load balancer cuts a request
+off at about 240s on Linux regardless of any client-side timeout. The original
+whole-catalogue POST therefore failed *every* night. The timer now:
+
+1. `GET`s `/finops/api/sync/retail-prices/regions/` for the region list **and
+   the snapshot date**, so the Function App and Django cannot drift out of step
+   about which regions are captured or which day they belong to;
+2. `POST`s `{"region": "<code>", "snapshot_date": "<YYYY-MM-DD>"}` to
+   `/finops/api/sync/retail-prices/` once per region — each is 6-16 pages and
+   finishes well inside the ceiling. The date is pinned for the whole
+   invocation because every region is a separate request: left to itself each
+   call would re-evaluate "today", and a walk straddling local midnight (which
+   a past-due timer can do) would file its regions under two dates and complete
+   neither;
+3. attempts every region before failing, so one bad region costs one region
+   rather than the whole day, and stops early against a wall-clock budget so a
+   slow night ends with a logged summary instead of a silent kill.
+
+### Why the two timeouts are ordered the way they are
+
+Django gives one region **90s** (`DEFAULT_MAX_SECONDS`) plus at most one page's
+worst case (~50s); this Function App waits **170s** (`PER_REGION_TIMEOUT`). That
+ordering is deliberate and must be preserved.
+
+`requests` timing out only stops *this* side waiting — it does not cancel the
+synchronous `call_command()` still running in the web worker. If this side gave
+up first, it would abandon a live worker and immediately occupy another with the
+next region; a sustained upstream slowdown would walk through all four
+production workers and take the whole site down with it. So Django is always
+given room to answer first, and a timeout here is treated as "the backend is
+wedged" — the walk **stops** rather than moving to the next region.
+
+If you raise the connector's retry budget or read timeout, raise
+`PER_REGION_TIMEOUT` to match.
+
+A region-less POST is rejected with `400` rather than falling back to the whole
+catalogue — the old payload shape must fail loudly, not quietly reintroduce the
+timeout.
 
 ## Configuration
 
@@ -50,6 +91,26 @@ Set these environment variables in Azure Portal:
 Retail price snapshots use `0 0 4 * * *` (daily at 4:00 AM UTC). Keep
 `RETAIL_PRICE_SYNC_ENABLED=false` until the Django migration and endpoint are
 deployed and the new webhook URL is configured.
+
+### Deploy order — and why the pipelines fight it
+
+**Django must be live in production before this Function App calls it.** The
+pipelines do not enforce that, and in fact default to the wrong order:
+
+| | Workflow | Where a merge to `main` lands it |
+|---|---|---|
+| This Function App | `deploy-finops-sync-function.yml` | **straight to production** `finops-daily-sync` |
+| Django | `deploy-azure-app-service-optimized.yml` | the **staging slot** only — production swap is manual in the Azure Portal |
+
+So merging a change here ships the new timer to production while production
+Django may still be running the old build without `/regions/`. The timer detects
+that case and fails with an explicit message telling you to swap, rather than a
+bare 404 — and it deliberately does **not** fall back to the old
+whole-catalogue POST, which is the request that timed out every night.
+
+Nothing is lost in that window: the snapshot is append-only and daily, so the
+timer recovers on its next run once the swap happens. **Swap production
+promptly after merging**, or the nightly alert keeps firing.
 
 ## Local Development
 

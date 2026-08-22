@@ -11,6 +11,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.core.management import call_command
+from django.utils import timezone
+from datetime import date
+import json
 import os
 import io
 import logging
@@ -19,10 +22,12 @@ import secrets
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def trigger_cost_sync(request):
-    """Webhook endpoint to trigger cost data sync"""
+def _reject_invalid_sync_token(request):
+    """Return an error response when the caller's sync token is unusable.
+
+    Returns ``None`` when the request is authenticated, so callers can use it
+    as an early-exit guard.
+    """
     sync_token = request.headers.get('X-Sync-Token')
     expected_token = os.getenv('SECRET_SYNC_TOKEN') or getattr(settings, 'SECRET_SYNC_TOKEN', None)
 
@@ -37,6 +42,17 @@ def trigger_cost_sync(request):
             'success': False,
             'error': 'Invalid sync token'
         }, status=403)
+
+    return None
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def trigger_cost_sync(request):
+    """Webhook endpoint to trigger cost data sync"""
+    denied = _reject_invalid_sync_token(request)
+    if denied is not None:
+        return denied
 
     try:
         output_stream = io.StringIO()
@@ -64,23 +80,94 @@ def trigger_cost_sync(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
-def trigger_retail_price_sync(request):
-    """Capture today's public Azure retail-price catalogue for European regions."""
-    sync_token = request.headers.get("X-Sync-Token")
-    expected_token = os.getenv("SECRET_SYNC_TOKEN") or getattr(
-        settings, "SECRET_SYNC_TOKEN", None
+@require_http_methods(["GET", "POST"])
+def retail_price_sync_regions(request):
+    """Open one day's snapshot: the regions to walk, and the date they belong to.
+
+    The scheduler fetches this instead of hard-coding the list, so the Function
+    App and Django cannot silently disagree about which regions get captured.
+
+    The date is handed out here rather than computed per request because every
+    region arrives as a separate call: letting each one evaluate
+    ``timezone.localdate()`` again would split a single invocation across two
+    snapshot dates if it straddled local midnight — which a past-due timer can
+    do — leaving neither date holding a complete catalogue. Django owns the
+    value so it cannot drift from the scheduler's own clock or timezone.
+    """
+    denied = _reject_invalid_sync_token(request)
+    if denied is not None:
+        return denied
+
+    from .retail_prices.connectors.azure import DEFAULT_EUROPEAN_REGIONS
+
+    return JsonResponse(
+        {
+            "success": True,
+            "regions": list(DEFAULT_EUROPEAN_REGIONS),
+            "snapshot_date": timezone.localdate().isoformat(),
+        }
     )
 
-    if not expected_token:
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def trigger_retail_price_sync(request):
+    """Capture today's public Azure retail-price catalogue for ONE region.
+
+    Deliberately single-region: the full European catalogue is ~200k rows over
+    208 pages and cannot finish inside one App Service request, which the Azure
+    load balancer cuts off at ~240s on Linux. Callers walk
+    ``retail_price_sync_regions`` and post once per region.
+    """
+    denied = _reject_invalid_sync_token(request)
+    if denied is not None:
+        return denied
+
+    from .retail_prices.connectors.azure import EUROPEAN_AZURE_REGIONS
+
+    try:
+        body = json.loads(request.body or b"{}")
+    except ValueError:
         return JsonResponse(
-            {"success": False, "error": "Sync token not configured on server"},
-            status=500,
+            {"success": False, "error": "Request body must be valid JSON"},
+            status=400,
         )
-    if not sync_token or not secrets.compare_digest(sync_token, expected_token):
+    if not isinstance(body, dict):
         return JsonResponse(
-            {"success": False, "error": "Invalid sync token"}, status=403
+            {"success": False, "error": "Request body must be a JSON object"},
+            status=400,
         )
+
+    region = (body.get("region") or request.GET.get("region") or "").strip().lower()
+    if not region:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "A 'region' is required; sync one region per request.",
+            },
+            status=400,
+        )
+    if region not in EUROPEAN_AZURE_REGIONS:
+        return JsonResponse(
+            {"success": False, "error": f"Unknown region '{region}'"},
+            status=400,
+        )
+
+    # Pinned by the caller so every region of one invocation lands on the same
+    # date even if the walk straddles local midnight. Omitting it still works
+    # and falls back to today, which is what a manual one-off wants.
+    snapshot_date = (body.get("snapshot_date") or "").strip()
+    if snapshot_date:
+        try:
+            date.fromisoformat(snapshot_date)
+        except ValueError:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "snapshot_date must use YYYY-MM-DD",
+                },
+                status=400,
+            )
 
     try:
         output_stream = io.StringIO()
@@ -88,24 +175,30 @@ def trigger_retail_price_sync(request):
         call_command(
             "sync_retail_prices",
             currency="EUR",
+            regions=[region],
+            snapshot_date=snapshot_date or None,
             stdout=output_stream,
             stderr=error_stream,
         )
         return JsonResponse(
             {
                 "success": True,
-                "message": "Retail price snapshot completed successfully",
+                "region": region,
+                "message": f"Retail price snapshot completed for {region}",
                 "output": output_stream.getvalue(),
                 "errors": error_stream.getvalue() or None,
             }
         )
     except Exception:
-        logger.exception("Error during retail price sync triggered via webhook")
+        logger.exception(
+            "Error during retail price sync triggered via webhook for %s", region
+        )
         return JsonResponse(
             {
                 "success": False,
+                "region": region,
                 "error": "Internal server error during retail price sync",
-                "message": "Retail price sync failed",
+                "message": f"Retail price sync failed for {region}",
             },
             status=500,
         )
