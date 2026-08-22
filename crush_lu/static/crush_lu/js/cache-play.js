@@ -36,6 +36,11 @@ document.addEventListener("alpine:init", function () {
             accuracyM: null,
             arrived: false,
             unlocked: false,
+            soundNeedsGesture: false,
+            audioUnlocking: false,
+            audioReady: false,
+            trackingStarted: false,
+            audioUnlockPromise: null,
             compassNeedsPermission: false,
             hasAbsoluteHeading: false,
             // Continuous (never wrapped at 360°) rotation values for the
@@ -93,9 +98,14 @@ document.addEventListener("alpine:init", function () {
                 }
 
                 if (this.huntStatus === "live") {
-                    this.startWatching();
-                    this.startGpsWatchdog();
-                    this.requestWakeLock();
+                    // A new page load resets iOS' media-gesture allowance.
+                    // Hold GPS navigation until the player taps the sound CTA,
+                    // so an asynchronous arrival can use an unlocked context.
+                    if (this.needsGps && this.geoSupported) {
+                        this.soundNeedsGesture = true;
+                    } else {
+                        this.startGpsTracking();
+                    }
                     this.connectWebSocket();
                     this.startPolling();
                 }
@@ -112,28 +122,29 @@ document.addEventListener("alpine:init", function () {
                 this._onVisibility = function () {
                     if (document.visibilityState !== "visible") return;
                     if (self.huntStatus !== "live" || self.suspended || self.reloading) return;
+                    if (self.needsGps && self.trackingStarted
+                        && window._crushAudioCtx
+                        && window._crushAudioCtx.state !== "running") {
+                        // WebKit may interrupt Web Audio while Safari is hidden.
+                        // Require a fresh tap instead of letting the GPS callback
+                        // reach an inaudible, suspended AudioContext.
+                        self.stopWatching();
+                        self.trackingStarted = false;
+                        self.soundNeedsGesture = true;
+                        return;
+                    }
                     self.requestWakeLock();
                     if (self.watchId !== null && !self.gpsDenied) {
                         self.restartWatching();
                     }
                 };
                 document.addEventListener("visibilitychange", this._onVisibility);
-                // Pre-unlock AudioContext on first tap anywhere on the page
-                var unlockAudio = function () {
-                    try {
-                        var AudioCtx = window.AudioContext || window.webkitAudioContext;
-                        if (AudioCtx) {
-                            if (!window._crushAudioCtx) {
-                                window._crushAudioCtx = new AudioCtx();
-                            } else if (window._crushAudioCtx.state === "suspended") {
-                                var res = window._crushAudioCtx.resume();
-                                if (res && res.catch) res.catch(function () {});
-                            }
-                        }
-                    } catch (e) {}
+                // Non-GPS interactions can also unlock sounds used later by an
+                // HTMX callback. GPS pages have an explicit, accessible CTA.
+                this._onFirstAudioGesture = function () {
+                    self.unlockAudio();
                 };
-                window.addEventListener("pointerdown", unlockAudio, { once: true });
-                window.addEventListener("click", unlockAudio, { once: true });
+                window.addEventListener("click", this._onFirstAudioGesture, { once: true });
                 this.preloadAudio();
 
                 if (document.getElementById("cache-map") && window.L) {
@@ -152,6 +163,9 @@ document.addEventListener("alpine:init", function () {
                 }
                 if (this._onVisibility) {
                     document.removeEventListener("visibilitychange", this._onVisibility);
+                }
+                if (this._onFirstAudioGesture) {
+                    window.removeEventListener("click", this._onFirstAudioGesture);
                 }
                 this.releaseWakeLock();
                 if (this.pollTimer !== null) {
@@ -185,7 +199,50 @@ document.addEventListener("alpine:init", function () {
                 return !this.geoSupported;
             },
 
+            get showSoundPrompt() {
+                return this.soundNeedsGesture && this.geoSupported;
+            },
+
+            get showGpsReadout() {
+                return this.trackingStarted && this.geoSupported;
+            },
+
+            get audioIdle() {
+                return !this.audioUnlocking;
+            },
+
             // --- Geolocation ---
+
+            startGpsTracking: function () {
+                this.soundNeedsGesture = false;
+                this.trackingStarted = true;
+                if (this.huntStatus !== "live" || this.suspended || this.reloading) return;
+                if (this.watchId === null) this.startWatching();
+                this.startGpsWatchdog();
+                this.requestWakeLock();
+            },
+
+            enableSoundAndTracking: function () {
+                if (this.audioUnlocking) return;
+                this.audioUnlocking = true;
+                var self = this;
+                var preloadDeadline = new Promise(function (resolve) {
+                    setTimeout(function () { resolve(null); }, 2000);
+                });
+                Promise.all([
+                    this.unlockAudio(),
+                    Promise.race([this.preloadAudio(), preloadDeadline]),
+                ]).then(function (results) {
+                    self.audioReady = !!results[0];
+                }).catch(function () {
+                    self.audioReady = false;
+                }).then(function () {
+                    // Audio is enhancement-only: unsupported or failed audio
+                    // must never prevent the team from continuing the hunt.
+                    self.audioUnlocking = false;
+                    self.startGpsTracking();
+                });
+            },
 
             startWatching: function () {
                 var self = this;
@@ -383,52 +440,117 @@ document.addEventListener("alpine:init", function () {
                 }, delayMs);
             },
 
-            preloadAudio: function () {
-                if (window._crushMp3Buffer || window._crushMp3Loading) return;
-                window._crushMp3Loading = true;
+            _getAudioContext: function () {
                 try {
                     var AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioCtx) return;
+                    if (!AudioCtx) return null;
                     if (!window._crushAudioCtx) {
                         window._crushAudioCtx = new AudioCtx();
                     }
-                    var ctx = window._crushAudioCtx;
-                    var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
-                    fetch(url)
-                        .then(function (res) { return res.arrayBuffer(); })
-                        .then(function (buf) {
-                            var res = ctx.decodeAudioData(
-                                buf,
-                                function (decoded) {
-                                    window._crushMp3Buffer = decoded;
-                                },
-                                function () {
-                                    window._crushMp3Loading = false;
-                                }
-                            );
-                            if (res && typeof res.then === "function") {
-                                res.then(function (decoded) {
-                                    window._crushMp3Buffer = decoded;
-                                }).catch(function () {
-                                    window._crushMp3Loading = false;
-                                });
-                            }
-                        })
-                        .catch(function () { window._crushMp3Loading = false; });
+                    return window._crushAudioCtx;
                 } catch (e) {
-                    window._crushMp3Loading = false;
+                    return null;
                 }
+            },
+
+            _playSilentBuffer: function (ctx) {
+                var buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+                var source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            },
+
+            unlockAudio: function () {
+                if (this.audioUnlockPromise) return this.audioUnlockPromise;
+                var self = this;
+                var ctx = this._getAudioContext();
+                if (!ctx) return Promise.resolve(false);
+
+                var resumeResult;
+                try {
+                    resumeResult = ctx.state === "running"
+                        ? Promise.resolve()
+                        : ctx.resume();
+                    // Schedule the silent source synchronously inside the click
+                    // handler. Waiting for resume() to settle can outlive iOS'
+                    // transient user activation.
+                    self._playSilentBuffer(ctx);
+                } catch (e) {
+                    return Promise.resolve(false);
+                }
+
+                this.audioUnlockPromise = Promise.resolve(resumeResult)
+                    .then(function () {
+                        self.audioReady = ctx.state === "running";
+                        return self.audioReady;
+                    })
+                    .catch(function () {
+                        self.audioReady = false;
+                        return false;
+                    })
+                    .then(function (ready) {
+                        self.audioUnlockPromise = null;
+                        return ready;
+                    });
+                return this.audioUnlockPromise;
+            },
+
+            preloadAudio: function () {
+                if (window._crushMp3Buffer) {
+                    return Promise.resolve(window._crushMp3Buffer);
+                }
+                if (window._crushMp3Promise) return window._crushMp3Promise;
+
+                var ctx = this._getAudioContext();
+                if (!ctx) return Promise.resolve(null);
+                window._crushMp3Loading = true;
+                var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
+                window._crushMp3Promise = fetch(url)
+                    .then(function (res) {
+                        if (!res.ok) throw new Error("Arrival audio failed to load");
+                        return res.arrayBuffer();
+                    })
+                    .then(function (buf) {
+                        return new Promise(function (resolve, reject) {
+                            var settled = false;
+                            var succeed = function (decoded) {
+                                if (settled) return;
+                                settled = true;
+                                resolve(decoded);
+                            };
+                            var fail = function (error) {
+                                if (settled) return;
+                                settled = true;
+                                reject(error);
+                            };
+                            try {
+                                var result = ctx.decodeAudioData(buf, succeed, fail);
+                                if (result && typeof result.then === "function") {
+                                    result.then(succeed).catch(fail);
+                                }
+                            } catch (error) {
+                                fail(error);
+                            }
+                        });
+                    })
+                    .then(function (decoded) {
+                        window._crushMp3Buffer = decoded;
+                        window._crushMp3Loading = false;
+                        return decoded;
+                    })
+                    .catch(function () {
+                        window._crushMp3Loading = false;
+                        window._crushMp3Promise = null;
+                        return null;
+                    });
+                return window._crushMp3Promise;
             },
 
             playGpsChime: function () {
                 try {
-                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (window._crushMp3Buffer && AudioCtx) {
-                        if (!window._crushAudioCtx) window._crushAudioCtx = new AudioCtx();
-                        var ctx = window._crushAudioCtx;
-                        if (ctx.state === "suspended") {
-                            ctx.resume();
-                        }
+                    var ctx = this._getAudioContext();
+                    if (window._crushMp3Buffer && ctx && ctx.state === "running") {
                         var src = ctx.createBufferSource();
                         var gain = ctx.createGain();
                         gain.gain.value = 0.8;
@@ -440,15 +562,28 @@ document.addEventListener("alpine:init", function () {
                     }
                 } catch (e) {}
 
+                // Never report Web Audio success from a suspended context.
+                // A decoded buffer scheduled there produces no exception but
+                // stays inaudible on iOS. The media-element path is a final
+                // best-effort fallback; the arrival overlay remains primary.
+                this.audioReady = false;
                 var self = this;
                 try {
                     var url = this.audioUrl || "/static/crush_lu/audio/Crush-Love-Sound.mp3";
-                    var audio = new Audio(url);
+                    if (!window._crushGpsAudio) {
+                        window._crushGpsAudio = new Audio(url);
+                        window._crushGpsAudio.preload = "auto";
+                    }
+                    var audio = window._crushGpsAudio;
+                    try { audio.currentTime = 0; } catch (e) {}
                     audio.volume = 0.8;
                     var playPromise = audio.play();
                     if (playPromise !== undefined) {
                         playPromise.catch(function () {
-                            self.playSynthGpsChime();
+                            var fallbackCtx = self._getAudioContext();
+                            if (fallbackCtx && fallbackCtx.state === "running") {
+                                self.playSynthGpsChime();
+                            }
                         });
                     }
                     return 11500;

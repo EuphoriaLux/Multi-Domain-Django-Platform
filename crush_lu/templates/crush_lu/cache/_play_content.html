@@ -149,8 +149,28 @@
     <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-center shadow-crush-sm">
         <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "Get to the location to unlock this station." %}</p>
 
+        {# iOS resets audio permission on every document load. This gesture also starts GPS. #}
+        <div x-show="showSoundPrompt" x-cloak
+             class="mt-4 rounded-xl bg-purple-50 dark:bg-purple-900/30 px-4 py-4 text-purple-900 dark:text-purple-100"
+             role="region" aria-labelledby="cache-sound-prompt-title">
+            <p id="cache-sound-prompt-title" class="text-sm font-semibold">
+                {% trans "Tap once so iPhone can play the arrival sound." %}
+            </p>
+            <button type="button"
+                    x-on:click="enableSoundAndTracking"
+                    :disabled="audioUnlocking"
+                    :aria-busy="audioUnlocking"
+                    class="btn-crush-solid btn-block mt-4 min-h-12">
+                <span x-show="audioIdle">🔊 {% trans "Enable sound & start tracking" %}</span>
+                <span x-show="audioUnlocking">{% trans "Preparing sound…" %}</span>
+            </button>
+            <p class="mt-3 text-xs text-purple-700 dark:text-purple-200">
+                {% trans "On iPhone, turn off Silent Mode to hear arrival sounds." %}
+            </p>
+        </div>
+
         {# Live distance/compass readout — filled in by cache-play.js #}
-        <div class="mt-4" x-show="geoSupported" x-cloak>
+        <div class="mt-4" x-show="showGpsReadout" x-cloak>
             <div class="font-display text-6xl font-bold tabular-nums leading-none" x-text="distanceDisplay">…</div>
             <p class="mt-1 text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">{% trans "to go" %}</p>
             <div class="mx-auto mt-4 h-14 w-14 transition-transform motion-reduce:transition-none" :style="arrowStyle">
