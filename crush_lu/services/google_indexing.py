@@ -187,10 +187,12 @@ def notify_url_indexing(
     url: str,
     action: str = "URL_UPDATED",
     session: Optional[Any] = None,
-    timeout: Optional[int] = None,
+    timeout: Optional[float] = None,
+    max_allowed_time: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Notify Googlebot of a URL change (URL_UPDATED or URL_DELETED) with strict HTTP timeout.
+    Notify Googlebot of a URL change (URL_UPDATED or URL_DELETED) with strict HTTP timeout
+    and optional total allowed execution time (covering retries/auth token refresh).
 
     Safe execution: catches errors, logs diagnostic information, and never raises.
     """
@@ -201,17 +203,27 @@ def notify_url_indexing(
     if not sess:
         return None
 
-    timeout_seconds = timeout or getattr(settings, "GOOGLE_INDEXING_TIMEOUT_SECONDS", 3)
+    default_timeout = getattr(settings, "GOOGLE_INDEXING_TIMEOUT_SECONDS", 3)
+    socket_timeout = timeout if timeout is not None else default_timeout
+    if max_allowed_time is not None:
+        socket_timeout = min(socket_timeout, max_allowed_time)
+
     body = {
         "url": url,
         "type": action,
     }
 
+    kwargs: Dict[str, Any] = {
+        "json": body,
+        "timeout": socket_timeout,
+    }
+    if max_allowed_time is not None:
+        kwargs["max_allowed_time"] = max_allowed_time
+
     try:
         response = sess.post(
             "https://indexing.googleapis.com/v3/urlNotifications:publish",
-            json=body,
-            timeout=timeout_seconds,
+            **kwargs,
         )
         if response.status_code == 200:
             logger.info(
@@ -269,14 +281,20 @@ def notify_event_indexing(
 
     results = []
     for url in urls_to_ping:
-        if time.monotonic() > end_time:
+        remaining = end_time - time.monotonic()
+        if remaining <= 0:
             logger.warning(
                 "Google Indexing budget exhausted. Skipping remaining URLs for event %s.",
                 getattr(event, "pk", None),
             )
             break
 
-        res = notify_url_indexing(url, action=resolved_action, session=sess)
+        res = notify_url_indexing(
+            url,
+            action=resolved_action,
+            session=sess,
+            max_allowed_time=remaining,
+        )
         if res:
             results.append(res)
 
@@ -352,12 +370,18 @@ def notify_urls_indexing(
     deadline = time.monotonic() + max_budget_seconds
     results = []
     for url in urls:
-        if time.monotonic() > deadline:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
             logger.warning(
                 "Google Indexing URL budget exhausted (%ss).", max_budget_seconds
             )
             break
-        res = notify_url_indexing(url, action=action, session=sess)
+        res = notify_url_indexing(
+            url,
+            action=action,
+            session=sess,
+            max_allowed_time=remaining,
+        )
         if res:
             results.append(res)
     return results

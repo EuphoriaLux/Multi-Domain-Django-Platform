@@ -125,6 +125,33 @@ class GoogleIndexingServiceTests(TestCase):
         )
 
     @patch("crush_lu.services.google_indexing.get_google_indexing_session")
+    def test_notify_url_indexing_passes_max_allowed_time_and_caps_timeout(
+        self, mock_get_session
+    ):
+        """notify_url_indexing caps socket timeout to max_allowed_time and passes max_allowed_time."""
+        mock_session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"status": "ok"}
+        mock_session.post.return_value = mock_resp
+        mock_get_session.return_value = mock_session
+
+        resp = notify_url_indexing(
+            "https://crush.lu/en/events/15/",
+            action="URL_UPDATED",
+            timeout=5.0,
+            max_allowed_time=2.5,
+        )
+
+        self.assertIsNotNone(resp)
+        mock_session.post.assert_called_once_with(
+            "https://indexing.googleapis.com/v3/urlNotifications:publish",
+            json={"url": "https://crush.lu/en/events/15/", "type": "URL_UPDATED"},
+            timeout=2.5,
+            max_allowed_time=2.5,
+        )
+
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
     def test_notify_url_indexing_handles_exception_gracefully(self, mock_get_session):
         """API errors and timeouts do not raise exceptions and return None."""
         mock_session = MagicMock()
