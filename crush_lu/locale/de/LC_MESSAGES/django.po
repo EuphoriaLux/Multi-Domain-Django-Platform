@@ -40159,3 +40159,19 @@ msgstr "Hat gepasst"
 
 msgid "Not really"
 msgstr "Eher nicht"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Tap once so iPhone can play the arrival sound."
+msgstr "Einmal tippen, damit das iPhone den Ankunftston abspielen kann."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Enable sound & start tracking"
+msgstr "Ton aktivieren & Ortung starten"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Preparing sound…"
+msgstr "Ton wird vorbereitet…"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "On iPhone, turn off Silent Mode to hear arrival sounds."
+msgstr "Deaktiviere auf dem iPhone den Stummmodus, um die Ankunftstöne zu hören."

@@ -27196,3 +27196,19 @@ msgstr[1] "%(spots)s spots left for you."
 #: crush_lu/templates/crush_lu/event_register.html:0
 msgid "Your gender group is full"
 msgstr "Your gender group is full"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Tap once so iPhone can play the arrival sound."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Enable sound & start tracking"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Preparing sound…"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "On iPhone, turn off Silent Mode to hear arrival sounds."
+msgstr ""
