@@ -5,7 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Max, Min
+from django.db.models import Count, Max, Min, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -250,6 +250,19 @@ def retail_price_dashboard(request):
         currency=currency,
         status=RetailPriceSyncRun.Status.COMPLETED,
     ).first()
+    # A day's snapshot is one run per region, so the newest run alone would
+    # under-report the day by roughly a factor of nineteen.
+    latest_sync_totals = {"rows": 0, "regions": 0}
+    if latest_sync is not None:
+        latest_sync_totals = RetailPriceSyncRun.objects.filter(
+            provider=provider,
+            currency=currency,
+            status=RetailPriceSyncRun.Status.COMPLETED,
+            snapshot_date=latest_sync.snapshot_date,
+        ).aggregate(
+            rows=Sum("normalized_item_count"),
+            regions=Count("id"),
+        )
 
     return render(
         request,
@@ -272,6 +285,8 @@ def retail_price_dashboard(request):
             "purchase_model": purchase_model,
             "latest_snapshot": latest_snapshot,
             "latest_sync": latest_sync,
+            "latest_sync_rows": latest_sync_totals["rows"] or 0,
+            "latest_sync_regions": latest_sync_totals["regions"] or 0,
             "chart_series": chart_series,
             "region_comparison": region_comparison,
             "history_rows": history_rows,

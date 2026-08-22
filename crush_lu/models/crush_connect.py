@@ -85,6 +85,36 @@ class CrushConnectWaitlist(models.Model):
         help_text=_("Staff member who confirmed the payment"),
     )
 
+    # Beta launch invite tracking (Task 13.4 / ``send_connect_beta_invites``).
+    #
+    # These two fields are a SEND LOG, not an entitlement. Nothing reads them
+    # to open a door: Wave 1 recipients already reach the Connect Week through
+    # ``connect_phase.cycle_access_open`` (event-verified), Wave 2 recipients
+    # already reach the Mix through ``candidate_access_open`` + catalogue
+    # eligibility, and Wave 3 recipients are told how to become eligible. The
+    # invite command deliberately never touches ``selected_as_tester`` — that
+    # flag opens Today's Drop and the Premium purchase funnel, and mailing a
+    # 295-person waitlist must not hand out either.
+    #
+    # Stored on the row rather than in a cache key because the send has to stay
+    # deduped across a Redis eviction (a re-run would otherwise double-mail the
+    # whole wave) and because "who did we invite, when, in which wave" is an
+    # auditable launch record, not transient state.
+    beta_invited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("When the Connect beta launch invite was emailed (blank = never)"),
+    )
+    beta_invite_wave = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Which send_connect_beta_invites wave delivered the invite "
+            "(1 = Connect Week, 2 = In the Mix, 3 = verification reminder)"
+        ),
+    )
+
     class Meta:
         ordering = ["joined_at"]
         verbose_name = _("Crush Connect Waitlist Entry")

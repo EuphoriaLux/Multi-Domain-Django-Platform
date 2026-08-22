@@ -2230,3 +2230,106 @@ def send_crush_credit_expiry_reminder(user, credits, request=None):
         domain="crush.lu",
         fail_silently=False,
     )
+
+
+# Crush Connect beta launch waves (Task 13.4). Imported by
+# ``send_connect_beta_invites`` and by the tests; the numbers are the ones the
+# 2026-08-21 production pool audit segmented the 295-person waitlist into.
+CONNECT_BETA_WAVE_CONNECT_WEEK = 1  # event-verified (incl. dual): full Connect Week
+CONNECT_BETA_WAVE_IN_THE_MIX = 2  # LuxID-only: visible, can accept and chat
+CONNECT_BETA_WAVE_UNVERIFIED = 3  # on the waitlist, not yet verified for Connect
+CONNECT_BETA_WAVES = (
+    CONNECT_BETA_WAVE_CONNECT_WEEK,
+    CONNECT_BETA_WAVE_IN_THE_MIX,
+    CONNECT_BETA_WAVE_UNVERIFIED,
+)
+
+# Where each wave's single CTA button points. Wave 1 lands on the Connect Week
+# itself (they can start immediately); wave 2 on their catalogue status (the
+# Week would only bounce them — ``cycle_access_open`` is False without event
+# verification); wave 3 on the dashboard, whose Connect strip renders the
+# verification tier's two routes.
+_CONNECT_BETA_CTA_URL_NAME = {
+    CONNECT_BETA_WAVE_CONNECT_WEEK: "crush_lu:connect_week_home",
+    CONNECT_BETA_WAVE_IN_THE_MIX: "crush_lu:crush_connect_catalogue_status",
+    CONNECT_BETA_WAVE_UNVERIFIED: "crush_lu:dashboard",
+}
+
+
+def send_connect_beta_invite(user, wave, request=None):
+    """Invite one waitlist member into the Crush Connect beta.
+
+    ``wave`` is one of ``CONNECT_BETA_WAVES`` and selects the body copy: the
+    active Connect Week (1), In the Mix (2), or how to get verified (3).
+
+    Consent is the waitlist row's own ``notification_preference`` ("wants to be
+    notified when Crush Connect launches"), which the caller filters on — an
+    explicit, specific opt-in to exactly this message. On top of that, only the
+    master ``unsubscribed_all`` switch applies here: ``can_send_email`` is
+    asked about an email_type with no ``EmailPreference`` column
+    ("connect_beta_invite") and ``can_send`` returns True for any type it does
+    not recognise, the same deliberate arrangement
+    ``send_crush_credit_expiry_reminder`` uses.
+
+    Deliberately NOT gated on "marketing". ``email_marketing`` defaults to
+    False for GDPR, and almost nobody turns it on — routing this through it
+    would silently deliver ~zero invites to a waitlist that individually asked
+    to be told. The specific opt-in is the stronger consent, not a weaker one.
+
+    It grants nothing: see the note on
+    ``CrushConnectWaitlist.beta_invited_at`` for why an invite must never
+    touch ``selected_as_tester``.
+
+    Idempotency is the CALLER's job (``send_connect_beta_invites`` stamps
+    ``beta_invited_at`` only after this returns 1), mirroring
+    ``send_crush_credit_expiry_reminder``.
+
+    Returns:
+        int: number of emails sent (1 on success, 0 on skip/failure)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    if wave not in CONNECT_BETA_WAVES:
+        raise ValueError(f"Unknown Connect beta wave: {wave!r}")
+
+    if not can_send_email(user, "connect_beta_invite"):
+        logger.info(f"Skipping Connect beta invite to {user.email} - unsubscribed")
+        return 0
+
+    cta_url = get_user_language_url(
+        user, _CONNECT_BETA_CTA_URL_NAME[wave], request
+    )
+    dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        request,
+        first_name=user.first_name,
+        wave=wave,
+        cta_url=cta_url,
+        dashboard_url=dashboard_url,
+    )
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    with translation.override(lang):
+        if wave == CONNECT_BETA_WAVE_UNVERIFIED:
+            subject = _("Two steps to Crush Connect")
+        else:
+            subject = _("Crush Connect is open for you")
+        html_message = render_to_string(
+            "crush_lu/emails/connect_beta_invite.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        # Batch sender (management command) has no request — without an
+        # explicit domain the config falls back to the PowerUp sender.
+        domain="crush.lu",
+        fail_silently=False,
+    )

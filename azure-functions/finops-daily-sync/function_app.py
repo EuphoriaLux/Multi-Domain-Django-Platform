@@ -12,9 +12,22 @@ import azure.functions as func
 import logging
 import requests
 import os
+import time
 from datetime import datetime
 
 app = func.FunctionApp()
+
+# Deliberately ABOVE Django's own per-region budget (90s, plus at most one
+# page's worst case). `requests` timing out only stops this side waiting - it
+# does not cancel the synchronous work still running in the web worker. If this
+# fired first we would abandon a live worker and immediately occupy another
+# with the next region; a few of those and the site has no workers left. So
+# Django is given room to always answer first, and a timeout here is treated as
+# "the backend is wedged" rather than "try the next one".
+PER_REGION_TIMEOUT = 170
+# host.json gives this function 10 minutes. Leave headroom so the run ends with
+# a summary rather than being killed mid-region.
+BUDGET_SECONDS = 8 * 60
 
 
 @app.function_name(name="finops_daily_sync")
@@ -124,7 +137,15 @@ def daily_cost_sync(timer: func.TimerRequest) -> None:
     use_monitor=True,
 )
 def daily_retail_price_sync(timer: func.TimerRequest) -> None:
-    """Trigger the append-only European Azure retail-price snapshot."""
+    """Trigger the append-only European Azure retail-price snapshot.
+
+    Walks the catalogue one region at a time. The full European catalogue is
+    ~200k rows over 208 pages, which no single App Service request can carry:
+    the Azure load balancer cuts a request off at ~240s on Linux, so a
+    whole-catalogue POST times out every night no matter how high this side's
+    timeout is set. One region is 6-16 pages and finishes comfortably inside
+    that ceiling, and a region that fails no longer costs the whole day.
+    """
     timestamp = datetime.utcnow().isoformat()
     if os.getenv("RETAIL_PRICE_SYNC_ENABLED", "false").lower() != "true":
         logging.info(
@@ -147,44 +168,133 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     logging.info(f"[{timestamp}] Initiating retail price sync")
     logging.info(f"[{timestamp}] Target webhook: {webhook_url}")
 
+    headers = {
+        "X-Sync-Token": sync_token,
+        "User-Agent": "Azure-Function-Power-Hub-Retail-Price-Sync/2.0",
+    }
+
+    # Ask Django which regions to walk rather than duplicating the list here;
+    # a stale local copy would silently stop capturing a region. The same call
+    # pins the snapshot date for the whole invocation: each region is a
+    # separate request, so without a fixed date a walk that straddled local
+    # midnight would file its regions under two dates and complete neither.
+    # Django supplies it so it cannot drift from this side's clock or timezone.
+    regions_url = webhook_url.rstrip("/") + "/regions/"
     try:
-        response = requests.post(
-            webhook_url,
-            headers={
-                "X-Sync-Token": sync_token,
-                "User-Agent": "Azure-Function-Power-Hub-Retail-Price-Sync/1.0",
-            },
-            timeout=220,
-        )
-        response.raise_for_status()
-        result = response.json()
-        logging.info(
-            f"[{timestamp}] Retail price sync result: "
-            f"{result.get('message', 'No message provided')}"
-        )
-
-    except requests.exceptions.Timeout:
-        logging.error(f"[{timestamp}] Retail price sync request timed out after 220s")
-        raise
-
-    except requests.exceptions.HTTPError as e:
-        logging.error(f"[{timestamp}] HTTP error during retail price sync: {e}")
-        logging.error(f"[{timestamp}] Response status: {e.response.status_code}")
-        logging.error(f"[{timestamp}] Response body: {e.response.text}")
-        raise
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f"[{timestamp}] Network error during retail price sync: {str(e)}")
-        raise
-
-    except ValueError as e:
-        # JSON parsing error
-        logging.error(f"[{timestamp}] Invalid JSON response from webhook: {str(e)}")
-        logging.error(f"[{timestamp}] Response text: {response.text}")
-        raise
-
+        regions_response = requests.get(regions_url, headers=headers, timeout=30)
+        if regions_response.status_code == 404:
+            # This Function App deploys straight to production on merge, while
+            # the Django side lands on the staging slot and waits for a manual
+            # portal swap. So there is a window where the new timer is live
+            # against the old production app, and /regions/ does not exist yet.
+            # Say so plainly: the old whole-catalogue POST is NOT a safe
+            # fallback — it is the request that timed out every night, and
+            # nineteen of them would be far worse.
+            raise RuntimeError(
+                f"{regions_url} returned 404. The production Django slot has "
+                "not been swapped to a build containing the per-region retail "
+                "price endpoint yet. Swap it in the Azure Portal; this timer "
+                "will recover on its next run. No regions were synced."
+            )
+        regions_response.raise_for_status()
+        plan = regions_response.json()
+        regions = plan["regions"]
+        snapshot_date = plan.get("snapshot_date")
     except Exception as e:
-        logging.error(f"[{timestamp}] Unexpected error during retail price sync: {str(e)}")
+        logging.error(
+            f"[{timestamp}] Could not fetch the region list from {regions_url}: {e}"
+        )
         raise
 
-    logging.info(f"[{timestamp}] Retail price daily sync function completed")
+    if not regions:
+        raise RuntimeError("The retail price endpoint returned an empty region list")
+
+    logging.info(
+        f"[{timestamp}] Syncing {len(regions)} region(s) one at a time "
+        f"for snapshot date {snapshot_date or 'unset (server default)'}"
+    )
+
+    succeeded: list[str] = []
+    attempted: list[str] = []
+    failures: list[str] = []
+    skipped: list[str] = []
+    # host.json allows this function 10 minutes. Stop short of that so a slow
+    # night ends with a logged summary instead of being killed mid-region with
+    # no diagnostic at all.
+    deadline = time.monotonic() + BUDGET_SECONDS
+
+    for region in regions:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            skipped = [r for r in regions if r not in attempted]
+            logging.error(
+                f"[{timestamp}] Ran out of time after {len(attempted)} region(s); "
+                f"skipped: {', '.join(skipped)}"
+            )
+            break
+
+        attempted.append(region)
+        payload = {"region": region}
+        if snapshot_date:
+            payload["snapshot_date"] = snapshot_date
+        try:
+            response = requests.post(
+                webhook_url,
+                headers=headers,
+                json=payload,
+                timeout=min(PER_REGION_TIMEOUT, max(remaining, 1)),
+            )
+            response.raise_for_status()
+            result = response.json()
+            succeeded.append(region)
+            logging.info(
+                f"[{timestamp}] {region}: "
+                f"{result.get('message', 'No message provided')}"
+            )
+        except requests.exceptions.Timeout:
+            # Django should have answered inside its own budget. That it did
+            # not means the worker is still busy on a request nobody is
+            # reading any more. Stop: posting the next region would occupy a
+            # second worker while this one is still stuck, and so on.
+            failures.append(f"{region} (timeout after {PER_REGION_TIMEOUT}s)")
+            skipped = [r for r in regions if r not in attempted]
+            if skipped:
+                failures.append(
+                    f"{len(skipped)} region(s) not attempted: stopped after a "
+                    "backend timeout"
+                )
+            logging.error(
+                f"[{timestamp}] {region}: no response within "
+                f"{PER_REGION_TIMEOUT}s. Stopping the walk so abandoned "
+                f"requests cannot stack up; not attempted: "
+                f"{', '.join(skipped) or 'none'}"
+            )
+            break
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "unknown"
+            body = e.response.text[:500] if e.response is not None else ""
+            failures.append(f"{region} (HTTP {status})")
+            logging.error(f"[{timestamp}] {region}: HTTP error {e} - {body}")
+        except Exception as e:
+            failures.append(f"{region} ({type(e).__name__})")
+            logging.error(f"[{timestamp}] {region}: {type(e).__name__}: {e}")
+
+    logging.info(
+        f"[{timestamp}] Retail price daily sync finished: "
+        f"{len(succeeded)}/{len(regions)} region(s) captured"
+    )
+
+    # Fail the invocation so a partial night still reaches the alert, but only
+    # after every region has been attempted.
+    if failures or skipped:
+        detail = []
+        if failures:
+            detail.append(f"{len(failures)} failed ({'; '.join(failures)})")
+        if skipped:
+            detail.append(
+                f"{len(skipped)} skipped for time ({', '.join(skipped)})"
+            )
+        raise RuntimeError(
+            f"Retail price sync captured {len(succeeded)} of {len(regions)} "
+            f"region(s): {'; '.join(detail)}"
+        )
