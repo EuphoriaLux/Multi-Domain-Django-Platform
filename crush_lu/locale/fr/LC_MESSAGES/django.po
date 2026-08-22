@@ -40294,3 +40294,19 @@ msgstr "Bonne correspondance"
 
 msgid "Not really"
 msgstr "Pas vraiment"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Tap once so iPhone can play the arrival sound."
+msgstr "Touchez une fois pour que l’iPhone puisse jouer le son d’arrivée."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Enable sound & start tracking"
+msgstr "Activer le son et démarrer le suivi"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Preparing sound…"
+msgstr "Préparation du son…"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "On iPhone, turn off Silent Mode to hear arrival sounds."
+msgstr "Sur iPhone, désactivez le mode silencieux pour entendre les sons d’arrivée."

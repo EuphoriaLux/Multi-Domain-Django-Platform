@@ -285,6 +285,13 @@ class TestPermissionsPolicy(SiteTestCase):
         self.assertIn('geolocation=(self)', pp,
                      "geolocation should be allowed on same origin for Crush Cache")
 
+        # Same-origin autoplay remains subject to each browser's user-gesture
+        # policy, but must not be disabled by our own header: Crush Cache
+        # pre-unlocks its arrival audio before GPS tracking starts.
+        self.assertIn('autoplay=(self)', pp,
+                     "same-origin arrival audio should be permitted")
+        self.assertNotIn('autoplay=()', pp)
+
 
 class TestPIIMasking(TestCase):
     """Tests for PII masking in logs."""

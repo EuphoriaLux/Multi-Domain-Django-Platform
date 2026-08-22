@@ -26,7 +26,7 @@ class PermissionsPolicyMiddleware:
 
     PERMISSIONS_POLICY = ", ".join([
         "accelerometer=(self)",  # Required for Crush Cache compass orientation
-        "autoplay=()",
+        "autoplay=(self)",  # Same-origin Crush Cache arrival audio
         "camera=(self)",  # Needed for QR check-in scanner
         "display-capture=()",
         "encrypted-media=()",

@@ -923,6 +923,19 @@ class TestPlayView:
         assert response.status_code == 200
         assert "Gëlle Fra".encode() in response.content
 
+    def test_gps_navigation_requires_sound_gesture_before_tracking(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
+        content = response.content.decode()
+
+        assert 'x-show="showSoundPrompt"' in content
+        assert 'x-on:click="enableSoundAndTracking"' in content
+        assert "Enable sound & start tracking" in content
+        assert 'x-show="showGpsReadout"' in content
+
     def test_map_mode_exposes_coords_compass_does_not(
         self, client, hunt, stations, team, player
     ):
