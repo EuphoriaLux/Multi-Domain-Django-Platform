@@ -2,12 +2,14 @@
 Unit and integration tests for Google Search Indexing API integration in Crush.lu.
 """
 
+import time
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -336,10 +338,10 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
     @patch("crush_lu.services.google_indexing.notify_urls_indexing")
-    def test_bulk_delete_coalesces_into_single_budgeted_callback(
+    def test_bulk_delete_shares_post_commit_budget_and_is_savepoint_safe(
         self, mock_notify_urls
     ):
-        """Bulk deleting multiple events inside one transaction coalesces into a single notify_urls_indexing call."""
+        """Bulk deleting multiple events inside one transaction executes with shared deadline context."""
         event2 = MeetupEvent.objects.create(
             title="Second Event",
             description="Second Event Description",
@@ -350,32 +352,57 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             is_published=True,
         )
 
-        event1_id = self.event.id
-        event2_id = event2.id
-
         with self.captureOnCommitCallbacks(execute=True):
             self.event.delete()
             event2.delete()
 
-        mock_notify_urls.assert_called_once()
-        urls_passed = mock_notify_urls.call_args[0][0]
-        self.assertEqual(mock_notify_urls.call_args[1]["action"], "URL_DELETED")
-        self.assertEqual(mock_notify_urls.call_args[1]["max_budget_seconds"], 5.0)
-        self.assertTrue(any(f"/events/{event1_id}/" in u for u in urls_passed))
-        self.assertTrue(any(f"/events/{event2_id}/" in u for u in urls_passed))
+        self.assertEqual(mock_notify_urls.call_count, 2)
+        deadline1 = mock_notify_urls.call_args_list[0][1]["deadline"]
+        deadline2 = mock_notify_urls.call_args_list[1][1]["deadline"]
+        self.assertEqual(deadline1, deadline2)
+        self.assertEqual(
+            mock_notify_urls.call_args_list[0][1]["action"], "URL_DELETED"
+        )
+        self.assertEqual(
+            mock_notify_urls.call_args_list[1][1]["action"], "URL_DELETED"
+        )
 
-    def test_cleanup_indexing_thread_state_on_request_finished(self):
-        """cleanup_indexing_thread_state clears pending saves and deletes from thread-local state."""
-        from crush_lu.signals import _get_indexing_state, cleanup_indexing_thread_state
+    @patch("crush_lu.services.google_indexing.notify_urls_indexing")
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_savepoint_rollback_discards_indexing_callbacks(
+        self, mock_notify_event, mock_notify_urls
+    ):
+        """Rolling back an inner atomic block does not execute rolled-back on_commit callbacks."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Committed Outer Change"
+            self.event.save()
 
-        state = _get_indexing_state()
-        state.pending_saves[999] = "URL_UPDATED"
-        state.pending_deletes.add("https://crush.lu/en/events/999/")
+            try:
+                with transaction.atomic():
+                    self.event.is_published = False
+                    self.event.save()
+                    raise ValueError("Simulated savepoint rollback")
+            except ValueError:
+                pass
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    def test_cleanup_indexing_context_on_request_finished(self):
+        """cleanup_indexing_thread_state clears deadline and session from thread-local context."""
+        from crush_lu.signals import (
+            _get_indexing_context,
+            cleanup_indexing_thread_state,
+        )
+
+        ctx = _get_indexing_context()
+        ctx.deadline = time.monotonic() + 10.0
+        ctx.session = "dummy_session"
 
         cleanup_indexing_thread_state()
 
-        self.assertEqual(len(state.pending_saves), 0)
-        self.assertEqual(len(state.pending_deletes), 0)
+        self.assertIsNone(ctx.deadline)
+        self.assertIsNone(ctx.session)
 
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):

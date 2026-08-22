@@ -357,20 +357,24 @@ def notify_events_indexing(
 def notify_urls_indexing(
     urls: List[str],
     action: str = "URL_DELETED",
+    session: Optional[Any] = None,
+    deadline: Optional[float] = None,
     max_budget_seconds: float = 5.0,
 ) -> List[Dict[str, Any]]:
     """Notify Googlebot for a list of raw URLs (e.g. deleted event URLs) within a single budget."""
     if not is_indexing_enabled() or not urls:
         return []
 
-    sess = get_google_indexing_session()
+    sess = session or get_google_indexing_session()
     if not sess:
         return []
 
-    deadline = time.monotonic() + max_budget_seconds
+    end_time = (
+        deadline if deadline is not None else (time.monotonic() + max_budget_seconds)
+    )
     results = []
     for url in urls:
-        remaining = deadline - time.monotonic()
+        remaining = end_time - time.monotonic()
         if remaining <= 0:
             logger.warning(
                 "Google Indexing URL budget exhausted (%ss).", max_budget_seconds
