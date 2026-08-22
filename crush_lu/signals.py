@@ -16,7 +16,13 @@ from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
 from django.core.signals import request_finished
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
+from django.db.models.signals import (
+    m2m_changed,
+    post_delete,
+    post_save,
+    pre_delete,
+    pre_save,
+)
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import email_confirmation_sent, email_confirmed
@@ -4726,6 +4732,22 @@ def trigger_google_indexing_on_event_save(
     _schedule_event_indexing_notification(instance.pk, action=action)
 
 
+@receiver(pre_save, sender=EventRegistration)
+def capture_registration_prior_status(sender, instance, **kwargs):
+    """Capture prior status to detect whether capacity changes on post_save."""
+    if instance.pk:
+        try:
+            instance._indexing_prior_status = (
+                EventRegistration.objects.filter(pk=instance.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+        except Exception:
+            instance._indexing_prior_status = None
+    else:
+        instance._indexing_prior_status = None
+
+
 @receiver(post_save, sender=EventRegistration)
 def trigger_google_indexing_on_registration_save(
     sender, instance, created, raw=False, update_fields=None, **kwargs
@@ -4737,9 +4759,20 @@ def trigger_google_indexing_on_registration_save(
     if update_fields is not None and "status" not in update_fields:
         return
 
-    event_id = getattr(instance, "event_id", None)
-    if event_id:
-        _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
+    from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
+    prior_status = getattr(instance, "_indexing_prior_status", None)
+    new_status = instance.status
+
+    was_holding = prior_status in SEAT_HOLDING_STATUSES if prior_status else False
+    is_holding = new_status in SEAT_HOLDING_STATUSES
+
+    # Notify only if creating a seat-holding registration or crossing the holding boundary
+    # (e.g. pending/confirmed -> cancelled or waitlist -> confirmed; ignores confirmed -> attended)
+    if (created and is_holding) or (not created and was_holding != is_holding):
+        event_id = getattr(instance, "event_id", None)
+        if event_id:
+            _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
 
 
 @receiver(post_delete, sender=EventRegistration)
@@ -4749,6 +4782,24 @@ def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
         event_id = getattr(instance, "event_id", None)
         if event_id:
             _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
+
+
+@receiver(m2m_changed, sender=MeetupEvent.coaches.through)
+def trigger_google_indexing_on_coaches_changed(
+    sender, instance, action, reverse, model, pk_set, **kwargs
+):
+    """Notify Googlebot when coach assignments change (updates schema.org performer)."""
+    if action in ("post_add", "post_remove", "post_clear"):
+        if not reverse and isinstance(instance, MeetupEvent):
+            from crush_lu.services.google_indexing import should_index_event
+
+            indexing_action = (
+                "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
+            )
+            _schedule_event_indexing_notification(instance.pk, action=indexing_action)
+        elif reverse and pk_set:
+            for event_pk in pk_set:
+                _schedule_event_indexing_notification(event_pk, action="URL_UPDATED")
 
 
 @receiver(post_delete, sender=MeetupEvent)

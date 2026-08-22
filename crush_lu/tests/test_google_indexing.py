@@ -417,7 +417,17 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(mock_notify_event.call_args[0][0], self.event)
         self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
-        # 3. Non-status update does not trigger indexing
+        # 3. Check-in (confirmed -> attended) stays within seat-holding set -> 0 indexing notifications
+        reg.status = "confirmed"
+        reg.save()
+        mock_notify_event.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "attended"
+            reg.save(update_fields=["status"])
+
+        self.assertEqual(mock_notify_event.call_count, 0)
+
+        # 4. Non-status update does not trigger indexing
         mock_notify_event.reset_mock()
         with self.captureOnCommitCallbacks(execute=True):
             reg.special_requests = "Vegetarian please"
@@ -425,12 +435,35 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         self.assertEqual(mock_notify_event.call_count, 0)
 
-        # 4. Deleting a seat-holding registration triggers indexing
+        # 5. Deleting a seat-holding registration triggers indexing
         reg.status = "confirmed"
         reg.save()
         mock_notify_event.reset_mock()
         with self.captureOnCommitCallbacks(execute=True):
             reg.delete()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0], self.event)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coaches_m2m_changed_triggers_indexing(self, mock_notify_event):
+        """Adding coaches to an event updates schema.org performer and triggers indexing."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="coach_user",
+            email="coach@example.com",
+            first_name="Taylor",
+            last_name="Coach",
+        )
+        coach = CrushCoach.objects.create(
+            user=coach_user,
+            is_active=True,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
 
         self.assertEqual(mock_notify_event.call_count, 1)
         self.assertEqual(mock_notify_event.call_args[0][0], self.event)
