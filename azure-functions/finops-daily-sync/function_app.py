@@ -189,6 +189,7 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     succeeded: list[str] = []
     attempted: list[str] = []
     failures: list[str] = []
+    skipped: list[str] = []
     # host.json allows this function 10 minutes. Stop short of that so a slow
     # night ends with a logged summary instead of being killed mid-region with
     # no diagnostic at all.
@@ -198,7 +199,6 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             skipped = [r for r in regions if r not in attempted]
-            failures.append(f"{len(skipped)} region(s) skipped: out of time budget")
             logging.error(
                 f"[{timestamp}] Ran out of time after {len(attempted)} region(s); "
                 f"skipped: {', '.join(skipped)}"
@@ -236,8 +236,15 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
 
     # Fail the invocation so a partial night still reaches the alert, but only
     # after every region has been attempted.
-    if failures:
+    if failures or skipped:
+        detail = []
+        if failures:
+            detail.append(f"{len(failures)} failed ({'; '.join(failures)})")
+        if skipped:
+            detail.append(
+                f"{len(skipped)} skipped for time ({', '.join(skipped)})"
+            )
         raise RuntimeError(
-            f"Retail price sync failed for {len(failures)} of {len(regions)} "
-            f"region(s): {'; '.join(failures)}"
+            f"Retail price sync captured {len(succeeded)} of {len(regions)} "
+            f"region(s): {'; '.join(detail)}"
         )
