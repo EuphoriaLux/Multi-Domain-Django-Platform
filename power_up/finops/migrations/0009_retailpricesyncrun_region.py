@@ -60,7 +60,9 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="retailpricesyncrun",
             name="region",
-            field=models.CharField(db_index=True, default="", max_length=50),
+            field=models.CharField(
+                db_default="", db_index=True, default="", max_length=50
+            ),
         ),
         migrations.AddIndex(
             model_name="retailpricesyncrun",

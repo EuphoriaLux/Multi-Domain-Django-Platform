@@ -17,9 +17,14 @@ from datetime import datetime
 
 app = func.FunctionApp()
 
-# One region is 6-16 pages, so this is generous; it exists to stop a wedged
-# region from eating the whole invocation.
-PER_REGION_TIMEOUT = 120
+# Deliberately ABOVE Django's own per-region budget (90s, plus at most one
+# page's worst case). `requests` timing out only stops this side waiting - it
+# does not cancel the synchronous work still running in the web worker. If this
+# fired first we would abandon a live worker and immediately occupy another
+# with the next region; a few of those and the site has no workers left. So
+# Django is given room to always answer first, and a timeout here is treated as
+# "the backend is wedged" rather than "try the next one".
+PER_REGION_TIMEOUT = 170
 # host.json gives this function 10 minutes. Leave headroom so the run ends with
 # a summary rather than being killed mid-region.
 BUDGET_SECONDS = 8 * 60
@@ -232,6 +237,25 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
                 f"[{timestamp}] {region}: "
                 f"{result.get('message', 'No message provided')}"
             )
+        except requests.exceptions.Timeout:
+            # Django should have answered inside its own budget. That it did
+            # not means the worker is still busy on a request nobody is
+            # reading any more. Stop: posting the next region would occupy a
+            # second worker while this one is still stuck, and so on.
+            failures.append(f"{region} (timeout after {PER_REGION_TIMEOUT}s)")
+            skipped = [r for r in regions if r not in attempted]
+            if skipped:
+                failures.append(
+                    f"{len(skipped)} region(s) not attempted: stopped after a "
+                    "backend timeout"
+                )
+            logging.error(
+                f"[{timestamp}] {region}: no response within "
+                f"{PER_REGION_TIMEOUT}s. Stopping the walk so abandoned "
+                f"requests cannot stack up; not attempted: "
+                f"{', '.join(skipped) or 'none'}"
+            )
+            break
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             body = e.response.text[:500] if e.response is not None else ""

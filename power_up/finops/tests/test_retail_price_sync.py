@@ -15,6 +15,7 @@ from power_up.finops.models import (
 from power_up.finops.retail_prices.connectors.base import ConnectorPage
 from power_up.finops.retail_prices.connectors.azure import AzureRetailPricesConnector
 from power_up.finops.retail_prices.service import (
+    RegionSyncTimedOut,
     SnapshotAlreadyExists,
     sync_retail_prices,
 )
@@ -218,7 +219,8 @@ def test_command_syncs_only_the_requested_regions(mocker):
     """
     payload = {"Items": [azure_item(region="northeurope")], "NextPageLink": None}
     mocker.patch(
-        "power_up.finops.retail_prices.connectors.azure.AzureRetailPricesConnector",
+        "power_up.finops.management.commands.sync_retail_prices"
+        ".AzureRetailPricesConnector",
         return_value=FakeConnector(payload),
     )
 
@@ -239,7 +241,8 @@ def test_command_fails_loudly_when_a_region_fails(mocker):
             yield  # pragma: no cover - generator marker
 
     mocker.patch(
-        "power_up.finops.retail_prices.connectors.azure.AzureRetailPricesConnector",
+        "power_up.finops.management.commands.sync_retail_prices"
+        ".AzureRetailPricesConnector",
         return_value=ExplodingConnector({}),
     )
 
@@ -249,6 +252,90 @@ def test_command_fails_loudly_when_a_region_fails(mocker):
     assert RetailPriceSyncRun.objects.get().status == (
         RetailPriceSyncRun.Status.FAILED
     )
+
+
+@pytest.mark.django_db
+def test_a_region_gives_up_on_its_budget_instead_of_holding_the_worker():
+    """The caller's timeout does not cancel this work, so it must self-limit.
+
+    `requests` timing out only stops the scheduler waiting; the synchronous
+    `call_command` keeps running in the web worker. If a region outlived the
+    caller, the caller would move on and occupy a second worker while the
+    first was still fetching.
+    """
+    pages = [
+        {"Items": [azure_item(region="westeurope")], "NextPageLink": "next"},
+        {"Items": [azure_item(region="westeurope")], "NextPageLink": None},
+    ]
+
+    class SlowConnector(FakeConnector):
+        def iter_pages(self, *, regions, currency):
+            for page in pages:
+                raw = json.dumps(page, separators=(",", ":")).encode("utf-8")
+                yield ConnectorPage(
+                    source_url="https://prices.example.test/api",
+                    next_page_url=page["NextPageLink"] or "",
+                    payload=page,
+                    raw_content=raw,
+                )
+
+    with pytest.raises(RegionSyncTimedOut, match="budget"):
+        sync_retail_prices(
+            snapshot_date=date(2026, 8, 24),
+            region="westeurope",
+            max_seconds=-1,  # already over budget at the first check
+            connector=SlowConnector(pages[0]),
+        )
+
+    run = RetailPriceSyncRun.objects.get(snapshot_date=date(2026, 8, 24))
+    assert run.status == RetailPriceSyncRun.Status.FAILED
+    assert "budget" in run.error_message
+
+
+@pytest.mark.django_db
+def test_a_page_request_cannot_outlive_the_regions_budget_by_much():
+    """Pin the retry arithmetic the worker-hold bound depends on."""
+    from power_up.finops.retail_prices.connectors.azure import (
+        AzureRetailPricesConnector,
+    )
+
+    connector = AzureRetailPricesConnector()
+    retry = connector.session.get_adapter("https://prices.azure.com").max_retries
+    attempts = retry.total + 1
+    worst_page = attempts * (
+        connector.CONNECT_TIMEOUT + connector.timeout
+    ) + retry.backoff_factor * (2**attempts)
+
+    assert worst_page < 90, f"one page can run {worst_page:.0f}s"
+
+
+@pytest.mark.django_db
+def test_pre_change_code_can_still_insert_without_the_region_column():
+    """A slot swap back to old code must not hit a NOT NULL violation.
+
+    A plain ``default`` is model state only: Django backfills existing rows and
+    then drops the database default. ``db_default`` is what actually keeps the
+    column writable by code that does not know it exists.
+    """
+    from django.db import connection
+
+    table = RetailPriceSyncRun._meta.db_table
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            INSERT INTO {table}
+                (id, provider, snapshot_date, currency, regions, status,
+                 connector_name, source_endpoint, page_count, raw_item_count,
+                 normalized_item_count, invalid_item_count,
+                 duplicate_item_count, error_message, started_at)
+            VALUES ('%s', 'azure', '2026-08-25', 'EUR', '[]', 'running',
+                    'legacy', 'https://example.test', 0, 0, 0, 0, 0, '',
+                    '2026-08-25 00:00:00')
+            """
+            % ("0" * 32)
+        )
+
+    assert RetailPriceSyncRun.objects.get(snapshot_date=date(2026, 8, 25)).region == ""
 
 
 @pytest.mark.django_db

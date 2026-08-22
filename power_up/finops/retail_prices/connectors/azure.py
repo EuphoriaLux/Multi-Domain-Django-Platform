@@ -44,15 +44,31 @@ class AzureRetailPricesConnector(RetailPriceConnector):
     endpoint = "https://prices.azure.com/api/retail/prices"
     api_version = "2023-01-01-preview"
 
-    def __init__(self, *, timeout: int = 45, session=None):
+    #: Read timeout for a single page request.
+    #:
+    #: Kept deliberately tight, along with the retry budget below. The caller
+    #: is an HTTP request that a scheduler is waiting on, so the worst case for
+    #: one page has to stay well under that client's timeout: otherwise the
+    #: client gives up, moves to the next region, and leaves this worker still
+    #: fetching. A handful of those and the site has no workers left. Worst
+    #: case here is 2 attempts x (5s connect + 20s read) + 0.5s backoff, so
+    #: about 50s.
+    DEFAULT_TIMEOUT = 20
+    CONNECT_TIMEOUT = 5
+
+    def __init__(self, *, timeout: int = DEFAULT_TIMEOUT, session=None):
         self.timeout = timeout
         self.session = session or self._build_session()
 
     @staticmethod
     def _build_session():
         retry = Retry(
-            total=3,
-            backoff_factor=1,
+            # One retry, not three. A retry storm here used to be able to run
+            # ~227s for a single page. Losing a region to a transient 429 is
+            # cheap now that runs are per-region: it is reported by name and
+            # re-attempted on the next daily snapshot.
+            total=1,
+            backoff_factor=0.5,
             status_forcelist=(429, 500, 502, 503, 504),
             allowed_methods=("GET",),
             respect_retry_after_header=True,
@@ -86,7 +102,7 @@ class AzureRetailPricesConnector(RetailPriceConnector):
             response = self.session.get(
                 url,
                 params=params,
-                timeout=(10, self.timeout),
+                timeout=(self.CONNECT_TIMEOUT, self.timeout),
             )
             response.raise_for_status()
             payload = response.json()

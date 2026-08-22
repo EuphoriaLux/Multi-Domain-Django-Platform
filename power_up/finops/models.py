@@ -570,7 +570,14 @@ class RetailPriceSyncRun(models.Model):
     # one run per region. The whole European catalogue is ~200k rows across 208
     # pages, which cannot be fetched inside a single App Service request (the
     # Azure load balancer caps one at ~240s on Linux).
-    region = models.CharField(max_length=50, default="", db_index=True)
+    # ``db_default`` as well as ``default``: a plain default is model-state
+    # only, so Django backfills existing rows and then drops the database
+    # default, leaving a NOT NULL column that pre-change code — which omits
+    # ``region`` from its INSERT — cannot write to. Keeping a real database
+    # default is what makes a code-only rollback (slot swap) survivable.
+    region = models.CharField(
+        max_length=50, default="", db_default="", db_index=True
+    )
     # Retained for historical rows captured before per-region chunking; always
     # equal to ``[region]`` for runs created since.
     regions = models.JSONField(default=list)

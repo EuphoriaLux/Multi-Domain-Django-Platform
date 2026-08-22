@@ -44,6 +44,23 @@ whole-catalogue POST therefore failed *every* night. The timer now:
    rather than the whole day, and stops early against a wall-clock budget so a
    slow night ends with a logged summary instead of a silent kill.
 
+### Why the two timeouts are ordered the way they are
+
+Django gives one region **90s** (`DEFAULT_MAX_SECONDS`) plus at most one page's
+worst case (~50s); this Function App waits **170s** (`PER_REGION_TIMEOUT`). That
+ordering is deliberate and must be preserved.
+
+`requests` timing out only stops *this* side waiting — it does not cancel the
+synchronous `call_command()` still running in the web worker. If this side gave
+up first, it would abandon a live worker and immediately occupy another with the
+next region; a sustained upstream slowdown would walk through all four
+production workers and take the whole site down with it. So Django is always
+given room to answer first, and a timeout here is treated as "the backend is
+wedged" — the walk **stops** rather than moving to the next region.
+
+If you raise the connector's retry budget or read timeout, raise
+`PER_REGION_TIMEOUT` to match.
+
 A region-less POST is rejected with `400` rather than falling back to the whole
 catalogue — the old payload shape must fail loudly, not quietly reintroduce the
 timeout.

@@ -5,10 +5,12 @@ from datetime import date
 from django.core.management.base import BaseCommand, CommandError
 
 from power_up.finops.retail_prices import (
+    DEFAULT_MAX_SECONDS,
     SnapshotAlreadyExists,
     sync_retail_prices,
 )
 from power_up.finops.retail_prices.connectors.azure import (
+    AzureRetailPricesConnector,
     DEFAULT_EUROPEAN_REGIONS,
 )
 
@@ -31,7 +33,22 @@ class Command(BaseCommand):
             "--snapshot-date",
             help="Observation date in YYYY-MM-DD format (default: today).",
         )
-        parser.add_argument("--timeout", type=int, default=45)
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=AzureRetailPricesConnector.DEFAULT_TIMEOUT,
+            help="Read timeout for a single page request, in seconds.",
+        )
+        parser.add_argument(
+            "--max-seconds",
+            type=float,
+            default=DEFAULT_MAX_SECONDS,
+            help=(
+                "Budget for one region before it gives up. Keeps a web worker "
+                "from being held past the caller's own timeout. Use 0 for no "
+                "limit when running this by hand off the request path."
+            ),
+        )
 
     def handle(self, *args, **options):
         snapshot_date = None
@@ -40,10 +57,6 @@ class Command(BaseCommand):
                 snapshot_date = date.fromisoformat(options["snapshot_date"])
             except ValueError as exc:
                 raise CommandError("--snapshot-date must use YYYY-MM-DD.") from exc
-
-        from power_up.finops.retail_prices.connectors.azure import (
-            AzureRetailPricesConnector,
-        )
 
         connector = AzureRetailPricesConnector(timeout=options["timeout"])
         regions = [region.lower() for region in options["regions"]]
@@ -59,6 +72,7 @@ class Command(BaseCommand):
                     snapshot_date=snapshot_date,
                     currency=options["currency"],
                     region=region,
+                    max_seconds=options["max_seconds"] or None,
                     connector=connector,
                 )
             except SnapshotAlreadyExists as exc:

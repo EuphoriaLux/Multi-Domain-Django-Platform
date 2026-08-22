@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from time import monotonic
 import gzip
 import hashlib
 
@@ -22,12 +23,27 @@ class SnapshotAlreadyExists(RuntimeError):
     pass
 
 
+class RegionSyncTimedOut(RuntimeError):
+    """Raised when one region's walk outlives the budget it was given."""
+
+
+#: Seconds one region may spend fetching before it gives up.
+#:
+#: This exists to protect the web workers, not the data. The caller is an HTTP
+#: request the scheduler is waiting on; if this side runs longer than the
+#: client's timeout, the client abandons it and starts the next region while
+#: this worker is still fetching. Kept below that timeout so Django always
+#: answers first — a failed region reported cleanly beats a leaked worker.
+DEFAULT_MAX_SECONDS = 90
+
+
 def sync_retail_prices(
     *,
     provider: str = CloudProvider.AZURE,
     snapshot_date: date | None = None,
     currency: str = "EUR",
     region: str,
+    max_seconds: float | None = DEFAULT_MAX_SECONDS,
     connector=None,
 ) -> RetailPriceSyncRun:
     """Fetch, archive, and append one region's daily retail-price snapshot.
@@ -77,10 +93,22 @@ def sync_retail_prices(
     raw_item_count = 0
     page_count = 0
 
+    deadline = None if max_seconds is None else monotonic() + max_seconds
+
     try:
         for page_count, page in enumerate(
             connector.iter_pages(regions=[region], currency=currency), start=1
         ):
+            # Checked between pages: the connector is a generator, so bailing
+            # here stops it before it asks for the next page. Bounds how long
+            # this worker can stay occupied to roughly the budget plus one
+            # page's worst case.
+            if deadline is not None and monotonic() > deadline:
+                raise RegionSyncTimedOut(
+                    f"{region} exceeded its {max_seconds:g}s budget after "
+                    f"{page_count - 1} page(s); giving up so the worker is "
+                    "released rather than abandoned mid-request."
+                )
             items = page.payload["Items"]
             raw_item_count += len(items)
             raw_page = RetailPriceRawPage.objects.create(

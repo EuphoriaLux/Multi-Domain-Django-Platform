@@ -180,6 +180,38 @@ def test_running_out_of_budget_names_the_skipped_regions(timer_app, transport):
         assert region in str(excinfo.value)
 
 
+def test_a_backend_timeout_stops_the_walk_instead_of_occupying_more_workers(
+    timer_app, transport
+):
+    """A timeout here does not cancel the work still running in the worker.
+
+    Continuing to the next region would tie up a second worker while the first
+    is still fetching, and so on through the pool — so the walk stops.
+    """
+
+    def timing_out_post(url, **kwargs):
+        transport.posted.append(kwargs["json"]["region"])
+        raise requests.exceptions.Timeout("no response")
+
+    transport.set_post(timing_out_post)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        run(timer_app)
+
+    assert transport.posted == [REGIONS[0]], "kept posting after a timeout"
+    assert "timeout" in str(excinfo.value)
+    assert "2 region(s) not attempted" in str(excinfo.value)
+
+
+def test_the_client_waits_longer_than_the_backend_budget(timer_app):
+    """Django must always answer before this side stops listening.
+
+    Inverting these two is what lets abandoned requests accumulate, so pin the
+    ordering rather than relying on a comment.
+    """
+    assert timer_app.PER_REGION_TIMEOUT > 90 + 50
+
+
 def test_an_unreachable_region_list_aborts_before_syncing_anything(
     timer_app, transport
 ):
