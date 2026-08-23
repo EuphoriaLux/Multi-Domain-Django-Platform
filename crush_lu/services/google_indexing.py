@@ -25,9 +25,24 @@ SCOPES = ["https://www.googleapis.com/auth/indexing"]
 DEFAULT_LANGUAGES = ["en", "fr", "de"]
 
 
+def get_indexing_domain() -> str:
+    """The single host this deployment may submit URLs for."""
+    return (getattr(settings, "GOOGLE_INDEXING_DOMAIN", "") or "").strip()
+
+
 def is_indexing_enabled() -> bool:
-    """Check whether Google Indexing API integration is enabled."""
-    return getattr(settings, "GOOGLE_INDEXING_ENABLED", False)
+    """Check whether Google Indexing API integration is enabled *and* safe here."""
+    if not getattr(settings, "GOOGLE_INDEXING_ENABLED", False):
+        return False
+    if not get_indexing_domain():
+        logger.warning(
+            "GOOGLE_INDEXING_ENABLED is set but GOOGLE_INDEXING_DOMAIN is empty; "
+            "refusing to submit any URL. A slot running its own database would "
+            "otherwise notify Google about production URLs built from unrelated "
+            "local event IDs."
+        )
+        return False
+    return True
 
 
 # Filters selecting events whose detail page Googlebot can actually fetch.
@@ -133,18 +148,26 @@ def get_google_indexing_session() -> Optional[Any]:
         return None
 
 
-def build_event_indexing_urls(event, domain: str = "crush.lu") -> List[str]:
+def build_event_indexing_urls(event, domain: Optional[str] = None) -> List[str]:
     """
     Build canonical absolute URLs for an event across all active site languages.
 
+    The host comes from ``GOOGLE_INDEXING_DOMAIN`` rather than a hardcoded
+    default, so a deployment that does not serve the public site cannot build
+    (and therefore cannot submit) its URLs.
+
     Returns:
         List of absolute URLs:
-        - https://crush.lu/en/events/<id>/
-        - https://crush.lu/fr/events/<id>/
-        - https://crush.lu/de/events/<id>/
+        - https://<domain>/en/events/<id>/
+        - https://<domain>/fr/events/<id>/
+        - https://<domain>/de/events/<id>/
     """
     event_id = getattr(event, "id", None) or getattr(event, "pk", None)
     if not event_id:
+        return []
+
+    domain = domain or get_indexing_domain()
+    if not domain:
         return []
 
     languages = getattr(settings, "LANGUAGES", None)
@@ -171,8 +194,12 @@ def build_event_indexing_urls(event, domain: str = "crush.lu") -> List[str]:
     return urls
 
 
-def build_event_list_urls(domain: str = "crush.lu") -> List[str]:
+def build_event_list_urls(domain: Optional[str] = None) -> List[str]:
     """Build canonical URLs for the events directory page (/en/events/, /fr/events/, /de/events/)."""
+    domain = domain or get_indexing_domain()
+    if not domain:
+        return []
+
     languages = getattr(settings, "LANGUAGES", None)
     lang_codes = [code for code, _ in languages] if languages else DEFAULT_LANGUAGES
 

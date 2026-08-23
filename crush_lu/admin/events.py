@@ -2455,10 +2455,14 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             .values_list("apple_wallet_ticket_serial", flat=True)
         )
 
-        # Captured before the update: the queryset may be filtered on status,
-        # in which case it matches nothing once the rows have moved.
+        # Captured before the update: the queryset may be filtered on status, in
+        # which case it matches nothing once the rows have moved. Restricted to
+        # rows that actually hold a seat, since waitlist/cancelled/no_show ->
+        # waitlist changes neither capacity nor availability on the page.
         waitlisted_event_ids = list(
-            queryset.values_list("event_id", flat=True).distinct()
+            queryset.filter(status__in=SEAT_HOLDING_STATUSES)
+            .values_list("event_id", flat=True)
+            .distinct()
         )
         updated = queryset.update(status="waitlist")
 

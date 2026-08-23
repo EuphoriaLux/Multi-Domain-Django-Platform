@@ -84,6 +84,11 @@ WEEKLY_KPI_RECIPIENTS = [
 # Google Search Indexing API real-time notifications for Crush.lu events (disabled by default outside production)
 GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", False)
 GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")
+# Host whose URLs this deployment is allowed to submit. Empty disables the
+# integration outright — see production.py: staging runs an isolated database,
+# so staging event ID N is a *different* event from production event ID N, and
+# submitting crush.lu URLs from there could deindex a live listing.
+GOOGLE_INDEXING_DOMAIN = os.getenv("GOOGLE_INDEXING_DOMAIN", "")
 GOOGLE_INDEXING_TIMEOUT_SECONDS = int(os.getenv("GOOGLE_INDEXING_TIMEOUT_SECONDS", "3"))
 
 # Use DJANGO_DEBUG env var to control debug mode (default False)

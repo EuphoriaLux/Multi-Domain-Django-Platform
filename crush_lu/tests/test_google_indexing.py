@@ -30,7 +30,7 @@ from crush_lu.services.google_indexing import (
 User = get_user_model()
 
 
-@override_settings(GOOGLE_INDEXING_ENABLED=True)
+@override_settings(GOOGLE_INDEXING_ENABLED=True, GOOGLE_INDEXING_DOMAIN="crush.lu")
 class GoogleIndexingServiceTests(TestCase):
     """Test URL builders, credentials loading, and Google Indexing API service methods."""
 
@@ -83,6 +83,21 @@ class GoogleIndexingServiceTests(TestCase):
         """
         self.event.is_cancelled = True
         self.assertTrue(should_index_event(self.event))
+
+    @override_settings(GOOGLE_INDEXING_DOMAIN="")
+    def test_disabled_without_an_explicit_domain(self):
+        """A slot with no configured host must not submit anything.
+
+        Staging runs an isolated database, so staging event ID N is a different
+        event from production event ID N; building crush.lu URLs there could
+        deindex a live listing. production.py only sets the domain when the
+        slot-sticky DJANGO_ENV says production, so flipping
+        GOOGLE_INDEXING_ENABLED on staging now buys nothing on its own.
+        """
+        self.assertFalse(is_indexing_enabled())
+        self.assertEqual(build_event_indexing_urls(self.event), [])
+        self.assertIsNone(notify_url_indexing("https://crush.lu/en/events/15/"))
+        self.assertEqual(notify_event_indexing(self.event), [])
 
     @override_settings(GOOGLE_INDEXING_ENABLED=False)
     def test_disabled_by_settings(self):
@@ -225,7 +240,7 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertEqual(res["deferred_count"], 2)
 
 
-@override_settings(GOOGLE_INDEXING_ENABLED=True)
+@override_settings(GOOGLE_INDEXING_ENABLED=True, GOOGLE_INDEXING_DOMAIN="crush.lu")
 class GoogleIndexingSignalAndAdminTests(TestCase):
     """Test signal handlers, admin actions, and management command."""
 

@@ -683,3 +683,13 @@ SILENCED_SYSTEM_CHECKS = [
 GOOGLE_INDEXING_ENABLED = _env_bool(
     "GOOGLE_INDEXING_ENABLED", DJANGO_ENV == "production"
 )
+# The real safety belt, and deliberately keyed off DJANGO_ENV rather than the
+# flag above: DJANGO_ENV is slot-sticky, so this survives a swap even if the
+# enable flag does not. Turning GOOGLE_INDEXING_ENABLED on for the staging slot
+# now buys nothing on its own — with no domain the service refuses to submit
+# anything, instead of notifying Google about crush.lu URLs using staging's
+# own, unrelated event IDs.
+GOOGLE_INDEXING_DOMAIN = os.environ.get(
+    "GOOGLE_INDEXING_DOMAIN",
+    "crush.lu" if DJANGO_ENV == "production" else "",
+)
