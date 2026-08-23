@@ -238,6 +238,8 @@ social-media/
 scripts/gsc_credentials.json
 scripts/gsc_token.json
 scripts/ga4_token.json
+scripts/gbp_token.json
+scripts/google_indexing_key.json
 scripts/gsc_report.json
 scripts/gsc_deep_dive.json
 scripts/exports/
