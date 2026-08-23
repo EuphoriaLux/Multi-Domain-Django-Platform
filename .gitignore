@@ -246,6 +246,7 @@ scripts/exports/
 
 # Ad-hoc developer one-liner scratch files
 profile_submissions_status.txt
+crush_connect_guide.html
 
 # i18n fuzzy translation tooling — intermediate outputs (regeneratable from .po files)
 _i18n_fz_*.json
