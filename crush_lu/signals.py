@@ -4819,6 +4819,29 @@ def _schedule_event_indexing_notification(
     transaction.on_commit(_notify)
 
 
+@receiver(pre_save, sender=MeetupEvent)
+def capture_event_prior_indexability(sender, instance, **kwargs):
+    """Record whether Googlebot could reach this event before the save.
+
+    Mirrors ``should_index_event``: published and not invitation-only. Cancelled
+    is deliberately absent — a cancelled published page still serves 200.
+    """
+    instance._indexing_was_indexable = False
+    if not instance.pk:
+        return
+    try:
+        prior = (
+            MeetupEvent.objects.filter(pk=instance.pk)
+            .values_list("is_published", "is_private_invitation")
+            .first()
+        )
+    except Exception:
+        return
+    if prior:
+        was_published, was_private = prior
+        instance._indexing_was_indexable = bool(was_published) and not bool(was_private)
+
+
 @receiver(post_save, sender=MeetupEvent)
 def trigger_google_indexing_on_event_save(
     sender, instance, created, raw=False, update_fields=None, **kwargs
@@ -4841,12 +4864,21 @@ def trigger_google_indexing_on_event_save(
         if not fields.intersection(INDEXING_RELEVANT_FIELDS):
             return
 
-    # A brand-new event has never had a public URL, so there is nothing to
-    # delete: `is_published` defaults to False and every ordinary draft creation
-    # would otherwise spend three URL_DELETED calls out of a limited daily
-    # quota. A create that *is* public still notifies, as does any later
-    # unpublishing transition.
-    _schedule_event_indexing_notification(instance.pk, skip_if_ineligible=created)
+    from crush_lu.services.google_indexing import should_index_event
+
+    # Unreachable before this save and unreachable after it: Google was never
+    # told about the URL, so there is nothing to update and nothing to delete.
+    # This covers both a brand-new draft (`is_published` defaults to False) and
+    # every subsequent edit while it stays a draft — iterative drafting would
+    # otherwise spend three URL_DELETED calls per save out of a limited daily
+    # quota. Transitions in either direction still notify, because one side of
+    # the comparison is then reachable.
+    if not getattr(instance, "_indexing_was_indexable", False) and not (
+        should_index_event(instance)
+    ):
+        return
+
+    _schedule_event_indexing_notification(instance.pk)
 
 
 @receiver(pre_save, sender=EventRegistration)
@@ -5023,25 +5055,33 @@ def trigger_google_indexing_on_coach_delete(sender, instance, **kwargs):
 
 @receiver(pre_save, sender=CrushCoach)
 def capture_coach_prior_active_state(sender, instance, **kwargs):
-    """Capture prior is_active so post_save can tell a real transition."""
-    if instance.pk:
-        try:
-            instance._indexing_prior_is_active = (
-                CrushCoach.objects.filter(pk=instance.pk)
-                .values_list("is_active", flat=True)
-                .first()
-            )
-        except Exception:
-            instance._indexing_prior_is_active = None
-    else:
-        instance._indexing_prior_is_active = None
+    """Capture prior is_active and user so post_save can tell a real transition.
+
+    ``user`` is editable in ``CrushCoachAdmin``: pointing the coach row at a
+    different account swaps the published performer name without touching
+    ``is_active`` or any m2m relation.
+    """
+    instance._indexing_prior_is_active = None
+    instance._indexing_prior_user_id = None
+    if not instance.pk:
+        return
+    try:
+        prior = (
+            CrushCoach.objects.filter(pk=instance.pk)
+            .values_list("is_active", "user_id")
+            .first()
+        )
+    except Exception:
+        return
+    if prior:
+        instance._indexing_prior_is_active, instance._indexing_prior_user_id = prior
 
 
 @receiver(post_save, sender=CrushCoach)
 def trigger_google_indexing_on_coach_active_change(
     sender, instance, created, raw=False, **kwargs
 ):
-    """Notify assigned events when a coach is activated or deactivated.
+    """Notify assigned events when a coach is activated, deactivated or reassigned.
 
     ``event_detail`` filters coaches on ``is_active=True`` before building the
     visible coach list and the schema.org ``performer`` entries, so this flag
@@ -5052,8 +5092,14 @@ def trigger_google_indexing_on_coach_active_change(
     if raw or created:
         return
 
-    prior = getattr(instance, "_indexing_prior_is_active", None)
-    if prior is None or prior == instance.is_active:
+    prior_active = getattr(instance, "_indexing_prior_is_active", None)
+    prior_user_id = getattr(instance, "_indexing_prior_user_id", None)
+    if prior_active is None:
+        return
+
+    active_changed = prior_active != instance.is_active
+    user_changed = prior_user_id is not None and prior_user_id != instance.user_id
+    if not (active_changed or user_changed):
         return
 
     _schedule_indexing_for_coach_events([instance.pk])

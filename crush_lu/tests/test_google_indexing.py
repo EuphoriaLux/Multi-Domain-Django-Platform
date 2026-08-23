@@ -884,6 +884,71 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         mock_notify_event.assert_not_called()
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_editing_a_draft_sends_nothing(self, mock_notify_event):
+        """Iterative drafting must not spend URL_DELETED on a URL Google never saw."""
+        draft = MeetupEvent.objects.create(
+            title="Work In Progress",
+            description="Still a draft.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=15),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=14),
+        )
+        self._retire_fixture_indexing_callbacks()
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            draft.title = "Still A Draft, Edited"
+            draft.save()
+
+        mock_notify_event.assert_not_called()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_publishing_a_draft_still_notifies(self, mock_notify_event):
+        """The gate must only silence edits that stay unreachable on both sides."""
+        draft = MeetupEvent.objects.create(
+            title="About To Go Live",
+            description="Draft becoming public.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=16),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=15),
+        )
+        self._retire_fixture_indexing_callbacks()
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            draft.is_published = True
+            draft.save()
+
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coach_user_reassignment_notifies_assigned_events(self, mock_notify_event):
+        """CrushCoachAdmin.user is editable; swapping it swaps the performer name."""
+        from crush_lu.models import CrushCoach
+
+        first = User.objects.create_user(
+            username="coach_before", email="coach_before@example.com", first_name="Ada"
+        )
+        second = User.objects.create_user(
+            username="coach_after", email="coach_after@example.com", first_name="Grace"
+        )
+        coach = CrushCoach.objects.create(user=first, is_active=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
+        mock_notify_event.reset_mock()
+
+        # is_active untouched, no m2m change: only the linked account moves.
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.user = second
+            coach.save()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_creating_a_published_event_notifies(self, mock_notify_event):
         """A create that is public straight away still gets its URL_UPDATED."""
         with self.captureOnCommitCallbacks(execute=True):
