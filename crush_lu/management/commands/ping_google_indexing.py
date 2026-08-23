@@ -38,7 +38,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--all",
             action="store_true",
-            help="Notify Googlebot for all published, non-cancelled events.",
+            help="Notify Googlebot for all published, publicly reachable events.",
         )
         parser.add_argument(
             "--url",
@@ -64,12 +64,9 @@ class Command(BaseCommand):
         explicit_url = options.get("url")
 
         if not any([event_id, all_events, explicit_url]):
-            self.stdout.write(
-                self.style.ERROR(
-                    "Please specify an action: --event <id>, --all, or --url <url>"
-                )
+            raise CommandError(
+                "Please specify an action: --event <id>, --all, or --url <url>"
             )
-            return
 
         if explicit_url:
             self.stdout.write(f"Target URL: {explicit_url} [{action}]")
@@ -90,10 +87,9 @@ class Command(BaseCommand):
             try:
                 event = MeetupEvent.objects.get(pk=event_id)
             except MeetupEvent.DoesNotExist:
-                self.stdout.write(
-                    self.style.ERROR(f"Event with ID {event_id} not found.")
-                )
-                return
+                # A typo or a deleted event must not look like a successful run
+                # to whatever scheduled this.
+                raise CommandError(f"Event with ID {event_id} not found.")
 
             urls = build_event_indexing_urls(event)
             self.stdout.write(f"Event: [{event.id}] {event.title} ({len(urls)} URLs)")
@@ -130,16 +126,19 @@ class Command(BaseCommand):
         if all_events:
             now = timezone.now()
             generous_cutoff = MeetupEvent.live_lookback_cutoff(now)
+            # Cancelled events are deliberately included: their page still
+            # returns 200 with EventCancelled markup and should_index_event()
+            # treats them as indexable, so a backfill has to be able to reach
+            # them. The filters here mirror INDEXABLE_EVENT_FILTERS.
             candidate_events = MeetupEvent.objects.filter(
                 is_published=True,
-                is_cancelled=False,
                 is_private_invitation=False,
                 date_time__gte=generous_cutoff,
             ).order_by("date_time")
             events = [ev for ev in candidate_events if ev.end_time >= now]
 
             count = len(events)
-            self.stdout.write(f"Found {count} upcoming/in-progress published event(s).")
+            self.stdout.write(f"Found {count} upcoming/in-progress public event(s).")
 
             if dry_run:
                 for ev in events:

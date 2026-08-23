@@ -240,8 +240,29 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             registration_deadline=timezone.now() + timedelta(days=1),
             is_published=True,
         )
+        self._retire_fixture_indexing_callbacks()
         self.site = AdminSite()
         self.admin = MeetupEventAdmin(MeetupEvent, self.site)
+
+    @staticmethod
+    def _retire_fixture_indexing_callbacks():
+        """Mark fixture-created events' queued indexing callbacks as already spent.
+
+        `captureOnCommitCallbacks` executes only the callbacks registered inside
+        its own block, and never removes any of them from
+        `connection.run_on_commit`; a Django `TestCase` never commits either. So
+        a model created in `setUp`, or between blocks, leaves a live callback
+        queued for the whole test — and since the scheduler coalesces per event
+        and transaction, that stale callback would swallow the notification the
+        test is asserting on. These belong to fixture setup, not to the
+        behaviour under test.
+        """
+        from django.db import connection
+
+        for entry in connection.run_on_commit:
+            callback = entry[1]
+            if hasattr(callback, "_indexing_event_pk"):
+                callback._indexing_done = True
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_fires_on_published_event_save(self, mock_notify_event):
@@ -389,6 +410,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             location="Luxembourg City",
             is_published=True,
         )
+        self._retire_fixture_indexing_callbacks()
 
         with self.captureOnCommitCallbacks(execute=True):
             self.event.delete()
@@ -454,8 +476,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
         # 3. Check-in (confirmed -> attended) stays within seat-holding set -> 0 indexing notifications
-        reg.status = "confirmed"
-        reg.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "confirmed"
+            reg.save()
         mock_notify_event.reset_mock()
         with self.captureOnCommitCallbacks(execute=True):
             reg.status = "attended"
@@ -472,8 +495,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(mock_notify_event.call_count, 0)
 
         # 5. Deleting a seat-holding registration triggers indexing
-        reg.status = "confirmed"
-        reg.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.status = "confirmed"
+            reg.save()
         mock_notify_event.reset_mock()
         with self.captureOnCommitCallbacks(execute=True):
             reg.delete()
@@ -513,9 +537,10 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         from crush_lu.signals import _get_indexing_context
 
         ctx = _get_indexing_context()
-        # Simulate an old batch that finished 10 seconds ago
+        # Simulate a spent batch. Outside a request there is no worker timeout
+        # to protect, so the window must roll over rather than go silent.
         ctx.deadline = time.monotonic() - 100.0
-        ctx.last_active = time.monotonic() - 10.0
+        ctx.in_request = False
         ctx.session = "old_session"
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -526,7 +551,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertGreater(ctx.deadline, time.monotonic())
 
     def test_cleanup_indexing_context_on_request_finished(self):
-        """cleanup_indexing_thread_state clears deadline and session from thread-local context."""
+        """cleanup_indexing_thread_state clears the window and releases request scope."""
         from crush_lu.signals import (
             _get_indexing_context,
             cleanup_indexing_thread_state,
@@ -535,13 +560,30 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         ctx = _get_indexing_context()
         ctx.deadline = time.monotonic() + 10.0
         ctx.session = "dummy_session"
-        ctx.last_active = time.monotonic()
+        ctx.in_request = True
 
         cleanup_indexing_thread_state()
 
         self.assertIsNone(ctx.deadline)
         self.assertIsNone(ctx.session)
-        self.assertEqual(ctx.last_active, 0.0)
+        self.assertFalse(ctx.in_request)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_exhausted_budget_skips_inside_a_request(self, mock_notify_event):
+        """Inside an HTTP request a spent window must stop, not roll over."""
+        from crush_lu.signals import _get_indexing_context
+
+        ctx = _get_indexing_context()
+        ctx.deadline = time.monotonic() - 1.0
+        ctx.session = None
+        ctx.in_request = True
+        self.addCleanup(setattr, ctx, "in_request", False)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Should Not Be Indexed"
+            self.event.save()
+
+        mock_notify_event.assert_not_called()
 
     @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
     def test_management_command_single_event_eligibility(self, mock_notify_event):
@@ -652,6 +694,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             registration_deadline=timezone.now() + timedelta(days=7),
             is_published=True,
         )
+        self._retire_fixture_indexing_callbacks()
         mock_notify_event.reset_mock()
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -660,6 +703,155 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         notified = {call.args[0].pk for call in mock_notify_event.call_args_list}
         self.assertEqual(notified, {self.event.pk, event2.pk})
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_many_triggers_for_one_event_coalesce(self, mock_notify_event):
+        """Raising capacity promotes N waitlisted rows; that is still one page change."""
+        users = [
+            User.objects.create_user(
+                username=f"coalesce_{i}", email=f"coalesce_{i}@example.com"
+            )
+            for i in range(3)
+        ]
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            for user in users:
+                EventRegistration.objects.create(
+                    event=self.event, user=user, status="confirmed"
+                )
+            self.event.title = "Capacity Raised"
+            self.event.save()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coalescing_keeps_the_more_permissive_trigger(self, mock_notify_event):
+        """A registration ping must not swallow the URL_DELETED an unpublish needs."""
+        user = User.objects.create_user(
+            username="permissive", email="permissive@example.com"
+        )
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            # skip_if_ineligible=True lands first...
+            EventRegistration.objects.create(
+                event=self.event, user=user, status="confirmed"
+            )
+            # ...and the event save that follows still needs its URL_DELETED.
+            self.event.is_published = False
+            self.event.save()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_DELETED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_foreign_commit_callback_does_not_reopen_the_budget(
+        self, mock_notify_event
+    ):
+        """Another receiver's slow on_commit work is not idleness.
+
+        Production's ImmediateBackend runs the echo.lu enqueue inline, so a real
+        drain interleaves foreign HTTP work between two indexing callbacks.
+        """
+        from django.db import transaction as db_transaction
+
+        from crush_lu.signals import _get_indexing_context
+
+        ctx = _get_indexing_context()
+        ctx.deadline = None
+        ctx.session = None
+        ctx.in_request = True
+        self.addCleanup(setattr, ctx, "in_request", False)
+
+        event2 = MeetupEvent.objects.create(
+            title="Interleave Event Two",
+            description="Second event for the interleaving test.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=9),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=8),
+            is_published=True,
+        )
+        self._retire_fixture_indexing_callbacks()
+
+        deadlines = []
+        mock_notify_event.side_effect = lambda *a, **kw: (
+            deadlines.append(kw.get("deadline")),
+            [],
+        )[1]
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Interleave Event One Updated"
+            self.event.save()
+            # A foreign callback, registered between ours, that takes real time.
+            db_transaction.on_commit(lambda: time.sleep(1.2))
+            event2.title = "Interleave Event Two Updated"
+            event2.save()
+
+        self.assertEqual(len(deadlines), 2)
+        self.assertEqual(deadlines[0], deadlines[1])
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coach_deactivation_notifies_assigned_events(self, mock_notify_event):
+        """A single-record is_active flip changes the published performer list."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="solo_coach", email="solo_coach@example.com", first_name="Jo"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.is_active = False
+            coach.save()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coach_rename_notifies_assigned_events(self, mock_notify_event):
+        """performer names come from the coach's User.first_name."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="rename_coach",
+            email="rename_coach@example.com",
+            first_name="Chris",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach_user.first_name = "Christina"
+            coach_user.save(update_fields=["first_name"])
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_login_style_user_save_does_not_notify(self, mock_notify_event):
+        """last_login writes must not cost a query or a ping."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="login_coach", email="login_coach@example.com", first_name="Robin"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach_user.last_login = timezone.now()
+            coach_user.save(update_fields=["last_login"])
+
+        mock_notify_event.assert_not_called()
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_rolled_back_coach_change_does_not_suppress_the_next_one(
@@ -707,6 +899,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         user = User.objects.create_user(
             username="private_attendee", email="private@example.com"
         )
+        self._retire_fixture_indexing_callbacks()
         mock_notify_event.reset_mock()
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -735,6 +928,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
         )
+        self._retire_fixture_indexing_callbacks()
 
         deadlines = []
 
@@ -757,6 +951,35 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
 
         self.assertEqual(len(deadlines), 2)
         self.assertEqual(deadlines[0], deadlines[1])
+
+    def test_management_command_errors_on_missing_event(self):
+        """A typo or deleted event must not exit 0."""
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command("ping_google_indexing", "--event", "99999999", "--dry-run")
+
+    @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
+    def test_management_command_all_includes_cancelled_public_events(
+        self, mock_notify_event
+    ):
+        """Cancelled pages are indexable now, so a backfill has to reach them."""
+        cancelled = MeetupEvent.objects.create(
+            title="Cancelled But Public",
+            description="Still returns 200 with EventCancelled.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=4),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=2),
+            is_published=True,
+            is_cancelled=True,
+        )
+        mock_notify_event.return_value = [{"ok": 1}, {"ok": 2}, {"ok": 3}]
+
+        call_command("ping_google_indexing", "--all")
+
+        called = [call.args[0] for call in mock_notify_event.call_args_list]
+        self.assertIn(cancelled, called)
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""

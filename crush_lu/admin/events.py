@@ -2375,8 +2375,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if showing is None or by_user[profile.user_id] < _key(showing):
                     restored_google_profiles.append(profile)
 
+        # Only rows arriving from *outside* the seat-holding set change what the
+        # page publishes. pending/confirmed/attended -> confirmed leaves
+        # remainingAttendeeCapacity and offer availability untouched, and the
+        # pending -> confirmed workflow is the common one.
         confirmed_event_ids = list(
             EventRegistration.objects.filter(pk__in=eligible_ids)
+            .exclude(status__in=SEAT_HOLDING_STATUSES)
             .values_list("event_id", flat=True)
             .distinct()
         )

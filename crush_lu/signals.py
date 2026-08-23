@@ -4649,26 +4649,51 @@ INDEXING_RELEVANT_FIELDS = frozenset(
 
 _indexing_local = threading.local()
 
-# A budget window belongs to one request (or one management-command batch).
-# Only a genuine *idle* gap between callbacks opens a new one — see
-# _schedule_event_indexing_notification for why the gap is measured from the
-# end of the previous callback rather than its start.
-INDEXING_IDLE_RESET_SECONDS = 1.0
+# One budget window covers one HTTP request. It is never reopened by elapsed
+# time: other receivers register their own on_commit callbacks (the echo.lu
+# enqueue at signals.py:1014 runs its HTTP work inline under production's
+# ImmediateBackend), and a gap-based heuristic cannot tell that foreign work
+# from genuine idleness — it would hand every interleaved callback a fresh
+# budget and let one bulk transaction grow past the worker timeout.
+INDEXING_REQUEST_BUDGET_SECONDS = 8.0
+INDEXING_DELETE_BUDGET_SECONDS = 5.0
 
 
 def _get_indexing_context():
     if not hasattr(_indexing_local, "deadline"):
         _indexing_local.deadline = None
         _indexing_local.session = None
-        _indexing_local.last_active = 0.0
+        # Only an HTTP request has a worker timeout to protect. Management
+        # commands, the shell and Celery-style workers get a fresh window
+        # whenever the previous one is spent, so a long-running process keeps
+        # indexing instead of going silent after its first eight seconds.
+        _indexing_local.in_request = False
     return _indexing_local
 
 
-def _indexing_callback_pending(coalesce_key) -> bool:
-    """True when an equivalent notification is queued on this transaction.
+def _open_indexing_window(ctx, budget_seconds):
+    ctx.deadline = time.monotonic() + budget_seconds
+    ctx.session = None
 
-    Reads Django's live ``run_on_commit`` queue rather than any state of our own,
-    which is what makes the check savepoint-safe for free: a rolled-back
+
+def _indexing_budget_exhausted(ctx, budget_seconds) -> bool:
+    """Open or roll over the shared window; True when this callback must skip."""
+    if ctx.deadline is None:
+        _open_indexing_window(ctx, budget_seconds)
+        return False
+    if time.monotonic() < ctx.deadline:
+        return False
+    if ctx.in_request:
+        return True
+    _open_indexing_window(ctx, budget_seconds)
+    return False
+
+
+def _pending_indexing_callback(event_pk):
+    """The queued, not-yet-run notification for this event, if there is one.
+
+    Reads Django's live ``run_on_commit`` queue rather than any state of our
+    own, which is what makes coalescing savepoint-safe for free: a rolled-back
     savepoint has its callbacks removed from that queue, so a claim can never
     outlive the change that made it and suppress a later, committed one.
 
@@ -4678,15 +4703,15 @@ def _indexing_callback_pending(coalesce_key) -> bool:
     """
     for entry in transaction.get_connection().run_on_commit:
         func = entry[1]
-        if getattr(
-            func, "_indexing_coalesce_key", None
-        ) == coalesce_key and not getattr(func, "_indexing_done", False):
-            return True
-    return False
+        if getattr(func, "_indexing_event_pk", None) == event_pk and not getattr(
+            func, "_indexing_done", False
+        ):
+            return func
+    return None
 
 
 def _schedule_event_indexing_notification(
-    event_pk: int, skip_if_ineligible: bool = False, coalesce_tag: str = ""
+    event_pk: int, skip_if_ineligible: bool = False
 ):
     """Schedule a savepoint-safe post-commit indexing notification for an event PK.
 
@@ -4694,16 +4719,24 @@ def _schedule_event_indexing_notification(
     committed row, never from the in-memory instance that triggered the signal,
     so a rolled-back savepoint can never leak a stale action.
 
+    All triggers for one event in one transaction collapse onto a single
+    notification, because every one of them would reload the same committed
+    state and resubmit the same three language URLs. Raising an event's capacity,
+    for instance, promotes N waitlisted registrations inside one atomic block
+    (``promote_waitlist_on_capacity_increase``) and would otherwise spend
+    ``3 * (N + 1)`` API calls on one page change.
+
     ``skip_if_ineligible`` is for secondary triggers (registrations, coach
     assignments): a capacity change on a draft or invitation-only event must not
-    spend quota telling Google to delete a URL it was never told about.
-
-    ``coalesce_tag`` groups triggers that one user action can fire more than once
-    for the same event — ``coaches.set()`` emits post_remove then post_add — so
-    only the first of them queues a notification.
+    spend quota telling Google to delete a URL it was never told about. When
+    triggers disagree, the pending callback is downgraded to the more permissive
+    setting — never the other way round — so coalescing can only ever add a
+    notification, never suppress one that a stricter trigger required.
     """
-    coalesce_key = (coalesce_tag, event_pk) if coalesce_tag else None
-    if coalesce_key is not None and _indexing_callback_pending(coalesce_key):
+    pending = _pending_indexing_callback(event_pk)
+    if pending is not None:
+        if not skip_if_ineligible:
+            pending._indexing_skip_if_ineligible = False
         return
 
     def _notify():
@@ -4712,18 +4745,11 @@ def _schedule_event_indexing_notification(
         _notify._indexing_done = True
 
         ctx = _get_indexing_context()
-        now = time.monotonic()
-        if ctx.deadline is None or (
-            now - ctx.last_active > INDEXING_IDLE_RESET_SECONDS
-        ):
-            ctx.deadline = now + 8.0
-            ctx.session = None
-        elif now >= ctx.deadline:
+        if _indexing_budget_exhausted(ctx, INDEXING_REQUEST_BUDGET_SECONDS):
             logger.warning(
                 "Google Indexing save budget exhausted. Skipping notification for event %s.",
                 event_pk,
             )
-            ctx.last_active = time.monotonic()
             return
 
         try:
@@ -4738,7 +4764,7 @@ def _schedule_event_indexing_notification(
                 return
 
             eligible = should_index_event(event)
-            if not eligible and skip_if_ineligible:
+            if not eligible and _notify._indexing_skip_if_ineligible:
                 return
 
             if ctx.session is None:
@@ -4754,16 +4780,10 @@ def _schedule_event_indexing_notification(
                 "Error triggering Google indexing notification for event %s",
                 event_pk,
             )
-        finally:
-            # Stamped after the network work, not before it: time spent waiting
-            # on Google is not idleness. Stamping on entry let a slow response
-            # hand the *next* callback a full fresh budget, so one bulk save
-            # could grow without bound past the worker timeout.
-            ctx.last_active = time.monotonic()
 
-    if coalesce_key is not None:
-        _notify._indexing_coalesce_key = coalesce_key
-        _notify._indexing_done = False
+    _notify._indexing_event_pk = event_pk
+    _notify._indexing_done = False
+    _notify._indexing_skip_if_ineligible = skip_if_ineligible
 
     transaction.on_commit(_notify)
 
@@ -4845,28 +4865,23 @@ def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
             _schedule_event_indexing_notification(event_id, skip_if_ineligible=True)
 
 
-COACHES_M2M_TAG = "coaches"
-
-
 @receiver(m2m_changed, sender=MeetupEvent.coaches.through)
 def trigger_google_indexing_on_coaches_changed(
     sender, instance, action, reverse, model, pk_set, **kwargs
 ):
     """Notify Googlebot when coach assignments change (updates schema.org performer).
 
-    Both directions run through the shared scheduler, so eligibility is rechecked
-    against the committed event and ``coaches.set()`` -- which fires post_remove
-    then post_add for one admin form save -- coalesces into one notification via
-    ``coalesce_tag``. Coalescing reads the live on_commit queue, so a rolled-back
-    savepoint never suppresses a later committed change.
+    Both directions run through the shared scheduler, which rechecks eligibility
+    against the committed event and coalesces per event and transaction — so
+    ``coaches.set()`` (post_remove then post_add for one admin form save) and the
+    parent save that precedes ``save_related()`` all collapse into one
+    notification.
     """
     if not reverse:
         if action in ("post_add", "post_remove", "post_clear") and isinstance(
             instance, MeetupEvent
         ):
-            _schedule_event_indexing_notification(
-                instance.pk, skip_if_ineligible=True, coalesce_tag=COACHES_M2M_TAG
-            )
+            _schedule_event_indexing_notification(instance.pk, skip_if_ineligible=True)
         return
 
     # Reverse side: `instance` is the coach, the events are what changed.
@@ -4886,9 +4901,103 @@ def trigger_google_indexing_on_coaches_changed(
         return
 
     for event_pk in event_pks:
-        _schedule_event_indexing_notification(
-            event_pk, skip_if_ineligible=True, coalesce_tag=COACHES_M2M_TAG
+        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+
+
+def _schedule_indexing_for_coach_events(coach_pks):
+    """Notify the indexable events these coaches are assigned to."""
+    if not coach_pks:
+        return
+
+    from crush_lu.services.google_indexing import INDEXABLE_EVENT_FILTERS
+
+    event_pks = (
+        MeetupEvent.objects.filter(coaches__pk__in=coach_pks, **INDEXABLE_EVENT_FILTERS)
+        .values_list("pk", flat=True)
+        .distinct()
+    )
+    for event_pk in event_pks:
+        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+
+
+@receiver(pre_save, sender=CrushCoach)
+def capture_coach_prior_active_state(sender, instance, **kwargs):
+    """Capture prior is_active so post_save can tell a real transition."""
+    if instance.pk:
+        try:
+            instance._indexing_prior_is_active = (
+                CrushCoach.objects.filter(pk=instance.pk)
+                .values_list("is_active", flat=True)
+                .first()
+            )
+        except Exception:
+            instance._indexing_prior_is_active = None
+    else:
+        instance._indexing_prior_is_active = None
+
+
+@receiver(post_save, sender=CrushCoach)
+def trigger_google_indexing_on_coach_active_change(
+    sender, instance, created, raw=False, **kwargs
+):
+    """Notify assigned events when a coach is activated or deactivated.
+
+    ``event_detail`` filters coaches on ``is_active=True`` before building the
+    visible coach list and the schema.org ``performer`` entries, so this flag
+    changes indexed content. The three bulk admin actions notify explicitly
+    because they use ``queryset.update()``; this covers the single-record admin
+    form and any direct ``coach.save()``.
+    """
+    if raw or created:
+        return
+
+    prior = getattr(instance, "_indexing_prior_is_active", None)
+    if prior is None or prior == instance.is_active:
+        return
+
+    _schedule_indexing_for_coach_events([instance.pk])
+
+
+@receiver(pre_save, sender=User)
+def capture_user_prior_first_name(sender, instance, update_fields=None, **kwargs):
+    """Capture prior first_name for coaches, whose name is published as performer."""
+    instance._indexing_prior_first_name = None
+
+    # Cheap exits first: `last_login` writes pass update_fields and must not
+    # cost a query on every single login.
+    if not instance.pk:
+        return
+    if update_fields is not None and "first_name" not in update_fields:
+        return
+
+    try:
+        instance._indexing_prior_first_name = (
+            User.objects.filter(pk=instance.pk)
+            .values_list("first_name", flat=True)
+            .first()
         )
+    except Exception:
+        instance._indexing_prior_first_name = None
+
+
+@receiver(post_save, sender=User)
+def trigger_google_indexing_on_coach_rename(
+    sender, instance, created, raw=False, **kwargs
+):
+    """Notify assigned events when an active coach's published first name changes."""
+    if raw or created:
+        return
+
+    prior = getattr(instance, "_indexing_prior_first_name", None)
+    if prior is None or prior == instance.first_name:
+        return
+
+    coach_pks = list(
+        CrushCoach.objects.filter(user_id=instance.pk, is_active=True).values_list(
+            "pk", flat=True
+        )
+    )
+    _schedule_indexing_for_coach_events(coach_pks)
 
 
 @receiver(post_delete, sender=MeetupEvent)
@@ -4914,17 +5023,10 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
 
     def _notify():
         ctx = _get_indexing_context()
-        now = time.monotonic()
-        if ctx.deadline is None or (
-            now - ctx.last_active > INDEXING_IDLE_RESET_SECONDS
-        ):
-            ctx.deadline = now + 5.0
-            ctx.session = None
-        elif now >= ctx.deadline:
+        if _indexing_budget_exhausted(ctx, INDEXING_DELETE_BUDGET_SECONDS):
             logger.warning(
                 "Google Indexing delete budget exhausted. Skipping %d URLs.", len(urls)
             )
-            ctx.last_active = time.monotonic()
             return
 
         try:
@@ -4943,24 +5045,28 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
             )
         except Exception:
             logger.exception("Error triggering Google indexing notification on delete")
-        finally:
-            # See _schedule_event_indexing_notification: stamped after the work
-            # so a slow Google response is not mistaken for an idle gap.
-            ctx.last_active = time.monotonic()
 
     transaction.on_commit(_notify)
 
 
 @receiver(request_started)
+def open_indexing_request_scope(**kwargs):
+    """Start a fresh budget window for this request and mark it worker-bound."""
+    ctx = _get_indexing_context()
+    ctx.deadline = None
+    ctx.session = None
+    ctx.in_request = True
+
+
 @receiver(request_finished)
 def cleanup_indexing_thread_state(**kwargs):
-    """Reset the shared post-commit indexing context at request start and teardown.
+    """Clear the window on teardown and release the worker-timeout constraint.
 
-    Resetting on *start* as well matters because the idle-gap heuristic alone
-    cannot tell "next request on this worker" from "next callback in this batch"
-    when the two are less than a second apart.
+    Workers are reused, so leaving ``in_request`` set would make the next
+    management command or shell session on this thread inherit a budget cap that
+    exists only to protect an HTTP response.
     """
     ctx = _get_indexing_context()
     ctx.deadline = None
     ctx.session = None
-    ctx.last_active = 0.0
+    ctx.in_request = False
