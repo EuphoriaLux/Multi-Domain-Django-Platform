@@ -662,6 +662,35 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.assertEqual(notified, {self.event.pk, event2.pk})
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_rolled_back_coach_change_does_not_suppress_the_next_one(
+        self, mock_notify_event
+    ):
+        """A discarded coach change must not leave a claim that mutes the next one."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="rollback_coach",
+            email="rollback_coach@example.com",
+            first_name="Alex",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            try:
+                with transaction.atomic():
+                    self.event.coaches.add(coach)
+                    raise ValueError("Simulated savepoint rollback")
+            except ValueError:
+                pass
+
+            # Same in-memory instances, committed this time.
+            self.event.coaches.add(coach)
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_registration_on_ineligible_event_is_not_notified(self, mock_notify_event):
         """A seat change on an invitation-only event must not spend indexing quota."""
         private_event = MeetupEvent.objects.create(

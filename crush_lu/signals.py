@@ -4664,8 +4664,29 @@ def _get_indexing_context():
     return _indexing_local
 
 
+def _indexing_callback_pending(coalesce_key) -> bool:
+    """True when an equivalent notification is queued on this transaction.
+
+    Reads Django's live ``run_on_commit`` queue rather than any state of our own,
+    which is what makes the check savepoint-safe for free: a rolled-back
+    savepoint has its callbacks removed from that queue, so a claim can never
+    outlive the change that made it and suppress a later, committed one.
+
+    Callbacks that have already run are ignored — under
+    ``TestCase.captureOnCommitCallbacks`` they are executed but left in the
+    queue, and a spent callback must not keep suppressing new schedules.
+    """
+    for entry in transaction.get_connection().run_on_commit:
+        func = entry[1]
+        if getattr(
+            func, "_indexing_coalesce_key", None
+        ) == coalesce_key and not getattr(func, "_indexing_done", False):
+            return True
+    return False
+
+
 def _schedule_event_indexing_notification(
-    event_pk: int, skip_if_ineligible: bool = False
+    event_pk: int, skip_if_ineligible: bool = False, coalesce_tag: str = ""
 ):
     """Schedule a savepoint-safe post-commit indexing notification for an event PK.
 
@@ -4676,9 +4697,20 @@ def _schedule_event_indexing_notification(
     ``skip_if_ineligible`` is for secondary triggers (registrations, coach
     assignments): a capacity change on a draft or invitation-only event must not
     spend quota telling Google to delete a URL it was never told about.
+
+    ``coalesce_tag`` groups triggers that one user action can fire more than once
+    for the same event — ``coaches.set()`` emits post_remove then post_add — so
+    only the first of them queues a notification.
     """
+    coalesce_key = (coalesce_tag, event_pk) if coalesce_tag else None
+    if coalesce_key is not None and _indexing_callback_pending(coalesce_key):
+        return
 
     def _notify():
+        # Marked spent before anything else, so this callback stops counting as
+        # a pending duplicate the moment it starts.
+        _notify._indexing_done = True
+
         ctx = _get_indexing_context()
         now = time.monotonic()
         if ctx.deadline is None or (
@@ -4728,6 +4760,10 @@ def _schedule_event_indexing_notification(
             # hand the *next* callback a full fresh budget, so one bulk save
             # could grow without bound past the worker timeout.
             ctx.last_active = time.monotonic()
+
+    if coalesce_key is not None:
+        _notify._indexing_coalesce_key = coalesce_key
+        _notify._indexing_done = False
 
     transaction.on_commit(_notify)
 
@@ -4809,26 +4845,7 @@ def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
             _schedule_event_indexing_notification(event_id, skip_if_ineligible=True)
 
 
-def _claim_m2m_indexing_slots(instance, event_pks):
-    """Return the event PKs this relation change has not already claimed.
-
-    ``coaches.set()`` — what the event admin's filter_horizontal widget calls on
-    every save — fires post_remove and then post_add when the selection both
-    loses and gains a coach. Both reload the same committed state and would
-    submit the same three URLs. Claims are per event, not per instance, so a
-    reverse ``coach.assigned_events.add()`` for a *different* event is still
-    notified; the whole claim set is released on commit.
-    """
-    claimed = getattr(instance, "_indexing_m2m_claimed_pks", None)
-    if not claimed:
-        claimed = set()
-        instance._indexing_m2m_claimed_pks = claimed
-        # Empty again after commit, so the next operation re-arms the claim set.
-        transaction.on_commit(claimed.clear)
-
-    fresh = [pk for pk in event_pks if pk not in claimed]
-    claimed.update(fresh)
-    return fresh
+COACHES_M2M_TAG = "coaches"
 
 
 @receiver(m2m_changed, sender=MeetupEvent.coaches.through)
@@ -4839,14 +4856,17 @@ def trigger_google_indexing_on_coaches_changed(
 
     Both directions run through the shared scheduler, so eligibility is rechecked
     against the committed event and ``coaches.set()`` -- which fires post_remove
-    then post_add for one admin form save -- coalesces into one notification.
+    then post_add for one admin form save -- coalesces into one notification via
+    ``coalesce_tag``. Coalescing reads the live on_commit queue, so a rolled-back
+    savepoint never suppresses a later committed change.
     """
     if not reverse:
         if action in ("post_add", "post_remove", "post_clear") and isinstance(
             instance, MeetupEvent
         ):
-            for event_pk in _claim_m2m_indexing_slots(instance, [instance.pk]):
-                _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+            _schedule_event_indexing_notification(
+                instance.pk, skip_if_ineligible=True, coalesce_tag=COACHES_M2M_TAG
+            )
         return
 
     # Reverse side: `instance` is the coach, the events are what changed.
@@ -4865,8 +4885,10 @@ def trigger_google_indexing_on_coaches_changed(
     else:
         return
 
-    for event_pk in _claim_m2m_indexing_slots(instance, event_pks):
-        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+    for event_pk in event_pks:
+        _schedule_event_indexing_notification(
+            event_pk, skip_if_ineligible=True, coalesce_tag=COACHES_M2M_TAG
+        )
 
 
 @receiver(post_delete, sender=MeetupEvent)
