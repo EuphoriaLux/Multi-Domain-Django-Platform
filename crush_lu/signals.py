@@ -6,7 +6,6 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import Optional
 
 import requests
 from django.conf import settings
@@ -14,7 +13,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
-from django.core.signals import request_finished
+from django.core.signals import request_finished, request_started
 from django.db import transaction
 from django.db.models.signals import (
     m2m_changed,
@@ -4650,6 +4649,12 @@ INDEXING_RELEVANT_FIELDS = frozenset(
 
 _indexing_local = threading.local()
 
+# A budget window belongs to one request (or one management-command batch).
+# Only a genuine *idle* gap between callbacks opens a new one — see
+# _schedule_event_indexing_notification for why the gap is measured from the
+# end of the previous callback rather than its start.
+INDEXING_IDLE_RESET_SECONDS = 1.0
+
 
 def _get_indexing_context():
     if not hasattr(_indexing_local, "deadline"):
@@ -4660,14 +4665,25 @@ def _get_indexing_context():
 
 
 def _schedule_event_indexing_notification(
-    event_pk: int, action: Optional[str] = None
+    event_pk: int, skip_if_ineligible: bool = False
 ):
-    """Schedule a savepoint-safe post-commit indexing notification for an event PK."""
+    """Schedule a savepoint-safe post-commit indexing notification for an event PK.
+
+    The URL_UPDATED / URL_DELETED choice is resolved *at execution time* from the
+    committed row, never from the in-memory instance that triggered the signal,
+    so a rolled-back savepoint can never leak a stale action.
+
+    ``skip_if_ineligible`` is for secondary triggers (registrations, coach
+    assignments): a capacity change on a draft or invitation-only event must not
+    spend quota telling Google to delete a URL it was never told about.
+    """
 
     def _notify():
         ctx = _get_indexing_context()
         now = time.monotonic()
-        if ctx.deadline is None or (now - ctx.last_active > 1.0):
+        if ctx.deadline is None or (
+            now - ctx.last_active > INDEXING_IDLE_RESET_SECONDS
+        ):
             ctx.deadline = now + 8.0
             ctx.session = None
         elif now >= ctx.deadline:
@@ -4675,31 +4691,43 @@ def _schedule_event_indexing_notification(
                 "Google Indexing save budget exhausted. Skipping notification for event %s.",
                 event_pk,
             )
-            ctx.last_active = now
+            ctx.last_active = time.monotonic()
             return
 
-        ctx.last_active = time.monotonic()
         try:
             from crush_lu.services.google_indexing import (
                 get_google_indexing_session,
                 notify_event_indexing,
+                should_index_event,
             )
 
             event = MeetupEvent.objects.filter(pk=event_pk).first()
-            if event:
-                if ctx.session is None:
-                    ctx.session = get_google_indexing_session()
-                notify_event_indexing(
-                    event,
-                    action=action,
-                    session=ctx.session,
-                    deadline=ctx.deadline,
-                )
+            if event is None:
+                return
+
+            eligible = should_index_event(event)
+            if not eligible and skip_if_ineligible:
+                return
+
+            if ctx.session is None:
+                ctx.session = get_google_indexing_session()
+            notify_event_indexing(
+                event,
+                action="URL_UPDATED" if eligible else "URL_DELETED",
+                session=ctx.session,
+                deadline=ctx.deadline,
+            )
         except Exception:
             logger.exception(
                 "Error triggering Google indexing notification for event %s",
                 event_pk,
             )
+        finally:
+            # Stamped after the network work, not before it: time spent waiting
+            # on Google is not idleness. Stamping on entry let a slow response
+            # hand the *next* callback a full fresh budget, so one bulk save
+            # could grow without bound past the worker timeout.
+            ctx.last_active = time.monotonic()
 
     transaction.on_commit(_notify)
 
@@ -4710,8 +4738,8 @@ def trigger_google_indexing_on_event_save(
 ):
     """Notify Googlebot immediately when a MeetupEvent changes state.
 
-    - Published, public & active events -> URL_UPDATED
-    - Unpublished / drafts / cancelled / private-invitation events -> URL_DELETED
+    - Published & public events (cancelled included, the page still 200s) -> URL_UPDATED
+    - Unpublished / drafts / private-invitation events -> URL_DELETED
 
     Deferred to transaction.on_commit so the database commit completes before
     Googlebot receives the crawl notification. Each callback is savepoint-safe
@@ -4726,10 +4754,7 @@ def trigger_google_indexing_on_event_save(
         if not fields.intersection(INDEXING_RELEVANT_FIELDS):
             return
 
-    from crush_lu.services.google_indexing import should_index_event
-
-    action = "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
-    _schedule_event_indexing_notification(instance.pk, action=action)
+    _schedule_event_indexing_notification(instance.pk)
 
 
 @receiver(pre_save, sender=EventRegistration)
@@ -4772,7 +4797,7 @@ def trigger_google_indexing_on_registration_save(
     if (created and is_holding) or (not created and was_holding != is_holding):
         event_id = getattr(instance, "event_id", None)
         if event_id:
-            _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
+            _schedule_event_indexing_notification(event_id, skip_if_ineligible=True)
 
 
 @receiver(post_delete, sender=EventRegistration)
@@ -4781,25 +4806,67 @@ def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
     if getattr(instance, "status", None) in SEAT_HOLDING_STATUSES:
         event_id = getattr(instance, "event_id", None)
         if event_id:
-            _schedule_event_indexing_notification(event_id, action="URL_UPDATED")
+            _schedule_event_indexing_notification(event_id, skip_if_ineligible=True)
+
+
+def _claim_m2m_indexing_slots(instance, event_pks):
+    """Return the event PKs this relation change has not already claimed.
+
+    ``coaches.set()`` — what the event admin's filter_horizontal widget calls on
+    every save — fires post_remove and then post_add when the selection both
+    loses and gains a coach. Both reload the same committed state and would
+    submit the same three URLs. Claims are per event, not per instance, so a
+    reverse ``coach.assigned_events.add()`` for a *different* event is still
+    notified; the whole claim set is released on commit.
+    """
+    claimed = getattr(instance, "_indexing_m2m_claimed_pks", None)
+    if not claimed:
+        claimed = set()
+        instance._indexing_m2m_claimed_pks = claimed
+        # Empty again after commit, so the next operation re-arms the claim set.
+        transaction.on_commit(claimed.clear)
+
+    fresh = [pk for pk in event_pks if pk not in claimed]
+    claimed.update(fresh)
+    return fresh
 
 
 @receiver(m2m_changed, sender=MeetupEvent.coaches.through)
 def trigger_google_indexing_on_coaches_changed(
     sender, instance, action, reverse, model, pk_set, **kwargs
 ):
-    """Notify Googlebot when coach assignments change (updates schema.org performer)."""
-    if action in ("post_add", "post_remove", "post_clear"):
-        if not reverse and isinstance(instance, MeetupEvent):
-            from crush_lu.services.google_indexing import should_index_event
+    """Notify Googlebot when coach assignments change (updates schema.org performer).
 
-            indexing_action = (
-                "URL_UPDATED" if should_index_event(instance) else "URL_DELETED"
-            )
-            _schedule_event_indexing_notification(instance.pk, action=indexing_action)
-        elif reverse and pk_set:
-            for event_pk in pk_set:
-                _schedule_event_indexing_notification(event_pk, action="URL_UPDATED")
+    Both directions run through the shared scheduler, so eligibility is rechecked
+    against the committed event and ``coaches.set()`` -- which fires post_remove
+    then post_add for one admin form save -- coalesces into one notification.
+    """
+    if not reverse:
+        if action in ("post_add", "post_remove", "post_clear") and isinstance(
+            instance, MeetupEvent
+        ):
+            for event_pk in _claim_m2m_indexing_slots(instance, [instance.pk]):
+                _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+        return
+
+    # Reverse side: `instance` is the coach, the events are what changed.
+    if action == "pre_clear":
+        # post_clear arrives with pk_set=None, so the assignments have to be read
+        # while they still exist or every affected page goes unnotified.
+        instance._indexing_cleared_event_pks = list(
+            instance.assigned_events.values_list("pk", flat=True)
+        )
+        return
+
+    if action == "post_clear":
+        event_pks = getattr(instance, "_indexing_cleared_event_pks", None) or []
+    elif action in ("post_add", "post_remove"):
+        event_pks = list(pk_set or [])
+    else:
+        return
+
+    for event_pk in _claim_m2m_indexing_slots(instance, event_pks):
+        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
 
 
 @receiver(post_delete, sender=MeetupEvent)
@@ -4826,17 +4893,18 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
     def _notify():
         ctx = _get_indexing_context()
         now = time.monotonic()
-        if ctx.deadline is None or (now - ctx.last_active > 1.0):
+        if ctx.deadline is None or (
+            now - ctx.last_active > INDEXING_IDLE_RESET_SECONDS
+        ):
             ctx.deadline = now + 5.0
             ctx.session = None
         elif now >= ctx.deadline:
             logger.warning(
                 "Google Indexing delete budget exhausted. Skipping %d URLs.", len(urls)
             )
-            ctx.last_active = now
+            ctx.last_active = time.monotonic()
             return
 
-        ctx.last_active = time.monotonic()
         try:
             from crush_lu.services.google_indexing import (
                 get_google_indexing_session,
@@ -4853,13 +4921,23 @@ def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
             )
         except Exception:
             logger.exception("Error triggering Google indexing notification on delete")
+        finally:
+            # See _schedule_event_indexing_notification: stamped after the work
+            # so a slow Google response is not mistaken for an idle gap.
+            ctx.last_active = time.monotonic()
 
     transaction.on_commit(_notify)
 
 
+@receiver(request_started)
 @receiver(request_finished)
 def cleanup_indexing_thread_state(**kwargs):
-    """Clean up shared post-commit indexing context on request teardown."""
+    """Reset the shared post-commit indexing context at request start and teardown.
+
+    Resetting on *start* as well matters because the idle-gap heuristic alone
+    cannot tell "next request on this worker" from "next callback in this batch"
+    when the two are less than a second apart.
+    """
     ctx = _get_indexing_context()
     ctx.deadline = None
     ctx.session = None

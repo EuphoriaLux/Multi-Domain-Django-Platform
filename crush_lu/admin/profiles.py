@@ -8,6 +8,8 @@ Includes:
 - CoachSessionAdmin
 """
 
+import logging
+
 from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
@@ -62,6 +64,50 @@ from .filters import (
     ProfileSubmissionDetailFilter,
     ConnectionActivityFilter,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _assigned_event_ids(coach_queryset):
+    """Event IDs whose visible coach list a change to these coaches would alter."""
+    from crush_lu.models import MeetupEvent
+    from crush_lu.services.google_indexing import INDEXABLE_EVENT_FILTERS
+
+    return list(
+        MeetupEvent.objects.filter(
+            coaches__in=coach_queryset, **INDEXABLE_EVENT_FILTERS
+        )
+        .values_list("pk", flat=True)
+        .distinct()
+    )
+
+
+def _notify_google_indexing_for_coaches(event_ids):
+    """Ping Google for events whose performer list changed with a coach's state.
+
+    ``event_detail`` filters coaches on ``is_active=True`` before rendering the
+    coach list and the schema.org ``performer`` entries, so flipping that flag
+    changes indexed content — but these admin actions go through
+    ``queryset.update()``, which fires no signals at all.
+    """
+    ids = list(dict.fromkeys(event_ids))
+    if not ids:
+        return
+
+    try:
+        from crush_lu.models import MeetupEvent
+        from crush_lu.services.google_indexing import notify_events_indexing
+
+        notify_events_indexing(
+            MeetupEvent.objects.filter(pk__in=ids),
+            action="URL_UPDATED",
+            max_budget_seconds=12.0,
+        )
+    except Exception:
+        logger.exception(
+            "Error sending Google indexing notifications for %d coach event(s)",
+            len(ids),
+        )
 
 
 class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
@@ -197,7 +243,9 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
     @admin.action(description=_("Deactivate coach role (allows them to date)"))
     def deactivate_coach_allow_dating(self, request, queryset):
         """Deactivate coach so they can create/use dating profile"""
+        assigned_event_ids = _assigned_event_ids(queryset)
         deactivated = queryset.update(is_active=False)
+        _notify_google_indexing_for_coaches(assigned_event_ids)
         django_messages.success(
             request,
             _(
@@ -208,14 +256,18 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("Deactivate selected coaches"))
     def deactivate_coaches(self, request, queryset):
+        assigned_event_ids = _assigned_event_ids(queryset)
         updated = queryset.update(is_active=False)
+        _notify_google_indexing_for_coaches(assigned_event_ids)
         django_messages.success(
             request, _("Deactivated %(count)s coach(es)") % {"count": updated}
         )
 
     @admin.action(description=_("Activate selected coaches"))
     def activate_coaches(self, request, queryset):
+        assigned_event_ids = _assigned_event_ids(queryset)
         updated = queryset.update(is_active=True)
+        _notify_google_indexing_for_coaches(assigned_event_ids)
         django_messages.success(
             request, _("Activated %(count)s coach(es)") % {"count": updated}
         )

@@ -8,7 +8,7 @@ Usage:
     python manage.py ping_google_indexing --all --dry-run
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from crush_lu.models import MeetupEvent
@@ -17,6 +17,12 @@ from crush_lu.services.google_indexing import (
     notify_event_indexing,
     notify_url_indexing,
     should_index_event,
+)
+
+NOTHING_SENT_HINT = (
+    "No Google indexing notification was delivered for {target}. "
+    "Check GOOGLE_INDEXING_ENABLED, the service account credentials, and the "
+    "log for the API response."
 )
 
 
@@ -72,16 +78,12 @@ class Command(BaseCommand):
                 return
 
             res = notify_url_indexing(explicit_url, action=action)
-            if res:
-                self.stdout.write(
-                    self.style.SUCCESS(f"✅ Notified Googlebot for {explicit_url}")
-                )
-            else:
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"⚠️ Notification skipped or failed for {explicit_url}"
-                    )
-                )
+            if not res:
+                raise CommandError(NOTHING_SENT_HINT.format(target=explicit_url))
+
+            self.stdout.write(
+                self.style.SUCCESS(f"✅ Notified Googlebot for {explicit_url}")
+            )
             return
 
         if event_id:
@@ -107,11 +109,22 @@ class Command(BaseCommand):
                 action = "URL_UPDATED" if should_index_event(event) else "URL_DELETED"
 
             results = notify_event_indexing(event, action=action)
+            sent = len(results)
+            if urls and not sent:
+                raise CommandError(NOTHING_SENT_HINT.format(target=f"event {event.id}"))
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"✅ Successfully sent {len(results)} notification(s) ({action}) to Googlebot."
+                    f"✅ Successfully sent {sent} notification(s) ({action}) to Googlebot."
                 )
             )
+            if sent < len(urls):
+                self.stderr.write(
+                    self.style.WARNING(
+                        f"⚠️ {len(urls) - sent} of {len(urls)} URL(s) were not "
+                        f"accepted for event {event.id}."
+                    )
+                )
             return
 
         if all_events:
@@ -138,14 +151,28 @@ class Command(BaseCommand):
                 )
                 return
 
+            total_expected = 0
             total_notified = 0
             for ev in events:
                 self.stdout.write(f"Pinging event [{ev.id}] {ev.title}...")
+                total_expected += len(build_event_indexing_urls(ev))
                 results = notify_event_indexing(ev, action=action)
                 total_notified += len(results)
+
+            # An empty match is a legitimate no-op; expected URLs that all failed
+            # is not, and a scheduled run must not report that as healthy.
+            if total_expected and not total_notified:
+                raise CommandError(NOTHING_SENT_HINT.format(target=f"{count} event(s)"))
 
             self.stdout.write(
                 self.style.SUCCESS(
                     f"✅ Complete: Dispatched {total_notified} Google indexing notification(s)."
                 )
             )
+            if total_notified < total_expected:
+                self.stderr.write(
+                    self.style.WARNING(
+                        f"⚠️ {total_expected - total_notified} of {total_expected} "
+                        f"URL(s) were not accepted."
+                    )
+                )

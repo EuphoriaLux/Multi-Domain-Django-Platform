@@ -30,18 +30,26 @@ def is_indexing_enabled() -> bool:
     return getattr(settings, "GOOGLE_INDEXING_ENABLED", False)
 
 
+# Filters selecting events whose detail page Googlebot can actually fetch.
+# Keep in sync with should_index_event().
+INDEXABLE_EVENT_FILTERS = {"is_published": True, "is_private_invitation": False}
+
+
 def should_index_event(event) -> bool:
     """
     Determine if an event is eligible for public Google Search indexing.
 
-    Requires:
-    - is_published = True
-    - is_cancelled = False
-    - is_private_invitation = False (mirrors echo.lu policy)
+    Mirrors what `event_detail` actually serves an anonymous Googlebot:
+    - is_published = False -> 404 (get_object_or_404 filters on is_published)
+    - is_private_invitation = True -> 302 redirect to the event list
+
+    A *cancelled* event stays eligible: the page still returns 200 and emits
+    `https://schema.org/EventCancelled` structured data, so Google must be asked
+    to refresh it (URL_UPDATED). Sending URL_DELETED for a live 200 page is
+    misuse of the API — Google re-crawls, finds the page, and the cancellation
+    markup never reaches the SERP.
     """
     if not getattr(event, "is_published", False):
-        return False
-    if getattr(event, "is_cancelled", False):
         return False
     if getattr(event, "is_private_invitation", False):
         return False
@@ -251,6 +259,43 @@ def notify_url_indexing(
         return None
 
 
+def _dispatch_event_urls(
+    event,
+    resolved_action: str,
+    session: Any,
+    end_time: float,
+) -> Dict[str, Any]:
+    """Ping every language URL of one event, reporting how many were attempted.
+
+    The attempted count is what lets callers distinguish a *failed* URL from one
+    the wall-clock budget never reached.
+    """
+    urls_to_ping = build_event_indexing_urls(event)
+    results: List[Dict[str, Any]] = []
+    attempted = 0
+
+    for url in urls_to_ping:
+        remaining = end_time - time.monotonic()
+        if remaining <= 0:
+            logger.warning(
+                "Google Indexing budget exhausted. Skipping remaining URLs for event %s.",
+                getattr(event, "pk", None),
+            )
+            break
+
+        attempted += 1
+        res = notify_url_indexing(
+            url,
+            action=resolved_action,
+            session=session,
+            max_allowed_time=remaining,
+        )
+        if res:
+            results.append(res)
+
+    return {"results": results, "attempted": attempted, "total": len(urls_to_ping)}
+
+
 def notify_event_indexing(
     event,
     action: Optional[str] = None,
@@ -274,31 +319,11 @@ def notify_event_indexing(
     resolved_action = action or (
         "URL_UPDATED" if should_index_event(event) else "URL_DELETED"
     )
-    urls_to_ping = build_event_indexing_urls(event)
     end_time = (
         deadline if deadline is not None else (time.monotonic() + max_budget_seconds)
     )
 
-    results = []
-    for url in urls_to_ping:
-        remaining = end_time - time.monotonic()
-        if remaining <= 0:
-            logger.warning(
-                "Google Indexing budget exhausted. Skipping remaining URLs for event %s.",
-                getattr(event, "pk", None),
-            )
-            break
-
-        res = notify_url_indexing(
-            url,
-            action=resolved_action,
-            session=sess,
-            max_allowed_time=remaining,
-        )
-        if res:
-            results.append(res)
-
-    return results
+    return _dispatch_event_urls(event, resolved_action, sess, end_time)["results"]
 
 
 def notify_events_indexing(
@@ -323,29 +348,28 @@ def notify_events_indexing(
     deadline = time.monotonic() + max_budget_seconds
     total_expected = sum(len(build_event_indexing_urls(ev)) for ev in event_list)
     successful_urls = 0
-    deferred_count = 0
+    attempted_urls = 0
 
     for i, event in enumerate(event_list):
         if time.monotonic() > deadline:
-            remaining = len(event_list) - i
-            deferred_count = sum(
-                len(build_event_indexing_urls(ev)) for ev in event_list[i:]
-            )
             logger.warning(
-                "Google Indexing batch budget exhausted (%ss). Deferred %d URLs across %d events.",
+                "Google Indexing batch budget exhausted (%ss). Deferred %d events.",
                 max_budget_seconds,
-                deferred_count,
-                remaining,
+                len(event_list) - i,
             )
             break
 
-        results = notify_event_indexing(
-            event,
-            action=action,
-            session=sess,
-            deadline=deadline,
+        resolved_action = action or (
+            "URL_UPDATED" if should_index_event(event) else "URL_DELETED"
         )
-        successful_urls += len(results)
+        outcome = _dispatch_event_urls(event, resolved_action, sess, deadline)
+        attempted_urls += outcome["attempted"]
+        successful_urls += len(outcome["results"])
+
+    # Derived from what was *attempted*, not from the events loop: when the
+    # budget expires part-way through the last event's language URLs, those
+    # skipped URLs are deferrals too and must show up in the admin message.
+    deferred_count = max(0, total_expected - attempted_urls)
 
     return {
         "success_count": successful_urls,

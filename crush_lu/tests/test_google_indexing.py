@@ -65,19 +65,24 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertEqual(urls, [])
 
     def test_should_index_event_logic(self):
-        """should_index_event returns True only for published, non-cancelled, non-private events."""
+        """should_index_event mirrors what event_detail serves an anonymous Googlebot."""
         self.assertTrue(should_index_event(self.event))
 
         self.event.is_published = False
         self.assertFalse(should_index_event(self.event))
 
         self.event.is_published = True
-        self.event.is_cancelled = True
-        self.assertFalse(should_index_event(self.event))
-
-        self.event.is_cancelled = False
         self.event.is_private_invitation = True
         self.assertFalse(should_index_event(self.event))
+
+    def test_cancelled_published_event_stays_indexable(self):
+        """A cancelled but published page still 200s with EventCancelled markup.
+
+        Declaring it URL_DELETED would be API misuse: Google re-crawls, finds the
+        page alive, and the cancellation never reaches the SERP.
+        """
+        self.event.is_cancelled = True
+        self.assertTrue(should_index_event(self.event))
 
     @override_settings(GOOGLE_INDEXING_ENABLED=False)
     def test_disabled_by_settings(self):
@@ -196,6 +201,29 @@ class GoogleIndexingServiceTests(TestCase):
         self.assertEqual(res["total_expected"], 3)
         self.assertEqual(res["deferred_count"], 0)
 
+    @patch("crush_lu.services.google_indexing.notify_url_indexing")
+    @patch("crush_lu.services.google_indexing.get_google_indexing_session")
+    def test_notify_events_indexing_counts_intra_event_deferrals(
+        self, mock_get_session, mock_notify_url
+    ):
+        """URLs skipped part-way through the *last* event still count as deferred."""
+        mock_get_session.return_value = MagicMock()
+
+        # First URL consumes the whole budget; the other two are never attempted.
+        def _burn_budget(*args, **kwargs):
+            time.sleep(0.05)
+            return {"status": "ok"}
+
+        mock_notify_url.side_effect = _burn_budget
+
+        res = notify_events_indexing(
+            [self.event], action="URL_UPDATED", max_budget_seconds=0.01
+        )
+
+        self.assertEqual(res["total_expected"], 3)
+        self.assertEqual(res["success_count"], 1)
+        self.assertEqual(res["deferred_count"], 2)
+
 
 @override_settings(GOOGLE_INDEXING_ENABLED=True)
 class GoogleIndexingSignalAndAdminTests(TestCase):
@@ -235,8 +263,8 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         mock_notify_event.assert_not_called()
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
-    def test_signal_fires_url_deleted_for_draft_or_cancelled(self, mock_notify_event):
-        """Saving an unpublished or cancelled event sends URL_DELETED."""
+    def test_signal_fires_url_deleted_for_draft(self, mock_notify_event):
+        """Saving an unpublished event sends URL_DELETED (the page 404s)."""
         with self.captureOnCommitCallbacks(execute=True):
             self.event.is_published = False
             self.event.save()
@@ -244,6 +272,16 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         mock_notify_event.assert_called_once()
         self.assertEqual(mock_notify_event.call_args[0][0], self.event)
         self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_DELETED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_signal_fires_url_updated_for_cancelled(self, mock_notify_event):
+        """Cancelling a published event refreshes the page instead of deleting it."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.is_cancelled = True
+            self.event.save()
+
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_signal_fires_url_deleted_for_private_invitation(self, mock_notify_event):
@@ -360,12 +398,8 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         deadline1 = mock_notify_urls.call_args_list[0][1]["deadline"]
         deadline2 = mock_notify_urls.call_args_list[1][1]["deadline"]
         self.assertEqual(deadline1, deadline2)
-        self.assertEqual(
-            mock_notify_urls.call_args_list[0][1]["action"], "URL_DELETED"
-        )
-        self.assertEqual(
-            mock_notify_urls.call_args_list[1][1]["action"], "URL_DELETED"
-        )
+        self.assertEqual(mock_notify_urls.call_args_list[0][1]["action"], "URL_DELETED")
+        self.assertEqual(mock_notify_urls.call_args_list[1][1]["action"], "URL_DELETED")
 
     @patch("crush_lu.services.google_indexing.notify_urls_indexing")
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
@@ -393,7 +427,9 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self, mock_notify_event
     ):
         """EventRegistration status change or deletion notifies indexing to update capacity/availability."""
-        user = User.objects.create_user(username="attendee1", email="attendee1@example.com")
+        user = User.objects.create_user(
+            username="attendee1", email="attendee1@example.com"
+        )
 
         # 1. Registration creation
         with self.captureOnCommitCallbacks(execute=True):
@@ -513,6 +549,7 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         self.event.is_published = False
         self.event.save()
 
+        mock_notify_event.return_value = [{"ok": 1}, {"ok": 2}, {"ok": 3}]
         call_command("ping_google_indexing", "--event", str(self.event.id))
         mock_notify_event.assert_called_with(self.event, action="URL_DELETED")
 
@@ -534,10 +571,163 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
             is_published=True,
         )
 
+        mock_notify_event.return_value = [{"ok": 1}, {"ok": 2}, {"ok": 3}]
         call_command("ping_google_indexing", "--all")
         called_events = [call.args[0] for call in mock_notify_event.call_args_list]
         self.assertIn(in_progress, called_events)
         self.assertIn(self.event, called_events)
+
+    @patch("crush_lu.management.commands.ping_google_indexing.notify_event_indexing")
+    def test_management_command_errors_when_nothing_was_delivered(
+        self, mock_notify_event
+    ):
+        """A run that delivers zero notifications must exit nonzero, not look healthy."""
+        from django.core.management.base import CommandError
+
+        mock_notify_event.return_value = []
+        with self.assertRaises(CommandError):
+            call_command("ping_google_indexing", "--event", str(self.event.id))
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_coaches_set_coalesces_into_one_notification(self, mock_notify_event):
+        """coaches.set() fires post_remove then post_add; that is still one page change."""
+        from crush_lu.models import CrushCoach
+
+        coaches = []
+        for i in range(2):
+            coach_user = User.objects.create_user(
+                username=f"set_coach_{i}",
+                email=f"set_coach_{i}@example.com",
+                first_name=f"Coach{i}",
+            )
+            coaches.append(CrushCoach.objects.create(user=coach_user, is_active=True))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coaches[0])
+        mock_notify_event.reset_mock()
+
+        # Swaps one coach for the other -> post_remove + post_add in one call.
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.set([coaches[1]])
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_reverse_coach_clear_notifies_affected_events(self, mock_notify_event):
+        """coach.assigned_events.clear() sends pk_set=None; the IDs come from pre_clear."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="clearing_coach",
+            email="clearing_coach@example.com",
+            first_name="Robin",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.assigned_events.add(self.event)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.assigned_events.clear()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_reverse_coach_add_notifies_each_distinct_event(self, mock_notify_event):
+        """Coalescing is per event: two reverse adds for two events are two pings."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="multi_coach", email="multi_coach@example.com", first_name="Sam"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        event2 = MeetupEvent.objects.create(
+            title="Second Assigned Event",
+            description="Second event for the same coach.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=8),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=7),
+            is_published=True,
+        )
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.assigned_events.add(self.event)
+            coach.assigned_events.add(event2)
+
+        notified = {call.args[0].pk for call in mock_notify_event.call_args_list}
+        self.assertEqual(notified, {self.event.pk, event2.pk})
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_registration_on_ineligible_event_is_not_notified(self, mock_notify_event):
+        """A seat change on an invitation-only event must not spend indexing quota."""
+        private_event = MeetupEvent.objects.create(
+            title="Private Event",
+            description="Invitation only.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=4),
+            location="Luxembourg City",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=2),
+            is_published=True,
+            is_private_invitation=True,
+        )
+        user = User.objects.create_user(
+            username="private_attendee", email="private@example.com"
+        )
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            EventRegistration.objects.create(
+                event=private_event, user=user, status="confirmed"
+            )
+
+        mock_notify_event.assert_not_called()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_slow_callback_does_not_reopen_the_budget(self, mock_notify_event):
+        """Time spent waiting on Google is not idleness, so the deadline holds."""
+        from crush_lu.signals import _get_indexing_context
+
+        ctx = _get_indexing_context()
+        ctx.deadline = None
+        ctx.session = None
+        ctx.last_active = 0.0
+
+        event2 = MeetupEvent.objects.create(
+            title="Budget Event Two",
+            description="Second event for the shared budget.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=6),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+
+        deadlines = []
+
+        def _slow(*args, **kwargs):
+            deadlines.append(kwargs.get("deadline"))
+            if len(deadlines) == 1:
+                # Longer than INDEXING_IDLE_RESET_SECONDS: stamping last_active
+                # on entry used to make the *next* callback read this as an idle
+                # gap and hand it a whole fresh budget.
+                time.sleep(1.2)
+            return []
+
+        mock_notify_event.side_effect = _slow
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Budget Event One Updated"
+            self.event.save()
+            event2.title = "Budget Event Two Updated"
+            event2.save()
+
+        self.assertEqual(len(deadlines), 2)
+        self.assertEqual(deadlines[0], deadlines[1])
 
     def test_management_command_dry_run_and_execution(self):
         """Management command runs cleanly with --dry-run flag and execution."""
