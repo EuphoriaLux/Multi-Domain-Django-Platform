@@ -854,6 +854,168 @@ class GoogleIndexingSignalAndAdminTests(TestCase):
         mock_notify_event.assert_not_called()
 
     @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_creating_a_draft_sends_nothing(self, mock_notify_event):
+        """is_published defaults to False; a draft has no public URL to delete."""
+        with self.captureOnCommitCallbacks(execute=True):
+            MeetupEvent.objects.create(
+                title="Fresh Draft",
+                description="Not published yet.",
+                event_type="speed_dating",
+                date_time=timezone.now() + timedelta(days=11),
+                location="Luxembourg City",
+                registration_deadline=timezone.now() + timedelta(days=10),
+            )
+
+        mock_notify_event.assert_not_called()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_creating_a_published_event_notifies(self, mock_notify_event):
+        """A create that is public straight away still gets its URL_UPDATED."""
+        with self.captureOnCommitCallbacks(execute=True):
+            MeetupEvent.objects.create(
+                title="Born Public",
+                description="Published on creation.",
+                event_type="speed_dating",
+                date_time=timezone.now() + timedelta(days=12),
+                location="Luxembourg City",
+                registration_deadline=timezone.now() + timedelta(days=11),
+                is_published=True,
+            )
+
+        mock_notify_event.assert_called_once()
+        self.assertEqual(mock_notify_event.call_args[1]["action"], "URL_UPDATED")
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_reassigning_a_registration_notifies_both_events(self, mock_notify_event):
+        """The event FK is editable in the admin; a seat move changes two pages."""
+        event2 = MeetupEvent.objects.create(
+            title="Destination Event",
+            description="Receives the moved seat.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=13),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=12),
+            is_published=True,
+        )
+        user = User.objects.create_user(username="mover", email="mover@example.com")
+        reg = EventRegistration.objects.create(
+            event=self.event, user=user, status="confirmed"
+        )
+        self._retire_fixture_indexing_callbacks()
+        mock_notify_event.reset_mock()
+
+        # Status untouched: only the event changes.
+        with self.captureOnCommitCallbacks(execute=True):
+            reg.event = event2
+            reg.save(update_fields=["event"])
+
+        notified = {call.args[0].pk for call in mock_notify_event.call_args_list}
+        self.assertEqual(notified, {self.event.pk, event2.pk})
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_deleting_a_coach_notifies_assigned_events(self, mock_notify_event):
+        """The delete cascade strips the m2m rows without emitting m2m_changed."""
+        from crush_lu.models import CrushCoach
+
+        coach_user = User.objects.create_user(
+            username="doomed_coach",
+            email="doomed_coach@example.com",
+            first_name="Sam",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.coaches.add(coach)
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            coach.delete()
+
+        self.assertEqual(mock_notify_event.call_count, 1)
+        self.assertEqual(mock_notify_event.call_args[0][0].pk, self.event.pk)
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_upgrade_from_a_nested_savepoint_does_not_leak(self, mock_notify_event):
+        """A rolled-back event save must not re-arm an outer registration ping.
+
+        The permissive upgrade mutates a callback the trigger does not own, so it
+        is only taken when the current savepoint stack is a subset of the pending
+        callback's. Here it is not: the event save is nested deeper and rolls
+        back, and the surviving registration callback must stay strict — the
+        event is invitation-only, so it has no public URL to delete.
+        """
+        private_event = MeetupEvent.objects.create(
+            title="Nested Savepoint Private Event",
+            description="Invitation only.",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=14),
+            location="Luxembourg City",
+            registration_deadline=timezone.now() + timedelta(days=13),
+            is_published=True,
+            is_private_invitation=True,
+        )
+        user = User.objects.create_user(username="nested", email="nested@example.com")
+        self._retire_fixture_indexing_callbacks()
+        mock_notify_event.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            # Strict trigger, registered at the outer level.
+            EventRegistration.objects.create(
+                event=private_event, user=user, status="confirmed"
+            )
+            try:
+                with transaction.atomic():
+                    private_event.title = "Rolled Back Title"
+                    private_event.save()
+                    raise ValueError("Simulated savepoint rollback")
+            except ValueError:
+                pass
+
+        mock_notify_event.assert_not_called()
+
+    def test_request_start_anchors_a_wall_clock_deadline(self):
+        """The window can never outrun the request it belongs to."""
+        from crush_lu.signals import (
+            INDEXING_REQUEST_WALL_CLOCK_SECONDS,
+            _get_indexing_context,
+            cleanup_indexing_thread_state,
+            open_indexing_request_scope,
+        )
+
+        self.addCleanup(cleanup_indexing_thread_state)
+        # Called directly rather than via request_started.send(): that signal
+        # also drives django.db.close_old_connections, which would tear down the
+        # TestCase's transaction and fail every test after this one.
+        open_indexing_request_scope()
+
+        ctx = _get_indexing_context()
+        self.assertTrue(ctx.in_request)
+        self.assertIsNotNone(ctx.request_deadline)
+        self.assertLessEqual(
+            ctx.request_deadline,
+            time.monotonic() + INDEXING_REQUEST_WALL_CLOCK_SECONDS,
+        )
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
+    def test_window_cannot_outlive_the_request_wall_clock(self, mock_notify_event):
+        """A window opened late is truncated to the request's remaining headroom."""
+        from crush_lu.signals import _get_indexing_context
+
+        ctx = _get_indexing_context()
+        ctx.deadline = None
+        ctx.session = None
+        ctx.in_request = True
+        # The request is already past its wall-clock ceiling.
+        ctx.request_deadline = time.monotonic() - 1.0
+        self.addCleanup(setattr, ctx, "request_deadline", None)
+        self.addCleanup(setattr, ctx, "in_request", False)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.event.title = "Too Late To Index"
+            self.event.save()
+
+        mock_notify_event.assert_not_called()
+
+    @patch("crush_lu.services.google_indexing.notify_event_indexing")
     def test_rolled_back_coach_change_does_not_suppress_the_next_one(
         self, mock_notify_event
     ):
