@@ -1,0 +1,113 @@
+{% load i18n %}<!DOCTYPE html>
+{% comment %}
+Shown inside the app's WebView when a one-time auth code cannot be redeemed.
+It replaces a raw JSON body that used to be rendered full-screen with nothing
+tappable on it, so the only escape was force-quitting the app.
+
+Deliberately standalone rather than extending crush_lu/base.html, for two
+reasons:
+
+1. The request path carries the one-time code. Every part of the site chrome
+   that echoes the current URL — rel=canonical, hreflang, og:url, the language
+   switcher's hidden `next` — would print that credential into the markup.
+   Overriding them one by one is whack-a-mole; not rendering them is not.
+2. This is the page that has to work when something already went wrong. The
+   full base template pulls in the nav, Alpine, the bottom bar and every
+   context processor, and context-processor DB queries are a known way for a
+   crush.lu page to turn a bad request into a 500.
+
+The one job here is the retry link: it restarts the handoff rather than
+re-requesting the spent code, which is what pull-to-refresh on the old page
+did.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% trans "Sign-in didn't complete" %} – Crush.lu</title>
+<style{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
+  :root {
+    --purple: #9b59b6;
+    --purple-dark: #8e44ad;
+    --ground: #f8f9fa;
+    --surface: #ffffff;
+    --ink: #2c3e50;
+    --ink-soft: #5a6b7d;
+    --rule: #e4e7eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --purple: #ff6b9d;
+      --purple-dark: #d94d7b;
+      --ground: #111827;
+      --surface: #1f2937;
+      --ink: #f3f4f6;
+      --ink-soft: #b6c0cc;
+      --rule: #374151;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 2.25rem 1.75rem;
+    max-width: 26rem;
+    width: 100%;
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 .75rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  p { margin: 0 0 1.75rem; color: var(--ink-soft); font-size: .97rem; }
+  .actions { display: flex; flex-direction: column; gap: .65rem; }
+  a {
+    display: block;
+    padding: .8rem 1.25rem;
+    border-radius: 9px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: .95rem;
+  }
+  a.primary { background: var(--purple); color: #fff; }
+  a.primary:hover { background: var(--purple-dark); }
+  a.secondary { color: var(--ink-soft); }
+  a.secondary:hover { color: var(--ink); }
+  a:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{% trans "Let's try that sign-in again" %}</h1>
+  <p>
+    {% if expired %}
+      {% trans "This sign-in link timed out before the app could use it. Links are short-lived on purpose — tap below and we'll make you a fresh one." %}
+    {% else %}
+      {% trans "This sign-in link has already been used. That usually means you're signed in on another screen, or the app opened the link twice. Tap below to start again." %}
+    {% endif %}
+  </p>
+  <div class="actions">
+    <a class="primary" href="{{ retry_url }}">{% trans "Try signing in again" %}</a>
+    <a class="secondary" href="/">{% trans "Back to Crush.lu" %}</a>
+  </div>
+</main>
+</body>
+</html>

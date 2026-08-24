@@ -55,10 +55,18 @@ def stash_mobile_handoff(request, platform, redirect_uri):
     }
 
 
-def _handoff_url(data):
-    platform = data.get("platform", "ios")
-    query = urlencode({"redirect_uri": data.get("redirect_uri", "")})
+def handoff_url(platform, redirect_uri):
+    """The relative URL that restarts the handoff for `platform`.
+
+    A literal path, not a reverse(): the middleware swaps urlconf per host, so
+    reverse("crush_lu:…") builds /crush/… paths that 404 under crush.lu.
+    """
+    query = urlencode({"redirect_uri": redirect_uri or ""})
     return f"{_HANDOFF_PREFIX}{platform}{_HANDOFF_SUFFIX_PATH}?{query}"
+
+
+def _handoff_url(data):
+    return handoff_url(data.get("platform", "ios"), data.get("redirect_uri", ""))
 
 
 def peek_mobile_handoff_url(request):

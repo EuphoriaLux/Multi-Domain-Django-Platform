@@ -3,16 +3,15 @@ import logging
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from django.conf import settings
-from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .decorators import ratelimit
 from .mobile_auth import clear_mobile_handoff, stash_mobile_handoff
+from .native_auth import complete_native_auth
 from .models import IOSNativeAuthCode, AndroidAppDevice
 
 logger = logging.getLogger(__name__)
@@ -124,16 +123,7 @@ def android_auth_handoff(request):
 @require_http_methods(["GET"])
 def android_auth_complete(request, code):
     """Consume a one-time auth code and create the Android WebView session."""
-    user = IOSNativeAuthCode.consume(code)
-    if not user:
-        return JsonResponse(
-            {"success": False, "error": "Invalid or expired authentication code"},
-            status=400,
-        )
-
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session["crush_android_app"] = True
-    return redirect("/en/dashboard/?source=android_app")
+    return complete_native_auth(request, "android", code)
 
 
 @login_required

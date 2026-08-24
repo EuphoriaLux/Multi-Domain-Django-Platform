@@ -127,8 +127,17 @@ def test_ios_auth_handoff_and_completion_are_one_time(client, user, settings):
     assert complete_response.headers["Location"] == "/en/dashboard/?source=ios_app"
     assert client.session["_auth_user_id"] == str(user.id)
 
+    # The code stays spent, but the caller is now signed in as its owner, so
+    # a second delivery of the same callback lands them where the first one
+    # did instead of throwing away a working session. See crush_lu/native_auth.py.
     replay_response = client.get(complete_path)
-    assert replay_response.status_code == 400
+    assert replay_response.status_code == 302
+    assert replay_response.headers["Location"] == "/en/dashboard/?source=ios_app"
+    assert IOSNativeAuthCode.objects.get().consumed_at is not None
+
+    # A stranger holding the same spent code gets nothing.
+    client.logout()
+    assert client.get(complete_path).status_code == 400
 
 
 def test_ios_device_registration_preferences_and_unregister(client, user):
