@@ -40487,24 +40487,15 @@ msgid "Let's try that sign-in again"
 msgstr "Reprenons la connexion"
 
 #: crush_lu/templates/crush_lu/native_auth_failed.html:0
-msgid ""
-"This sign-in link timed out before the app could use it. Links are short-"
-"lived on purpose — tap below and we'll make you a fresh one."
-msgstr ""
-"Ce lien de connexion a expiré avant que l'application ne puisse l'utiliser. "
-"Ces liens sont volontairement de courte durée : touchez ci-dessous et nous "
-"vous en créons un nouveau."
-
-#: crush_lu/templates/crush_lu/native_auth_failed.html:0
-msgid ""
-"This sign-in link has already been used. That usually means you're signed in"
-" on another screen, or the app opened the link twice. Tap below to start "
-"again."
-msgstr ""
-"Ce lien de connexion a déjà été utilisé. Cela signifie généralement que vous"
-" êtes déjà connecté sur un autre écran, ou que l'application a ouvert le "
-"lien deux fois. Touchez ci-dessous pour recommencer."
-
-#: crush_lu/templates/crush_lu/native_auth_failed.html:0
 msgid "Try signing in again"
 msgstr "Réessayer de se connecter"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid ""
+"This sign-in link is no longer valid. It may have timed out, or it may "
+"already have been used — in which case you could already be signed in on "
+"another screen. Tap below to start again."
+msgstr ""
+"Ce lien de connexion n'est plus valable. Il a peut-être expiré, ou il a "
+"peut-être déjà été utilisé — auquel cas vous êtes peut-être déjà connecté "
+"sur un autre écran. Touchez ci-dessous pour recommencer."

@@ -60,8 +60,6 @@ the WebView's cache from every other page in the app.
 
 <style{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
   :root {
-    --page-accent: var(--color-crush-purple, #9b59b6);
-    --page-accent-hover: var(--color-crush-purple-dark, #8e44ad);
     --page-ground: var(--color-crush-light, #f8f9fa);
     --page-surface: #fff;
     --page-ink: var(--color-crush-dark, #2c3e50);
@@ -72,8 +70,6 @@ the WebView's cache from every other page in the app.
      still wins, matching how the rest of the site behaves. */
   @media (prefers-color-scheme: dark) {
     :root:not(.theme-light) {
-      --page-accent: var(--color-crush-pink, #ff6b9d);
-      --page-accent-hover: var(--color-crush-pink-dark, #d94d7b);
       --page-ground: var(--color-gray-900, #111827);
       --page-surface: var(--color-gray-800, #1f2937);
       --page-ink: var(--color-gray-100, #f3f4f6);
@@ -83,8 +79,6 @@ the WebView's cache from every other page in the app.
   }
   /* An explicit dark choice, or the bootstrap above resolving to dark. */
   :root.dark {
-    --page-accent: var(--color-crush-pink, #ff6b9d);
-    --page-accent-hover: var(--color-crush-pink-dark, #d94d7b);
     --page-ground: var(--color-gray-900, #111827);
     --page-surface: var(--color-gray-800, #1f2937);
     --page-ink: var(--color-gray-100, #f3f4f6);
@@ -123,35 +117,23 @@ the WebView's cache from every other page in the app.
     text-wrap: balance;
   }
   p { margin: 0 0 1.75rem; color: var(--page-ink-soft); font-size: .97rem; }
-  .actions { display: flex; flex-direction: column; gap: .65rem; }
-  a {
-    display: block;
-    padding: .8rem 1.25rem;
-    border-radius: 9px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: .95rem;
-  }
-  a.primary { background: var(--page-accent); color: #fff; }
-  a.primary:hover { background: var(--page-accent-hover); }
-  a.secondary { color: var(--page-ink-soft); }
-  a.secondary:hover { color: var(--page-ink); }
-  a:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 3px; }
+  /* Layout only. The buttons themselves are .btn-crush-primary /
+     .btn-crush-outline from the shared stylesheet — no sizing, colour or
+     interaction rules here, or this page drifts from the canonical variants
+     the moment they change. */
+  .actions { display: flex; flex-direction: column; gap: .65rem; align-items: stretch; }
+  .actions > a { text-align: center; }
 </style>
 </head>
 <body>
 <main>
   <h1>{% trans "Let's try that sign-in again" %}</h1>
   <p>
-    {% if expired %}
-      {% trans "This sign-in link timed out before the app could use it. Links are short-lived on purpose — tap below and we'll make you a fresh one." %}
-    {% else %}
-      {% trans "This sign-in link has already been used. That usually means you're signed in on another screen, or the app opened the link twice. Tap below to start again." %}
-    {% endif %}
+    {% trans "This sign-in link is no longer valid. It may have timed out, or it may already have been used — in which case you could already be signed in on another screen. Tap below to start again." %}
   </p>
   <div class="actions">
-    <a class="primary" href="{{ retry_url }}">{% trans "Try signing in again" %}</a>
-    <a class="secondary" href="/">{% trans "Back to Crush.lu" %}</a>
+    <a class="btn-crush-primary" href="{{ retry_url }}">{% trans "Try signing in again" %}</a>
+    <a class="btn-crush-outline" href="/">{% trans "Back to Crush.lu" %}</a>
   </div>
 </main>
 </body>

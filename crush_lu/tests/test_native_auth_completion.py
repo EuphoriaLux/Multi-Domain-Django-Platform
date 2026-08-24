@@ -187,6 +187,38 @@ def test_replay_by_an_anonymous_caller_is_refused(
     assert client.get(path).status_code == 400
 
 
+def test_overlapping_delivery_loser_is_refused_and_logged_as_anonymous(
+    client, settings, user, caplog
+):
+    """The genuine overlap: a second request that never saw the first's cookie.
+
+    Distinct from test_replay_by_an_anonymous_caller_is_refused, which logs the
+    same client out — here the loser is a separate jar that was never
+    authenticated, which is what two simultaneous WebView loads look like.
+
+    It is refused, and it must NOT raise the interception alarm: an anonymous
+    replayer is indistinguishable from a benign overlap, so folding it into the
+    cross-user ERROR would drown the one alert that has no benign reading.
+    """
+    client.force_login(user)
+    code = _issue(client, settings, "android", "ANDROID_AUTH_REDIRECT_URIS")
+    path = _complete_path("android", code)
+    assert client.get(path).status_code == 302
+
+    from django.test import Client
+
+    loser = Client()  # separate cookie jar, never authenticated
+    with caplog.at_level("WARNING", logger="crush_lu.native_auth"):
+        response = loser.get(path)
+
+    assert response.status_code == 400
+    assert "reason=replayed_anonymous" in caplog.text
+    assert "presented by another party" not in caplog.text
+    # Nothing may be written to the loser's session: a write would set a fresh
+    # anonymous sessionid that clobbers the winner's cookie in a shared jar.
+    assert "sessionid" not in response.cookies
+
+
 @pytest.mark.parametrize("platform,setting_name,landing", PLATFORMS)
 def test_replay_by_a_different_user_is_refused(
     client, settings, user, other_user, platform, setting_name, landing
@@ -203,6 +235,28 @@ def test_replay_by_a_different_user_is_refused(
 
     assert response.status_code == 400
     assert client.session["_auth_user_id"] == str(other_user.pk)
+
+
+def test_failure_copy_does_not_reveal_whether_a_code_existed(client, settings, user):
+    """The page must not become the oracle the JSON body avoids being.
+
+    Reason-specific copy ("timed out" vs "already used") told a caller whether
+    a candidate code matched a real row. One message for every refusal.
+    """
+    settings.ANDROID_AUTH_REDIRECT_URIS = ["crushlu://auth"]
+    expired_code = IOSNativeAuthCode.issue(user, "crushlu://auth")
+    IOSNativeAuthCode.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+    spent_code = IOSNativeAuthCode.issue(user, "crushlu://auth")
+    IOSNativeAuthCode.redeem(spent_code)
+
+    bodies = [
+        client.get(_complete_path("android", c), headers={"accept": "text/html"}).content
+        for c in (expired_code, spent_code, "no-such-code")
+    ]
+
+    assert bodies[0] == bodies[1] == bodies[2], (
+        "expired, already-used and unknown codes must render the same page"
+    )
 
 
 @pytest.mark.parametrize("platform,setting_name,landing", PLATFORMS)
@@ -329,7 +383,7 @@ def test_failure_page_is_translated(language):
         "Let's try that sign-in again",
         "Try signing in again",
         "Back to Crush.lu",
-        "This sign-in link has already been used",
+        "This sign-in link is no longer valid",
     ):
         assert english not in html, f"{english!r} fell back to English in {language}"
 
