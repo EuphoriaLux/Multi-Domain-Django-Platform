@@ -9,6 +9,7 @@ profile-edit page (one section per step).
 Kept in a dedicated module so onboarding/spark forms don't bloat the main
 ``crush_lu/forms.py`` (1k+ lines already).
 """
+
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -239,6 +240,7 @@ class ConnectIdealMatchForm(forms.ModelForm):
         # validators are wired at construction time (Codex P2: setting min_value
         # after the fact on the model-generated field doesn't add validators).
         from django import forms as django_forms
+
         for field_name in ("preferred_age_min", "preferred_age_max"):
             if field_name in self.fields:
                 old_field = self.fields[field_name]
@@ -339,7 +341,9 @@ class ConnectStoryForm(forms.ModelForm):
         value = (self.cleaned_data.get("story_answer") or "").strip()
         if len(value) < 10:
             raise forms.ValidationError(
-                _("Give us at least a full sentence — under 10 characters won't tell anyone much.")
+                _(
+                    "Give us at least a full sentence — under 10 characters won't tell anyone much."
+                )
             )
         return value
 
@@ -352,9 +356,15 @@ class ConnectStoryForm(forms.ModelForm):
         answer_2 = cleaned.get("story_answer_2", "")
         if bool(prompt_2) != bool(answer_2):
             if prompt_2 and not answer_2:
-                self.add_error("story_answer_2", _("Please write an answer for your second prompt."))
+                self.add_error(
+                    "story_answer_2",
+                    _("Please write an answer for your second prompt."),
+                )
             elif answer_2 and not prompt_2:
-                self.add_error("story_prompt_2", _("Please select a prompt for your second answer."))
+                self.add_error(
+                    "story_prompt_2",
+                    _("Please select a prompt for your second answer."),
+                )
         return cleaned
 
 
@@ -487,25 +497,9 @@ class ConnectGateQuestionsForm(forms.ModelForm):
     def _save_picks(self, membership):
         from django.db import transaction
 
-        from crush_lu.models import ConnectQuestionAnswer, MemberGateQuestion
+        from crush_lu.models import MemberGateQuestion
 
-        new = {qid: owner_answer for qid, owner_answer in self.cleaned_picks}
         with transaction.atomic():
-            # Guesses become stale for any question the member DROPS or whose
-            # truth they CHANGE — the answer was scored against the old pick and
-            # would otherwise be locked in by the unique constraint and mis-scored
-            # against the new truth. Clear those so viewers can answer the fresh
-            # gate; guesses for questions kept with the same truth are preserved.
-            stale_qids = [
-                gq.question_id
-                for gq in membership.gate_questions.all()
-                if new.get(gq.question_id) != gq.owner_answer
-            ]
-            if stale_qids:
-                ConnectQuestionAnswer.objects.filter(
-                    profile_owner=membership.user, question_id__in=stale_qids
-                ).delete()
-
             membership.gate_questions.all().delete()
             MemberGateQuestion.objects.bulk_create(
                 [

@@ -1,7 +1,4 @@
-from datetime import timedelta
-
 from django.contrib import admin, messages
-from django.db.models import Count
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _, ngettext
 
@@ -45,7 +42,18 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
     inlines = [MemberGateQuestionInline]
     readonly_fields = ["created_at", "updated_at", "onboarding_started_at"]
     fieldsets = (
-        (None, {"fields": ("user", "onboarded_at", "onboarding_step", "onboarding_started_at", "photo_share_consent")}),
+        (
+            None,
+            {
+                "fields": (
+                    "user",
+                    "onboarded_at",
+                    "onboarding_step",
+                    "onboarding_started_at",
+                    "photo_share_consent",
+                )
+            },
+        ),
         (
             _("Onboarding — Intent"),
             {"fields": ("relationship_goal",)},
@@ -57,11 +65,15 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         (
             _("Match preferences (hard filters)"),
             {
-                "fields": ("preferred_genders", "preferred_age_min", "preferred_age_max"),
+                "fields": (
+                    "preferred_genders",
+                    "preferred_age_min",
+                    "preferred_age_max",
+                ),
                 "description": _(
                     "These are the Connect catalogue's gender/age filters. They are "
                     "separate from the member's main profile 'Interested in' — editing "
-                    "the main profile no longer affects Crush Connect Drops."
+                    "the main profile no longer affects Crush Connect cards."
                 ),
             },
         ),
@@ -71,7 +83,15 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         ),
         (
             _("Life situation"),
-            {"fields": ("height_cm", "work_field", "education_level", "smoking", "drinking")},
+            {
+                "fields": (
+                    "height_cm",
+                    "work_field",
+                    "education_level",
+                    "smoking",
+                    "drinking",
+                )
+            },
         ),
         (
             _("Family & future"),
@@ -79,7 +99,14 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         ),
         (
             _("Story"),
-            {"fields": ("story_prompt", "story_answer", "story_prompt_2", "story_answer_2")},
+            {
+                "fields": (
+                    "story_prompt",
+                    "story_answer",
+                    "story_prompt_2",
+                    "story_answer_2",
+                )
+            },
         ),
         (
             _("Coach exclusion (panic button)"),
@@ -119,77 +146,6 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-class ConnectDailyDropAdmin(admin.ModelAdmin):
-    list_display = [
-        "user",
-        "drop_date",
-        "recipient_count",
-        "read_target",
-        "created_at",
-    ]
-    list_select_related = ["user", "read_target"]
-    list_filter = ["drop_date"]
-    search_fields = [
-        "user__email",
-        "user__username",
-        "user__first_name",
-        "user__last_name",
-        "recipients__email",
-        "recipients__username",
-    ]
-    raw_id_fields = ["user", "read_target"]
-    filter_horizontal = ["recipients"]
-    readonly_fields = ["created_at", "read_at"]
-    date_hierarchy = "drop_date"
-    actions = ["preview_today_for_selected_user", "preview_tomorrow_for_selected_user"]
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_recipient_count=Count("recipients"))
-
-    def recipient_count(self, obj):
-        return obj._recipient_count
-
-    recipient_count.short_description = _("Cards")
-
-    @admin.action(description=_("Preview today's Drop (idempotent)"))
-    def preview_today_for_selected_user(self, request, queryset):
-        self._preview(request, queryset, timezone.localdate())
-
-    @admin.action(description=_("Preview tomorrow's Drop (idempotent)"))
-    def preview_tomorrow_for_selected_user(self, request, queryset):
-        self._preview(request, queryset, timezone.localdate() + timedelta(days=1))
-
-    def _preview(self, request, queryset, target_date):
-        """Compute (or fetch) the drop for the selected drops' users."""
-        from crush_lu.services import get_or_create_daily_drop
-
-        users = {drop.user for drop in queryset.select_related("user")}
-        if not users:
-            self.message_user(
-                request,
-                _("Select at least one Drop row to preview a user."),
-                level=messages.WARNING,
-            )
-            return
-
-        created = 0
-        for user in users:
-            drop = get_or_create_daily_drop(user, drop_date=target_date)
-            if drop is not None:
-                created += 1
-
-        self.message_user(
-            request,
-            ngettext(
-                "Previewed Drop for %(n)d user on %(date)s.",
-                "Previewed Drops for %(n)d users on %(date)s.",
-                created,
-            )
-            % {"n": created, "date": target_date.isoformat()},
-            level=messages.SUCCESS,
-        )
-
-
 class CrushConnectWaitlistAdmin(admin.ModelAdmin):
     list_display = [
         "user",
@@ -211,7 +167,12 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
         "notification_preference",
         "beta_invite_wave",
     ]
-    search_fields = ["user__email", "user__first_name", "user__last_name", "user__username"]
+    search_fields = [
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "user__username",
+    ]
     raw_id_fields = ["user", "confirmed_by"]
     readonly_fields = [
         "joined_at",
@@ -338,41 +299,24 @@ class InterestAdmin(admin.ModelAdmin):
     )
 
 
-class CuriositySparkAdmin(admin.ModelAdmin):
-    """
-    M5 Spark oversight — the 'accepted' filter is the coach's queue for
-    arranging dates until the dedicated coach dashboard ships in M7.
-    """
+class ConnectCoachPickAdmin(admin.ModelAdmin):
+    """Oversight for coach-curated match proposals (M7)."""
 
     list_display = (
-        "sender",
-        "recipient",
+        "coach",
+        "member",
+        "candidate",
         "status",
         "created_at",
         "responded_at",
     )
-    list_select_related = ["sender", "recipient"]
-    list_filter = ("status", "created_at")
-    search_fields = (
-        "sender__username",
-        "sender__first_name",
-        "recipient__username",
-        "recipient__first_name",
-    )
-    raw_id_fields = ("sender", "recipient", "drop")
-    readonly_fields = ("created_at", "responded_at")
-    date_hierarchy = "created_at"
-
-
-class ConnectCoachPickAdmin(admin.ModelAdmin):
-    """Oversight for coach-curated match proposals (M7)."""
-
-    list_display = ("coach", "member", "candidate", "status", "created_at", "responded_at")
     list_select_related = ["coach__user", "member", "candidate"]
     list_filter = ("status", "created_at")
     search_fields = (
-        "member__username", "member__first_name",
-        "candidate__username", "candidate__first_name",
+        "member__username",
+        "member__first_name",
+        "candidate__username",
+        "candidate__first_name",
         "coach__user__username",
     )
     raw_id_fields = ("coach", "member", "candidate")
@@ -434,30 +378,24 @@ class ConnectQuestionWeekAdmin(admin.ModelAdmin):
         )
 
 
-class ConnectQuestionAnswerAdmin(admin.ModelAdmin):
-    """Oversight/moderation of viewer guesses (the match-gate + stat records)."""
-
-    list_display = ("responder", "profile_owner", "question", "answer", "created_at")
-    list_select_related = ["responder", "profile_owner", "question"]
-    list_filter = ("answer", "created_at")
-    search_fields = (
-        "responder__username",
-        "responder__first_name",
-        "profile_owner__username",
-        "profile_owner__first_name",
-    )
-    date_hierarchy = "created_at"
-
-
 # ---------------------------------------------------------------------------
 # Crush Connect 7-Day Deliberate Cycle Admins
 # ---------------------------------------------------------------------------
 class ConnectCycleCardInline(admin.TabularInline):
     from crush_lu.models.crush_connect_cycle import ConnectCycleCard
+
     model = ConnectCycleCard
     extra = 0
     raw_id_fields = ("target_user",)
-    readonly_fields = ("day_number", "card_index", "target_user", "generated_date", "is_completed", "completed_at", "is_expired")
+    readonly_fields = (
+        "day_number",
+        "card_index",
+        "target_user",
+        "generated_date",
+        "is_completed",
+        "completed_at",
+        "is_expired",
+    )
 
 
 class ConnectWeekSessionAdmin(admin.ModelAdmin):
@@ -472,9 +410,19 @@ class ConnectWeekSessionAdmin(admin.ModelAdmin):
     ]
     list_select_related = ["user", "compatibility_highlight_user"]
     list_filter = ["status", "is_review_open", "current_day_number"]
-    search_fields = ["user__username", "user__email", "user__first_name", "user__last_name"]
+    search_fields = [
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+    ]
     raw_id_fields = ["user", "compatibility_highlight_user"]
-    readonly_fields = ["started_at", "review_opened_at", "review_expires_at", "completed_at"]
+    readonly_fields = [
+        "started_at",
+        "review_opened_at",
+        "review_expires_at",
+        "completed_at",
+    ]
     inlines = [ConnectCycleCardInline]
     date_hierarchy = "started_at"
 
@@ -492,7 +440,11 @@ class ConnectCycleCardAdmin(admin.ModelAdmin):
     ]
     list_select_related = ["session__user", "target_user"]
     list_filter = ["day_number", "is_completed", "is_expired", "generated_date"]
-    search_fields = ["session__user__username", "target_user__username", "target_user__email"]
+    search_fields = [
+        "session__user__username",
+        "target_user__username",
+        "target_user__email",
+    ]
     raw_id_fields = ["session", "target_user"]
     readonly_fields = ["completed_at"]
     date_hierarchy = "generated_date"
@@ -517,6 +469,7 @@ class ConnectWeeklyRequestAdmin(admin.ModelAdmin):
 
 class ConnectChatMessageInline(admin.TabularInline):
     from crush_lu.models.crush_connect_cycle import ConnectChatMessage
+
     model = ConnectChatMessage
     extra = 0
     raw_id_fields = ("sender",)
@@ -580,7 +533,11 @@ class ConnectCoffeeDateAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Venue"))
     def venue_display(self, obj):
-        return obj.venue_location.name if obj.venue_location else (obj.custom_venue_name or _("Custom"))
+        return (
+            obj.venue_location.name
+            if obj.venue_location
+            else (obj.custom_venue_name or _("Custom"))
+        )
 
 
 class ConnectPairExclusionAdmin(admin.ModelAdmin):
@@ -605,7 +562,12 @@ class ConnectReportAdmin(admin.ModelAdmin):
     ]
     list_select_related = ["reporter", "reported_user", "reviewed_by__user"]
     list_filter = ["status", "reason", "created_at"]
-    search_fields = ["reporter__username", "reported_user__username", "details", "admin_notes"]
+    search_fields = [
+        "reporter__username",
+        "reported_user__username",
+        "details",
+        "admin_notes",
+    ]
     raw_id_fields = ["reporter", "reported_user", "reviewed_by"]
     readonly_fields = ["created_at"]
     date_hierarchy = "created_at"

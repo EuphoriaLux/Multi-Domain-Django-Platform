@@ -3,8 +3,8 @@
    Crush Connect waitlist join — shared by the teaser and the catalogue status
    page. The catalogue page needs it because the teaser's fast-path redirects
    every approved + LuxID member away during the BETA phase, which would
-   otherwise leave them no way onto the waitlist that gates the receiver track
-   (connect_phase.receiver_access_open reads selected_as_tester).
+   otherwise leave them no way onto the waitlist that gates beta access
+   (connect_phase.cycle_access_open reads selected_as_tester).
 
    Context required: on_waitlist, waitlist_position, total_waitlist. The Alpine
    crushConnectWaitlist component POSTs to /api/crush-connect/join/ and swaps

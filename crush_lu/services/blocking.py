@@ -2,8 +2,8 @@
 Peer-block enforcement helpers.
 
 A ``UserBlock`` is one-directional in storage but enforced *symmetrically*: once
-A blocks B, neither should encounter the other on any surface (Drops, Sparks,
-event connections). Centralising the symmetric ``Q(...) | Q(...)`` here keeps it
+A blocks B, neither should encounter the other on Connect, coach-pick, or event
+connection surfaces. Centralising the symmetric ``Q(...) | Q(...)`` here keeps it
 out of every call site and matches the ``existing_connection_subq`` idiom already
 used in ``services.crush_connect``.
 """
@@ -30,8 +30,8 @@ def is_blocked_pair(user_a, user_b) -> bool:
 def block_exists_subquery(user, outer_field: str = "pk"):
     """``Exists`` subquery flagging rows whose user is block-related to ``user``.
 
-    Drop-in mirror of ``existing_connection_subq`` — annotate a User queryset with
-    this and ``.filter(<alias>=False)`` to drop blocked counterparts. ``outer_field``
+    Mirror of ``existing_connection_subq`` — annotate a User queryset with this
+    and ``.filter(<alias>=False)`` to drop blocked counterparts. ``outer_field``
     is the column on the outer queryset holding the candidate user's pk.
     """
     from crush_lu.models import UserBlock
@@ -87,33 +87,10 @@ def withdraw_active_coach_picks(user_a, user_b) -> int:
 
     return (
         ConnectCoachPick.objects.filter(
-            Q(member=user_a, candidate=user_b)
-            | Q(member=user_b, candidate=user_a)
+            Q(member=user_a, candidate=user_b) | Q(member=user_b, candidate=user_a)
         )
         .exclude(status__in=["declined", "withdrawn"])
         .update(status="withdrawn", responded_at=timezone.now())
-    )
-
-
-def decline_active_sparks(user_a, user_b) -> int:
-    """Decline any live ``CuriositySpark`` between the two users on block.
-
-    An *accepted* Spark is the coach's date-arranging queue (``CuriositySparkAdmin``),
-    so — like EventConnections and coach picks — a block placed after acceptance
-    must take it out of that queue. Pending Sparks are declined too (the recipient
-    blocking the sender is an implicit pass). Symmetric; returns the count.
-    """
-    from django.utils import timezone
-
-    from crush_lu.models import CuriositySpark
-
-    return (
-        CuriositySpark.objects.filter(
-            Q(sender=user_a, recipient=user_b)
-            | Q(sender=user_b, recipient=user_a)
-        )
-        .exclude(status="declined")
-        .update(status="declined", responded_at=timezone.now())
     )
 
 
@@ -126,7 +103,7 @@ def apply_block(blocker, blocked, reason="") -> None:
     around this) and the Connect Cycle temp-chat 1-click block
     (``services.connect_chat.block_chat_partner``) both call this so a block
     placed from either surface reaches the other's facilitation queues too.
-    Declining EventConnections/coach picks/Sparks is what makes the block
+    Declining EventConnections and coach picks is what makes the block
     actually stop contact, not just hide it from member pages.
 
     Connect Cycle re-matching and the temp chat itself are NOT touched here
@@ -145,7 +122,6 @@ def apply_block(blocker, blocked, reason="") -> None:
     )
     terminate_active_connections(blocker, blocked)
     withdraw_active_coach_picks(blocker, blocked)
-    decline_active_sparks(blocker, blocked)
     cancel_legacy_sparks(blocker, blocked)
 
 
@@ -162,8 +138,7 @@ def cancel_legacy_sparks(user_a, user_b) -> int:
 
     return (
         CrushSpark.objects.filter(
-            Q(sender=user_a, recipient=user_b)
-            | Q(sender=user_b, recipient=user_a)
+            Q(sender=user_a, recipient=user_b) | Q(sender=user_b, recipient=user_a)
         )
         .exclude(status__in=["completed", "cancelled", "expired"])
         .update(status="cancelled")
@@ -171,24 +146,16 @@ def cancel_legacy_sparks(user_a, user_b) -> int:
 
 
 def purge_user_from_connect_queues(user) -> None:
-    """Decline/withdraw every live Spark and coach pick involving ``user``.
+    """Withdraw every live coach pick involving ``user``.
 
-    Used by the coach panic button (admin "exclude reported user") — flipping
-    ``excluded_by_coach`` removes the user from future pools but leaves any
-    already-accepted Spark or pick sitting in the coach date-arrangement queues
-    (``CuriositySparkAdmin`` / ``coach_connect_members``). This clears those too,
-    in every direction, so an excluded member can't linger there.
+    Used by the coach panic button so an excluded member cannot remain in a
+    coach's active arrangement queue.
     """
     from django.utils import timezone
 
-    from crush_lu.models import ConnectCoachPick, CuriositySpark
+    from crush_lu.models import ConnectCoachPick
 
     now = timezone.now()
-    CuriositySpark.objects.filter(
-        Q(sender=user) | Q(recipient=user)
-    ).exclude(status="declined").update(status="declined", responded_at=now)
-    ConnectCoachPick.objects.filter(
-        Q(member=user) | Q(candidate=user)
-    ).exclude(status__in=["declined", "withdrawn"]).update(
-        status="withdrawn", responded_at=now
-    )
+    ConnectCoachPick.objects.filter(Q(member=user) | Q(candidate=user)).exclude(
+        status__in=["declined", "withdrawn"]
+    ).update(status="withdrawn", responded_at=now)

@@ -10,8 +10,8 @@ is mailed a promise the gates will refuse:
                               them in, so the mail can say "start now".
                               Audit expectation: ~83 members.
   --wave 2  In the Mix        LuxID-verified but never verified at an event.
-                              Visible and reply-capable, but the Week would
-                              bounce them, so the mail sells the inbox and
+                              Visible in the Mix, but the Week would bounce
+                              them, so the mail explains the catalogue and
                               points at the event route.
                               Audit expectation: ~69 members.
   --wave 3  Get verified      on the waitlist, not yet verified for Connect.
@@ -19,8 +19,8 @@ is mailed a promise the gates will refuse:
                               Audit expectation: ~74 members.
 
 **This command grants nothing.** It never writes ``selected_as_tester`` — that
-flag opens Today's Drop AND the Premium purchase funnel (three separate gates
-key off it), and mailing a 295-person waitlist must not hand either out. Every
+flag opens selected-tester Connect Week access and the Premium purchase funnel,
+and mailing a 295-person waitlist must not hand either out. Every
 recipient reaches exactly the surface their existing verification already
 opens; the wave only decides which true sentence they are told. See the note
 on ``CrushConnectWaitlist.beta_invited_at``.

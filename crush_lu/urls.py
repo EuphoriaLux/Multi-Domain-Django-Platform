@@ -149,7 +149,7 @@ urlpatterns = [
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
     # Experience explainers — one member-facing landing page per Connect
-    # experience (coach-pick, todays-drop, read-the-photo, sparks, in-the-mix).
+    # experience (coach-pick, read-the-photo, in-the-mix).
     # See CONNECT_EXPERIENCES in views_crush_connect.py.
     path(
         'crush-connect/experiences/<slug:slug>/',
@@ -175,43 +175,48 @@ urlpatterns = [
         views_crush_connect.crush_connect_profile_edit,
         name='crush_connect_profile_edit',
     ),
-    # Crush Connect hub — the member's home that aggregates every Connect
-    # surface (Today's Drop / catalogue, Sparks, Coach's Pick, profile). The
-    # dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
+    # Crush Connect hub — catalogue, Connect Week, Coach's Pick, and profile.
+    # The dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     path(
         'crush-connect/home/',
         views_crush_connect.crush_connect_hub,
         name='crush_connect_hub',
     ),
-    # Today's Drop — the algorithmic / coach-picked Drop page (M4).
+    # Retired Today's Drop URL: preserve old bookmarks as a hub redirect.
     path(
         'crush-connect/today/',
         views_crush_connect.crush_connect_home,
         name='crush_connect_home',
     ),
-    # Catalogue status — candidate-track members (LuxID, no Premium).
+    # Retired Curiosity Spark deep links may still exist in bell notifications
+    # and emails. Keep every former route as a safe redirect to the Connect hub.
+    path(
+        'crush-connect/spark/<int:user_id>/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_spark_compose',
+    ),
+    path(
+        'crush-connect/sparks/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_sparks_received',
+    ),
+    path(
+        'crush-connect/sparks/<int:spark_id>/respond/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_spark_respond',
+    ),
+    path(
+        'crush-connect/coach-pick/',
+        views_crush_connect.crush_connect_coach_pick,
+        name='crush_connect_coach_pick',
+    ),
+    # Catalogue status and anonymous Read-the-Photo results.
     path(
         'crush-connect/catalogue/',
         views_crush_connect.crush_connect_catalogue_status,
         name='crush_connect_catalogue_status',
     ),
-    # Curiosity Sparks (M5): send from a Drop card, respond from the bell/email.
-    path(
-        'crush-connect/spark/<int:user_id>/',
-        views_crush_connect.crush_connect_spark_compose,
-        name='crush_connect_spark_compose',
-    ),
-    path(
-        'crush-connect/sparks/',
-        views_crush_connect.crush_connect_sparks_received,
-        name='crush_connect_sparks_received',
-    ),
-    path(
-        'crush-connect/sparks/<int:spark_id>/respond/',
-        views_crush_connect.crush_connect_spark_respond,
-        name='crush_connect_spark_respond',
-    ),
-    # 7-Day Connect Cycle (Task 13.2): daily cards, 24h review, one-or-none
+    # Connect Week: daily cards, 24h review, one-or-none
     # weekly request, recipient inbox. See views_connect_cycle.py.
     path(
         'crush-connect/week/',

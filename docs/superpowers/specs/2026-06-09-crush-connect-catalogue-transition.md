@@ -150,3 +150,6 @@ See "What changed in code" above.
   connect keeps method, adds message (passing).
 - Manual: `python manage.py simulate_luxid_verify` (dev) to walk a
   coach-verified user through LuxID linking → onboarding → catalogue page.
+> Historical design record: the Daily Drop / Curiosity Spark experiment in this
+> document was retired in August 2026. See `docs/products/crush-connect.md` for
+> the current Connect Week and human Coach Pick product.

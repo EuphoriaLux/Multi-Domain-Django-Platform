@@ -14,12 +14,10 @@ Signup stages (log in, hit /en/onboarding/, land on the named step):
     debug_pending@crush.lu   -> Profile submitted  (pending coach review)
     debug_approved@crush.lu  -> Dashboard          (verified member)
 
-Crush Connect cast (asymmetric model — needs a small supporting cast):
-    debug_receiver@crush.lu  -> Premium receiver + beta tester; gets Today's Drop
-    debug_cand_1..3@crush.lu -> candidates that appear in the receiver's Drop
-    debug_sender@crush.lu    -> 2nd Premium actor; sends the pending Spark to receiver
-  Seeded interactions: receiver's Drop = the 3 candidates; a mutual MATCH
-  (receiver x cand_1, accepted Spark); a PENDING Spark received by the receiver.
+Crush Connect cast:
+    debug_premium_1@crush.lu -> Premium member + selected beta tester
+    debug_cand_1..3@crush.lu -> catalogue / Connect Week candidates
+    debug_premium_2@crush.lu -> second Premium member
 
 LOCAL-ONLY: refuses to run on Azure (WEBSITE_HOSTNAME set) or when DEBUG is
 False, unless --force. These are shared, known-password accounts.
@@ -44,7 +42,6 @@ from crush_lu.models.crush_connect import (
     Interest,
     CrushConnectMembership,
     CrushConnectWaitlist,
-    CuriositySpark,
 )
 from crush_lu.models.profiles import CrushCoach, UserDataConsent
 from crush_lu.onboarding_connect import TOTAL_STEPS
@@ -62,15 +59,22 @@ _PREFIX = "debug_"
 _EMAIL_DOMAIN = "crush.lu"
 
 # Which stages get realistic content fields / an uploaded photo.
-_WITH_CONTENT = {"draft", "pending", "approved", "receiver", "sender", "candidate"}
-_WITH_PHOTO = {"pending", "approved", "receiver", "sender", "candidate"}
-_CONNECT_ROLES = {"receiver", "sender", "candidate"}
+_WITH_CONTENT = {
+    "draft",
+    "pending",
+    "approved",
+    "premium_1",
+    "premium_2",
+    "candidate",
+}
+_WITH_PHOTO = {"pending", "approved", "premium_1", "premium_2", "candidate"}
+_CONNECT_ROLES = {"premium_1", "premium_2", "candidate"}
 
 
 class Command(BaseCommand):
     help = (
         "Seed ~10 loginable debug accounts covering every signup stage and the "
-        "core Crush Connect interactions (drop, match, pending spark)."
+        "current Crush Connect onboarding, Connect Week, and coach-pick surfaces."
     )
 
     def add_arguments(self, parser):
@@ -126,26 +130,26 @@ class Command(BaseCommand):
                 skip_photos=skip_photos,
             )
 
-        self.stdout.write("\nCreating Crush Connect cast...")
-        receiver = self._create_account(
-            "receiver",
+        self.stdout.write("\nCreating Crush Connect test members...")
+        self._create_account(
+            "premium_1",
             gender="male",
-            stage="receiver",
+            stage="premium_1",
             password=password,
             skip_photos=skip_photos,
             coach=coach,
             prompt=prompt,
         )
-        sender = self._create_account(
-            "sender",
+        self._create_account(
+            "premium_2",
             gender="female",
-            stage="sender",
+            stage="premium_2",
             password=password,
             skip_photos=skip_photos,
             coach=coach,
             prompt=prompt,
         )
-        candidates = [
+        for i in range(1, 4):
             self._create_account(
                 f"cand_{i}",
                 gender="female" if i % 2 else "male",
@@ -154,10 +158,7 @@ class Command(BaseCommand):
                 skip_photos=skip_photos,
                 prompt=prompt,
             )
-            for i in range(1, 4)
-        ]
 
-        self._wire_connect(receiver, sender, candidates)
         self._print_summary(password)
 
     # ------------------------------------------------------------------ #
@@ -207,14 +208,13 @@ class Command(BaseCommand):
                         )
                         if cursor.fetchone():
                             cursor.execute(
-                                f"DELETE FROM {table} "
-                                "WHERE user_id = ANY(%s)",
+                                f"DELETE FROM {table} " "WHERE user_id = ANY(%s)",
                                 [user_ids],
                             )
 
         qs = User.objects.filter(username__startswith=_PREFIX)
         count = qs.count()
-        qs.delete()  # cascades to profile, membership, waitlist, sparks, drops, email
+        qs.delete()  # cascades to profile, Connect membership, waitlist, and email
         self.stdout.write(f"Deleted {count} existing debug_* users.")
 
     def _ensure_coach(self, skip_photos):
@@ -328,7 +328,7 @@ class Command(BaseCommand):
                 verification_status="incomplete",
                 draft_data={"step": 2, "note": "half-filled debug draft"},
             )
-        else:  # pending / approved / receiver / sender / candidate
+        else:  # pending / approved / premium_1 / premium_2 / candidate
             kwargs.update(
                 welcome_seen_at=now,
                 coach_intro_seen_at=now,
@@ -344,12 +344,12 @@ class Command(BaseCommand):
                 )
             else:
                 # Realistic per-persona verification method: candidates self-serve
-                # via LuxID, Premium (receiver/sender) go through paid coach review,
+                # via LuxID, Premium members go through paid coach review,
                 # the plain approved member was verified in person at an event.
                 method = {
                     "candidate": "luxid",
-                    "receiver": "premium_coach",
-                    "sender": "premium_coach",
+                    "premium_1": "premium_coach",
+                    "premium_2": "premium_coach",
                 }.get(stage, "coach_event")
                 kwargs.update(
                     is_approved=True,
@@ -372,8 +372,8 @@ class Command(BaseCommand):
                 event_languages=["en"],
             )
 
-        # --- Premium (receiver track) ---
-        if stage in ("receiver", "sender"):
+        # --- Premium coach-pick entitlement ---
+        if stage in ("premium_1", "premium_2"):
             kwargs.update(assigned_coach=coach, assigned_coach_at=now)
 
         return kwargs
@@ -384,7 +384,7 @@ class Command(BaseCommand):
         # verified members never get one either. The row exists only for the paid
         # coach-review path — so only the Premium accounts carry an approved
         # submission with a completed review call.
-        if stage in ("receiver", "sender"):
+        if stage in ("premium_1", "premium_2"):
             ProfileSubmission.objects.create(
                 profile=profile,
                 coach=profile.assigned_coach,
@@ -394,8 +394,8 @@ class Command(BaseCommand):
                 review_call_date=now,
                 reviewed_at=now,
             )
-            # The receiver gate keys off an ACTIVE PremiumMembership, not
-            # assigned_coach — give receiver/sender seeds the real entitlement.
+            # Premium access keys off an ACTIVE PremiumMembership, not merely
+            # assigned_coach — give these seeds the real entitlement.
             PremiumMembership.objects.create(
                 user=profile.user,
                 coach=profile.assigned_coach,
@@ -427,8 +427,7 @@ class Command(BaseCommand):
         # isn't empty (otherwise they look half-onboarded).
         membership.interests.set(Interest.objects.order_by("?")[:3])
 
-        # LuxID makes them catalogue-eligible. The receiver needs it too, so it
-        # can appear in the sender's Drop and thus receive the pending Spark.
+        # LuxID makes them catalogue-eligible.
         from allauth.socialaccount.models import SocialAccount
 
         SocialAccount.objects.create(
@@ -438,10 +437,8 @@ class Command(BaseCommand):
             extra_data={"sub": f"luxid-debug-{user.pk}"},
         )
 
-        # Beta receiver gate: connect_phase.receiver_access_open() lets a
-        # selected waitlist tester reach Today's Drop in the beta phase.
-        # (The CrushConnectWaitlist model docstring predates this and is stale.)
-        if stage in ("receiver", "sender"):
+        # Selected testers can enter Connect Week during the beta phase.
+        if stage in ("premium_1", "premium_2"):
             CrushConnectWaitlist.objects.create(
                 user=user, selected_as_tester=True, notification_preference=True
             )
@@ -463,54 +460,6 @@ class Command(BaseCommand):
             )
 
     # ------------------------------------------------------------------ #
-    # Connect interaction wiring
-    # ------------------------------------------------------------------ #
-
-    def _wire_connect(self, receiver, sender, candidates):
-        from crush_lu.services.crush_connect import get_or_create_daily_drop
-
-        self.stdout.write("\nWiring Connect interactions...")
-
-        # 1) Receiver's Drop = the 3 candidates (deterministic, override the
-        #    weighted sample so the debug view is predictable). Use the service
-        #    so the drop_date matches what the view looks up (06:00 unlock rule).
-        receiver_drop = get_or_create_daily_drop(receiver)
-        receiver_drop.recipients.set(candidates)
-        self.stdout.write(
-            f"  {receiver.email}: Drop -> " + ", ".join(c.email for c in candidates)
-        )
-
-        # 2) Mutual match: receiver x cand_1 (accepted spark). Rows created
-        #    directly (idempotent) to avoid notification side effects.
-        CuriositySpark.objects.get_or_create(
-            sender=receiver,
-            recipient=candidates[0],
-            defaults=dict(
-                drop=receiver_drop,
-                message="Your hiking photos caught my eye — coffee this week?",
-                status="accepted",
-                responded_at=timezone.now(),
-            ),
-        )
-        self.stdout.write(f"  match: {receiver.email} x {candidates[0].email}")
-
-        # 3) Pending spark RECEIVED by the receiver, from the sender. The
-        #    sparks-received view requires the recipient (receiver) to have
-        #    appeared in the sender's Drop, so add it explicitly.
-        sender_drop = get_or_create_daily_drop(sender)
-        sender_drop.recipients.add(receiver)
-        CuriositySpark.objects.get_or_create(
-            sender=sender,
-            recipient=receiver,
-            defaults=dict(
-                drop=sender_drop,
-                message="Loved your story answer — curious to know more!",
-                status="pending",
-            ),
-        )
-        self.stdout.write(f"  pending spark: {sender.email} -> {receiver.email}")
-
-    # ------------------------------------------------------------------ #
     # Summary
     # ------------------------------------------------------------------ #
 
@@ -522,16 +471,16 @@ class Command(BaseCommand):
             ("debug_pending", "Submitted / pending", "/en/onboarding/"),
             ("debug_approved", "Dashboard (verified)", "/en/dashboard/"),
             (
-                "debug_receiver",
-                "Today's Drop (3 cards) + match + spark received",
+                "debug_premium_1",
+                "Premium + Connect Week beta access",
                 "/en/crush-connect/home/",
             ),
-            ("debug_cand_1", "Candidate (matched w/ receiver)", "/en/dashboard/"),
+            ("debug_cand_1", "Connect Week candidate", "/en/dashboard/"),
             ("debug_cand_2", "Candidate in the pool", "/en/dashboard/"),
             ("debug_cand_3", "Candidate in the pool", "/en/dashboard/"),
             (
-                "debug_sender",
-                "Premium (sent pending spark to receiver)",
+                "debug_premium_2",
+                "Premium + Connect Week beta access",
                 "/en/crush-connect/home/",
             ),
         ]
@@ -557,13 +506,13 @@ class Command(BaseCommand):
                 self.style.WARNING(
                     "  Connect surfaces are CLOSED (prelaunch). To debug the beta, add to "
                     ".env:\n    CRUSH_CONNECT_CANDIDATE_OPEN=true\n"
-                    "  (debug_receiver/debug_sender are seeded beta testers), or "
+                    "  (debug_premium_1/debug_premium_2 are seeded beta testers), or "
                     "CRUSH_CONNECT_LAUNCHED=true to open everything — then restart runserver."
                 )
             )
         elif not launched and candidate_open:
             self.stdout.write(
-                "  Beta phase active — debug_receiver (seeded tester) can reach Today's Drop."
+                "  Beta phase active — selected debug members can reach Connect Week."
             )
         else:
             self.stdout.write("  Fully launched — all Connect surfaces open.")

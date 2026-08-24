@@ -8,11 +8,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.connect_phase import (
-    cycle_access_open,
-    is_event_verified_member,
-    receiver_access_open,
-)
+from crush_lu.connect_phase import cycle_access_open
 from crush_lu.models.crush_connect_cycle import (
     ConnectWeekSession,
     ConnectCycleCard,
@@ -23,16 +19,21 @@ from crush_lu.models.crush_connect_cycle import (
     ConnectPairExclusion,
     ConnectReport,
 )
-from crush_lu.models.profiles import CrushProfile, CrushCoach
-from crush_lu.models.events import MeetupEvent, EventRegistration
+from crush_lu.models.profiles import CrushProfile
 from hub.models import Location
 
 
 class ConnectCycleModelTests(TestCase):
     def setUp(self):
-        self.user1 = User.objects.create_user(username="alice", email="alice@test.lu", first_name="Alice")
-        self.user2 = User.objects.create_user(username="bob", email="bob@test.lu", first_name="Bob")
-        self.user3 = User.objects.create_user(username="claire", email="claire@test.lu", first_name="Claire")
+        self.user1 = User.objects.create_user(
+            username="alice", email="alice@test.lu", first_name="Alice"
+        )
+        self.user2 = User.objects.create_user(
+            username="bob", email="bob@test.lu", first_name="Bob"
+        )
+        self.user3 = User.objects.create_user(
+            username="claire", email="claire@test.lu", first_name="Claire"
+        )
 
         self.profile1 = CrushProfile.objects.create(
             user=self.user1,
@@ -200,9 +201,15 @@ class ConnectCycleModelTests(TestCase):
 
 class ConnectPhaseGatingTests(TestCase):
     def setUp(self):
-        self.event_user = User.objects.create_user(username="attendee", email="att@test.lu")
-        self.luxid_user = User.objects.create_user(username="luxid_only", email="lux@test.lu")
-        self.unverified_user = User.objects.create_user(username="unverified", email="unv@test.lu")
+        self.event_user = User.objects.create_user(
+            username="attendee", email="att@test.lu"
+        )
+        self.luxid_user = User.objects.create_user(
+            username="luxid_only", email="lux@test.lu"
+        )
+        self.unverified_user = User.objects.create_user(
+            username="unverified", email="unv@test.lu"
+        )
 
         CrushProfile.objects.create(
             user=self.event_user,
@@ -234,14 +241,3 @@ class ConnectPhaseGatingTests(TestCase):
     def test_cycle_access_at_full_launch(self):
         self.assertTrue(cycle_access_open(self.event_user))
         self.assertTrue(cycle_access_open(self.luxid_user))
-
-    @override_settings(CRUSH_CONNECT_CANDIDATE_OPEN=True, CRUSH_CONNECT_LAUNCHED=False)
-    def test_receiver_access_stays_staff_and_selected_tester_only_in_beta(self):
-        """Today's Drop (the already-live feature) must NOT widen just because
-        the 7-Day Cycle's gate does — regression guard for the bug where
-        ``cycle_access_open``'s event-verified fallback leaked into
-        ``receiver_access_open`` (caught by
-        ``test_beta_premium_non_tester_treated_as_candidate``)."""
-        self.assertFalse(receiver_access_open(self.event_user))
-        self.assertFalse(receiver_access_open(self.luxid_user))
-        self.assertFalse(receiver_access_open(self.unverified_user))

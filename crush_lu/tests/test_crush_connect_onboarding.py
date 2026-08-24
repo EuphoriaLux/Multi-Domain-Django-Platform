@@ -1,19 +1,17 @@
 """
-Tests for the Crush Connect 7-step resumable onboarding wizard, the blended
-Drop weighting, the post-onboarding edit page, and the pref-copy migration
-helper.
+Tests for the Crush Connect 7-step resumable onboarding wizard, post-onboarding
+edit page, and the preference-copy migration helper.
 
 Companion to ``test_crush_connect.py`` (whose helpers we reuse). View tests use
 ``/en/crush-connect/…`` URLs which only resolve under ``urls_crush``.
 """
 
 import importlib
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
-
-pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 from crush_lu.models import (
     EventRegistration,
@@ -23,23 +21,16 @@ from crush_lu.models import (
     MeetupEvent,
     Trait,
 )
-from crush_lu.services.crush_connect import (
-    INTEREST_OVERLAP_BOOST_PER,
-    MATCHSCORE_NEUTRAL,
-    NEW_MEMBER_BOOST,
-    SHARED_LANGUAGE_BOOST,
-    _weight_for,
-    get_eligible_pool,
-)
+from crush_lu.services.crush_connect import get_eligible_pool
 from crush_lu.tests.test_crush_connect import (
     _grant_consent,
     _login_eligible,
     _make_user,
     _mark_attended,
     _seed_pool_for,
-    _set_gate_questions,
 )
-from django.contrib.auth import get_user_model
+
+pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 User = get_user_model()
 
@@ -595,12 +586,14 @@ def test_profile_edit_life_section_renders_and_saves(client, settings):
 
 
 # ---------------------------------------------------------------------------
-# Completion redirects per track + candidate email
+# Completion redirects
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_receiver_completion_redirects_to_today(client, settings, mailoutbox):
+def test_attended_member_completion_redirects_to_connect_week(
+    client, settings, mailoutbox
+):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
     _mark_attended(me)
@@ -608,12 +601,12 @@ def test_receiver_completion_redirects_to_today(client, settings, mailoutbox):
 
     resp = _complete_steps(client, 1, 7)
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/today/" in resp.url
-    assert len(mailoutbox) == 0  # receivers get no catalogue email
+    assert "/crush-connect/week/" in resp.url
+    assert len(mailoutbox) == 0
 
 
 @pytest.mark.django_db
-def test_candidate_completion_redirects_to_catalogue_with_email(
+def test_launched_candidate_completion_redirects_to_connect_week(
     client, settings, mailoutbox
 ):
     settings.CRUSH_CONNECT_LAUNCHED = True
@@ -624,9 +617,32 @@ def test_candidate_completion_redirects_to_catalogue_with_email(
 
     resp = _complete_steps(client, 1, 7)
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/catalogue/" in resp.url
+    assert "/crush-connect/week/" in resp.url
     assert CrushConnectMembership.objects.get(user=me).onboarded_at is not None
+    assert len(mailoutbox) == 0
+
+
+@pytest.mark.django_db
+def test_beta_candidate_welcome_email_describes_current_connect_product(
+    client, settings, mailoutbox
+):
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    response = _complete_steps(client, 1, 7)
+
+    assert response.status_code in (301, 302)
+    assert "/crush-connect/catalogue/" in response.url
     assert len(mailoutbox) == 1
+    body = mailoutbox[0].body
+    assert "Connect Week" in body
+    assert "human-curated Premium match" in body
+    assert "Daily Drop" not in body
+    assert "Curiosity Spark" not in body
 
 
 @pytest.mark.django_db
@@ -701,7 +717,7 @@ def test_step_redirects_onboarded_user_away(client, settings):
 
     resp = client.get(_step_url(1))
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/today/" in resp.url
+    assert "/crush-connect/week/" in resp.url
 
 
 # ---------------------------------------------------------------------------
@@ -783,7 +799,7 @@ def test_onboarded_member_without_luxid_grandfathered(client, settings):
 
     resp = client.get(_step_url(1))
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/today/" in resp.url  # sent to their Drop, not the teaser
+    assert "/crush-connect/week/" in resp.url
 
 
 @pytest.mark.django_db
@@ -944,91 +960,6 @@ def test_migration_0165_does_not_clobber_existing_member_traits():
 
 
 # ---------------------------------------------------------------------------
-# Blended Drop weighting
-# ---------------------------------------------------------------------------
-
-
-def _set_membership(user, *, languages=None, interest_pks=None, onboarded_days_ago=60):
-    m = user.crush_connect_membership
-    if languages is not None:
-        m.languages = languages
-    m.onboarded_at = timezone.now() - timedelta(days=onboarded_days_ago)
-    m.save()
-    if interest_pks is not None:
-        m.interests.set(interest_pks)
-    return m
-
-
-def _weight(
-    cand,
-    *,
-    viewer_languages=frozenset(),
-    viewer_interest_ids=frozenset(),
-    match_scores=None,
-    today=None,
-):
-    return _weight_for(
-        cand,
-        today=today or date.today(),
-        viewer_languages=viewer_languages,
-        viewer_interest_ids=viewer_interest_ids,
-        match_scores=match_scores or {},
-    )
-
-
-@pytest.mark.django_db
-def test_weight_neutral_for_unenriched_member():
-    """Empty languages/interests + missing MatchScore + old member → base 1.0."""
-    cand = _make_user(username="c", gender="F")
-    _set_membership(cand, languages=[], interest_pks=[], onboarded_days_ago=60)
-    assert _weight(cand) == pytest.approx(1.0)
-
-
-@pytest.mark.django_db
-def test_weight_shared_language_boost():
-    cand = _make_user(username="c", gender="F")
-    _set_membership(cand, languages=["fr"], onboarded_days_ago=60)
-    assert _weight(cand, viewer_languages=frozenset({"fr"})) == pytest.approx(
-        SHARED_LANGUAGE_BOOST
-    )
-    assert _weight(cand, viewer_languages=frozenset({"de"})) == pytest.approx(1.0)
-
-
-@pytest.mark.django_db
-def test_weight_interest_overlap_capped():
-    cand = _make_user(username="c", gender="F")
-    pks = _interest_pks(4)
-    _set_membership(cand, interest_pks=pks, onboarded_days_ago=60)
-    # 4 shared → capped at 3 → 1 + 3*0.1 = 1.3
-    expected = 1.0 + INTEREST_OVERLAP_BOOST_PER * 3
-    assert _weight(cand, viewer_interest_ids=frozenset(pks)) == pytest.approx(expected)
-    # 2 shared → 1.2
-    assert _weight(cand, viewer_interest_ids=frozenset(pks[:2])) == pytest.approx(1.2)
-
-
-@pytest.mark.django_db
-def test_weight_matchscore_blend():
-    cand = _make_user(username="c", gender="F")
-    _set_membership(cand, languages=[], interest_pks=[], onboarded_days_ago=60)
-    assert _weight(cand, match_scores={cand.pk: 0.9}) == pytest.approx(
-        MATCHSCORE_NEUTRAL + 0.9
-    )
-    assert _weight(cand, match_scores={cand.pk: 0.1}) == pytest.approx(
-        MATCHSCORE_NEUTRAL + 0.1
-    )
-    assert _weight(cand, match_scores={}) == pytest.approx(1.0)  # missing → neutral
-
-
-@pytest.mark.django_db
-def test_weight_multiplicative_with_new_member_boost():
-    cand = _make_user(username="c", gender="F")
-    _set_membership(cand, languages=["fr"], onboarded_days_ago=1)  # in window
-    # base 1.0 (neutral) * 1.3 language * 1.0 interest * 1.5 new-member
-    expected = 1.0 * SHARED_LANGUAGE_BOOST * NEW_MEMBER_BOOST
-    assert _weight(cand, viewer_languages=frozenset({"fr"})) == pytest.approx(expected)
-
-
-# ---------------------------------------------------------------------------
 # Post-onboarding edit page
 # ---------------------------------------------------------------------------
 
@@ -1132,43 +1063,6 @@ def test_edit_questions_section_saves_without_consent(client, settings):
     resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
     assert resp.status_code in (301, 302)
     assert CrushConnectMembership.objects.get(user=me).gate_questions.count() == 3
-
-
-@pytest.mark.django_db
-def test_repick_changing_truth_clears_stale_guesses(client, settings):
-    """Editing a question's own-truth clears viewers' now-stale guesses so they
-    can answer the fresh gate; unchanged questions keep their guesses (Codex P2)."""
-    from crush_lu.models import ConnectQuestionAnswer
-
-    settings.CRUSH_CONNECT_LAUNCHED = True
-    owner = _make_user(username="owner", preferred_genders=["F"])
-    _mark_attended(owner)
-    _login_eligible(client, owner)
-    qs = _set_gate_questions(owner, answers=[True, True, True])
-
-    viewer = _make_user(username="viewer", gender="F", premium=False)
-    for q in qs:
-        ConnectQuestionAnswer.objects.create(
-            responder=viewer, profile_owner=owner, question=q, answer=True
-        )
-
-    # Owner re-picks the SAME 3 questions but flips the first one's truth.
-    data = {
-        f"q_{qs[0].id}": "no",  # truth changed → guesses become stale
-        f"q_{qs[1].id}": "yes",  # unchanged
-        f"q_{qs[2].id}": "yes",  # unchanged
-        "photo_share_consent": "on",
-        "section": "questions",
-    }
-    resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
-    assert resp.status_code in (301, 302)
-
-    assert not ConnectQuestionAnswer.objects.filter(
-        responder=viewer, profile_owner=owner, question=qs[0]
-    ).exists()
-    assert ConnectQuestionAnswer.objects.filter(
-        responder=viewer, profile_owner=owner, question=qs[1]
-    ).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1342,16 +1236,14 @@ def test_admin_pages_load(client):
 
 
 @pytest.mark.django_db
-def test_today_drop_shows_edit_profile_link(client, settings):
-    """Premium (receiver) members land on Today's Drop — it must link to the
-    Connect profile editor (the gap this change closes)."""
+def test_hub_shows_edit_profile_link(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
     _mark_attended(me)
     _seed_pool_for(me, n=3)
     _login_eligible(client, me)
 
-    resp = client.get("/en/crush-connect/today/")
+    resp = client.get("/en/crush-connect/home/")
     assert resp.status_code == 200
     assert "/crush-connect/profile/" in resp.content.decode()
 

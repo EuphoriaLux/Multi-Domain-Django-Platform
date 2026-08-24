@@ -40175,3 +40175,170 @@ msgstr "Ton wird vorbereitet…"
 #: crush_lu/templates/crush_lu/cache/_play_content.html
 msgid "On iPhone, turn off Silent Mode to hear arrival sounds."
 msgstr "Deaktiviere auf dem iPhone den Stummmodus, um die Ankunftstöne zu hören."
+
+# Crush Connect workflow retirement and review follow-up
+
+msgid "Genders this member wants to see in Connect (empty = open to all)"
+msgstr "Geschlechter, die dieses Mitglied in Connect sehen möchte (leer = offen für alle)"
+
+msgid "Hand-picked beta tester: may enter Connect Week and buy Premium"
+msgstr "Handverlesener Beta-Tester: darf Connect Week nutzen und Premium kaufen"
+
+msgid "Inactive prompts stop being offered during onboarding"
+msgstr "Inaktive Fragen werden beim Onboarding nicht mehr angeboten"
+
+msgid "One-line answer shown on the member's private Connect card"
+msgstr "Einzeilige Antwort auf der privaten Connect-Karte des Mitglieds"
+
+msgid "Story Prompt"
+msgstr "Story-Frage"
+
+msgid "Story Prompts"
+msgstr "Story-Fragen"
+
+msgid "Story prompt shown to the member (translated via modeltranslation)"
+msgstr "Story-Frage für das Mitglied (über Modeltranslation übersetzt)"
+
+msgid "The story prompt this member chose during onboarding"
+msgstr "Die beim Onboarding gewählte Story-Frage"
+
+msgid "Coach pick"
+msgstr "Coach Pick"
+
+msgid "Connect Week"
+msgstr "Connect Week"
+
+msgid "Curiosity Spark (legacy)"
+msgstr "Curiosity Spark (veraltet)"
+
+msgid "Daily Drop (legacy)"
+msgstr "Daily Drop (veraltet)"
+
+msgid "A deliberate Connect Week, anonymous Read-the-Photo results, and one introduction a week hand-picked by your Crush Coach."
+msgstr "Eine bewusste Connect Week, anonyme Ergebnisse von „Foto lesen“ und jede Woche eine von deinem Crush Coach handverlesene Vorstellung."
+
+msgid "Complete Connect Week"
+msgstr "Connect Week abschließen"
+
+msgid "Crush Connect on Crush.lu: deliberate weekly discovery, anonymous question results, and human coach-picked Premium introductions."
+msgstr "Crush Connect auf Crush.lu: bewusste wöchentliche Entdeckungen, anonyme Frageergebnisse und menschlich ausgewählte Premium-Vorstellungen."
+
+msgid "Identity-verified, discoverable, and eligible for Connect Week — no subscription."
+msgstr "Identität verifiziert, auffindbar und für die Connect Week berechtigt – ohne Abo."
+
+msgid "Meet a small set of verified people during Connect Week, then make one deliberate request. Premium adds one introduction a week hand-picked by your coach. Curated, never swiped."
+msgstr "Lerne während der Connect Week eine kleine Auswahl verifizierter Menschen kennen und sende danach eine bewusste Anfrage. Mit Premium kommt jede Woche eine von deinem Coach handverlesene Vorstellung hinzu. Kuratiert statt gewischt."
+
+msgid "Meet a small set of verified people over seven days, then choose one deliberate request."
+msgstr "Lerne über sieben Tage eine kleine Auswahl verifizierter Menschen kennen und entscheide dich danach für eine bewusste Anfrage."
+
+msgid "No bios to skim. Everyone answers 3 yes/no questions in private; you guess from the card. They see only anonymous totals such as 3 of 5 answered Yes — never who voted."
+msgstr "Keine Bios zum Überfliegen. Alle beantworten 3 Ja/Nein-Fragen privat; du rätst anhand der Karte. Sie sehen nur anonyme Gesamtergebnisse wie „3 von 5 antworteten mit Ja“ – niemals, wer abgestimmt hat."
+
+msgid "The three experiences"
+msgstr "Die drei Erlebnisse"
+
+msgid "Verify once with LuxID or event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription, ever."
+msgstr "Verifiziere dich einmal mit LuxID oder durch Event-Teilnahme, beantworte deine 3 Fragen und werde in der Connect Week und im vom Coach kuratierten Katalog sichtbar. Ganz ohne Abo."
+
+msgid "Your personal coach, one thoughtful Coach Pick each week, and dates arranged for you."
+msgstr "Dein persönlicher Coach, jede Woche ein sorgfältig ausgewählter Coach Pick und für dich organisierte Dates."
+
+msgid "Connect card for %(name)s"
+msgstr "Connect-Karte für %(name)s"
+
+msgid "Coaches can already match others with you. Premium — your own coach picking one thoughtful match a week — is opening to a small group first."
+msgstr "Coaches können dich bereits mit anderen zusammenbringen. Premium – dein eigener Coach wählt jede Woche einen passenden Kontakt für dich aus – wird zunächst für eine kleine Gruppe geöffnet."
+
+msgid "Right now, coaches can match others with you. With Premium, a personal coach studies your profile and picks one thoughtful match for you every week."
+msgstr "Aktuell können Coaches andere mit dir zusammenbringen. Mit Premium analysiert ein persönlicher Coach dein Profil und wählt jede Woche einen sorgfältig ausgewählten Kontakt für dich aus."
+
+msgid "Their eligible pool (mutual preferences, identity-verified, opted in). Choose one person personally and add your note."
+msgstr "Der geeignete Pool dieses Mitglieds (gegenseitige Präferenzen, identitätsverifiziert, angemeldet). Wähle persönlich eine Person aus und füge deine Notiz hinzu."
+
+msgid "Accept and your Crush Coach contacts the candidate personally to confirm interest and arrange your date."
+msgstr "Wenn du annimmst, kontaktiert dein Crush Coach die Person persönlich, bestätigt ihr Interesse und organisiert euer Date."
+
+msgid "Back to Crush Connect"
+msgstr "Zurück zu Crush Connect"
+
+msgid "One person chosen personally by your coach, with a note explaining why."
+msgstr "Eine von deinem Coach persönlich ausgewählte Person, mit einer Notiz, warum."
+
+msgid "Premium · Human-curated"
+msgstr "Premium · Persönlich ausgewählt"
+
+msgid "There is no open pick right now. Your coach will place one here when a suitable person is ready."
+msgstr "Derzeit gibt es keinen offenen Pick. Dein Coach zeigt ihn hier, sobald eine passende Person bereit ist."
+
+msgid "Your coach is choosing carefully."
+msgstr "Dein Coach wählt sorgfältig aus."
+
+msgid "Crush Connect — candidate card preview"
+msgstr "Crush Connect – Vorschau der Kandidatenkarte"
+
+msgid "Once a week, their pick appears with a note explaining why this person may suit you."
+msgstr "Einmal pro Woche erscheint die Auswahl mit einer Notiz, warum diese Person zu dir passen könnte."
+
+msgid "In the Mix is Crush Connect's free track. Verify once with LuxID or in-person event attendance, answer your 3 questions, and you're discoverable in Connect Week and the coach-curated catalogue. No subscription — identity verification keeps Crush Connect for real people only."
+msgstr "In the Mix ist der kostenlose Bereich von Crush Connect. Verifiziere dich einmal mit LuxID oder durch die Teilnahme an einem Event vor Ort, beantworte deine 3 Fragen und werde in der Connect Week und im vom Coach kuratierten Katalog sichtbar. Kein Abo – die Identitätsprüfung sorgt dafür, dass Crush Connect echten Menschen vorbehalten bleibt."
+
+msgid "You're in the mix. Connect Week members can see your card, and you see only anonymous totals for your questions."
+msgstr "Du bist im Mix. Mitglieder der Connect Week können deine Karte sehen, und du siehst für deine Fragen nur anonyme Gesamtergebnisse."
+
+msgid "After you finish the card, only anonymous totals are added — for example, 3 of 5 people answered Yes."
+msgstr "Nachdem du die Karte abgeschlossen hast, werden nur anonyme Gesamtergebnisse hinzugefügt – zum Beispiel: 3 von 5 Personen antworteten mit Ja."
+
+msgid "Everyone in Crush Connect picks 3 yes/no questions and answers them privately. During Connect Week, you look at a member's card and guess their answers. The guesses become anonymous totals on their profile; they never trigger a match and never reveal who voted."
+msgstr "Alle in Crush Connect wählen 3 Ja/Nein-Fragen und beantworten sie privat. Während der Connect Week siehst du dir die Karte eines Mitglieds an und errätst die Antworten. Die Tipps werden als anonyme Gesamtergebnisse im Profil angezeigt; sie lösen nie ein Match aus und verraten nie, wer abgestimmt hat."
+
+msgid "Complete the steps below to prepare your Connect profile and weekly experience."
+msgstr "Schließe die folgenden Schritte ab, um dein Connect-Profil und dein wöchentliches Erlebnis vorzubereiten."
+
+msgid "Connect Week for deliberate discovery, plus one human-curated Coach Pick each week."
+msgstr "Connect Week für bewusste Entdeckungen plus jede Woche ein menschlich kuratierter Coach Pick."
+
+msgid "No public browsing. No one can search for you. Your card is shown only in eligible Connect Week rounds and private coach curation."
+msgstr "Kein öffentliches Browsen. Niemand kann nach dir suchen. Deine Karte wird nur in berechtigten Connect-Week-Runden und bei privater Coach-Kuratierung gezeigt."
+
+msgid "See how people answered your three questions — anonymous totals only."
+msgstr "Sieh, wie andere deine drei Fragen beantwortet haben – nur anonyme Gesamtergebnisse."
+
+msgid "You're in the mix. Join Connect Week, and coaches can consider you for thoughtful matches."
+msgstr "Du bist im Mix. Nimm an der Connect Week teil; Coaches können dich für sorgfältig ausgewählte Matches berücksichtigen."
+
+msgid "Your full name and exact age are never shown to other members. Your card appears only in eligible Connect Week rounds and private coach curation — never a public feed."
+msgstr "Dein vollständiger Name und dein genaues Alter werden anderen Mitgliedern nie gezeigt. Deine Karte erscheint nur in berechtigten Connect-Week-Runden und bei privater Coach-Kuratierung – niemals in einem öffentlichen Feed."
+
+msgid "This sentence helps a Crush Coach understand who may be a thoughtful match for you."
+msgstr "Dieser Satz hilft einem Crush Coach zu verstehen, wer gut zu dir passen könnte."
+
+msgid "A deliberate Connect Week plus your human-curated Coach Pick — never an endless feed."
+msgstr "Eine bewusste Connect Week plus dein menschlich kuratierter Coach Pick – niemals ein endloser Feed."
+
+msgid "Crush Connect is live: deliberate Connect Weeks and human coach-picked Premium introductions."
+msgstr "Crush Connect ist live: bewusste Connect Weeks und menschlich ausgewählte Premium-Vorstellungen."
+
+msgid "A Crush Coach may privately consider you for a human-curated Premium match"
+msgstr "Ein Crush Coach kann dich privat für ein menschlich kuratiertes Premium-Match berücksichtigen"
+
+msgid "Eligible members may see your card during Connect Week and send one deliberate request"
+msgstr "Berechtigte Mitglieder können deine Karte während der Connect Week sehen und eine bewusste Anfrage senden"
+
+msgid "With Premium, a personal Crush Coach studies your profile and proposes one thoughtful match each week."
+msgstr "Mit Premium analysiert ein persönlicher Crush Coach dein Profil und schlägt jede Woche ein sorgfältig ausgewähltes Match vor."
+
+msgid "Your full name and exact age are never shown; your card is never public or searchable"
+msgstr "Dein vollständiger Name und dein genaues Alter werden nie gezeigt; deine Karte ist weder öffentlich noch durchsuchbar"
+
+msgid "Crush Connect — Connect Week + human Coach Pick"
+msgstr "Crush Connect – Connect Week + menschlicher Coach Pick"
+
+msgid "Crush Connect: deliberate weekly discovery — join the mix free, or go Premium for your own human coach."
+msgstr "Crush Connect: bewusste wöchentliche Entdeckungen – kostenlos in den Mix einsteigen oder Premium für deinen eigenen menschlichen Coach wählen."
+
+msgid "Photos: clear (visible to eligible members on Connect Week cards, coach picks, and connection requests)"
+msgstr "Fotos: klar (sichtbar für berechtigte Mitglieder auf Connect-Week-Karten, bei Coach Picks und Kontaktanfragen)"
+
+msgid "Welcome to Crush Connect — your Connect Week is ready."
+msgstr "Willkommen bei Crush Connect – deine Connect Week ist bereit."

@@ -2,7 +2,7 @@
 User-facing peer-safety views: block, unblock, and report another member.
 
 These power the Trust & Safety affordances on the cards that show one member to
-another (Sparks received, connection cards). Blocking is enforced symmetrically
+another (Connect Week, coach picks, connection cards). Blocking is enforced symmetrically
 by ``services.blocking`` and is silent — the blocked user is never told. Filing a
 report drops a record into the admin moderation queue (``UserReportAdmin``).
 """
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-def _back(request, default="crush_lu:crush_connect_sparks_received"):
+def _back(request, default="crush_lu:crush_connect_hub"):
     """Redirect target after an action — honour a same-host ?next= / referer.
 
     Only same-host targets are followed; an off-host or malformed value falls
@@ -69,8 +69,10 @@ def block_user(request, user_id: int):
     _block(request.user, target, request.POST.get("reason", ""))
     messages.success(
         request,
-        _("You've blocked this member. They won't be able to reach you, and "
-          "you won't see each other again."),
+        _(
+            "You've blocked this member. They won't be able to reach you, and "
+            "you won't see each other again."
+        ),
     )
     return _back(request)
 
@@ -136,8 +138,10 @@ def report_user(request, user_id: int):
 
     messages.success(
         request,
-        _("Thanks — our team will review this report. You won't hear back "
-          "unless we need more detail."),
+        _(
+            "Thanks — our team will review this report. You won't hear back "
+            "unless we need more detail."
+        ),
     )
     return _back(request)
 

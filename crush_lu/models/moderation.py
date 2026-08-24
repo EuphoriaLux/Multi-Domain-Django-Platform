@@ -6,7 +6,7 @@ the in-person/coach-mediated product never required (review finding C2):
 
 - ``UserBlock``: a one-directional record (``blocker`` blocked ``blocked``) that
   is enforced *symmetrically* — once A blocks B, neither sees the other anywhere
-  (Drops, Sparks, event connections). The symmetric query mirrors the existing
+  (Connect Week, coach picks, event connections). The symmetric query mirrors
   ``existing_connection_subq`` pattern in ``services.crush_connect``; reuse the
   helpers in ``crush_lu.services.blocking`` rather than hand-rolling the
   ``Q(...) | Q(...)`` at each call site.
@@ -35,8 +35,7 @@ class UserBlockQuerySet(models.QuerySet):
     def between(self, user_a, user_b):
         """Blocks in either direction between two users."""
         return self.filter(
-            Q(blocker=user_a, blocked=user_b)
-            | Q(blocker=user_b, blocked=user_a)
+            Q(blocker=user_a, blocked=user_b) | Q(blocker=user_b, blocked=user_a)
         )
 
     def blocked_ids_for(self, user):
@@ -118,11 +117,13 @@ class UserReport(models.Model):
     ]
 
     SOURCE_CHOICES = [
-        ("spark", _("Curiosity Spark")),
+        ("spark", _("Curiosity Spark (legacy)")),
+        ("drop", _("Daily Drop (legacy)")),
         ("connection", _("Event connection")),
         ("message", _("Message")),
         ("profile", _("Profile")),
-        ("drop", _("Daily Drop")),
+        ("connect_week", _("Connect Week")),
+        ("coach_pick", _("Coach pick")),
     ]
 
     STATUS_CHOICES = [

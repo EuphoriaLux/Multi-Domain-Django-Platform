@@ -240,12 +240,15 @@ social-media/
 scripts/gsc_credentials.json
 scripts/gsc_token.json
 scripts/ga4_token.json
+scripts/gbp_token.json
+scripts/google_indexing_key.json
 scripts/gsc_report.json
 scripts/gsc_deep_dive.json
 scripts/exports/
 
 # Ad-hoc developer one-liner scratch files
 profile_submissions_status.txt
+crush_connect_guide.html
 
 # i18n fuzzy translation tooling — intermediate outputs (regeneratable from .po files)
 _i18n_fz_*.json

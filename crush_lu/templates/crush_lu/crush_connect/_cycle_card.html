@@ -9,8 +9,8 @@ Context:
     answered_ids     — set of target_user ids already answered today (optional)
 
 Reuses the "Read-the-Photo" gate questions from the target's Connect profile
-— guesses here are private cycle signals and post to connect_week_card_answer,
-never to the Spark endpoint (submitting never fires a Spark/match side effect).
+— guesses here are private cycle signals and post to connect_week_card_answer.
+Submitting the card has no matching or notification side effect.
 {% endcomment %}
 {% load i18n crush_media moderation_tags %}
 <article

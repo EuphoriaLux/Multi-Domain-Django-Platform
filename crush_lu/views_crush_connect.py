@@ -1,19 +1,8 @@
-"""
-Crush Connect views.
-
-M3: a staff-only debug route that renders a single Drop card in isolation.
-M4: the user-facing ``Today's Drop`` page.
-
-The full user-facing surface (Today's Drop, Pending Sparks, journey reveal)
-will continue to grow in this module across M5–M7.
-"""
+"""Crush Connect onboarding, catalogue, hub, and coach-pick views."""
 
 import logging
-from datetime import timedelta
-
 from django.conf import settings
 from django.contrib import messages
-from django.db.models import Q
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.http import Http404
@@ -26,7 +15,6 @@ from django.utils.translation import ngettext
 from crush_lu.connect_phase import (
     candidate_access_open,
     cycle_access_open,
-    receiver_access_open,
 )
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
@@ -41,7 +29,6 @@ from crush_lu.onboarding_connect import (
     step_for,
     step_for_key,
 )
-from crush_lu.services import get_or_create_daily_drop
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +40,7 @@ ONBOARDING_EVENT_SESSION_KEY = "crush_connect_onboarding_event_id"
 @staff_member_required
 def dev_connect_card_preview(request, user_id: int):
     """
-    Render one Drop card for the given user, in isolation, for visual review.
+    Render one Connect candidate card in isolation for visual review.
 
     Staff-only. Not gated by the CRUSH_CONNECT_LAUNCHED flag — staff need to
     preview the card UI long before public launch.
@@ -66,44 +53,16 @@ def dev_connect_card_preview(request, user_id: int):
         "target": target,
         "target_profile": getattr(target, "crushprofile", None),
         "target_membership": getattr(target, "crush_connect_membership", None),
-        "show_spark_placeholder": True,
     }
     return render(request, "crush_lu/crush_connect/dev_card_preview.html", context)
 
 
-def _user_is_connect_receiver_eligible(user) -> bool:
-    """Verified profile + PREMIUM (active ``PremiumMembership``).
-
-    Receiving Drops is the Premium product: it unlocks with an ACTIVE
-    membership (paid or admin-comped via ``PremiumMembership.confirm()``),
-    NOT with ``assigned_coach`` alone — coaches are also assigned without
-    payment (0150 backfill, attendance auto-assign), and those members must
-    not become free receivers at full launch.
-    """
+def _user_has_connect_premium(user) -> bool:
+    """True for an approved profile with an active Premium membership."""
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
     return profile.has_active_premium
-
-
-def _user_can_receive_now(user) -> bool:
-    """Whether the receiver track (Today's Drop) is reachable for ``user`` right
-    now: Premium-eligible (approved + coach) AND the phase lets them receive
-    (full launch, or a selected tester in beta).
-
-    Single source of truth for the receiver/candidate split — used by the access
-    blocker, the catalogue/hub routing, the onboarding-completion copy, and the
-    Spark first-mover gate — so a beta non-tester is treated as a candidate
-    everywhere (and never bounced in a Drop ⇄ catalogue loop).
-
-    Callers must NOT widen this with ``or user.is_staff``. Creating a
-    ``CrushCoach`` grants is_staff, so that turned every coach into a "receiver"
-    for copy and routing purposes while ``get_eligible_pool`` — which has no
-    staff bypass and gates on ``has_active_premium`` — still returned them an
-    empty Drop. Staff previewing the Drop page is a separate question, answered
-    by ``_connect_access_blocker`` and the ``staff_preview`` flag.
-    """
-    return _user_is_connect_receiver_eligible(user) and receiver_access_open(user)
 
 
 def _user_is_connect_candidate_eligible(user) -> bool:
@@ -123,10 +82,8 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
     """Identity-verified first: a verified profile with LuxID or attended event may opt in.
 
     Identity verification is the entry requirement for collecting ANY extended Crush Connect
-    data — both tracks (Premium receivers and candidate-only members) must have verified identity
+    data — Premium and non-Premium members must have verified identity
     (LuxID connected or at least 1 in-person event attended) before starting the onboarding wizard.
-    The Premium distinction only decides where a finished member lands afterwards
-    (Today's Drop vs. catalogue status) — see ``_connect_done_url`` / ``_connect_access_blocker``.
     Already-onboarded members are grandfathered by the callers (they completed opt-in under
     the rules that applied then).
     """
@@ -136,51 +93,11 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
     return profile.is_connect_identity_verified
 
 
-def _connect_access_blocker(user):
-    """
-    Return ``None`` when the user may access Today's Drop, otherwise return
-    a redirect/response that should be sent back to them.
-
-    Staff users bypass all checks so they can preview the UI in any state.
-    Two tracks exist (asymmetric model):
-      - RECEIVER (Premium, coach assigned): onboarded → Today's Drop.
-      - CANDIDATE (LuxID, no Premium): onboarded → catalogue status page;
-        they appear in others' Drops but never receive their own.
-    Routes:
-      - flag off / not approved / neither track → teaser
-      - eligible but not onboarded → onboarding (so they can opt in)
-      - excluded by coach → teaser (silent — don't expose the exclusion)
-    """
-    if user.is_staff:
-        return None
-
-    if not candidate_access_open():
-        return redirect("crush_lu:crush_connect_teaser")
-
-    membership = getattr(user, "crush_connect_membership", None)
-    if membership is not None and membership.excluded_by_coach:
-        return redirect("crush_lu:crush_connect_teaser")
-
-    # Not onboarded yet → the LuxID-first opt-in gate decides teaser vs. wizard.
-    # (Onboarded members are grandfathered past the gate below.)
-    if membership is None or membership.onboarded_at is None:
-        if not _user_passes_pre_onboarding_gate(user):
-            return redirect("crush_lu:crush_connect_teaser")
-        return redirect("crush_lu:crush_connect_onboarding")
-
-    if not _user_can_receive_now(user):
-        # Candidate-only members — no coach, or (in beta) a Premium member who
-        # isn't a selected tester — don't get Drops; show their catalogue state.
-        return redirect("crush_lu:crush_connect_catalogue_status")
-
-    return None
-
-
 def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
 
-    Mirrors ``_connect_access_blocker`` but the hub is the shared landing for
-    both onboarded tracks and the preparation surface for eligible members who
+    The hub is the shared landing for onboarded members and the preparation
+    surface for eligible members who
     have not opted in yet. It never bounces a candidate onward to the catalogue
     page; feature routes retain their own onboarding gates.
     """
@@ -350,35 +267,11 @@ def _connect_readiness(user):
     }
 
 
-def _next_drop_at(now=None):
-    """
-    Return the next time tomorrow's Drop becomes available — used by the
-    home template to render a countdown line under empty/all-viewed states.
-    Locked to 06:00 in the project's configured timezone so the rhythm feels
-    like a morning ritual rather than an arbitrary midnight refresh.
-    """
-    now = now or timezone.localtime()
-    tomorrow_six = now.replace(hour=6, minute=0, second=0, microsecond=0)
-    if now >= tomorrow_six:
-        tomorrow_six = tomorrow_six + timedelta(days=1)
-    return tomorrow_six
-
-
 def _connect_done_url(user) -> str:
-    """Where a finished member lands: receivers (Premium) → Today's Drop,
-    candidates (LuxID-only) → catalogue status.
-
-    Deliberately does NOT treat staff as receivers. "May this person open the
-    Drop page" (a staff preview concern, handled by ``_connect_access_blocker``)
-    and "does this person actually receive Drops" are different questions, and
-    conflating them sent every coach to a Drop that ``get_eligible_pool`` will
-    always return empty — it has no staff bypass and gates on
-    ``has_active_premium``. A coach without Premium is a candidate, and belongs
-    on the candidate surface.
-    """
+    """Where a finished member lands: Connect Week when open, else the Mix."""
     return (
-        "crush_lu:crush_connect_home"
-        if _user_can_receive_now(user)
+        "crush_lu:connect_week_home"
+        if cycle_access_open(user)
         else "crush_lu:crush_connect_catalogue_status"
     )
 
@@ -476,20 +369,11 @@ def crush_connect_onboarding(request):
 
 
 def _emit_onboarding_complete(request, done_url):
-    """Success message (per track) + candidate welcome email. Ported from the
-    legacy single-page view.
-
-    Entitlement only, no staff bypass — matching ``_connect_done_url``, which
-    this immediately precedes. Creating a CrushCoach grants is_staff, so the
-    old ``or user.is_staff`` told every non-Premium coach their first Drop was
-    ready, then redirected them to the candidate page and skipped the welcome
-    email that explains the track they are actually on.
-    """
+    """Show the appropriate Connect Week/Mix welcome and send the welcome mail."""
     user = request.user
-    is_receiver = _user_can_receive_now(user)
-    if is_receiver:
+    if cycle_access_open(user):
         messages.success(
-            request, _("Welcome to Crush Connect — your first Drop is ready.")
+            request, _("Welcome to Crush Connect — your Connect Week is ready.")
         )
     else:
         messages.success(
@@ -504,7 +388,7 @@ def _emit_onboarding_complete(request, done_url):
 
 def _recompute_member_match_scores(user):
     """Refresh the member's trait-based MatchScores after their Connect traits
-    change. Best-effort — scoring is a soft signal for the Drop (missing pairs
+    change. Best-effort — scoring is a soft compatibility signal (missing pairs
     are neutral), so a failure must never block onboarding or an edit save."""
     try:
         from crush_lu.matching import update_match_scores_for_user
@@ -600,8 +484,7 @@ def crush_connect_onboarding_step(request, step: int):
                     ]
                 )
                 _emit_onboarding_complete(request, done_url)
-                # Member is now in the pool — score them against other members so
-                # their first Drop (and theirs in others') reflects their traits.
+                # Member is now in the pool — refresh compatibility highlights.
                 _recompute_member_match_scores(request.user)
                 # Crush Connect Event Lobby: a checked-in guest who completes
                 # onboarding while a lobby or recap is open joins immediately
@@ -693,10 +576,6 @@ def crush_connect_onboarding_step(request, step: int):
                 initial["preferred_age_max"] = profile.preferred_age_max
         form = form_class(instance=membership, initial=initial)
 
-    # Entitlement only, no staff bypass: the wizard copy must describe the
-    # track the member will actually land on, and a coach without Premium is a
-    # candidate. See _emit_onboarding_complete / _connect_done_url.
-    is_receiver = _user_can_receive_now(request.user)
     context = {
         "form": form,
         "membership": membership,
@@ -709,7 +588,6 @@ def crush_connect_onboarding_step(request, step: int):
         "connect_steps": annotate_steps(step),
         "prev_step": step - 1 if step > 1 else None,
         "is_final_step": step == TOTAL_STEPS,
-        "is_candidate_only": not is_receiver,
     }
     if cfg.key == "languages":
         context.update(_step3_selection_context(form))
@@ -872,22 +750,14 @@ def crush_connect_profile_edit(request):
 @crush_login_required
 def crush_connect_catalogue_status(request):
     """
-    Status page for candidate-track members (LuxID, no Premium): confirms
-    they're in the catalogue, previews their Story card, and offers the
-    Premium upgrade for receiving their own coach-curated matches.
-
-    Premium receivers are forwarded to Today's Drop instead.
+    Status page for onboarded members: confirms they are in the catalogue,
+    previews their profile, and shows anonymous Read-the-Photo totals.
     """
     user = request.user
 
     if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
-    if _user_can_receive_now(user):
-        # Only forward to Today's Drop if they can actually receive now — a beta
-        # Premium non-tester stays here on the candidate catalogue (else the two
-        # views would bounce /today/ ⇄ /catalogue/ forever).
-        return redirect("crush_lu:crush_connect_home")
     if not user.is_staff and not _user_is_connect_candidate_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
 
@@ -897,27 +767,13 @@ def crush_connect_catalogue_status(request):
     if membership is None or not membership.is_onboarded:
         return redirect("crush_lu:crush_connect_onboarding")
 
-    from crush_lu.models import CrushConnectWaitlist, CuriositySpark
-    from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
+    from crush_lu.models import CrushConnectWaitlist
 
-    # Mirrors the sparks_received listing, including the coach/member pair
-    # rule — a badge counting Sparks the list refuses to show is a dead end.
-    pending_sparks_count = (
-        exclude_assigned_coach_pairs(
-            CuriositySpark.objects.filter(recipient=user, status="pending"),
-            user,
-            field="sender_id",
-        )
-        .exclude(sender_id__in=blocked_user_ids(user))
-        .count()
-    )
-
-    # Before the public launch the receiver track is invite-only, gated on
-    # CrushConnectWaitlist.selected_as_tester. The teaser (the other home of the
+    # Before the public launch, selected waitlist testers receive beta access.
+    # The teaser (the other home of the
     # join button) redirects every approved + LuxID member straight back here
     # once the candidate track opens, so this page has to carry the waitlist —
-    # otherwise a beta candidate can never join the list that gates Premium.
+    # otherwise a beta candidate can never join the tester waitlist.
     # Tester selection stays silent — the member only ever sees their position.
     connect_launched = bool(getattr(settings, "CRUSH_CONNECT_LAUNCHED", False))
     waitlist_context = {
@@ -941,7 +797,6 @@ def crush_connect_catalogue_status(request):
         {
             "membership": membership,
             "profile": getattr(user, "crushprofile", None),
-            "pending_sparks_count": pending_sparks_count,
             "gate_stat_rows": _gate_stat_rows(user, membership),
             "connect_launched": connect_launched,
             **waitlist_context,
@@ -952,8 +807,9 @@ def crush_connect_catalogue_status(request):
 def _gate_stat_rows(user, membership):
     """Assemble the member's own gate questions with anonymous guess tallies.
 
-    Returns ``[{question, owner_answer, yes, total}]`` for the "8 of 12 think you
-    work in Finance" stat — aggregate only, never per-responder identity.
+    Returns ``[{question, yes, total}]`` for the "8 of 12 think you work in
+    Finance" stat — aggregate only, with neither the member's correct answer
+    nor any responder identity exposed to the template.
     """
     from crush_lu.services.crush_connect import gate_answer_stats
 
@@ -966,7 +822,6 @@ def _gate_stat_rows(user, membership):
         rows.append(
             {
                 "question": gq.question,
-                "owner_answer": gq.owner_answer,
                 "yes": s.get("yes", 0),
                 "total": s.get("total", 0),
             }
@@ -977,63 +832,33 @@ def _gate_stat_rows(user, membership):
 @crush_login_required
 def crush_connect_hub(request):
     """Crush Connect home — the member's hub that aggregates every Connect
-    surface (Today's Drop / catalogue, Sparks, Coach's Pick, profile) with
-    quick links and status badges, and now explains preparation before opt-in.
+    surface (Connect Week, catalogue, Coach's Pick, and profile) with quick
+    links and status badges, and explains preparation before opt-in.
     The dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
     user = request.user
     profile = getattr(user, "crushprofile", None)
 
-    from crush_lu.models import CuriositySpark
-    from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import (
-        exclude_assigned_coach_pairs,
-        get_active_coach_pick,
-    )
+    from crush_lu.services.crush_connect import get_active_coach_pick
 
     user = request.user
     blocker = _hub_access_blocker(user)
     if blocker is not None:
         return blocker
 
-    # Track follows the ENTITLEMENT only — no staff bypass. A coach without an
-    # active PremiumMembership is a candidate and gets the candidate hub, so
-    # "In the Mix" finally appears for them. Staff keep their preview of the
-    # Drop page via _connect_access_blocker + the staff_preview link below.
-    is_receiver = _user_can_receive_now(user)
-    staff_preview = bool(user.is_staff and not is_receiver)
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
-    # 7-Day Connect Cycle (Task 13.2+) — event-verified members get a card
-    # deep-linking into their Connect Week alongside the Drop/catalogue tile.
-    # cycle_access_open widens beyond is_receiver in the beta (see its
-    # docstring); still requires onboarding like every other Connect surface.
+    # Connect Week still requires onboarding like every Connect surface.
     cycle_access = bool(
         (user.is_staff or cycle_access_open(user))
         and membership is not None
         and membership.is_onboarded
     )
-    # Mirrors staff_preview above: _connect_week_access_blocker fully bypasses
-    # onboarding for staff (same as _connect_access_blocker does for Today's
-    # Drop), but cycle_access itself requires onboarding even for staff — so
-    # an unonboarded staff member needs an explicit preview link, or they have
-    # no UI path in (only reachable by typing the URL directly).
+    # The week access blocker fully bypasses onboarding for staff, so keep an
+    # explicit preview link for an unonboarded staff account.
     cycle_staff_preview = bool(user.is_staff and not cycle_access)
-
-    # Mirrors the sparks_received listing, including the coach/member pair
-    # rule — a badge counting Sparks the list refuses to show is a dead end.
-    pending_sparks_count = (
-        exclude_assigned_coach_pairs(
-            CuriositySpark.objects.filter(recipient=user, status="pending"),
-            user,
-            field="sender_id",
-        )
-        .exclude(sender_id__in=blocked_user_ids(user))
-        .count()
-    )
-    # Coach pick replaces the Drop for receivers; surface it on the hub too.
-    coach_pick = get_active_coach_pick(user) if is_receiver else None
+    coach_pick = get_active_coach_pick(user)
 
     # Event Lobby hub card (spec §2 Navigation): shown only while the member
     # is an eligible participant of a currently-live event lobby. People I've
@@ -1049,24 +874,13 @@ def crush_connect_hub(request):
 
     context = {
         "membership": membership,
-        "track": "receiver" if is_receiver else "candidate",
-        "is_receiver": is_receiver,
         "cycle_access": cycle_access,
         "cycle_staff_preview": cycle_staff_preview,
-        "staff_preview": staff_preview,
         "is_coach": bool(coach and coach.is_active),
-        "pending_sparks_count": pending_sparks_count,
         "coach_pick": coach_pick,
-        "next_drop_at": _next_drop_at(),
         "active_lobby": get_active_live_lobby(user) if event_lobby_enabled else None,
         "event_lobby_enabled": event_lobby_enabled,
         "people_ive_met_count": people_ive_met_count,
-        # Entitlement, NOT is_receiver — the two diverge and the difference is
-        # exactly what a member notices. is_receiver is (entitlement AND the
-        # phase lets them receive), so during the beta a member who has paid but
-        # is not a selected tester has is_receiver False; badging on it would
-        # show someone who just paid no sign that they are Premium. This answers
-        # "am I Premium", which is a question about what they bought.
         "has_premium": bool(profile and profile.has_active_premium),
         # Naming the coach is most of the point: it is the thing being sold, and
         # the hub never told the member who theirs is.
@@ -1078,421 +892,48 @@ def crush_connect_hub(request):
 
 @crush_login_required
 def crush_connect_home(request):
-    """
-    Render ``Today's Drop`` — the user-facing Crush Connect landing page.
+    """Backward-compatible redirect from the retired ``/today/`` route."""
+    return redirect("crush_lu:crush_connect_hub")
 
-    M4 deliberately does NOT include the Spark CTA on cards (that comes in M5).
-    Cards are read-only; the page also renders an empty state when the
-    eligible pool yielded zero candidates for the day.
-    """
-    user = request.user
-    profile = getattr(user, "crushprofile", None)
-    if not user.is_staff and profile and not profile.photo_1:
-        from django.contrib import messages
 
-        messages.warning(
-            request,
-            _(
-                "Your profile photo is missing. It blocks access to your daily Connect suggestions; add it now in Photos."
-            ),
-        )
-        return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
+@crush_login_required
+def crush_connect_legacy_spark_redirect(request, **_kwargs):
+    """Keep retired Connect Spark notification and email links non-breaking."""
+    return redirect("crush_lu:crush_connect_hub")
 
-    blocker = _connect_access_blocker(user)
+
+@crush_login_required
+def crush_connect_coach_pick(request):
+    """Show the active human-curated Premium pick, if one is available."""
+    blocker = _hub_access_blocker(request.user)
     if blocker is not None:
         return blocker
+    if not _user_has_connect_premium(request.user):
+        return redirect("crush_lu:crush_connect_catalogue_status")
 
-    # Coach pick REPLACES the algorithmic Drop — the coach-curated match is
-    # the product promise; the algorithm only fills in when no pick is open.
-    from crush_lu.services.crush_connect import get_active_coach_pick
-
-    coach_pick = get_active_coach_pick(user)
-
-    # Don't create/persist an algorithmic Drop while a pick is open — drop
-    # snapshots authorize Sparks, so hidden recipients would become
-    # sparkable by id and bypass the "pick replaces the Drop" flow.
-    # A Drop snapshot is pinned for the day, but eligibility lost AFTER it was
-    # generated must take effect immediately — filter the persisted recipients at
-    # render time (the snapshot itself is left intact for audit). Hides:
-    #   - block pairs (member blocked them, or they blocked the member)
-    #   - coach-excluded members (the panic button promises "drops out now")
-    #   - members who lost verified status (e.g. rejected after surfacing)
-    #   - members who cleared their photo (nothing left to "read")
-    #   - a coach and their own assigned member, when the assignment landed
-    #     after the snapshot was pinned (the door assigns one on first
-    #     attendance, so this lands on ordinary event nights)
-    from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import (
-        exclude_assigned_coach_pairs,
-        filter_connect_identity_verified,
+        get_active_coach_pick,
+        is_premium_connect_eligible,
     )
 
-    drop = None
-    recipients = []
-    if not coach_pick:
-        drop = get_or_create_daily_drop(user)
-        current_recipients = (
-            exclude_assigned_coach_pairs(drop.recipients, user, field="id")
-            .exclude(id__in=blocked_user_ids(user))
-            .exclude(crush_connect_membership__excluded_by_coach=True)
-            .filter(crushprofile__verification_status="verified")
-            # Re-check photo-share consent at RENDER time: a Drop pinned before
-            # consent existed, or a member who later revoked it, must not have
-            # their clear photo shown. The snapshot is left intact for audit.
-            .filter(crush_connect_membership__photo_share_consent=True)
-            # Same for the photo itself: clearing photo_1 after being
-            # snapshotted must hide the card (mirrors get_eligible_pool).
-            .exclude(
-                Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True)
-            )
-        )
-        # Re-check the current LuxID-or-coach-attendance predicate too. In
-        # particular, undoing a member's only coach check-in revokes the
-        # attendance arm immediately even though the Drop snapshot remains.
-        recipients = list(
-            filter_connect_identity_verified(current_recipients)
-            .select_related("crushprofile", "crush_connect_membership")
-            .prefetch_related(
-                "crush_connect_membership__gate_questions__question",
-                # Drop-card fallback renders the event-profile Event Identity
-                # taxonomy when a member has no Connect interests — prefetch it so
-                # a multi-recipient Drop stays N+1-free (spec §7).
-                "crushprofile__interests_new",
-            )
-            .all()
-        )
-
-    # Card CTA state: which of today's cards this user has already answered (the
-    # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —
-    # a target who re-picked must show the fresh form, not a stale "answered".
-    from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
-
-    answered_pairs = set(
-        ConnectQuestionAnswer.objects.filter(
-            responder=user, profile_owner__in=[t.pk for t in recipients]
-        ).values_list("profile_owner_id", "question_id")
-    )
-    answered_ids = set()
-    for target in recipients:
-        membership = getattr(target, "crush_connect_membership", None)
-        q_ids = (
-            [gq.question_id for gq in membership.active_gate_questions]
-            if membership
-            else []
-        )
-        if q_ids and all((target.pk, qid) in answered_pairs for qid in q_ids):
-            answered_ids.add(target.pk)
-    sparked_ids = set(
-        CuriositySpark.objects.filter(sender=user).values_list(
-            "recipient_id", flat=True
-        )
-    )
-
-    context = {
-        "coach_pick": coach_pick,
-        "drop": drop,
-        "recipients": recipients,
-        "answered_ids": answered_ids,
-        "sparked_ids": sparked_ids,
-        # One read per Drop: who consumed it (None = still open). Cards for
-        # anyone else render locked instead of showing the answer gate.
-        "drop_read_target_id": drop.read_target_id if drop else None,
-        "next_drop_at": _next_drop_at(),
-        "is_staff_preview": user.is_staff
-        and (
-            not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
-            or not getattr(user, "crush_connect_membership", None)
-            or not user.crush_connect_membership.is_onboarded
-        ),
-    }
-    return render(request, "crush_lu/crush_connect/home.html", context)
-
-
-# ---------------------------------------------------------------------------
-# Curiosity Sparks (M5)
-# ---------------------------------------------------------------------------
-
-
-@crush_login_required
-def crush_connect_spark_compose(request, user_id: int):
-    """
-    Answer a member's 3 questions — the "Read-the-Photo" gate that replaces the
-    old Spark message. Reading them well (≥ GATE_ALIGN_MIN of 3 vs their private
-    truth) signals interest; when both read each other, the pair matches and the
-    coach arranges the date.
-
-    Reached two ways: a Drop-receiver (Premium) answering someone from their Drop
-    (first mover), or the recipient of a Spark answering the sender back (works
-    for candidate-track members too — they never get a Drop of their own).
-    """
-    from django.urls import reverse
-
-    from crush_lu.models import CuriositySpark
-    from crush_lu.services.blocking import is_blocked_pair
-    from crush_lu.services.crush_connect import (
-        GATE_QUESTION_COUNT,
-        can_send_spark,
-        is_catalogue_eligible,
-        is_sender_eligible,
-        submit_gate_answers,
-    )
-
-    user = request.user
-    if not user.is_staff and not candidate_access_open():
-        return redirect("crush_lu:crush_connect_teaser")
-
-    target = get_object_or_404(
-        User.objects.select_related("crushprofile", "crush_connect_membership"),
-        pk=user_id,
-    )
-
-    # Answer-back path: a candidate (no Drop, not Premium) answering a Spark's
-    # sender. Detect it independently so can_send_spark's "not_receiver" gate
-    # doesn't block a legitimate reply.
-    answering_back = CuriositySpark.objects.filter(
-        sender=target, recipient=user, status="pending"
-    ).exists()
-    surfacing_drop = None
-
-    if answering_back:
-        if not user.is_staff and not is_catalogue_eligible(user):
-            return redirect("crush_lu:crush_connect_teaser")
-        # Revalidate the pending Spark's SENDER (the target here). If they lost
-        # eligibility / photo consent, or a block appeared since they sent it,
-        # don't render their clear photo + questions. (sparks_received hides
-        # these too; submit_gate_answers refuses at accept.)
-        if not user.is_staff and (
-            not is_sender_eligible(target) or is_blocked_pair(user, target)
-        ):
-            messages.info(request, _("This member isn't available right now."))
-            return redirect("crush_lu:crush_connect_home")
-    else:
-        # First-mover (sending) is a receiver action. In beta a Premium non-tester
-        # can still hold a stale ConnectDailyDrop snapshot (old link, or after
-        # being deselected) — gate the send on receiver access, not just
-        # can_send_spark's Premium/onboarded/surfaced checks.
-        if not user.is_staff and not receiver_access_open(user):
-            return redirect("crush_lu:crush_connect_catalogue_status")
-        allowed, reason = can_send_spark(user, target)
-        if not allowed:
-            if reason == "already_sparked":
-                messages.info(
-                    request, _("You've already answered this member's questions.")
-                )
-                return redirect("crush_lu:crush_connect_home")
-            if reason == "not_receiver":
-                return redirect("crush_lu:crush_connect_teaser")
-            # not_surfaced / recipient_unavailable — don't leak details
-            messages.info(request, _("This member isn't available right now."))
-            return redirect("crush_lu:crush_connect_home")
-        # First movers must have their OWN 3 questions so the target can answer
-        # back — otherwise the Spark is unmatchable. Send them to set them up
-        # instead of creating a dead Spark.
-        my_membership = getattr(user, "crush_connect_membership", None)
-        if not user.is_staff and (
-            my_membership is None or not my_membership.has_gate_questions
-        ):
-            messages.info(
-                request,
-                _("First, pick your own 3 questions so people can match with you."),
-            )
-            return redirect(
-                reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
-            )
-        # One read per Drop: once they answered ONE card from the Drop that
-        # surfaced this target, the other cards are locked until the next Drop.
-        from crush_lu.models import ConnectDailyDrop
-
-        posted_drop_id = (
-            request.POST.get("drop_id") if request.method == "POST" else None
-        )
-        if posted_drop_id:
-            try:
-                clean_drop_id = int(posted_drop_id)
-            except (TypeError, ValueError):
-                surfacing_drop = None
-            else:
-                surfacing_drop = ConnectDailyDrop.objects.filter(
-                    pk=clean_drop_id,
-                    user=user,
-                    recipients=target,
-                ).first()
-        else:
-            surfacing_drop = (
-                ConnectDailyDrop.objects.filter(user=user, recipients=target)
-                .order_by("-drop_date")
-                .first()
-            )
-        if (
-            surfacing_drop is not None
-            and surfacing_drop.read_target_id
-            and surfacing_drop.read_target_id != target.pk
-        ):
-            messages.info(
+    if not is_premium_connect_eligible(request.user):
+        profile = getattr(request.user, "crushprofile", None)
+        if profile is not None and not profile.photo_1:
+            messages.warning(
                 request,
                 _(
-                    "You've already read someone from this Drop — your next Drop arrives tomorrow."
+                    "Your profile photo is missing. It blocks access to your daily "
+                    "Connect suggestions; add it now in Photos."
                 ),
             )
-            return redirect("crush_lu:crush_connect_home")
-
-    membership = getattr(target, "crush_connect_membership", None)
-    gate_questions = list(membership.active_gate_questions) if membership else []
-    if len(gate_questions) < GATE_QUESTION_COUNT:
-        messages.info(request, _("This member hasn't set up their questions yet."))
-        return redirect("crush_lu:crush_connect_home")
-
-    if request.method == "POST":
-        guesses = {}
-        for gq in gate_questions:
-            raw = request.POST.get(f"answer_{gq.question_id}")
-            if raw not in ("yes", "no"):
-                messages.error(request, _("Please answer all three questions."))
-                return redirect(
-                    "crush_lu:crush_connect_spark_compose", user_id=target.pk
-                )
-            guesses[gq.question_id] = raw == "yes"
-
-        try:
-            outcome, _spark = submit_gate_answers(
-                user,
-                target,
-                guesses,
-                request=request,
-                drop_id=request.POST.get("drop_id"),
-            )
-        except ValueError as exc:
-            if str(exc) == "drop_read_used":
-                messages.info(
-                    request,
-                    _(
-                        "You've already read someone from this Drop — your next Drop arrives tomorrow."
-                    ),
-                )
-            else:
-                messages.info(request, _("This member isn't available right now."))
-            return redirect("crush_lu:crush_connect_home")
-
-        if outcome == "matched":
-            messages.success(
-                request,
-                _(
-                    "It's a match — you read each other well! Your coach will arrange your date."
-                ),
-            )
-        else:
-            # Same neutral confirmation for a read that landed and one that
-            # didn't — never leak whether they guessed the truth (that would
-            # expose the member's private answers).
-            messages.success(
-                request,
-                _(
-                    "Your answers are in. If you've read each other well, your coach will introduce you — no pressure either way."
-                ),
-            )
-        return redirect("crush_lu:crush_connect_home")
+            return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
+        return redirect("crush_lu:crush_connect_hub")
 
     return render(
         request,
-        "crush_lu/crush_connect/spark_compose.html",
-        {
-            "target": target,
-            "target_profile": getattr(target, "crushprofile", None),
-            "target_membership": membership,
-            "gate_questions": gate_questions,
-            "answering_back": answering_back,
-            "gate_drop_id": surfacing_drop.pk if surfacing_drop else None,
-        },
+        "crush_lu/crush_connect/coach_pick.html",
+        {"coach_pick": get_active_coach_pick(request.user)},
     )
-
-
-@crush_login_required
-def crush_connect_sparks_received(request):
-    """
-    The recipient's response surface — works for BOTH tracks.
-
-    Candidates never receive Drops, so this page (reached from the bell or
-    the notification email) is where they meet the Sparks sent to them.
-    """
-    from crush_lu.models import CuriositySpark
-    from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import (
-        is_catalogue_eligible,
-        is_sender_eligible,
-    )
-
-    user = request.user
-    if not user.is_staff and not candidate_access_open():
-        return redirect("crush_lu:crush_connect_teaser")
-
-    # Pending Sparks are immutable records — a recipient who lost catalogue
-    # eligibility since they arrived (rejection, LuxID unlink, exclusion)
-    # must not be able to view or act on them.
-    if not user.is_staff and not is_catalogue_eligible(user):
-        return redirect("crush_lu:crush_connect_teaser")
-
-    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
-
-    blocked_ids = blocked_user_ids(user)
-    sparks = (
-        exclude_assigned_coach_pairs(
-            CuriositySpark.objects.filter(recipient=user, status="pending"),
-            user,
-            field="sender_id",
-        )
-        .exclude(sender_id__in=blocked_ids)
-        .select_related("sender__crushprofile", "sender__crush_connect_membership")
-        .order_by("-created_at")
-    )
-    # Hide Sparks whose sender lost eligibility since sending (rejection,
-    # Premium loss, exclusion) — accepting them is a no-op anyway, so they
-    # must not be offered. (Blocked senders and the member's own coach are
-    # already excluded above.)
-    visible_sparks = [s for s in sparks if is_sender_eligible(s.sender)]
-    return render(
-        request,
-        "crush_lu/crush_connect/sparks_received.html",
-        {"sparks": visible_sparks},
-    )
-
-
-@crush_login_required
-def crush_connect_spark_respond(request, spark_id: int):
-    """Accept or decline a pending Spark (POST only, recipient only)."""
-    from crush_lu.models import CuriositySpark
-    from crush_lu.services.crush_connect import (
-        is_catalogue_eligible,
-        respond_to_spark,
-    )
-
-    if request.method != "POST":
-        return redirect("crush_lu:crush_connect_sparks_received")
-
-    if not is_catalogue_eligible(request.user):
-        return redirect("crush_lu:crush_connect_teaser")
-
-    spark = get_object_or_404(
-        CuriositySpark.objects.select_related("sender", "recipient"),
-        pk=spark_id,
-        recipient=request.user,
-    )
-    accept = request.POST.get("action") == "accept"
-    updated = respond_to_spark(spark, accept=accept, request=request)
-    if accept:
-        if updated.status == "accepted":
-            messages.success(
-                request,
-                _(
-                    "It's mutual! Your Crush Coach will be in touch to arrange your date."
-                ),
-            )
-        else:
-            # Accept was a no-op — the pair is blocked or the sender lost
-            # eligibility since the Spark arrived. Don't promise a date.
-            messages.info(request, _("This Spark is no longer available."))
-    else:
-        messages.info(request, _("Spark declined — they won't be told."))
-    return redirect("crush_lu:crush_connect_sparks_received")
 
 
 # ---------------------------------------------------------------------------
@@ -1634,7 +1075,7 @@ def crush_connect_pick_respond(request, pick_id: int):
     from crush_lu.services.crush_connect import respond_to_coach_pick
 
     if request.method != "POST":
-        return redirect("crush_lu:crush_connect_home")
+        return redirect("crush_lu:crush_connect_coach_pick")
 
     pick = get_object_or_404(
         ConnectCoachPick.objects.select_related("coach__user", "member"),
@@ -1662,7 +1103,7 @@ def crush_connect_pick_respond(request, pick_id: int):
             request,
             _("No problem — your coach will pick someone else for you."),
         )
-    return redirect("crush_lu:crush_connect_home")
+    return redirect("crush_lu:crush_connect_coach_pick")
 
 
 # ─── Experience explainers ──────────────────────────────────────────────────
@@ -1676,17 +1117,9 @@ CONNECT_EXPERIENCES = {
         "name": _("Your Coach's Pick"),
         "tagline": _("One match a week, picked by a human."),
     },
-    "todays-drop": {
-        "name": _("Today's Drop"),
-        "tagline": _("Up to three fresh faces, every morning at 06:00."),
-    },
     "read-the-photo": {
         "name": _("Read the Photo"),
         "tagline": _("No bios. Three questions. One photo."),
-    },
-    "sparks": {
-        "name": _("Sparks"),
-        "tagline": _("Who read your photo well."),
     },
     "in-the-mix": {
         "name": _("In the Mix"),
@@ -1707,7 +1140,7 @@ def crush_connect_experience(request, slug):
     membership = getattr(request.user, "crush_connect_membership", None)
     context = {
         "experience": CONNECT_EXPERIENCES[slug],
-        "is_receiver": _user_can_receive_now(request.user),
+        "has_premium": _user_has_connect_premium(request.user),
         "is_onboarded": membership is not None and membership.onboarded_at is not None,
         "other_experiences": [
             {"slug": s, **exp} for s, exp in CONNECT_EXPERIENCES.items() if s != slug

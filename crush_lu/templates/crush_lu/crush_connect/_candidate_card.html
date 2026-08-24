@@ -1,10 +1,8 @@
 {% comment %}
-Crush Connect Drop card.
+Crush Connect candidate card used by the coach-pick surface and staff preview.
 
-Renders ONE card from a user's Daily Drop. The viewer sees an unblurred photo,
-first name only, age range (never exact age), one coach-curated Story line,
-and language/interest tag chips. The "Send a Curiosity Spark" CTA is shown
-when the page passes show_spark_cta.
+The viewer sees an unblurred photo, first name only, age range (never exact
+age), the member's three questions, and language/interest chips.
 
 Context:
     target       — the User being shown
@@ -19,7 +17,7 @@ Privacy contract (Crush Connect):
 {% load i18n crush_media moderation_tags %}
 <article
     class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
-    aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Drop card for {{ name }}{% endblocktrans %}"
+    aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Connect card for {{ name }}{% endblocktrans %}"
 >
     {% comment %}
     Clear photo header - the card IS the "Read-the-Photo" surface: viewers
@@ -74,11 +72,9 @@ Privacy contract (Crush Connect):
         {% endif %}
 
         {% comment %}
-        Story deprecated (M9): the card now leads with the answer gate below.
-        Read-only question preview when the card isn't the interactive surface
-        (coach pick / dev preview).
+        Read-only question preview. The owner's answers remain private.
         {% endcomment %}
-        {% if not show_spark_cta and target_membership.active_gate_questions %}
+        {% if target_membership.active_gate_questions %}
             <ul class="space-y-1.5 mb-0 list-none pl-0">
                 {% for gq in target_membership.active_gate_questions %}
                 <li class="text-[15px] leading-snug text-gray-700 dark:text-gray-200">&ldquo;{{ gq.question.text }}&rdquo;</li>
@@ -128,25 +124,12 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Footer / CTA slot — the "Read-the-Photo" answer gate (show_spark_cta). #}
-        {% if show_spark_cta %}
-            <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
-                {% include "crush_lu/crush_connect/_gate_questions.html" with target=target gate_questions=target_membership.active_gate_questions answered_ids=answered_ids gate_drop_id=drop.pk %}
-            </div>
-        {% elif show_spark_placeholder %}
-            <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
-                <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
-                    {% trans "Answer their 3 questions — the gate renders here on the live card." %}
-                </p>
-            </div>
-        {% endif %}
-
         {% comment %}
         Trust & Safety: report/block the member whose card this is. Only on the
         live viewer surface (can_moderate), never the staff dev preview.
         {% endcomment %}
         {% if can_moderate %}
-            {% block_report_menu target source="drop" %}
+            {% block_report_menu target source="coach_pick" %}
         {% endif %}
     </div>
 </article>

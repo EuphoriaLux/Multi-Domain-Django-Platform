@@ -62,7 +62,6 @@ class CrushUserContextResilienceTests(TestCase):
             "connection_count",
             "pending_requests_count",
             "actionable_sparks_count",
-            "connect_pending_sparks_count",
             "profile_completion_step",
             "profile_step_label",
             "upcoming_events",

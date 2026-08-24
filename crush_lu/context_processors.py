@@ -40,7 +40,6 @@ _SAFE_NAV_DEFAULTS = {
     "connection_count": 0,
     "pending_requests_count": 0,
     "actionable_sparks_count": 0,
-    "connect_pending_sparks_count": 0,
     "profile_completion_step": 0,
     "profile_step_label": _("Get started"),
     "upcoming_events": [],
@@ -161,37 +160,6 @@ def crush_user_context(request):
             status__in=["coach_approved", "coach_assigned"],
         ).count()
         context["actionable_sparks_count"] = actionable_sparks_count
-
-        # Crush Connect: pending received Sparks — drives the Connect nav badge
-        # (sub-nav, navbar menu, mobile bottom-nav). Computed only when the
-        # Connect nav is actually visible (onboarded membership, or staff) so it
-        # stays off every other page's query budget.
-        connect_pending_sparks_count = 0
-        try:
-            from crush_lu.connect_phase import candidate_access_open
-
-            # Candidates receive Sparks too, so the badge follows candidate access
-            # (open in the beta), not just the full launch flag.
-            connect_open = candidate_access_open()
-            membership = getattr(request.user, "crush_connect_membership", None)
-            nav_visible = request.user.is_staff or (
-                connect_open and membership is not None and membership.is_onboarded
-            )
-            if nav_visible:
-                from .models import CuriositySpark
-
-                # Reuse the already-computed blocked_ids (finding H4 — this was
-                # a duplicate blocked_user_ids query on every authenticated page).
-                connect_pending_sparks_count = (
-                    CuriositySpark.objects.filter(
-                        recipient=request.user, status="pending"
-                    )
-                    .exclude(sender_id__in=blocked_ids)
-                    .count()
-                )
-        except Exception:
-            connect_pending_sparks_count = 0
-        context["connect_pending_sparks_count"] = connect_pending_sparks_count
 
         # Profile submission status for visual indicators
         profile_submission = None

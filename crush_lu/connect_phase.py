@@ -1,43 +1,26 @@
 """Crush Connect launch-phase helpers.
 
-Three phases, driven by two settings, so access can widen in stages:
+Access widens in stages through two settings:
 
 - **PRELAUNCH** (both flags off): staff only; everyone else lands on the
   teaser / waitlist.
-- **BETA** (``CRUSH_CONNECT_CANDIDATE_OPEN`` on, ``CRUSH_CONNECT_LAUNCHED``
-  off): the candidate — "in the Mix" — track opens to any verified + LuxID
-  member (they can opt in and become discoverable), but the Premium/receiver
-  track (Today's Drop) stays limited to staff + hand-picked waitlist testers
-  (``CrushConnectWaitlist.selected_as_tester``). Premium purchase stays
-  funnelled to the waitlist by ``PREMIUM_REDIRECTS_TO_BETA`` for everyone
-  except those same selected testers, who may buy (see ``views_premium``) —
-  that is how they obtain the active membership the receiver entitlement gate
-  then requires. No price is named here: it is ``SUMUP_PREMIUM_MONTHLY_FEE``,
-  set per environment.
+- **BETA** (candidate flag on, launch flag off): verified members can onboard
+  and enter the Mix. Connect Week admits event-verified members, staff, and
+  selected waitlist testers. Premium remains the human coach-pick layer.
 - **LAUNCHED** (``CRUSH_CONNECT_LAUNCHED`` on): everything public; the beta
   flag is ignored.
 
-Keep the two access questions separate: ``candidate_access_open()`` gates the
-Mix/onboarding/catalogue/sparks surfaces; ``receiver_access_open(user)`` gates
-the already-live Today's Drop. Callers combine the latter with
-``_user_is_connect_receiver_eligible`` (approved + coach) — this module only
-answers "does the *phase* let this user receive".
-
-``cycle_access_open(user)`` is the equivalent gate for the not-yet-shipped
-7-Day Connect Cycle (Task 13.2+): it deliberately widens beyond
-``receiver_access_open`` to also admit event-verified members, without
-touching Today's Drop's existing staff/selected-tester-only rule. The two
-must stay independent — folding the wider rule into ``receiver_access_open``
-would silently let any past event attendee into the live feature, which is
-exactly the beta-policy leak ``test_beta_premium_non_tester_treated_as_
-candidate`` exists to catch.
+``candidate_access_open()`` gates onboarding, the Mix, catalogue, and profile
+surfaces. ``cycle_access_open(user)`` adds the member-specific Connect Week beta
+gate. Premium coach picks use membership entitlement and are not an automated
+matching workflow.
 """
 
 from django.conf import settings
 
 
 def candidate_access_open():
-    """True when the candidate track (onboarding / Mix / catalogue / sparks) is
+    """True when the candidate track (onboarding / Mix / catalogue) is
     reachable by eligible members — full launch OR the beta candidate-open phase.
     Staff bypass is handled separately at each call site."""
     return bool(
@@ -63,24 +46,12 @@ def is_event_verified_member(user):
     return bool(profile and profile.has_attended_event)
 
 
-def receiver_access_open(user):
-    """Whether this user's phase lets them reach the receiver track (Today's
-    Drop). Full launch opens it to every Premium member; the beta limits it to
-    staff + selected waitlist testers. Does NOT check coach/onboarded — callers
-    combine it with ``_user_is_connect_receiver_eligible``."""
-    if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
-        return True
-    if not user or not getattr(user, "is_authenticated", False):
-        return False
-    return bool(getattr(user, "is_staff", False) or is_selected_beta_tester(user))
-
-
 def cycle_access_open(user):
-    """Whether this user's phase lets them reach the 7-Day Connect Cycle
-    (Task 13.2+, not yet built). Full launch opens it to all eligible members;
-    the beta opens it to event-verified members, staff, and selected testers —
-    a deliberately wider rule than ``receiver_access_open``, kept in its own
-    function so it can never leak into Today's Drop's tighter gate."""
+    """Whether this user's phase lets them reach Connect Week.
+
+    Full launch opens it to all eligible members. Beta admits event-verified
+    members, staff, and selected testers.
+    """
     if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
         return True
     if not user or not getattr(user, "is_authenticated", False):

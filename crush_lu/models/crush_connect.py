@@ -2,9 +2,8 @@
 Crush Connect models.
 
 - ``CrushConnectWaitlist``: pre-launch waitlist for users interested in Crush Connect.
-- ``SparkPrompt``: coach-authored prompts a sender answers when sending a
-  Curiosity Spark (M1 of the Crush Connect rollout). The translatable ``text``
-  field is what the sender sees as the question they're answering.
+- ``SparkPrompt``: legacy-named, translatable story prompts used during Connect
+  onboarding. The name is retained to preserve existing story data.
 """
 
 from django.conf import settings
@@ -12,7 +11,6 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
-
 
 # Languages spoken, shared in the Crush Connect catalogue. Uses ``"lu"`` (not
 # ISO "lb") so prefilling from ``CrushProfile.event_languages`` is a straight
@@ -47,13 +45,11 @@ class CrushConnectWaitlist(models.Model):
     # environment, and restating it made the admin advertise a figure the
     # checkout did not necessarily charge.
     #
-    # Scope note: ``selected_as_tester`` DOES grant access, in three places, and
-    # is the only thing that does during the beta:
-    #   - connect_phase.receiver_access_open() — opens the receiver track
-    #     (Today's Drop) while CRUSH_CONNECT_LAUNCHED is off;
+    # Scope note: ``selected_as_tester`` grants beta access in three places:
+    #   - connect_phase.cycle_access_open() — opens Connect Week;
     #   - views_premium — lets the member past the PREMIUM_REDIRECTS_TO_BETA
     #     funnel and buy Premium, which is how they obtain the active
-    #     PremiumMembership the receiver entitlement gate then requires;
+    #     PremiumMembership for the human coach-pick layer;
     #   - views_payments._premium_purchase_refused — re-asks at each of the
     #     three moments money can move (opening the checkout, opening the card
     #     widget, granting Premium at completion), because the pending
@@ -68,7 +64,7 @@ class CrushConnectWaitlist(models.Model):
     # allowlist landed.)
     selected_as_tester = models.BooleanField(
         default=False,
-        help_text=_("Hand-picked beta tester: may buy Premium and receive Drops"),
+        help_text=_("Hand-picked beta tester: may enter Connect Week and buy Premium"),
     )
     selected_at = models.DateTimeField(null=True, blank=True)
     payment_confirmed = models.BooleanField(
@@ -93,8 +89,8 @@ class CrushConnectWaitlist(models.Model):
     # already reach the Mix through ``candidate_access_open`` + catalogue
     # eligibility, and Wave 3 recipients are told how to become eligible. The
     # invite command deliberately never touches ``selected_as_tester`` — that
-    # flag opens Today's Drop and the Premium purchase funnel, and mailing a
-    # 295-person waitlist must not hand out either.
+    # flag opens selected-tester beta access and the Premium purchase funnel;
+    # mailing the whole waitlist must not hand out either.
     #
     # Stored on the row rather than in a cache key because the send has to stay
     # deduped across a Redis eviction (a re-run would otherwise double-mail the
@@ -148,11 +144,9 @@ class CrushConnectMembership(models.Model):
     """
     Per-user opt-in state for Crush Connect.
 
-    Crush Connect is opt-in: an approved-and-attended member is *eligible* to
-    onboard, but they only appear in others' Drops (and only get a Drop of their
-    own) once they've completed Connect-specific onboarding. The onboarding
-    flow itself ships in a later milestone (M4/M5); M1 only needs the schema
-    so the eligible-pool service can require ``onboarded_at IS NOT NULL``.
+    Crush Connect is opt-in: an identity-verified member is *eligible* to
+    onboard, but enters the private catalogue and Connect Week pool only after
+    completing Connect-specific onboarding.
 
     Fields written in later milestones (M4+) will include the user's coach-
     curated Story answer and any other Connect-specific profile data. Storing
@@ -160,9 +154,8 @@ class CrushConnectMembership(models.Model):
     surface clean for members who never opt into Connect.
 
     Coach panic-button: ``excluded_by_coach`` removes a member from every
-    other user's pool (and prevents their own Drop from rendering) without
-    revoking their core profile approval. Use ``exclusion_reason`` for the
-    audit trail.
+    other user's pool and blocks their Connect surfaces without revoking core
+    profile approval. Use ``exclusion_reason`` for the audit trail.
     """
 
     user = models.OneToOneField(
@@ -174,7 +167,9 @@ class CrushConnectMembership(models.Model):
         null=True,
         blank=True,
         db_index=True,
-        help_text=_("Set when the user completes Crush Connect onboarding. Null = waitlisted/not opted-in."),
+        help_text=_(
+            "Set when the user completes Crush Connect onboarding. Null = waitlisted/not opted-in."
+        ),
     )
 
     # Coach panic button
@@ -193,24 +188,25 @@ class CrushConnectMembership(models.Model):
     )
     exclusion_reason = models.TextField(
         blank=True,
-        help_text=_("Why this user was excluded (audit trail; never shown to the user)"),
+        help_text=_(
+            "Why this user was excluded (audit trail; never shown to the user)"
+        ),
     )
 
-    # Connect-specific onboarding content (populated by the M4 onboarding flow).
-    # The "Story" is the one coach-curated answer that appears on the user's
-    # Drop card — the single line a viewer reads before deciding whether to Spark.
+    # Connect-specific onboarding content. The "Story" is the short answer that
+    # appears on the member's private Connect Week and coach-curation cards.
     story_prompt = models.ForeignKey(
         "crush_lu.SparkPrompt",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="story_owners",
-        help_text=_("The prompt this member chose to answer for their Drop card"),
+        help_text=_("The story prompt this member chose during onboarding"),
     )
     story_answer = models.CharField(
         max_length=200,
         blank=True,
-        help_text=_("One-line answer shown on the member's Drop card"),
+        help_text=_("One-line answer shown on the member's private Connect card"),
     )
 
     # Connect onboarding — intent & lifestyle signals
@@ -277,7 +273,9 @@ class CrushConnectMembership(models.Model):
     preferred_genders = models.JSONField(
         default=list,
         blank=True,
-        help_text=_("Genders this member wants to see in their Drop (empty = open to all)"),
+        help_text=_(
+            "Genders this member wants to see in Connect (empty = open to all)"
+        ),
     )
     preferred_age_min = models.PositiveSmallIntegerField(default=18)
     preferred_age_max = models.PositiveSmallIntegerField(default=99)
@@ -286,7 +284,9 @@ class CrushConnectMembership(models.Model):
     languages = models.JSONField(
         default=list,
         blank=True,
-        help_text=_("Languages this member speaks (codes from CONNECT_LANGUAGE_CHOICES)"),
+        help_text=_(
+            "Languages this member speaks (codes from CONNECT_LANGUAGE_CHOICES)"
+        ),
     )
     interests = models.ManyToManyField(
         "crush_lu.Interest",
@@ -454,7 +454,9 @@ class CrushConnectMembership(models.Model):
     # until they re-consent (the eligible-pool service requires this True).
     photo_share_consent = models.BooleanField(
         default=False,
-        help_text=_("Member agreed their clear photo is shown to the people matched to them each day"),
+        help_text=_(
+            "Member agreed their clear photo is shown to the people matched to them each day"
+        ),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -515,82 +517,29 @@ class CrushConnectMembership(models.Model):
         return parts
 
 
-class ConnectDailyDrop(models.Model):
-    """
-    Immutable per-day snapshot of who appeared in a user's Crush Connect Drop.
-
-    The Drop is computed once per day (lazily, on first view) and pinned for
-    24 hours so refreshing the page never re-rolls the cards. The snapshot
-    also gives coaches an audit trail and lets M5 enforce "you can only Spark
-    someone who was actually surfaced to you".
-
-    The selection itself lives in ``services.crush_connect.get_or_create_daily_drop``.
-    """
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="connect_drops",
-    )
-    drop_date = models.DateField(
-        help_text=_("The local date this Drop was generated for"),
-    )
-    recipients = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
-        related_name="connect_drops_appeared_in",
-        blank=True,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    # "One read per Drop": the single recipient this user chose to answer.
-    # Set by submit_gate_answers on their first gate submission from this
-    # Drop — hit or miss, the selection is spent — and every other card in
-    # the Drop locks until the next one. NULL = no read used yet (also all
-    # Drops that predate the mechanic).
-    read_target = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="+",
-        help_text=_("The one Drop card this user chose to read"),
-    )
-    read_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        verbose_name = _("Crush Connect Daily Drop")
-        verbose_name_plural = _("Crush Connect Daily Drops")
-        ordering = ["-drop_date", "user_id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "drop_date"], name="connect_drop_unique_per_day"
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.user} — {self.drop_date.isoformat()} ({self.recipients.count()} cards)"
-
-
 class SparkPrompt(models.Model):
     """
-    A coach-authored question the sender answers when sending a Curiosity Spark.
+    A curated story prompt used by Crush Connect onboarding.
 
     Example texts:
         - "What in their profile made you curious?"
         - "What would your perfect first meetup look like?"
         - "What's a small thing that delights you?"
 
-    ``weight`` controls the rotation: a prompt with weight=2 is twice as likely
-    to be surfaced as a prompt with weight=1. Set ``is_active=False`` to retire
-    a prompt without deleting it (preserves historical Sparks that reference it).
+    ``weight`` controls rotation: a prompt with weight=2 is twice as likely to
+    be surfaced as one with weight=1. Set ``is_active=False`` to retire it
+    without removing existing member story answers.
     """
 
     text = models.CharField(
         max_length=200,
-        help_text=_("Prompt text shown to the sender (translated via modeltranslation)"),
+        help_text=_(
+            "Story prompt shown to the member (translated via modeltranslation)"
+        ),
     )
     is_active = models.BooleanField(
         default=True,
-        help_text=_("Inactive prompts stop being offered to senders but stay linked from historical Sparks"),
+        help_text=_("Inactive prompts stop being offered during onboarding"),
     )
     weight = models.PositiveSmallIntegerField(
         default=1,
@@ -601,8 +550,8 @@ class SparkPrompt(models.Model):
 
     class Meta:
         ordering = ["-is_active", "-weight", "id"]
-        verbose_name = _("Spark Prompt")
-        verbose_name_plural = _("Spark Prompts")
+        verbose_name = _("Story Prompt")
+        verbose_name_plural = _("Story Prompts")
 
     def __str__(self):
         return self.text
@@ -656,96 +605,16 @@ class Interest(models.Model):
         return self.label
 
 
-class CuriositySpark(models.Model):
-    """
-    A Premium member's expression of interest in someone from their Drop (M5).
-
-    Asymmetric by design: only Drop receivers (Premium) can SEND a Spark, but
-    anyone in the candidate catalogue can RECEIVE one — candidates respond
-    from their own "Sparks received" page, not from a Drop of their own.
-
-    Privacy: the recipient sees the sender exactly like a Drop card (blurred
-    photo, first name, age range, Story) plus the sender's message. Declines
-    are silent — the sender is never notified of a decline; acceptance is the
-    only event that travels back. The mutual reveal itself ships in M6; until
-    then an accepted Spark is handed to the coach (admin queue) to arrange
-    the date.
-    """
-
-    STATUS_CHOICES = [
-        ("pending", _("Pending")),
-        ("accepted", _("Accepted")),
-        ("declined", _("Declined")),
-    ]
-
-    sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="connect_sparks_sent",
-    )
-    recipient = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="connect_sparks_received",
-    )
-    # Audit trail: the Drop that surfaced the recipient to the sender. M5's
-    # cardinal rule — you can only Spark someone who actually appeared in one
-    # of your Drops — is enforced in the service layer using this snapshot.
-    drop = models.ForeignKey(
-        ConnectDailyDrop,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="sparks",
-    )
-    message = models.CharField(
-        max_length=200,
-        blank=True,
-        help_text=_("The sender's one-line opener ('What made you curious?')"),
-    )
-    status = models.CharField(
-        max_length=10,
-        choices=STATUS_CHOICES,
-        default="pending",
-        db_index=True,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    responded_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        verbose_name = _("Curiosity Spark")
-        verbose_name_plural = _("Curiosity Sparks")
-        ordering = ["-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["sender", "recipient"], name="connect_spark_unique_pair"
-            ),
-            models.CheckConstraint(
-                condition=~models.Q(sender=models.F("recipient")),
-                name="connect_spark_no_self",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.sender} → {self.recipient} ({self.status})"
-
-    @property
-    def is_pending(self) -> bool:
-        return self.status == "pending"
-
-
 class ConnectCoachPick(models.Model):
     """
     A Crush Coach's hand-picked match proposal for one of their Premium
     members (M7 — the coach-curated heart of Crush Connect).
 
     Flow: coach browses the member's eligible pool (full profiles) and
-    proposes ONE candidate with a personal note. The pick REPLACES the
-    algorithmic Drop as the hero card on the member's Today page. The
-    member accepts or declines:
+    proposes ONE candidate with a personal note. The member accepts or declines:
       - accept  → lands in the coach's queue; the coach contacts the
                   candidate personally to confirm interest and arrange the
-                  date (no automatic Spark/notification to the candidate).
+                  date (no automatic notification to the candidate).
       - decline → coach is notified and can propose someone else.
     """
 
