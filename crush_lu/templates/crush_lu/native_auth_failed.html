@@ -1,4 +1,4 @@
-{% load i18n %}<!DOCTYPE html>
+{% load i18n static %}<!DOCTYPE html>
 {% comment %}
 Shown inside the app's WebView when a one-time auth code cannot be redeemed.
 It replaces a raw JSON body that used to be rendered full-screen with nothing
@@ -16,6 +16,12 @@ reasons:
    context processor, and context-processor DB queries are a known way for a
    crush.lu page to turn a bad request into a 500.
 
+Standalone markup, but NOT a standalone palette: every colour below comes from
+the compiled stylesheet's design tokens (STYLE.md keeps the brand colours in
+four places that must stay in sync — this must not become a fifth). The hex
+literals are `var()` fallbacks only, so the page stays legible if the
+stylesheet itself fails to load, which on this page is a real possibility.
+
 The one job here is the retry link: it restarts the handoff rather than
 re-requesting the spent code, which is what pull-to-refresh on the old page
 did.
@@ -26,27 +32,64 @@ did.
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>{% trans "Sign-in didn't complete" %} – Crush.lu</title>
+
+{# Linked for its design tokens, not its utilities. Same origin, and already
+   in the WebView's cache from every other page in the app. #}
+<link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
+
+<script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
+    // Mirrors theme-manager.js getInitialTheme(): the site's dark mode is a
+    // class on <html>, not a media query, so honouring the user's stored
+    // choice means resolving it here too. Stamping .theme-light as well lets
+    // the CSS below keep an explicit light choice from losing to a dark OS.
+    (function () {
+        try {
+            var saved = localStorage.getItem("theme");
+            var dark = saved === "dark" || (saved !== "light" && window.matchMedia
+                && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.add(dark ? "dark" : "theme-light");
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (e) {
+            // Private mode can throw on localStorage; the media query below
+            // still covers this page.
+        }
+    })();
+</script>
+
 <style{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
   :root {
-    --purple: #9b59b6;
-    --purple-dark: #8e44ad;
-    --ground: #f8f9fa;
-    --surface: #ffffff;
-    --ink: #2c3e50;
-    --ink-soft: #5a6b7d;
-    --rule: #e4e7eb;
+    --page-accent: var(--color-crush-purple, #9b59b6);
+    --page-accent-hover: var(--color-crush-purple-dark, #8e44ad);
+    --page-ground: var(--color-crush-light, #f8f9fa);
+    --page-surface: #fff;
+    --page-ink: var(--color-crush-dark, #2c3e50);
+    --page-ink-soft: var(--color-gray-600, #4b5563);
+    --page-rule: var(--color-gray-200, #e5e7eb);
   }
+  /* No stored preference and a dark OS. Guarded so an explicit light choice
+     still wins, matching how the rest of the site behaves. */
   @media (prefers-color-scheme: dark) {
-    :root {
-      --purple: #ff6b9d;
-      --purple-dark: #d94d7b;
-      --ground: #111827;
-      --surface: #1f2937;
-      --ink: #f3f4f6;
-      --ink-soft: #b6c0cc;
-      --rule: #374151;
+    :root:not(.theme-light) {
+      --page-accent: var(--color-crush-pink, #ff6b9d);
+      --page-accent-hover: var(--color-crush-pink-dark, #d94d7b);
+      --page-ground: var(--color-gray-900, #111827);
+      --page-surface: var(--color-gray-800, #1f2937);
+      --page-ink: var(--color-gray-100, #f3f4f6);
+      --page-ink-soft: var(--color-gray-400, #9ca3af);
+      --page-rule: var(--color-gray-700, #374151);
     }
   }
+  /* An explicit dark choice, or the bootstrap above resolving to dark. */
+  :root.dark {
+    --page-accent: var(--color-crush-pink, #ff6b9d);
+    --page-accent-hover: var(--color-crush-pink-dark, #d94d7b);
+    --page-ground: var(--color-gray-900, #111827);
+    --page-surface: var(--color-gray-800, #1f2937);
+    --page-ink: var(--color-gray-100, #f3f4f6);
+    --page-ink-soft: var(--color-gray-400, #9ca3af);
+    --page-rule: var(--color-gray-700, #374151);
+  }
+
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -55,15 +98,15 @@ did.
     align-items: center;
     justify-content: center;
     padding: 2rem 1.25rem;
-    background: var(--ground);
-    color: var(--ink);
+    background: var(--page-ground);
+    color: var(--page-ink);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
   main {
-    background: var(--surface);
-    border: 1px solid var(--rule);
+    background: var(--page-surface);
+    border: 1px solid var(--page-rule);
     border-radius: 14px;
     padding: 2.25rem 1.75rem;
     max-width: 26rem;
@@ -77,7 +120,7 @@ did.
     letter-spacing: -.01em;
     text-wrap: balance;
   }
-  p { margin: 0 0 1.75rem; color: var(--ink-soft); font-size: .97rem; }
+  p { margin: 0 0 1.75rem; color: var(--page-ink-soft); font-size: .97rem; }
   .actions { display: flex; flex-direction: column; gap: .65rem; }
   a {
     display: block;
@@ -87,11 +130,11 @@ did.
     font-weight: 600;
     font-size: .95rem;
   }
-  a.primary { background: var(--purple); color: #fff; }
-  a.primary:hover { background: var(--purple-dark); }
-  a.secondary { color: var(--ink-soft); }
-  a.secondary:hover { color: var(--ink); }
-  a:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
+  a.primary { background: var(--page-accent); color: #fff; }
+  a.primary:hover { background: var(--page-accent-hover); }
+  a.secondary { color: var(--page-ink-soft); }
+  a.secondary:hover { color: var(--page-ink); }
+  a:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 3px; }
 </style>
 </head>
 <body>

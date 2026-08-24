@@ -245,6 +245,53 @@ def test_failure_renders_html_with_a_retry_link_for_a_browser(
     assert "no-such-code" not in body
 
 
+def test_retry_keeps_the_flavor_that_started_the_handoff(client, settings):
+    """A local-build retry must not aim at the production callback scheme.
+
+    Local settings allow crushlu://auth first and append crushlulocal://auth,
+    so falling back to the first allowed URI would restart the handoff on a
+    scheme the local app cannot receive.
+    """
+    settings.ANDROID_AUTH_REDIRECT_URIS = ["crushlu://auth", "crushlulocal://auth"]
+
+    response = client.get(
+        _complete_path("android", "no-such-code"),
+        {"redirect_uri": "crushlulocal://auth"},
+        headers={"accept": "text/html"},
+    )
+
+    assert "redirect_uri=crushlulocal%3A%2F%2Fauth" in response.content.decode()
+
+
+def test_retry_ignores_a_redirect_uri_that_is_not_allowlisted(client, settings):
+    settings.ANDROID_AUTH_REDIRECT_URIS = ["crushlu://auth"]
+
+    response = client.get(
+        _complete_path("android", "no-such-code"),
+        {"redirect_uri": "evil://auth"},
+        headers={"accept": "text/html"},
+    )
+
+    body = response.content.decode()
+    assert "evil" not in body
+    assert "redirect_uri=crushlu%3A%2F%2Fauth" in body
+
+
+def test_retry_prefers_the_uri_the_code_was_issued_for(client, settings, user):
+    """A row that still exists outranks the query string."""
+    settings.ANDROID_AUTH_REDIRECT_URIS = ["crushlu://auth", "crushlustaging://auth"]
+    code = IOSNativeAuthCode.issue(user, "crushlustaging://auth")
+    IOSNativeAuthCode.redeem(code)  # spend it, so the retry page is what renders
+
+    response = client.get(
+        _complete_path("android", code),
+        {"redirect_uri": "crushlu://auth"},
+        headers={"accept": "text/html"},
+    )
+
+    assert "redirect_uri=crushlustaging%3A%2F%2Fauth" in response.content.decode()
+
+
 @pytest.mark.parametrize("platform,setting_name,landing", PLATFORMS)
 def test_failure_keeps_its_json_body_for_api_callers(
     client, settings, user, platform, setting_name, landing
@@ -259,6 +306,32 @@ def test_failure_keeps_its_json_body_for_api_callers(
         "success": False,
         "error": "Invalid or expired authentication code",
     }
+
+
+@pytest.mark.parametrize("language", ["de", "fr"])
+def test_failure_page_is_translated(language):
+    """EN/DE/FR is site-wide; a recovery screen is a bad place to drop to English.
+
+    Catches both halves of the usual failure: a msgid missing from the PO, and
+    a .mo that was never recompiled after the PO was edited.
+    """
+    from django.template.loader import render_to_string
+    from django.utils import translation
+
+    with translation.override(language):
+        html = render_to_string(
+            "crush_lu/native_auth_failed.html",
+            {"retry_url": "/api/mobile/ios/auth/handoff/", "expired": False},
+        )
+
+    for english in (
+        "Sign-in didn't complete",
+        "Let's try that sign-in again",
+        "Try signing in again",
+        "Back to Crush.lu",
+        "This sign-in link has already been used",
+    ):
+        assert english not in html, f"{english!r} fell back to English in {language}"
 
 
 @pytest.mark.parametrize("platform,setting_name,landing", PLATFORMS)

@@ -106,8 +106,13 @@ def android_auth_handoff(request):
 
     clear_mobile_handoff(request)
     code = IOSNativeAuthCode.issue(request.user, redirect_uri, request=request)
-    complete_url = request.build_absolute_uri(
-        f"/api/mobile/android/auth/complete/{code}/"
+    # The redirect_uri rides along so the failure page can restart the handoff
+    # on the flavor that started it: the local and staging builds call back on
+    # crushlulocal:// and crushlustaging://, and a code that no longer has a row
+    # (an unknown code) leaves nothing else to read it from.
+    complete_url = _append_query(
+        request.build_absolute_uri(f"/api/mobile/android/auth/complete/{code}/"),
+        {"redirect_uri": redirect_uri},
     )
     return AndroidAppRedirect(
         _append_query(

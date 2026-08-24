@@ -50,9 +50,11 @@ def test_android_auth_handoff_and_completion_are_one_time(client, user, settings
     assert redirect_uri.scheme == "crushlu"
     query = parse_qs(redirect_uri.query)
     assert query["code"][0]
-    assert query["complete_url"][0].endswith(
-        f"/api/mobile/android/auth/complete/{query['code'][0]}/"
-    )
+    completion = urlparse(query["complete_url"][0])
+    assert completion.path == f"/api/mobile/android/auth/complete/{query['code'][0]}/"
+    # The handoff stamps the redirect_uri onto complete_url so the failure page
+    # can restart the handoff on the flavor that started it.
+    assert parse_qs(completion.query)["redirect_uri"] == ["crushlu://auth"]
     assert IOSNativeAuthCode.objects.count() == 1
 
     client.logout()

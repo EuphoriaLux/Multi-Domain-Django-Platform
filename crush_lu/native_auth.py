@@ -80,16 +80,24 @@ def _allowed_redirect_uris(platform):
     )
 
 
-def _retry_redirect_uri(platform, record):
+def _retry_redirect_uri(request, platform, record):
     """The redirect_uri to restart the handoff with.
 
-    Prefer the one this code was actually issued for — the local and staging
-    Android flavors call back on their own schemes — but only if it is still
-    allowlisted, so a stale row can never widen the allowlist.
+    Getting this wrong strands the user: the local and staging Android builds
+    call back on crushlulocal:// and crushlustaging://, so a retry aimed at
+    production's crushlu:// either does nothing or wakes the wrong app.
+
+    Prefer the URI this code was issued for. When there is no row to read it
+    from — an unknown code — fall back to the one the handoff stamped onto
+    complete_url. Both are checked against the allowlist, so neither a stale
+    row nor a crafted query can point the retry anywhere but our own callbacks.
     """
     allowed = _allowed_redirect_uris(platform)
     if record is not None and record.redirect_uri in allowed:
         return record.redirect_uri
+    requested = request.GET.get("redirect_uri", "")
+    if requested in allowed:
+        return requested
     return allowed[0] if allowed else ""
 
 
@@ -103,7 +111,7 @@ def _is_own_replay(request, result):
 
 
 def _failure_response(request, platform, reason, record):
-    retry_url = handoff_url(platform, _retry_redirect_uri(platform, record))
+    retry_url = handoff_url(platform, _retry_redirect_uri(request, platform, record))
     # A WebView navigation asks for HTML. Anything else — a real API client,
     # a probe — keeps the JSON body the endpoint has always returned.
     if "text/html" in request.headers.get("Accept", ""):
