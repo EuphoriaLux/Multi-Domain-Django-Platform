@@ -334,7 +334,15 @@ struct CrushWebView: UIViewRepresentable {
         /// only ever arrives in the browser that started the flow.
         private static func isProviderLoginStart(_ path: String) -> Bool {
             let segments = path.split(separator: "/", omittingEmptySubsequences: true)
-            return segments.count == 3 && segments[0] == "accounts" && segments[2] == "login"
+            guard segments.count >= 3,
+                  segments[0] == "accounts",
+                  segments[segments.count - 1] == "login"
+            else { return false }
+            // /accounts/<provider>/login/ for a dedicated provider, and
+            // /accounts/oidc/<provider_id>/login/ for one mounted on allauth's
+            // generic OIDC provider, which carries an extra segment. Requiring
+            // the last segment to be "login" keeps .../login/callback/ out.
+            return segments.count == 3 || (segments.count == 4 && segments[1] == "oidc")
         }
 
         /// Drop the i18n language prefix and guarantee a trailing slash.

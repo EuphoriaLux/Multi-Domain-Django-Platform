@@ -451,9 +451,17 @@ public class MainActivity extends AppCompatActivity {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         String[] segments = trimmed.split("/");
+        if (segments.length < 3
+                || !segments[0].equals("accounts")
+                || !segments[segments.length - 1].equals("login")) {
+            return false;
+        }
+        // /accounts/<provider>/login/ for a dedicated provider, and
+        // /accounts/oidc/<provider_id>/login/ for one mounted on allauth's
+        // generic OIDC provider, which carries an extra segment. Requiring the
+        // last segment to be "login" is what keeps .../login/callback/ out.
         return segments.length == 3
-                && segments[0].equals("accounts")
-                && segments[2].equals("login");
+                || (segments.length == 4 && segments[1].equals("oidc"));
     }
 
     /**

@@ -51,7 +51,11 @@ def is_provider_login_start(path):
     only ever arrives in the browser that started the flow.
     """
     segments = [s for s in path.split("/") if s]
-    return len(segments) == 3 and segments[0] == "accounts" and segments[2] == "login"
+    if len(segments) < 3 or segments[0] != "accounts" or segments[-1] != "login":
+        return False
+    # /accounts/<provider>/login/, and /accounts/oidc/<provider_id>/login/ for
+    # a provider mounted on allauth's generic OIDC provider (one segment more).
+    return len(segments) == 3 or (len(segments) == 4 and segments[1] == "oidc")
 
 
 def should_start_native_auth(path):
@@ -77,6 +81,10 @@ MUST_INTERCEPT = [
     "/accounts/facebook/login/",
     "/accounts/microsoft/login/",
     "/accounts/apple/login/",
+    # allauth's generic OIDC provider is installed (LinkedIn uses it on
+    # Entreprinder) and its route is mounted on the crush urlconf too, so any
+    # OIDC SocialApp configured later inherits the same strand.
+    "/accounts/oidc/some-provider/login/",
 ]
 
 # Pages that must stay in the WebView, where the member's session is.
@@ -99,6 +107,7 @@ MUST_NOT_INTERCEPT = [
     "/accounts/google/login/callback/",
     "/accounts/apple/login/callback/",
     "/accounts/facebook/login/token/",
+    "/accounts/oidc/some-provider/login/callback/",
     # Ordinary app pages, including the logout the UI actually links to.
     "/en/logout/",
     "/en/signup/",
