@@ -618,17 +618,28 @@ def update_match_scores_for_user(user):
     from crush_lu.models import CrushConnectMembership, MatchScore
 
     profile = getattr(user, "crushprofile", None)
-    if profile is None or not profile.is_approved:
+    if (
+        profile is None
+        or not profile.is_approved
+        or not profile.is_active
+        or not user.is_active
+    ):
         return 0
     membership = getattr(user, "crush_connect_membership", None)
-    if membership is None or not membership.is_onboarded:
+    if membership is None or not membership.is_participating:
         return 0
 
     user_data = _member_match_data(profile, membership)
 
     # All other onboarded Connect members (the only candidates for trait scoring).
     other_members = (
-        CrushConnectMembership.objects.filter(onboarded_at__isnull=False)
+        CrushConnectMembership.objects.filter(
+            onboarded_at__isnull=False,
+            excluded_by_coach=False,
+            paused_at__isnull=True,
+            user__is_active=True,
+            user__crushprofile__is_active=True,
+        )
         .exclude(user=user)
         .select_related("user", "user__crushprofile")
     )
@@ -640,9 +651,6 @@ def update_match_scores_for_user(user):
         other_profile = getattr(other_user, "crushprofile", None)
         if other_profile is None or not other_profile.is_approved:
             continue
-        if other_membership.excluded_by_coach:
-            continue
-
         other_data = _member_match_data(other_profile, other_membership)
 
         # Enforce user_a.pk < user_b.pk

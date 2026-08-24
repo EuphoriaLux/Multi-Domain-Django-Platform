@@ -8,7 +8,7 @@ To be in a coach's eligible pool a target must:
 - have a verified CrushProfile (verification_status='verified')
 - have a LuxID social account linked (the catalogue requirement)
 - have a CrushConnectMembership with onboarded_at set (Crush Connect is opt-in)
-- not be flagged by a coach via CrushConnectMembership.excluded_by_coach
+- not be flagged by a coach or paused by the member
 - have logged in within the last 30 days (active membership signal)
 - not already be in an EventConnection (any status) with the requester
 - pass mutual gender + age preference filters
@@ -208,11 +208,9 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
-    Return candidates eligible for ``user``'s coach-curated Premium pick.
-
     The member must have an approved profile, active Premium membership, and
-    completed Connect onboarding. Candidates do not need Premium; they need
-    verified identity, Connect opt-in, consent, and mutual preferences.
+    actively participating in Connect (completed onboarding and not paused). Candidates
+    do not need Premium; they need verified identity, Connect opt-in, consent, and mutual preferences.
 
     ``candidate_pk`` narrows the pool to a single candidate BEFORE the Python
     gender-preference step below — point lookups ("is X in the pool?") must use
@@ -223,7 +221,12 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
 
     # --- Requester self-eligibility -----------------------------------------
     user_profile = getattr(user, "crushprofile", None)
-    if user_profile is None or not user_profile.is_approved:
+    if (
+        user_profile is None
+        or not user_profile.is_approved
+        or not user_profile.is_active
+        or not user.is_active
+    ):
         return User.objects.none()
 
     # Premium gate: coach picks require an ACTIVE PremiumMembership.
@@ -233,8 +236,8 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         return User.objects.none()
 
     user_membership = getattr(user, "crush_connect_membership", None)
-    if user_membership is None or not user_membership.is_onboarded:
-        # Not opted in to Crush Connect yet — no coach-pick pool for them.
+    if user_membership is None or not user_membership.is_participating:
+        # Not opted in to Crush Connect or currently paused — no coach-pick pool for them.
         return User.objects.none()
 
     # --- Target filters ------------------------------------------------------
@@ -261,9 +264,12 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
 
     qs = (
         User.objects.filter(
+            is_active=True,
             crushprofile__verification_status="verified",
+            crushprofile__is_active=True,
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
+            crush_connect_membership__paused_at__isnull=True,
             # "Read-the-Photo": the clear photo is only ever shown to the curated
             # few, and only for members who consented to that model.
             crush_connect_membership__photo_share_consent=True,
@@ -467,7 +473,9 @@ def is_catalogue_eligible(user) -> bool:
         and profile.photo_1
         and profile.is_connect_identity_verified
         and membership is not None
-        and membership.is_onboarded
+        and profile.is_active
+        and user.is_active
+        and membership.is_participating
         and membership.photo_share_consent
         and user.last_login is not None
         and user.last_login >= inactivity_cutoff
@@ -484,7 +492,9 @@ def is_premium_connect_eligible(user) -> bool:
         and profile.photo_1
         and profile.has_active_premium
         and membership is not None
-        and membership.is_onboarded
+        and profile.is_active
+        and user.is_active
+        and membership.is_participating
         and membership.photo_share_consent
     )
 

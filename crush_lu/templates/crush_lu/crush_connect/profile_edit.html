@@ -74,6 +74,27 @@
     <p class="mt-6 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">
         {% trans "Your full name and exact age are never shown until a date is confirmed." %}
     </p>
+
+    <div class="mt-6 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-4">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">
+                    {% if membership.is_paused %}{% trans "Connect is paused" %}{% else %}{% trans "Need a break?" %}{% endif %}
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+                    {% if membership.is_paused %}{% trans "Your profile is hidden from new Connect activity." %}{% else %}{% trans "Hide your Connect profile without losing your answers or matches." %}{% endif %}
+                </p>
+            </div>
+            {% if membership.is_paused %}
+            <form method="post" action="{% url 'crush_lu:crush_connect_reactivate' %}" class="shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-solid btn-sm">{% trans "Reactivate" %}</button>
+            </form>
+            {% else %}
+            <a href="{% url 'crush_lu:crush_connect_pause' %}" class="btn-crush-outline btn-sm shrink-0">{% trans "Pause" %}</a>
+            {% endif %}
+        </div>
+    </div>
 {% endif %}
 
 </div>

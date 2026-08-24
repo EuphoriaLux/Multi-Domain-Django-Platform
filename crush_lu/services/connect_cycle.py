@@ -129,11 +129,16 @@ def get_cycle_eligible_pool(user):
         return User.objects.none()
 
     user_profile = getattr(user, "crushprofile", None)
-    if user_profile is None or not user_profile.is_approved:
+    if (
+        user_profile is None
+        or not user_profile.is_approved
+        or not user_profile.is_active
+        or not user.is_active
+    ):
         return User.objects.none()
 
     user_membership = getattr(user, "crush_connect_membership", None)
-    if user_membership is None or not user_membership.is_onboarded:
+    if user_membership is None or not user_membership.is_participating:
         return User.objects.none()
 
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
@@ -169,9 +174,12 @@ def get_cycle_eligible_pool(user):
 
     qs = (
         User.objects.filter(
+            is_active=True,
             crushprofile__verification_status="verified",
+            crushprofile__is_active=True,
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
+            crush_connect_membership__paused_at__isnull=True,
             crush_connect_membership__photo_share_consent=True,
             last_login__gte=inactivity_cutoff,
         )
@@ -283,7 +291,13 @@ def _compute_compatibility_highlight(session):
     from crush_lu.services.crush_connect import MATCHSCORE_NEUTRAL
 
     completed = list(
-        session.cards.filter(is_completed=True).select_related("target_user")
+        session.cards.filter(
+            is_completed=True,
+            target_user__is_active=True,
+            target_user__crushprofile__is_active=True,
+            target_user__crush_connect_membership__paused_at__isnull=True,
+            target_user__crush_connect_membership__excluded_by_coach=False,
+        ).select_related("target_user")
     )
     if not completed:
         return None
@@ -387,7 +401,17 @@ def get_or_create_todays_cards(session):
         .order_by("card_index")
     )
     if existing:
-        return existing
+        # The persisted day is an immutable snapshot, but a member-controlled
+        # pause (or an account/moderation deactivation) takes effect at render
+        # time. Do not refill vacated slots: doing so would silently change the
+        # already-issued day and can exceed the three-card contract on resume.
+        return [
+            card
+            for card in existing
+            if card.target_user.is_active
+            and card.target_user.crushprofile.is_active
+            and card.target_user.crush_connect_membership.is_participating
+        ]
 
     if session.status != ConnectWeekSession.Status.ACTIVE or day > CYCLE_LENGTH_DAYS:
         return []
@@ -454,7 +478,13 @@ def get_review_cards(session):
     ``CrushConnectMembership.active_gate_questions``.
     """
     return list(
-        session.cards.filter(is_completed=True)
+        session.cards.filter(
+            is_completed=True,
+            target_user__is_active=True,
+            target_user__crushprofile__is_active=True,
+            target_user__crush_connect_membership__paused_at__isnull=True,
+            target_user__crush_connect_membership__excluded_by_coach=False,
+        )
         .select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
         )

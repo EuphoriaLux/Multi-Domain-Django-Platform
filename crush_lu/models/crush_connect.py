@@ -9,6 +9,7 @@ Crush Connect models.
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 
@@ -156,6 +157,12 @@ class CrushConnectMembership(models.Model):
     Coach panic-button: ``excluded_by_coach`` removes a member from every
     other user's pool and blocks their Connect surfaces without revoking core
     profile approval. Use ``exclusion_reason`` for the audit trail.
+
+    Member pause: ``paused_at`` is a reversible, self-service snooze. It keeps
+    onboarding answers and existing temporary chats intact while removing the
+    member from new Connect discovery and interaction flows. It is deliberately
+    separate from the coach exclusion so a voluntary break is never represented
+    as a moderation action.
     """
 
     user = models.OneToOneField(
@@ -190,6 +197,15 @@ class CrushConnectMembership(models.Model):
         blank=True,
         help_text=_(
             "Why this user was excluded (audit trail; never shown to the user)"
+        ),
+    )
+
+    paused_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
         ),
     )
 
@@ -470,11 +486,80 @@ class CrushConnectMembership(models.Model):
         state = "onboarded" if self.onboarded_at else "pending onboarding"
         if self.excluded_by_coach:
             state += " (excluded)"
+        elif self.is_paused:
+            state += " (paused)"
         return f"{self.user} — {state}"
 
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None and not self.excluded_by_coach
+
+    @property
+    def is_paused(self) -> bool:
+        return self.paused_at is not None
+
+    @property
+    def is_participating(self) -> bool:
+        """Whether the member is currently available for Connect activity."""
+        return self.is_onboarded and not self.is_paused
+
+    def pause(self) -> None:
+        """Hide the member from new Connect activity without losing setup.
+
+        The timestamp alone is not enough. ``MatchScore`` rows are a cache, and
+        the coach match surfaces (``coach_member_matches``,
+        ``coach_match_pairs``, the dashboard's strong-pair count) read that
+        cache directly, filtering counterparts only on profile verification and
+        activity — neither of which pausing touches. Leaving the rows behind
+        keeps a paused member on those pages indefinitely, since nothing is
+        scheduled to clean them: ``recalculate_match_scores`` is manual-only,
+        and the incidental cleanup only fires if some counterpart happens to
+        re-save their own matching fields. Dropping the rows here is what makes
+        "hidden from new Connect activity" true rather than aspirational.
+        """
+        if self.paused_at is None:
+            self.paused_at = timezone.now()
+            self.save(update_fields=["paused_at", "updated_at"])
+            self._delete_match_scores()
+
+    def reactivate(self) -> None:
+        """Resume Connect participation with the existing onboarding data.
+
+        Rebuilds the score cache rather than only clearing the flag. Two
+        separate holes would otherwise persist until an unrelated edit or a
+        manual command healed them: pairs a counterpart deleted while this
+        member was paused (their recalculation skips paused members and prunes
+        the pair as stale), and this member's own edits during the pause, which
+        returned early at the ``is_participating`` guard and were never scored.
+        """
+        if self.paused_at is not None:
+            self.paused_at = None
+            self.save(update_fields=["paused_at", "updated_at"])
+            self._rebuild_match_scores()
+
+    def _delete_match_scores(self) -> None:
+        """Drop every cached pair involving this member."""
+        from django.db.models import Q
+
+        from crush_lu.models.matching import MatchScore
+
+        MatchScore.objects.filter(
+            Q(user_a=self.user) | Q(user_b=self.user)
+        ).delete()
+
+    def _rebuild_match_scores(self) -> None:
+        """Recompute this member's pairs once the surrounding write lands.
+
+        Deferred to commit, matching how profile edits trigger it: the recompute
+        walks every onboarded member, and it must not run against a transaction
+        that may still roll back.
+        """
+        from django.db import transaction
+
+        from crush_lu.matching import update_match_scores_for_user
+
+        user = self.user
+        transaction.on_commit(lambda: update_match_scores_for_user(user))
 
     @property
     def active_gate_questions(self):

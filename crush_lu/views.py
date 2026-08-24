@@ -603,6 +603,7 @@ def dashboard(request):
             "connect_excluded": bool(
                 connect_membership and connect_membership.excluded_by_coach
             ),
+            "connect_paused": bool(connect_membership and connect_membership.is_paused),
             "connect_photo_consent": bool(
                 connect_membership and connect_membership.photo_share_consent
             ),
