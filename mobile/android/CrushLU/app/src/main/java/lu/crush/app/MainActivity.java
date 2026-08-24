@@ -3,6 +3,7 @@ package lu.crush.app;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -24,6 +25,8 @@ import android.widget.ProgressBar;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.browser.customtabs.CustomTabsClient;
+import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
@@ -399,8 +402,75 @@ public class MainActivity extends AppCompatActivity {
         return isInternal(Uri.parse(trimmed)) ? trimmed : null;
     }
 
+    /**
+     * Open the login handoff in a browser that is definitely not us.
+     *
+     * This used to be a bare {@code openExternal(ACTION_VIEW)}. That is fine
+     * only for as long as this app's App Links stay unverified: the handoff URL
+     * is {@code https://<appHost>/api/mobile/android/auth/handoff/}, and the
+     * manifest claims that host with {@code autoVerify="true"}. The moment
+     * assetlinks.json gains its android_app target and verification succeeds,
+     * an untargeted ACTION_VIEW can resolve straight back into this activity —
+     * which loads the handoff in the WebView, gets bounced to a login page,
+     * matches shouldStartNativeAuth again, and loops.
+     *
+     * A Custom Tab targets a concrete browser package, so it cannot resolve
+     * here no matter what this app claims. It is also what RFC 8252 appendix
+     * B.1 asks for: an in-app browser tab that shares the system browser's
+     * cookie jar and cannot be instrumented by the host app.
+     */
     private void startNativeAuth() {
-        openExternal(Uri.parse(LOGIN_HANDOFF_URL));
+        Uri handoff = Uri.parse(LOGIN_HANDOFF_URL);
+        String browserPackage = CustomTabsClient.getPackageName(this, null);
+        if (browserPackage != null) {
+            CustomTabsIntent customTab = new CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build();
+            customTab.intent.setPackage(browserPackage);
+            try {
+                customTab.launchUrl(this, handoff);
+                return;
+            } catch (ActivityNotFoundException | SecurityException exception) {
+                // Fall through to the explicit-browser path below.
+            }
+        }
+
+        Intent intent = new Intent(Intent.ACTION_VIEW, handoff);
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        String fallbackBrowser = resolveBrowserPackage();
+        if (fallbackBrowser != null) {
+            intent.setPackage(fallbackBrowser);
+        }
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException exception) {
+            // No browser at all. Nothing useful to do; leaving the WebView on
+            // the login page beats crashing, and the user can retry.
+        }
+    }
+
+    /**
+     * Any installed browser other than this app.
+     *
+     * Probes a neutral https URL rather than our own host: once App Links
+     * verify, this activity answers for {@code https://<appHost>} and would be
+     * the first result for its own domain. Our package is filtered out either
+     * way — belt and braces, because picking ourselves is exactly the loop this
+     * whole method exists to prevent.
+     */
+    private String resolveBrowserPackage() {
+        Intent probe = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.example.com"));
+        probe.addCategory(Intent.CATEGORY_BROWSABLE);
+        for (ResolveInfo candidate : getPackageManager().queryIntentActivities(probe, 0)) {
+            if (candidate.activityInfo == null) {
+                continue;
+            }
+            String candidatePackage = candidate.activityInfo.packageName;
+            if (candidatePackage != null && !candidatePackage.equals(getPackageName())) {
+                return candidatePackage;
+            }
+        }
+        return null;
     }
 
     /**

@@ -14,6 +14,21 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <!-- targetSdk 35 hides other packages by default, so without this the
+         browser lookup in startNativeAuth() returns nothing and the handoff
+         would fall back to an untargeted ACTION_VIEW — the very intent that can
+         resolve back into this app once its App Links verify. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
