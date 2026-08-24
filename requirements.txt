@@ -24,7 +24,7 @@ google-auth==2.56.3  # Required for Google Wallet API authentication
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
 google-analytics-data==0.23.0
-google-api-python-client==2.198.0
+google-api-python-client==2.199.0
 google-auth-oauthlib==1.4.0
 
 
@@ -47,19 +47,19 @@ python-magic-bin==0.4.14; sys_platform == 'win32'
 msal==1.37.0  # Updated from 1.31.1 (latest stable)
 
 # Production Server
-gunicorn==26.0.0
+gunicorn==26.1.0
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==7.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.52.3
+uvicorn[standard]==0.52.4
 
 # Utilities
-python-dotenv==1.2.2  # Updated from 1.0.1
+python-dotenv==1.2.3  # Updated from 1.0.1
 whitenoise==6.12.0  # Updated from 6.7.0 (security fix for autorefresh mode)
 requests==2.34.2
 httpx[http2]==0.28.1
 qrcode[pil]==8.2  # QR code generation for Journey Gifts
-reportlab==5.0.0  # Printable QR sheets (Advent + Crush Cache)
+reportlab==5.0.1  # Printable QR sheets (Advent + Crush Cache)
 
 
 # Push Notifications

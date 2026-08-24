@@ -16,7 +16,7 @@
     "format:check": "prettier --check \"**/*.{html,js,css}\""
   },
   "dependencies": {
-    "alpinejs": "^3.16.1",
+    "alpinejs": "^3.16.2",
     "htmx.org": "^2.0.10"
   },
   "devDependencies": {
