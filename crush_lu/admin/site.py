@@ -173,21 +173,18 @@ class CrushLuAdminSite(admin.AdminSite):
             # GROUP: Crush Connect (the LuxID-gated matchmaking product)
             # ═══════════════════════════════════════════════════════════════════
             'crushconnectmembership': {'order': 1, 'icon': '💞', 'group': 'Crush Connect'},  # onboarding
-            'connectdailydrop': {'order': 2, 'icon': '🎁', 'group': 'Crush Connect'},
-            'curiosityspark': {'order': 3, 'icon': '✨', 'group': 'Crush Connect'},
             'connectcoachpick': {'order': 4, 'icon': '🎯', 'group': 'Crush Connect'},
             'crushconnectwaitlist': {'order': 5, 'icon': '📋', 'group': 'Crush Connect'},
             'interest': {'order': 6, 'icon': '🏷️', 'group': 'Crush Connect'},
             'sparkprompt': {'order': 7, 'icon': '💬', 'group': 'Crush Connect'},
             'connectquestionweek': {'order': 8, 'icon': '📆', 'group': 'Crush Connect'},  # weekly Q&A rotation
             'connectquestion': {'order': 9, 'icon': '❓', 'group': 'Crush Connect'},
-            'connectquestionanswer': {'order': 10, 'icon': '💭', 'group': 'Crush Connect'},
             'confirmedencounter': {'order': 11, 'icon': '🤝', 'group': 'Crush Connect'},
             'confirmedencounterremovalrequest': {'order': 12, 'icon': '🚫', 'group': 'Crush Connect'},
             # Task 13.1: Connect 7-day cycle foundation (models only in this PR;
             # the week experience, chat and coffee-planner UX ship in 13.2-13.4)
             'connectweeksession': {'order': 13, 'icon': '🗓️', 'group': 'Crush Connect'},  # the 7-day cycle itself
-            'connectcyclecard': {'order': 14, 'icon': '🃏', 'group': 'Crush Connect'},  # daily 3-card drop
+            'connectcyclecard': {'order': 14, 'icon': '🃏', 'group': 'Crush Connect'},  # daily Connect Week card
             'connectweeklyrequest': {'order': 15, 'icon': '💌', 'group': 'Crush Connect'},  # "I want to meet you"
             'connecttemporarychat': {'order': 16, 'icon': '⏳', 'group': 'Crush Connect'},  # 7-day inactivity timer
             'connectchatmessage': {'order': 17, 'icon': '📨', 'group': 'Crush Connect'},
@@ -346,7 +343,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # SUPERUSER-ONLY GROUPS (dev / analytics / audit — hidden from coaches)
             # See SUPERUSER_ONLY_GROUPS below.
             # ───────────────────────────────────────────────────────────────────
-            # Matching engine (trait-based scoring behind Crush Connect Drops)
+            # Matching engine (trait-based Connect Week compatibility)
             'trait': {'order': 1, 'icon': '🧬', 'group': 'Matching'},
             'matchscore': {'order': 2, 'icon': '💯', 'group': 'Matching'},
 
@@ -462,7 +459,7 @@ class CrushLuAdminSite(admin.AdminSite):
                 # Order determines sidebar display order - organized by frequency of use
                 group_order = [
                     # === DAILY USE (Coach Core Workflow) ===
-                    ('💞 Crush Connect', 'Crush Connect'),             # Memberships, Drops, Sparks, Coach Picks
+                    ('💞 Crush Connect', 'Crush Connect'),             # Memberships, Connect Week, Coach Picks
                     ('👥 Users & Profiles', 'Users & Profiles'),       # Profile reviews, coach assignments
                     ('🎉 Events & Meetups', 'Events & Meetups'),       # Event management, registrations
                     ('💕 Connections', 'Connections'),                 # Post-event connections, messages

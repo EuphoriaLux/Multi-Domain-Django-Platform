@@ -10,7 +10,7 @@
             {% trans "Staff preview — not visible to members" %}
         </span>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-            {% trans "Crush Connect — Drop card preview" %}
+            {% trans "Crush Connect — candidate card preview" %}
         </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {% blocktrans with name=target.first_name|default:target.username pk=target.pk %}Previewing the card other members would see for {{ name }} (id={{ pk }}).{% endblocktrans %}
@@ -19,7 +19,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div>
-            {% include "crush_lu/crush_connect/_drop_card.html" %}
+            {% include "crush_lu/crush_connect/_candidate_card.html" %}
         </div>
 
         <aside class="text-sm text-gray-600 dark:text-gray-300 space-y-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl p-5 ring-1 ring-gray-200 dark:ring-slate-700">

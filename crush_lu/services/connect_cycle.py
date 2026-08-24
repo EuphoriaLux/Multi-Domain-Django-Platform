@@ -1,12 +1,11 @@
-"""
-Crush Connect — 7-Day Connect Cycle service layer (Epic 13 / Task 13.2).
+"""Crush Connect Week service layer.
 
 Builds the daily-card generation, 24h weekly review, one-or-none request,
 and recipient-inbox mechanics on top of the models PR #883 shipped
 (``crush_lu.models.crush_connect_cycle``) and the entitlement gate it added
 (``crush_lu.connect_phase.cycle_access_open``).
 
-Scope notes for this PR (see the PR description for the full Restrisiken list):
+Important design notes:
 
 - No model/schema changes. "Exactly one session in progress" and "exactly
   one non-terminal weekly request per session" are enforced here in
@@ -17,11 +16,9 @@ Scope notes for this PR (see the PR description for the full Restrisiken list):
   be proven by a test either — see the worktree-postgres memory).
 - Card questions reuse the *target's* existing 3 "Read-the-Photo" gate
   questions (``CrushConnectMembership.active_gate_questions``) instead of a
-  new question bank — on-brand with Today's Drop and avoids a second content
-  system. Guesses are recorded ONLY in ``ConnectCycleCard.answers_json`` and
-  NEVER touch ``ConnectQuestionAnswer`` / ``submit_gate_answers`` — playing a
-  Connect Week card must not fire a Today's-Drop match/Spark side effect.
-  This does mean the cycle pool is narrowed to targets who already picked
+  new question bank. Guesses are recorded only in
+  ``ConnectCycleCard.answers_json``; completing a card never creates a match,
+  message, or request. The pool is narrowed to targets who already picked
   their 3 gate questions (mirrors ``GATE_QUESTION_COUNT``).
 - Cross-cycle freshness ("never show the same person twice") is enforced by a
   dynamic query over past ``ConnectCycleCard`` rows, NOT a permanent
@@ -34,9 +31,8 @@ Scope notes for this PR (see the PR description for the full Restrisiken list):
 - Accepting a weekly request opens a ``ConnectTemporaryChat`` row so a
   follow-up PR has something to build the coffee-planning chat UI on top of.
   This PR ships no chat UI — accepting just confirms the match.
-- Daily-card selection is a simple seeded-deterministic sample (no
-  match-score/language/interest weighting like Today's Drop's
-  ``get_or_create_daily_drop``) — a documented simplification, not parity.
+- Daily-card selection is a seeded deterministic sample. Gender, age, identity,
+  consent, prior connections, blocks, and cycle exclusions remain hard gates.
 """
 
 from __future__ import annotations
@@ -92,10 +88,9 @@ def get_cycle_eligible_pool(user):
     """
     Users eligible to appear as one of ``user``'s Connect Week cards.
 
-    Requester gate: ``cycle_access_open`` (event-verified widens beyond the
-    Premium-only Today's Drop receiver track) + approved profile + onboarded
-    Connect membership. Unlike ``services.crush_connect.get_eligible_pool``,
-    this does NOT require Premium.
+    Requester gate: ``cycle_access_open`` + approved profile + onboarded
+    Connect membership. Unlike the coach-pick pool, this does not require
+    Premium.
 
     Candidate filters mirror ``get_eligible_pool``'s target side (verified,
     onboarded, not coach-excluded, photo-share consent, has a photo, active
@@ -143,9 +138,9 @@ def get_cycle_eligible_pool(user):
 
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
 
-    already_carded_ids = ConnectCycleCard.objects.filter(
-        session__user=user
-    ).values("target_user_id")
+    already_carded_ids = ConnectCycleCard.objects.filter(session__user=user).values(
+        "target_user_id"
+    )
 
     received_active_requester_ids = ConnectWeeklyRequest.objects.filter(
         recipient=user,
@@ -165,7 +160,7 @@ def get_cycle_eligible_pool(user):
 
     # A pair with any existing EventConnection (crush declared, connection
     # requested) is excluded from each other's cards, symmetrically — the
-    # Cycle doesn't carry Today's Drop's directional pre-`shared`-crush
+    # Connect Week doesn't carry the coach-pick pool's directional pre-`shared`-crush
     # exemption (no equivalent privacy concern here).
     existing_connection_subq = EventConnection.objects.filter(
         Q(requester=user, recipient=OuterRef("pk"))
@@ -429,8 +424,7 @@ def record_card_answer(card, guesses: dict):
     """Record a member's private guesses at one of today's cards.
 
     ``guesses`` is ``{question_id: bool}`` for the target's 3 gate questions.
-    Stored only on the card (never in ``ConnectQuestionAnswer``) — see the
-    module docstring. Also stores ``gate_align`` (0-3), used later to break
+    Stored only on the card. Also stores ``gate_align`` (0-3), used to break
     ties when picking the review's compatibility highlight.
     """
     from crush_lu.services.crush_connect import owner_gate_truths
@@ -486,7 +480,10 @@ def sync_request_state(weekly_request):
     the pair" guarantee. Atomicity makes a mid-write failure roll back to
     PENDING instead, so the next sync retries both writes together.
     """
-    from crush_lu.models.crush_connect_cycle import ConnectPairExclusion, ConnectWeeklyRequest
+    from crush_lu.models.crush_connect_cycle import (
+        ConnectPairExclusion,
+        ConnectWeeklyRequest,
+    )
 
     if (
         weekly_request.status == ConnectWeeklyRequest.Status.PENDING
@@ -506,16 +503,14 @@ def sync_request_state(weekly_request):
 def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
     """Whether ``requester`` may send their one weekly request to
     ``recipient`` from ``session``'s review. Returns ``(allowed, reason)`` —
-    reason is a machine code for the view layer, mirroring
-    ``services.crush_connect.can_send_spark``, including its "the card is an
-    immutable snapshot, re-check live eligibility before acting on it" rule —
+    reason is a machine code for the view layer. The card is an immutable
+    snapshot, so live eligibility is re-checked before acting on it —
     the completed card was pinned when it was generated; the recipient may
     have been rejected, coach-excluded, or unlinked LuxID since. Also
     re-checks ``is_assigned_coach_pair``: ``get_cycle_eligible_pool`` only
     excludes coach/member pairs at card-*generation* time, and a coach
     assignment made after that (the door assigns one on first attendance)
-    must retire the card, not just hide it from future pools — same
-    reasoning as ``can_send_spark``."""
+    must retire the card, not just hide it from future pools."""
     from crush_lu.models.crush_connect_cycle import ConnectPairExclusion
     from crush_lu.services.blocking import is_blocked_pair
     from crush_lu.services.crush_connect import (
@@ -574,15 +569,14 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
     builds on this row) and notifies the requester.
     Decline (explicit, ``accept=False``) -> always permanently excludes the
     pair; the requester is never told a decline happened (only that it's no
-    longer pending), matching Sparks' silent-decline privacy contract.
+    longer pending), preserving the product's silent-decline privacy contract.
 
     An accept where a block appeared, the requester lost catalogue
     eligibility (rejection, coach exclusion, LuxID unlink), or the pair
     became an assigned coach/client pair (a door check-in during the 24h
     response window), since the request was sent leaves the request
     untouched (still PENDING) rather than silently declining it — same
-    discipline as ``services.crush_connect.respond_to_spark``. Unlike an
-    explicit decline, this is often a transient/recoverable state
+    Unlike an explicit decline, this is often a transient/recoverable state
     (re-verify, re-link), so it must NOT write a permanent exclusion; the
     view layer's inbox listing (``get_pending_inbox``) already hides it from
     the recipient in the meantime, and this is the race-condition safety net
@@ -644,9 +638,7 @@ def get_pending_inbox(user):
     """The recipient's live pending weekly requests — sync-checked for 24h
     expiry, filtered against blocks and assigned-coach pairs, and hidden once
     the requester loses catalogue eligibility (rejection, coach exclusion,
-    LuxID unlink) since sending, mirroring
-    ``crush_connect_sparks_received``'s ``exclude_assigned_coach_pairs`` +
-    ``is_sender_eligible`` filters: accepting a request from someone who can
+    LuxID unlink) since sending. Accepting a request from someone who can
     no longer be reached on the platform, or who has since become the
     recipient's assigned coach/client, must not be offered."""
     from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
@@ -688,8 +680,7 @@ def get_pending_inbox(user):
 
 def _notify_weekly_request_received(weekly_request, request=None):
     """In-app bell only for this PR — no dedicated email template yet
-    (``request`` is accepted for signature symmetry with the Sparks
-    notifiers and future use, but unused). Restrisiko: a recipient who
+    (``request`` is accepted for future use, but unused). Restrisiko: a recipient who
     doesn't check the bell has no other way to learn a request is waiting."""
     try:
         from django.urls import reverse

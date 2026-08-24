@@ -2,7 +2,7 @@
 Admin for the peer-safety models.
 
 ``UserReportAdmin`` is the moderation queue: the ``status`` filter is the live
-work list (mirrors ``CuriositySparkAdmin``'s "accepted = coach queue" idiom). The
+work list for peer reports and blocks. The
 "Exclude reported user" action reuses the existing coach panic button
 (``CrushConnectMembership.excluded_by_coach``) rather than inventing a parallel
 exclusion mechanism. ``UserBlockAdmin`` is read-only oversight.
@@ -141,7 +141,6 @@ class UserBlockAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
-
     def has_delete_permission(self, request, obj=None):
         # Block enforcement depends on these rows — deleting one silently
         # re-enables contact. Unblocking is a deliberate user action, not an

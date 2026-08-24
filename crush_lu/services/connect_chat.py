@@ -441,7 +441,7 @@ def block_chat_partner(chat, user, *, escalate=False, details=""):
 
     Always: creates the app-wide ``UserBlock`` (via ``services.blocking.
     apply_block`` — same choke point ``views_moderation.block_user`` uses,
-    so the block reaches Sparks/EventConnections/coach picks too, not just
+    so the block reaches EventConnections/coach picks too, not just
     this chat), permanently excludes the pair from future Connect Cycle
     re-matching (``ConnectPairExclusion.exclude_pair``), and closes this
     chat (BLOCKED). Optionally (``escalate=True``) also files a

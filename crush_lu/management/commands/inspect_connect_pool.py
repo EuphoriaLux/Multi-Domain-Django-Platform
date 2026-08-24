@@ -2,8 +2,8 @@
 inspect_connect_pool — debug command for Crush Connect M1.
 
 Prints the eligible-pool size and the first ``--limit`` entries for the
-given user. Used during M1/M2 to sanity-check the pool definition before
-the Daily Drop and user-facing surfaces exist.
+given Premium member. It now reflects the candidate pool available to their
+coach for a human-curated pick.
 
 Usage::
 

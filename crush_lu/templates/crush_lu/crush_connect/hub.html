@@ -20,19 +20,16 @@
             {% if not membership.is_onboarded and not user.is_staff %}
                 {% trans "Complete your setup below. You are not visible in Connect until you explicitly finish onboarding." %}
             {% elif not connect_readiness.is_complete %}
-                {% trans "Complete the steps below to prepare your active Connect route and three daily suggestions." %}
-            {% elif is_receiver %}
-                {% trans "One Coach Pick a week — plus fresh faces in your Drop every morning. No feed, no games." %}
+                {% trans "Complete the steps below to prepare your Connect profile and weekly experience." %}
+            {% elif has_premium %}
+                {% trans "Connect Week for deliberate discovery, plus one human-curated Coach Pick each week." %}
             {% else %}
-                {% trans "You're in the mix. Coaches can pick you, Sparks can find you — no feed, no games." %}
+                {% trans "You're in the mix. Join Connect Week, and coaches can consider you for thoughtful matches." %}
             {% endif %}
         </p>
         {% comment %}
-        Premium members had no indication anywhere that they are Premium —
-        after paying, the hub looked identical apart from one line of hero
-        copy. Badge on the ENTITLEMENT (has_premium), not is_receiver: the two
-        diverge during the beta, and a member who has paid must see it either
-        way. Named coach included because that is what was bought.
+        Premium members need a clear entitlement badge and named coach because
+        the human curation layer is what they bought.
         NB {# … #} is single-line only in Django — a multi-line one renders
         straight onto the page.
         {% endcomment %}
@@ -70,9 +67,9 @@
     Connect feature surface is exposed until the existing opt-in gate is met.
     {% endcomment %}
     {% if membership.is_onboarded or user.is_staff %}
-    {# Coach's pick takes the hero slot for receivers when one is open. #}
+    {# Coach's pick takes the hero slot when one is open. #}
     {% if coach_pick %}
-    <a href="{% url 'crush_lu:crush_connect_home' %}"
+    <a href="{% url 'crush_lu:crush_connect_coach_pick' %}"
        class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline transition-all hover:-translate-y-0.5 active:scale-[0.98]">
         <div class="flex items-center gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/15 flex items-center justify-center shrink-0">
@@ -113,20 +110,7 @@
 
     <div class="grid grid-cols-2 gap-3">
 
-        {# Primary: Today's Drop (receivers) or Catalogue status (candidates) — full width. #}
-        {% if is_receiver %}
-        <a href="{% url 'crush_lu:crush_connect_home' %}"
-           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
-            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
-                {% include "shared/icons/star.html" with class="w-5 h-5 text-crush-purple" %}
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
-                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Up to three fresh faces, every morning at 06:00." %}</p>
-            </div>
-            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
-        </a>
-        {% else %}
+        {# Catalogue status and anonymous Read-the-Photo results. #}
         <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
            class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
@@ -134,16 +118,13 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the mix" %}</p>
-                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Discoverable, LuxID-verified — a coach can pick you any week." %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "See how people answered your three questions — anonymous totals only." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
-        {% endif %}
 
         {% comment %}
-        7-Day Connect Cycle (Task 13.2): daily cards + 24h weekly review, a
-        distinct surface from the algorithmic Drop above — event-verified
-        members get both.
+        Connect Week: daily cards plus one deliberate weekly request.
         {% endcomment %}
         {% if cycle_access %}
         <a href="{% url 'crush_lu:connect_week_home' %}"
@@ -160,11 +141,8 @@
         {% endif %}
 
         {% comment %}
-        Staff keep a way into Connect Week even though the tile above still
-        requires onboarding — mirrors the Today's Drop staff-preview link
-        right below, since _connect_week_access_blocker DOES fully bypass
-        onboarding for staff (same as _connect_access_blocker), so this is
-        the only UI path in for an unonboarded staff account.
+        Staff keep a way into Connect Week even though the tile above requires
+        onboarding; the week access blocker itself allows staff preview.
         {% endcomment %}
         {% if cycle_staff_preview %}
         <a href="{% url 'crush_lu:connect_week_home' %}"
@@ -174,39 +152,9 @@
         </a>
         {% endif %}
 
-        {% comment %}
-        Staff keep a way into Today's Drop even though the track above now
-        follows the real entitlement — the Drop page itself carries the
-        staff-preview banner explaining that the pool will be empty.
-        {% endcomment %}
-        {% if staff_preview %}
-        <a href="{% url 'crush_lu:crush_connect_home' %}"
-           class="col-span-2 flex items-center gap-2 rounded-xl ring-1 ring-dashed ring-amber-400/60 bg-amber-50/60 dark:bg-amber-500/10 px-3 py-2 no-underline hover:ring-amber-500 transition-all">
-            {% include "shared/icons/star.html" with class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" %}
-            <span class="text-xs font-medium text-amber-800 dark:text-amber-300">{% trans "Staff preview: open Today's Drop" %}</span>
-        </a>
-        {% endif %}
-
-        {# Sparks (with pending badge). #}
-        <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
-           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
-            <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
-                {% include "shared/icons/bell.html" with class="w-5 h-5 text-crush-purple" %}
-                {% if pending_sparks_count %}<span class="absolute -top-1.5 -right-1.5 badge badge-primary ring-2 ring-white dark:ring-slate-800">{{ pending_sparks_count }}</span>{% endif %}
-            </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your Sparks" %}</p>
-            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">
-                {% if pending_sparks_count %}
-                    {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you.{% plural %}{{ count }} people are curious about you.{% endblocktrans %}
-                {% else %}
-                    {% trans "Who read your photo well." %}
-                {% endif %}
-            </p>
-        </a>
-
         {# Connect profile editor. #}
         <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
-           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+           class="col-span-2 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
@@ -251,7 +199,7 @@
     <div class="mt-5 flex items-start gap-2.5">
         {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
         <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 mb-0">
-            {% trans "No public browsing. No one can search for you. Your card is only ever shown to a match your coach chose." %}
+            {% trans "No public browsing. No one can search for you. Your card is shown only in eligible Connect Week rounds and private coach curation." %}
         </p>
     </div>
 </div>

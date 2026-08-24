@@ -67,9 +67,8 @@ def premium_choose_coach(request):
     # Hand-picked testers (``CrushConnectWaitlist.selected_as_tester``) are the
     # deliberate exception: the funnel stays on for everyone else, so selecting
     # someone in the admin is the ONLY way to open self-serve purchase during the
-    # beta. Without this the flag was a dead end — it opens the receiver phase
-    # gate (``receiver_access_open``) while the entitlement gate still demands an
-    # active PremiumMembership the member had no way to buy.
+    # beta. The selected-tester flag also admits Connect Week; Premium itself
+    # remains the human coach-pick entitlement.
     if (
         getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False)
         and not pending

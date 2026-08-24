@@ -8,7 +8,7 @@ Usage:
     {% load crush_connect_tags %}
 
     {% if user|crush_connect_visible %}
-        <a href="{% url 'crush_lu:crush_connect_home' %}">Crush Connect</a>
+        <a href="{% url 'crush_lu:crush_connect_hub' %}">Crush Connect</a>
     {% endif %}
 """
 
@@ -43,10 +43,8 @@ def crush_connect_nav_visible(user):
     should be visible to this user.
 
     Stricter than ``crush_connect_visible``: shown only to Connect-onboarded
-    members, so the nav appears once someone is actually in — for BOTH tracks
-    (candidates and receivers) whenever the candidate track is open (beta or full
-    launch). The Drop link within routes a non-receiver to their catalogue
-    status, so beta candidates keep their Connect / Profile / Sparks navigation.
+    members, so the nav appears once someone is actually in whenever the
+    candidate track is open (beta or full launch).
     Staff bypass keeps internal review working before anyone has onboarded.
     """
     from crush_lu.connect_phase import candidate_access_open
@@ -66,48 +64,6 @@ def crush_connect_nav_visible(user):
         # hide the Connect link.
         return False
     return candidate_access_open()
-
-
-@register.filter
-def crush_connect_is_receiver(user):
-    """
-    True if this user is on the RECEIVER track (Today's Drop) right now, as
-    opposed to the CANDIDATE track (In the Mix).
-
-    Mirrors the view layer's source of truth — ``_user_can_receive_now``
-    (active ``PremiumMembership`` AND a phase that lets them receive) — so the
-    nav can never disagree with where a click actually lands.
-
-    Deliberately NO ``or user.is_staff``. Creating a ``CrushCoach`` grants
-    is_staff, so that bypass handed every coach a "Today's Drop" tab pointing at
-    a page ``get_eligible_pool`` always renders empty for them — it has no staff
-    bypass and gates on ``has_active_premium``. A coach without Premium is a
-    candidate and belongs on In the Mix. Whether staff may PREVIEW the Drop page
-    is a separate question, answered by ``_connect_access_blocker``.
-
-    Never branch a Connect track on ``assigned_coach`` either: a coach is also
-    assigned WITHOUT payment (the 0150 backfill,
-    ``assign_coach_on_first_attendance`` on first event check-in), so a
-    coach-based test offers Today's Drop to members whom
-    ``_connect_access_blocker`` then bounces to their catalogue status.
-
-    This lives here rather than in view context because the Connect sub-nav is a
-    shared partial — only ``crush_connect_hub`` supplies ``is_receiver``, so a
-    context variable would silently read as False on every other Connect page.
-    """
-    from crush_lu.views_crush_connect import _user_can_receive_now
-
-    if not user or not user.is_authenticated:
-        return False
-    try:
-        return bool(_user_can_receive_now(user))
-    except Exception:
-        # Same defensive stance as crush_connect_nav_visible: this runs DB
-        # queries (profile + PremiumMembership) during template rendering, and
-        # a backend fault must not 500 the page from the nav. Falling back to
-        # the candidate tab is the safe default — it points at the surface a
-        # non-receiver would be redirected to anyway.
-        return False
 
 
 @register.simple_tag

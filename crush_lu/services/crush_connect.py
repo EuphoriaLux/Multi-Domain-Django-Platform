@@ -1,15 +1,10 @@
-"""
-Crush Connect service layer.
+"""Crush Connect catalogue, question rotation, and coach-pick services.
 
-M1: eligible-pool query.
-M2: Daily Drop selection.
-Future: Spark send/quota (M5), mutual-spark transition (M6).
+Premium is the human curation layer: a member's assigned coach selects from
+their eligible catalogue pool. Connect Week cards are generated separately in
+``services.connect_cycle``; completing one never creates a match or message.
 
-The model is ASYMMETRIC: receiving a Drop requires Premium (assigned coach),
-but appearing in someone else's Drop does not. The candidate catalogue is
-gated by LuxID instead — government-eID identity is the ticket in.
-
-To be in *anyone's* pool a target must:
+To be in a coach's eligible pool a target must:
 - have a verified CrushProfile (verification_status='verified')
 - have a LuxID social account linked (the catalogue requirement)
 - have a CrushConnectMembership with onboarded_at set (Crush Connect is opt-in)
@@ -39,36 +34,21 @@ if TYPE_CHECKING:
 User = get_user_model()
 
 
-# Inactive members fall out of every Drop. The 30-day window matches the
-# product-owner spec confirmed during M1 review (2026-05-14). Centralised
-# so M2/M4 can read the same constant.
+# Inactive members fall out of the coach-pick pool. The 30-day window matches
+# the product-owner spec confirmed during M1 review (2026-05-14).
 CONNECT_INACTIVITY_WINDOW_DAYS = 30
+MATCHSCORE_NEUTRAL = 0.5  # fallback used by Connect Week compatibility highlights
 
-# Daily Drop sizing & boost. Tuneable here so M2 reflection can shift them
-# without changing call sites.
-DAILY_DROP_SIZE = 3
-NEW_MEMBER_BOOST = 1.5
-NEW_MEMBER_BOOST_WINDOW_DAYS = 30
-
-# Soft-signal boosts for Drop selection (all multiplicative and >= 1.0, so they
-# only ever lift a candidate, never zero them out). Gender/age stay the only
-# HARD filters (in get_eligible_pool); everything here just reweights the pool.
-SHARED_LANGUAGE_BOOST = 1.3  # any overlap in spoken languages
-INTEREST_OVERLAP_BOOST_PER = 0.1  # per shared interest …
-INTEREST_OVERLAP_CAP = 3  # … capped at 3 shared → max ×1.3
-MATCHSCORE_NEUTRAL = 0.5  # missing MatchScore pair → neutral 0.5
-
-# "Read-the-Photo" question-gated matching (M8/M9).
+# "Read-the-Photo" question catalogue.
 GATE_QUESTION_COUNT = 3  # each member picks exactly 3 gate questions
-GATE_ALIGN_MIN = 2  # ≥2 of 3 guesses matching truth = "read" them
 WEEKLY_CATALOGUE_SIZE = 12  # active questions surfaced in a week's set
 
 
 def filter_connect_identity_verified(qs: QuerySet) -> QuerySet:
     """Keep users whose current Connect identity gate is still satisfied.
 
-    This is shared by new-pool selection and persisted-Drop rendering. A Drop
-    is an immutable audit snapshot, but it must not keep exposing a member who
+    This is shared by new-pool selection and persisted Connect Week card
+    rendering. A card is an immutable audit snapshot, but it must not expose someone who
     has since unlinked LuxID or had their only attendance check-in undone.
 
     The attendance arm deliberately requires **coach-authenticated** attendance
@@ -154,8 +134,8 @@ def is_assigned_coach_pair(user_a, user_b) -> bool:
     Connect data, and holds ``is_staff``. Surfacing them to each other puts a
     romantic proposition on top of that asymmetry.
 
-    Checked in BOTH directions, because either side can be the one browsing:
-    the member receiving a Drop, or a Premium coach sending a Spark.
+    Checked in BOTH directions, because either side can be the member entering
+    Connect Week or the candidate considered in a private coach pick.
     """
     from crush_lu.models import CrushCoach
 
@@ -181,15 +161,14 @@ def assigned_coach_pair_user_ids(user) -> set:
     """User ids that may never form a romantic pair with ``user``.
 
     The set form of :func:`is_assigned_coach_pair`, and it has to stay
-    symmetric with it. Both directions matter, because a coach may hold their
-    own Premium and browse a Drop like any other member:
+    symmetric with it. Both directions matter, because a coach may also opt in
+    and enter Connect Week like any other member:
 
       - the ``CrushCoach`` assigned to ``user``, and
       - when ``user`` IS a coach, every member assigned to them.
 
-    Returned as ids so the same rule can be applied to ``User`` querysets
-    (the pool, a persisted Drop) and to ``CuriositySpark`` querysets (pending
-    Sparks the pair rule has to retire), the way ``blocked_user_ids`` is used.
+    Returned as ids so the same rule can be applied to catalogue and cycle
+    querysets, the way ``blocked_user_ids`` is used.
     """
     from crush_lu.models import CrushCoach, CrushProfile
 
@@ -220,15 +199,7 @@ def assigned_coach_pair_user_ids(user) -> set:
 
 
 def exclude_assigned_coach_pairs(qs, user, field="pk"):
-    """Drop ``user``'s coach/member counterparts from a queryset.
-
-    ``field`` selects the column holding the counterpart — ``pk`` for a
-    ``User`` queryset, ``sender_id`` for Sparks addressed to ``user``.
-
-    Applied to the live pool and again when rendering a persisted Drop: an
-    assignment made after the snapshot was pinned cannot retroactively change
-    what that snapshot contains.
-    """
+    """Exclude ``user``'s coach/member counterparts from a queryset."""
     pair_ids = assigned_coach_pair_user_ids(user)
     if not pair_ids:
         return qs
@@ -237,12 +208,11 @@ def exclude_assigned_coach_pairs(qs, user, field="pk"):
 
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
-    Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
+    Return candidates eligible for ``user``'s coach-curated Premium pick.
 
-    The requester must be eligible to RECEIVE (profile approved, PREMIUM =
-    active PremiumMembership, onboarded into Crush Connect, not
-    coach-excluded), otherwise an empty queryset. Candidates don't need
-    Premium — the catalogue requires LuxID + opt-in instead (asymmetric model).
+    The member must have an approved profile, active Premium membership, and
+    completed Connect onboarding. Candidates do not need Premium; they need
+    verified identity, Connect opt-in, consent, and mutual preferences.
 
     ``candidate_pk`` narrows the pool to a single candidate BEFORE the Python
     gender-preference step below — point lookups ("is X in the pool?") must use
@@ -256,7 +226,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     if user_profile is None or not user_profile.is_approved:
         return User.objects.none()
 
-    # Premium gate: receiving Drops requires an ACTIVE PremiumMembership.
+    # Premium gate: coach picks require an ACTIVE PremiumMembership.
     # assigned_coach alone is NOT the entitlement (backfill / attendance
     # auto-assign set it without payment).
     if not user_profile.has_active_premium:
@@ -264,7 +234,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
 
     user_membership = getattr(user, "crush_connect_membership", None)
     if user_membership is None or not user_membership.is_onboarded:
-        # Not opted in to Crush Connect yet — no Drop for them.
+        # Not opted in to Crush Connect yet — no coach-pick pool for them.
         return User.objects.none()
 
     # --- Target filters ------------------------------------------------------
@@ -295,15 +265,13 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
             # "Read-the-Photo": the clear photo is only ever shown to the curated
-            # few, and only for members who consented to that model. Members who
-            # onboarded under the old blurred contract (consent defaults False)
-            # are not surfaced until they re-consent.
+            # few, and only for members who consented to that model.
             crush_connect_membership__photo_share_consent=True,
             last_login__gte=inactivity_cutoff,
         )
         # "Read-the-Photo" needs a photo: photo_1 is optional for event
         # verification, so a member can be verified yet photoless — or clear
-        # their photo after onboarding. They must not be surfaced in Drops.
+        # their photo after onboarding. They must not be offered to a coach.
         .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
         .annotate(
             _has_connection=Exists(existing_connection_subq),
@@ -315,8 +283,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .select_related("crushprofile", "crush_connect_membership")
     )
     # LuxID OR attended in-person event satisfies identity verification for
-    # the candidate catalogue (Option B / Issue #539). Keep this predicate in
-    # one helper so persisted Drops re-check the exact same live state.
+    # the candidate catalogue (Option B / Issue #539).
     qs = filter_connect_identity_verified(qs)
 
     # A coach and their own assigned member are never candidates for each
@@ -374,81 +341,6 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     return qs.order_by("pk")
 
 
-# ---------------------------------------------------------------------------
-# Daily Drop selection
-# ---------------------------------------------------------------------------
-
-
-def _weight_for(
-    candidate,
-    *,
-    today,
-    viewer_languages,
-    viewer_interest_ids,
-    match_scores,
-) -> float:
-    """
-    Blended selection weight for a candidate:
-
-        weight = (0.5 + match_score) * language_boost * interest_boost * new_member_boost
-
-    - ``match_score``: cached Ideal-Crush ``MatchScore.score_final`` for the
-      (viewer, candidate) pair, in [0, 1]; a missing pair uses
-      ``MATCHSCORE_NEUTRAL`` (0.5). The ``0.5 + score`` term spans [0.5, 1.5]
-      and is *exactly* 1.0 at the neutral 0.5 — so a migrated member with no
-      MatchScore contributes the same base weight as the old flat 1.0.
-    - ``language_boost``: ``SHARED_LANGUAGE_BOOST`` when any spoken language
-      overlaps, else 1.0.
-    - ``interest_boost``: ``1 + 0.1 * min(overlap, 3)`` → 1.0 .. 1.3.
-    - ``new_member_boost``: unchanged ×``NEW_MEMBER_BOOST`` inside the window.
-
-    ``viewer_languages`` / ``viewer_interest_ids`` are frozensets and
-    ``match_scores`` is a ``{candidate_pk: score_final}`` dict — all precomputed
-    once by the caller so this stays a pure, allocation-light function.
-
-    Parity: an un-enriched member (empty languages/interests, missing
-    MatchScore) yields ``(0.5 + 0.5) * 1 * 1 * boost`` = exactly the old
-    ``1.0`` / ``1.5`` — behaviour is identical to before this change.
-    """
-    membership = getattr(candidate, "crush_connect_membership", None)
-    if membership is None or membership.onboarded_at is None:
-        # Shouldn't happen — eligible-pool filter already requires onboarded.
-        return 1.0
-
-    # A *missing* pair is neutral (0.5 → base 1.0); a *stored* score_final of 0
-    # is intentionally distinct (base 0.5, lower odds) — don't collapse them.
-    match_score = match_scores.get(candidate.pk, MATCHSCORE_NEUTRAL)
-
-    cand_languages = frozenset(membership.languages or [])
-    language_boost = (
-        SHARED_LANGUAGE_BOOST if (viewer_languages & cand_languages) else 1.0
-    )
-
-    cand_interest_ids = frozenset(
-        i.pk for i in membership.interests.all()
-    )  # prefetched
-    overlap = len(viewer_interest_ids & cand_interest_ids)
-    interest_boost = 1.0 + INTEREST_OVERLAP_BOOST_PER * min(
-        overlap, INTEREST_OVERLAP_CAP
-    )
-
-    days_since_onboarding = (
-        today - timezone.localtime(membership.onboarded_at).date()
-    ).days
-    new_member_boost = (
-        NEW_MEMBER_BOOST
-        if 0 <= days_since_onboarding <= NEW_MEMBER_BOOST_WINDOW_DAYS
-        else 1.0
-    )
-
-    return (
-        (MATCHSCORE_NEUTRAL + match_score)
-        * language_boost
-        * interest_boost
-        * new_member_boost
-    )
-
-
 def _seeded_weighted_pick(
     candidates: List["User"],
     weights: List[float],
@@ -484,97 +376,6 @@ def _seeded_weighted_pick(
     # we want max). Tiebreak by pk so result is deterministic.
     keyed.sort(key=lambda t: (-t[0], t[1]))
     return [cand for _, _, cand in keyed[:k]]
-
-
-def get_or_create_daily_drop(user, drop_date: date | None = None):
-    """
-    Idempotently return the user's ``ConnectDailyDrop`` for the given date.
-
-    First call for a (user, date) pair creates a snapshot by sampling up to
-    ``DAILY_DROP_SIZE`` users from ``get_eligible_pool(user)`` with new-member
-    boost. Subsequent calls return the same snapshot — refreshing the page
-    never re-rolls the Drop.
-
-    Returns ``None`` if the user isn't eligible for Connect at all (e.g. not
-    onboarded yet). M4 will translate this into the teaser/empty-state UI.
-    """
-    from crush_lu.models import ConnectDailyDrop, MatchScore
-
-    if drop_date is None:
-        # Drops unlock at 06:00 local time. Visiting between 00:00–05:59 should
-        # show the previous day's drop, not the upcoming one hours early.
-        now = timezone.localtime()
-        drop_date = (now - timedelta(days=1)).date() if now.hour < 6 else now.date()
-
-    try:
-        return ConnectDailyDrop.objects.get(user=user, drop_date=drop_date)
-    except ConnectDailyDrop.DoesNotExist:
-        pass
-
-    # Prefetch the candidates' interests so _weight_for's overlap math is in
-    # memory. The prefetch lives on the *caller's* queryset so it survives the
-    # Python gender-fallback rebuild inside get_eligible_pool.
-    pool_qs = get_eligible_pool(user).prefetch_related(
-        "crush_connect_membership__interests"
-    )
-    if not pool_qs.exists():
-        # Still record an empty Drop so we don't recompute the empty pool
-        # every page load and so coaches can see "no candidates" in admin.
-        with transaction.atomic():
-            drop, _created = ConnectDailyDrop.objects.get_or_create(
-                user=user, drop_date=drop_date
-            )
-        return drop
-
-    candidates = list(pool_qs)  # order_by("pk") preserved from get_eligible_pool
-
-    # --- Precompute the viewer's soft-signal inputs (once) ------------------
-    viewer_membership = getattr(user, "crush_connect_membership", None)
-    viewer_languages = frozenset(
-        (viewer_membership.languages or []) if viewer_membership else []
-    )
-    viewer_interest_ids = frozenset(
-        viewer_membership.interests.values_list("pk", flat=True)
-        if viewer_membership
-        else []
-    )
-
-    # One query for every cached MatchScore involving the viewer + pool. The
-    # store is symmetric (user_a.pk < user_b.pk), so normalise into
-    # {other_user_pk: score_final}; missing pairs fall back to neutral inside
-    # _weight_for.
-    pool_ids = [c.pk for c in candidates]
-    match_scores = {}
-    for row in MatchScore.objects.filter(
-        Q(user_a=user, user_b__in=pool_ids) | Q(user_b=user, user_a__in=pool_ids)
-    ).values("user_a_id", "user_b_id", "score_final"):
-        other = row["user_b_id"] if row["user_a_id"] == user.pk else row["user_a_id"]
-        match_scores[other] = row["score_final"]
-
-    weights = [
-        _weight_for(
-            c,
-            today=drop_date,
-            viewer_languages=viewer_languages,
-            viewer_interest_ids=viewer_interest_ids,
-            match_scores=match_scores,
-        )
-        for c in candidates
-    ]
-    seed = int.from_bytes(
-        hashlib.sha256(f"{user.pk}:{drop_date.isoformat()}".encode()).digest()[:8],
-        "big",
-    )
-
-    chosen = _seeded_weighted_pick(candidates, weights, DAILY_DROP_SIZE, seed)
-
-    with transaction.atomic():
-        drop, _created = ConnectDailyDrop.objects.get_or_create(
-            user=user, drop_date=drop_date
-        )
-        if not drop.recipients.exists():
-            drop.recipients.set(chosen)
-    return drop
 
 
 # ---------------------------------------------------------------------------
@@ -641,7 +442,7 @@ def active_week_questions(today: date | None = None):
 
 
 # ---------------------------------------------------------------------------
-# Curiosity Sparks (M5)
+# Catalogue and Premium eligibility
 # ---------------------------------------------------------------------------
 
 
@@ -649,18 +450,13 @@ def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
     verified profile WITH a photo + LuxID linked + onboarded (not
-    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS (same
-    gate as Drops). The photo arm matters since fast-track event
+    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS. The photo
+    arm matters since fast-track event
     verification made photo_1 optional: photoless members must not be
     readable, and a member who clears their photo after onboarding drops
     out at the next action point.
 
-    Drop snapshots and pending Sparks are immutable records — eligibility
-    lost AFTER they were created (rejection, LuxID unlink, exclusion,
-    inactivity) must be re-checked at every action point: sending a Spark
-    to them, listing their received Sparks, and accepting one. The
-    inactivity arm only ever bites the SEND side: a recipient acting on
-    the site has, by definition, just logged in.
+    Eligibility is re-checked whenever a coach pool or cycle card is built.
     """
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
@@ -678,24 +474,8 @@ def is_catalogue_eligible(user) -> bool:
     )
 
 
-def is_sender_eligible(user) -> bool:
-    """
-    Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
-    approved profile WITH a photo + active PremiumMembership + onboarded
-    (not excluded) + has given photo-share consent. The photo arm mirrors
-    catalogue eligibility: answering back exposes the sender's clear photo,
-    so a photoless sender has nothing to show on that surface.
-
-    Consent matters on the SEND side too now: reading a candidate exposes the
-    sender's clear photo to that candidate on the answer-back surface, so a
-    member who never consented (or revoked it) must not be able to send, be
-    listed as a pending Spark, or be accepted.
-
-    Like catalogue eligibility, this must be re-checked at accept time —
-    a sender who was rejected, lost their Premium coach, got coach-excluded, or
-    revoked photo consent after sending must not land in the accepted-sparks
-    coach queue via an old pending Spark.
-    """
+def is_premium_connect_eligible(user) -> bool:
+    """Whether ``user`` currently qualifies for a Premium coach pick."""
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
     return bool(
@@ -709,136 +489,6 @@ def is_sender_eligible(user) -> bool:
     )
 
 
-def can_send_spark(sender, recipient) -> Tuple[bool, str]:
-    """
-    Whether ``sender`` may send a Curiosity Spark to ``recipient``.
-
-    Returns ``(allowed, reason)`` — ``reason`` is a machine-readable code for
-    the view layer ("not_receiver", "not_surfaced", "already_sparked",
-    "recipient_unavailable", "blocked", "ok").
-
-    Rules (asymmetric model):
-    - Only Drop receivers (Premium + onboarded, not excluded) can send.
-    - Neither party may have blocked the other.
-    - The recipient must have actually appeared in one of the sender's Drops
-      (the ConnectDailyDrop snapshot is the audit trail).
-    - The recipient must STILL be catalogue-eligible — verified, LuxID
-      linked, onboarded, not coach-excluded. Drop snapshots are immutable,
-      so eligibility lost after surfacing (rejection, LuxID unlink) must be
-      re-checked here, not assumed from the snapshot.
-    - One Spark per pair, in either direction.
-    """
-    from crush_lu.models import ConnectDailyDrop, CuriositySpark
-    from crush_lu.services.blocking import is_blocked_pair
-
-    if not is_sender_eligible(sender):
-        return False, "not_receiver"
-
-    if is_blocked_pair(sender, recipient):
-        return False, "blocked"
-
-    # A coach and their own assigned member never surface to each other. This
-    # has to be re-checked here and not left to the pool: ConnectDailyDrop
-    # snapshots are immutable, so a pair that was surfaced BEFORE the coach
-    # assignment (the door assigns one on first attendance) would still pass
-    # the "was surfaced" test below. Reported as recipient_unavailable so the
-    # view layer needs no new reason branch.
-    if is_assigned_coach_pair(sender, recipient):
-        return False, "recipient_unavailable"
-
-    if not is_catalogue_eligible(recipient):
-        return False, "recipient_unavailable"
-
-    if not ConnectDailyDrop.objects.filter(user=sender, recipients=recipient).exists():
-        return False, "not_surfaced"
-
-    existing = CuriositySpark.objects.filter(
-        Q(sender=sender, recipient=recipient) | Q(sender=recipient, recipient=sender)
-    ).first()
-    if existing is not None:
-        # A reverse pending Spark means the recipient already read the sender and
-        # is waiting — the sender answering back is the "close the gate" path, not
-        # a duplicate. submit_gate_answers handles this specially.
-        if existing.sender_id == recipient.pk and existing.status == "pending":
-            return False, "answer_back"
-        return False, "already_sparked"
-
-    return True, "ok"
-
-
-def send_spark(sender, recipient, message: str = "", request=None, drop=None):
-    """
-    Create a Curiosity Spark and notify the recipient (in-app + email).
-
-    Raises ``ValueError`` when ``can_send_spark`` fails — callers should have
-    checked first; the raise is a safety net against race conditions.
-    """
-    from crush_lu.models import ConnectDailyDrop, CuriositySpark
-
-    allowed, reason = can_send_spark(sender, recipient)
-    if not allowed:
-        raise ValueError(reason)
-
-    if drop is None:
-        drop = (
-            ConnectDailyDrop.objects.filter(user=sender, recipients=recipient)
-            .order_by("-drop_date")
-            .first()
-        )
-    spark = CuriositySpark.objects.create(
-        sender=sender,
-        recipient=recipient,
-        drop=drop,
-        message=(message or "").strip(),
-    )
-    _notify_spark_received(spark, request=request)
-    return spark
-
-
-def respond_to_spark(spark, accept: bool, request=None):
-    """
-    Record the recipient's decision on a pending Spark.
-
-    Accept → sender is notified (in-app + email) and the pair lands in the
-    coach's accepted-sparks queue (admin) to arrange the date — the mutual
-    reveal itself is M6.
-    Decline → silent. The sender is never notified of a decline.
-    """
-    from crush_lu.services.blocking import is_blocked_pair
-
-    if spark.status != "pending":
-        return spark
-    if accept and (
-        is_blocked_pair(spark.sender, spark.recipient)
-        # A coach assignment made AFTER the Spark was created (the door
-        # assigns one on first attendance) must retire it, not just hide the
-        # card. Otherwise the member still sees a pending Spark from the
-        # person who is now their coach and can accept it.
-        or is_assigned_coach_pair(spark.sender, spark.recipient)
-        or not (
-            is_catalogue_eligible(spark.recipient) and is_sender_eligible(spark.sender)
-        )
-    ):
-        # Either party lost eligibility since the Spark was created
-        # (rejection, LuxID unlink, Premium loss, exclusion, coach
-        # assignment) or one blocked the other — an accept must not fire the
-        # mutual notification or land in the coach queue. Leave the Spark
-        # pending; the views filter these out, so this is the race-condition
-        # safety net.
-        return spark
-    spark.status = "accepted" if accept else "declined"
-    spark.responded_at = timezone.now()
-    spark.save(update_fields=["status", "responded_at"])
-    if accept:
-        _notify_spark_accepted(spark, request=request)
-    return spark
-
-
-# ---------------------------------------------------------------------------
-# Read-the-Photo answer gate (M9) — guesses drive the CuriositySpark state
-# ---------------------------------------------------------------------------
-
-
 def owner_gate_truths(profile_owner) -> dict:
     """``{question_id: owner_answer}`` for a member's current 3 gate questions."""
     membership = getattr(profile_owner, "crush_connect_membership", None)
@@ -847,277 +497,44 @@ def owner_gate_truths(profile_owner) -> dict:
     return {gq.question_id: gq.owner_answer for gq in membership.gate_questions.all()}
 
 
-def alignment_score(responder, profile_owner) -> int:
-    """
-    How many of ``responder``'s guesses match ``profile_owner``'s truth (0..3).
-
-    Reads the owner's current gate questions, so re-picking retires stale
-    alignment cleanly. Used only for the gate decision; the aggregate stat
-    (``gate_answer_stats``) counts every guess regardless of correctness.
-    """
-    from crush_lu.models import ConnectQuestionAnswer
-
-    truths = owner_gate_truths(profile_owner)
-    if not truths:
-        return 0
-    guesses = ConnectQuestionAnswer.objects.filter(
-        responder=responder,
-        profile_owner=profile_owner,
-        question_id__in=list(truths.keys()),
-    ).values_list("question_id", "answer")
-    return sum(1 for qid, ans in guesses if truths.get(qid) == ans)
-
-
-def submit_gate_answers(
-    responder,
-    profile_owner,
-    guesses: dict,
-    request=None,
-    drop_id=None,
-):
-    """
-    Record ``responder``'s guesses at ``profile_owner``'s 3 questions and advance
-    the match gate. ``guesses`` is ``{question_id: bool}``.
-
-    Returns ``(outcome, spark)`` where outcome is:
-      - ``"miss"``    — alignment < GATE_ALIGN_MIN; guesses recorded (feed the
-                        aggregate stat) but no match, the pair stays where it was.
-      - ``"sent"``    — first mover read the owner (≥ threshold) → pending Spark.
-      - ``"matched"`` — the responder answered back a reverse pending Spark and
-                        also read the owner → the pair is now accepted (mutual).
-
-    Two eligibility regimes, mirroring the asymmetric Spark model:
-      - FIRST MOVER (no Spark yet): only a Premium Drop-receiver may initiate, and
-        only on someone surfaced in their Drop — ``can_send_spark``.
-      - ANSWER-BACK (a reverse pending Spark exists): the responder is the
-        *recipient* of that Spark and may be a candidate-track member (never a
-        Drop-receiver), so gate by catalogue eligibility like ``respond_to_spark``.
-
-    Raises ``ValueError(reason)`` when the guess set is invalid or the pair may
-    not interact.
-    """
-    from crush_lu.models import ConnectDailyDrop, ConnectQuestionAnswer, CuriositySpark
-    from crush_lu.services.blocking import is_blocked_pair
-
-    truths = owner_gate_truths(profile_owner)
-    if len(truths) < GATE_QUESTION_COUNT:
-        raise ValueError("recipient_no_questions")
-    if set(guesses.keys()) != set(truths.keys()):
-        # The owner re-picked between page load and submit, or a tampered POST.
-        raise ValueError("invalid_answers")
-
-    forward = CuriositySpark.objects.filter(
-        sender=responder, recipient=profile_owner
-    ).first()
-    reverse = CuriositySpark.objects.filter(
-        sender=profile_owner, recipient=responder
-    ).first()
-    answering_back = reverse is not None and reverse.status == "pending"
-    surfacing_drop = None
-
-    if answering_back:
-        # Recipient of an existing Spark reading the sender back. Catalogue
-        # eligibility (candidates included); both parties must still be eligible.
-        if (
-            is_blocked_pair(responder, profile_owner)
-            # Same stale-Spark case as respond_to_spark: answering back is the
-            # other way to act on a pending Spark, so the pair rule has to
-            # cover it too or the coach/member match happens here instead.
-            or is_assigned_coach_pair(responder, profile_owner)
-            or not is_catalogue_eligible(responder)
-            or not is_sender_eligible(profile_owner)
-        ):
-            raise ValueError("recipient_unavailable")
-    elif forward is None:
-        # Brand-new interaction → first-mover (Premium receiver) rules.
-        allowed, reason = can_send_spark(responder, profile_owner)
-        if not allowed:
-            raise ValueError(reason)
-        # The first mover must have their OWN 3 questions, or the recipient could
-        # never answer back and the Spark would be unmatchable. Members onboarded
-        # before the question step have none until they redo it.
-        if len(owner_gate_truths(responder)) < GATE_QUESTION_COUNT:
-            raise ValueError("no_own_questions")
-        # One read per Drop: the rendered form carries its originating Drop id
-        # so a stale tab cannot spend a newer Drop that also contains this target.
-        if drop_id in (None, ""):
-            surfacing_drop = (
-                ConnectDailyDrop.objects.filter(
-                    user=responder, recipients=profile_owner
-                )
-                .order_by("-drop_date")
-                .first()
-            )
-        else:
-            try:
-                clean_drop_id = int(drop_id)
-            except (TypeError, ValueError):
-                raise ValueError("not_surfaced") from None
-            surfacing_drop = ConnectDailyDrop.objects.filter(
-                pk=clean_drop_id,
-                user=responder,
-                recipients=profile_owner,
-            ).first()
-            if surfacing_drop is None:
-                raise ValueError("not_surfaced")
-        if (
-            surfacing_drop is not None
-            and surfacing_drop.read_target_id
-            and surfacing_drop.read_target_id != profile_owner.pk
-        ):
-            raise ValueError("drop_read_used")
-    # else: forward Spark already exists → idempotent re-POST, no re-gating.
-
-    with transaction.atomic():
-        # Record the 3 guesses (idempotent on the unique constraint). Always
-        # recorded — even a miss counts toward the owner's anonymous aggregate
-        # stat, unless this transaction loses the Drop-read claim below.
-        ConnectQuestionAnswer.objects.bulk_create(
-            [
-                ConnectQuestionAnswer(
-                    responder=responder,
-                    profile_owner=profile_owner,
-                    question_id=qid,
-                    answer=bool(val),
-                )
-                for qid, val in guesses.items()
-            ],
-            ignore_conflicts=True,
-        )
-
-        # Consume the Drop's one read (first-mover only). The isnull filter makes
-        # first-write-win under concurrent submissions; a losing request for a
-        # different card aborts before scoring or sending a Spark.
-        if surfacing_drop is not None:
-            claimed = ConnectDailyDrop.objects.filter(
-                pk=surfacing_drop.pk, read_target__isnull=True
-            ).update(read_target_id=profile_owner.pk, read_at=timezone.now())
-            if not claimed:
-                read_target_id = (
-                    ConnectDailyDrop.objects.filter(pk=surfacing_drop.pk)
-                    .values_list("read_target_id", flat=True)
-                    .first()
-                )
-                if read_target_id != profile_owner.pk:
-                    raise ValueError("drop_read_used")
-
-        # Score against the PERSISTED guesses (the first ones — the unique
-        # constraint locks them in), so a re-POST with better answers can't retry
-        # a missed read.
-        alignment = alignment_score(responder, profile_owner)
-
-        if answering_back:
-            if alignment >= GATE_ALIGN_MIN:
-                respond_to_spark(reverse, accept=True, request=request)
-                return "matched", reverse
-            # Answered back but misread — no match; the Spark stays pending, silent.
-            return "miss", reverse
-
-        if forward is not None:
-            # Idempotent re-POST after a prior read: report the pair's current state.
-            return ("matched" if forward.status == "accepted" else "sent"), forward
-
-        if alignment < GATE_ALIGN_MIN:
-            # Silent miss — the first mover didn't read the owner well enough to reach
-            # out. No Spark, no notification; guesses still feed the stat.
-            return "miss", None
-
-        # First mover clears the bar → open a pending Spark toward the owner.
-        spark = send_spark(
-            responder, profile_owner, request=request, drop=surfacing_drop
-        )
-        return "sent", spark
-
-
 def gate_answer_stats(user) -> dict:
     """
-    Anonymous aggregate of how people guessed each of ``user``'s gate questions.
+    Anonymous aggregate of how Connect Week members guessed ``user``'s current
+    gate questions.
 
     Returns ``{question_id: {"yes": int, "total": int}}`` — never per-responder
-    identity. Powers the "8 of 12 think you work in Finance" viral stat.
+    identity. Completed cards keep private guesses in ``answers_json`` for this
+    aggregation only. Question ids that are no longer part of the member's
+    current three are ignored.
     """
-    from django.db.models import Count
+    from crush_lu.models import ConnectCycleCard
 
-    from crush_lu.models import ConnectQuestionAnswer
+    current_question_ids = set(owner_gate_truths(user))
+    stats = {
+        question_id: {"yes": 0, "total": 0} for question_id in current_question_ids
+    }
+    if not current_question_ids:
+        return stats
 
-    rows = (
-        ConnectQuestionAnswer.objects.filter(profile_owner=user)
-        .values("question_id")
-        .annotate(
-            yes=Count("id", filter=Q(answer=True)),
-            total=Count("id"),
-        )
-    )
-    return {r["question_id"]: {"yes": r["yes"], "total": r["total"]} for r in rows}
-
-
-def _notify_spark_received(spark, request=None):
-    """In-app bell + email to the recipient. Never blocks the send flow."""
-    try:
-        from django.urls import reverse
-        from django.utils.translation import gettext as _g
-
-        from crush_lu.models import Notification
-
-        Notification.objects.create(
-            user=spark.recipient,
-            notification_type="connect_spark_received",
-            title=_g("Someone is curious about you"),
-            body=_g(
-                "A Crush Connect member sent you a Curiosity Spark. "
-                "Take a look and decide."
-            ),
-            link_url=reverse("crush_lu:crush_connect_sparks_received"),
-            metadata={"spark_id": spark.pk},
-        )
-    except Exception:  # pragma: no cover - notification must never block
-        import logging
-
-        logging.getLogger(__name__).exception("Spark-received notification failed")
-    if request is not None:
-        try:
-            from crush_lu.email_helpers import send_connect_spark_received_email
-
-            send_connect_spark_received_email(spark, request)
-        except Exception:  # pragma: no cover
-            import logging
-
-            logging.getLogger(__name__).exception("Spark-received email failed")
-
-
-def _notify_spark_accepted(spark, request=None):
-    """In-app bell + email to the sender on acceptance."""
-    try:
-        from django.urls import reverse
-        from django.utils.translation import gettext as _g
-
-        from crush_lu.models import Notification
-
-        Notification.objects.create(
-            user=spark.sender,
-            notification_type="connect_spark_accepted",
-            title=_g("It's mutual!"),
-            body=_g(
-                "%(name)s is curious about you too. Your Crush Coach will "
-                "be in touch to arrange your date."
-            )
-            % {"name": spark.recipient.first_name or _g("Your match")},
-            link_url=reverse("crush_lu:crush_connect_home"),
-            metadata={"spark_id": spark.pk},
-        )
-    except Exception:  # pragma: no cover
-        import logging
-
-        logging.getLogger(__name__).exception("Spark-accepted notification failed")
-    if request is not None:
-        try:
-            from crush_lu.email_helpers import send_connect_spark_accepted_email
-
-            send_connect_spark_accepted_email(spark, request)
-        except Exception:  # pragma: no cover
-            import logging
-
-            logging.getLogger(__name__).exception("Spark-accepted email failed")
+    payloads = ConnectCycleCard.objects.filter(
+        target_user=user,
+        is_completed=True,
+    ).values_list("answers_json", flat=True)
+    for payload in payloads.iterator(chunk_size=500):
+        guesses = (payload or {}).get("guesses", {})
+        if not isinstance(guesses, dict):
+            continue
+        for raw_question_id, answer in guesses.items():
+            try:
+                question_id = int(raw_question_id)
+            except (TypeError, ValueError):
+                continue
+            if question_id not in current_question_ids or not isinstance(answer, bool):
+                continue
+            stats[question_id]["total"] += 1
+            if answer:
+                stats[question_id]["yes"] += 1
+    return stats
 
 
 # ---------------------------------------------------------------------------
@@ -1169,7 +586,7 @@ def propose_coach_pick(coach, member, candidate, note: str = ""):
     member_profile = getattr(member, "crushprofile", None)
     if member_profile is None or member_profile.assigned_coach_id != coach.pk:
         raise ValueError("not_your_member")
-    if not is_sender_eligible(member):
+    if not is_premium_connect_eligible(member):
         raise ValueError("member_not_ready")
     if not get_eligible_pool(member, candidate_pk=candidate.pk).exists():
         raise ValueError("candidate_not_eligible")
@@ -1195,7 +612,7 @@ def propose_coach_pick(coach, member, candidate, note: str = ""):
             body=_g(
                 "Take a look and decide — accept and your coach arranges the date."
             ),
-            link_url=reverse("crush_lu:crush_connect_home"),
+            link_url=reverse("crush_lu:crush_connect_coach_pick"),
             metadata={"pick_id": pick.pk},
         )
     except Exception:  # pragma: no cover
@@ -1216,7 +633,7 @@ def respond_to_coach_pick(pick, accept: bool):
         member_profile is not None and pick.coach_id == member_profile.assigned_coach_id
     )
     if accept and not (
-        is_sender_eligible(pick.member)
+        is_premium_connect_eligible(pick.member)
         and coach_is_current
         # Full pool re-check, not just catalogue eligibility: an
         # EventConnection created since the proposal, or changed mutual

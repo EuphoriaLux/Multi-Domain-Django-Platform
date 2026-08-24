@@ -37,7 +37,7 @@
             <li class="flex items-start gap-3">
                 <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">2</span>
                 <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
-                    {% trans "Once a week, their pick takes over your Drop as the hero card — with a note explaining why this person, for you." %}
+                    {% trans "Once a week, their pick appears with a note explaining why this person may suit you." %}
                 </p>
             </li>
             <li class="flex items-start gap-3">
@@ -50,8 +50,8 @@
     </div>
 
     <div class="text-center mb-2">
-        {% if is_receiver %}
-        <a href="{% url 'crush_lu:crush_connect_home' %}" class="btn-crush-primary inline-flex items-center gap-2">
+        {% if has_premium %}
+        <a href="{% url 'crush_lu:crush_connect_coach_pick' %}" class="btn-crush-primary inline-flex items-center gap-2">
             {% trans "See this week's pick" %}
             {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
         </a>

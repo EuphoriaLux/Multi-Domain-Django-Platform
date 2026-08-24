@@ -11,7 +11,7 @@ Usage:
     python manage.py enrich_staging_candidates --all
 
     # Enrich existing candidates and ensure at least 16 realistic candidates exist:
-    python manage.py enrich_staging_candidates --create-missing 16 --refresh-drops
+    python manage.py enrich_staging_candidates --create-missing 16
 
     # Leave 3 candidates in pending review for testing Coach approval flows:
     python manage.py enrich_staging_candidates --leave-pending 3
@@ -39,10 +39,7 @@ from crush_lu.models.crush_connect import (
 )
 from crush_lu.models.crush_connect_questions import MemberGateQuestion
 from crush_lu.models.profiles import CrushCoach, UserDataConsent
-from crush_lu.services.crush_connect import (
-    get_or_create_daily_drop,
-    get_or_create_question_week,
-)
+from crush_lu.services.crush_connect import get_or_create_question_week
 from crush_lu.utils.image_processing import process_uploaded_image
 
 try:
@@ -428,11 +425,6 @@ class Command(BaseCommand):
             help="Leave N profiles in pending review state so coaches can test approval flows",
         )
         parser.add_argument(
-            "--refresh-drops",
-            action="store_true",
-            help="Regenerate today's daily drops for all receiver accounts",
-        )
-        parser.add_argument(
             "--password",
             default=None,
             help=(
@@ -585,24 +577,6 @@ class Command(BaseCommand):
                     password=options["password"],
                 )
                 enriched_count += 1
-
-        # 4. Refresh Daily Drops if requested
-        if options["refresh_drops"] and not dry_run:
-            self.stdout.write(
-                "\nRefreshing Daily Drops for Premium receiver accounts..."
-            )
-            receivers = User.objects.filter(
-                username__startswith="connect_premium_"
-            ) | User.objects.filter(username="debug_receiver")
-            for receiver in receivers:
-                try:
-                    drop = get_or_create_daily_drop(receiver)
-                    cards = list(drop.recipients.values_list("email", flat=True))
-                    self.stdout.write(
-                        f"  Drop for {receiver.email}: {len(cards)} candidates ({', '.join(cards)})"
-                    )
-                except Exception as exc:
-                    self.stderr.write(f"  Drop failed for {receiver.email}: {exc}")
 
         self.stdout.write("\n" + "=" * 60)
         self.stdout.write(

@@ -342,7 +342,7 @@ def test_send_weekly_request_requires_completed_card():
 def test_can_send_weekly_request_rejects_ineligible_recipient():
     """A completed card is an immutable snapshot — the target may have lost
     catalogue eligibility (here: coach-excluded) since it was generated.
-    Mirrors can_send_spark's recipient re-check."""
+    Covers the live recipient eligibility re-check."""
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, _card = _reviewable_session_with_card(me, target)
@@ -380,7 +380,7 @@ def test_can_send_weekly_request_rejects_assigned_coach_pair():
     """get_cycle_eligible_pool only excludes coach/member pairs at
     card-generation time; a coach assignment made after (a door check-in
     during the review window) must retire the completed card too, not just
-    hide it from future pools. Mirrors can_send_spark's re-check."""
+    hide it from future pools. Covers the live pair-safety re-check."""
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, _card = _reviewable_session_with_card(me, target)
@@ -420,7 +420,6 @@ def test_send_weekly_request_enforces_one_or_none():
 
     req = send_weekly_request(session, me, t1)
     assert req.status == ConnectWeeklyRequest.Status.PENDING
-
     with pytest.raises(ValueError, match="already_sent"):
         send_weekly_request(session, me, t2)
 
@@ -444,7 +443,7 @@ def test_respond_accept_leaves_pending_when_requester_lost_eligibility():
     """An accept must NOT fall through to the decline branch when the
     requester lost eligibility since sending (coach exclusion here) — that
     would permanently exclude the pair over what's often a recoverable,
-    transient state. Mirrors respond_to_spark's discipline."""
+    transient state. The response must remain atomic."""
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, _card = _reviewable_session_with_card(me, target)
@@ -590,7 +589,7 @@ def test_get_pending_inbox_excludes_resolved_and_blocked():
 def test_get_pending_inbox_excludes_ineligible_requester():
     """A pending request from a requester who has since lost catalogue
     eligibility (coach-excluded here) must not be offered for accept —
-    mirrors is_sender_eligible filtering in crush_connect_sparks_received."""
+    mirrors the live catalogue eligibility re-check."""
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, _card = _reviewable_session_with_card(me, target)
@@ -607,7 +606,7 @@ def test_get_pending_inbox_excludes_ineligible_requester():
 def test_get_pending_inbox_excludes_assigned_coach_pair():
     """A coach assignment made during the 24h response window must hide the
     request from the inbox listing too, not just block the accept action —
-    mirrors crush_connect_sparks_received's exclude_assigned_coach_pairs."""
+    mirrors the shared assigned-coach pair exclusion."""
     me = _make_cycle_user("me")
     target = _make_cycle_user("target")
     session, _card = _reviewable_session_with_card(me, target)

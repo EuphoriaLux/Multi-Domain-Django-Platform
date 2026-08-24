@@ -1,0 +1,57 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Coach's Pick — Crush Connect" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-3xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+    <header class="mb-7">
+        <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
+            {% trans "Premium · Human-curated" %}
+        </p>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Your Coach's Pick" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-md">
+            {% trans "One person chosen personally by your coach, with a note explaining why." %}
+        </p>
+    </header>
+
+    {% if coach_pick %}
+        {% include "crush_lu/crush_connect/_candidate_card.html" with target=coach_pick.candidate target_profile=coach_pick.candidate.crushprofile target_membership=coach_pick.candidate.crush_connect_membership can_moderate=True %}
+        {% if coach_pick.note %}
+        <div class="mt-4 rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200/70 dark:ring-slate-700/60 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-crush-purple dark:text-crush-pink mb-2">
+                {% blocktrans with name=coach_pick.coach.user.first_name %}Why {{ name }} picked them for you{% endblocktrans %}
+            </p>
+            <p class="text-[15px] leading-relaxed text-gray-700 dark:text-gray-200 italic mb-0">&ldquo;{{ coach_pick.note }}&rdquo;</p>
+        </div>
+        {% endif %}
+        <form method="post" action="{% url 'crush_lu:crush_connect_pick_respond' coach_pick.pk %}" class="mt-4 flex items-center gap-3">
+            {% csrf_token %}
+            <button type="submit" name="action" value="accept" class="btn-crush-primary flex-1">
+                {% trans "Yes — arrange a date" %}
+            </button>
+            <button type="submit" name="action" value="decline" class="btn-crush-outline flex-1">
+                {% trans "Not for me" %}
+            </button>
+        </form>
+        <p class="mt-5 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+            {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
+            <span>{% trans "Accept and your Crush Coach contacts the candidate personally to confirm interest and arrange your date." %}</span>
+        </p>
+    {% else %}
+        <div class="text-center py-14 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "Your coach is choosing carefully." %}
+            </h2>
+            <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-6">
+                {% trans "There is no open pick right now. Your coach will place one here when a suitable person is ready." %}
+            </p>
+            <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-outline btn-sm inline-flex items-center gap-1.5">
+                {% trans "Back to Crush Connect" %}
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

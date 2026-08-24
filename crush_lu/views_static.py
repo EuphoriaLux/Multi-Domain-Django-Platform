@@ -204,12 +204,12 @@ def crush_coach(request):
 
 def crush_connect_teaser(request):
     """Crush Connect teaser page with waitlist."""
-    from crush_lu.connect_phase import candidate_access_open, receiver_access_open
+    from crush_lu.connect_phase import candidate_access_open, cycle_access_open
 
     # Fast-path: if the candidate track is open (full launch OR beta) and the
-    # visitor can actually use it, send them past the teaser. Two tracks
-    # (asymmetric model): Premium receivers land on Today's Drop, LuxID
-    # candidates on the catalogue status page; either onboards first if needed.
+    # visitor can actually use it, send them past the teaser. Onboarded members
+    # enter Connect Week when their beta phase allows it; otherwise they see
+    # their catalogue status and anonymous results.
     # Staff are never auto-redirected so they can still preview the teaser itself.
     if (
         request.user.is_authenticated
@@ -222,16 +222,8 @@ def crush_connect_teaser(request):
             excluded = membership and membership.excluded_by_coach
             if not excluded:
                 onboarded = bool(membership and membership.is_onboarded)
-                if (
-                    onboarded
-                    and profile.has_active_premium
-                    and receiver_access_open(request.user)
-                ):
-                    # Onboarded Premium receiver → their Drop (grandfathered;
-                    # receiving Drops doesn't require LuxID). During the beta this
-                    # also requires being a selected tester; other Premium members
-                    # fall through to the candidate catalogue below.
-                    return redirect("crush_lu:crush_connect_home")
+                if onboarded and cycle_access_open(request.user):
+                    return redirect("crush_lu:connect_week_home")
                 if onboarded and profile.is_connect_identity_verified:
                     # Onboarded candidate (LuxID or attended event) → catalogue status.
                     return redirect("crush_lu:crush_connect_catalogue_status")

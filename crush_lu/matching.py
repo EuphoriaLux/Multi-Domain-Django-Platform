@@ -607,8 +607,8 @@ def update_match_scores_for_user(user):
 
     Trait matching is Crush Connect-only: a user who hasn't opted in (no
     onboarded ``CrushConnectMembership``) gets no MatchScore rows. The Crush
-    Connect Drop weighting treats a missing pair as neutral, so absent scores
-    are safe.
+    Connect Week compatibility treats a missing pair as neutral, so absent
+    scores are safe.
 
     Convention: user_a.pk < user_b.pk to avoid duplicates.
 

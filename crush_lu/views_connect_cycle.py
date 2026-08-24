@@ -46,11 +46,10 @@ def _connect_week_access_blocker(user):
     """``None`` when the user may access the Connect Week surfaces (home,
     cards, review, sending a request), otherwise the redirect to send them.
 
-    Gated by ``cycle_access_open`` — deliberately NOT ``candidate_access_open``
-    or ``receiver_access_open``: the Cycle's beta rule widens to event-verified
+    Gated by ``cycle_access_open`` rather than only ``candidate_access_open``.
+    The Connect Week beta rule admits event-verified
     members without requiring Premium (see ``connect_phase.cycle_access_open``
-    docstring). Mirrors ``views_crush_connect._connect_access_blocker``'s
-    shape otherwise: staff bypass, coach-exclusion and onboarding checks.
+    docstring), then applies staff bypass, coach-exclusion, and onboarding checks.
     """
     if user.is_staff:
         return None
@@ -291,7 +290,7 @@ def connect_week_inbox(request):
     Reachable by any catalogue-eligible member — deliberately NOT gated by
     ``cycle_access_open``: the trust table lets a LuxID-only member (who
     can't browse or send from the Cycle) still accept a request and chat.
-    Mirrors ``crush_connect_sparks_received``'s gate exactly.
+    Uses the same eligibility and privacy gate as the rest of Connect Week.
     """
     from crush_lu.services.crush_connect import is_catalogue_eligible
 

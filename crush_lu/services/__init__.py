@@ -9,7 +9,6 @@ from .blocking import (
     block_exists_subquery,
     blocked_user_ids,
     cancel_legacy_sparks,
-    decline_active_sparks,
     is_blocked_pair,
     purge_user_from_connect_queues,
     terminate_active_connections,
@@ -24,7 +23,7 @@ from .credits import (
     settle_pending_resale_credit,
     void_credit,
 )
-from .crush_connect import get_eligible_pool, get_or_create_daily_drop
+from .crush_connect import get_eligible_pool
 from .crush_leads import call_by, coach_action_queue, reminder_due
 from .echo_lu import (
     EchoLuClient,
@@ -50,7 +49,6 @@ __all__ = [
     'sync_event',
     'withdraw_event',
     'get_eligible_pool',
-    'get_or_create_daily_drop',
     'call_by',
     'coach_action_queue',
     'reminder_due',
@@ -59,7 +57,6 @@ __all__ = [
     'is_blocked_pair',
     'terminate_active_connections',
     'withdraw_active_coach_picks',
-    'decline_active_sparks',
     'purge_user_from_connect_queues',
     'cancel_legacy_sparks',
     # Crush Credit

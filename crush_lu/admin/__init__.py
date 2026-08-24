@@ -190,15 +190,12 @@ from .event_polls import (
 )
 
 from .crush_connect import (
-    ConnectDailyDropAdmin,
     InterestAdmin,
     ConnectQuestionAdmin,
-    ConnectQuestionAnswerAdmin,
     ConnectQuestionWeekAdmin,
     CrushConnectMembershipAdmin,
     CrushConnectWaitlistAdmin,
     ConnectCoachPickAdmin,
-    CuriositySparkAdmin,
     SparkPromptAdmin,
     ConnectWeekSessionAdmin,
     ConnectCycleCardAdmin,
@@ -326,12 +323,9 @@ from crush_lu.models import (
     EventPollOption,
     EventPollVote,
     ConnectCoachPick,
-    ConnectDailyDrop,
     Interest,
     ConnectQuestion,
-    ConnectQuestionAnswer,
     ConnectQuestionWeek,
-    CuriositySpark,
     CrushConnectMembership,
     CrushConnectWaitlist,
     SparkPrompt,
@@ -496,17 +490,14 @@ crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
 
-# Crush Connect (Waitlist, Drops, and 7-Day Cycle System)
+# Crush Connect (Waitlist, catalogue, coach picks, and Connect Week)
 crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 crush_admin_site.register(CrushConnectMembership, CrushConnectMembershipAdmin)
-crush_admin_site.register(ConnectDailyDrop, ConnectDailyDropAdmin)
 crush_admin_site.register(SparkPrompt, SparkPromptAdmin)
 crush_admin_site.register(Interest, InterestAdmin)
-crush_admin_site.register(CuriositySpark, CuriositySparkAdmin)
 crush_admin_site.register(ConnectCoachPick, ConnectCoachPickAdmin)
 crush_admin_site.register(ConnectQuestion, ConnectQuestionAdmin)
 crush_admin_site.register(ConnectQuestionWeek, ConnectQuestionWeekAdmin)
-crush_admin_site.register(ConnectQuestionAnswer, ConnectQuestionAnswerAdmin)
 crush_admin_site.register(ConnectWeekSession, ConnectWeekSessionAdmin)
 crush_admin_site.register(ConnectCycleCard, ConnectCycleCardAdmin)
 crush_admin_site.register(ConnectWeeklyRequest, ConnectWeeklyRequestAdmin)
@@ -716,10 +707,8 @@ __all__ = [
     # Crush Connect
     'CrushConnectWaitlistAdmin',
     'CrushConnectMembershipAdmin',
-    'ConnectDailyDropAdmin',
     'InterestAdmin',
     'SparkPromptAdmin',
-    'CuriositySparkAdmin',
     'ConnectCoachPickAdmin',
     'ConnectCycleFeedbackAdmin',
 

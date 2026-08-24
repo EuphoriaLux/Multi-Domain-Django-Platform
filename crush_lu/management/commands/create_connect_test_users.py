@@ -3,21 +3,20 @@ Create perfectly-wired Crush Connect test users for staging.
 
 Two roles are created:
 
-  connect_premium_N@crush.lu   — Premium members (drop RECEIVERS)
+  connect_premium_N@crush.lu   — Premium members with coach-pick eligibility
     Verified profile + assigned coach + Crush Connect onboarded.
-    Satisfies is_sender_eligible() so they get a daily drop.
+    Satisfies the Premium coach-pick gate.
 
-  connect_candidate_N@crush.lu — Catalogue candidates (appear IN drops)
+  connect_candidate_N@crush.lu — Catalogue and Connect Week candidates
     Verified profile + LuxID social account + Crush Connect onboarded.
-    Satisfies is_catalogue_eligible() so they surface in others' drops.
+    Satisfies is_catalogue_eligible().
 
-All users are wired so that get_eligible_pool() returns results and
-get_or_create_daily_drop() populates immediately on a fresh database.
+All users are wired so that get_eligible_pool() returns results.
 
 Usage:
     python manage.py create_connect_test_users
     python manage.py create_connect_test_users --premium-count 5 --catalogue-count 15
-    python manage.py create_connect_test_users --skip-photos --no-prefill-drops
+    python manage.py create_connect_test_users --skip-photos
     python manage.py create_connect_test_users --reset
 """
 
@@ -34,7 +33,6 @@ from crush_lu.models import CrushProfile, PremiumMembership, ProfileSubmission
 from crush_lu.models.crush_connect import CrushConnectMembership, SparkPrompt
 from crush_lu.models.profiles import CrushCoach
 
-
 _PREMIUM_PREFIX = "connect_premium_"
 _CANDIDATE_PREFIX = "connect_candidate_"
 _EMAIL_DOMAIN = "crush.lu"
@@ -44,19 +42,55 @@ _EMAIL_DOMAIN = "crush.lu"
 _TEST_AGE = 28
 
 _MALE_NAMES = [
-    "Thomas", "Lucas", "Pierre", "Nicolas", "Jean", "Marc",
-    "Alexandre", "Julien", "Antoine", "Maxime", "Philippe",
-    "David", "Michel", "Laurent", "François",
+    "Thomas",
+    "Lucas",
+    "Pierre",
+    "Nicolas",
+    "Jean",
+    "Marc",
+    "Alexandre",
+    "Julien",
+    "Antoine",
+    "Maxime",
+    "Philippe",
+    "David",
+    "Michel",
+    "Laurent",
+    "François",
 ]
 _FEMALE_NAMES = [
-    "Marie", "Sophie", "Julie", "Anne", "Laura", "Claire",
-    "Sarah", "Emma", "Camille", "Lea", "Charlotte",
-    "Isabelle", "Nathalie", "Caroline", "Stephanie",
+    "Marie",
+    "Sophie",
+    "Julie",
+    "Anne",
+    "Laura",
+    "Claire",
+    "Sarah",
+    "Emma",
+    "Camille",
+    "Lea",
+    "Charlotte",
+    "Isabelle",
+    "Nathalie",
+    "Caroline",
+    "Stephanie",
 ]
 _LAST_NAMES = [
-    "Dupont", "Martin", "Bernard", "Weber", "Muller",
-    "Schmit", "Wagner", "Klein", "Hoffmann", "Meyer",
-    "Da Silva", "Ferreira", "Santos", "Pereira", "Costa",
+    "Dupont",
+    "Martin",
+    "Bernard",
+    "Weber",
+    "Muller",
+    "Schmit",
+    "Wagner",
+    "Klein",
+    "Hoffmann",
+    "Meyer",
+    "Da Silva",
+    "Ferreira",
+    "Santos",
+    "Pereira",
+    "Costa",
 ]
 
 _LUXEMBOURG_LOCATIONS = [
@@ -136,7 +170,7 @@ def _ensure_spark_prompt():
 class Command(BaseCommand):
     help = (
         "Create Crush Connect test users for staging: "
-        "Premium members (drop receivers) and LuxID-verified catalogue candidates."
+        "Premium coach-pick members and LuxID-verified catalogue candidates."
     )
 
     def add_arguments(self, parser):
@@ -163,13 +197,8 @@ class Command(BaseCommand):
             help=(
                 "Skip randomuser.me photo download (faster). WARNING: Connect "
                 "eligibility requires photo_1 — photoless seeds are invisible "
-                "in Drops and the catalogue."
+                "in Connect Week and the catalogue."
             ),
-        )
-        parser.add_argument(
-            "--no-prefill-drops",
-            action="store_true",
-            help="Skip calling get_or_create_daily_drop() after creation",
         )
         parser.add_argument(
             "--reset",
@@ -194,7 +223,7 @@ class Command(BaseCommand):
         premium_users = []
         candidate_users = []
 
-        self.stdout.write("\nCreating Premium members (drop receivers)...")
+        self.stdout.write("\nCreating Premium coach-pick members...")
         for i in range(1, options["premium_count"] + 1):
             user = self._create_user(
                 prefix=_PREMIUM_PREFIX,
@@ -209,7 +238,7 @@ class Command(BaseCommand):
             if user:
                 premium_users.append(user)
 
-        self.stdout.write("\nCreating Catalogue candidates (appear in drops)...")
+        self.stdout.write("\nCreating catalogue and Connect Week candidates...")
         for i in range(1, options["catalogue_count"] + 1):
             user = self._create_user(
                 prefix=_CANDIDATE_PREFIX,
@@ -226,12 +255,13 @@ class Command(BaseCommand):
 
         self._print_summary(premium_users, candidate_users, coach, password)
 
-        if not options["no_prefill_drops"] and premium_users:
-            self._prefill_drops(premium_users)
-
     def _delete_existing(self):
-        premium_count = User.objects.filter(username__startswith=_PREMIUM_PREFIX).count()
-        candidate_count = User.objects.filter(username__startswith=_CANDIDATE_PREFIX).count()
+        premium_count = User.objects.filter(
+            username__startswith=_PREMIUM_PREFIX
+        ).count()
+        candidate_count = User.objects.filter(
+            username__startswith=_CANDIDATE_PREFIX
+        ).count()
         User.objects.filter(username__startswith=_PREMIUM_PREFIX).delete()
         User.objects.filter(username__startswith=_CANDIDATE_PREFIX).delete()
         self.stdout.write(
@@ -249,7 +279,9 @@ class Command(BaseCommand):
             return None
 
         try:
-            user_data = _fake_user_data(gender) if skip_photos else _fetch_user_data(gender)
+            user_data = (
+                _fake_user_data(gender) if skip_photos else _fetch_user_data(gender)
+            )
             gender_code = "M" if gender == "male" else "F"
             role_label = "premium" if is_premium else "candidate"
 
@@ -298,7 +330,7 @@ class Command(BaseCommand):
             profile = CrushProfile.objects.create(**profile_kwargs)
 
             if is_premium:
-                # The receiver gate keys off an ACTIVE PremiumMembership, not
+                # Premium access keys off an ACTIVE PremiumMembership, not
                 # assigned_coach — give premium seeds the real entitlement.
                 PremiumMembership.objects.create(
                     user=user,
@@ -316,7 +348,9 @@ class Command(BaseCommand):
                         save=True,
                     )
                 except Exception as exc:
-                    self.stderr.write(f"  Warning: photo save failed for {email}: {exc}")
+                    self.stderr.write(
+                        f"  Warning: photo save failed for {email}: {exc}"
+                    )
 
             ProfileSubmission.objects.create(
                 profile=profile,
@@ -358,6 +392,7 @@ class Command(BaseCommand):
         except Exception as exc:
             self.stderr.write(f"  Error creating {email}: {exc}")
             import traceback
+
             self.stderr.write(traceback.format_exc())
             return None
 
@@ -383,39 +418,21 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("  Crush Connect test users ready"))
         self.stdout.write("=" * 62)
 
-        self.stdout.write(f"\nPremium members (receive drop)  coach: {coach_name}")
+        self.stdout.write(f"\nPremium members (coach curated)  coach: {coach_name}")
         for u in premium_users:
             self.stdout.write(f"  {u.email:<38}  pass: {password}")
 
-        self.stdout.write("\nCatalogue candidates (appear in drops)  LuxID: simulated")
+        self.stdout.write("\nCatalogue candidates  LuxID: simulated")
         for u in candidate_users:
             self.stdout.write(f"  {u.email:<38}  pass: {password}")
 
         self.stdout.write("\n" + "-" * 62)
         self.stdout.write("Verify wiring:")
         self.stdout.write(
-            "  .venv-1/Scripts/python.exe manage.py shell -c \""
-            "from crush_lu.services.crush_connect import get_eligible_pool,"
-            "get_or_create_daily_drop; "
+            '  .venv-1/Scripts/python.exe manage.py shell -c "'
+            "from crush_lu.services.crush_connect import get_eligible_pool; "
             "from django.contrib.auth.models import User; "
             "u = User.objects.get(email='connect_premium_1@crush.lu'); "
-            "print('Pool:', get_eligible_pool(u).count()); "
-            "drop = get_or_create_daily_drop(u); "
-            "print('Drop:', list(drop.recipients.values_list('email', flat=True)))\""
+            "print('Pool:', list(get_eligible_pool(u).values_list('email', flat=True)))\""
         )
         self.stdout.write("-" * 62 + "\n")
-
-    def _prefill_drops(self, premium_users):
-        from crush_lu.services.crush_connect import get_or_create_daily_drop
-
-        self.stdout.write("Pre-filling today's drops...")
-        for user in premium_users:
-            try:
-                drop = get_or_create_daily_drop(user)
-                cards = list(drop.recipients.values_list("email", flat=True))
-                display = ", ".join(cards) if cards else "(empty pool — check preferences)"
-                self.stdout.write(f"  {user.email}")
-                self.stdout.write(f"    -> {display}")
-            except Exception as exc:
-                self.stderr.write(f"  Drop prefill failed for {user.email}: {exc}")
-        self.stdout.write("")

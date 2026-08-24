@@ -82,7 +82,7 @@ REVIEW = "review"
 # Staff user with an onboarded Crush Connect membership. Crush Connect gates
 # every page behind beta enrolment, but staff bypass the gates "to preview the
 # UI in any state" (views_crush_connect), so this persona renders the real
-# hub/today/catalogue without disturbing the member persona's other pages.
+# hub/coach-pick/catalogue without disturbing the member persona's other pages.
 CC = "cc"
 
 # Curated page list: (section, name, path_template, user_key).
@@ -120,7 +120,7 @@ PAGES = [
     ("Member", "polls", "/polls/", MEMBER),
     # ── Crush Connect (staff-preview persona renders the real feature UI) ──
     ("Crush Connect", "cc-hub", "/crush-connect/home/", CC),
-    ("Crush Connect", "cc-today", "/crush-connect/today/", CC),
+    ("Crush Connect", "cc-coach-pick", "/crush-connect/coach-pick/", CC),
     ("Crush Connect", "cc-catalogue", "/crush-connect/catalogue/", CC),
     ("Crush Connect", "cc-profile", "/crush-connect/profile/", CC),
     # ── Onboarding wizard (pre-submission user → real builder form) ─────────
@@ -371,7 +371,7 @@ class Command(BaseCommand):
 
     def _ensure_cc_user(self):
         """Staff user with an onboarded Crush Connect membership. Staff bypass
-        the launch-flag / eligibility gates, so the hub/today/catalogue/profile
+        the launch-flag / eligibility gates, so the hub/coach-pick/catalogue/profile
         views render their real UI; the membership keeps the views from hitting
         a null-membership path."""
         username = "screenshot_cc@crush.lu"

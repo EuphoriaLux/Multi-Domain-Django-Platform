@@ -1184,7 +1184,7 @@ class CrushProfile(models.Model):
         This — not ``assigned_coach`` — is the Premium entitlement. A coach can
         be assigned without payment (the 0150 backfill, the attendance
         auto-assign signal), so ``assigned_coach`` only expresses the service
-        relationship; every Premium/receiver gate must key off this property.
+        relationship; every Premium entitlement gate must key off this property.
         """
         return PremiumMembership.objects.filter(
             user_id=self.user_id, status="active"
