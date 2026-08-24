@@ -17,6 +17,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Run iOS navigation regression tests
+        run: python3 -m unittest discover -s mobile/ios/CrushLU/tests -v
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
