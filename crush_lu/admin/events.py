@@ -53,6 +53,35 @@ ADDRESS_WIDGET_ATTRS = {
 }
 
 
+def _notify_google_indexing(event_ids, action=None):
+    """Ping Google Search Indexing for events changed by a bulk action.
+
+    Same reason as ``_enqueue_echo_sync``: ``queryset.update()`` fires no
+    signals, so the indexing receivers never see these changes. Runs inside one
+    wall-clock budget and never raises — a slow Google must not break an admin
+    action whose database work already committed.
+    """
+    ids = list(dict.fromkeys(event_ids))
+    if not ids:
+        return
+
+    try:
+        from crush_lu.services.google_indexing import (
+            INDEXABLE_EVENT_FILTERS,
+            notify_events_indexing,
+        )
+
+        notify_events_indexing(
+            MeetupEvent.objects.filter(pk__in=ids, **INDEXABLE_EVENT_FILTERS),
+            action=action,
+            max_budget_seconds=12.0,
+        )
+    except Exception:
+        logger.exception(
+            "Error sending Google indexing notifications for %d event(s)", len(ids)
+        )
+
+
 def _enqueue_echo_sync(event_ids):
     """Queue an echo.lu reconcile for events changed by a bulk action.
 
@@ -485,6 +514,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "export_attendees_csv",
         "sync_to_echo_lu",
         "withdraw_from_echo_lu",
+        "ping_google_indexing",
     ]
     filter_horizontal = ("invited_users", "coaches")
     # get_echo_lu_status renders one column per row; without this the changelist
@@ -794,6 +824,19 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=True)
         _enqueue_echo_sync(event_ids)
+
+        # Real-time Google Indexing update (single-budget batch, dynamic privacy check)
+        try:
+            from crush_lu.services.google_indexing import notify_events_indexing
+
+            notify_events_indexing(
+                MeetupEvent.objects.filter(pk__in=event_ids),
+                action=None,
+                max_budget_seconds=12.0,
+            )
+        except Exception:
+            logger.exception("Error sending Google indexing notifications on publish")
+
         django_messages.success(
             request, _("Published {count} event(s)").format(count=updated)
         )
@@ -803,6 +846,19 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=False)
         _enqueue_echo_sync(event_ids)
+
+        # Real-time Google Indexing removal (single-budget batch)
+        try:
+            from crush_lu.services.google_indexing import notify_events_indexing
+
+            notify_events_indexing(
+                MeetupEvent.objects.filter(pk__in=event_ids),
+                action="URL_DELETED",
+                max_budget_seconds=12.0,
+            )
+        except Exception:
+            logger.exception("Error sending Google indexing removals on unpublish")
+
         django_messages.success(
             request, _("Unpublished {count} event(s)").format(count=updated)
         )
@@ -1025,6 +1081,52 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 ).format(count=len(deferred)),
             )
 
+    @admin.action(description=_("🔍 Ping Google Search Indexing for selected events"))
+    def ping_google_indexing(self, request, queryset):
+        """Send immediate Googlebot indexing notification for selected events across all languages."""
+        from crush_lu.services.google_indexing import notify_events_indexing
+
+        events = list(queryset)
+        res = notify_events_indexing(events, action=None, max_budget_seconds=15.0)
+
+        successful_urls = res["success_count"]
+        total_urls = res["total_expected"]
+        deferred = res["deferred_count"]
+
+        if successful_urls > 0:
+            if successful_urls == total_urls:
+                django_messages.success(
+                    request,
+                    _(
+                        "Google Indexing: all {count} URL(s) successfully notified across {events} event(s)."
+                    ).format(count=successful_urls, events=len(events)),
+                )
+            else:
+                django_messages.warning(
+                    request,
+                    _(
+                        "Google Indexing: {success}/{total} URL(s) notified across {events} event(s)"
+                        "{deferred_msg}."
+                    ).format(
+                        success=successful_urls,
+                        total=total_urls,
+                        events=len(events),
+                        deferred_msg=(
+                            f" ({deferred} deferred due to time limit)"
+                            if deferred
+                            else ""
+                        ),
+                    ),
+                )
+        else:
+            django_messages.warning(
+                request,
+                _(
+                    "No Google Indexing pings were sent. Check that GOOGLE_INDEXING_ENABLED=True "
+                    "and service account credentials are configured."
+                ),
+            )
+
     @staticmethod
     def _google_holders_for_cancellation(events):
         """Google holders whose card this cancellation actually changes.
@@ -1165,6 +1267,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # national portal keeps advertising itself to the whole country, which
         # is the most visible way this action can go wrong.
         _enqueue_echo_sync(event_ids)
+
+        # Real-time Google Indexing refresh for cancelled events. Deliberately a
+        # refresh and not a removal: a published cancelled event still serves 200
+        # with EventCancelled structured data (views_events.event_detail), so it
+        # has to be re-crawled, not declared gone. _notify_google_indexing skips
+        # the ones that really are unreachable (unpublished / invitation-only).
+        _notify_google_indexing(event_ids)
 
         # .update() emits no signals, so nothing else tells Apple Wallet these
         # tickets are dead. Without this, a cancelled event's installed passes
@@ -2266,6 +2375,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if showing is None or by_user[profile.user_id] < _key(showing):
                     restored_google_profiles.append(profile)
 
+        # Only rows arriving from *outside* the seat-holding set change what the
+        # page publishes. pending/confirmed/attended -> confirmed leaves
+        # remainingAttendeeCapacity and offer availability untouched, and the
+        # pending -> confirmed workflow is the common one.
+        confirmed_event_ids = list(
+            EventRegistration.objects.filter(pk__in=eligible_ids)
+            .exclude(status__in=SEAT_HOLDING_STATUSES)
+            .values_list("event_id", flat=True)
+            .distinct()
+        )
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
             status="confirmed",
             # QuerySet.update bypasses EventRegistration.save(). A restored
@@ -2305,6 +2424,11 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     len(restored_google_profiles),
                 )
 
+        # .update() emits no signals here either, so the EventRegistration
+        # receiver that keeps remainingAttendeeCapacity and offer availability
+        # fresh in the event JSON-LD never runs for waitlist -> confirmed.
+        _notify_google_indexing(confirmed_event_ids)
+
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )
@@ -2331,7 +2455,20 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             .values_list("apple_wallet_ticket_serial", flat=True)
         )
 
+        # Captured before the update: the queryset may be filtered on status, in
+        # which case it matches nothing once the rows have moved. Restricted to
+        # rows that actually hold a seat, since waitlist/cancelled/no_show ->
+        # waitlist changes neither capacity nor availability on the page.
+        waitlisted_event_ids = list(
+            queryset.filter(status__in=SEAT_HOLDING_STATUSES)
+            .values_list("event_id", flat=True)
+            .distinct()
+        )
         updated = queryset.update(status="waitlist")
+
+        # Seat-holding -> waitlist frees a seat, and .update() emits no signals,
+        # so the indexing receiver has to be driven by hand here too.
+        _notify_google_indexing(waitlisted_event_ids)
 
         if voiding_serials:
             try:

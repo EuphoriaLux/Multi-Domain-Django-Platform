@@ -16,7 +16,7 @@ DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
 from django.http import request as django_request
 
 from .settings import *  # noqa
-from .settings import BASE_DIR, channel_layer_hosts
+from .settings import BASE_DIR, _env_bool, channel_layer_hosts
 
 _original_validate_host = django_request.validate_host
 
@@ -675,3 +675,21 @@ SILENCED_SYSTEM_CHECKS = [
 # This is intentional — no separate db_worker process is running on Azure.
 # Switch to DatabaseBackend when async execution is needed (requires adding
 # `python manage.py db_worker &` to startup.sh or a separate Azure WebJob).
+
+# =============================================================================
+# GOOGLE SEARCH INDEXING API
+# =============================================================================
+# Enabled in production (crush.lu), disabled in staging unless explicitly overridden.
+GOOGLE_INDEXING_ENABLED = _env_bool(
+    "GOOGLE_INDEXING_ENABLED", DJANGO_ENV == "production"
+)
+# The real safety belt, and deliberately keyed off DJANGO_ENV rather than the
+# flag above: DJANGO_ENV is slot-sticky, so this survives a swap even if the
+# enable flag does not. Turning GOOGLE_INDEXING_ENABLED on for the staging slot
+# now buys nothing on its own — with no domain the service refuses to submit
+# anything, instead of notifying Google about crush.lu URLs using staging's
+# own, unrelated event IDs.
+GOOGLE_INDEXING_DOMAIN = os.environ.get(
+    "GOOGLE_INDEXING_DOMAIN",
+    "crush.lu" if DJANGO_ENV == "production" else "",
+)

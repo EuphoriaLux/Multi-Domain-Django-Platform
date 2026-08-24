@@ -13,8 +13,15 @@ from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Exists, OuterRef, Q
+from django.core.signals import request_finished, request_started
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
+from django.db.models.signals import (
+    m2m_changed,
+    post_delete,
+    post_save,
+    pre_delete,
+    pre_save,
+)
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import email_confirmation_sent, email_confirmed
@@ -4594,3 +4601,621 @@ def delete_quiz_question_media(sender, instance, **kwargs):
         field.storage.delete(name)
     except Exception:
         logger.exception("Failed to delete quiz media Blob: %s", name)
+
+
+# ---------------------------------------------------------------------------
+# Google Search Indexing API real-time notifications
+# ---------------------------------------------------------------------------
+INDEXING_RELEVANT_FIELDS = frozenset(
+    {
+        "title",
+        "title_en",
+        "title_fr",
+        "title_de",
+        "description",
+        "description_en",
+        "description_fr",
+        "description_de",
+        "date_time",
+        "duration_minutes",
+        "location",
+        "address",
+        "address_street",
+        "address_number",
+        "address_town",
+        "address_postcode",
+        "canton",
+        "latitude",
+        "longitude",
+        "image",
+        "event_type",
+        "languages",
+        "max_participants",
+        "max_participants_m",
+        "max_participants_f",
+        "max_participants_nb",
+        "reserved_premium_seats",
+        "min_age",
+        "max_age",
+        "profile_requirement",
+        "registration_deadline",
+        "registration_fee",
+        "is_published",
+        "is_cancelled",
+        "is_private_invitation",
+    }
+)
+
+
+_indexing_local = threading.local()
+
+# One budget window covers one HTTP request. It is never reopened by elapsed
+# time: other receivers register their own on_commit callbacks (the echo.lu
+# enqueue at signals.py:1014 runs its HTTP work inline under production's
+# ImmediateBackend), and a gap-based heuristic cannot tell that foreign work
+# from genuine idleness — it would hand every interleaved callback a fresh
+# budget and let one bulk transaction grow past the worker timeout.
+INDEXING_REQUEST_BUDGET_SECONDS = 8.0
+INDEXING_DELETE_BUDGET_SECONDS = 5.0
+
+# Hard ceiling on how far past the *start* of a request indexing may still run.
+# The per-window budget alone is anchored at the first callback, so a view that
+# was already slow could add a full eight seconds on top; gunicorn's timeout is
+# 120s, and 30s leaves ample headroom while still capping the tail. Deliberately
+# not "request start + 8s": that would silently drop the publish notification
+# from a legitimately slow admin save (AutoTranslate runs on that path).
+INDEXING_REQUEST_WALL_CLOCK_SECONDS = 30.0
+
+
+def _get_indexing_context():
+    if not hasattr(_indexing_local, "deadline"):
+        _indexing_local.deadline = None
+        _indexing_local.session = None
+        # Only an HTTP request has a worker timeout to protect. Management
+        # commands, the shell and Celery-style workers get a fresh window
+        # whenever the previous one is spent, so a long-running process keeps
+        # indexing instead of going silent after its first eight seconds.
+        _indexing_local.in_request = False
+        _indexing_local.request_deadline = None
+    return _indexing_local
+
+
+def _open_indexing_window(ctx, budget_seconds) -> bool:
+    """Open the shared window. False when there is no time left to open it with."""
+    now = time.monotonic()
+    deadline = now + budget_seconds
+    if ctx.request_deadline is not None:
+        deadline = min(deadline, ctx.request_deadline)
+    ctx.deadline = deadline
+    ctx.session = None
+    return deadline > now
+
+
+def _indexing_budget_exhausted(ctx, budget_seconds) -> bool:
+    """Open or roll over the shared window; True when this callback must skip."""
+    if ctx.deadline is None:
+        return not _open_indexing_window(ctx, budget_seconds)
+    if time.monotonic() < ctx.deadline:
+        return False
+    if ctx.in_request:
+        return True
+    return not _open_indexing_window(ctx, budget_seconds)
+
+
+def _pending_indexing_callback(event_pk):
+    """The queued, not-yet-run notification for this event: ``(sids, func)``.
+
+    Reads Django's live ``run_on_commit`` queue rather than any state of our
+    own, which is what makes coalescing savepoint-safe for free: a rolled-back
+    savepoint has its callbacks removed from that queue, so a claim can never
+    outlive the change that made it and suppress a later, committed one. ``sids``
+    is the savepoint stack the callback was registered under, which is what lets
+    the caller decide whether mutating it would survive a rollback.
+
+    Callbacks that have already run are ignored — under
+    ``TestCase.captureOnCommitCallbacks`` they are executed but left in the
+    queue, and a spent callback must not keep suppressing new schedules.
+    """
+    for entry in transaction.get_connection().run_on_commit:
+        sids, func = entry[0], entry[1]
+        if getattr(func, "_indexing_event_pk", None) == event_pk and not getattr(
+            func, "_indexing_done", False
+        ):
+            return set(sids), func
+    return None
+
+
+def _schedule_event_indexing_notification(
+    event_pk: int, skip_if_ineligible: bool = False
+):
+    """Schedule a savepoint-safe post-commit indexing notification for an event PK.
+
+    The URL_UPDATED / URL_DELETED choice is resolved *at execution time* from the
+    committed row, never from the in-memory instance that triggered the signal,
+    so a rolled-back savepoint can never leak a stale action.
+
+    All triggers for one event in one transaction collapse onto a single
+    notification, because every one of them would reload the same committed
+    state and resubmit the same three language URLs. Raising an event's capacity,
+    for instance, promotes N waitlisted registrations inside one atomic block
+    (``promote_waitlist_on_capacity_increase``) and would otherwise spend
+    ``3 * (N + 1)`` API calls on one page change.
+
+    ``skip_if_ineligible`` is for secondary triggers (registrations, coach
+    assignments): a capacity change on a draft or invitation-only event must not
+    spend quota telling Google to delete a URL it was never told about. When
+    triggers disagree, the pending callback is downgraded to the more permissive
+    setting — never the other way round — so coalescing can only ever add a
+    notification, never suppress one that a stricter trigger required.
+    """
+    pending_entry = _pending_indexing_callback(event_pk)
+    if pending_entry is not None:
+        pending_sids, pending = pending_entry
+        if skip_if_ineligible or not pending._indexing_skip_if_ineligible:
+            return
+
+        # The upgrade mutates a callback this trigger does not own. That is only
+        # sound while every savepoint that could roll *this* change back would
+        # also discard the callback carrying the mutation — i.e. while the
+        # current savepoint stack is a subset of the one the callback was
+        # registered under. Django drops a callback on `savepoint_rollback(sid)`
+        # exactly when `sid in sids`, so the subset test is the precise
+        # condition.
+        current_sids = set(transaction.get_connection().savepoint_ids)
+        if current_sids <= pending_sids:
+            pending._indexing_skip_if_ineligible = False
+            return
+
+        # Nested deeper than the pending callback: fall through and register a
+        # separate permissive callback instead. A rollback removes this one and
+        # leaves the stricter one exactly as it was.
+
+    def _notify():
+        # Marked spent before anything else, so this callback stops counting as
+        # a pending duplicate the moment it starts.
+        _notify._indexing_done = True
+
+        ctx = _get_indexing_context()
+        if _indexing_budget_exhausted(ctx, INDEXING_REQUEST_BUDGET_SECONDS):
+            logger.warning(
+                "Google Indexing save budget exhausted. Skipping notification for event %s.",
+                event_pk,
+            )
+            return
+
+        try:
+            from crush_lu.services.google_indexing import (
+                get_google_indexing_session,
+                notify_event_indexing,
+                should_index_event,
+            )
+
+            event = MeetupEvent.objects.filter(pk=event_pk).first()
+            if event is None:
+                return
+
+            eligible = should_index_event(event)
+            if not eligible and _notify._indexing_skip_if_ineligible:
+                return
+
+            if ctx.session is None:
+                ctx.session = get_google_indexing_session()
+            notify_event_indexing(
+                event,
+                action="URL_UPDATED" if eligible else "URL_DELETED",
+                session=ctx.session,
+                deadline=ctx.deadline,
+            )
+        except Exception:
+            logger.exception(
+                "Error triggering Google indexing notification for event %s",
+                event_pk,
+            )
+
+    _notify._indexing_event_pk = event_pk
+    _notify._indexing_done = False
+    _notify._indexing_skip_if_ineligible = skip_if_ineligible
+
+    transaction.on_commit(_notify)
+
+
+@receiver(pre_save, sender=MeetupEvent)
+def capture_event_prior_indexability(sender, instance, **kwargs):
+    """Record whether Googlebot could reach this event before the save.
+
+    Mirrors ``should_index_event``: published and not invitation-only. Cancelled
+    is deliberately absent — a cancelled published page still serves 200.
+    """
+    instance._indexing_was_indexable = False
+    if not instance.pk:
+        return
+    try:
+        prior = (
+            MeetupEvent.objects.filter(pk=instance.pk)
+            .values_list("is_published", "is_private_invitation")
+            .first()
+        )
+    except Exception:
+        return
+    if prior:
+        was_published, was_private = prior
+        instance._indexing_was_indexable = bool(was_published) and not bool(was_private)
+
+
+@receiver(post_save, sender=MeetupEvent)
+def trigger_google_indexing_on_event_save(
+    sender, instance, created, raw=False, update_fields=None, **kwargs
+):
+    """Notify Googlebot immediately when a MeetupEvent changes state.
+
+    - Published & public events (cancelled included, the page still 200s) -> URL_UPDATED
+    - Unpublished / drafts / private-invitation events -> URL_DELETED
+
+    Deferred to transaction.on_commit so the database commit completes before
+    Googlebot receives the crawl notification. Each callback is savepoint-safe
+    and bounded by a shared post-commit deadline budget.
+    """
+    if raw:
+        return
+
+    # Deduplicate nested/internal saves (e.g. google_wallet_event_class_id updates)
+    if update_fields is not None:
+        fields = set(update_fields)
+        if not fields.intersection(INDEXING_RELEVANT_FIELDS):
+            return
+
+    from crush_lu.services.google_indexing import should_index_event
+
+    # Unreachable before this save and unreachable after it: Google was never
+    # told about the URL, so there is nothing to update and nothing to delete.
+    # This covers both a brand-new draft (`is_published` defaults to False) and
+    # every subsequent edit while it stays a draft — iterative drafting would
+    # otherwise spend three URL_DELETED calls per save out of a limited daily
+    # quota. Transitions in either direction still notify, because one side of
+    # the comparison is then reachable.
+    if not getattr(instance, "_indexing_was_indexable", False) and not (
+        should_index_event(instance)
+    ):
+        return
+
+    _schedule_event_indexing_notification(instance.pk)
+
+
+@receiver(pre_save, sender=EventRegistration)
+def capture_registration_prior_status(sender, instance, **kwargs):
+    """Capture prior status and event so post_save can see capacity moving.
+
+    The event FK is editable in ``EventRegistrationAdmin``, so a seat can move
+    from one event to another with no status change at all.
+    """
+    instance._indexing_prior_status = None
+    instance._indexing_prior_event_id = None
+    if not instance.pk:
+        return
+    try:
+        prior = (
+            EventRegistration.objects.filter(pk=instance.pk)
+            .values_list("status", "event_id")
+            .first()
+        )
+    except Exception:
+        return
+    if prior:
+        instance._indexing_prior_status, instance._indexing_prior_event_id = prior
+
+
+@receiver(post_save, sender=EventRegistration)
+def trigger_google_indexing_on_registration_save(
+    sender, instance, created, raw=False, update_fields=None, **kwargs
+):
+    """Notify Googlebot when registration status changes event capacity or availability."""
+    if raw:
+        return
+
+    # "event" as well as "status": a reassignment can be persisted with
+    # update_fields=["event"] and moves a seat between two pages.
+    if update_fields is not None and not {"status", "event", "event_id"}.intersection(
+        update_fields
+    ):
+        return
+
+    from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
+    prior_status = getattr(instance, "_indexing_prior_status", None)
+    prior_event_id = getattr(instance, "_indexing_prior_event_id", None)
+    event_id = getattr(instance, "event_id", None)
+
+    was_holding = prior_status in SEAT_HOLDING_STATUSES if prior_status else False
+    is_holding = instance.status in SEAT_HOLDING_STATUSES
+
+    affected = set()
+    if created:
+        if is_holding and event_id:
+            affected.add(event_id)
+    elif prior_event_id is not None and prior_event_id != event_id:
+        # Reassigned: the seat leaves one page and arrives at the other, so both
+        # change even when the status itself never moved.
+        if was_holding and prior_event_id:
+            affected.add(prior_event_id)
+        if is_holding and event_id:
+            affected.add(event_id)
+    elif was_holding != is_holding and event_id:
+        # Crossing the seat-holding boundary (waitlist -> confirmed, or
+        # confirmed -> cancelled). confirmed -> attended stays inside it.
+        affected.add(event_id)
+
+    for affected_event_id in affected:
+        _schedule_event_indexing_notification(
+            affected_event_id, skip_if_ineligible=True
+        )
+
+
+@receiver(post_delete, sender=EventRegistration)
+def trigger_google_indexing_on_registration_delete(sender, instance, **kwargs):
+    """Notify Googlebot when a seat-holding registration is deleted, reopening capacity."""
+    if getattr(instance, "status", None) in SEAT_HOLDING_STATUSES:
+        event_id = getattr(instance, "event_id", None)
+        if event_id:
+            _schedule_event_indexing_notification(event_id, skip_if_ineligible=True)
+
+
+@receiver(m2m_changed, sender=MeetupEvent.coaches.through)
+def trigger_google_indexing_on_coaches_changed(
+    sender, instance, action, reverse, model, pk_set, **kwargs
+):
+    """Notify Googlebot when coach assignments change (updates schema.org performer).
+
+    Both directions run through the shared scheduler, which rechecks eligibility
+    against the committed event and coalesces per event and transaction — so
+    ``coaches.set()`` (post_remove then post_add for one admin form save) and the
+    parent save that precedes ``save_related()`` all collapse into one
+    notification.
+    """
+    if not reverse:
+        if action in ("post_add", "post_remove", "post_clear") and isinstance(
+            instance, MeetupEvent
+        ):
+            _schedule_event_indexing_notification(instance.pk, skip_if_ineligible=True)
+        return
+
+    # Reverse side: `instance` is the coach, the events are what changed.
+    if action == "pre_clear":
+        # post_clear arrives with pk_set=None, so the assignments have to be read
+        # while they still exist or every affected page goes unnotified.
+        instance._indexing_cleared_event_pks = list(
+            instance.assigned_events.values_list("pk", flat=True)
+        )
+        return
+
+    if action == "post_clear":
+        event_pks = getattr(instance, "_indexing_cleared_event_pks", None) or []
+    elif action in ("post_add", "post_remove"):
+        event_pks = list(pk_set or [])
+    else:
+        return
+
+    for event_pk in event_pks:
+        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+
+
+def _schedule_indexing_for_event_pks(event_pks):
+    """Notify whichever of these events Googlebot can actually reach."""
+    event_pks = list(event_pks)
+    if not event_pks:
+        return
+
+    from crush_lu.services.google_indexing import INDEXABLE_EVENT_FILTERS
+
+    indexable = (
+        MeetupEvent.objects.filter(pk__in=event_pks, **INDEXABLE_EVENT_FILTERS)
+        .values_list("pk", flat=True)
+        .distinct()
+    )
+    for event_pk in indexable:
+        _schedule_event_indexing_notification(event_pk, skip_if_ineligible=True)
+
+
+def _schedule_indexing_for_coach_events(coach_pks):
+    """Notify the indexable events these coaches are assigned to."""
+    if not coach_pks:
+        return
+
+    _schedule_indexing_for_event_pks(
+        MeetupEvent.objects.filter(coaches__pk__in=list(coach_pks)).values_list(
+            "pk", flat=True
+        )
+    )
+
+
+@receiver(pre_delete, sender=CrushCoach)
+def capture_coach_assigned_events(sender, instance, **kwargs):
+    """Read the coach's events before the delete cascade removes the m2m rows.
+
+    ``Collector.delete()`` sends every pre_delete signal first and only then
+    runs its fast-deletes, and the auto-created through rows are fast-deleted —
+    without emitting ``m2m_changed`` — before the coach row itself goes. By
+    post_delete ``assigned_events`` is already empty, so the IDs have to be
+    taken here. Deleting the coach's ``User`` cascades through this same path.
+    """
+    try:
+        instance._indexing_assigned_event_pks = list(
+            instance.assigned_events.values_list("pk", flat=True)
+        )
+    except Exception:
+        instance._indexing_assigned_event_pks = []
+
+
+@receiver(post_delete, sender=CrushCoach)
+def trigger_google_indexing_on_coach_delete(sender, instance, **kwargs):
+    """Notify assigned events that just lost a schema.org performer."""
+    _schedule_indexing_for_event_pks(
+        getattr(instance, "_indexing_assigned_event_pks", None) or []
+    )
+
+
+@receiver(pre_save, sender=CrushCoach)
+def capture_coach_prior_active_state(sender, instance, **kwargs):
+    """Capture prior is_active and user so post_save can tell a real transition.
+
+    ``user`` is editable in ``CrushCoachAdmin``: pointing the coach row at a
+    different account swaps the published performer name without touching
+    ``is_active`` or any m2m relation.
+    """
+    instance._indexing_prior_is_active = None
+    instance._indexing_prior_user_id = None
+    if not instance.pk:
+        return
+    try:
+        prior = (
+            CrushCoach.objects.filter(pk=instance.pk)
+            .values_list("is_active", "user_id")
+            .first()
+        )
+    except Exception:
+        return
+    if prior:
+        instance._indexing_prior_is_active, instance._indexing_prior_user_id = prior
+
+
+@receiver(post_save, sender=CrushCoach)
+def trigger_google_indexing_on_coach_active_change(
+    sender, instance, created, raw=False, **kwargs
+):
+    """Notify assigned events when a coach is activated, deactivated or reassigned.
+
+    ``event_detail`` filters coaches on ``is_active=True`` before building the
+    visible coach list and the schema.org ``performer`` entries, so this flag
+    changes indexed content. The three bulk admin actions notify explicitly
+    because they use ``queryset.update()``; this covers the single-record admin
+    form and any direct ``coach.save()``.
+    """
+    if raw or created:
+        return
+
+    prior_active = getattr(instance, "_indexing_prior_is_active", None)
+    prior_user_id = getattr(instance, "_indexing_prior_user_id", None)
+    if prior_active is None:
+        return
+
+    active_changed = prior_active != instance.is_active
+    user_changed = prior_user_id is not None and prior_user_id != instance.user_id
+    if not (active_changed or user_changed):
+        return
+
+    _schedule_indexing_for_coach_events([instance.pk])
+
+
+@receiver(pre_save, sender=User)
+def capture_user_prior_first_name(sender, instance, update_fields=None, **kwargs):
+    """Capture prior first_name for coaches, whose name is published as performer."""
+    instance._indexing_prior_first_name = None
+
+    # Cheap exits first: `last_login` writes pass update_fields and must not
+    # cost a query on every single login.
+    if not instance.pk:
+        return
+    if update_fields is not None and "first_name" not in update_fields:
+        return
+
+    try:
+        instance._indexing_prior_first_name = (
+            User.objects.filter(pk=instance.pk)
+            .values_list("first_name", flat=True)
+            .first()
+        )
+    except Exception:
+        instance._indexing_prior_first_name = None
+
+
+@receiver(post_save, sender=User)
+def trigger_google_indexing_on_coach_rename(
+    sender, instance, created, raw=False, **kwargs
+):
+    """Notify assigned events when an active coach's published first name changes."""
+    if raw or created:
+        return
+
+    prior = getattr(instance, "_indexing_prior_first_name", None)
+    if prior is None or prior == instance.first_name:
+        return
+
+    coach_pks = list(
+        CrushCoach.objects.filter(user_id=instance.pk, is_active=True).values_list(
+            "pk", flat=True
+        )
+    )
+    _schedule_indexing_for_coach_events(coach_pks)
+
+
+@receiver(post_delete, sender=MeetupEvent)
+def trigger_google_indexing_on_event_delete(sender, instance, **kwargs):
+    """Notify Googlebot immediately when a MeetupEvent is deleted (URL_DELETED).
+
+    Deferred to transaction.on_commit with a shared post-commit deadline budget
+    to prevent worker timeouts during bulk deletions while remaining savepoint-safe.
+    """
+    urls = []
+    try:
+        from crush_lu.services.google_indexing import build_event_indexing_urls
+
+        urls = build_event_indexing_urls(instance)
+    except Exception:
+        logger.warning(
+            "Failed building indexing URLs for deleted event %s",
+            getattr(instance, "pk", None),
+        )
+
+    if not urls:
+        return
+
+    def _notify():
+        ctx = _get_indexing_context()
+        if _indexing_budget_exhausted(ctx, INDEXING_DELETE_BUDGET_SECONDS):
+            logger.warning(
+                "Google Indexing delete budget exhausted. Skipping %d URLs.", len(urls)
+            )
+            return
+
+        try:
+            from crush_lu.services.google_indexing import (
+                get_google_indexing_session,
+                notify_urls_indexing,
+            )
+
+            if ctx.session is None:
+                ctx.session = get_google_indexing_session()
+            notify_urls_indexing(
+                urls,
+                action="URL_DELETED",
+                session=ctx.session,
+                deadline=ctx.deadline,
+            )
+        except Exception:
+            logger.exception("Error triggering Google indexing notification on delete")
+
+    transaction.on_commit(_notify)
+
+
+@receiver(request_started)
+def open_indexing_request_scope(**kwargs):
+    """Start a fresh budget window for this request and mark it worker-bound."""
+    ctx = _get_indexing_context()
+    ctx.deadline = None
+    ctx.session = None
+    ctx.in_request = True
+    ctx.request_deadline = time.monotonic() + INDEXING_REQUEST_WALL_CLOCK_SECONDS
+
+
+@receiver(request_finished)
+def cleanup_indexing_thread_state(**kwargs):
+    """Clear the window on teardown and release the worker-timeout constraint.
+
+    Workers are reused, so leaving ``in_request`` set would make the next
+    management command or shell session on this thread inherit a budget cap that
+    exists only to protect an HTTP response.
+    """
+    ctx = _get_indexing_context()
+    ctx.deadline = None
+    ctx.session = None
+    ctx.in_request = False
+    ctx.request_deadline = None
