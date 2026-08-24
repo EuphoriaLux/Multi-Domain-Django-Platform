@@ -90,6 +90,11 @@ dependencies {
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    // Chrome Custom Tabs for the auth handoff. RFC 8252 appendix B.1 names the
+    // in-app browser tab as the way to run a native-app authorization request;
+    // targeting a concrete browser package is also what stops the handoff URL
+    // resolving back into this app once its App Links are verified.
+    implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.material:material:1.12.0")
 
     // Firebase Cloud Messaging (FCM) + Crashlytics (crash reporting)

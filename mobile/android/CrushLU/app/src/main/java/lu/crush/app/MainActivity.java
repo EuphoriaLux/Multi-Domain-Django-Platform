@@ -3,6 +3,7 @@ package lu.crush.app;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -24,6 +25,8 @@ import android.widget.ProgressBar;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.browser.customtabs.CustomTabsClient;
+import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
@@ -36,6 +39,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -396,9 +402,100 @@ public class MainActivity extends AppCompatActivity {
         return isInternal(Uri.parse(trimmed)) ? trimmed : null;
     }
 
-    private void startNativeAuth() {
-        openExternal(Uri.parse(LOGIN_HANDOFF_URL));
+    /**
+     * Open the login handoff in a browser that is definitely not us.
+     *
+     * This used to be a bare {@code openExternal(ACTION_VIEW)}. That is fine
+     * only for as long as this app's App Links stay unverified: the handoff URL
+     * is {@code https://<appHost>/api/mobile/android/auth/handoff/}, and the
+     * manifest claims that host with {@code autoVerify="true"}. The moment
+     * assetlinks.json gains its android_app target and verification succeeds,
+     * an untargeted ACTION_VIEW can resolve straight back into this activity —
+     * which loads the handoff in the WebView, gets bounced to a login page,
+     * matches shouldStartNativeAuth again, and loops.
+     *
+     * A Custom Tab targets a concrete browser package, so it cannot resolve
+     * here no matter what this app claims. It is also what RFC 8252 appendix
+     * B.1 asks for: an in-app browser tab that shares the system browser's
+     * cookie jar and cannot be instrumented by the host app.
+     */
+    private boolean startNativeAuth() {
+        Uri handoff = Uri.parse(LOGIN_HANDOFF_URL);
+        String browserPackage = CustomTabsClient.getPackageName(this, null);
+        if (browserPackage != null) {
+            CustomTabsIntent customTab = new CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build();
+            customTab.intent.setPackage(browserPackage);
+            try {
+                customTab.launchUrl(this, handoff);
+                return true;
+            } catch (ActivityNotFoundException | SecurityException exception) {
+                // Fall through to the explicit-browser path below.
+            }
+        }
+
+        String fallbackBrowser = resolveBrowserPackage();
+        if (fallbackBrowser == null) {
+            // Nothing to hand this to — a managed or browser-less device.
+            // Launching untargeted here would defeat the whole point: with the
+            // App Link verified, the system could route it straight back to
+            // this activity and start the loop. Report the miss instead and let
+            // the caller keep the navigation in the WebView.
+            return false;
+        }
+
+        Intent intent = new Intent(Intent.ACTION_VIEW, handoff);
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        intent.setPackage(fallbackBrowser);
+        try {
+            startActivity(intent);
+            return true;
+        } catch (ActivityNotFoundException | SecurityException exception) {
+            return false;
+        }
     }
+
+    /**
+     * Any installed browser other than this app.
+     *
+     * Probes a neutral https URL rather than our own host: once App Links
+     * verify, this activity answers for {@code https://<appHost>} and would be
+     * the first result for its own domain. Our package is filtered out either
+     * way — belt and braces, because picking ourselves is exactly the loop this
+     * whole method exists to prevent.
+     */
+    private String resolveBrowserPackage() {
+        Intent probe = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.example.com"));
+        probe.addCategory(Intent.CATEGORY_BROWSABLE);
+        for (ResolveInfo candidate : getPackageManager().queryIntentActivities(probe, 0)) {
+            if (candidate.activityInfo == null) {
+                continue;
+            }
+            String candidatePackage = candidate.activityInfo.packageName;
+            if (candidatePackage != null && !candidatePackage.equals(getPackageName())) {
+                return candidatePackage;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The only pages that belong in the external auth browser: the login entry
+     * points themselves.
+     *
+     * ``crush_login_required`` bounces to {@code crush_lu:login}
+     * ({@code /<lang>/login/}) and allauth's own ``@login_required`` bounces to
+     * {@code /accounts/login/}, so both must be here. Everything else under
+     * {@code /accounts/} — password reset, email management, connected
+     * accounts, the confirm-email landing — is an ordinary signed-in page and
+     * has to stay in the WebView, which is where the member's session lives.
+     * Matching the whole prefix sent those out to a browser that has a
+     * different session, so the flows either dead-ended or silently applied to
+     * the wrong context.
+     */
+    private static final Set<String> AUTH_ENTRY_PATHS =
+            new HashSet<>(Arrays.asList("/login/", "/accounts/login/"));
 
     private boolean shouldStartNativeAuth(Uri uri) {
         // For local testing, allow login in the WebView to test insets/keyboard
@@ -408,9 +505,62 @@ public class MainActivity extends AppCompatActivity {
         if (!isInternal(uri)) {
             return false;
         }
-        String path = uri.getPath() == null ? "" : uri.getPath();
-        return path.endsWith("/login/") || path.contains("/accounts/");
+        String path = normalizeAuthPath(uri.getPath());
+        return AUTH_ENTRY_PATHS.contains(path) || isProviderLoginStart(path);
     }
+
+    /**
+     * {@code /accounts/<provider>/login/} — the button a signed-out member taps
+     * on the in-app signup page ("Continue with LuxID/Google/Apple/...").
+     *
+     * These have to open the auth browser too. Left in the WebView, the OAuth
+     * state is stashed in the WebView's session but the provider redirect
+     * leaves for the system browser, so the callback lands somewhere that
+     * cannot match it: the member ends up signed in inside a browser and still
+     * anonymous in the app, with no crushlu:// callback and no auth code.
+     *
+     * Deliberately excludes {@code .../login/callback/}, which has one segment
+     * more and only ever arrives in the browser that started the flow.
+     */
+    private static boolean isProviderLoginStart(String path) {
+        String trimmed = path.startsWith("/") ? path.substring(1) : path;
+        if (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        String[] segments = trimmed.split("/");
+        if (segments.length < 3
+                || !segments[0].equals("accounts")
+                || !segments[segments.length - 1].equals("login")) {
+            return false;
+        }
+        // /accounts/<provider>/login/ for a dedicated provider, and
+        // /accounts/oidc/<provider_id>/login/ for one mounted on allauth's
+        // generic OIDC provider, which carries an extra segment. Requiring the
+        // last segment to be "login" is what keeps .../login/callback/ out.
+        return segments.length == 3
+                || (segments.length == 4 && segments[1].equals("oidc"));
+    }
+
+    /**
+     * Drop the i18n language prefix and guarantee a trailing slash, so one
+     * short allowlist covers /en/login/, /de/login/ and /fr/login/ without
+     * depending on how a given URL happened to be spelled.
+     */
+    private static String normalizeAuthPath(String rawPath) {
+        String path = rawPath == null ? "" : rawPath;
+        for (String language : LANGUAGE_PREFIXES) {
+            if (path.startsWith(language + "/")) {
+                path = path.substring(language.length());
+                break;
+            }
+            if (path.equals(language)) {
+                return "/";
+            }
+        }
+        return path.endsWith("/") ? path : path + "/";
+    }
+
+    private static final String[] LANGUAGE_PREFIXES = {"/en", "/de", "/fr"};
 
     /**
      * @return the URI's scheme, lower-cased, or "" if it has none. Schemes are
@@ -561,7 +711,13 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
             if (shouldStartNativeAuth(uri)) {
-                startNativeAuth();
+                if (!startNativeAuth()) {
+                    // No browser available. Render the login page in the
+                    // WebView rather than dropping the navigation: an
+                    // email/password sign-in there lands a session directly, so
+                    // it is the one path still open on such a device.
+                    loadInternal(uri.toString());
+                }
                 return true;
             }
             if (isInternal(uri)) {
