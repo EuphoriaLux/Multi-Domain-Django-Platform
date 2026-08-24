@@ -40091,7 +40091,6 @@ msgstr "Ce qui a marché, ce qui n'a pas marché…"
 
 msgid "Send feedback"
 msgstr "Envoyer mon avis"
-
 msgid "No thanks, don't ask again"
 msgstr "Non merci, ne plus me le demander"
 
@@ -40394,6 +40393,55 @@ msgstr "Son groupe éligible (préférences mutuelles, identité vérifiée, ins
 msgid "Accept and your Crush Coach contacts the candidate personally to confirm interest and arrange your date."
 msgstr "Acceptez et votre Crush Coach contacte personnellement la personne pour confirmer son intérêt et organiser votre rendez-vous."
 
+# Crush Connect member pause
+msgid "Your Connect profile is paused"
+msgstr "Votre profil Connect est en pause"
+
+msgid "You are hidden from new Drops, Connect Week cards, Sparks, requests, and Event Lobbies. Your Crush.lu account, events, Premium membership, profile answers, and existing chats are unchanged."
+msgstr "Vous n’apparaissez plus dans les nouveaux Drops, les cartes Connect Week, les Sparks, les demandes et les Event Lobbies. Votre compte Crush.lu, vos événements, votre abonnement Premium, vos réponses de profil et vos discussions existantes restent inchangés."
+
+msgid "Reactivate Crush Connect"
+msgstr "Réactiver Crush Connect"
+
+msgid "View existing chats"
+msgstr "Voir mes discussions existantes"
+
+msgid "Edit my Connect profile"
+msgstr "Modifier mon profil Connect"
+
+msgid "Reactivation is immediate. You will not need to repeat onboarding."
+msgstr "La réactivation est immédiate. Vous ne devrez pas recommencer l’onboarding."
+
+msgid "Pause Crush Connect"
+msgstr "Mettre Crush Connect en pause"
+
+msgid "Connect is paused"
+msgstr "Connect est en pause"
+
+msgid "Need a break?"
+msgstr "Besoin d’une pause ?"
+
+msgid "Your profile is hidden from new Connect activity."
+msgstr "Votre profil est masqué pour toute nouvelle activité Connect."
+
+msgid "Hide your Connect profile without losing your answers or matches."
+msgstr "Masquez votre profil Connect sans perdre vos réponses ni vos matchs."
+
+msgid "Reactivate"
+msgstr "Réactiver"
+
+msgid "Crush Connect is paused"
+msgstr "Crush Connect est en pause"
+
+msgid "You are hidden from new Connect activity. Your profile and existing chats are preserved."
+msgstr "Vous êtes masqué pour toute nouvelle activité Connect. Votre profil et vos discussions existantes sont conservés."
+
+msgid "Review or reactivate"
+msgstr "Vérifier ou réactiver"
+
+msgid "Connect paused"
+msgstr "Connect en pause"
+
 msgid "Back to Crush Connect"
 msgstr "Retour à Crush Connect"
 
@@ -40477,3 +40525,39 @@ msgstr "Photos : nettes (visibles par les membres éligibles sur les cartes Conn
 
 msgid "Welcome to Crush Connect — your Connect Week is ready."
 msgstr "Bienvenue dans Crush Connect — votre Connect Week est prête."
+
+msgid "Pause your Connect profile?"
+msgstr "Mettre votre profil Connect en pause ?"
+
+msgid "Take a break without deleting your Crush.lu account or repeating Connect onboarding later."
+msgstr "Faites une pause sans supprimer votre compte Crush.lu ni recommencer l’onboarding Connect plus tard."
+
+msgid "Your card is removed from new Drops, Connect Weeks, Sparks, requests, and Event Lobbies."
+msgstr "Votre carte est retirée des nouveaux Drops, Connect Weeks, Sparks, demandes et Event Lobbies."
+
+msgid "Your answers, preferences, Premium membership, and event access stay unchanged."
+msgstr "Vos réponses, préférences, abonnement Premium et accès aux événements restent inchangés."
+
+msgid "You can reactivate instantly whenever you are ready."
+msgstr "Vous pouvez réactiver votre profil instantanément dès que vous êtes prêt."
+
+msgid "Your existing temporary chats remain available until their normal expiry."
+msgstr "Vos discussions temporaires existantes restent disponibles jusqu’à leur expiration normale."
+
+msgid "Keep Connect active"
+msgstr "Garder Connect actif"
+
+msgid "Crush Connect is paused. Your profile is hidden from new connections."
+msgstr "Crush Connect est en pause. Votre profil est masqué pour les nouvelles connexions."
+
+msgid "Crush Connect is active again."
+msgstr "Crush Connect est de nouveau actif."
+
+msgid "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
+msgstr "Défini lorsque le membre a mis Crush Connect en pause ; l’onboarding et les discussions existantes sont conservés"
+
+msgid "Member pause"
+msgstr "Pause du membre"
+
+msgid "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
+msgstr "Une pause contrôlée par le membre le masque des nouvelles découvertes Crush Connect tout en conservant l’onboarding et les discussions existantes."

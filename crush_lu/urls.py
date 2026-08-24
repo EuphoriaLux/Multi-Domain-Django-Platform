@@ -182,6 +182,16 @@ urlpatterns = [
         views_crush_connect.crush_connect_hub,
         name='crush_connect_hub',
     ),
+    path(
+        'crush-connect/pause/',
+        views_crush_connect.crush_connect_pause,
+        name='crush_connect_pause',
+    ),
+    path(
+        'crush-connect/reactivate/',
+        views_crush_connect.crush_connect_reactivate,
+        name='crush_connect_reactivate',
+    ),
     # Retired Today's Drop URL: preserve old bookmarks as a hub redirect.
     path(
         'crush-connect/today/',

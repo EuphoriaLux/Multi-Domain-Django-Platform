@@ -161,6 +161,7 @@ def crush_user_context(request):
         ).count()
         context["actionable_sparks_count"] = actionable_sparks_count
 
+
         # Profile submission status for visual indicators
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()

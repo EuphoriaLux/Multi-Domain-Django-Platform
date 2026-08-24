@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
+from django.views.decorators.http import require_POST
 
 from crush_lu.connect_phase import (
     candidate_access_open,
@@ -60,7 +61,12 @@ def dev_connect_card_preview(request, user_id: int):
 def _user_has_connect_premium(user) -> bool:
     """True for an approved profile with an active Premium membership."""
     profile = getattr(user, "crushprofile", None)
-    if profile is None or not profile.is_approved:
+    if (
+        profile is None
+        or not profile.is_approved
+        or not profile.is_active
+        or not user.is_active
+    ):
         return False
     return profile.has_active_premium
 
@@ -73,7 +79,12 @@ def _user_is_connect_candidate_eligible(user) -> bool:
     at least 1 in-person event where their identity/age was verified (Issue #539).
     """
     profile = getattr(user, "crushprofile", None)
-    if profile is None or not profile.is_approved:
+    if (
+        profile is None
+        or not profile.is_approved
+        or not profile.is_active
+        or not user.is_active
+    ):
         return False
     return profile.is_connect_identity_verified
 
@@ -88,10 +99,14 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
     the rules that applied then).
     """
     profile = getattr(user, "crushprofile", None)
-    if profile is None or not profile.is_approved:
+    if (
+        profile is None
+        or not profile.is_approved
+        or not profile.is_active
+        or not user.is_active
+    ):
         return False
     return profile.is_connect_identity_verified
-
 
 def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
@@ -764,6 +779,8 @@ def crush_connect_catalogue_status(request):
     membership = getattr(user, "crush_connect_membership", None)
     if membership is not None and membership.excluded_by_coach:
         return redirect("crush_lu:crush_connect_teaser")
+    if membership is not None and membership.is_paused:
+        return redirect("crush_lu:crush_connect_hub")
     if membership is None or not membership.is_onboarded:
         return redirect("crush_lu:crush_connect_onboarding")
 
@@ -836,12 +853,11 @@ def crush_connect_hub(request):
     links and status badges, and explains preparation before opt-in.
     The dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
-    user = request.user
-    profile = getattr(user, "crushprofile", None)
-
+    from crush_lu.services.connect_chat import user_has_non_closed_chat
     from crush_lu.services.crush_connect import get_active_coach_pick
 
     user = request.user
+    profile = getattr(user, "crushprofile", None)
     blocker = _hub_access_blocker(user)
     if blocker is not None:
         return blocker
@@ -853,7 +869,7 @@ def crush_connect_hub(request):
     cycle_access = bool(
         (user.is_staff or cycle_access_open(user))
         and membership is not None
-        and membership.is_onboarded
+        and membership.is_participating
     )
     # The week access blocker fully bypasses onboarding for staff, so keep an
     # explicit preview link for an unonboarded staff account.
@@ -886,8 +902,58 @@ def crush_connect_hub(request):
         # the hub never told the member who theirs is.
         "premium_coach": getattr(profile, "assigned_coach", None) if profile else None,
         "connect_readiness": _connect_readiness(user),
+        "has_non_closed_chat": user_has_non_closed_chat(user),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
+
+
+@crush_login_required
+def crush_connect_pause(request):
+    """Confirm and apply a reversible, member-controlled Connect pause.
+
+    A pause removes the member from new discovery and request flows but keeps
+    their main Crush.lu account, Connect onboarding data, and existing temporary
+    chats. Staff moderation remains the separate ``excluded_by_coach`` state.
+    """
+    membership = getattr(request.user, "crush_connect_membership", None)
+    if membership is None or membership.onboarded_at is None:
+        return redirect("crush_lu:crush_connect_hub")
+    if membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
+
+    if request.method == "POST":
+        membership.pause()
+        messages.success(
+            request,
+            _("Crush Connect is paused. Your profile is hidden from new connections."),
+        )
+        return redirect("crush_lu:crush_connect_hub")
+
+    if membership.is_paused:
+        return redirect("crush_lu:crush_connect_hub")
+
+    from crush_lu.services.connect_chat import user_has_non_closed_chat
+
+    return render(
+        request,
+        "crush_lu/crush_connect/pause_confirm.html",
+        {"has_non_closed_chat": user_has_non_closed_chat(request.user)},
+    )
+
+
+@crush_login_required
+@require_POST
+def crush_connect_reactivate(request):
+    """Resume a voluntarily paused Connect membership without re-onboarding."""
+    membership = getattr(request.user, "crush_connect_membership", None)
+    if membership is None or membership.onboarded_at is None:
+        return redirect("crush_lu:crush_connect_hub")
+    if membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership.reactivate()
+    messages.success(request, _("Crush Connect is active again."))
+    return redirect("crush_lu:crush_connect_hub")
 
 
 @crush_login_required
@@ -934,8 +1000,6 @@ def crush_connect_coach_pick(request):
         "crush_lu/crush_connect/coach_pick.html",
         {"coach_pick": get_active_coach_pick(request.user)},
     )
-
-
 # ---------------------------------------------------------------------------
 # Coach Picks (M7) — coach curation interface + member response
 # ---------------------------------------------------------------------------

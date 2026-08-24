@@ -9,6 +9,7 @@ Crush Connect models.
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 
@@ -156,6 +157,12 @@ class CrushConnectMembership(models.Model):
     Coach panic-button: ``excluded_by_coach`` removes a member from every
     other user's pool and blocks their Connect surfaces without revoking core
     profile approval. Use ``exclusion_reason`` for the audit trail.
+
+    Member pause: ``paused_at`` is a reversible, self-service snooze. It keeps
+    onboarding answers and existing temporary chats intact while removing the
+    member from new Connect discovery and interaction flows. It is deliberately
+    separate from the coach exclusion so a voluntary break is never represented
+    as a moderation action.
     """
 
     user = models.OneToOneField(
@@ -190,6 +197,15 @@ class CrushConnectMembership(models.Model):
         blank=True,
         help_text=_(
             "Why this user was excluded (audit trail; never shown to the user)"
+        ),
+    )
+
+    paused_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "Set while the member has paused Crush Connect; onboarding and existing chats are preserved"
         ),
     )
 
@@ -470,11 +486,34 @@ class CrushConnectMembership(models.Model):
         state = "onboarded" if self.onboarded_at else "pending onboarding"
         if self.excluded_by_coach:
             state += " (excluded)"
+        elif self.is_paused:
+            state += " (paused)"
         return f"{self.user} — {state}"
 
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None and not self.excluded_by_coach
+
+    @property
+    def is_paused(self) -> bool:
+        return self.paused_at is not None
+
+    @property
+    def is_participating(self) -> bool:
+        """Whether the member is currently available for Connect activity."""
+        return self.is_onboarded and not self.is_paused
+
+    def pause(self) -> None:
+        """Hide the member from new Connect activity without losing setup."""
+        if self.paused_at is None:
+            self.paused_at = timezone.now()
+            self.save(update_fields=["paused_at", "updated_at"])
+
+    def reactivate(self) -> None:
+        """Resume Connect participation with the existing onboarding data."""
+        if self.paused_at is not None:
+            self.paused_at = None
+            self.save(update_fields=["paused_at", "updated_at"])
 
     @property
     def active_gate_questions(self):

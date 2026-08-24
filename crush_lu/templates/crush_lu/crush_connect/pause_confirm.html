@@ -1,0 +1,38 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Pause Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Pause Crush Connect" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+    <a href="{% url 'crush_lu:crush_connect_hub' %}" class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-crush-pink hover:underline no-underline mb-5">
+        <span aria-hidden="true">←</span> {% trans "Back to Crush Connect" %}
+    </a>
+
+    <section class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6">
+        <div class="w-12 h-12 rounded-xl bg-crush-purple/10 flex items-center justify-center text-2xl mb-4" aria-hidden="true">⏸</div>
+        <h1 class="font-display text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Pause your Connect profile?" %}
+        </h1>
+        <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
+            {% trans "Take a break without deleting your Crush.lu account or repeating Connect onboarding later." %}
+        </p>
+
+        <ul class="space-y-3 text-sm text-gray-700 dark:text-gray-300 mb-6">
+            <li class="flex gap-2"><span class="text-crush-purple" aria-hidden="true">✓</span><span>{% trans "Your card is removed from new Drops, Connect Weeks, Sparks, requests, and Event Lobbies." %}</span></li>
+            <li class="flex gap-2"><span class="text-crush-purple" aria-hidden="true">✓</span><span>{% trans "Your answers, preferences, Premium membership, and event access stay unchanged." %}</span></li>
+            <li class="flex gap-2"><span class="text-crush-purple" aria-hidden="true">✓</span><span>{% trans "You can reactivate instantly whenever you are ready." %}</span></li>
+            {% if has_non_closed_chat %}
+            <li class="flex gap-2"><span class="text-crush-purple" aria-hidden="true">✓</span><span>{% trans "Your existing temporary chats remain available until their normal expiry." %}</span></li>
+            {% endif %}
+        </ul>
+
+        <form method="post" action="{% url 'crush_lu:crush_connect_pause' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-crush-solid btn-block">{% trans "Pause Crush Connect" %}</button>
+        </form>
+        <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-outline btn-block mt-3">{% trans "Keep Connect active" %}</a>
+    </section>
+</div>
+{% endblock %}

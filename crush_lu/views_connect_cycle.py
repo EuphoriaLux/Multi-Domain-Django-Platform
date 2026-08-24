@@ -59,6 +59,8 @@ def _connect_week_access_blocker(user):
     membership = getattr(user, "crush_connect_membership", None)
     if membership is not None and membership.excluded_by_coach:
         return redirect("crush_lu:crush_connect_teaser")
+    if membership is not None and membership.is_paused:
+        return redirect("crush_lu:crush_connect_hub")
 
     if membership is None or membership.onboarded_at is None:
         profile = getattr(user, "crushprofile", None)
@@ -151,6 +153,11 @@ def connect_week_card_answer(request, card_id: int):
         return redirect("crush_lu:connect_week_home")
 
     membership = getattr(card.target_user, "crush_connect_membership", None)
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    if not is_catalogue_eligible(card.target_user):
+        messages.info(request, _("This member isn't available right now."))
+        return redirect("crush_lu:connect_week_home")
     gate_questions = list(membership.active_gate_questions) if membership else []
     if not gate_questions:
         # The target cleared/re-picked their gate questions between the card
@@ -295,6 +302,9 @@ def connect_week_inbox(request):
     from crush_lu.services.crush_connect import is_catalogue_eligible
 
     user = request.user
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is not None and membership.is_paused:
+        return redirect("crush_lu:crush_connect_hub")
     if not user.is_staff and not (
         candidate_access_open() and is_catalogue_eligible(user)
     ):
@@ -326,6 +336,9 @@ def connect_week_request_respond(request, request_id: int):
         return redirect("crush_lu:connect_week_inbox")
 
     user = request.user
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is not None and membership.is_paused:
+        return redirect("crush_lu:crush_connect_hub")
     if not user.is_staff and not (
         candidate_access_open() and is_catalogue_eligible(user)
     ):

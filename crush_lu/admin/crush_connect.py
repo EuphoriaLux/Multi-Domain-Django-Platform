@@ -22,13 +22,15 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         "user",
         "is_onboarded_display",
         "onboarding_step",
+        "is_paused_display",
         "excluded_by_coach",
         "onboarded_at",
+        "paused_at",
         "excluded_at",
         "updated_at",
     ]
     list_select_related = ["user"]
-    list_filter = ["excluded_by_coach", "onboarded_at"]
+    list_filter = ["excluded_by_coach", "paused_at", "onboarded_at"]
     list_editable = ["excluded_by_coach"]
     search_fields = [
         "user__email",
@@ -40,7 +42,12 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
     raw_id_fields = ["user", "excluded_by", "story_prompt", "story_prompt_2"]
     filter_horizontal = ["interests"]
     inlines = [MemberGateQuestionInline]
-    readonly_fields = ["created_at", "updated_at", "onboarding_started_at"]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+        "onboarding_started_at",
+        "paused_at",
+    ]
     fieldsets = (
         (
             None,
@@ -109,6 +116,15 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
             },
         ),
         (
+            _("Member pause"),
+            {
+                "fields": ("paused_at",),
+                "description": _(
+                    "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
+                ),
+            },
+        ),
+        (
             _("Coach exclusion (panic button)"),
             {
                 "fields": (
@@ -131,6 +147,12 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
 
     is_onboarded_display.boolean = True
     is_onboarded_display.short_description = _("Onboarded")
+
+    def is_paused_display(self, obj):
+        return obj.is_paused
+
+    is_paused_display.boolean = True
+    is_paused_display.short_description = _("Paused")
 
     def save_model(self, request, obj, form, change):
         # Stamp the exclusion audit fields automatically when the flag is flipped.

@@ -44,6 +44,7 @@ GATE_OK = "ok"
 GATE_NO_MEMBERSHIP = "no_membership"
 GATE_NOT_ONBOARDED = "not_onboarded"
 GATE_EXCLUDED = "excluded"
+GATE_PAUSED = "paused"
 GATE_NOT_VERIFIED = "profile_not_verified"
 GATE_NO_LUXID = "no_luxid"
 GATE_NO_PHOTO_CONSENT = "no_photo_consent"
@@ -139,6 +140,8 @@ def participant_gate(user) -> tuple[bool, str]:
         return False, GATE_NOT_ONBOARDED
     if membership.excluded_by_coach:
         return False, GATE_EXCLUDED
+    if membership.is_paused:
+        return False, GATE_PAUSED
 
     profile = getattr(user, "crushprofile", None)
     if (
@@ -267,6 +270,7 @@ def eligible_participations(event):
             event_registration__status="attended",
             user__crush_connect_membership__onboarded_at__isnull=False,
             user__crush_connect_membership__excluded_by_coach=False,
+            user__crush_connect_membership__paused_at__isnull=True,
             user__crush_connect_membership__photo_share_consent=True,
             user__crushprofile__is_active=True,
             user__crushprofile__verification_status="verified",
