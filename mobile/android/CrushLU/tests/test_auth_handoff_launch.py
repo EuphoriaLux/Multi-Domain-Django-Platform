@@ -34,16 +34,43 @@ class AuthHandoffLaunchTests(unittest.TestCase):
         self.assertIn("CustomTabsIntent", self.activity)
         self.assertIn("CustomTabsClient.getPackageName", self.activity)
 
+    def _start_native_auth_body(self):
+        start = self.activity.index("private boolean startNativeAuth()")
+        end = self.activity.index("private String resolveBrowserPackage()")
+        return self.activity[start:end]
+
     def test_handoff_is_never_an_untargeted_action_view(self):
         """openExternal() sets no package, so it can resolve back to us."""
-        start = self.activity.index("private void startNativeAuth()")
-        end = self.activity.index("private String resolveBrowserPackage()")
-        body = self.activity[start:end]
+        body = self._start_native_auth_body()
 
         self.assertNotIn("openExternal(", body)
         # Both launch paths pin a concrete browser package.
         self.assertIn("customTab.intent.setPackage(browserPackage)", body)
         self.assertIn("intent.setPackage(fallbackBrowser)", body)
+
+    def test_no_browser_means_no_launch_at_all(self):
+        """The dangerous case is a null package, not a missing setPackage call.
+
+        Launching an untargeted ACTION_VIEW when no browser was found would let
+        a verified App Link route the handoff straight back into this activity —
+        the exact loop this method exists to prevent, reappearing only on
+        browser-less or managed devices where nobody would look for it.
+        """
+        body = self._start_native_auth_body()
+
+        # The null check must short-circuit BEFORE the Intent is constructed.
+        null_guard = body.index("fallbackBrowser == null")
+        intent_built = body.index("new Intent(Intent.ACTION_VIEW, handoff)")
+        self.assertLess(
+            null_guard,
+            intent_built,
+            "the no-browser case must return before an intent is built",
+        )
+        self.assertIn("return false;", body)
+
+    def test_no_browser_falls_back_to_login_inside_the_webview(self):
+        """Dropping the navigation would strand the user; the WebView login works."""
+        self.assertIn("if (!startNativeAuth()) {", self.activity)
 
     def test_browser_probe_excludes_our_own_package(self):
         self.assertIn("!candidatePackage.equals(getPackageName())", self.activity)

@@ -419,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
      * B.1 asks for: an in-app browser tab that shares the system browser's
      * cookie jar and cannot be instrumented by the host app.
      */
-    private void startNativeAuth() {
+    private boolean startNativeAuth() {
         Uri handoff = Uri.parse(LOGIN_HANDOFF_URL);
         String browserPackage = CustomTabsClient.getPackageName(this, null);
         if (browserPackage != null) {
@@ -429,23 +429,30 @@ public class MainActivity extends AppCompatActivity {
             customTab.intent.setPackage(browserPackage);
             try {
                 customTab.launchUrl(this, handoff);
-                return;
+                return true;
             } catch (ActivityNotFoundException | SecurityException exception) {
                 // Fall through to the explicit-browser path below.
             }
         }
 
+        String fallbackBrowser = resolveBrowserPackage();
+        if (fallbackBrowser == null) {
+            // Nothing to hand this to — a managed or browser-less device.
+            // Launching untargeted here would defeat the whole point: with the
+            // App Link verified, the system could route it straight back to
+            // this activity and start the loop. Report the miss instead and let
+            // the caller keep the navigation in the WebView.
+            return false;
+        }
+
         Intent intent = new Intent(Intent.ACTION_VIEW, handoff);
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
-        String fallbackBrowser = resolveBrowserPackage();
-        if (fallbackBrowser != null) {
-            intent.setPackage(fallbackBrowser);
-        }
+        intent.setPackage(fallbackBrowser);
         try {
             startActivity(intent);
+            return true;
         } catch (ActivityNotFoundException | SecurityException exception) {
-            // No browser at all. Nothing useful to do; leaving the WebView on
-            // the login page beats crashing, and the user can retry.
+            return false;
         }
     }
 
@@ -704,7 +711,13 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
             if (shouldStartNativeAuth(uri)) {
-                startNativeAuth();
+                if (!startNativeAuth()) {
+                    // No browser available. Render the login page in the
+                    // WebView rather than dropping the navigation: an
+                    // email/password sign-in there lands a session directly, so
+                    // it is the one path still open on such a device.
+                    loadInternal(uri.toString());
+                }
                 return true;
             }
             if (isInternal(uri)) {
