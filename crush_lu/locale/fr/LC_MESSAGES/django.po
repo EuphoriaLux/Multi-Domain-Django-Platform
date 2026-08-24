@@ -40477,3 +40477,25 @@ msgstr "Photos : nettes (visibles par les membres éligibles sur les cartes Conn
 
 msgid "Welcome to Crush Connect — your Connect Week is ready."
 msgstr "Bienvenue dans Crush Connect — votre Connect Week est prête."
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Sign-in didn't complete"
+msgstr "Connexion non terminée"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Let's try that sign-in again"
+msgstr "Reprenons la connexion"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Try signing in again"
+msgstr "Réessayer de se connecter"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid ""
+"This sign-in link is no longer valid. It may have timed out, or it may "
+"already have been used — in which case you could already be signed in on "
+"another screen. Tap below to start again."
+msgstr ""
+"Ce lien de connexion n'est plus valable. Il a peut-être expiré, ou il a "
+"peut-être déjà été utilisé — auquel cas vous êtes peut-être déjà connecté "
+"sur un autre écran. Touchez ci-dessous pour recommencer."

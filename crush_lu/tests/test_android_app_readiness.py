@@ -50,9 +50,11 @@ def test_android_auth_handoff_and_completion_are_one_time(client, user, settings
     assert redirect_uri.scheme == "crushlu"
     query = parse_qs(redirect_uri.query)
     assert query["code"][0]
-    assert query["complete_url"][0].endswith(
-        f"/api/mobile/android/auth/complete/{query['code'][0]}/"
-    )
+    completion = urlparse(query["complete_url"][0])
+    assert completion.path == f"/api/mobile/android/auth/complete/{query['code'][0]}/"
+    # The handoff stamps the redirect_uri onto complete_url so the failure page
+    # can restart the handoff on the flavor that started it.
+    assert parse_qs(completion.query)["redirect_uri"] == ["crushlu://auth"]
     assert IOSNativeAuthCode.objects.count() == 1
 
     client.logout()
@@ -63,8 +65,17 @@ def test_android_auth_handoff_and_completion_are_one_time(client, user, settings
     assert complete_response.headers["Location"] == "/en/dashboard/?source=android_app"
     assert client.session["_auth_user_id"] == str(user.id)
 
+    # The code stays spent, but the caller is now signed in as its owner, so
+    # a second delivery of the same callback lands them where the first one
+    # did instead of throwing away a working session. See crush_lu/native_auth.py.
     replay_response = client.get(complete_path)
-    assert replay_response.status_code == 400
+    assert replay_response.status_code == 302
+    assert replay_response.headers["Location"] == "/en/dashboard/?source=android_app"
+    assert IOSNativeAuthCode.objects.get().consumed_at is not None
+
+    # A stranger holding the same spent code gets nothing.
+    client.logout()
+    assert client.get(complete_path).status_code == 400
 
 
 def test_android_auth_handoff_accepts_local_flavor_scheme(client, user, settings):
