@@ -17,7 +17,6 @@ final class AppState: ObservableObject {
 
     @Published var selectedDestination: AppDestination = .dashboard
     @Published var currentURL: URL
-    @Published var reloadToken = UUID()
     @Published var isOnline = true
     @Published var showPushPrompt = false
 
@@ -43,12 +42,10 @@ final class AppState: ObservableObject {
     func go(to destination: AppDestination) {
         selectedDestination = destination
         currentURL = URL(string: destination.path, relativeTo: baseURL)!.absoluteURL
-        reloadToken = UUID()
     }
 
     func load(_ url: URL) {
         currentURL = url
-        reloadToken = UUID()
     }
 }
 
@@ -98,7 +95,6 @@ struct ContentView: View {
             }
 
             CrushWebView(appState: appState)
-                .id(appState.reloadToken)
 
             // No native tab bar: crush.lu renders its own bottom navigation and
             // that one is strictly richer — it is role-aware (coaches get a Coach
