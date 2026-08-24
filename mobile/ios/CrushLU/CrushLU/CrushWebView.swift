@@ -304,10 +304,56 @@ struct CrushWebView: UIViewRepresentable {
             decisionHandler(.cancel)
         }
 
+        /// The only pages that belong in ASWebAuthenticationSession: the login
+        /// entry points themselves.
+        ///
+        /// `crush_login_required` bounces to `crush_lu:login` (`/<lang>/login/`)
+        /// and allauth's own `@login_required` bounces to `/accounts/login/`, so
+        /// both are here. Everything else under `/accounts/` — password reset,
+        /// email management, connected accounts, the confirm-email landing — is
+        /// an ordinary signed-in page and must stay in the WKWebView, which is
+        /// where the member's session lives. Matching the whole prefix pushed
+        /// those into a browser holding a different session.
+        private static let authEntryPaths: Set<String> = ["/login/", "/accounts/login/"]
+
         private func shouldStartNativeAuth(for url: URL) -> Bool {
             guard isInternal(url) else { return false }
-            let path = url.path
-            return path.hasSuffix("/login/") || path.contains("/accounts/")
+            let path = Self.normalizeAuthPath(url.path)
+            return Self.authEntryPaths.contains(path) || Self.isProviderLoginStart(path)
+        }
+
+        /// `/accounts/<provider>/login/` — the "Continue with LuxID/Google/…"
+        /// button on the in-app signup page.
+        ///
+        /// These must open the auth browser too. Left in the WKWebView, the
+        /// OAuth state is stashed in the WebView's session while the provider
+        /// redirect leaves for Safari, so the callback lands where it cannot be
+        /// matched: signed in inside a browser, still anonymous in the app.
+        ///
+        /// Excludes `.../login/callback/`, which carries one segment more and
+        /// only ever arrives in the browser that started the flow.
+        private static func isProviderLoginStart(_ path: String) -> Bool {
+            let segments = path.split(separator: "/", omittingEmptySubsequences: true)
+            return segments.count == 3 && segments[0] == "accounts" && segments[2] == "login"
+        }
+
+        /// Drop the i18n language prefix and guarantee a trailing slash.
+        ///
+        /// The trailing slash is not cosmetic: `URL.path` is documented to strip
+        /// one, so a suffix test against "/login/" is not something to rely on.
+        /// Normalising both sides removes the question.
+        private static func normalizeAuthPath(_ rawPath: String) -> String {
+            var path = rawPath
+            for language in ["/en", "/de", "/fr"] {
+                if path == language {
+                    return "/"
+                }
+                if path.hasPrefix(language + "/") {
+                    path = String(path.dropFirst(language.count))
+                    break
+                }
+            }
+            return path.hasSuffix("/") ? path : path + "/"
         }
 
         private func startNativeAuth() {
