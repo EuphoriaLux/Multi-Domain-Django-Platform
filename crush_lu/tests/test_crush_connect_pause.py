@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 import pytest
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -208,3 +209,58 @@ def test_pause_removes_member_from_event_lobby_gate():
 
     assert allowed is False
     assert reason == GATE_PAUSED
+
+
+@pytest.mark.django_db(transaction=True)
+def test_pause_drops_cached_match_scores_and_resume_rebuilds_them():
+    """The pause promise covers the score cache, not just the flag.
+
+    Coach match surfaces read MatchScore rows directly and filter counterparts
+    only on profile verification and activity, so a paused member left in the
+    cache stays on those pages indefinitely — nothing is scheduled to clean up.
+    Resume has the mirror problem: pairs a counterpart pruned during the pause
+    stay missing, and are scored as neutral, until an unrelated edit heals them.
+
+    transaction=True because the rebuild is deferred to on_commit.
+    """
+    from crush_lu.matching import update_match_scores_for_user
+    from crush_lu.models.matching import MatchScore
+
+    member = _make_user(
+        username="pause_scores_a", gender="M", preferred_genders=["F"]
+    )
+    other = _make_user(
+        username="pause_scores_b", gender="F", preferred_genders=["M"]
+    )
+    # The scorer skips any pair whose members have not set traits.
+    from crush_lu.models import Trait
+
+    quals = list(
+        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+    )
+    defs = list(
+        Trait.objects.filter(trait_type="defect").order_by("pk").values_list("pk", flat=True)
+    )
+    for user in (member, other):
+        _set_gate_questions(user)
+        membership = user.crush_connect_membership
+        membership.qualities.set(quals[:3])
+        membership.defects.set(defs[:2])
+        membership.sought_qualities.set(quals[3:6])
+
+    update_match_scores_for_user(member)
+    pair = MatchScore.objects.filter(
+        Q(user_a=member) | Q(user_b=member)
+    )
+    assert pair.exists(), "precondition: the pair should be cached before pausing"
+
+    member.crush_connect_membership.pause()
+
+    assert not pair.exists(), (
+        "a paused member must leave the score cache the coach views read"
+    )
+
+    member.refresh_from_db()
+    member.crush_connect_membership.reactivate()
+
+    assert pair.exists(), "resuming must rebuild the pairs pruned during the pause"
