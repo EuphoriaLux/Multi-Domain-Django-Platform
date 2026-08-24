@@ -33,8 +33,10 @@ did.
 <meta name="robots" content="noindex, nofollow">
 <title>{% trans "Sign-in didn't complete" %} – Crush.lu</title>
 
-{# Linked for its design tokens, not its utilities. Same origin, and already
-   in the WebView's cache from every other page in the app. #}
+{% comment %}
+Linked for its design tokens, not its utilities. Same origin, and already in
+the WebView's cache from every other page in the app.
+{% endcomment %}
 <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
 
 <script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
