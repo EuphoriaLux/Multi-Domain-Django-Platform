@@ -623,6 +623,29 @@ def test_launched_candidate_completion_redirects_to_connect_week(
 
 
 @pytest.mark.django_db
+def test_beta_candidate_welcome_email_describes_current_connect_product(
+    client, settings, mailoutbox
+):
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    response = _complete_steps(client, 1, 7)
+
+    assert response.status_code in (301, 302)
+    assert "/crush-connect/catalogue/" in response.url
+    assert len(mailoutbox) == 1
+    body = mailoutbox[0].body
+    assert "Connect Week" in body
+    assert "human-curated Premium match" in body
+    assert "Daily Drop" not in body
+    assert "Curiosity Spark" not in body
+
+
+@pytest.mark.django_db
 def test_checked_in_candidate_completion_redirects_to_joined_live_lobby(
     client, settings
 ):

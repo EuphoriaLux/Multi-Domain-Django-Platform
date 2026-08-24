@@ -897,6 +897,12 @@ def crush_connect_home(request):
 
 
 @crush_login_required
+def crush_connect_legacy_spark_redirect(request, **_kwargs):
+    """Keep retired Connect Spark notification and email links non-breaking."""
+    return redirect("crush_lu:crush_connect_hub")
+
+
+@crush_login_required
 def crush_connect_coach_pick(request):
     """Show the active human-curated Premium pick, if one is available."""
     blocker = _hub_access_blocker(request.user)
@@ -905,7 +911,23 @@ def crush_connect_coach_pick(request):
     if not _user_has_connect_premium(request.user):
         return redirect("crush_lu:crush_connect_catalogue_status")
 
-    from crush_lu.services.crush_connect import get_active_coach_pick
+    from crush_lu.services.crush_connect import (
+        get_active_coach_pick,
+        is_premium_connect_eligible,
+    )
+
+    if not is_premium_connect_eligible(request.user):
+        profile = getattr(request.user, "crushprofile", None)
+        if profile is not None and not profile.photo_1:
+            messages.warning(
+                request,
+                _(
+                    "Your profile photo is missing. It blocks access to your daily "
+                    "Connect suggestions; add it now in Photos."
+                ),
+            )
+            return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
+        return redirect("crush_lu:crush_connect_hub")
 
     return render(
         request,

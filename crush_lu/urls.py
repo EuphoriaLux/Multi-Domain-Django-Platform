@@ -188,6 +188,23 @@ urlpatterns = [
         views_crush_connect.crush_connect_home,
         name='crush_connect_home',
     ),
+    # Retired Curiosity Spark deep links may still exist in bell notifications
+    # and emails. Keep every former route as a safe redirect to the Connect hub.
+    path(
+        'crush-connect/spark/<int:user_id>/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_spark_compose',
+    ),
+    path(
+        'crush-connect/sparks/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_sparks_received',
+    ),
+    path(
+        'crush-connect/sparks/<int:spark_id>/respond/',
+        views_crush_connect.crush_connect_legacy_spark_redirect,
+        name='crush_connect_spark_respond',
+    ),
     path(
         'crush-connect/coach-pick/',
         views_crush_connect.crush_connect_coach_pick,

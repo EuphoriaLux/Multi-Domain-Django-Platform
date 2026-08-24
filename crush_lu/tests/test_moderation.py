@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.db import IntegrityError
+from django.forms import modelform_factory
 from django.test import RequestFactory
 
 from crush_lu.models import CrushConnectMembership, UserBlock, UserReport
@@ -192,6 +193,34 @@ def test_report_rejects_unknown_source(client):
     )
     report = UserReport.objects.get(reporter=me, reported_user=target)
     assert report.source == ""  # unknown source is dropped, not persisted
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("legacy_source", ("spark", "drop"))
+def test_legacy_report_source_remains_editable(legacy_source):
+    reporter = _make_user(username=f"reporter_{legacy_source}")
+    target = _make_user(username=f"target_{legacy_source}")
+    report = UserReport.objects.create(
+        reporter=reporter,
+        reported_user=target,
+        reason="other",
+        source=legacy_source,
+    )
+    form_class = modelform_factory(
+        UserReport,
+        fields=("source", "resolution_notes"),
+    )
+
+    form = form_class(
+        {"source": legacy_source, "resolution_notes": "Reviewed"},
+        instance=report,
+    )
+
+    assert form.is_valid(), form.errors
+    form.save()
+    report.refresh_from_db()
+    assert report.source == legacy_source
+    assert report.resolution_notes == "Reviewed"
 
 
 @pytest.mark.django_db

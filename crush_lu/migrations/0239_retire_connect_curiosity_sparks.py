@@ -64,6 +64,8 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 blank=True,
                 choices=[
+                    ("spark", "Curiosity Spark (legacy)"),
+                    ("drop", "Daily Drop (legacy)"),
                     ("connection", "Event connection"),
                     ("message", "Message"),
                     ("profile", "Profile"),

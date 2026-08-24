@@ -210,6 +210,26 @@ def test_seed_prompts_loaded():
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("language", "translated_heading"),
+    (
+        ("de", "Die drei Erlebnisse"),
+        ("fr", "Les trois expériences"),
+    ),
+)
+def test_rewritten_connect_landing_copy_is_translated(
+    client, settings, language, translated_heading
+):
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
+
+    response = client.get(f"/{language}/crush-connect/")
+
+    assert response.status_code == 200
+    assert translated_heading in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_coach_pick_pool_requires_active_premium_member():
     member = _make_user(username="member", preferred_genders=["F"], premium=False)
     candidate = _make_user(username="candidate", gender="F", premium=False)
@@ -263,6 +283,26 @@ def test_retired_today_route_redirects_to_hub(client, settings):
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "url",
+    (
+        "/en/crush-connect/spark/123/",
+        "/en/crush-connect/sparks/",
+        "/en/crush-connect/sparks/456/respond/",
+    ),
+)
+def test_retired_spark_deep_links_redirect_to_hub(client, settings, url):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member")
+    _login_eligible(client, member)
+
+    response = client.get(url)
+
+    assert response.status_code == 302
+    assert response.url == HUB_URL
+
+
+@pytest.mark.django_db
 def test_premium_member_can_open_dedicated_coach_pick_page(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     member = _make_user(username="member", preferred_genders=["F"])
@@ -275,6 +315,22 @@ def test_premium_member_can_open_dedicated_coach_pick_page(client, settings):
     assert response.status_code == 200
     assert "Your Coach's Pick" in response.content.decode()
     assert candidate.first_name in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_photoless_premium_member_cannot_view_coach_pick(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    candidate = _make_user(username="candidate", gender="F", premium=False)
+    propose_coach_pick(_coach_for(member), member, candidate)
+    member.crushprofile.photo_1 = ""
+    member.crushprofile.save(update_fields=["photo_1"])
+    _login_eligible(client, member)
+
+    response = client.get(COACH_PICK_URL)
+
+    assert response.status_code == 302
+    assert response.url.endswith("?section=photos")
 
 
 @pytest.mark.django_db

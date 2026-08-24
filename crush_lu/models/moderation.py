@@ -117,6 +117,8 @@ class UserReport(models.Model):
     ]
 
     SOURCE_CHOICES = [
+        ("spark", _("Curiosity Spark (legacy)")),
+        ("drop", _("Daily Drop (legacy)")),
         ("connection", _("Event connection")),
         ("message", _("Message")),
         ("profile", _("Profile")),
