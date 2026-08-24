@@ -36,19 +36,19 @@ struct CrushWebView: UIViewRepresentable {
         webView.customUserAgent = "Mozilla/5.0 AppleWebKit/605.1.15 CrushLUApp/1.0.2"
 
         context.coordinator.webView = webView
-        context.coordinator.load(appState.currentURL)
+        context.coordinator.load(appState.navigation)
         context.coordinator.registerForNativeEvents()
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.load(appState.currentURL)
+        context.coordinator.load(appState.navigation)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, PKAddPassesViewControllerDelegate {
         weak var webView: WKWebView?
         private let appState: AppState
-        private var lastLoadedURL: URL?
+        private var lastHandledRequestID: UUID?
         private var nativeAuthSession: NativeAuthSession?
         private var observers: [NSObjectProtocol] = []
 
@@ -76,10 +76,15 @@ struct CrushWebView: UIViewRepresentable {
             observers.append(tokenObserver)
         }
 
-        func load(_ url: URL) {
-            guard lastLoadedURL != url, let webView else { return }
-            lastLoadedURL = url
-            var request = URLRequest(url: url)
+        func load(_ navigation: NavigationRequest) {
+            // Keyed on the request id, never the URL. The Coordinator now lives
+            // for the whole process (the view is no longer rebuilt via .id), so
+            // a URL-keyed guard would permanently swallow every repeat
+            // navigation to a URL already visited — including the fixed push
+            // deep links, which repeat by design.
+            guard lastHandledRequestID != navigation.id, let webView else { return }
+            lastHandledRequestID = navigation.id
+            var request = URLRequest(url: navigation.url)
             request.setValue("ios-app", forHTTPHeaderField: "X-Crush-Client")
             webView.load(request)
         }

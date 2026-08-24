@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from collections import namedtuple
 from datetime import timedelta
 
 from django.conf import settings
@@ -7,6 +8,20 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+# Why a redemption was refused. These are logged verbatim so the three causes
+# are separable in App Insights: before they existed, "code never issued",
+# "code already used" and "code timed out" all arrived as the same opaque 400
+# and nothing in 30 days of production telemetry could tell them apart.
+AUTH_CODE_OK = "ok"
+AUTH_CODE_UNKNOWN = "unknown"
+AUTH_CODE_REPLAYED = "replayed"
+AUTH_CODE_EXPIRED = "expired"
+
+#: ``user`` is set only when this call is the one that claimed the code.
+#: ``record`` is the row when one exists, so callers can compare its owner
+#: against the requesting session (see crush_lu/native_auth.py).
+RedeemedCode = namedtuple("RedeemedCode", "user reason record")
 
 
 def _hash_native_auth_code(code, secret_key=None):
@@ -175,14 +190,54 @@ class IOSNativeAuthCode(models.Model):
         return code
 
     @classmethod
-    def consume(cls, code):
+    def redeem(cls, code):
+        """Atomically claim `code`, or say why it could not be claimed.
+
+        The claim is a single conditional UPDATE, so the database serialises
+        it and exactly one caller can ever see ``claimed``. The obvious
+        alternative — filter(consumed_at__isnull=True).first() then save() —
+        is a read-then-write: the guard lives only in the SELECT, the UPDATE
+        it emits is `SET consumed_at=%s WHERE id=%s` with no `AND consumed_at
+        IS NULL`, and under autocommit + READ COMMITTED (ATOMIC_REQUESTS is
+        off, production runs four gunicorn workers) two requests milliseconds
+        apart both pass the guard and both log in. One "one-time" code, two
+        sessions. ATOMIC_REQUESTS would not close that: the blocked
+        transaction re-checks `WHERE id = N`, still matches, and commits.
+
+        `.order_by()` clears Meta.ordering, which would otherwise put a
+        pointless ORDER BY on both queries.
+        """
+        now = timezone.now()
         candidate_hashes = _candidate_auth_code_hashes(code)
-        auth_code = cls.objects.select_related("user").filter(
-            code_hash__in=candidate_hashes,
-            consumed_at__isnull=True,
-        ).first()
-        if not auth_code or auth_code.is_expired:
-            return None
-        auth_code.consumed_at = timezone.now()
-        auth_code.save(update_fields=["consumed_at"])
-        return auth_code.user
+        claimed = (
+            cls.objects.order_by()
+            .filter(
+                code_hash__in=candidate_hashes,
+                consumed_at__isnull=True,
+                expires_at__gt=now,
+            )
+            .update(consumed_at=now)
+        )
+        record = (
+            cls.objects.select_related("user")
+            .order_by()
+            .filter(code_hash__in=candidate_hashes)
+            .first()
+        )
+        if claimed:
+            return RedeemedCode(record.user, AUTH_CODE_OK, record)
+        if record is None:
+            return RedeemedCode(None, AUTH_CODE_UNKNOWN, None)
+        if record.consumed_at is not None:
+            return RedeemedCode(None, AUTH_CODE_REPLAYED, record)
+        return RedeemedCode(None, AUTH_CODE_EXPIRED, record)
+
+    @classmethod
+    def consume(cls, code):
+        """The user this code belongs to, or None. Prefer `redeem()`.
+
+        Kept because callers that only need "did it work" read better this
+        way; anything that has to tell a replay from an expiry — which is
+        every caller that reports to a human — needs `redeem()`.
+        """
+        return cls.redeem(code).user

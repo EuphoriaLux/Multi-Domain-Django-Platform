@@ -1,0 +1,140 @@
+{% load i18n static %}<!DOCTYPE html>
+{% comment %}
+Shown inside the app's WebView when a one-time auth code cannot be redeemed.
+It replaces a raw JSON body that used to be rendered full-screen with nothing
+tappable on it, so the only escape was force-quitting the app.
+
+Deliberately standalone rather than extending crush_lu/base.html, for two
+reasons:
+
+1. The request path carries the one-time code. Every part of the site chrome
+   that echoes the current URL — rel=canonical, hreflang, og:url, the language
+   switcher's hidden `next` — would print that credential into the markup.
+   Overriding them one by one is whack-a-mole; not rendering them is not.
+2. This is the page that has to work when something already went wrong. The
+   full base template pulls in the nav, Alpine, the bottom bar and every
+   context processor, and context-processor DB queries are a known way for a
+   crush.lu page to turn a bad request into a 500.
+
+Standalone markup, but NOT a standalone palette: every colour below comes from
+the compiled stylesheet's design tokens (STYLE.md keeps the brand colours in
+four places that must stay in sync — this must not become a fifth). The hex
+literals are `var()` fallbacks only, so the page stays legible if the
+stylesheet itself fails to load, which on this page is a real possibility.
+
+The one job here is the retry link: it restarts the handoff rather than
+re-requesting the spent code, which is what pull-to-refresh on the old page
+did.
+{% endcomment %}
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% trans "Sign-in didn't complete" %} – Crush.lu</title>
+
+{% comment %}
+Linked for its design tokens, not its utilities. Same origin, and already in
+the WebView's cache from every other page in the app.
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
+
+<script{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
+    // Mirrors theme-manager.js getInitialTheme(): the site's dark mode is a
+    // class on <html>, not a media query, so honouring the user's stored
+    // choice means resolving it here too. Stamping .theme-light as well lets
+    // the CSS below keep an explicit light choice from losing to a dark OS.
+    (function () {
+        try {
+            var saved = localStorage.getItem("theme");
+            var dark = saved === "dark" || (saved !== "light" && window.matchMedia
+                && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.add(dark ? "dark" : "theme-light");
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (e) {
+            // Private mode can throw on localStorage; the media query below
+            // still covers this page.
+        }
+    })();
+</script>
+
+<style{% if csp_nonce %} nonce="{{ csp_nonce }}"{% endif %}>
+  :root {
+    --page-ground: var(--color-crush-light, #f8f9fa);
+    --page-surface: #fff;
+    --page-ink: var(--color-crush-dark, #2c3e50);
+    --page-ink-soft: var(--color-gray-600, #4b5563);
+    --page-rule: var(--color-gray-200, #e5e7eb);
+  }
+  /* No stored preference and a dark OS. Guarded so an explicit light choice
+     still wins, matching how the rest of the site behaves. */
+  @media (prefers-color-scheme: dark) {
+    :root:not(.theme-light) {
+      --page-ground: var(--color-gray-900, #111827);
+      --page-surface: var(--color-gray-800, #1f2937);
+      --page-ink: var(--color-gray-100, #f3f4f6);
+      --page-ink-soft: var(--color-gray-400, #9ca3af);
+      --page-rule: var(--color-gray-700, #374151);
+    }
+  }
+  /* An explicit dark choice, or the bootstrap above resolving to dark. */
+  :root.dark {
+    --page-ground: var(--color-gray-900, #111827);
+    --page-surface: var(--color-gray-800, #1f2937);
+    --page-ink: var(--color-gray-100, #f3f4f6);
+    --page-ink-soft: var(--color-gray-400, #9ca3af);
+    --page-rule: var(--color-gray-700, #374151);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.25rem;
+    background: var(--page-ground);
+    color: var(--page-ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    background: var(--page-surface);
+    border: 1px solid var(--page-rule);
+    border-radius: 14px;
+    padding: 2.25rem 1.75rem;
+    max-width: 26rem;
+    width: 100%;
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 .75rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  p { margin: 0 0 1.75rem; color: var(--page-ink-soft); font-size: .97rem; }
+  /* Layout only. The buttons themselves are .btn-crush-primary /
+     .btn-crush-outline from the shared stylesheet — no sizing, colour or
+     interaction rules here, or this page drifts from the canonical variants
+     the moment they change. */
+  .actions { display: flex; flex-direction: column; gap: .65rem; align-items: stretch; }
+  .actions > a { text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{% trans "Let's try that sign-in again" %}</h1>
+  <p>
+    {% trans "This sign-in link is no longer valid. It may have timed out, or it may already have been used — in which case you could already be signed in on another screen. Tap below to start again." %}
+  </p>
+  <div class="actions">
+    <a class="btn-crush-primary" href="{{ retry_url }}">{% trans "Try signing in again" %}</a>
+    <a class="btn-crush-outline" href="/">{% trans "Back to Crush.lu" %}</a>
+  </div>
+</main>
+</body>
+</html>

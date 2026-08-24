@@ -16,8 +16,13 @@ final class AppState: ObservableObject {
     }
 
     @Published var selectedDestination: AppDestination = .dashboard
-    @Published var currentURL: URL
-    @Published var reloadToken = UUID()
+    /// The navigation the shell has most recently been *asked* to perform.
+    ///
+    /// Identity, not equality: two taps on the same push notification are two
+    /// requests. Comparing URLs instead would make them one, because the APNS
+    /// payload's `url` is drawn from a fixed set of five constant paths with no
+    /// query string — byte-identical repeats are the norm, not an edge case.
+    @Published private(set) var navigation: NavigationRequest
     @Published var isOnline = true
     @Published var showPushPrompt = false
 
@@ -25,7 +30,9 @@ final class AppState: ObservableObject {
     private let monitorQueue = DispatchQueue(label: "lu.crush.app.network")
 
     init() {
-        currentURL = URL(string: AppDestination.dashboard.path, relativeTo: Self.baseURL)!.absoluteURL
+        navigation = NavigationRequest(
+            url: URL(string: AppDestination.dashboard.path, relativeTo: Self.baseURL)!.absoluteURL
+        )
         monitor.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
                 self?.isOnline = path.status == .satisfied
@@ -42,14 +49,27 @@ final class AppState: ObservableObject {
 
     func go(to destination: AppDestination) {
         selectedDestination = destination
-        currentURL = URL(string: destination.path, relativeTo: baseURL)!.absoluteURL
-        reloadToken = UUID()
+        navigation = NavigationRequest(
+            url: URL(string: destination.path, relativeTo: baseURL)!.absoluteURL
+        )
     }
 
     func load(_ url: URL) {
-        currentURL = url
-        reloadToken = UUID()
+        navigation = NavigationRequest(url: url)
     }
+}
+
+/// One request to put a URL on screen.
+///
+/// The `id` is what the web view de-duplicates on, which keeps two different
+/// things apart that a URL comparison conflates: SwiftUI re-running
+/// `updateUIView` for an unrelated state change (same request, must not reload
+/// — that is what would re-submit a spent one-time auth code), and the app
+/// being asked to navigate again (new request, must load, even to a URL that
+/// is already on screen).
+struct NavigationRequest {
+    let id = UUID()
+    let url: URL
 }
 
 enum AppDestination: String, CaseIterable, Identifiable {
@@ -98,7 +118,6 @@ struct ContentView: View {
             }
 
             CrushWebView(appState: appState)
-                .id(appState.reloadToken)
 
             // No native tab bar: crush.lu renders its own bottom navigation and
             // that one is strictly richer — it is role-aware (coaches get a Coach

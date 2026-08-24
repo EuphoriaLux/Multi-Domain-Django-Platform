@@ -40427,3 +40427,25 @@ msgstr "Mitgliedspause"
 
 msgid "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
 msgstr "Eine vom Mitglied gesteuerte Pause blendet es aus neuen Crush-Connect-Entdeckungen aus und erhält Onboarding sowie bestehende Chats."
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Sign-in didn't complete"
+msgstr "Anmeldung nicht abgeschlossen"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Let's try that sign-in again"
+msgstr "Versuchen wir die Anmeldung noch einmal"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid "Try signing in again"
+msgstr "Erneut anmelden"
+
+#: crush_lu/templates/crush_lu/native_auth_failed.html:0
+msgid ""
+"This sign-in link is no longer valid. It may have timed out, or it may "
+"already have been used — in which case you could already be signed in on "
+"another screen. Tap below to start again."
+msgstr ""
+"Dieser Anmeldelink ist nicht mehr gültig. Vielleicht ist er abgelaufen, "
+"vielleicht wurde er schon verwendet – dann bist du auf einem anderen "
+"Bildschirm womöglich bereits angemeldet. Tippe unten, um neu zu starten."

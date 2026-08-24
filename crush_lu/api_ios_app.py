@@ -3,15 +3,14 @@ import logging
 from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
 
 from django.conf import settings
-from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect
 from django.views.decorators.http import require_http_methods
 
 from .decorators import ratelimit
 from .mobile_auth import clear_mobile_handoff, stash_mobile_handoff
+from .native_auth import complete_native_auth
 from .models import IOSAppDevice, IOSNativeAuthCode
 
 logger = logging.getLogger(__name__)
@@ -118,7 +117,14 @@ def ios_auth_handoff(request):
 
     clear_mobile_handoff(request)
     code = IOSNativeAuthCode.issue(request.user, redirect_uri, request=request)
-    complete_url = request.build_absolute_uri(f"/api/mobile/ios/auth/complete/{code}/")
+    # The redirect_uri rides along so the failure page can restart the handoff
+    # on the flavor that started it. The local and staging Android builds call
+    # back on their own schemes, and a code that no longer has a row (an
+    # unknown code) leaves nothing else to read it from.
+    complete_url = _append_query(
+        request.build_absolute_uri(f"/api/mobile/ios/auth/complete/{code}/"),
+        {"redirect_uri": redirect_uri},
+    )
     return IOSAppRedirect(
         _append_query(
             redirect_uri,
@@ -133,16 +139,7 @@ def ios_auth_handoff(request):
 @require_http_methods(["GET"])
 def ios_auth_complete(request, code):
     """Consume a one-time auth code and create the WKWebView session."""
-    user = IOSNativeAuthCode.consume(code)
-    if not user:
-        return JsonResponse(
-            {"success": False, "error": "Invalid or expired authentication code"},
-            status=400,
-        )
-
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session["crush_ios_app"] = True
-    return redirect("/en/dashboard/?source=ios_app")
+    return complete_native_auth(request, "ios", code)
 
 
 @login_required
