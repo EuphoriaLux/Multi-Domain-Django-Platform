@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.utils import timezone
 from django.urls import reverse
-from django.utils.translation import override
+from django.utils.translation import gettext_noop, override
 from django.core.cache import cache
 from azureproject.email_utils import send_domain_email
 from .utils.i18n import get_user_preferred_language
@@ -691,6 +691,92 @@ def send_event_registration_confirmation(registration, request=None):
         # is present, so this changes nothing for the view-driven paths.
         domain="crush.lu",
         fail_silently=False,
+    )
+
+
+def _receipt_recipient(payment):
+    """Who the receipt is FOR — not who happened to open the checkout.
+
+    Mirrors ``_payment_owner_ids`` in views_payments, deliberately: both
+    checkout creators let staff act for a member and stamp
+    ``user=request.user``, so ``payment.user`` on a staff-assisted purchase is
+    the *staff* account. Sending there would mail the member's receipt to staff,
+    in the staff member's language, and nothing at all to the person whose
+    membership was just activated. The linked registration or membership wins
+    wherever one exists; ``payment.user`` is the fallback only for unlinked rows
+    (a donation) that name nobody else.
+    """
+    if payment.event_registration_id:
+        return payment.event_registration.user
+    if payment.premium_membership_id:
+        return payment.premium_membership.user
+    return payment.user
+
+
+def _send_payment_receipt(payment, *, subject_message, template_name, request=None):
+    """Render and send a non-marketing receipt for one captured payment."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    # NOT payment.user — see _receipt_recipient.
+    user = _receipt_recipient(payment)
+    if user is None:
+        logger.error(
+            "Cannot send payment receipt for transaction %s without a user", payment.id
+        )
+        return 0
+
+    # ``request`` belongs to the staff member on an assisted purchase, so the
+    # recipient's own stored preference is what must decide the language.
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    # Receipts are financial notices, not marketing: no unsubscribe context, and
+    # a minimal context independent of CrushProfile so a legacy donation whose
+    # profile was deleted still gets receipted. base_email.html guards the
+    # unsubscribe block on `if unsubscribe_url`, so omitting it is correct.
+    context = {
+        "user": user,
+        "payment": payment,
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+    }
+
+    with translation.override(lang):
+        subject = _(subject_message)
+        html_message = render_to_string(template_name, context)
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_premium_membership_payment_receipt(payment, request=None):
+    """Send the buyer a receipt after a Premium membership is activated."""
+    return _send_payment_receipt(
+        payment,
+        # gettext_noop, not a bare literal: the subject is translated at render
+        # time via the variable above, which makemessages cannot extract. Without
+        # this marker the msgid goes obsolete on the next run and every subject
+        # silently reverts to English.
+        subject_message=gettext_noop("Your Premium membership payment receipt"),
+        template_name="crush_lu/emails/premium_membership_payment_receipt.html",
+        request=request,
+    )
+
+
+def send_donation_payment_receipt(payment, request=None):
+    """Thank and receipt a member whose donation was captured."""
+    return _send_payment_receipt(
+        payment,
+        subject_message=gettext_noop("Thank you for supporting Crush.lu"),
+        template_name="crush_lu/emails/donation_payment_receipt.html",
+        request=request,
     )
 
 

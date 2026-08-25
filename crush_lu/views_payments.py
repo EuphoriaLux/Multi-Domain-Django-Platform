@@ -749,6 +749,34 @@ def _send_registration_confirmation_safely(registration):
         )
 
 
+def _send_premium_membership_receipt_safely(payment):
+    """Send a Premium receipt without affecting an already-captured payment."""
+    from .email_helpers import send_premium_membership_payment_receipt
+
+    try:
+        send_premium_membership_payment_receipt(payment)
+    except Exception as exc:
+        logger.error(
+            "Failed to send Premium payment receipt for transaction %s: %s",
+            payment.id,
+            type(exc).__name__,
+        )
+
+
+def _send_donation_receipt_safely(payment):
+    """Send a donation receipt without affecting an already-captured payment."""
+    from .email_helpers import send_donation_payment_receipt
+
+    try:
+        send_donation_payment_receipt(payment)
+    except Exception as exc:
+        logger.error(
+            "Failed to send donation receipt for transaction %s: %s",
+            payment.id,
+            type(exc).__name__,
+        )
+
+
 def _send_organiser_cancellation_safely(
     registration, credits, *, recipient_user=None, mark_notified=True
 ):
@@ -1217,6 +1245,15 @@ def _apply_paid_checkout(tx_obj, data):
                 try:
                     pm.confirm()
                     logger.info("Confirmed PremiumMembership %s via SumUp", pm.id)
+                    # SumUp has captured the money, but this still runs inside
+                    # the transaction recording the entitlement. Send only after
+                    # it commits, and keep mail delivery incapable of changing
+                    # the already-captured payment's outcome.
+                    transaction.on_commit(
+                        lambda payment=locked: _send_premium_membership_receipt_safely(
+                            payment
+                        )
+                    )
                 except ValueError as exc:
                     # Same contract as the event-registration branch above:
                     # SumUp has already captured the money by the time this
@@ -1300,6 +1337,17 @@ def _apply_paid_checkout(tx_obj, data):
                     locked.user_id,
                     locked.transaction_reference,
                 )
+
+            # A donation is still a completed payment when the supporter badge
+            # cannot be granted (a legacy row whose profile was deleted), so the
+            # receipt belongs to the captured transaction, not to that optional
+            # profile update. Re-entry is impossible: _apply_paid_checkout
+            # returns early when the locked row is already PAID, so the browser
+            # return racing SumUp's callback cannot receipt the same donation
+            # twice.
+            transaction.on_commit(
+                lambda payment=locked: _send_donation_receipt_safely(payment)
+            )
 
 
 def describe_sumup_failure(data):

@@ -799,6 +799,59 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         self.user.crushprofile.refresh_from_db()
         self.assertEqual(self.user.crushprofile.assigned_coach, self.coach)
 
+    @patch("crush_lu.email_helpers.send_premium_membership_payment_receipt")
+    def test_successful_premium_payment_queues_a_receipt_after_commit(self, receipt):
+        """A Premium buyer is charged; until now they got no receipt at all."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        receipt.assert_called_once()
+        self.assertEqual(receipt.call_args.args[0].pk, tx.pk)
+
+    def test_a_staff_assisted_premium_receipt_goes_to_the_member(self):
+        """Staff may open a checkout for a member, and both creators stamp
+        ``user=request.user`` — so the row names STAFF, not the buyer. The
+        receipt must follow the membership, or the member is charged, activated
+        and told nothing while staff gets their receipt."""
+        from django.core import mail
+        from crush_lu.email_helpers import send_premium_membership_payment_receipt
+
+        staff = self._make_staff("assist@crush.lu")
+        tx = self._open_checkout()
+        tx.user = staff  # exactly what create_sumup_premium_checkout stores
+        tx.save(update_fields=["user"])
+
+        mail.outbox = []
+        send_premium_membership_payment_receipt(tx)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertNotIn(staff.email, mail.outbox[0].to)
+
+    def test_a_receipt_greets_a_member_who_has_no_first_name(self):
+        """Social signups whose provider supplies no given name keep
+        ``first_name=""``. The greeting must not render as "Thank you, !"."""
+        from django.core import mail
+        from crush_lu.email_helpers import send_premium_membership_payment_receipt
+
+        self.user.first_name = ""
+        self.user.save(update_fields=["first_name"])
+        tx = self._open_checkout()
+
+        mail.outbox = []
+        send_premium_membership_payment_receipt(tx)
+
+        body = mail.outbox[0].body
+        self.assertNotIn("Thank you, !", body)
+        self.assertIn("Thank you!", body)
+        # username IS the email on this platform, so it is never a name.
+        self.assertNotIn(self.user.email, body.split("Thank you!")[0][-80:])
+
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     def test_completion_is_unaffected_when_the_funnel_is_off(self):
         from crush_lu.views_payments import _apply_paid_checkout
@@ -4754,6 +4807,39 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
 
         self.profile.refresh_from_db()
         tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(self.profile.is_community_supporter)
+
+    @patch("crush_lu.email_helpers.send_donation_payment_receipt")
+    def test_paid_donation_queues_a_receipt_after_commit(self, receipt):
+        """A donor is charged; until now they got nothing acknowledging it."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._donation(user=self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        receipt.assert_called_once()
+        self.assertEqual(receipt.call_args.args[0].pk, tx.pk)
+
+    @patch(
+        "crush_lu.email_helpers.send_donation_payment_receipt",
+        side_effect=RuntimeError("mail unavailable"),
+    )
+    def test_donation_receipt_failure_does_not_break_the_captured_payment(
+        self, _receipt
+    ):
+        """The money is already taken: mail must never undo the capture."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._donation(user=self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        tx.refresh_from_db()
+        self.profile.refresh_from_db()
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
         self.assertTrue(self.profile.is_community_supporter)
 

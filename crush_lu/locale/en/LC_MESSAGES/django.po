@@ -27300,3 +27300,73 @@ msgstr "Member pause"
 
 msgid "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
 msgstr "A member-controlled pause hides them from new Crush Connect discovery while preserving onboarding and existing chats."
+
+#: email_helpers.py
+msgid "Your Premium membership payment receipt"
+msgstr ""
+
+#: email_helpers.py
+msgid "Thank you for supporting Crush.lu"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Premium membership payment receipt"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Payment received"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+#, python-format
+msgid "Thank you, %(first_name)s!"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid ""
+"Your Premium membership payment has been received and your membership is now"
+" active."
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Payment receipt"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Amount:"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Reference:"
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Thank you for being part of the Crush.lu community."
+msgstr ""
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Donation payment receipt"
+msgstr ""
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you for your support"
+msgstr ""
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid ""
+"We have received your donation to Crush.lu. Your support helps us grow the "
+"community."
+msgstr ""
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you for supporting meaningful connections in Luxembourg."
+msgstr ""
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you!"
+msgstr ""

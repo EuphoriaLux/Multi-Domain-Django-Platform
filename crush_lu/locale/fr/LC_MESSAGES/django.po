@@ -40583,3 +40583,77 @@ msgstr ""
 "Ce lien de connexion n'est plus valable. Il a peut-être expiré, ou il a "
 "peut-être déjà été utilisé — auquel cas vous êtes peut-être déjà connecté "
 "sur un autre écran. Touchez ci-dessous pour recommencer."
+
+#: email_helpers.py
+msgid "Your Premium membership payment receipt"
+msgstr "Votre reçu de paiement pour l’adhésion Premium"
+
+#: email_helpers.py
+msgid "Thank you for supporting Crush.lu"
+msgstr "Merci de soutenir Crush.lu"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Premium membership payment receipt"
+msgstr "Reçu de paiement pour l’adhésion Premium"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Payment received"
+msgstr "Paiement reçu"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+#, python-format
+msgid "Thank you, %(first_name)s!"
+msgstr "Merci, %(first_name)s !"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid ""
+"Your Premium membership payment has been received and your membership is now"
+" active."
+msgstr ""
+"Nous avons bien reçu votre paiement pour l’adhésion Premium et votre "
+"adhésion est désormais active."
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Payment receipt"
+msgstr "Reçu de paiement"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Amount:"
+msgstr "Montant :"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Reference:"
+msgstr "Référence :"
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+msgid "Thank you for being part of the Crush.lu community."
+msgstr "Merci de faire partie de la communauté Crush.lu."
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Donation payment receipt"
+msgstr "Reçu de paiement du don"
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you for your support"
+msgstr "Merci pour votre soutien"
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid ""
+"We have received your donation to Crush.lu. Your support helps us grow the "
+"community."
+msgstr ""
+"Nous avons bien reçu votre don à Crush.lu. Votre soutien nous aide à faire "
+"grandir la communauté."
+
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you for supporting meaningful connections in Luxembourg."
+msgstr "Merci de soutenir des rencontres authentiques au Luxembourg."
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you!"
+msgstr "Merci !"
