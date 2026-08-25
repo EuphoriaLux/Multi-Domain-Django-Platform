@@ -40652,3 +40652,8 @@ msgstr ""
 #: templates/crush_lu/emails/donation_payment_receipt.html
 msgid "Thank you for supporting meaningful connections in Luxembourg."
 msgstr "Merci de soutenir des rencontres authentiques au Luxembourg."
+
+#: templates/crush_lu/emails/premium_membership_payment_receipt.html
+#: templates/crush_lu/emails/donation_payment_receipt.html
+msgid "Thank you!"
+msgstr "Merci !"

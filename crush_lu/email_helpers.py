@@ -694,18 +694,40 @@ def send_event_registration_confirmation(registration, request=None):
     )
 
 
+def _receipt_recipient(payment):
+    """Who the receipt is FOR — not who happened to open the checkout.
+
+    Mirrors ``_payment_owner_ids`` in views_payments, deliberately: both
+    checkout creators let staff act for a member and stamp
+    ``user=request.user``, so ``payment.user`` on a staff-assisted purchase is
+    the *staff* account. Sending there would mail the member's receipt to staff,
+    in the staff member's language, and nothing at all to the person whose
+    membership was just activated. The linked registration or membership wins
+    wherever one exists; ``payment.user`` is the fallback only for unlinked rows
+    (a donation) that name nobody else.
+    """
+    if payment.event_registration_id:
+        return payment.event_registration.user
+    if payment.premium_membership_id:
+        return payment.premium_membership.user
+    return payment.user
+
+
 def _send_payment_receipt(payment, *, subject_message, template_name, request=None):
     """Render and send a non-marketing receipt for one captured payment."""
     from django.utils import translation
     from django.utils.translation import gettext as _
 
-    user = payment.user
+    # NOT payment.user — see _receipt_recipient.
+    user = _receipt_recipient(payment)
     if user is None:
         logger.error(
             "Cannot send payment receipt for transaction %s without a user", payment.id
         )
         return 0
 
+    # ``request`` belongs to the staff member on an assisted purchase, so the
+    # recipient's own stored preference is what must decide the language.
     lang = get_user_preferred_language(user=user, request=request, default="en")
     # Receipts are financial notices, not marketing: no unsubscribe context, and
     # a minimal context independent of CrushProfile so a legacy donation whose

@@ -5,7 +5,11 @@
 {% block header_title %}{% trans "Thank you for your support" %}{% endblock %}
 
 {% block content %}
-<h2>{% blocktrans with first_name=payment.user.first_name %}Thank you, {{ first_name }}!{% endblocktrans %}</h2>
+{% if user.first_name %}
+<h2>{% blocktrans with first_name=user.first_name %}Thank you, {{ first_name }}!{% endblocktrans %}</h2>
+{% else %}
+<h2>{% trans "Thank you!" %}</h2>
+{% endif %}
 
 <p>{% trans "We have received your donation to Crush.lu. Your support helps us grow the community." %}</p>
 
