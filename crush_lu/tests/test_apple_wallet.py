@@ -148,7 +148,8 @@ class TestBuildApplePass:
         manifest = json.loads(zf.read("manifest.json"))
 
         for filename, expected_hash in manifest.items():
-            actual_hash = hashlib.sha256(zf.read(filename)).hexdigest()
+            assert len(expected_hash) == 40
+            actual_hash = hashlib.sha1(zf.read(filename)).hexdigest()  # nosec B324
             assert actual_hash == expected_hash, f"Hash mismatch for {filename}"
 
 
@@ -193,6 +194,20 @@ class TestBuildAppleEventTicket:
         assert "pass.json" in names
         assert "manifest.json" in names
         assert "signature" in names
+
+    def test_manifest_matches_file_hashes(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        pkpass_bytes = build_apple_event_ticket(registrations[0])
+
+        zf = zipfile.ZipFile(BytesIO(pkpass_bytes))
+        manifest = json.loads(zf.read("manifest.json"))
+
+        for filename, expected_hash in manifest.items():
+            assert len(expected_hash) == 40
+            actual_hash = hashlib.sha1(zf.read(filename)).hexdigest()  # nosec B324
+            assert actual_hash == expected_hash, f"Hash mismatch for {filename}"
 
     def test_pass_uses_event_ticket_style(self, event_with_registrations):
         from crush_lu.wallet.apple_event_ticket import build_apple_event_ticket

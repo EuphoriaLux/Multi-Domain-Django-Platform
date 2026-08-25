@@ -343,11 +343,12 @@ def _build_pkpass(pass_payload, files=None):
         pass_payload, ensure_ascii=False, separators=(",", ":")
     ).encode("utf-8")
 
-    # Build manifest (SHA-256 hashes of all files, supported since iOS 13+)
+    # The PKPass format requires SHA-1 file hashes in manifest.json. SHA-1 is
+    # used only for package compatibility here; the detached signature uses SHA-256.
     manifest = {}
-    manifest["pass.json"] = hashlib.sha256(pass_json_bytes).hexdigest()
+    manifest["pass.json"] = hashlib.sha1(pass_json_bytes).hexdigest()  # nosec B324
     for filename, content in files.items():
-        manifest[filename] = hashlib.sha256(content).hexdigest()
+        manifest[filename] = hashlib.sha1(content).hexdigest()  # nosec B324
 
     manifest_bytes = json.dumps(
         manifest, ensure_ascii=False, separators=(",", ":")
