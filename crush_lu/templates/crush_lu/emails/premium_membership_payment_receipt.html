@@ -1,0 +1,21 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Premium membership payment receipt" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Payment received" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=payment.user.first_name %}Thank you, {{ first_name }}!{% endblocktrans %}</h2>
+
+<p>{% trans "Your Premium membership payment has been received and your membership is now active." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Payment receipt" %}</strong>
+    <ul>
+        <li><strong>{% trans "Amount:" %}</strong> {{ payment.amount }} {{ payment.currency }}</li>
+        <li><strong>{% trans "Reference:" %}</strong> {{ payment.transaction_reference }}</li>
+    </ul>
+</div>
+
+<p>{% trans "Thank you for being part of the Crush.lu community." %}</p>
+{% endblock %}
