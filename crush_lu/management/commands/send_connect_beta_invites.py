@@ -112,6 +112,36 @@ def candidates_for_wave(wave):
             beta_invited_at__isnull=True,
             notification_preference=True,
         )
+        # A member who paused Crush Connect themselves must not be mailed
+        # "your Connect Week is open" — their own pause is what is holding it
+        # shut. Nothing deletes the waitlist row when a member onboards, so
+        # waitlist -> onboarded -> paused is a reachable, live state that
+        # otherwise stays a candidate forever.
+        #
+        # exclude(...__isnull=False), NOT filter(paused_at__isnull=True): the
+        # membership is a OneToOne that most of the waitlist does not have at
+        # all, and filtering across it would inner-join them all away. exclude()
+        # drops only the rows that actually have a paused membership.
+        .exclude(user__crush_connect_membership__paused_at__isnull=False)
+        .select_related("user__crushprofile")
+        .order_by("joined_at")
+    )
+    return [row for row in rows if wave_for_user(row.user) == wave]
+
+
+def paused_candidates_for_wave(wave):
+    """The members ``candidates_for_wave`` just dropped for pausing.
+
+    Reporting-only, and deliberately wave-scoped the same way the cohort is: a
+    flat count of every paused waitlist row would report wave-2 members while
+    wave 1 is being sent, which is worse than saying nothing.
+    """
+    rows = (
+        CrushConnectWaitlist.objects.filter(
+            beta_invited_at__isnull=True,
+            notification_preference=True,
+            user__crush_connect_membership__paused_at__isnull=False,
+        )
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )
@@ -192,6 +222,14 @@ class Command(BaseCommand):
             f"  eligible, not yet invited: {len(candidates)}  "
             f"(limit {limit}{', DRY RUN' if dry_run else ''})"
         )
+        # Say so out loud: a cohort that silently shrank looks identical to one
+        # that was always that size, and "why did N members not get this?" is
+        # the first question anyone asks after a wave goes out.
+        paused_skipped = len(paused_candidates_for_wave(wave))
+        if paused_skipped:
+            self.stdout.write(
+                f"  skipped, paused Connect themselves: {paused_skipped}"
+            )
 
         if not candidates:
             self.stdout.write(self.style.SUCCESS("Nothing to send."))
