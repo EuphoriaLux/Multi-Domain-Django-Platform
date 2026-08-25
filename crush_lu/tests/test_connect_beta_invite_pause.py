@@ -145,3 +145,77 @@ def test_the_skipped_count_is_reported_and_wave_scoped():
     out = StringIO()
     call_command("send_connect_beta_invites", "--wave", "1", "--dry-run", stdout=out)
     assert "skipped, paused Connect themselves: 1" in out.getvalue()
+
+
+@pytest.mark.django_db
+def test_a_member_who_pauses_mid_run_is_not_mailed():
+    """The cohort filter alone leaves a time-of-check/time-of-use hole.
+
+    ``candidates_for_wave`` materialises a list, then the command works through
+    up to 200 sends. A member who hits pause while the run is still on earlier
+    recipients is already in that list, so the send itself has to re-check.
+    """
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _make_user(username="mid_run", premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+
+    # In the cohort at check time...
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+    # ...then they pause while the run is under way.
+    membership, _ = CrushConnectMembership.objects.get_or_create(user=user)
+    membership.pause()
+
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 0, "a member who paused mid-run was still mailed"
+    assert user.email not in [addr for m in mail.outbox for addr in m.to]
+
+
+def _waitlisted_without_membership(username="no_membership"):
+    """A waitlist member who never onboarded — the majority of the waitlist.
+
+    ``_make_user`` always creates a CrushConnectMembership, so the row has to
+    be removed explicitly to model someone who only ever joined the waitlist.
+    """
+    user = _make_user(username=username, premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectMembership.objects.filter(user=user).delete()
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+    assert not CrushConnectMembership.objects.filter(user=user).exists()
+    return user
+
+
+@pytest.mark.django_db
+def test_a_member_without_a_membership_row_is_still_a_candidate():
+    """Most of the waitlist never onboarded; they must stay in the wave.
+
+    The cohort now reaches across an optional OneToOne, and the risk in doing
+    that is excluding everyone who simply has no row on the far side —
+    silently emptying the campaign, which is far worse than the bug being
+    fixed. As it happens both spellings survive it (``exclude(...isnull=False)``
+    and ``filter(...isnull=True)`` both emit a LEFT OUTER JOIN, since Django
+    promotes the join for ``__isnull=True``), so this is not guarding one
+    spelling against the other — it pins the behaviour itself, for whoever
+    edits this filter next.
+    """
+    user = _waitlisted_without_membership()
+
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+
+@pytest.mark.django_db
+def test_a_member_without_a_membership_row_is_still_mailed():
+    """The same trap at the send-time guard: "no row" must mean "not paused"."""
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _waitlisted_without_membership(username="no_membership_send")
+
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 1
+    assert user.email in [addr for m in mail.outbox for addr in m.to]

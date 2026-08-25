@@ -2299,6 +2299,32 @@ def send_connect_beta_invite(user, wave, request=None):
         logger.info(f"Skipping Connect beta invite to {user.email} - unsubscribed")
         return 0
 
+    # Re-read the pause at send time, not only when the caller built its cohort.
+    # A wave is up to 200 sends off one materialised list, so a member who hits
+    # pause while the run is working through the earlier recipients would
+    # otherwise still be mailed by that same run. This is a fresh query (the
+    # cohort only select_related's the profile), which is the point.
+    #
+    # Placed beside the unsubscribe guard rather than in the command so it
+    # covers every caller, and returning 0 reuses the established contract:
+    # the caller leaves the row un-stamped, so reactivating restores the member
+    # to a future wave instead of silently consuming their slot.
+    # NB: query, do NOT traverse ``user.crush_connect_membership``. That is a
+    # reverse OneToOne whose descriptor caches, so on a ``user`` instance that
+    # already touched it the attribute hands back a STALE object — measured:
+    # the cached copy reported is_paused False while the row said True. A guard
+    # reading the cache re-checks nothing, and worse, does so nondeterministically
+    # depending on how the caller built its queryset.
+    from .models.crush_connect import CrushConnectMembership
+
+    if CrushConnectMembership.objects.filter(
+        user=user, paused_at__isnull=False
+    ).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - paused Crush Connect", user.email
+        )
+        return 0
+
     cta_url = get_user_language_url(user, _CONNECT_BETA_CTA_URL_NAME[wave], request)
     dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
 

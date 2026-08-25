@@ -118,10 +118,15 @@ def candidates_for_wave(wave):
         # waitlist -> onboarded -> paused is a reachable, live state that
         # otherwise stays a candidate forever.
         #
-        # exclude(...__isnull=False), NOT filter(paused_at__isnull=True): the
-        # membership is a OneToOne that most of the waitlist does not have at
-        # all, and filtering across it would inner-join them all away. exclude()
-        # drops only the rows that actually have a paused membership.
+        # Written as exclude(...__isnull=False) because that states the rule
+        # directly: drop the rows that have a paused membership. The obvious
+        # alternative, filter(paused_at__isnull=True), happens to behave
+        # identically -- checked, both emit a LEFT OUTER JOIN, because Django
+        # promotes the join for __isnull=True -- so members who never onboarded
+        # survive either way. That equivalence is the kind of thing that is easy
+        # to assume and easy to get backwards, so
+        # test_a_member_without_a_membership_row_is_still_a_candidate pins the
+        # behaviour rather than trusting either reading of it.
         .exclude(user__crush_connect_membership__paused_at__isnull=False)
         .select_related("user__crushprofile")
         .order_by("joined_at")
