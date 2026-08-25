@@ -738,6 +738,13 @@ def _send_payment_receipt(payment, *, subject_message, template_name, request=No
         "payment": payment,
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
+        # base_email.html's footer defaults are UNPREFIXED (/about/, /events/),
+        # and every member route lives under i18n_patterns. Without these the
+        # body arrives in French while its own footer links resolve by browser
+        # negotiation — an English page for a French-preferring member. Keyed on
+        # the resolved recipient, so an assisted purchase still links in the
+        # member's language, not the staff opener's.
+        **get_email_base_urls(user, request),
     }
 
     with translation.override(lang):

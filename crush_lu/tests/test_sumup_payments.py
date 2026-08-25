@@ -833,6 +833,32 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         self.assertEqual(mail.outbox[0].to, [self.user.email])
         self.assertNotIn(staff.email, mail.outbox[0].to)
 
+    def test_a_receipt_footer_links_in_the_recipients_language(self):
+        """The body is translated; the footer must not send them to English.
+
+        base_email.html's footer defaults are unprefixed (`/about/`), and every
+        member route lives under i18n_patterns — so an omitted `about_url`
+        resolves by browser negotiation, not by the language of the email.
+        """
+        from django.core import mail
+        from crush_lu.email_helpers import send_premium_membership_payment_receipt
+
+        profile = self.user.crushprofile
+        profile.preferred_language = "fr"
+        profile.save(update_fields=["preferred_language"])
+        tx = self._open_checkout()
+
+        mail.outbox = []
+        send_premium_membership_payment_receipt(tx)
+
+        # send_domain_email puts the HTML straight in .body and flips the
+        # content type; there is no alternatives list to read.
+        html = mail.outbox[0].body
+        self.assertIn("/fr/about/", html)
+        self.assertIn("/fr/events/", html)
+        for unprefixed in ("https://crush.lu/about/", "https://crush.lu/events/"):
+            self.assertNotIn(unprefixed, html)
+
     def test_a_receipt_greets_a_member_who_has_no_first_name(self):
         """Social signups whose provider supplies no given name keep
         ``first_name=""``. The greeting must not render as "Thank you, !"."""
