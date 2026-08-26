@@ -38,6 +38,7 @@ class TestResponsiveLayouts:
         "desktop": {"width": 1440, "height": 900},
     }
 
+    @pytest.mark.smoke
     def test_home_page_desktop(self, page, live_server, screenshot_dir):
         """Test home page layout on desktop."""
         page.set_viewport_size(self.VIEWPORTS["desktop"])
@@ -172,6 +173,7 @@ class TestHTMXInteractions:
         bootstrap_errors = [e for e in errors if "bootstrap" in e.lower()]
         assert len(bootstrap_errors) == 0, f"Bootstrap JS errors found: {bootstrap_errors}"
 
+    @pytest.mark.smoke
     def test_htmx_loaded(self, page, live_server):
         """Verify HTMX is loaded and initialized."""
         page.goto(live_server.url)
@@ -181,6 +183,7 @@ class TestHTMXInteractions:
         htmx_available = page.evaluate("typeof htmx !== 'undefined'")
         assert htmx_available, "HTMX is not loaded on the page"
 
+    @pytest.mark.smoke
     def test_alpine_loaded(self, page, live_server):
         """Verify Alpine.js is loaded and initialized."""
         page.goto(live_server.url)
