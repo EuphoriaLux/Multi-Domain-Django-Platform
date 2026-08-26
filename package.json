@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "test:smoke": "pytest -m \"playwright and smoke\" --tb=short -q",
     "build:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./tailwind-src/crush_lu/tailwind-input.css -o ./crush_lu/static/crush_lu/css/tailwind.css --watch",
     "build:css:power-up": "tailwindcss -i ./tailwind-src/power_up/tailwind-input.css -o ./power_up/static/power_up/css/tailwind.css --minify",
