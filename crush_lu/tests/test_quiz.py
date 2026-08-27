@@ -356,6 +356,44 @@ class TestAdvanceRoundAndRotate:
 
 
 @pytest.mark.django_db
+class TestRotationPayloadLocalization:
+    """The rotate broadcast carries the round title inline rather than a nested
+    ``current_round``, and the question broadcast that follows carries no title
+    at all. Without per-language keys a /fr/ or /de/ screen keeps showing the
+    previous round's title once the new round's first question appears."""
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def test_rotate_payload_carries_per_language_round_titles(self, quiz_event):
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        first = QuizRound.objects.create(quiz=quiz_event, title="Round 1", sort_order=0)
+        second = QuizRound.objects.create(
+            quiz=quiz_event, title="Round 2", sort_order=1
+        )
+        second.title_fr = "Manche 2"
+        second.title_de = "Runde 2"
+        second.save()
+
+        quiz_event.current_round = first
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz_event.id
+        result = async_to_sync(consumer.advance_round_and_rotate)()
+
+        assert "error" not in result, f"unexpected error: {result.get('error')}"
+        assert result["round_title"] == "Round 2"
+        assert result["round_title_fr"] == "Manche 2"
+        assert result["round_title_de"] == "Runde 2"
+
+
+@pytest.mark.django_db
 class TestQuizStartRotationFailure:
     """Bug: clicking Rotate Tables on round 0→1 silently did nothing
     because start_quiz_from_first_round swallowed rotation generation
@@ -2612,6 +2650,62 @@ class TestQuizTableDisplay:
         assert len(data["tables"]) == 2
         assert data["attended_count"] == 0
         assert "quiz_status" in data
+
+    def test_display_data_includes_per_language_question_fields(
+        self, client, quiz_event, quiz_round, quiz_questions
+    ):
+        """The polling payload must carry ``text_<lang>`` / ``choices_<lang>``.
+
+        The projector page is language-prefixed but this endpoint is not, so the
+        display picks its language client side from these keys. Without them the
+        big screen renders English on /fr/ and /de/.
+        """
+        question = quiz_questions[0]
+        question.text_fr = "Quelle est la capitale du Luxembourg ?"
+        question.text_de = "Was ist die Hauptstadt von Luxemburg?"
+        question.choices_fr = [
+            {"text": "Luxembourg-Ville", "is_correct": True},
+            {"text": "Esch-sur-Alzette", "is_correct": False},
+            {"text": "Differdange", "is_correct": False},
+        ]
+        question.save()
+        quiz_round.title_fr = "Manche 1 : Brise-glace"
+        quiz_round.save()
+
+        quiz_event.status = "active"
+        quiz_event.current_round = quiz_round
+        quiz_event.current_question_index = 0
+        quiz_event.save()
+
+        response = client.get(f"/api/quiz/{quiz_event.event_id}/display-data/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["question"]["text_fr"]
+            == "Quelle est la capitale du Luxembourg ?"
+        )
+        assert data["question"]["text_de"] == "Was ist die Hauptstadt von Luxemburg?"
+        assert data["question"]["choices_fr"][0]["text"] == "Luxembourg-Ville"
+        assert data["round_title_fr"] == "Manche 1 : Brise-glace"
+
+    def test_display_data_never_leaks_answers(
+        self, client, quiz_event, quiz_round, quiz_questions
+    ):
+        """Reusing the WebSocket builder must keep ``include_answers=False``."""
+        quiz_event.status = "active"
+        quiz_event.current_round = quiz_round
+        quiz_event.current_question_index = 0
+        quiz_event.save()
+
+        response = client.get(f"/api/quiz/{quiz_event.event_id}/display-data/")
+
+        assert response.status_code == 200
+        question = response.json()["question"]
+        assert not any(k.startswith("choices_with_answers") for k in question)
+        assert not any(k.startswith("correct_answer") for k in question)
+        for choice in question["choices"]:
+            assert "is_correct" not in choice
 
     def test_display_pin_gate_shown_when_token_set(self, client, quiz_event):
         """Display shows PIN gate when display_token is configured."""

@@ -442,26 +442,24 @@ def quiz_table_display_data(request, event_id):
 
     question = quiz.get_current_question()
     if question and quiz.is_active:
-        data["question"] = {
-            "id": question.id,
-            "text": question.text,
-            "question_type": question.question_type,
-            "points": question.points,
-            "media": question.get_media_payload(),
-        }
-        if question.question_type in ("multiple_choice", "true_false"):
-            from crush_lu.models.quiz import parse_choices
+        # Reuse the WebSocket payload builder so the polling fallback carries the
+        # same per-language keys (text_fr, choices_de, ...). This endpoint is not
+        # under i18n_patterns, so the active language here is whatever
+        # LocaleMiddleware guessed — the projector picks its own language client
+        # side from those keys. include_answers stays False: the display must
+        # never receive the answer key.
+        from crush_lu.consumers import _build_question_data, _build_round_title_fields
 
-            choices = parse_choices(question.choices)
-            data["question"]["choices"] = [
-                {"text": c["text"]} for c in choices if isinstance(c, dict)
-            ]
+        data["question"] = _build_question_data(question, include_answers=False)
 
         questions = quiz.current_round.questions.order_by("sort_order")
         data["question_index"] = quiz.current_question_index
         data["question_total"] = questions.count()
         data["is_bonus"] = quiz.current_round.is_bonus if quiz.current_round else False
-        data["round_title"] = quiz.current_round.title if quiz.current_round else ""
+        if quiz.current_round:
+            data.update(_build_round_title_fields(quiz.current_round))
+        else:
+            data["round_title"] = ""
         data["time_per_question"] = (
             quiz.current_round.time_per_question if quiz.current_round else 30
         )
