@@ -5,6 +5,51 @@
  * Connects via WebSocket (display_token auth) for real-time updates.
  */
 document.addEventListener("alpine:init", function () {
+    // Detect the display language from the URL prefix (/en/, /de/, /fr/) or the
+    // server-rendered <html lang>. Quiz payloads arrive over the WebSocket, which
+    // has no LocaleMiddleware, so the default `text`/`choices`/`title` keys are
+    // always rendered in the fallback language. The per-language keys
+    // (`text_fr`, `choices_de`, ...) are what the projector must read.
+    var _quizLang = (function () {
+        var match = window.location.pathname.match(/^\/(en|de|fr)\//);
+        if (match) return match[1];
+        var htmlLang = document.documentElement.lang || "en";
+        if (htmlLang.indexOf("de") === 0) return "de";
+        if (htmlLang.indexOf("fr") === 0) return "fr";
+        return "en";
+    })();
+
+    /**
+     * Pick the best localized value from a payload object.
+     * Tries ``key_<lang>`` first, then falls back to ``key``.
+     */
+    function _localized(obj, key) {
+        if (!obj) return "";
+        var langKey = key + "_" + _quizLang;
+        if (obj[langKey] !== undefined && obj[langKey] !== null && obj[langKey] !== "")
+            return obj[langKey];
+        return obj[key] !== undefined && obj[key] !== null ? obj[key] : "";
+    }
+
+    /**
+     * Pick the best localized choices array from a payload object.
+     * Tries ``choices_<lang>`` first, then falls back to ``choices``.
+     */
+    function _localizedChoices(obj) {
+        if (!obj) return [];
+        var langKey = "choices_" + _quizLang;
+        if (obj[langKey] && obj[langKey].length > 0) return obj[langKey];
+        return obj.choices || [];
+    }
+
+    /** Map a raw choices array to plain display strings. */
+    function _choiceTexts(choices) {
+        return (choices || []).map(function (c) {
+            if (c && typeof c === "object") return c.text || "";
+            return c;
+        });
+    }
+
     Alpine.data("quizDisplay", function () {
         var eventId = parseInt(this.$el.dataset.eventId) || 0;
         var quizId = parseInt(this.$el.dataset.quizId) || 0;
@@ -502,7 +547,7 @@ document.addEventListener("alpine:init", function () {
                 this.quizStatus = data.status || "draft";
 
                 if (data.current_round) {
-                    this.roundName = data.current_round.title || "";
+                    this.roundName = _localized(data.current_round, "title");
                     this.isBonusRound = data.current_round.is_bonus || false;
                 }
 
@@ -548,7 +593,7 @@ document.addEventListener("alpine:init", function () {
             handleQuestion: function (data) {
                 if (this.connected) this.stopPolling();
                 this.questionId = data.id || null;
-                this.questionText = data.text || "";
+                this.questionText = _localized(data, "text");
                 this.questionType = data.question_type || "multiple_choice";
                 this.questionPoints = data.points || 10;
                 this.questionMedia = data.media || { kind: "none", url: null };
@@ -558,17 +603,13 @@ document.addEventListener("alpine:init", function () {
                 this.scoredCount = data.scored_count || 0;
                 this.totalTables = data.total_tables || this.totalTables;
 
-                // Extract choices
-                this.choices = [];
-                if (data.choices && data.choices.length > 0) {
-                    this.choices = data.choices.map(function (c) {
-                        return c.text || c;
-                    });
-                }
+                // Extract choices (localized when the payload carries them)
+                this.choices = _choiceTexts(_localizedChoices(data));
 
                 // Round name from context
-                if (data.round_title) {
-                    this.roundName = data.round_title;
+                var roundTitle = _localized(data, "round_title");
+                if (roundTitle) {
+                    this.roundName = roundTitle;
                 }
 
                 // Start countdown — use nullish check so time_remaining=0 is respected
@@ -585,7 +626,7 @@ document.addEventListener("alpine:init", function () {
                 // Build question from quiz.state format
                 var q = data.question;
                 this.questionId = q.id || null;
-                this.questionText = q.text || "";
+                this.questionText = _localized(q, "text");
                 this.questionType = q.question_type || "multiple_choice";
                 this.questionPoints = q.points || 10;
                 this.questionMedia = q.media || { kind: "none", url: null };
@@ -595,12 +636,7 @@ document.addEventListener("alpine:init", function () {
                 this.scoredCount = data.scored_count || 0;
                 this.totalTables = data.total_tables || this.totalTables;
 
-                this.choices = [];
-                if (q.choices && q.choices.length > 0) {
-                    this.choices = q.choices.map(function (c) {
-                        return c.text || c;
-                    });
-                }
+                this.choices = _choiceTexts(_localizedChoices(q));
 
                 var time =
                     data.time_remaining != null ? data.time_remaining : data.time || 30;
@@ -639,7 +675,7 @@ document.addEventListener("alpine:init", function () {
                 } else if (data.status === "active") {
                     this.quizStatus = "active";
                     if (data.current_round) {
-                        this.roundName = data.current_round.title || "";
+                        this.roundName = _localized(data.current_round, "title");
                         this.isBonusRound = data.current_round.is_bonus || false;
                     }
                 } else if (data.status === "paused") {
@@ -800,7 +836,7 @@ document.addEventListener("alpine:init", function () {
                         // Handle question data from polling (fallback when no WebSocket)
                         if (data.question && !self.connected) {
                             self.questionId = data.question.id || null;
-                            self.questionText = data.question.text || "";
+                            self.questionText = _localized(data.question, "text");
                             self.questionType =
                                 data.question.question_type || "multiple_choice";
                             self.questionPoints = data.question.points || 10;
@@ -812,17 +848,11 @@ document.addEventListener("alpine:init", function () {
                             self.questionIndex = data.question_index || 0;
                             self.questionTotal = data.question_total || 0;
                             self.isBonusRound = data.is_bonus || false;
-                            self.roundName = data.round_title || "";
+                            self.roundName = _localized(data, "round_title");
 
-                            self.choices = [];
-                            if (
-                                data.question.choices &&
-                                data.question.choices.length > 0
-                            ) {
-                                self.choices = data.question.choices.map(function (c) {
-                                    return c.text || c;
-                                });
-                            }
+                            self.choices = _choiceTexts(
+                                _localizedChoices(data.question),
+                            );
 
                             // Show reveal if all scored, otherwise question/scoring
                             if (data.reveal_results) {
