@@ -448,7 +448,7 @@ def quiz_table_display_data(request, event_id):
         # LocaleMiddleware guessed — the projector picks its own language client
         # side from those keys. include_answers stays False: the display must
         # never receive the answer key.
-        from crush_lu.consumers import _build_question_data, _build_round_data
+        from crush_lu.consumers import _build_question_data, _build_round_title_fields
 
         data["question"] = _build_question_data(question, include_answers=False)
 
@@ -457,11 +457,7 @@ def quiz_table_display_data(request, event_id):
         data["question_total"] = questions.count()
         data["is_bonus"] = quiz.current_round.is_bonus if quiz.current_round else False
         if quiz.current_round:
-            round_data = _build_round_data(quiz.current_round)
-            data["round_title"] = round_data.get("title") or ""
-            for key, value in round_data.items():
-                if key.startswith("title_"):
-                    data["round_" + key] = value
+            data.update(_build_round_title_fields(quiz.current_round))
         else:
             data["round_title"] = ""
         data["time_per_question"] = (

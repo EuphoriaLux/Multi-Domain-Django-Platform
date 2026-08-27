@@ -356,6 +356,44 @@ class TestAdvanceRoundAndRotate:
 
 
 @pytest.mark.django_db
+class TestRotationPayloadLocalization:
+    """The rotate broadcast carries the round title inline rather than a nested
+    ``current_round``, and the question broadcast that follows carries no title
+    at all. Without per-language keys a /fr/ or /de/ screen keeps showing the
+    previous round's title once the new round's first question appears."""
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
+
+    def test_rotate_payload_carries_per_language_round_titles(self, quiz_event):
+        from asgiref.sync import async_to_sync
+
+        from crush_lu.consumers import QuizConsumer
+
+        first = QuizRound.objects.create(quiz=quiz_event, title="Round 1", sort_order=0)
+        second = QuizRound.objects.create(
+            quiz=quiz_event, title="Round 2", sort_order=1
+        )
+        second.title_fr = "Manche 2"
+        second.title_de = "Runde 2"
+        second.save()
+
+        quiz_event.current_round = first
+        quiz_event.status = "active"
+        quiz_event.save()
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz_event.id
+        result = async_to_sync(consumer.advance_round_and_rotate)()
+
+        assert "error" not in result, f"unexpected error: {result.get('error')}"
+        assert result["round_title"] == "Round 2"
+        assert result["round_title_fr"] == "Manche 2"
+        assert result["round_title_de"] == "Runde 2"
+
+
+@pytest.mark.django_db
 class TestQuizStartRotationFailure:
     """Bug: clicking Rotate Tables on round 0→1 silently did nothing
     because start_quiz_from_first_round swallowed rotation generation

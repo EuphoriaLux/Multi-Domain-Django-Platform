@@ -25,10 +25,18 @@ document.addEventListener("alpine:init", function () {
      */
     function _localized(obj, key) {
         if (!obj) return "";
-        var langKey = key + "_" + _quizLang;
-        if (obj[langKey] !== undefined && obj[langKey] !== null && obj[langKey] !== "")
-            return obj[langKey];
-        return obj[key] !== undefined && obj[key] !== null ? obj[key] : "";
+        // `key_<lang>` first, then the explicit `key_en`, and only then the bare
+        // `key`. The bare key is rendered server side in whatever language was
+        // active there — on the language-neutral polling API that is a guess
+        // from the cookie / Accept-Language header, so preferring `key_en`
+        // keeps an untranslated question on the configured English fallback
+        // instead of a third language the projector URL never asked for.
+        var candidates = [key + "_" + _quizLang, key + "_en", key];
+        for (var i = 0; i < candidates.length; i++) {
+            var val = obj[candidates[i]];
+            if (val !== undefined && val !== null && val !== "") return val;
+        }
+        return "";
     }
 
     /**
@@ -37,9 +45,13 @@ document.addEventListener("alpine:init", function () {
      */
     function _localizedChoices(obj) {
         if (!obj) return [];
-        var langKey = "choices_" + _quizLang;
-        if (obj[langKey] && obj[langKey].length > 0) return obj[langKey];
-        return obj.choices || [];
+        // Same fallback order as _localized, for the same reason.
+        var candidates = ["choices_" + _quizLang, "choices_en", "choices"];
+        for (var i = 0; i < candidates.length; i++) {
+            var val = obj[candidates[i]];
+            if (val && val.length > 0) return val;
+        }
+        return [];
     }
 
     /** Map a raw choices array to plain display strings. */
@@ -741,6 +753,18 @@ document.addEventListener("alpine:init", function () {
             },
 
             handleRotate: function (data) {
+                // Rotation moves the quiz into the next round. The question
+                // broadcast that follows carries no round title, and polling is
+                // stopped while the WebSocket is up, so this is the only chance
+                // to refresh the header before the next question appears.
+                var roundTitle = _localized(data, "round_title");
+                if (roundTitle) {
+                    this.roundName = roundTitle;
+                }
+                if (data.is_bonus !== undefined) {
+                    this.isBonusRound = data.is_bonus;
+                }
+
                 // After rotation, show leaderboard briefly then wait for next question
                 if (this.leaderboardTables.length > 0) {
                     this.screen = "leaderboard";
