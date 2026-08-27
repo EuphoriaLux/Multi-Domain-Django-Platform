@@ -104,3 +104,23 @@ A **pre-commit design-token linter** (`crush_lu/scripts/lint_design_tokens.py`, 
 ## Deployment
 
 GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Django checks + pytest minus Playwright); `deploy-azure-app-service-optimized.yml` builds CSS and deploys to Azure on `main`. Several Azure Functions (`azure-functions/`) deploy via their own workflows. Infra is Bicep under `infra/`. Production env vars (SECRET_KEY, `AZURE_POSTGRESQL_CONNECTIONSTRING`, Graph email, LuxID, Wallet certs, …) are set in App Service configuration — see README "Production Environment Variables" and `.env.example`.
+
+## Traps that cost real time
+
+These failures pass every local check and surface only later. Read them before planning any change.
+
+**`transaction.on_commit` and tests.** `captureOnCommitCallbacks` executes queued callbacks but does **not** clear `connection.run_on_commit`, and `TestCase` never commits — so a callback queued in `setUp` stays queued for the whole test and fires again inside the next capture block. Tag narrowly and mark callbacks spent on entry; do not "fix" this by abandoning queue inspection.
+
+**Post-payment side effects belong on `on_commit`.** The money is already captured by the time they run, so a mail or webhook failure must never roll back or block the transaction. Follow `_send_registration_confirmation_safely` in `crush_lu/views_payments.py`.
+
+**Lock ordering is structural.** `PaymentTransaction` locks **before** `CrushProfile` in both the payment path and the profile merge. **SQLite ignores `select_for_update` — locally and in CI** — so lock-order bugs pass every test and fail only on production Postgres. Assert the ordering structurally; a green suite proves nothing here.
+
+**SQLite rolls back PK sequences but not the cache.** Every test's viewer ends up as user 2 and they share one `@ratelimit` counter, so a 429 surfaces as an unrelated `DoesNotExist`. Call `cache.clear()` in `setUp`, and run the suite on SQLite before calling anything verified.
+
+**`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile`. A malformed `.mo` 500s every DE and FR request in production.
+
+**FR is not uniformly `vous`.** Measured 2026-08-28: **105 of 7,919** French strings still use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the email templates. Measure the catalogue yourself before copying the tone of a neighbouring string — `grep -cE '^msgstr .*\b(tu|ton|tes|toi)\b' crush_lu/locale/fr/LC_MESSAGES/django.po`.
+
+**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. Use literal paths in tests and hardcoded paths in templates — a `{% url %}` `NoReverseMatch` 500s the whole page.
+
+**A fresh worktree has no `.env`.** `pytest` fails with `ImproperlyConfigured` until the root `.env` is copied in.
