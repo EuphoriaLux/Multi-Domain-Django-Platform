@@ -155,6 +155,7 @@ class TestAlpineJSComponents:
 class TestHTMXInteractions:
     """Test HTMX-powered interactions."""
 
+    @pytest.mark.smoke
     def test_no_bootstrap_js_errors(self, page, live_server):
         """Verify no Bootstrap JS console errors."""
         errors = []
