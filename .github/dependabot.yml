@@ -21,18 +21,6 @@ updates:
       prefix: "chore"
       prefix-development: "chore"
       include: "scope"
-    # TEMPORARY — remove once a DRF release carries the fix (see below).
-    # Django 6.1 dropped django.utils.cache.cc_delim_re, which djangorestframework
-    # <=3.17.2 still imports at module scope, so azureproject/urls.py fails to import
-    # and every job that loads the root URLconf dies (#811, fixed by #834). DRF replaced
-    # it with split_header_value upstream (encode/django-rest-framework#9978) but has not
-    # released it, so without this entry Dependabot re-proposes 6.1 every Monday and the
-    # PR is red every time. The bound is >=6.1 rather than 6.1.x because the symbol stays
-    # removed in later majors/minors too. Django 6.0.x patch releases — the security
-    # channel that actually applies to the pinned version — are NOT affected by this.
-    ignore:
-      - dependency-name: "Django"
-        versions: [">=6.1"]
     # Group minor and patch updates together
     groups:
       django-ecosystem:
