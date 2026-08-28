@@ -109,7 +109,7 @@ GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Djan
 
 These failures pass every local check and surface only later. Read them before planning any change.
 
-**`transaction.on_commit` and tests.** `captureOnCommitCallbacks` executes queued callbacks but does **not** clear `connection.run_on_commit`, and `TestCase` never commits — so a callback queued in `setUp` stays queued for the whole test and fires again inside the next capture block. Tag narrowly and mark callbacks spent on entry; do not "fix" this by abandoning queue inspection.
+**`transaction.on_commit` and tests.** `captureOnCommitCallbacks` does **not** clear `connection.run_on_commit`, and `TestCase` never commits — so a callback queued in `setUp` stays in the queue for the whole test. It will *not* be re-executed by a later capture block (Django records `start_count` on entry and replays only from that index), so the hazard is not double-firing: it is that **application code which inspects the queue sees the stale entry** — how the indexing coalescer in `test_google_indexing.py` was misled. Tag narrowly and mark callbacks spent on entry; do not "fix" this by abandoning queue inspection.
 
 **Post-payment side effects belong on `on_commit`.** The money is already captured by the time they run, so a mail or webhook failure must never roll back or block the transaction. Follow `_send_registration_confirmation_safely` in `crush_lu/views_payments.py`.
 
@@ -119,8 +119,16 @@ These failures pass every local check and surface only later. Read them before p
 
 **`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile`. A malformed `.mo` 500s every DE and FR request in production.
 
-**FR is not uniformly `vous`.** Measured 2026-08-28: **105 of 7,919** French strings still use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the email templates. Measure the catalogue yourself before copying the tone of a neighbouring string — `grep -cE '^msgstr .*\b(tu|ton|tes|toi)\b' crush_lu/locale/fr/LC_MESSAGES/django.po`.
+**FR is not uniformly `vous`.** Measured 2026-08-28: **30 of 7,919** single-line `msgstr` entries use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the coach and onboarding mails. Measure before copying a neighbouring string's tone — and measure with **Python, not `grep`**. In the C locale `grep -E 'tes'` matches the `tes` inside `êtes`, because the multi-byte `ê` reads as a word boundary — so it counts *`vous êtes`*, the formal form, as informal and reports 105. That is the trap this entry is about, sprung on the entry itself.
 
-**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. Use literal paths in tests and hardcoded paths in templates — a `{% url %}` `NoReverseMatch` 500s the whole page.
+```bash
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'(tu|ton|tes|toi)', l)))"
+```
+
+```bash
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'(tu|ton|tes|toi)', l)))"
+```
+
+**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. **In tests, use literal paths** — `reverse()` resolves against the default urlconf, not the one the host override selects. **In templates, keep `{% url %}`**: it resolves against the request's own urlconf, and it is what this codebase does everywhere (20+ call sites for `crush_lu:event_list` alone). Do *not* hardcode template paths — user-facing routes sit inside `i18n_patterns(..., prefix_default_language=True)` (`azureproject/urls_crush.py:1141`), so a literal `/events/` 404s and a literal `/en/events/` pins DE and FR readers to English. The real template hazard is narrower: a name missing from the *active* host's urlconf raises `NoReverseMatch`, which 500s the whole page — so a template shared across hosts must only reference names that exist in each.
 
 **A fresh worktree has no `.env`.** `pytest` fails with `ImproperlyConfigured` until the root `.env` is copied in.
