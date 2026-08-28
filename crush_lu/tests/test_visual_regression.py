@@ -44,7 +44,11 @@ class TestResponsiveLayouts:
         "desktop": {"width": 1440, "height": 900},
     }
 
-    @pytest.mark.smoke
+    # Deliberately NOT in the smoke tier: this writes
+    # crush_lu/tests/screenshots/home_desktop.png, which is tracked, so the
+    # advertised `pytest -m "playwright and smoke"` command would rewrite a
+    # repository baseline and leave the worktree dirty on every run. Re-add the
+    # marker once screenshot output moves somewhere untracked.
     def test_home_page_desktop(self, page, live_server, screenshot_dir):
         """Test home page layout on desktop."""
         page.set_viewport_size(self.VIEWPORTS["desktop"])
@@ -162,9 +166,18 @@ class TestHTMXInteractions:
 
         def handle_console(msg):
             if msg.type == "error":
-                errors.append(msg.text)
+                errors.append(f"console: {msg.text}")
+
+        # Uncaught exceptions do NOT arrive on the console event -- Playwright
+        # reports them separately on `pageerror`. Listening only to `console`
+        # left this green while an Alpine or HTMX handler threw after both
+        # libraries had initialised, which is the exact failure a JS-error gate
+        # is for.
+        def handle_page_error(exc):
+            errors.append(f"pageerror: {exc}")
 
         page.on("console", handle_console)
+        page.on("pageerror", handle_page_error)
 
         # Visit multiple pages
         pages_to_check = ["/", "/events/", "/about/", "/how-it-works/"]
