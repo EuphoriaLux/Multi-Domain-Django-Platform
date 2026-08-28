@@ -104,3 +104,31 @@ A **pre-commit design-token linter** (`crush_lu/scripts/lint_design_tokens.py`, 
 ## Deployment
 
 GitHub Actions (`.github/workflows/`): `test-and-validate.yml` runs on PRs (Django checks + pytest minus Playwright); `deploy-azure-app-service-optimized.yml` builds CSS and deploys to Azure on `main`. Several Azure Functions (`azure-functions/`) deploy via their own workflows. Infra is Bicep under `infra/`. Production env vars (SECRET_KEY, `AZURE_POSTGRESQL_CONNECTIONSTRING`, Graph email, LuxID, Wallet certs, …) are set in App Service configuration — see README "Production Environment Variables" and `.env.example`.
+
+## Traps that cost real time
+
+These failures pass every local check and surface only later. Read them before planning any change.
+
+**`transaction.on_commit` and tests.** `captureOnCommitCallbacks` does **not** clear `connection.run_on_commit`, and `TestCase` never commits — so a callback queued in `setUp` stays in the queue for the whole test. It will *not* be re-executed by a later capture block (Django records `start_count` on entry and replays only from that index), so the hazard is not double-firing: it is that **application code which inspects the queue sees the stale entry** — how the indexing coalescer in `test_google_indexing.py` was misled. Tag narrowly and mark callbacks spent on entry; do not "fix" this by abandoning queue inspection.
+
+**Post-payment side effects belong on `on_commit`.** The money is already captured by the time they run, so a mail or webhook failure must never roll back or block the transaction. Follow `_send_registration_confirmation_safely` in `crush_lu/views_payments.py`.
+
+**Lock ordering is structural.** `PaymentTransaction` locks **before** `CrushProfile` in both the payment path and the profile merge. **SQLite ignores `select_for_update` — locally and in CI** — so lock-order bugs pass every test and fail only on production Postgres. Assert the ordering structurally; a green suite proves nothing here.
+
+**SQLite rolls back PK sequences but not the cache.** Every test's viewer ends up as user 2 and they share one `@ratelimit` counter, so a 429 surfaces as an unrelated `DoesNotExist`. Call `cache.clear()` in `setUp`, and run the suite on SQLite before calling anything verified.
+
+**`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile`. A malformed `.mo` 500s every DE and FR request in production.
+
+**FR is not uniformly `vous`.** Measured 2026-08-28: **30 of 7,919** single-line `msgstr` entries use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the coach and onboarding mails. Measure before copying a neighbouring string's tone — and measure with **Python, not `grep`**. In the C locale `grep -E '\btes\b'` matches the `tes` inside `êtes`, because the multi-byte `ê` reads as a word boundary — so it counts *`vous êtes`*, the formal form, as informal and reports 105. That is the trap this entry is about, sprung on the entry itself.
+
+```bash
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
+```
+
+```bash
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
+```
+
+**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. **In tests, use literal paths** — `reverse()` resolves against the default urlconf, not the one the host override selects. **In templates, keep `{% url %}`**: it resolves against the request's own urlconf, and it is what this codebase does everywhere (20+ call sites for `crush_lu:event_list` alone). Do *not* hardcode template paths — user-facing routes sit inside `i18n_patterns(..., prefix_default_language=True)` (`azureproject/urls_crush.py:1141`), so a literal `/events/` 404s and a literal `/en/events/` pins DE and FR readers to English. The real template hazard is narrower: a name missing from the *active* host's urlconf raises `NoReverseMatch`, which 500s the whole page — so a template shared across hosts must only reference names that exist in each.
+
+**A fresh worktree has no `.env`.** `pytest` fails with `ImproperlyConfigured` until the root `.env` is copied in.

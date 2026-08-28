@@ -84,6 +84,23 @@ def _build_round_data(round_obj):
     return data
 
 
+def _build_round_title_fields(round_obj):
+    """Build the flat ``round_title`` / ``round_title_<lang>`` keys.
+
+    Payloads that carry a round title inline rather than a nested
+    ``current_round`` object (the rotate broadcast, the display polling API)
+    use this so the client can localize them the same way. Without the
+    per-language keys those clients fall back to whichever single language
+    the server happened to render.
+    """
+    fields = {"round_title": round_obj.title}
+    for lang in _QUIZ_LANGUAGES:
+        val = getattr(round_obj, f"title_{lang}", None)
+        if val:
+            fields[f"round_title_{lang}"] = val
+    return fields
+
+
 class BaseCrushWebsocketConsumer(AsyncJsonWebsocketConsumer):
     """Base WebSocket consumer with defensive channel group join/discard."""
 
@@ -1869,12 +1886,15 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 round_number,
             )
 
-        return {
-            "round_title": next_round.title,
+        rotation_payload = {
             "round_number": round_number,
             "is_bonus": next_round.is_bonus,
             "assignments": assignments,
         }
+        # Per-language titles, so a /fr/ or /de/ screen shows the new round's
+        # title in its own language instead of keeping the previous round's.
+        rotation_payload.update(_build_round_title_fields(next_round))
+        return rotation_payload
 
     @database_sync_to_async
     def score_answer(self, user_id, question_id, answer):
