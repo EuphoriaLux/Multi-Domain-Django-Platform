@@ -16,7 +16,7 @@
     "format:check": "prettier --check \"**/*.{html,js,css}\""
   },
   "dependencies": {
-    "alpinejs": "^3.16.2",
+    "alpinejs": "^3.16.3",
     "htmx.org": "^2.0.10"
   },
   "devDependencies": {
@@ -24,7 +24,7 @@
     "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
-    "@upstash/context7-mcp": "^4.0.2",
+    "@upstash/context7-mcp": "^4.0.3",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.1.18"
