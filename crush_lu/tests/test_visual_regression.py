@@ -176,9 +176,11 @@ class TestHTMXInteractions:
             except Exception:
                 pass  # Page might not exist in test environment
 
-        # Filter for Bootstrap-related errors
-        bootstrap_errors = [e for e in errors if "bootstrap" in e.lower()]
-        assert len(bootstrap_errors) == 0, f"Bootstrap JS errors found: {bootstrap_errors}"
+        # Assert on EVERY console error, not just Bootstrap ones. Filtering to
+        # "bootstrap" left this green while Alpine or HTMX threw on every render,
+        # which is precisely the failure a smoke gate exists to catch — and this
+        # project no longer ships Bootstrap at all.
+        assert errors == [], f"JS console errors found: {errors}"
 
     @pytest.mark.smoke
     def test_htmx_loaded(self, page, live_server):
