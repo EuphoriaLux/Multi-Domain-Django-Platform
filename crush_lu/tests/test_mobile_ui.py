@@ -18,8 +18,12 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture(scope="module")
 def screenshot_dir():
-    """Create and return the screenshots directory."""
-    path = Path("crush_lu/tests/screenshots")
+    """Create and return the screenshots output directory.
+
+    Debugging artifacts only — see test_visual_regression.py. Gitignored, and
+    anchored to this file rather than the CWD.
+    """
+    path = Path(__file__).resolve().parent / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
