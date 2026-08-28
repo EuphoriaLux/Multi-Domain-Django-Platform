@@ -119,14 +119,14 @@ These failures pass every local check and surface only later. Read them before p
 
 **`gettext` is not installed in this dev environment.** Build `.mo` files **only** via `polib.save_as_mofile`. A malformed `.mo` 500s every DE and FR request in production.
 
-**FR is not uniformly `vous`.** Measured 2026-08-28: **30 of 7,919** single-line `msgstr` entries use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the coach and onboarding mails. Measure before copying a neighbouring string's tone — and measure with **Python, not `grep`**. In the C locale `grep -E 'tes'` matches the `tes` inside `êtes`, because the multi-byte `ê` reads as a word boundary — so it counts *`vous êtes`*, the formal form, as informal and reports 105. That is the trap this entry is about, sprung on the entry itself.
+**FR is not uniformly `vous`.** Measured 2026-08-28: **30 of 7,919** single-line `msgstr` entries use informal address (`tu`/`ton`/`tes`/`toi`), clustered in the coach and onboarding mails. Measure before copying a neighbouring string's tone — and measure with **Python, not `grep`**. In the C locale `grep -E '\btes\b'` matches the `tes` inside `êtes`, because the multi-byte `ê` reads as a word boundary — so it counts *`vous êtes`*, the formal form, as informal and reports 105. That is the trap this entry is about, sprung on the entry itself.
 
 ```bash
-python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'(tu|ton|tes|toi)', l)))"
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
 ```
 
 ```bash
-python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'(tu|ton|tes|toi)', l)))"
+python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
 ```
 
 **`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. **In tests, use literal paths** — `reverse()` resolves against the default urlconf, not the one the host override selects. **In templates, keep `{% url %}`**: it resolves against the request's own urlconf, and it is what this codebase does everywhere (20+ call sites for `crush_lu:event_list` alone). Do *not* hardcode template paths — user-facing routes sit inside `i18n_patterns(..., prefix_default_language=True)` (`azureproject/urls_crush.py:1141`), so a literal `/events/` 404s and a literal `/en/events/` pins DE and FR readers to English. The real template hazard is narrower: a name missing from the *active* host's urlconf raises `NoReverseMatch`, which 500s the whole page — so a template shared across hosts must only reference names that exist in each.
