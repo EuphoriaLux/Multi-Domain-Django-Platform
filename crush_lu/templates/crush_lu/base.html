@@ -16,9 +16,11 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'crush_lu/favicon.svg' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
 
-    <!-- Performance: Resource Hints -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <!-- Performance: Resource Hints.
+         No site-wide jsDelivr hint: base.html's own JS is self-hosted, and a
+         preconnect would still open a TLS connection (leaking the visitor's IP)
+         on every page. The few pages that do pull jsDelivr assets declare the
+         hint themselves in their own extra_css block. -->
     <link rel="dns-prefetch" href="https://js.monitor.azure.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1368,10 +1370,13 @@
          below (toast, confirm-sheet, alpine-components). -->
     <script nonce="{{ csp_nonce }}" defer src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
-    <!-- HTMX (HTML-driven interactivity) - deferred for non-blocking load -->
-    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
-            integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
-            crossorigin="anonymous"></script>
+    <!-- HTMX 2.0.4 (HTML-driven interactivity) - deferred for non-blocking load.
+         Self-hosted: HTMX is load-bearing for the onboarding wizard, the event
+         lobby and the check-in UI, so a jsDelivr outage used to degrade the live
+         site for real members. SRI guarded integrity but never availability.
+         Bump = replace the file and rename the version in it; nothing fetches
+         this at build time on purpose. -->
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
 
     <!-- Toast Notification Component (loads before alpine-components.js) -->
     {% if debug %}
@@ -1397,15 +1402,15 @@
     {% else %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
     {% endif %}
-    <!-- Alpine.js CSP Build (CSP-compliant, no unsafe-eval required) -->
-    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
-            integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
-            crossorigin="anonymous"></script>
+    <!-- Alpine.js 3.13.3 CSP Build (CSP-compliant, no unsafe-eval required).
+         Self-hosted - see the HTMX note above. Keep this the @alpinejs/csp
+         build, NOT the plain `alpinejs` package: the standard build needs
+         unsafe-eval. -->
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/alpinejs-csp-3.13.3.min.js' %}"></script>
 
-    <!-- Sortable.js for drag-and-drop with touch support -->
-    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
-            integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM"
-            crossorigin="anonymous"></script>
+    <!-- Sortable.js 1.15.2 for drag-and-drop with touch support.
+         Self-hosted - see the HTMX note above. -->
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/sortable-1.15.2.min.js' %}"></script>
 
     <!-- Crush.lu Utilities (CSRF, sanitization, logging) -->
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/utils.js' %}"></script>
