@@ -1191,8 +1191,21 @@ class CrushProfile(models.Model):
         ).exists()
 
     @classmethod
-    def from_db(cls, db, field_names, values):
-        instance = super().from_db(db, field_names, values)
+    def from_db(cls, db, field_names, values, *, fetch_mode=None):
+        # ``fetch_mode`` is keyword-only and was added to Model.from_db() in
+        # Django 6.1, which passes it on *every* row read. An override without it
+        # raises TypeError for every single row loaded — it took out 900+ tests on
+        # the 6.0 → 6.1 bump. The release notes call this a deprecation ("required
+        # in 7.0"), which undersells it: 6.1 already passes the argument.
+        #
+        # Forwarded only when set, so this method still works on Django 6.0, whose
+        # Model.from_db() has no such parameter. That keeps the code and the pin
+        # independently revertible — a Django rollback should not need an app-code
+        # rollback with it.
+        if fetch_mode is None:
+            instance = super().from_db(db, field_names, values)
+        else:
+            instance = super().from_db(db, field_names, values, fetch_mode=fetch_mode)
         # Remember what the language columns held when this instance was read,
         # so save() below can tell "this code path chose a language" from "this
         # code path never touched it and is about to write back a stale copy".
