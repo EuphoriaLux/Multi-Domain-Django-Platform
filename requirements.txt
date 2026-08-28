@@ -1,10 +1,10 @@
 # Core Django
-# HELD at 6.0.x: Django 6.1 dropped django.utils.cache.cc_delim_re, which
-# djangorestframework<=3.17.2 still imports at module scope, so azureproject/urls.py
-# fails to import under 6.1. DRF replaced it with split_header_value upstream
-# (encode/django-rest-framework#9978) — unpin once that ships in a DRF release.
-# .github/dependabot.yml carries a matching `ignore` for Django >=6.1; drop both together.
-Django==6.0.8  # Security patch (PYSEC-2026-2090..2092: cache_page cookie leak, DomainNameValidator header injection, GDALRaster over-read); requires Python 3.12+
+# Unpinned from 6.0.x on 2026-08-28 (#836). The hold existed because
+# djangorestframework<=3.17.2 imported django.utils.cache.cc_delim_re at module scope,
+# which 6.1 removed, so azureproject/urls.py failed to import. DRF 3.18.0 replaced it
+# with split_header_value, guarded on django.VERSION >= (6, 1). The matching Dependabot
+# `ignore` for Django >=6.1 was dropped in the same change, as that comment required.
+Django==6.1  # Requires Python 3.12+
 djangorestframework==3.18.0
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.7

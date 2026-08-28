@@ -236,8 +236,19 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         for filename, content, mimetype in attachments:
             email.attach(filename, content, mimetype)
 
-    # Send email
-    return email.send(fail_silently=fail_silently)
+    # Send email.
+    #
+    # ``fail_silently`` is deliberately NOT passed here. Every branch above builds
+    # the connection with ``get_connection(..., fail_silently=fail_silently)``, and
+    # Django 6.1 raises
+    #     TypeError: fail_silently cannot be used with a connection.
+    # when it is also passed to send() alongside an explicit connection. Since this
+    # function always sets one, passing it here broke *every* send path on 6.1.
+    #
+    # This is not a behaviour change on 6.0 either: EmailMessage.send() forwards the
+    # argument to self.get_connection(), which returns the connection it was already
+    # given and ignores it. The connection has carried the flag all along.
+    return email.send()
 
 
 def get_domain_from_email(request=None, domain=None):
