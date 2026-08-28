@@ -1,13 +1,28 @@
 """
 Comprehensive Playwright Tests for Coach Review Profile Page
 
-Tests the enhanced profile summary card with account metadata and the complete
-coach review workflow including tab navigation, screening call, and decision submission.
+Tests the profile summary card with account metadata (always visible at the
+top of the page) and the coach review workflow's 2-tab navigation
+(Screening Call, Review Decision).
+
+NOTE ON ARCHITECTURE DRIFT (fixed as part of t_2eb7f76b): this file
+previously modeled a 3-tab UI (Profile Overview / Screening Call / Review
+Decision) with the summary card gated behind `x-show="showProfileSummary"`
+(hidden on tab 1, visible on tabs 2-3) via an `isProfileTab` Alpine getter.
+The current template (`coach_review_profile.html`, Alpine component
+`reviewTabs` in `alpine-components.js`) has only 2 tabs — Screening Call and
+Review Decision — and the summary card is unconditionally rendered above the
+tabs (see the template's own "PROFILE SUMMARY - Always Visible" comment).
+There is no `isProfileTab` or `showProfileSummary` getter anymore, and no
+"View Full Profile" button. Tests below assert against the current template:
+the summary card via its `data-testid="profile-summary-card"` attribute
+(added alongside this fix for a stable, non-CSS-class selector), and the
+2-tab reality via `isScreeningTab` / `isDecisionTab`.
 
 Key features tested:
-- Profile summary card visibility across tabs
-- Account metadata display (account age, signup method, phone verification, last activity)
-- Tab switching behavior
+- Profile summary card content (account metadata: age, signup method, phone
+  verification, last activity) is present and correct
+- Tab switching behavior between the two real tabs
 - Complete screening workflow
 - Form validation
 - Different user account types (LinkedIn, email, phone verified, etc.)
@@ -66,8 +81,18 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture
 def coach_user_with_permissions(transactional_db):
-    """Create a coach user with active coach permissions."""
+    """Create a coach user with active coach permissions.
+
+    Verifies the coach's email up front (allauth EmailAddress,
+    verified=True): ACCOUNT_EMAIL_VERIFICATION="mandatory" means an
+    unverified account's login POST redirects to
+    /accounts/confirm-email/ instead of authenticating, so every test in
+    this file that logs in as this coach via authenticated_coach_page would
+    otherwise silently land on the confirm-email page rather than the
+    review page (reproduced directly before this fix).
+    """
     from crush_lu.models import CrushCoach
+    from allauth.account.models import EmailAddress
 
     coach_user = User.objects.create_user(
         username='coach@example.com',
@@ -75,6 +100,22 @@ def coach_user_with_permissions(transactional_db):
         password='coachpass123',
         first_name='Coach',
         last_name='Marie'
+    )
+    EmailAddress.objects.create(
+        user=coach_user,
+        email=coach_user.email,
+        verified=True,
+        primary=True,
+    )
+    # Grant Crush.lu consent up front too: CrushConsentMiddleware
+    # deny-by-defaults every authenticated Crush.lu request outside its
+    # exempt-path allowlist, and /coach/review/<id>/ is not exempt
+    # (reproduced directly: consent_middleware.py:120 redirect before this
+    # fix).
+    from crush_lu.models import UserDataConsent
+    UserDataConsent.objects.update_or_create(
+        user=coach_user,
+        defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
     )
 
     coach = CrushCoach.objects.create(
@@ -112,7 +153,7 @@ def pending_profile_submission(transactional_db, coach_user_with_permissions):
         gender='F',
         location='Luxembourg City',
         bio='Test bio for review',
-        phone_number='+352123456789',
+        phone_number='+352****6789',
         is_approved=False,
         is_active=True
     )
@@ -192,7 +233,7 @@ def phone_verified_profile(transactional_db, coach_user_with_permissions):
         gender='M',
         location='Esch-sur-Alzette',
         bio='Phone verified user',
-        phone_number='+352987654321',
+        phone_number='+352****4321',
         phone_verified=True,
         is_approved=False
     )
@@ -269,12 +310,13 @@ def click_tab(page, tab_name):
 
     Args:
         page: Playwright page object
-        tab_name: "Profile Overview", "Screening Call", or "Review Decision"
+        tab_name: "Screening Call" or "Review Decision" (the only 2 tabs the
+            current template renders — see the module docstring for why
+            "Profile Overview" is gone).
     """
     # Use text-based selector which is more reliable than @click attribute
-    # The tab buttons contain text like "1. Profile Overview", "2. Screening Call", etc.
-    # We need to be specific because there might be other buttons with same text
-    # Tab buttons are in the navigation section with flex-col sm:flex-row class
+    # The tab buttons contain text like "1. Screening Call", "2. Review Decision".
+    # Tab buttons are in the navigation section with flex-col sm:flex-row class.
     button = page.locator('.flex-col.sm\\:flex-row button').filter(has_text=tab_name).first
 
     # Wait for button to be visible and enabled before clicking
@@ -285,81 +327,72 @@ def click_tab(page, tab_name):
     page.wait_for_timeout(300)
 
 
+def summary_card(page):
+    """Locate the always-visible profile summary card by its stable test id."""
+    return page.locator('[data-testid="profile-summary-card"]')
+
+
 # =============================================================================
 # TEST CLASSES
 # =============================================================================
 
-class TestProfileSummaryCardVisibility:
-    """Test profile summary card display across different tabs."""
+class TestProfileSummaryCard:
+    """Test the profile summary card: always rendered above the tabs, not
+    gated by tab selection (unlike the 3-tab UI this file used to model)."""
 
-    def test_summary_hidden_on_profile_tab(self, authenticated_coach_page, pending_profile_submission):
-        """Test profile summary is hidden on the Profile Overview tab (tab 1)."""
+    def test_summary_visible_by_default(self, authenticated_coach_page, pending_profile_submission):
+        """Test profile summary is visible on initial page load."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
-        # Navigate to review page
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # By default, we should be on tab 1 (Profile Overview)
-        # Profile summary should be hidden (x-show="showProfileSummary" where showProfileSummary = activeTab !== 1)
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_be_hidden()
+        expect(summary_card(page)).to_be_visible()
 
     def test_summary_visible_on_screening_tab(self, authenticated_coach_page, pending_profile_submission):
-        """Test profile summary is visible on the Screening Call tab (tab 2)."""
+        """Test profile summary stays visible after switching to Screening Call tab."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Click Screening Call tab using helper function
         click_tab(page, "Screening Call")
 
-        # Profile summary should now be visible
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_be_visible()
+        expect(summary_card(page)).to_be_visible()
 
     def test_summary_visible_on_decision_tab(self, authenticated_coach_page, pending_profile_submission):
-        """Test profile summary is visible on the Review Decision tab (tab 3)."""
+        """Test profile summary stays visible after switching to Review Decision tab."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Click Review Decision tab using helper function
         click_tab(page, "Review Decision")
 
-        # Profile summary should be visible
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_be_visible()
+        expect(summary_card(page)).to_be_visible()
 
-    def test_summary_toggles_with_tab_switches(self, authenticated_coach_page, pending_profile_submission):
-        """Test profile summary toggles correctly when switching between tabs."""
+    def test_summary_stays_visible_across_tab_switches(self, authenticated_coach_page, pending_profile_submission):
+        """Test profile summary remains visible when switching between both tabs."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
+        expect(card).to_be_visible()
 
-        # Tab 1: Hidden
-        expect(summary_card).to_be_hidden()
-
-        # Switch to tab 2: Visible
         click_tab(page, "Screening Call")
-        expect(summary_card).to_be_visible()
+        expect(card).to_be_visible()
 
-        # Switch back to tab 1: Hidden
-        click_tab(page, "Profile Overview")
-        expect(summary_card).to_be_hidden()
-
-        # Switch to tab 3: Visible
         click_tab(page, "Review Decision")
-        expect(summary_card).to_be_visible()
+        expect(card).to_be_visible()
+
+        click_tab(page, "Screening Call")
+        expect(card).to_be_visible()
 
 
 class TestAccountMetadataDisplay:
@@ -373,14 +406,10 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Switch to screening tab to see summary
-        click_tab(page, "Screening Call")
-
-        # Check basic info
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_contain_text('years old')
-        expect(summary_card).to_contain_text('Luxembourg City')
-        expect(summary_card).to_contain_text('+352123456789')
+        card = summary_card(page)
+        expect(card).to_contain_text('years old')
+        expect(card).to_contain_text('Luxembourg City')
+        expect(card).to_contain_text('+352****6789')
 
     def test_account_age_displayed(self, authenticated_coach_page, pending_profile_submission):
         """Test account age (Joined X ago) is displayed."""
@@ -390,13 +419,11 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "Joined X ago" with calendar emoji
-        expect(summary_card).to_contain_text('🗓️')
-        expect(summary_card).to_contain_text('Joined')
-        expect(summary_card).to_contain_text('ago')
+        expect(card).to_contain_text('🗓️')
+        expect(card).to_contain_text('Joined')
+        expect(card).to_contain_text('ago')
 
     def test_email_signup_displayed(self, authenticated_coach_page, pending_profile_submission):
         """Test email signup method is displayed for email users."""
@@ -406,12 +433,10 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # User has no social account, should show "Email signup"
-        expect(summary_card).to_contain_text('📧')
-        expect(summary_card).to_contain_text('Email signup')
+        expect(card).to_contain_text('📧')
+        expect(card).to_contain_text('Email signup')
 
     def test_linkedin_signup_displayed(self, authenticated_coach_page, coach_user_with_permissions, linkedin_signup_user):
         """Test LinkedIn signup method is displayed for LinkedIn users."""
@@ -427,7 +452,7 @@ class TestAccountMetadataDisplay:
             gender='M',
             location='Luxembourg',
             bio='LinkedIn user bio',
-            phone_number='+352111222333',
+            phone_number='+352****2333',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -440,12 +465,10 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "LinkedIn signup"
-        expect(summary_card).to_contain_text('🔗')
-        expect(summary_card).to_contain_text('LinkedIn signup')
+        expect(card).to_contain_text('🔗')
+        expect(card).to_contain_text('LinkedIn signup')
 
     def test_phone_verification_displayed(self, authenticated_coach_page, phone_verified_profile):
         """Test phone verification status is displayed when verified."""
@@ -455,12 +478,10 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        # Should show "Phone verified" in green
-        expect(summary_card).to_contain_text('✓')
-        expect(summary_card).to_contain_text('Phone verified')
+        card = summary_card(page)
+        # Should show "verified" next to the phone number
+        expect(card).to_contain_text('✓')
+        expect(card).to_contain_text('verified')
 
     def test_last_activity_displayed(self, authenticated_coach_page, pending_profile_submission):
         """Test last activity is displayed when user has logged in."""
@@ -470,27 +491,23 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "Active X ago"
-        expect(summary_card).to_contain_text('👁️')
-        expect(summary_card).to_contain_text('Active')
-        expect(summary_card).to_contain_text('ago')
+        expect(card).to_contain_text('👁️')
+        expect(card).to_contain_text('Active')
+        expect(card).to_contain_text('ago')
 
     def test_metadata_section_has_divider(self, authenticated_coach_page, pending_profile_submission):
-        """Test horizontal divider appears before metadata section."""
+        """Test horizontal divider appears before the Privacy metadata section."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        # Check for divider (hr element)
-        divider = page.locator('[x-show="showProfileSummary"] hr')
-        expect(divider).to_be_visible()
+        # Check for divider (hr element) inside the summary card
+        divider = summary_card(page).locator('hr')
+        expect(divider.first).to_be_visible()
 
     def test_metadata_text_sizing(self, authenticated_coach_page, pending_profile_submission):
         """Test metadata uses smaller text (text-xs)."""
@@ -500,11 +517,9 @@ class TestAccountMetadataDisplay:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
         # Metadata should use text-xs (smaller than main text)
         # Check computed font size
-        metadata_text = page.locator('[x-show="showProfileSummary"] p.text-xs').first
+        metadata_text = summary_card(page).locator('p.text-xs').first
         font_size = metadata_text.evaluate('el => window.getComputedStyle(el).fontSize')
 
         # text-xs in Tailwind is 0.75rem (12px)
@@ -527,7 +542,7 @@ class TestDifferentAccountTypes:
             gender='F',
             location='Luxembourg',
             bio='New user',
-            phone_number='+352555666777',
+            phone_number='+352****6777',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -540,12 +555,10 @@ class TestDifferentAccountTypes:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "Joined X ago" (could be minutes, hours, or days depending on timing)
-        expect(summary_card).to_contain_text('Joined')
-        expect(summary_card).to_contain_text('ago')
+        expect(card).to_contain_text('Joined')
+        expect(card).to_contain_text('ago')
 
     def test_older_account_display(self, authenticated_coach_page, coach_user_with_permissions, old_account_user):
         """Test older account (30 days) displays correctly."""
@@ -560,7 +573,7 @@ class TestDifferentAccountTypes:
             gender='M',
             location='Luxembourg',
             bio='Older account',
-            phone_number='+352888999000',
+            phone_number='+352****9000',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -573,11 +586,9 @@ class TestDifferentAccountTypes:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "Joined X days ago" or "month ago"
-        expect(summary_card).to_contain_text('Joined')
+        expect(card).to_contain_text('Joined')
 
     def test_unverified_phone_no_verification_badge(self, authenticated_coach_page, pending_profile_submission):
         """Test unverified phone doesn't show verification badge."""
@@ -587,11 +598,9 @@ class TestDifferentAccountTypes:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        # Should NOT show "Phone verified"
-        expect(summary_card).not_to_contain_text('Phone verified')
+        card = summary_card(page)
+        # Should NOT show "verified" next to phone (only shown when phone_verified=True)
+        expect(card).not_to_contain_text('verified')
 
     def test_user_never_logged_in(self, authenticated_coach_page, coach_user_with_permissions):
         """Test user who never logged in (last_login is None)."""
@@ -614,7 +623,7 @@ class TestDifferentAccountTypes:
             gender='F',
             location='Luxembourg',
             bio='Never logged in',
-            phone_number='+352444333222',
+            phone_number='+352****3222',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -627,46 +636,28 @@ class TestDifferentAccountTypes:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should NOT show "Active X ago"
-        expect(summary_card).not_to_contain_text('Active')
+        expect(card).not_to_contain_text('Active')
 
 
 class TestTabSwitching:
-    """Test tab switching behavior with Alpine.js."""
+    """Test tab switching behavior with Alpine.js (2 tabs: Screening Call,
+    Review Decision — see module docstring for why there's no third tab)."""
 
-    def test_default_tab_is_profile(self, authenticated_coach_page, pending_profile_submission):
-        """Test default active tab is Profile Overview (tab 1)."""
+    def test_default_tab_is_screening(self, authenticated_coach_page, pending_profile_submission):
+        """Test default active tab is Screening Call (tab 1)."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Profile tab content should be visible
-        profile_tab_content = page.locator('[x-show="isProfileTab"]')
-        expect(profile_tab_content).to_be_visible()
-
-    def test_switch_to_screening_tab(self, authenticated_coach_page, pending_profile_submission):
-        """Test switching to Screening Call tab."""
-        submission, coach_user, coach = pending_profile_submission
-        page = authenticated_coach_page
-
-        page.goto(get_review_url(page, submission.id))
-        page.wait_for_load_state('networkidle')
-
-        # Click screening tab using Alpine.js click handler
-        click_tab(page, "Screening Call")
-
-        # Screening tab content should be visible
         screening_tab_content = page.locator('[x-show="isScreeningTab"]')
         expect(screening_tab_content).to_be_visible()
 
-        # Profile tab content should be hidden
-        profile_tab_content = page.locator('[x-show="isProfileTab"]')
-        expect(profile_tab_content).to_be_hidden()
+        decision_tab_content = page.locator('[x-show="isDecisionTab"]')
+        expect(decision_tab_content).to_be_hidden()
 
     def test_switch_to_decision_tab(self, authenticated_coach_page, pending_profile_submission):
         """Test switching to Review Decision tab."""
@@ -683,6 +674,24 @@ class TestTabSwitching:
         decision_tab_content = page.locator('[x-show="isDecisionTab"]')
         expect(decision_tab_content).to_be_visible()
 
+        # Screening tab content should be hidden
+        screening_tab_content = page.locator('[x-show="isScreeningTab"]')
+        expect(screening_tab_content).to_be_hidden()
+
+    def test_switch_back_to_screening_tab(self, authenticated_coach_page, pending_profile_submission):
+        """Test switching back to Screening Call after visiting Review Decision."""
+        submission, coach_user, coach = pending_profile_submission
+        page = authenticated_coach_page
+
+        page.goto(get_review_url(page, submission.id))
+        page.wait_for_load_state('networkidle')
+
+        click_tab(page, "Review Decision")
+        click_tab(page, "Screening Call")
+
+        screening_tab_content = page.locator('[x-show="isScreeningTab"]')
+        expect(screening_tab_content).to_be_visible()
+
     def test_active_tab_styling(self, authenticated_coach_page, pending_profile_submission):
         """Test active tab has correct styling."""
         submission, coach_user, coach = pending_profile_submission
@@ -691,38 +700,18 @@ class TestTabSwitching:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Profile tab should be active by default
-        profile_tab_button = page.locator('.flex-col.sm\\:flex-row button').filter(has_text="Profile Overview").first
-        classes = profile_tab_button.get_attribute('class')
-        assert 'bg-white' in classes or 'text-purple' in classes
-
-        # Click screening tab using helper function
-        click_tab(page, "Screening Call")
-
-        # Screening tab should now have active styling
+        # Screening tab should be active by default
         screening_tab_button = page.locator('.flex-col.sm\\:flex-row button').filter(has_text="Screening Call").first
         classes = screening_tab_button.get_attribute('class')
         assert 'bg-white' in classes or 'text-purple' in classes
 
-    def test_view_full_profile_button(self, authenticated_coach_page, pending_profile_submission):
-        """Test 'View Full Profile →' button switches to profile tab."""
-        submission, coach_user, coach = pending_profile_submission
-        page = authenticated_coach_page
+        # Click decision tab using helper function
+        click_tab(page, "Review Decision")
 
-        page.goto(get_review_url(page, submission.id))
-        page.wait_for_load_state('networkidle')
-
-        # Go to screening tab using Alpine.js click handler
-        click_tab(page, "Screening Call")
-
-        # Click "View Full Profile →" button in summary card
-        view_profile_button = page.locator('button:has-text("View Full Profile")')
-        view_profile_button.click()
-        page.wait_for_timeout(300)
-
-        # Should be back on profile tab
-        profile_tab_content = page.locator('[x-show="isProfileTab"]')
-        expect(profile_tab_content).to_be_visible()
+        # Decision tab should now have active styling
+        decision_tab_button = page.locator('.flex-col.sm\\:flex-row button').filter(has_text="Review Decision").first
+        classes = decision_tab_button.get_attribute('class')
+        assert 'bg-white' in classes or 'text-purple' in classes
 
 
 class TestCompleteScreeningWorkflow:
@@ -749,10 +738,7 @@ class TestCompleteScreeningWorkflow:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Go to screening tab using Alpine.js click handler
-        click_tab(page, "Screening Call")
-
-        # Should see screening call form/checklist
+        # Screening tab is the default; content should already be visible
         screening_content = page.locator('[x-show="isScreeningTab"]')
         expect(screening_content).to_be_visible()
 
@@ -763,9 +749,6 @@ class TestCompleteScreeningWorkflow:
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
-
-        # Go to screening tab using Alpine.js click handler
-        click_tab(page, "Screening Call")
 
         # Check if screening form elements exist
         # (Actual form filling would depend on screening tab implementation)
@@ -826,19 +809,15 @@ class TestVisualElements:
     """Test visual elements and styling."""
 
     def test_profile_photos_displayed(self, authenticated_coach_page, pending_profile_submission):
-        """Test profile photos are displayed in summary card."""
+        """Test profile summary card renders (photos container present, even
+        without actual uploaded photos in this fixture)."""
         submission, coach_user, coach = pending_profile_submission
         page = authenticated_coach_page
 
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        # Go to screening tab to see summary using Alpine.js click handler
-        click_tab(page, "Screening Call")
-
-        # Check for photo containers (might not have actual photos in test)
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_be_visible()
+        expect(summary_card(page)).to_be_visible()
 
     def test_gradient_background_on_summary(self, authenticated_coach_page, pending_profile_submission):
         """Test summary card has gradient background."""
@@ -848,11 +827,8 @@ class TestVisualElements:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
         # Summary card should have gradient classes
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        classes = summary_card.get_attribute('class')
+        classes = summary_card(page).get_attribute('class')
         assert 'from-purple' in classes or 'to-pink' in classes or 'gradient' in classes
 
     def test_icons_render(self, authenticated_coach_page, pending_profile_submission):
@@ -863,12 +839,10 @@ class TestVisualElements:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card_text = summary_card(page).text_content()
 
         # Check for emoji icons
-        assert '🗓️' in summary_card.text_content() or '📧' in summary_card.text_content()
+        assert '🗓️' in card_text or '📧' in card_text
 
     def test_green_color_for_verified(self, authenticated_coach_page, phone_verified_profile):
         """Test phone verified text is green."""
@@ -878,11 +852,8 @@ class TestVisualElements:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
         # Phone verified text should have text-green class
-        # Target the specific element in the summary card with the checkmark icon
-        verified_text = page.locator('[x-show="showProfileSummary"] p.text-green-600:has-text("Phone verified")').first
+        verified_text = summary_card(page).locator('span.text-green-600:has-text("verified")').first
         classes = verified_text.get_attribute('class')
         assert 'text-green' in classes
 
@@ -903,7 +874,7 @@ class TestResponsiveDesign:
 
         # Tab navigation should be visible and responsive
         # Target the specific tab navigation container (has the tab buttons)
-        tab_navigation = page.locator('.flex-col.sm\\:flex-row').filter(has_text="Profile Overview").first
+        tab_navigation = page.locator('.flex-col.sm\\:flex-row').filter(has_text="Screening Call").first
         expect(tab_navigation).to_be_visible()
 
     def test_desktop_layout(self, authenticated_coach_page, pending_profile_submission):
@@ -918,10 +889,7 @@ class TestResponsiveDesign:
         page.wait_for_load_state('networkidle')
 
         # All elements should be visible
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
-        expect(summary_card).to_be_visible()
+        expect(summary_card(page)).to_be_visible()
 
 
 class TestEdgeCases:
@@ -935,11 +903,9 @@ class TestEdgeCases:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should show "Email signup" as fallback
-        expect(summary_card).to_contain_text('Email signup')
+        expect(card).to_contain_text('Email signup')
 
     def test_no_last_login(self, authenticated_coach_page, coach_user_with_permissions):
         """Test user who has never logged in."""
@@ -962,7 +928,7 @@ class TestEdgeCases:
             gender='M',
             location='Luxembourg',
             bio='No login user',
-            phone_number='+352777888999',
+            phone_number='+352****8999',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -975,11 +941,9 @@ class TestEdgeCases:
         page.goto(get_review_url(page, submission.id))
         page.wait_for_load_state('networkidle')
 
-        click_tab(page, "Screening Call")
-
-        summary_card = page.locator('[x-show="showProfileSummary"]')
+        card = summary_card(page)
         # Should NOT show "Active X ago" since last_login is None
-        expect(summary_card).not_to_contain_text('Active')
+        expect(card).not_to_contain_text('Active')
 
     def test_back_to_dashboard_button(self, authenticated_coach_page, pending_profile_submission):
         """Test back to dashboard button navigates correctly."""
@@ -990,10 +954,10 @@ class TestEdgeCases:
         page.wait_for_load_state('networkidle')
 
         # Click back to dashboard
-        back_button = page.locator('a:has-text("Back to Dashboard")')
+        back_button = page.locator('a:has-text("Back to Profile Reviews")')
         expect(back_button).to_be_visible()
         back_button.click()
         page.wait_for_load_state('networkidle')
 
-        # Should be redirected to coach dashboard
-        assert 'coach/dashboard' in page.url or 'coach' in page.url
+        # Should be redirected to coach profile-review dashboard
+        assert 'coach' in page.url
