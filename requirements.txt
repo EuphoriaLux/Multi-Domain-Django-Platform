@@ -4,7 +4,10 @@
 # fails to import under 6.1. DRF replaced it with split_header_value upstream
 # (encode/django-rest-framework#9978) — unpin once that ships in a DRF release.
 # .github/dependabot.yml carries a matching `ignore` for Django >=6.1; drop both together.
-Django==6.0.8  # Security patch (PYSEC-2026-2090..2092: cache_page cookie leak, DomainNameValidator header injection, GDALRaster over-read); requires Python 3.12+
+Django==6.1  # Unpinned from 6.0.x on 2026-08-28: the hold existed because DRF <= 3.17.2
+             # imported cc_delim_re at module scope (issue #836). DRF 3.18.0 replaced that
+             # with split_header_value and guards it on django.VERSION >= (6, 1), so the
+             # blocker is gone. Requires Python 3.12+.
 djangorestframework==3.18.0
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.7
