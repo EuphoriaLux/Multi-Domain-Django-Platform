@@ -84,8 +84,13 @@ class TestGiftCreationFlow:
         else:
             authenticated_sender_page.fill('input[name="sender_message"]', 'A special journey for you!')
 
-        # Navigate to Step 2 (Media upload - optional)
-        authenticated_sender_page.click('button:has-text("Next")')
+        # Navigate to Step 2 (Media upload - optional). Scoped to the
+        # gift-form's own .btn-group: an unrelated PWA-install-banner button
+        # elsewhere on the page also matches a bare `has_text="Next"`
+        # substring and is hidden, so an unscoped selector resolves to that
+        # element first and every click times out waiting for it to become
+        # visible (reproduced directly before this fix).
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)  # Wait for step transition
 
         # Submit form from Step 2
@@ -107,7 +112,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -129,7 +134,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -152,7 +157,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -280,6 +285,12 @@ class TestGiftClaimNewUser:
         page.fill('input[name="password1"]', 'TestPass123!')
         page.fill('input[name="password2"]', 'TestPass123!')
 
+        # Signup requires the Crush.lu data-processing consent checkbox
+        # (crushlu_consent, `required`) — without checking it the form
+        # re-renders with a validation error and the user never actually
+        # signs up (reproduced directly: URL stays on /signup/).
+        page.check('input[name="crushlu_consent"]')
+
         # Dismiss cookie banner if present
         cookie_decline = page.locator('button:has-text("Decline All")')
         if cookie_decline.count() > 0 and cookie_decline.is_visible():
@@ -290,8 +301,25 @@ class TestGiftClaimNewUser:
         page.click('button:has-text("Create Account")')
         page.wait_for_load_state('networkidle')
 
-        # Manually navigate to claim page (session should have pending_gift_code)
-        page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/claim/")
+        # Manually navigate to claim page (session should have pending_gift_code).
+        # ACCOUNT_EMAIL_VERIFICATION="mandatory" means the user isn't logged
+        # in immediately after signup (allauth holds login until the email
+        # link is confirmed) — this /claim/ request legitimately 302s to
+        # /accounts/login/. That redirect, combined with this app's
+        # service-worker registration, intermittently raises Playwright's
+        # net::ERR_ABORTED on the "load" wait condition (a documented
+        # Playwright/Chromium quirk on SW-fronted redirect chains, not a
+        # real navigation failure — reproduced directly: the same URL
+        # succeeds every time with wait_until="commit"). Swallow just that
+        # one error class so the test still exercises the real redirect
+        # instead of failing on a Playwright/browser artifact.
+        from playwright.sync_api import Error as PlaywrightError
+        try:
+            page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/claim/")
+        except PlaywrightError as e:
+            if 'ERR_ABORTED' not in str(e):
+                raise
+            page.wait_for_timeout(500)
         page.wait_for_load_state('networkidle')
 
         # Dismiss cookie banner again if needed
@@ -466,8 +494,13 @@ class TestJourneyAfterClaim:
         authenticated_recipient_page.goto(f"{live_server_url}/en/journey/chapter/1/")
         authenticated_recipient_page.wait_for_load_state('networkidle')
 
-        # Should load chapter content (not redirect to error)
-        assert '404' not in authenticated_recipient_page.content()
+        # Should load chapter content (not redirect to error). A bare
+        # substring check on page content is unreliable here: "404" appears
+        # legitimately inside unrelated SVG path-coordinate data on this
+        # page (reproduced directly), so assert on the actual 404 template's
+        # title (crush_lu/templates/crush_lu/404.html) instead of grepping
+        # the raw HTML.
+        assert "Page not found" not in authenticated_recipient_page.title()
         assert 'error' not in authenticated_recipient_page.url.lower()
 
     def test_personalization_in_journey(self, authenticated_recipient_page: Page, live_server_url, pending_gift, db):

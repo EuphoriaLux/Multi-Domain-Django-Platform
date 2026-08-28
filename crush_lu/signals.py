@@ -4137,7 +4137,7 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=CrushCoach)
-def manage_coach_staff_status(sender, instance, created, **kwargs):
+def manage_coach_staff_status(sender, instance, created, raw=False, **kwargs):
     """
     Automatically manage staff status for Crush coaches.
 
@@ -4149,7 +4149,19 @@ def manage_coach_staff_status(sender, instance, created, **kwargs):
     without requiring manual staff status assignment.
 
     Note: Superusers are never affected - their staff status is preserved.
+
+    ``raw`` guard: skip entirely during raw saves (fixture/dumpdata loading,
+    and the test-suite's migration-catalogue replay in
+    crush_lu/tests/conftest.py's ``_restore_migration_seeded_rows``). A raw
+    save means the row's FKs may not be fully replayed yet inside the same
+    deferred-constraint transaction, so ``instance.user`` can raise
+    ``ObjectDoesNotExist`` here — this mirrors the same ``if raw: return``
+    guard already used elsewhere in this module (see the Google-indexing
+    signal handlers above) for exactly that reason.
     """
+    if raw:
+        return
+
     user = instance.user
 
     # Never modify superuser accounts
