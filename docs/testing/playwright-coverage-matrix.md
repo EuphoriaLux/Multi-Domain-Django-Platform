@@ -40,7 +40,14 @@ commands shown, not estimated.
   `PASSWORD_HASHERS=[MD5PasswordHasher]` for speed. No external services
   (Postgres, Redis, Azure Storage, SumUp, Graph/Email) are required to run
   the suite — `pytest-django`'s `live_server` + SQLite + the mocks above are
-  sufficient.
+  sufficient **for the modules that actually use the fixture**. ⚠️ Three tests
+  do not: both tests in `test_mobile_screenshots.py` never request
+  `live_server` and navigate directly to `http://localhost:8000`, and
+  `power_up/finops/tests/test_dashboard_manual.py` targets the same hardcoded
+  port. On a clean `pytest` run nothing is listening there, so these fail
+  before doing any work. They need converting to `live_server.url`, or
+  classifying explicitly as tests that require a separately started dev
+  server.
 - Deterministic test data: every Playwright module creates its own users via
   Django fixtures at test time (no fixture JSON/YAML, no seeded prod-like
   data). `crush_lu/tests/conftest.py` has a `_restore_migration_seeded_rows`
@@ -79,7 +86,7 @@ pytest --collect-only -m playwright -q
 | `crush_lu/tests/test_membership_screenshots.py` | 1 | Membership page light/dark mode visual screenshot check. |
 | `crush_lu/tests/test_mobile_screenshots.py` | 2 | Ad hoc mobile screenshots (phone input, language switcher on home). |
 | `crush_lu/tests/test_phone_detail.py` | 1 (skipped) | Detailed phone-input screenshot — `@pytest.mark.skip`, selector stale (`#div_id_phone` → `#phone_number`). |
-| `crush_lu/tests/test_phone_input_manual.py` | 2 (skipped) | Same stale-selector skip as above. |
+| `crush_lu/tests/test_phone_input_manual.py` | 1 skipped + 1 active | ⚠️ **Not both skipped.** Only `test_phone_input_create_profile` carries the stale-selector `@pytest.mark.skip`; `test_language_switcher_detailed` is collected and runs under the Playwright marker. |
 | `power_up/finops/tests/test_dashboard_filtering.py` | 14 | Power-Up FinOps dashboard: charge-type/period filters, filter persistence across navigation, clear-filters, accessibility labels, empty-data state, perf with max filters. |
 | `power_up/finops/tests/test_dashboard_manual.py` | 1 | Explicitly documented as manual-only ("Requires a running dev server + manual login — never meant for CI"); marked `playwright` but not CI-suitable. |
 | **Total** | **116** | across 13 files, all Chromium-only, single 1280x720 default viewport plus ad hoc mobile/tablet overrides. |
@@ -201,9 +208,36 @@ pytest crush_lu/tests/test_visual_regression.py::TestHTMXInteractions::test_htmx
 # => 1 passed in ~22s
 
 # 6. Full Playwright tier run (reproduces the failure surface in §3)
-pytest -q -n auto --dist worksteal -m playwright
+#
+# WARNING - READ BEFORE TRUSTING THE NUMBERS BELOW. This command inherits
+# `addopts` from pytest.ini, which is:
+#     --tb=short -q -x -n auto --dist worksteal -m "not playwright" --reuse-db
+# Two of those flags matter here and neither was overridden when this was run:
+#
+#   -x          exits on first failure. Under xdist already-dispatched tests
+#               still finish, so a run can report many failures anyway - but it
+#               is NOT a guaranteed complete pass over all 116 items, and the
+#               figures below are therefore not reproducible as written.
+#               Counter-evidence, stated so the reader can judge: 36 + 78 + 4
+#               = 118 ~ 116 collected, i.e. essentially every item did report,
+#               so the failure rate is probably close to right. Re-run with
+#               `--maxfail=0` before basing any prioritisation on it.
+#
+#   --reuse-db  keeps the file-based test DB between sessions. Combined with
+#               the `_restore_migration_seeded_rows` replay failure described
+#               in section 3, a failed atomic replay leaves the reused DB
+#               WITHOUT its migration-seeded catalogues, and that damage
+#               persists into later pytest sessions - contaminating even
+#               non-browser results. ALWAYS follow a failing browser run with
+#               `pytest --create-db` (or pass `--create-db` to the next run).
+#
+pytest -q -n auto --dist worksteal -m playwright --maxfail=0
 # => 36 passed/skipped, ~78 failed+errored, out of 116 collected
 #    (raw progress line: 36 '.'/'s' vs 78 'F'/4 'E' markers in this run)
+#    ^ measured WITHOUT --maxfail=0; treat as provisional, see warning above.
+
+# 7. Recover the reused database after any failing browser run
+pytest --create-db -m "not playwright" -q
 ```
 
 Full failure list and tracebacks were captured during this audit and are
@@ -229,11 +263,11 @@ bug fix first — listed with the specific blocker).
 | 4 | Coach review workflow (tab nav, screening, decision) | `test_coach_review_profile_playwright.py` (36 tests) | regression (currently) | ~30 of 36 failing/erroring — both a teardown-fixture bug (`manage_coach_staff_status` signal + migration-replay interaction) and stale selectors | Do not promote to smoke until the teardown bug in `_restore_migration_seeded_rows`/`manage_coach_staff_status` is fixed — it currently makes even passing test bodies report as teardown errors. This is the single highest-leverage bug to fix first: it is shared infrastructure affecting the whole file. |
 | 5 | Wonderland Journey gift creation, claim, journey access | `test_journey_gift_e2e.py` (26 tests) | regression | Mixed pass/fail; several `TestGiftCreationFlow` tests fail (form-render/QR/link assertions) | Represents a real integration boundary (gift → signup → journey unlock) — good `t_2eb7f76b` candidate once individual failures are triaged; do not treat as smoke given current fail rate. |
 | 6 | Photo-reveal puzzle unlock flow (points, progress, notification) | `test_photo_puzzle_e2e.py` (9 tests) | regression | Majority failing (page load, notification, progress bar) | Needs root-cause pass before it can gate anything; keep as regression/non-blocking until fixed. |
-| 7 | FinOps dashboard filtering (Power-Up, staff-only) | `power_up/finops/tests/test_dashboard_filtering.py` (14 tests) | regression | All observed failures caused by a GDPR consent-confirmation interstitial the test fixture doesn't pre-confirm | Fixable at the fixture level (confirm consent for the `finops_admin`-style test user before navigating) rather than a product bug — flag to `t_2eb7f76b` implementer as a likely one-line fixture fix, not a deep investigation. |
+| 7 | FinOps dashboard filtering (Power-Up, staff-only) | `power_up/finops/tests/test_dashboard_filtering.py` (14 tests) | regression | ⚠️ **Diagnosis corrected.** The consent interstitial is a *symptom of wrong host routing*, not a missing fixture | The 14 tests navigate to `live_server.url` (27 call sites) — localhost, which selects the **Crush** URLconf — while one hardcodes `powerup.localhost:8000`, a port `live_server` never uses. `finops/` is routed in `urls_power_up.py`, and `CrushConsentMiddleware` only enforces consent on the Crush URLconf. Pre-confirming consent would **mask the routing bug and still never exercise the Power-Up dashboard**. The real fix is to build a `powerup.localhost:<live_server_port>` URL. Not the one-line fixture change this row previously advertised. |
 | 8 | FinOps dashboard manual smoke | `test_dashboard_manual.py` | **manual** | Author-documented as "never meant for CI" | Leave as-is; do not force into an automated tier — respects the existing author's explicit intent. |
-| 9 | Mobile language switcher | `test_mobile_ui.py::TestMobileLanguageSwitcher`, `test_language_switcher_final.py` | regression | Not individually isolated in this pass | Duplicate coverage across two files for the same flow — consolidation opportunity for `t_2eb7f76b`, not a gap. |
+| 9 | Mobile language switcher | `test_mobile_ui.py::TestMobileLanguageSwitcher`, `test_language_switcher_final.py` | regression | Not individually isolated in this pass | ⚠️ **Not duplicate coverage.** `test_language_switcher_final.py` contains **zero `assert` statements** — every missing or wrong state only prints a warning and the test then passes, so it would stay green if the language switcher were deleted outright. Count it as screenshot/manual diagnostics, or add a hard assertion, before using it to justify consolidating the real functional test. |
 | 10 | Membership page light/dark mode | `test_membership_screenshots.py` | regression | Not isolated in this pass | Visual-only; low priority. |
-| 11 | Legacy phone-input screenshots | `test_phone_detail.py`, `test_phone_input_manual.py` | **blocked** | Explicitly `@pytest.mark.skip`'d, reason documented in-file (stale `#div_id_phone` selector) | Genuine, already-diagnosed blocker — fix is a one-line selector update (`#phone_number`) whenever someone picks this up; not re-diagnosing here per the skip's own accurate note. |
+| 11 | Legacy phone-input screenshots (⚠️ **partially** — `test_phone_input_manual.py::test_language_switcher_detailed` is active, not blocked, and belongs with row 9) | `test_phone_detail.py`, `test_phone_input_manual.py::test_phone_input_create_profile` | **blocked** | Explicitly `@pytest.mark.skip`'d, reason documented in-file (stale `#div_id_phone` selector) | Genuine, already-diagnosed blocker — fix is a one-line selector update (`#phone_number`) whenever someone picks this up; not re-diagnosing here per the skip's own accurate note. |
 | 12 | Negative / auth-required cases (gift create requires auth, invalid gift code → 404, double-claim prevented) | `test_journey_gift_e2e.py::TestGiftCreationFlow::test_gift_create_page_requires_auth`, `TestGiftEdgeCases::*` | regression | Not isolated in this pass; part of the 26-test file's mixed results | Genuine negative/recovery-path coverage already exists — verify pass/fail per-test when triaging file #5 above rather than re-writing from scratch. |
 | 13 | Coach/staff role separation at the Django level (non-Playwright) | N/A — out of Playwright's current scope | N/A | Not evaluated (non-playwright tier untouched by this audit) | Flagging as a matrix gap only: no Playwright test verifies that a plain member is denied `/coach/review/<id>/` or `/dev/connect-card/<id>/`; if such authorization is already covered by the Django unit-test tier that's sufficient and no new Playwright test is needed — confirm before adding one (`t_2eb7f76b` scope, don't assume). |
 | 14 | Cross-browser (Firefox/WebKit) and non-default viewport regression | None | **blocked** | No config, no product requirement found | Do not implement without an explicit browser-support decision — logging as an open question rather than inventing a requirement, per this task's instructions. |
@@ -275,7 +309,14 @@ when repository policy is unclear").
   conventions.
 - **`t_bee62d16` (CI wiring)**: add the smoke marker as a required PR check
   (fast, ~image/browser install cached), and add the full `-m playwright`
-  run as a scheduled or manual `workflow_dispatch` job — mirroring how
+  run as a scheduled or manual `workflow_dispatch` job — ⚠️ **excluding the
+  manual test**, which a bare `-m playwright` selector *will* collect:
+  `power_up/finops/tests/test_dashboard_manual.py` sets
+  `pytestmark = pytest.mark.playwright` yet launches Chromium with
+  `headless=False`, targets a separately running server on port 8000, and
+  pauses for a human login — it cannot run unattended on a GitHub runner.
+  Give it its own `manual` marker and select `-m "playwright and not manual"`,
+  or drop it from collection, *before* wiring this job — mirroring how
   `test-and-validate.yml` already separates required (`test`, `validate`)
   from `continue-on-error` jobs. Playwright HTML report / trace-on-failure
   is not currently configured (`pytest-playwright` supports
