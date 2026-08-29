@@ -2299,6 +2299,41 @@ def send_connect_beta_invite(user, wave, request=None):
         logger.info(f"Skipping Connect beta invite to {user.email} - unsubscribed")
         return 0
 
+    # A ban sets ``user.is_active`` False and a deactivation sets
+    # ``crushprofile.is_active`` False; ``can_send_email`` reads neither, since
+    # it only consults EmailPreference. Same P1 as
+    # ``send_profile_completion_reminders``, and re-read here rather than
+    # trusted from the caller's snapshot for the same mid-run reason as the
+    # pause and exclusion checks below. ``crushprofile`` may not exist at all,
+    # which must not block the send.
+    from django.contrib.auth.models import User
+
+    from .models import CrushProfile
+
+    if not User.objects.filter(pk=user.pk, is_active=True).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - account is not active", user.email
+        )
+        return 0
+    if CrushProfile.objects.filter(user=user, is_active=False).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - profile is deactivated", user.email
+        )
+        return 0
+
+    # ``delete_crushlu_profile_only`` deletes the CrushProfile but keeps the
+    # Django user active, so neither guard above sees it; the permanent bar it
+    # sets is ``crushlu_banned``. Without this, a member who deleted their
+    # Crush.lu presence would still be mailed a launch invite.
+    from .models import UserDataConsent
+
+    if UserDataConsent.objects.filter(user=user, crushlu_banned=True).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - Crush.lu access is banned",
+            user.email,
+        )
+        return 0
+
     # Re-read the pause at send time, not only when the caller built its cohort.
     # A wave is up to 200 sends off one materialised list, so a member who hits
     # pause while the run is working through the earlier recipients would
@@ -2315,15 +2350,31 @@ def send_connect_beta_invite(user, wave, request=None):
     # the cached copy reported is_paused False while the row said True. A guard
     # reading the cache re-checks nothing, and worse, does so nondeterministically
     # depending on how the caller built its queryset.
+    #
+    # The same reasoning covers ``excluded_by_coach``: a coach can hit the panic
+    # button while a wave is working through its list, and the cohort's snapshot
+    # would not know. Read both flags in one query -- and read the exclusion
+    # FIRST, so a member who is both excluded and paused is logged as the
+    # moderation action rather than as their own preference.
     from .models.crush_connect import CrushConnectMembership
 
-    if CrushConnectMembership.objects.filter(
-        user=user, paused_at__isnull=False
-    ).exists():
-        logger.info(
-            "Skipping Connect beta invite to %s - paused Crush Connect", user.email
-        )
-        return 0
+    membership_state = (
+        CrushConnectMembership.objects.filter(user=user)
+        .values_list("excluded_by_coach", "paused_at")
+        .first()
+    )
+    if membership_state is not None:
+        excluded_by_coach, paused_at = membership_state
+        if excluded_by_coach:
+            logger.info(
+                "Skipping Connect beta invite to %s - excluded by a coach", user.email
+            )
+            return 0
+        if paused_at is not None:
+            logger.info(
+                "Skipping Connect beta invite to %s - paused Crush Connect", user.email
+            )
+            return 0
 
     cta_url = get_user_language_url(user, _CONNECT_BETA_CTA_URL_NAME[wave], request)
     dashboard_url = get_user_language_url(user, "crush_lu:dashboard", request)
