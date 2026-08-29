@@ -164,15 +164,27 @@ class TestHTMXInteractions:
         """Verify no Bootstrap JS console errors."""
         errors = []
 
+        # Console errors from these hosts are NOT application failures.
+        # `base.html` pulls Fraunces from Google Fonts behind an explicit
+        # fallback stack, and Chromium logs a failed resource load as an
+        # error-level console message. A network-restricted CI runner or a
+        # transient outage would otherwise fail a tier advertised as
+        # deterministic, for a page that renders correctly.
+        NON_CRITICAL_RESOURCE_HOSTS = ("fonts.googleapis.com", "fonts.gstatic.com")
+
         def handle_console(msg):
-            if msg.type == "error":
-                errors.append(f"console: {msg.text}")
+            if msg.type != "error":
+                return
+            if any(host in msg.text for host in NON_CRITICAL_RESOURCE_HOSTS):
+                return
+            errors.append(f"console: {msg.text}")
 
         # Uncaught exceptions do NOT arrive on the console event -- Playwright
         # reports them separately on `pageerror`. Listening only to `console`
         # left this green while an Alpine or HTMX handler threw after both
         # libraries had initialised, which is the exact failure a JS-error gate
-        # is for.
+        # is for. These are never filtered: a `pageerror` is application code
+        # throwing, which no external resource can excuse.
         def handle_page_error(exc):
             errors.append(f"pageerror: {exc}")
 
@@ -183,11 +195,21 @@ class TestHTMXInteractions:
         pages_to_check = ["/", "/events/", "/about/", "/how-it-works/"]
 
         for path in pages_to_check:
-            try:
-                page.goto(f"{live_server.url}{path}")
-                page.wait_for_load_state("networkidle")
-            except Exception:
-                pass  # Page might not exist in test environment
+            # A smoke gate has to fail when the critical path does not load.
+            # Playwright does not raise for ordinary 4xx/5xx, so the status is
+            # asserted explicitly: a Django 500 error page renders with no
+            # console errors at all and would otherwise sail through this test
+            # as a pass. The previous `except Exception: pass` also swallowed
+            # genuine navigation failures, which made an unreachable route
+            # indistinguishable from a healthy one -- the exact false-green
+            # this tier exists to prevent.
+            response = page.goto(f"{live_server.url}{path}")
+            assert response is not None, f"No response received for {path}"
+            assert response.ok, (
+                f"{path} returned HTTP {response.status} -- the critical path "
+                f"must actually load for this smoke gate to mean anything"
+            )
+            page.wait_for_load_state("networkidle")
 
         # Assert on EVERY console error, not just Bootstrap ones. Filtering to
         # "bootstrap" left this green while Alpine or HTMX threw on every render,
