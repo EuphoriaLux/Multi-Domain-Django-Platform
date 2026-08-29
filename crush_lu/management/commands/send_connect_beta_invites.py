@@ -128,6 +128,42 @@ def candidates_for_wave(wave):
         # test_a_member_without_a_membership_row_is_still_a_candidate pins the
         # behaviour rather than trusting either reading of it.
         .exclude(user__crush_connect_membership__paused_at__isnull=False)
+        # The coach panic button is a moderation action, not a preference: it
+        # "removes a member from every other user's pool and blocks their
+        # Connect surfaces" (CrushConnectMembership docstring). Mailing an
+        # excluded member "your Connect Week is open" would walk them straight
+        # into surfaces the exclusion exists to shut, which is the one failure
+        # mode a safety control must not have. Excluded and paused are stored
+        # separately on purpose -- so that a voluntary break is never recorded
+        # as a moderation action -- so neither filter implies the other and
+        # both have to be stated here.
+        .exclude(user__crush_connect_membership__excluded_by_coach=True)
+        # A ban keeps the CrushProfile but sets ``user.is_active`` False, and a
+        # profile deactivation sets ``crushprofile.is_active`` False. Neither is
+        # visible to ``can_send_email``, which only reads EmailPreference -- the
+        # same P1 already documented on ``send_profile_completion_reminders``,
+        # which filters on exactly these two flags for exactly this reason.
+        #
+        # ``user__is_active`` is a plain filter because every waitlist row has a
+        # user. The profile flag must be an ``exclude(...=False)`` instead: a
+        # waitlist member need not have a CrushProfile at all (see
+        # test_user_without_profile_is_wave_three), and filtering
+        # ``crushprofile__is_active=True`` would inner-join those members away.
+        .filter(user__is_active=True)
+        .exclude(user__crushprofile__is_active=False)
+        # The third deactivation flag, and the one neither of the above catches.
+        # ``delete_crushlu_profile_only`` is the "delete my Crush.lu presence but
+        # keep my PowerUp account" path: it deletes the CrushProfile, KEEPS the
+        # Django user active, and sets ``data_consent.crushlu_banned=True`` as a
+        # permanent bar on re-creating the profile. The waitlist row is a
+        # OneToOne on *User* with on_delete=CASCADE, and that user is retained,
+        # so the row survives the deletion with notification_preference intact.
+        #
+        # Such a member is therefore active, profile-less -- i.e. wave 3 -- and
+        # was a live candidate: we would mail a Connect launch invite to someone
+        # who deleted their Crush.lu account. Excluded, not filtered on
+        # ``crushlu_banned=False``, because a user may have no data_consent row.
+        .exclude(user__data_consent__crushlu_banned=True)
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )
@@ -146,6 +182,35 @@ def paused_candidates_for_wave(wave):
             beta_invited_at__isnull=True,
             notification_preference=True,
             user__crush_connect_membership__paused_at__isnull=False,
+        )
+        # A coach exclusion does not clear ``paused_at``, so "paused AND
+        # excluded" is reachable and would otherwise be counted once here and
+        # once in ``coach_excluded_candidates_for_wave`` -- two skipped members
+        # reported for one real one, which breaks the aggregate reconciliation
+        # these counts exist to feed. Attribute the member to the exclusion,
+        # matching the send-time guard's precedence: the moderation action is
+        # the reason that matters, not the member's own snooze.
+        .exclude(user__crush_connect_membership__excluded_by_coach=True)
+        .select_related("user__crushprofile")
+        .order_by("joined_at")
+    )
+    return [row for row in rows if wave_for_user(row.user) == wave]
+
+
+def coach_excluded_candidates_for_wave(wave):
+    """The members ``candidates_for_wave`` just dropped for coach exclusion.
+
+    Reporting-only, wave-scoped for the same reason as
+    ``paused_candidates_for_wave``. Counted separately from the paused figure
+    rather than folded into one "skipped" total: one number is a member's own
+    choice and the other is a moderation action, and a coach reading "3
+    skipped" cannot tell whether the panic button actually held.
+    """
+    rows = (
+        CrushConnectWaitlist.objects.filter(
+            beta_invited_at__isnull=True,
+            notification_preference=True,
+            user__crush_connect_membership__excluded_by_coach=True,
         )
         .select_related("user__crushprofile")
         .order_by("joined_at")
@@ -234,6 +299,11 @@ class Command(BaseCommand):
         if paused_skipped:
             self.stdout.write(
                 f"  skipped, paused Connect themselves: {paused_skipped}"
+            )
+        coach_excluded_skipped = len(coach_excluded_candidates_for_wave(wave))
+        if coach_excluded_skipped:
+            self.stdout.write(
+                f"  skipped, excluded by a coach: {coach_excluded_skipped}"
             )
 
         if not candidates:
