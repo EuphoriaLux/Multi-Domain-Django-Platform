@@ -129,8 +129,15 @@ class TestFinOpsDashboardFiltering:
         query = parse_qs(urlsplit(staff_page.url).query)
         assert query.get('charge_type') == ['all']
 
-        # Check info message is NOT shown for 'all' filter
-        info_message = staff_page.locator('text=Showing Usage costs only')
+        # Check the payg-only info banner is NOT shown for the 'all' filter.
+        # Assert against a string the template can actually render: dashboard.html
+        # emits "Showing <strong>Pay-as-you-go costs only</strong>" (charge_type
+        # payg/empty) or "Showing <strong>Reserved Instance usage only</strong>"
+        # (reserved), and neither under 'all'. The pre-rename string "Showing
+        # Usage costs only" no longer exists anywhere in the template tree, so
+        # asserting on it would hold unconditionally and would keep holding even
+        # if the banner logic broke completely.
+        info_message = staff_page.locator('text=Showing Pay-as-you-go costs only')
         expect(info_message).not_to_be_visible()
 
     def test_365_day_period_with_all_charges(self, staff_page: Page, powerup_url):

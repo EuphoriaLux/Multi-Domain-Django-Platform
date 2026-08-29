@@ -297,29 +297,24 @@ class TestGiftClaimNewUser:
             cookie_decline.click()
             page.wait_for_timeout(500)
 
-        # Submit signup (button says "Create Account")
-        page.click('button:has-text("Create Account")')
-        page.wait_for_load_state('networkidle')
+        # Submit signup (button says "Create Account"). Await the navigation
+        # the POST triggers rather than wait_for_load_state('networkidle'):
+        # networkidle can return while the signup redirect is still in flight
+        # (page.url still /en/signup/), and the NEXT goto then cancels that
+        # in-flight navigation, which is what surfaced as a spurious
+        # net::ERR_ABORTED. Verified directly: with expect_navigation the POST
+        # lands on /accounts/confirm-email/ (ACCOUNT_EMAIL_VERIFICATION=
+        # "mandatory") and the subsequent claim goto succeeds every time.
+        with page.expect_navigation(wait_until="commit"):
+            page.click('button:has-text("Create Account")')
+        page.wait_for_load_state('domcontentloaded')
 
         # Manually navigate to claim page (session should have pending_gift_code).
-        # ACCOUNT_EMAIL_VERIFICATION="mandatory" means the user isn't logged
-        # in immediately after signup (allauth holds login until the email
-        # link is confirmed) — this /claim/ request legitimately 302s to
-        # /accounts/login/. That redirect, combined with this app's
-        # service-worker registration, intermittently raises Playwright's
-        # net::ERR_ABORTED on the "load" wait condition (a documented
-        # Playwright/Chromium quirk on SW-fronted redirect chains, not a
-        # real navigation failure — reproduced directly: the same URL
-        # succeeds every time with wait_until="commit"). Swallow just that
-        # one error class so the test still exercises the real redirect
-        # instead of failing on a Playwright/browser artifact.
-        from playwright.sync_api import Error as PlaywrightError
-        try:
-            page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/claim/")
-        except PlaywrightError as e:
-            if 'ERR_ABORTED' not in str(e):
-                raise
-            page.wait_for_timeout(500)
+        # ACCOUNT_EMAIL_VERIFICATION="mandatory" means the user is NOT logged
+        # in after signup (allauth holds login until the email link is
+        # confirmed), so this /claim/ request legitimately 302s to
+        # /accounts/login/ and the gift is NOT claimed.
+        page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/claim/")
         page.wait_for_load_state('networkidle')
 
         # Dismiss cookie banner again if needed
@@ -334,10 +329,37 @@ class TestGiftClaimNewUser:
             claim_button.first.click()
             page.wait_for_load_state('networkidle')
 
-        # Verify gift was claimed by refreshing from DB
+        # Assert the REAL post-condition of this flow. Under mandatory email
+        # verification the freshly-signed-up user is unauthenticated, so the
+        # claim must NOT succeed: the gift stays pending and unowned, and the
+        # request is gated behind login. Verified directly against the app:
+        # GET /en/journey/gift/<code>/claim/ while unauthenticated returns
+        # 302 -> /accounts/login/?next=..., gift.status == 'pending',
+        # gift.claimed_by is None.
+        #
+        # Asserting the gated outcome (rather than a claimed journey) is what
+        # makes this test falsifiable: if the claim view ever stopped
+        # enforcing authentication, or auto-claimed for an unverified
+        # account, these assertions fail. Promoting this to an end-to-end
+        # "claim succeeds" test requires confirming the email link first and
+        # is tracked separately — see docs/testing/playwright-coverage-matrix.md
+        # Section 5 Row 5, which flagged this exact test as previously
+        # asserting nothing.
+        from crush_lu.models import JourneyGift
+
         pending_gift.refresh_from_db()
-        # Note: Gift may or may not be claimed depending on signup flow completion
-        # The test verifies the navigation works
+        assert pending_gift.status == JourneyGift.Status.PENDING, (
+            "Unverified signup must not claim the gift; "
+            f"status was {pending_gift.status!r}"
+        )
+        assert pending_gift.claimed_by is None, (
+            "Unverified signup must not become the gift owner; "
+            f"claimed_by was {pending_gift.claimed_by!r}"
+        )
+        assert '/accounts/login/' in page.url, (
+            "Claim while unauthenticated must be gated behind login; "
+            f"landed on {page.url!r}"
+        )
 
     def test_redirect_to_journey_after_claim(self, authenticated_recipient_page: Page, live_server_url, pending_gift):
         """After claiming, user should be redirected to journey map."""
