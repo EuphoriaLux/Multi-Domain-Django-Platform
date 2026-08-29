@@ -1420,6 +1420,70 @@ class EventRegistration(models.Model):
         return profile is not None and profile.verification_status == "verified"
 
 
+class EventRegistrationPreference(models.Model):
+    """Per-application dating preferences for speed-dating events.
+
+    A side model rather than columns on EventRegistration, on the
+    CrushConnectMembership precedent (models/crush_connect.py): preferences sit
+    next to the feature that consumes them while the registration row keeps
+    only identity/payment/attendance data. The split is also a GDPR lifecycle
+    boundary — ``preferred_genders`` can reveal sexual orientation (Art. 9
+    special category), so these rows are pruned by ``gdpr_retention_cleanup``
+    shortly after the event, while the registration row itself persists for
+    payment lineage and attendance history. Never render these values to other
+    members; they are organiser-only input for composing the group.
+
+    Field names deliberately mirror CrushConnectMembership so the duck-typed
+    scorers in crush_lu/matching.py accept either object unchanged.
+
+    ``languages`` uses the 4-code event vocabulary
+    (CrushProfile.EVENT_LANGUAGE_CHOICES), not Connect's 8-code set: it must
+    intersect MeetupEvent.languages and other applicants' profile
+    event_languages, which both speak the 4-code vocabulary.
+    """
+
+    registration = models.OneToOneField(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="preference",
+    )
+    # Empty list = open to all genders (same semantics as Connect).
+    preferred_genders = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Gender codes the applicant wants to meet; empty = open to all"),
+    )
+    preferred_age_min = models.PositiveSmallIntegerField(default=18)
+    preferred_age_max = models.PositiveSmallIntegerField(default=99)
+    languages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "Event-language codes (en/de/fr/lu) the applicant wants at the "
+            "table; empty = any"
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences for registration {self.registration_id}"
+
+    def preferred_genders_display(self):
+        """Display labels for the stored gender codes (organiser surfaces)."""
+        from .profiles import CrushProfile
+
+        labels = dict(CrushProfile.GENDER_CHOICES)
+        return [labels[code] for code in self.preferred_genders if code in labels]
+
+    def languages_display(self):
+        """Display labels for the stored event-language codes."""
+        from .profiles import CrushProfile
+
+        labels = dict(CrushProfile.EVENT_LANGUAGE_CHOICES)
+        return [labels[code] for code in self.languages if code in labels]
+
+
 class EventInvitation(models.Model):
     """
     Private invitation for exclusive events.

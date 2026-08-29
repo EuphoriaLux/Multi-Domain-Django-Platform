@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, CallAttempt, EventFeedback, Interest
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, EventRegistrationPreference, JourneyGift, CallAttempt, EventFeedback, Interest
 from PIL import Image
 import os
 
@@ -809,6 +809,136 @@ class EventRegistrationForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+
+class EventPreferenceForm(forms.ModelForm):
+    """Speed-dating preferences collected with an event registration.
+
+    Rendered only for speed-dating events; every field is optional (empty
+    gender/language selections mean "open to all", matching Connect's
+    semantics). Age handling copies ConnectIdealMatchForm: the model-generated
+    fields are reconstructed as IntegerFields so the 18–99 clamp is a real
+    server-side validator, and a crossed range is swapped rather than rejected.
+    """
+
+    preferred_genders = forms.MultipleChoiceField(
+        choices=CrushProfile.GENDER_CHOICES,
+        required=False,  # empty = open to all
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Who would you like to meet?"),
+    )
+    languages = forms.MultipleChoiceField(
+        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+        required=False,  # empty = any event language
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Preferred language at the table"),
+    )
+
+    class Meta:
+        model = EventRegistrationPreference
+        fields = (
+            "preferred_genders",
+            "preferred_age_min",
+            "preferred_age_max",
+            "languages",
+        )
+        widgets = {
+            "preferred_age_min": forms.NumberInput(
+                attrs={"min": 18, "max": 99, "class": TAILWIND_INPUT}
+            ),
+            "preferred_age_max": forms.NumberInput(
+                attrs={"min": 18, "max": 99, "class": TAILWIND_INPUT}
+            ),
+        }
+
+    def __init__(self, *args, event=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # An event that restricts its spoken languages narrows the choices; the
+        # registrant already passed user_meets_language_requirement to get here.
+        if event is not None and event.languages:
+            allowed = set(event.languages)
+            self.fields["languages"].choices = [
+                (code, label)
+                for code, label in CrushProfile.EVENT_LANGUAGE_CHOICES
+                if code in allowed
+            ]
+        for field_name in ("preferred_age_min", "preferred_age_max"):
+            old_field = self.fields[field_name]
+            self.fields[field_name] = forms.IntegerField(
+                min_value=18,
+                max_value=99,
+                label=old_field.label,
+                required=False,  # blank falls back to the model default (18/99)
+                initial=old_field.initial,
+                widget=old_field.widget,
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("preferred_age_min") is None:
+            cleaned["preferred_age_min"] = 18
+        if cleaned.get("preferred_age_max") is None:
+            cleaned["preferred_age_max"] = 99
+        lo = cleaned["preferred_age_min"]
+        hi = cleaned["preferred_age_max"]
+        # A crossed range is a slider mishap, not an error — swap it.
+        if lo > hi:
+            cleaned["preferred_age_min"], cleaned["preferred_age_max"] = hi, lo
+        return cleaned
+
+    def preference_defaults(self):
+        """cleaned_data shaped for update_or_create(defaults=...).
+
+        Used instead of form.save() because the registration row is reused on
+        re-registration and the stale preference row must be overwritten, never
+        duplicated.
+        """
+        return {
+            "preferred_genders": self.cleaned_data.get("preferred_genders") or [],
+            "preferred_age_min": self.cleaned_data["preferred_age_min"],
+            "preferred_age_max": self.cleaned_data["preferred_age_max"],
+            "languages": self.cleaned_data.get("languages") or [],
+        }
+
+    @staticmethod
+    def initial_for(user, profile, event):
+        """Prefill order: Connect membership -> legacy profile prefs -> blank.
+
+        Connect's 8-code language set is filtered down to the 4-code event
+        vocabulary (and to the event's own language restriction when present).
+        """
+        allowed_codes = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
+        if event is not None and event.languages:
+            allowed_codes &= set(event.languages)
+
+        # Query rather than traverse user.crush_connect_membership: the reverse
+        # OneToOne cache can be stale within a request that touched it earlier.
+        from .models import CrushConnectMembership
+
+        membership = CrushConnectMembership.objects.filter(user=user).first()
+        if membership is not None and membership.onboarded_at is not None:
+            return {
+                "preferred_genders": list(membership.preferred_genders or []),
+                "preferred_age_min": membership.preferred_age_min,
+                "preferred_age_max": membership.preferred_age_max,
+                "languages": [
+                    code
+                    for code in (membership.languages or [])
+                    if code in allowed_codes
+                ],
+            }
+        if profile is not None:
+            return {
+                "preferred_genders": list(profile.preferred_genders or []),
+                "preferred_age_min": profile.preferred_age_min,
+                "preferred_age_max": profile.preferred_age_max,
+                "languages": [
+                    code
+                    for code in (profile.event_languages or [])
+                    if code in allowed_codes
+                ],
+            }
+        return {}
 
 
 class CrushCoachForm(forms.ModelForm):

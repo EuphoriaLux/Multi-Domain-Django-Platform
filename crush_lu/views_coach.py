@@ -2279,7 +2279,7 @@ def coach_event_detail(request, event_id):
     all_regs = list(
         EventRegistration.objects.filter(event=event)
         .exclude(status="cancelled")
-        .select_related("user__crushprofile")
+        .select_related("user__crushprofile", "preference")
         .order_by("registered_at")
     )
 
