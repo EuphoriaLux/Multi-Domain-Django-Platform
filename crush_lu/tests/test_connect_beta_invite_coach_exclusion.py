@@ -192,6 +192,72 @@ def test_exclusion_and_pause_are_counted_separately():
 
 
 @pytest.mark.django_db
+def test_a_member_excluded_mid_run_is_not_mailed():
+    """The cohort filter alone leaves a time-of-check/time-of-use hole.
+
+    ``candidates_for_wave`` materialises a list, then the command works through
+    up to 200 sends. A coach hitting the panic button while the run is still on
+    earlier recipients cannot reach that snapshot, so the send itself has to
+    re-check. This is the send-time half of the guard, and it is the half that
+    matters most here: the whole point of a panic button is that it takes
+    effect the moment it is pressed.
+    """
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _make_user(username="mid_run_excluded", premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+
+    # In the cohort at check time...
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+    # ...then a coach excludes them while the run is under way.
+    membership, _ = CrushConnectMembership.objects.get_or_create(user=user)
+    membership.excluded_by_coach = True
+    membership.excluded_at = timezone.now()
+    membership.save(update_fields=["excluded_by_coach", "excluded_at"])
+
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 0, "a member excluded mid-run was still mailed"
+    assert user.email not in [addr for m in mail.outbox for addr in m.to]
+
+
+@pytest.mark.django_db
+def test_the_send_time_guard_survives_a_stale_membership_cache():
+    """Reading the reverse OneToOne attribute would re-check nothing.
+
+    ``user.crush_connect_membership`` is a caching descriptor: on a ``user``
+    the caller already traversed, it hands back the object as it was, not as
+    the row now is. The guard therefore queries. Touching the attribute before
+    the exclusion is written reproduces exactly the stale state that a
+    cache-reading guard would trust.
+    """
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _make_user(username="stale_cache", premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+    membership, _ = CrushConnectMembership.objects.get_or_create(user=user)
+
+    # Warm the descriptor cache while the member is still clear.
+    assert user.crush_connect_membership.excluded_by_coach is False
+
+    CrushConnectMembership.objects.filter(pk=membership.pk).update(
+        excluded_by_coach=True, excluded_at=timezone.now()
+    )
+
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 0, (
+        "the send-time guard trusted a stale cached membership and mailed a "
+        "coach-excluded member"
+    )
+
+
+@pytest.mark.django_db
 def test_the_excluded_skip_is_reported():
     """A cohort that silently shrank looks identical to one that was small."""
     _waitlisted_excluded_member()
