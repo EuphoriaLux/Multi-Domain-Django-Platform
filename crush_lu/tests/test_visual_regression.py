@@ -20,6 +20,39 @@ pytest.importorskip("playwright")
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+# Optional third-party resources. `base.html` pulls Fraunces from Google Fonts
+# behind an explicit fallback stack, so the page is correct without them.
+OPTIONAL_EXTERNAL_RESOURCES = (
+    "**://fonts.googleapis.com/**",
+    "**://fonts.gstatic.com/**",
+)
+
+
+def block_optional_external_resources(page):
+    """Abort optional third-party requests for the duration of a smoke test.
+
+    Filtering these hosts out of the console output is not sufficient on its
+    own: an unreachable host that *stalls* rather than failing fast leaves an
+    outstanding request, and `wait_for_load_state("networkidle")` then times
+    out — failing a gate advertised as deterministic, for a page that rendered
+    correctly behind its fallback font. Removing the dependency at the network
+    layer is what actually fixes that.
+
+    These are *fulfilled* with an empty stylesheet rather than aborted.
+    `route.abort()` was tried first and made the JS-error gate fail: Chromium
+    logs an aborted request as `Failed to load resource: net::ERR_FAILED`,
+    whose text carries no hostname, so a host-based console filter cannot
+    match it. Serving an empty 200 means there is no error to filter, no
+    outstanding request to stall on, and — because the returned CSS declares
+    no `@font-face` — no follow-up requests to fonts.gstatic.com either.
+    """
+    for pattern in OPTIONAL_EXTERNAL_RESOURCES:
+        page.route(
+            pattern,
+            lambda route: route.fulfill(status=200, content_type="text/css", body=""),
+        )
+
+
 @pytest.fixture(scope="session")
 def screenshot_dir():
     """Create and return the screenshots output directory.
@@ -44,13 +77,19 @@ class TestResponsiveLayouts:
         "desktop": {"width": 1440, "height": 900},
     }
 
-    # Deliberately NOT in the smoke tier: this writes
-    # crush_lu/tests/screenshots/home_desktop.png, which is tracked, so the
-    # advertised `pytest -m "playwright and smoke"` command would rewrite a
-    # repository baseline and leave the worktree dirty on every run. Re-add the
-    # marker once screenshot output moves somewhere untracked.
+    # Back in the smoke tier. It was pulled out because this writes
+    # crush_lu/tests/screenshots/home_desktop.png while that path was tracked,
+    # so the advertised `pytest -m "playwright and smoke"` command rewrote a
+    # repository baseline and dirtied the worktree on every run. #932 moved
+    # screenshot output to an ignored directory (`.gitignore:236 screenshots/`,
+    # and `git ls-files` now reports nothing under it), which was the exact
+    # condition the old comment named for restoring the marker. Without it the
+    # smoke tier had no check at all that the homepage renders its nav and
+    # main-content structure.
+    @pytest.mark.smoke
     def test_home_page_desktop(self, page, live_server, screenshot_dir):
         """Test home page layout on desktop."""
+        block_optional_external_resources(page)
         page.set_viewport_size(self.VIEWPORTS["desktop"])
         page.goto(live_server.url)
 
@@ -188,6 +227,7 @@ class TestHTMXInteractions:
         def handle_page_error(exc):
             errors.append(f"pageerror: {exc}")
 
+        block_optional_external_resources(page)
         page.on("console", handle_console)
         page.on("pageerror", handle_page_error)
 
@@ -220,6 +260,7 @@ class TestHTMXInteractions:
     @pytest.mark.smoke
     def test_htmx_loaded(self, page, live_server):
         """Verify HTMX is loaded and initialized."""
+        block_optional_external_resources(page)
         page.goto(live_server.url)
         page.wait_for_load_state("networkidle")
 
@@ -230,6 +271,7 @@ class TestHTMXInteractions:
     @pytest.mark.smoke
     def test_alpine_loaded(self, page, live_server):
         """Verify Alpine.js is loaded and initialized."""
+        block_optional_external_resources(page)
         page.goto(live_server.url)
         page.wait_for_load_state("networkidle")
 
