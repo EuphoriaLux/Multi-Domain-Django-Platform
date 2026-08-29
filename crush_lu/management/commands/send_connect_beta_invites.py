@@ -138,6 +138,19 @@ def candidates_for_wave(wave):
         # as a moderation action -- so neither filter implies the other and
         # both have to be stated here.
         .exclude(user__crush_connect_membership__excluded_by_coach=True)
+        # A ban keeps the CrushProfile but sets ``user.is_active`` False, and a
+        # profile deactivation sets ``crushprofile.is_active`` False. Neither is
+        # visible to ``can_send_email``, which only reads EmailPreference -- the
+        # same P1 already documented on ``send_profile_completion_reminders``,
+        # which filters on exactly these two flags for exactly this reason.
+        #
+        # ``user__is_active`` is a plain filter because every waitlist row has a
+        # user. The profile flag must be an ``exclude(...=False)`` instead: a
+        # waitlist member need not have a CrushProfile at all (see
+        # test_user_without_profile_is_wave_three), and filtering
+        # ``crushprofile__is_active=True`` would inner-join those members away.
+        .filter(user__is_active=True)
+        .exclude(user__crushprofile__is_active=False)
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )

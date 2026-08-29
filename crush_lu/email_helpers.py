@@ -2299,6 +2299,28 @@ def send_connect_beta_invite(user, wave, request=None):
         logger.info(f"Skipping Connect beta invite to {user.email} - unsubscribed")
         return 0
 
+    # A ban sets ``user.is_active`` False and a deactivation sets
+    # ``crushprofile.is_active`` False; ``can_send_email`` reads neither, since
+    # it only consults EmailPreference. Same P1 as
+    # ``send_profile_completion_reminders``, and re-read here rather than
+    # trusted from the caller's snapshot for the same mid-run reason as the
+    # pause and exclusion checks below. ``crushprofile`` may not exist at all,
+    # which must not block the send.
+    from django.contrib.auth.models import User
+
+    from .models import CrushProfile
+
+    if not User.objects.filter(pk=user.pk, is_active=True).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - account is not active", user.email
+        )
+        return 0
+    if CrushProfile.objects.filter(user=user, is_active=False).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - profile is deactivated", user.email
+        )
+        return 0
+
     # Re-read the pause at send time, not only when the caller built its cohort.
     # A wave is up to 200 sends off one materialised list, so a member who hits
     # pause while the run is working through the earlier recipients would

@@ -1,0 +1,181 @@
+"""Regression: the Connect beta invite must not mail deactivated accounts.
+
+Third companion to ``test_connect_beta_invite_pause`` (self-pause, #927) and
+``test_connect_beta_invite_coach_exclusion`` (the coach panic button). This one
+covers the state that is not a Connect concept at all, which is exactly why the
+invite path missed it: the account itself is switched off.
+
+Two separate flags, both invisible to the cohort query:
+
+  * ``user.is_active=False`` — what a ban sets.
+  * ``crushprofile.is_active=False`` — what a profile deactivation sets.
+
+``can_send_email`` cannot catch either: it consults ``EmailPreference`` and
+nothing else, and for ``connect_beta_invite`` there is no preference column at
+all, so ``can_send`` returns True for every recipient. The cohort filtered on
+``beta_invited_at`` and ``notification_preference``, so a banned member stayed
+a live candidate and would be mailed.
+
+This is not a new class of bug in this file. ``send_profile_completion_
+reminders`` already filters on ``is_active=True`` and ``crushprofile__is_active
+=True`` and says why in a comment: a ban "keeps the CrushProfile but sets
+user.is_active False ... can_send_email() only checks EmailPreference, so those
+users would otherwise still be emailed. (Codex P1)". The Connect invite simply
+never inherited that guard.
+
+The trap in fixing it is the profile join. A waitlist member need not have a
+``CrushProfile`` — ``test_user_without_profile_is_wave_three`` pins that they
+are wave 3 — so filtering ``crushprofile__is_active=True`` would inner-join
+away members who have no profile row at all. The filter is therefore written
+as ``exclude(crushprofile__is_active=False)``, and
+``test_a_member_without_a_profile_is_still_a_candidate`` holds that line.
+"""
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.core import mail
+from django.core.cache import cache
+from django.core.management import call_command
+
+from crush_lu.management.commands.send_connect_beta_invites import (
+    candidates_for_wave,
+)
+from crush_lu.models import CrushProfile
+from crush_lu.models.crush_connect import CrushConnectWaitlist
+from crush_lu.tests.test_crush_connect import _make_user, _mark_attended
+
+
+@pytest.fixture(autouse=True)
+def _clear_invite_lock():
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def _waitlisted_member(username):
+    """A wave-1 (event-verified) waitlist member in good standing."""
+    user = _make_user(username=username, premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+    return user
+
+
+def _banned(user):
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    return user
+
+
+def _profile_deactivated(user):
+    CrushProfile.objects.filter(user=user).update(is_active=False)
+    return user
+
+
+@pytest.mark.django_db
+def test_banned_member_is_not_an_invite_candidate():
+    user = _banned(_waitlisted_member("banned_member"))
+
+    assert user.id not in [row.user_id for row in candidates_for_wave(1)], (
+        "a banned member (user.is_active False) is still selected for the "
+        "Connect beta invite campaign"
+    )
+
+
+@pytest.mark.django_db
+def test_profile_deactivated_member_is_not_an_invite_candidate():
+    user = _profile_deactivated(_waitlisted_member("deactivated_member"))
+
+    assert user.id not in [row.user_id for row in candidates_for_wave(1)], (
+        "a member with a deactivated CrushProfile is still selected for the "
+        "Connect beta invite campaign"
+    )
+
+
+@pytest.mark.django_db
+def test_banned_member_is_not_mailed():
+    user = _banned(_waitlisted_member("banned_send"))
+    mail.outbox.clear()
+
+    call_command("send_connect_beta_invites", "--wave", "1")
+
+    assert user.email not in [addr for m in mail.outbox for addr in m.to], (
+        f"banned member {user.email} was mailed a Connect beta invite"
+    )
+
+
+@pytest.mark.django_db
+def test_banned_member_row_is_not_consumed():
+    """A member who was never mailed must keep their invite slot."""
+    user = _banned(_waitlisted_member("banned_slot"))
+
+    call_command("send_connect_beta_invites", "--wave", "1")
+
+    row = CrushConnectWaitlist.objects.get(user=user)
+    assert row.beta_invited_at is None, (
+        "a skipped banned member had their invite slot consumed"
+    )
+
+
+@pytest.mark.django_db
+def test_a_member_banned_mid_run_is_not_mailed():
+    """Time-of-check/time-of-use, same as the pause and exclusion guards."""
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _waitlisted_member("banned_mid_run")
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+    _banned(user)
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 0, "a member banned mid-run was still mailed"
+    assert user.email not in [addr for m in mail.outbox for addr in m.to]
+
+
+@pytest.mark.django_db
+def test_a_member_deactivated_mid_run_is_not_mailed():
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _waitlisted_member("deactivated_mid_run")
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+    _profile_deactivated(user)
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 1)
+
+    assert delivered == 0, "a member deactivated mid-run was still mailed"
+    assert user.email not in [addr for m in mail.outbox for addr in m.to]
+
+
+@pytest.mark.django_db
+def test_an_active_member_is_still_invited():
+    """Guard against over-correcting: the normal path must keep working."""
+    user = _waitlisted_member("active_and_clear")
+
+    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
+        "the activity filters dropped a member in good standing"
+    )
+
+
+@pytest.mark.django_db
+def test_a_member_without_a_profile_is_still_a_candidate():
+    """The inner-join trap, pinned.
+
+    A waitlist member with no ``CrushProfile`` row is wave 3, not "excluded" --
+    filtering ``crushprofile__is_active=True`` instead of excluding the False
+    rows would drop them silently, which is why the filter is written the way
+    it is.
+    """
+    user = get_user_model().objects.create_user(
+        username="no_profile_row",
+        email="no_profile_row@example.com",
+        password="testpass123",
+    )
+    CrushProfile.objects.filter(user=user).delete()
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+    assert not CrushProfile.objects.filter(user=user).exists()
+
+    assert user.id in [row.user_id for row in candidates_for_wave(3)], (
+        "the profile-activity filter dropped a member who has no CrushProfile "
+        "row, who belongs in wave 3"
+    )
