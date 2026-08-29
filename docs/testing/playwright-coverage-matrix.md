@@ -76,7 +76,7 @@ pytest --collect-only -m playwright -q
 
 | File | Tests | What it exercises |
 |---|---:|---|
-| `crush_lu/tests/test_coach_review_profile_playwright.py` | 36 | Coach review workflow: tab navigation (Profile/Screening/Decision), account-metadata summary card, screening form, decision submission, responsive layout. Uses a coach login flow (`authenticated_coach_page` fixture). |
+| `crush_lu/tests/test_coach_review_profile_playwright.py` | 36 | Coach review workflow: tab navigation (Profile/Screening/Decision), account-metadata summary card, screening form **rendering**, decision form **rendering**, responsive layout. ⚠️ **No test submits a screening or decision form** — the decision tests switch tabs and assert a container plus two textareas are visible; the screening tests likewise stop at visibility. This file cannot detect a broken approval/rejection POST or status transition. Uses a coach login flow (`authenticated_coach_page` fixture). |
 | `crush_lu/tests/test_journey_gift_e2e.py` | 26 | Wonderland Journey gift system: create gift (auth required), gift landing page (unauthenticated + expired/claimed states), signup-from-gift and existing-user claim flows, post-claim journey map access, double-claim prevention. |
 | `crush_lu/tests/test_photo_puzzle_e2e.py` | 9 | Photo-reveal puzzle: page load, 16-piece grid, click loading state (prevents double-click), points deduction, progress bar, unlock notification, already-unlocked piece guard. |
 | `crush_lu/tests/test_profile_registration_e2e.py` | 7 | 4-step registration wizard: Enter-key-does-not-submit guard, console-error/CSP-violation capture across the full wizard, Alpine.js component init. |
@@ -142,8 +142,13 @@ this repo. Playwright is the **only** browser-level tier and currently has
     (`test_phone_detail.py`, `test_phone_input_manual.py` — stale
     `#div_id_phone` → `#phone_number` selector).
 - **No retry/flake-quarantine mechanism** (`pytest-rerunfailures` is not
-  installed; no `--reruns` anywhere) — every failure above is a hard fail,
-  not a flake, which is good for signal but means today's ~67% Playwright
+  installed; no `--reruns` anywhere) — every failure above is *reported*
+  immediately rather than retried. ⚠️ **That is not evidence the failures are
+  deterministic.** This audit is a single run; absence of a retry mechanism
+  says nothing about reproducibility, and timing, browser-startup and
+  `networkidle` failures can still be flaky. Repeat the failing cases before
+  selecting a smoke set from them, or the tier will be built on flakes. It
+  does mean means today's ~67% Playwright
   failure rate would block any gate that took "all Playwright tests" as
   its bar. The smoke tier (`t_16203e29`) must hand-pick a small, currently
   passing/repairable subset rather than assume the existing suite is
@@ -167,10 +172,21 @@ this repo. Playwright is the **only** browser-level tier and currently has
   three real Django-level roles exist (anonymous, member, `CrushCoach`
   staff, superuser/admin — confirmed via `crush_lu/decorators.py` and
   `is_staff`/`is_superuser` checks across `admin_views.py`, `views_coach.py`,
-  etc.). Only the coach-review file exercises the coach role explicitly;
-  no Playwright test exercises the superuser/admin surface at all.
-- **No API/integration-boundary Playwright checks** beyond what's incidental
-  to a page load (e.g. lobby "signal"/"confirm" AJAX endpoints under
+  etc.). Only the coach-review file exercises the coach role explicitly.
+  ⚠️ **Correction: the superuser/admin surface is not wholly uncovered.**
+  `power_up/finops/tests/test_dashboard_filtering.py`'s `staff_user` fixture
+  sets both `is_staff=True` and `is_superuser=True`, logs in through
+  `/admin/login/`, and targets the `@staff_member_required` FinOps dashboard.
+  Those tests are broken today by the host-routing bug in row 7 — but this
+  audit counts other broken files as existing coverage, so this belongs in
+  the inventory as *attempted* staff/superuser coverage, not an absent role.
+- **Few API/integration-boundary Playwright checks** beyond what's incidental
+  to a page load. ⚠️ **Not "none":** the photo-puzzle tests click a locked
+  piece, which drives the `/api/journey/unlock-puzzle-piece/` endpoint
+  (registered at `azureproject/urls_crush.py:507`), and then assert the
+  resulting unlocked/points/progress/notification state — the assertion only
+  passes if that call succeeded. Narrow this gap to the endpoints genuinely
+  untouched (e.g. lobby "signal"/"confirm" AJAX endpoints under
   `views_event_lobby.py`, phone-verification API, profile step-save APIs are
   untouched by Playwright — they may have Django-test-level coverage in the
   non-playwright tier, which is out of scope to verify here but should be
@@ -257,11 +273,11 @@ bug fix first — listed with the specific blocker).
 
 | # | Flow | Current test(s) | Tier | Status today | Notes for implementers |
 |---|---|---|---|---|---|
-| 1 | Home page loads, nav/main render, no JS errors | `test_visual_regression.py::TestResponsiveLayouts::test_home_page_desktop`, `test_no_bootstrap_js_errors`, `test_htmx_loaded`, `test_alpine_loaded` | **smoke** | Verified passing (test_htmx_loaded run individually) | Cheapest, most representative "is the app up" checks. Good CI-smoke anchor. |
+| 1 | Home page loads, nav/main render, no JS errors | `test_visual_regression.py::TestResponsiveLayouts::test_home_page_desktop`, `test_no_bootstrap_js_errors`, `test_htmx_loaded`, `test_alpine_loaded` | **smoke** | Verified passing (test_htmx_loaded run individually) | Cheapest, most representative "is the app up" checks. Good CI-smoke anchor. ⚠️ **The "no JS errors" claim depends on PR #939 landing.** As this row was first written, `test_no_bootstrap_js_errors` discarded every console error whose text lacked "bootstrap" and swallowed navigation exceptions, so an arbitrary application exception — or a route returning 500 — passed it. #939 removes the substring filter, adds `pageerror` capture, and asserts `response.ok` per route. Until that merges, treat this row as **framework-presence coverage only**, not a JS-health gate. |
 | 2 | Responsive layout across viewports (mobile/tablet/desktop) | `test_visual_regression.py::TestResponsiveLayouts::*`, `test_mobile_ui.py` | regression | Untested in this pass; visual/screenshot-only, no hard assertions beyond element presence | Screenshot-based, not true regression (no baseline diffing configured) — currently just a smoke-render check under multiple viewports. Fine to keep as regression tier, not a P0 gate. |
-| 3 | Member signup / 4-step registration wizard, no console errors | `test_profile_registration_e2e.py::TestProfileRegistrationE2E::*` | **smoke** (once fixed) | 6 of 7 failing today (console-error capture assertions) | Highest-value member-facing flow with zero passing smoke coverage today — prioritize fixing over the coach-review file for the smoke tier, since signup is the true top-of-funnel critical path. |
+| 3 | Member signup / 4-step registration wizard, no console errors | `test_profile_registration_e2e.py::TestProfileRegistrationE2E::*` | ⚠️ **do not gate as-is** | 6 of 7 failing today (console-error capture assertions) | ⚠️ **This class does not test signup.** Its fixture creates and logs in an *existing* user, every test navigates straight to `/en/create-profile/`, and the wizard test states outright that it cannot pass phone verification and never advances beyond Step 1 (`# CRITICAL: We should still be on Step 1`). Promoting it as the top-of-funnel registration gate would stay green if signup or steps 2–4 broke. Either rename this row to "profile-creation Step 1" or write a genuinely end-to-end registration test before assigning it this coverage. |
 | 4 | Coach review workflow (tab nav, screening, decision) | `test_coach_review_profile_playwright.py` (36 tests) | regression (currently) | ~30 of 36 failing/erroring — both a teardown-fixture bug (`manage_coach_staff_status` signal + migration-replay interaction) and stale selectors | Do not promote to smoke until the teardown bug in `_restore_migration_seeded_rows`/`manage_coach_staff_status` is fixed — it currently makes even passing test bodies report as teardown errors. This is the single highest-leverage bug to fix first: it is shared infrastructure affecting the whole file. |
-| 5 | Wonderland Journey gift creation, claim, journey access | `test_journey_gift_e2e.py` (26 tests) | regression | Mixed pass/fail; several `TestGiftCreationFlow` tests fail (form-render/QR/link assertions) | Represents a real integration boundary (gift → signup → journey unlock) — good `t_2eb7f76b` candidate once individual failures are triaged; do not treat as smoke given current fail rate. |
+| 5 | Wonderland Journey gift creation, claim, journey access | `test_journey_gift_e2e.py` (26 tests) | regression | Mixed pass/fail; several `TestGiftCreationFlow` tests fail (form-render/QR/link assertions) | ⚠️ **The gift → signup → unlock handoff is not actually asserted.** `test_claim_after_signup_creates_journey` calls `refresh_from_db()` and then asserts nothing, noting the gift may remain unclaimed; `test_signup_from_gift_landing` silently passes when the signup link is absent. Used as-is, the regression set stays green even if the new-user claim handoff is completely broken. Repair those two tests or record this boundary as **uncovered** — do not cite it to justify the tier. |
 | 6 | Photo-reveal puzzle unlock flow (points, progress, notification) | `test_photo_puzzle_e2e.py` (9 tests) | regression | Majority failing (page load, notification, progress bar) | Needs root-cause pass before it can gate anything; keep as regression/non-blocking until fixed. |
 | 7 | FinOps dashboard filtering (Power-Up, staff-only) | `power_up/finops/tests/test_dashboard_filtering.py` (14 tests) | regression | ⚠️ **Diagnosis corrected.** The consent interstitial is a *symptom of wrong host routing*, not a missing fixture | The 14 tests navigate to `live_server.url` (27 call sites) — localhost, which selects the **Crush** URLconf — while one hardcodes `powerup.localhost:8000`, a port `live_server` never uses. `finops/` is routed in `urls_power_up.py`, and `CrushConsentMiddleware` only enforces consent on the Crush URLconf. Pre-confirming consent would **mask the routing bug and still never exercise the Power-Up dashboard**. The real fix is to build a `powerup.localhost:<live_server_port>` URL. Not the one-line fixture change this row previously advertised. |
 | 8 | FinOps dashboard manual smoke | `test_dashboard_manual.py` | **manual** | Author-documented as "never meant for CI" | Leave as-is; do not force into an automated tier — respects the existing author's explicit intent. |
@@ -307,7 +323,14 @@ when repository policy is unclear").
   one fixture change), (c) triage the gift/puzzle files individually. Reuse
   the existing per-file fixtures; do not introduce new test-data
   conventions.
-- **`t_bee62d16` (CI wiring)**: add the smoke marker as a required PR check
+- **`t_bee62d16` (CI wiring)**: ⚠️ **before registering any new required
+  check**, note that `test-and-validate.yml` has a `pull_request.paths`
+  filter which excludes valid changes such as `infra/**`,
+  `package-lock.json` and root YAML. For such a PR the workflow never
+  creates the required context at all, so branch protection leaves it
+  permanently unmergeable. Route smoke through an existing required
+  aggregate, or make the workflow trigger for every PR, before adding a new
+  required check. Then: add the smoke marker as a required PR check
   (fast, ~image/browser install cached), and add the full `-m playwright`
   run as a scheduled or manual `workflow_dispatch` job — ⚠️ **excluding the
   manual test**, which a bare `-m playwright` selector *will* collect:
@@ -324,6 +347,9 @@ when repository policy is unclear").
   `--video=retain-on-failure` as CLI flags) — none are set anywhere today,
   so this is a genuine gap to fill, not a regression to preserve.
 - **`t_f409fca5` (validation)**: re-run the exact commands in §4 against
-  the actual smoke/regression tier that gets implemented, and confirm the
-  failure count only decreases (no new failures introduced by tier-splitting
-  work itself).
+  the actual smoke/regression tier that gets implemented. ⚠️ **A falling
+  failure count is not a sufficient bar** — the follow-on work changes
+  markers and selectors, so the count also falls when a failing test is
+  quietly dropped out of the tier instead of repaired. Re-run collection and
+  compare **node IDs / per-tier counts** against the intended membership as
+  well, or the validation cannot tell a genuine repair from lost coverage.
