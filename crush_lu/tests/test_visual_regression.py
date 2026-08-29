@@ -48,6 +48,15 @@ def block_optional_external_resources(page):
     match it. Serving an empty 200 means there is no error to filter, no
     outstanding request to stall on, and — because the returned CSS declares
     no `@font-face` — no follow-up requests to fonts.gstatic.com either.
+
+    Fonts are currently the *only* third-party fetch on these pages: #933
+    self-hosted HTMX/Alpine/Sortable, and while `analytics_ids()` does map
+    localhost to `GA4_CRUSH_LU`/`FB_PIXEL_CRUSH_LU`, **no template consumes
+    those context variables**, so no analytics script is ever requested. If a
+    GA4 or Meta Pixel snippet is ever added to `base.html`, add its host to
+    `OPTIONAL_EXTERNAL_RESOURCES` in the same change — otherwise it
+    reintroduces exactly the `networkidle` stall this helper exists to
+    prevent.
     """
     for pattern in OPTIONAL_EXTERNAL_RESOURCES:
         page.route(
