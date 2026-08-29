@@ -35,17 +35,27 @@ as ``exclude(crushprofile__is_active=False)``, and
 ``test_a_member_without_a_profile_is_still_a_candidate`` holds that line.
 """
 
+from io import StringIO
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
+from django.utils import timezone
 
 from crush_lu.management.commands.send_connect_beta_invites import (
     candidates_for_wave,
+    coach_excluded_candidates_for_wave,
+    inactive_candidates_for_wave,
+    paused_candidates_for_wave,
+    wave_for_user,
 )
 from crush_lu.models import CrushProfile, UserDataConsent
-from crush_lu.models.crush_connect import CrushConnectWaitlist
+from crush_lu.models.crush_connect import (
+    CrushConnectMembership,
+    CrushConnectWaitlist,
+)
 from crush_lu.tests.test_crush_connect import _make_user, _mark_attended
 
 
@@ -96,15 +106,87 @@ def test_profile_deactivated_member_is_not_an_invite_candidate():
 
 
 @pytest.mark.django_db
+def test_inactive_reporting_takes_precedence_over_pause_and_coach_exclusion():
+    """Each inactive account belongs only to the highest-precedence bucket."""
+    banned_and_paused = _banned(_waitlisted_member("banned_and_paused"))
+    paused_membership = CrushConnectMembership.objects.get(user=banned_and_paused)
+    paused_membership.pause()
+
+    banned_and_excluded = _banned(_waitlisted_member("banned_and_excluded"))
+    excluded_membership = CrushConnectMembership.objects.get(user=banned_and_excluded)
+    excluded_membership.excluded_by_coach = True
+    excluded_membership.excluded_at = timezone.now()
+    excluded_membership.save(update_fields=["excluded_by_coach", "excluded_at"])
+
+    _profile_deactivated(_waitlisted_member("profile_deactivated"))
+    _crushlu_banned(_waitlisted_member("crushlu_deleted"))
+
+    out = StringIO()
+    call_command("send_connect_beta_invites", "--wave", "1", "--dry-run", stdout=out)
+    report = out.getvalue()
+
+    assert "skipped, account inactive or deleted: 3" in report
+    assert "skipped, paused Connect themselves" not in report
+    assert "skipped, excluded by a coach" not in report
+
+    wave_three_out = StringIO()
+    call_command(
+        "send_connect_beta_invites",
+        "--wave",
+        "3",
+        "--dry-run",
+        stdout=wave_three_out,
+    )
+    assert "skipped, account inactive or deleted: 1" in wave_three_out.getvalue()
+
+
+@pytest.mark.django_db
+def test_reporting_buckets_partition_the_uninvited_consenting_wave():
+    eligible = _waitlisted_member("partition_eligible")
+
+    paused = _waitlisted_member("partition_paused")
+    CrushConnectMembership.objects.get(user=paused).pause()
+
+    excluded = _waitlisted_member("partition_excluded")
+    excluded_membership = CrushConnectMembership.objects.get(user=excluded)
+    excluded_membership.excluded_by_coach = True
+    excluded_membership.excluded_at = timezone.now()
+    excluded_membership.save(update_fields=["excluded_by_coach", "excluded_at"])
+
+    inactive = _banned(_waitlisted_member("partition_inactive"))
+    CrushConnectMembership.objects.get(user=inactive).pause()
+
+    bucket_ids = [
+        {row.user_id for row in candidates_for_wave(1)},
+        {row.user_id for row in paused_candidates_for_wave(1)},
+        {row.user_id for row in coach_excluded_candidates_for_wave(1)},
+        {row.user_id for row in inactive_candidates_for_wave(1)},
+    ]
+    all_bucket_ids = set().union(*bucket_ids)
+    full_wave_ids = {
+        row.user_id
+        for row in CrushConnectWaitlist.objects.filter(
+            beta_invited_at__isnull=True,
+            notification_preference=True,
+        ).select_related("user__crushprofile")
+        if wave_for_user(row.user) == 1
+    }
+
+    assert full_wave_ids == {eligible.id, paused.id, excluded.id, inactive.id}
+    assert all_bucket_ids == full_wave_ids
+    assert sum(len(ids) for ids in bucket_ids) == len(full_wave_ids)
+
+
+@pytest.mark.django_db
 def test_banned_member_is_not_mailed():
     user = _banned(_waitlisted_member("banned_send"))
     mail.outbox.clear()
 
     call_command("send_connect_beta_invites", "--wave", "1")
 
-    assert user.email not in [addr for m in mail.outbox for addr in m.to], (
-        f"banned member {user.email} was mailed a Connect beta invite"
-    )
+    assert user.email not in [
+        addr for m in mail.outbox for addr in m.to
+    ], f"banned member {user.email} was mailed a Connect beta invite"
 
 
 @pytest.mark.django_db
@@ -115,9 +197,9 @@ def test_banned_member_row_is_not_consumed():
     call_command("send_connect_beta_invites", "--wave", "1")
 
     row = CrushConnectWaitlist.objects.get(user=user)
-    assert row.beta_invited_at is None, (
-        "a skipped banned member had their invite slot consumed"
-    )
+    assert (
+        row.beta_invited_at is None
+    ), "a skipped banned member had their invite slot consumed"
 
 
 @pytest.mark.django_db
@@ -156,9 +238,9 @@ def test_an_active_member_is_still_invited():
     """Guard against over-correcting: the normal path must keep working."""
     user = _waitlisted_member("active_and_clear")
 
-    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
-        "the activity filters dropped a member in good standing"
-    )
+    assert user.id in [
+        row.user_id for row in candidates_for_wave(1)
+    ], "the activity filters dropped a member in good standing"
 
 
 def _crushlu_banned(user):
@@ -209,9 +291,9 @@ def test_a_deleted_crushlu_member_is_not_mailed():
 
     call_command("send_connect_beta_invites", "--wave", "3")
 
-    assert user.email not in [addr for m in mail.outbox for addr in m.to], (
-        f"banned member {user.email} was mailed a Connect beta invite"
-    )
+    assert user.email not in [
+        addr for m in mail.outbox for addr in m.to
+    ], f"banned member {user.email} was mailed a Connect beta invite"
 
 
 @pytest.mark.django_db
@@ -242,9 +324,9 @@ def test_a_member_without_a_consent_row_is_still_a_candidate():
     UserDataConsent.objects.filter(user=user).delete()
     assert not UserDataConsent.objects.filter(user=user).exists()
 
-    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
-        "the ban filter dropped a member who has no UserDataConsent row"
-    )
+    assert user.id in [
+        row.user_id for row in candidates_for_wave(1)
+    ], "the ban filter dropped a member who has no UserDataConsent row"
 
 
 @pytest.mark.django_db
@@ -269,3 +351,18 @@ def test_a_member_without_a_profile_is_still_a_candidate():
         "the profile-activity filter dropped a member who has no CrushProfile "
         "row, who belongs in wave 3"
     )
+
+
+@pytest.mark.django_db
+def test_a_member_without_profile_or_consent_rows_is_still_a_candidate():
+    """Both optional activity relations may be absent on one live member."""
+    user = get_user_model().objects.create_user(
+        username="no_profile_or_consent_rows",
+        email="no_profile_or_consent_rows@example.com",
+        password="testpass123",
+    )
+    CrushProfile.objects.filter(user=user).delete()
+    UserDataConsent.objects.filter(user=user).delete()
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+
+    assert user.id in [row.user_id for row in candidates_for_wave(3)]
