@@ -1442,7 +1442,6 @@ SECURE_CSP_REPORT_ONLY = {
         # CDN sources
         "https://unpkg.com",
         "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com",  # GSAP animation library (VinsDelux)
         # Firebase/Google
         "https://www.gstatic.com",
         "https://apis.google.com",
@@ -1500,7 +1499,10 @@ SECURE_CSP_REPORT_ONLY = {
     # API endpoints, analytics, WebSocket, Firebase, Azure
     "connect-src": [
         CSP.SELF,
-        # CDN for service worker caching
+        # jsDelivr/unpkg: still reached by the pages that have not been
+        # vendored yet (intl-tel-input on the phone/profile pages, leaflet on
+        # the Cache maps, the admin HTMX templates). NOT service-worker
+        # caching - sw-workbox.js precaches same-origin /static/ URLs only.
         "https://cdn.jsdelivr.net",
         "https://unpkg.com",
         "https://www.gstatic.com",

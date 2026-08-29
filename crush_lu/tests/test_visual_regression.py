@@ -22,8 +22,14 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    """Create and return the screenshots directory."""
-    path = Path("crush_lu/tests/screenshots")
+    """Create and return the screenshots output directory.
+
+    These screenshots are debugging *artifacts*, not baselines — nothing in the
+    suite compares against them. The directory is gitignored, and the path is
+    anchored to this file rather than the CWD so a run from any directory lands
+    in that one ignored place instead of scattering stray screenshots/ folders.
+    """
+    path = Path(__file__).resolve().parent / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
