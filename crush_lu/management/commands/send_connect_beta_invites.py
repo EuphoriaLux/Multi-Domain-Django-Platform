@@ -128,6 +128,16 @@ def candidates_for_wave(wave):
         # test_a_member_without_a_membership_row_is_still_a_candidate pins the
         # behaviour rather than trusting either reading of it.
         .exclude(user__crush_connect_membership__paused_at__isnull=False)
+        # The coach panic button is a moderation action, not a preference: it
+        # "removes a member from every other user's pool and blocks their
+        # Connect surfaces" (CrushConnectMembership docstring). Mailing an
+        # excluded member "your Connect Week is open" would walk them straight
+        # into surfaces the exclusion exists to shut, which is the one failure
+        # mode a safety control must not have. Excluded and paused are stored
+        # separately on purpose -- so that a voluntary break is never recorded
+        # as a moderation action -- so neither filter implies the other and
+        # both have to be stated here.
+        .exclude(user__crush_connect_membership__excluded_by_coach=True)
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )
@@ -146,6 +156,27 @@ def paused_candidates_for_wave(wave):
             beta_invited_at__isnull=True,
             notification_preference=True,
             user__crush_connect_membership__paused_at__isnull=False,
+        )
+        .select_related("user__crushprofile")
+        .order_by("joined_at")
+    )
+    return [row for row in rows if wave_for_user(row.user) == wave]
+
+
+def coach_excluded_candidates_for_wave(wave):
+    """The members ``candidates_for_wave`` just dropped for coach exclusion.
+
+    Reporting-only, wave-scoped for the same reason as
+    ``paused_candidates_for_wave``. Counted separately from the paused figure
+    rather than folded into one "skipped" total: one number is a member's own
+    choice and the other is a moderation action, and a coach reading "3
+    skipped" cannot tell whether the panic button actually held.
+    """
+    rows = (
+        CrushConnectWaitlist.objects.filter(
+            beta_invited_at__isnull=True,
+            notification_preference=True,
+            user__crush_connect_membership__excluded_by_coach=True,
         )
         .select_related("user__crushprofile")
         .order_by("joined_at")
@@ -234,6 +265,11 @@ class Command(BaseCommand):
         if paused_skipped:
             self.stdout.write(
                 f"  skipped, paused Connect themselves: {paused_skipped}"
+            )
+        coach_excluded_skipped = len(coach_excluded_candidates_for_wave(wave))
+        if coach_excluded_skipped:
+            self.stdout.write(
+                f"  skipped, excluded by a coach: {coach_excluded_skipped}"
             )
 
         if not candidates:
