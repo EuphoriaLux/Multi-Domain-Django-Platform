@@ -85,7 +85,7 @@ pytest --collect-only -m playwright -q
 | `crush_lu/tests/test_language_switcher_final.py` | 1 | Mobile language switcher, consolidated single-test version. |
 | `crush_lu/tests/test_membership_screenshots.py` | 1 | Membership page light/dark mode visual screenshot check. |
 | `crush_lu/tests/test_mobile_screenshots.py` | 2 | Ad hoc mobile screenshots (phone input, language switcher on home). |
-| `crush_lu/tests/test_phone_detail.py` | 1 (skipped) | Detailed phone-input screenshot — `@pytest.mark.skip`, selector stale (`#div_id_phone` → `#phone_number`). |
+| `crush_lu/tests/test_phone_detail.py` | 1 (skipped) | Detailed phone-input screenshot — `@pytest.mark.skip`, selector stale. ⚠️ The in-file skip reason names `#phone_number` as the replacement, but that is the field's **name** attribute, not an id: the live element is `#onboarding_phone_input` and it lives on `/onboarding/phone/`, not on the signup or create-profile page. |
 | `crush_lu/tests/test_phone_input_manual.py` | 1 skipped + 1 active | ⚠️ **Not both skipped.** Only `test_phone_input_create_profile` carries the stale-selector `@pytest.mark.skip`; `test_language_switcher_detailed` is collected and runs under the Playwright marker. |
 | `power_up/finops/tests/test_dashboard_filtering.py` | 14 | Power-Up FinOps dashboard: charge-type/period filters, filter persistence across navigation, clear-filters, accessibility labels, empty-data state, perf with max filters. |
 | `power_up/finops/tests/test_dashboard_manual.py` | 1 | Explicitly documented as manual-only ("Requires a running dev server + manual login — never meant for CI"); marked `playwright` but not CI-suitable. |
@@ -117,7 +117,15 @@ this repo. Playwright is the **only** browser-level tier and currently has
     replayed yet in this deferred-constraint transaction, raising
     `User.DoesNotExist` / `KeyError: 'user'` at teardown. This cascades into
     `ERROR at teardown of ...` on **every** test in
-    `test_coach_review_profile_playwright.py` that touches `CrushCoach`
+    `test_coach_review_profile_playwright.py` that touches `CrushCoach`.
+    ⚠️ **Reproduce this on a fresh database before treating it as the root
+    cause.** `_restore_migration_seeded_rows` takes its module-scoped snapshot
+    *before* the function-scoped coach fixture runs, and no migration seeds a
+    `CrushCoach` (verified: only `0001_initial` and `0023_fix_photo_storage`
+    reference the model, neither creates a row). So a coach appearing during
+    replay implies the inherited `--reuse-db` database already held a **stale
+    coach row** — in which case a signal or fixture change may not unblock the
+    file at all. Re-run with `--create-db` first
     (module-level `django_db(transaction=True)`), independent of whether the
     test itself passed.
   - Separately (not just teardown), many of the actual test bodies in that
@@ -140,7 +148,8 @@ this repo. Playwright is the **only** browser-level tier and currently has
     tasks).
   - 2 tests are `@pytest.mark.skip`'d with a documented, still-valid reason
     (`test_phone_detail.py`, `test_phone_input_manual.py` — stale
-    `#div_id_phone` → `#phone_number` selector).
+    `#div_id_phone` → the live field, which is `#onboarding_phone_input` on
+    `/onboarding/phone/` — **not** `#phone_number`, which is only its `name`).
 - **No retry/flake-quarantine mechanism** (`pytest-rerunfailures` is not
   installed; no `--reruns` anywhere) — every failure above is *reported*
   immediately rather than retried. ⚠️ **That is not evidence the failures are
@@ -193,6 +202,16 @@ this repo. Playwright is the **only** browser-level tier and currently has
   cross-checked by whoever implements `t_2eb7f76b`).
 
 ## 4. Discovery & validation commands run (reproducible)
+
+⚠️ **Prerequisite the commands below assume.** A fresh worktree carries no
+`.env`, and pytest-django then fails during settings import — *before*
+collection — because `SECRET_KEY` is unset; `pytest_configure()`'s fallback
+runs too late to prevent it. Export it, or source the root checkout's `.env`,
+before the first command:
+
+```bash
+set -a && source /c/GitHub/Multi-Domain-Django-Platform/.env && set +a
+```
 
 Environment: `C:/GitHub/Multi-Domain-Django-Platform/.venv` (Python 3.14.6,
 pytest 9.1.1, playwright 1.62.0). This worktree
@@ -283,7 +302,7 @@ bug fix first — listed with the specific blocker).
 | 8 | FinOps dashboard manual smoke | `test_dashboard_manual.py` | **manual** | Author-documented as "never meant for CI" | Leave as-is; do not force into an automated tier — respects the existing author's explicit intent. |
 | 9 | Mobile language switcher | `test_mobile_ui.py::TestMobileLanguageSwitcher`, `test_language_switcher_final.py` | regression | Not individually isolated in this pass | ⚠️ **Not duplicate coverage.** `test_language_switcher_final.py` contains **zero `assert` statements** — every missing or wrong state only prints a warning and the test then passes, so it would stay green if the language switcher were deleted outright. Count it as screenshot/manual diagnostics, or add a hard assertion, before using it to justify consolidating the real functional test. |
 | 10 | Membership page light/dark mode | `test_membership_screenshots.py` | regression | Not isolated in this pass | Visual-only; low priority. |
-| 11 | Legacy phone-input screenshots (⚠️ **partially** — `test_phone_input_manual.py::test_language_switcher_detailed` is active, not blocked, and belongs with row 9) | `test_phone_detail.py`, `test_phone_input_manual.py::test_phone_input_create_profile` | **blocked** | Explicitly `@pytest.mark.skip`'d, reason documented in-file (stale `#div_id_phone` selector) | Genuine, already-diagnosed blocker — fix is a one-line selector update (`#phone_number`) whenever someone picks this up; not re-diagnosing here per the skip's own accurate note. |
+| 11 | Legacy phone-input screenshots (⚠️ **partially** — `test_phone_input_manual.py::test_language_switcher_detailed` is active, not blocked, and belongs with row 9) | `test_phone_detail.py`, `test_phone_input_manual.py::test_phone_input_create_profile` | **blocked** | Explicitly `@pytest.mark.skip`'d, reason documented in-file (stale `#div_id_phone` selector) | ⚠️ **Not a one-line selector update, and the skip's own note is wrong.** `#phone_number` is the field's `name`, not an id; the live element is `#onboarding_phone_input`, and it is on `/onboarding/phone/` — a different page from the one these tests visit. Separately, `test_phone_number_field_mobile_layout` navigates to `/en/signup/`, whose template has **no phone input at all**, and its only assertion sits behind `if phone_field.count() > 0` — the missing-field branch prints a warning and passes. Rework these against an onboarding-ready user on the real page, or record mobile phone layout as **uncovered**. |
 | 12 | Negative / auth-required cases (gift create requires auth, invalid gift code → 404, double-claim prevented) | `test_journey_gift_e2e.py::TestGiftCreationFlow::test_gift_create_page_requires_auth`, `TestGiftEdgeCases::*` | regression | Not isolated in this pass; part of the 26-test file's mixed results | Genuine negative/recovery-path coverage already exists — verify pass/fail per-test when triaging file #5 above rather than re-writing from scratch. |
 | 13 | Coach/staff role separation at the Django level (non-Playwright) | N/A — out of Playwright's current scope | N/A | Not evaluated (non-playwright tier untouched by this audit) | Flagging as a matrix gap only: no Playwright test verifies that a plain member is denied `/coach/review/<id>/` or `/dev/connect-card/<id>/`; if such authorization is already covered by the Django unit-test tier that's sufficient and no new Playwright test is needed — confirm before adding one (`t_2eb7f76b` scope, don't assume). |
 | 14 | Cross-browser (Firefox/WebKit) and non-default viewport regression | None | **blocked** | No config, no product requirement found | Do not implement without an explicit browser-support decision — logging as an open question rather than inventing a requirement, per this task's instructions. |
@@ -292,8 +311,11 @@ bug fix first — listed with the specific blocker).
 
 Rows 1 and 3 above are the two flows worth gating PRs on once green:
 home-page render/JS-health (already green, ~22s single test) and the
-registration wizard smoke path (needs the console-error assertions fixed
-first). That keeps the smoke tier small, fast, and deterministic — everything
+registration wizard smoke path — ⚠️ **but see the corrected row 3: that class
+never exercises signup and cannot advance past Step 1, so fixing its console
+assertions does not make it a registration gate.** Either narrow the advertised
+gate to "profile-creation Step 1", or write a genuinely end-to-end registration
+test before marking it smoke. That keeps the smoke tier small, fast, and deterministic — everything
 else in this table is regression-tier at best until its specific failure is
 triaged, per the acceptance criteria that quarantine is not a substitute for
 fixing newly introduced flaky/broken behavior.
@@ -308,19 +330,24 @@ when repository policy is unclear").
 
 ## 6. Actionable inputs for the implementation tasks
 
-- **`t_16203e29` (smoke tier)**: start from row 1 (already green) and row 3
-  (registration wizard — fix the 6 failing console-error assertions; likely
-  a `page.on("console", ...)` timing/URL issue given the pattern in
-  `test_visual_regression.py::test_no_bootstrap_js_errors`, which does work).
+- **`t_16203e29` (smoke tier)**: start from row 1 (already green). Row 3 is
+  ⚠️ **not** a drop-in second gate: fixing its 6 failing console-error
+  assertions (likely a `page.on("console", ...)` timing/URL issue, given the
+  working pattern in `test_visual_regression.py::test_no_bootstrap_js_errors`)
+  makes the tests *pass* but does not make them *cover registration* — they
+  log in an existing user and stop at Step 1. Gate on it only after narrowing
+  its advertised scope or adding a real end-to-end signup test.
   Add a dedicated marker/tag (e.g. `@pytest.mark.smoke` alongside the
   existing `@pytest.mark.playwright`) so `pytest -m "playwright and smoke"`
   is the fast-CI command, keeping the existing `-m playwright` semantics
   intact for the broader tier.
 - **`t_2eb7f76b` (regression tier)**: prioritize fixing, in order of
   leverage: (a) the `manage_coach_staff_status`/migration-replay teardown
-  bug (unblocks all 36 coach-review tests at once), (b) the FinOps
-  consent-fixture gap (likely unblocks all 14 dashboard-filtering tests with
-  one fixture change), (c) triage the gift/puzzle files individually. Reuse
+  bug (unblocks all 36 coach-review tests at once), (b) the FinOps **host-routing**
+  bug — build `powerup.localhost:<live_server_port>` URLs. ⚠️ Do **not** make
+  the consent-fixture change this section previously prescribed: per the
+  corrected row 7 it would mask the routing bug and leave all 14 tests on the
+  Crush URLconf, never exercising FinOps at all. (c) triage the gift/puzzle files individually. Reuse
   the existing per-file fixtures; do not introduce new test-data
   conventions.
 - **`t_bee62d16` (CI wiring)**: ⚠️ **before registering any new required
