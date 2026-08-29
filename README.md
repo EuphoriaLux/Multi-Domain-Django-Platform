@@ -188,6 +188,11 @@ pytest
 # Run tests without slow browser tests (recommended for quick feedback)
 pytest -m "not playwright"
 
+# Run the fast Playwright smoke tier (CI PR-gate candidate; requires
+# `python -m playwright install chromium` once per environment)
+pytest -m "playwright and smoke"
+# equivalent: npm run test:smoke
+
 # Run specific app tests
 pytest crush_lu/tests/
 

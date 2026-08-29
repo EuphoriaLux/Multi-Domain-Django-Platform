@@ -8,8 +8,11 @@ Run with: pytest crush_lu/tests/test_visual_regression.py -v
 Requires: pip install pytest-playwright playwright
           playwright install chromium
 """
-import pytest
+import re
 from pathlib import Path
+from urllib.parse import urlparse
+
+import pytest
 
 
 # Skip all tests if playwright is not installed
@@ -18,6 +21,48 @@ pytest.importorskip("playwright")
 
 # Use Crush.lu URL configuration for all tests in this module
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+# Optional third-party resources. `base.html` pulls Fraunces from Google Fonts
+# behind an explicit fallback stack, so the page is correct without them.
+OPTIONAL_EXTERNAL_RESOURCES = (
+    "**://fonts.googleapis.com/**",
+    "**://fonts.gstatic.com/**",
+)
+
+
+def block_optional_external_resources(page):
+    """Abort optional third-party requests for the duration of a smoke test.
+
+    Filtering these hosts out of the console output is not sufficient on its
+    own: an unreachable host that *stalls* rather than failing fast leaves an
+    outstanding request, and `wait_for_load_state("networkidle")` then times
+    out — failing a gate advertised as deterministic, for a page that rendered
+    correctly behind its fallback font. Removing the dependency at the network
+    layer is what actually fixes that.
+
+    These are *fulfilled* with an empty stylesheet rather than aborted.
+    `route.abort()` was tried first and made the JS-error gate fail: Chromium
+    logs an aborted request as `Failed to load resource: net::ERR_FAILED`,
+    whose text carries no hostname, so a host-based console filter cannot
+    match it. Serving an empty 200 means there is no error to filter, no
+    outstanding request to stall on, and — because the returned CSS declares
+    no `@font-face` — no follow-up requests to fonts.gstatic.com either.
+
+    Fonts are currently the *only* third-party fetch on these pages: #933
+    self-hosted HTMX/Alpine/Sortable, and while `analytics_ids()` does map
+    localhost to `GA4_CRUSH_LU`/`FB_PIXEL_CRUSH_LU`, **no template consumes
+    those context variables**, so no analytics script is ever requested. If a
+    GA4 or Meta Pixel snippet is ever added to `base.html`, add its host to
+    `OPTIONAL_EXTERNAL_RESOURCES` in the same change — otherwise it
+    reintroduces exactly the `networkidle` stall this helper exists to
+    prevent.
+    """
+    for pattern in OPTIONAL_EXTERNAL_RESOURCES:
+        page.route(
+            pattern,
+            lambda route: route.fulfill(status=200, content_type="text/css", body=""),
+        )
 
 
 @pytest.fixture(scope="session")
@@ -44,8 +89,19 @@ class TestResponsiveLayouts:
         "desktop": {"width": 1440, "height": 900},
     }
 
+    # Back in the smoke tier. It was pulled out because this writes
+    # crush_lu/tests/screenshots/home_desktop.png while that path was tracked,
+    # so the advertised `pytest -m "playwright and smoke"` command rewrote a
+    # repository baseline and dirtied the worktree on every run. #932 moved
+    # screenshot output to an ignored directory (`.gitignore:236 screenshots/`,
+    # and `git ls-files` now reports nothing under it), which was the exact
+    # condition the old comment named for restoring the marker. Without it the
+    # smoke tier had no check at all that the homepage renders its nav and
+    # main-content structure.
+    @pytest.mark.smoke
     def test_home_page_desktop(self, page, live_server, screenshot_dir):
         """Test home page layout on desktop."""
+        block_optional_external_resources(page)
         page.set_viewport_size(self.VIEWPORTS["desktop"])
         page.goto(live_server.url)
 
@@ -154,32 +210,80 @@ class TestAlpineJSComponents:
 class TestHTMXInteractions:
     """Test HTMX-powered interactions."""
 
+    @pytest.mark.smoke
     def test_no_bootstrap_js_errors(self, page, live_server):
         """Verify no Bootstrap JS console errors."""
         errors = []
 
-        def handle_console(msg):
-            if msg.type == "error":
-                errors.append(msg.text)
+        # Console errors from these hosts are NOT application failures.
+        # `base.html` pulls Fraunces from Google Fonts behind an explicit
+        # fallback stack, and Chromium logs a failed resource load as an
+        # error-level console message. A network-restricted CI runner or a
+        # transient outage would otherwise fail a tier advertised as
+        # deterministic, for a page that renders correctly.
+        NON_CRITICAL_RESOURCE_HOSTS = ("fonts.googleapis.com", "fonts.gstatic.com")
 
+        def handle_console(msg):
+            if msg.type != "error":
+                return
+            if any(host in msg.text for host in NON_CRITICAL_RESOURCE_HOSTS):
+                return
+            errors.append(f"console: {msg.text}")
+
+        # Uncaught exceptions do NOT arrive on the console event -- Playwright
+        # reports them separately on `pageerror`. Listening only to `console`
+        # left this green while an Alpine or HTMX handler threw after both
+        # libraries had initialised, which is the exact failure a JS-error gate
+        # is for. These are never filtered: a `pageerror` is application code
+        # throwing, which no external resource can excuse.
+        def handle_page_error(exc):
+            errors.append(f"pageerror: {exc}")
+
+        block_optional_external_resources(page)
         page.on("console", handle_console)
+        page.on("pageerror", handle_page_error)
 
         # Visit multiple pages
         pages_to_check = ["/", "/events/", "/about/", "/how-it-works/"]
 
         for path in pages_to_check:
-            try:
-                page.goto(f"{live_server.url}{path}")
-                page.wait_for_load_state("networkidle")
-            except Exception:
-                pass  # Page might not exist in test environment
+            # A smoke gate has to fail when the critical path does not load.
+            # Playwright does not raise for ordinary 4xx/5xx, so the status is
+            # asserted explicitly: a Django 500 error page renders with no
+            # console errors at all and would otherwise sail through this test
+            # as a pass. The previous `except Exception: pass` also swallowed
+            # genuine navigation failures, which made an unreachable route
+            # indistinguishable from a healthy one -- the exact false-green
+            # this tier exists to prevent.
+            response = page.goto(f"{live_server.url}{path}")
+            assert response is not None, f"No response received for {path}"
+            assert response.ok, (
+                f"{path} returned HTTP {response.status} -- the critical path "
+                f"must actually load for this smoke gate to mean anything"
+            )
+            # `page.goto()` follows redirects and reports the FINAL response, so
+            # a 200 alone does not prove we landed on the route we asked for: if
+            # /events/ silently started redirecting to the homepage or to login,
+            # `response.ok` would still be true and this gate would stay green.
+            # Compare the final path too, allowing only the expected
+            # `i18n_patterns` language prefix (/events/ -> /en/events/).
+            landed = re.sub(r"^/[a-z]{2}(-[a-z]{2})?/", "/", urlparse(page.url).path)
+            assert landed == path, (
+                f"{path} redirected to {urlparse(page.url).path} -- the critical "
+                f"path must reach its own route, not merely return HTTP 200"
+            )
+            page.wait_for_load_state("networkidle")
 
-        # Filter for Bootstrap-related errors
-        bootstrap_errors = [e for e in errors if "bootstrap" in e.lower()]
-        assert len(bootstrap_errors) == 0, f"Bootstrap JS errors found: {bootstrap_errors}"
+        # Assert on EVERY console error, not just Bootstrap ones. Filtering to
+        # "bootstrap" left this green while Alpine or HTMX threw on every render,
+        # which is precisely the failure a smoke gate exists to catch — and this
+        # project no longer ships Bootstrap at all.
+        assert errors == [], f"JS console errors found: {errors}"
 
+    @pytest.mark.smoke
     def test_htmx_loaded(self, page, live_server):
         """Verify HTMX is loaded and initialized."""
+        block_optional_external_resources(page)
         page.goto(live_server.url)
         page.wait_for_load_state("networkidle")
 
@@ -187,8 +291,10 @@ class TestHTMXInteractions:
         htmx_available = page.evaluate("typeof htmx !== 'undefined'")
         assert htmx_available, "HTMX is not loaded on the page"
 
+    @pytest.mark.smoke
     def test_alpine_loaded(self, page, live_server):
         """Verify Alpine.js is loaded and initialized."""
+        block_optional_external_resources(page)
         page.goto(live_server.url)
         page.wait_for_load_state("networkidle")
 
