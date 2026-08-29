@@ -8,8 +8,11 @@ Run with: pytest crush_lu/tests/test_visual_regression.py -v
 Requires: pip install pytest-playwright playwright
           playwright install chromium
 """
-import pytest
+import re
 from pathlib import Path
+from urllib.parse import urlparse
+
+import pytest
 
 
 # Skip all tests if playwright is not installed
@@ -248,6 +251,17 @@ class TestHTMXInteractions:
             assert response.ok, (
                 f"{path} returned HTTP {response.status} -- the critical path "
                 f"must actually load for this smoke gate to mean anything"
+            )
+            # `page.goto()` follows redirects and reports the FINAL response, so
+            # a 200 alone does not prove we landed on the route we asked for: if
+            # /events/ silently started redirecting to the homepage or to login,
+            # `response.ok` would still be true and this gate would stay green.
+            # Compare the final path too, allowing only the expected
+            # `i18n_patterns` language prefix (/events/ -> /en/events/).
+            landed = re.sub(r"^/[a-z]{2}(-[a-z]{2})?/", "/", urlparse(page.url).path)
+            assert landed == path, (
+                f"{path} redirected to {urlparse(page.url).path} -- the critical "
+                f"path must reach its own route, not merely return HTTP 200"
             )
             page.wait_for_load_state("networkidle")
 
