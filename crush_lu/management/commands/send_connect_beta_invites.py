@@ -151,6 +151,19 @@ def candidates_for_wave(wave):
         # ``crushprofile__is_active=True`` would inner-join those members away.
         .filter(user__is_active=True)
         .exclude(user__crushprofile__is_active=False)
+        # The third deactivation flag, and the one neither of the above catches.
+        # ``delete_crushlu_profile_only`` is the "delete my Crush.lu presence but
+        # keep my PowerUp account" path: it deletes the CrushProfile, KEEPS the
+        # Django user active, and sets ``data_consent.crushlu_banned=True`` as a
+        # permanent bar on re-creating the profile. The waitlist row is a
+        # OneToOne on *User* with on_delete=CASCADE, and that user is retained,
+        # so the row survives the deletion with notification_preference intact.
+        #
+        # Such a member is therefore active, profile-less -- i.e. wave 3 -- and
+        # was a live candidate: we would mail a Connect launch invite to someone
+        # who deleted their Crush.lu account. Excluded, not filtered on
+        # ``crushlu_banned=False``, because a user may have no data_consent row.
+        .exclude(user__data_consent__crushlu_banned=True)
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )
@@ -170,6 +183,14 @@ def paused_candidates_for_wave(wave):
             notification_preference=True,
             user__crush_connect_membership__paused_at__isnull=False,
         )
+        # A coach exclusion does not clear ``paused_at``, so "paused AND
+        # excluded" is reachable and would otherwise be counted once here and
+        # once in ``coach_excluded_candidates_for_wave`` -- two skipped members
+        # reported for one real one, which breaks the aggregate reconciliation
+        # these counts exist to feed. Attribute the member to the exclusion,
+        # matching the send-time guard's precedence: the moderation action is
+        # the reason that matters, not the member's own snooze.
+        .exclude(user__crush_connect_membership__excluded_by_coach=True)
         .select_related("user__crushprofile")
         .order_by("joined_at")
     )

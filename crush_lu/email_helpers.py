@@ -2321,6 +2321,19 @@ def send_connect_beta_invite(user, wave, request=None):
         )
         return 0
 
+    # ``delete_crushlu_profile_only`` deletes the CrushProfile but keeps the
+    # Django user active, so neither guard above sees it; the permanent bar it
+    # sets is ``crushlu_banned``. Without this, a member who deleted their
+    # Crush.lu presence would still be mailed a launch invite.
+    from .models import UserDataConsent
+
+    if UserDataConsent.objects.filter(user=user, crushlu_banned=True).exists():
+        logger.info(
+            "Skipping Connect beta invite to %s - Crush.lu access is banned",
+            user.email,
+        )
+        return 0
+
     # Re-read the pause at send time, not only when the caller built its cohort.
     # A wave is up to 200 sends off one materialised list, so a member who hits
     # pause while the run is working through the earlier recipients would

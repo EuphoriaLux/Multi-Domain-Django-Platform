@@ -258,6 +258,44 @@ def test_the_send_time_guard_survives_a_stale_membership_cache():
 
 
 @pytest.mark.django_db
+def test_a_member_who_is_both_paused_and_excluded_is_counted_once():
+    """The two skip counts must partition the skipped members, not overlap.
+
+    A coach exclusion does not clear ``paused_at``, so "paused AND excluded" is
+    reachable. Counting that member in both buckets would report two skipped
+    members for one real one and break the aggregate reconciliation the counts
+    exist to feed. The member is attributed to the exclusion, matching the
+    send-time guard's precedence — the moderation action is the reason that
+    matters, not the member's own snooze.
+    """
+    user = _make_user(username="paused_and_excluded", premium=False, has_luxid=False)
+    _mark_attended(user)
+    CrushConnectWaitlist.objects.create(user=user, notification_preference=True)
+
+    membership, _ = CrushConnectMembership.objects.get_or_create(user=user)
+    membership.pause()
+    membership.refresh_from_db()
+    membership.excluded_by_coach = True
+    membership.excluded_at = timezone.now()
+    membership.save(update_fields=["excluded_by_coach", "excluded_at"])
+    assert membership.is_paused and membership.excluded_by_coach, (
+        "fixture must hold both states at once"
+    )
+
+    excluded_ids = [row.user_id for row in coach_excluded_candidates_for_wave(1)]
+    paused_ids = [row.user_id for row in paused_candidates_for_wave(1)]
+
+    assert user.id in excluded_ids, (
+        "a member who is both paused and excluded should be attributed to the "
+        "coach exclusion"
+    )
+    assert user.id not in paused_ids, (
+        "the same member was counted in both skip buckets — the dry run would "
+        "report two skipped members for one"
+    )
+
+
+@pytest.mark.django_db
 def test_the_excluded_skip_is_reported():
     """A cohort that silently shrank looks identical to one that was small."""
     _waitlisted_excluded_member()

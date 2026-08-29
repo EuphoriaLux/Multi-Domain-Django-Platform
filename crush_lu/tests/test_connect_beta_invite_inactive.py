@@ -5,10 +5,14 @@ Third companion to ``test_connect_beta_invite_pause`` (self-pause, #927) and
 covers the state that is not a Connect concept at all, which is exactly why the
 invite path missed it: the account itself is switched off.
 
-Two separate flags, both invisible to the cohort query:
+Three separate flags, all invisible to the cohort query:
 
   * ``user.is_active=False`` — what a ban sets.
   * ``crushprofile.is_active=False`` — what a profile deactivation sets.
+  * ``data_consent.crushlu_banned=True`` — what "delete my Crush.lu profile but
+    keep my PowerUp account" sets. This one is the nastiest, because it leaves
+    the user **active** and merely profile-less, which is a legitimate wave-3
+    state, so neither of the other two guards fires.
 
 ``can_send_email`` cannot catch either: it consults ``EmailPreference`` and
 nothing else, and for ``connect_beta_invite`` there is no preference column at
@@ -40,7 +44,7 @@ from django.core.management import call_command
 from crush_lu.management.commands.send_connect_beta_invites import (
     candidates_for_wave,
 )
-from crush_lu.models import CrushProfile
+from crush_lu.models import CrushProfile, UserDataConsent
 from crush_lu.models.crush_connect import CrushConnectWaitlist
 from crush_lu.tests.test_crush_connect import _make_user, _mark_attended
 
@@ -154,6 +158,92 @@ def test_an_active_member_is_still_invited():
 
     assert user.id in [row.user_id for row in candidates_for_wave(1)], (
         "the activity filters dropped a member in good standing"
+    )
+
+
+def _crushlu_banned(user):
+    """The state ``delete_crushlu_profile_only`` leaves behind.
+
+    That path is "delete my Crush.lu presence, keep my PowerUp account": it
+    deletes the CrushProfile, **keeps the Django user active**, and sets
+    ``crushlu_banned=True`` as a permanent bar on re-creating the profile.
+    """
+    CrushProfile.objects.filter(user=user).delete()
+    consent, _ = UserDataConsent.objects.get_or_create(user=user)
+    consent.crushlu_consent_given = False
+    consent.crushlu_banned = True
+    consent.crushlu_ban_reason = "user_deletion"
+    consent.save()
+    user.refresh_from_db()
+    assert user.is_active, (
+        "fixture must keep the user active — that is precisely why the "
+        "is_active guard does not catch this case"
+    )
+    return user
+
+
+@pytest.mark.django_db
+def test_a_deleted_crushlu_member_is_not_an_invite_candidate():
+    """Deleting your Crush.lu profile must not leave you on the invite list.
+
+    ``CrushConnectWaitlist.user`` is a OneToOne on **User** with
+    on_delete=CASCADE, and ``delete_crushlu_profile_only`` retains that user —
+    so the waitlist row survives the deletion with ``notification_preference``
+    intact. The member is then active and profile-less, which is wave 3, and
+    neither the ``is_active`` nor the ``crushprofile.is_active`` guard sees
+    anything wrong. Mailing them would be a launch invite to someone who
+    deleted their account.
+    """
+    user = _crushlu_banned(_waitlisted_member("deleted_crushlu"))
+
+    assert user.id not in [row.user_id for row in candidates_for_wave(3)], (
+        "a member who deleted their Crush.lu profile (crushlu_banned) is "
+        "still selected for the Connect beta invite campaign"
+    )
+
+
+@pytest.mark.django_db
+def test_a_deleted_crushlu_member_is_not_mailed():
+    user = _crushlu_banned(_waitlisted_member("deleted_crushlu_send"))
+    mail.outbox.clear()
+
+    call_command("send_connect_beta_invites", "--wave", "3")
+
+    assert user.email not in [addr for m in mail.outbox for addr in m.to], (
+        f"banned member {user.email} was mailed a Connect beta invite"
+    )
+
+
+@pytest.mark.django_db
+def test_a_member_banned_mid_run_is_not_mailed_either():
+    """The ban is re-checked at send time, like every other guard here."""
+    from crush_lu.email_helpers import send_connect_beta_invite
+
+    user = _waitlisted_member("banned_flag_mid_run")
+    assert user.id in [row.user_id for row in candidates_for_wave(1)]
+
+    _crushlu_banned(user)
+    mail.outbox.clear()
+    delivered = send_connect_beta_invite(user, 3)
+
+    assert delivered == 0, "a member banned mid-run was still mailed"
+    assert user.email not in [addr for m in mail.outbox for addr in m.to]
+
+
+@pytest.mark.django_db
+def test_a_member_without_a_consent_row_is_still_a_candidate():
+    """The third join, and the third chance to empty the campaign.
+
+    Not every user has a ``UserDataConsent`` row, so the ban filter is written
+    as ``exclude(crushlu_banned=True)`` rather than
+    ``filter(crushlu_banned=False)``.
+    """
+    user = _waitlisted_member("no_consent_row")
+    UserDataConsent.objects.filter(user=user).delete()
+    assert not UserDataConsent.objects.filter(user=user).exists()
+
+    assert user.id in [row.user_id for row in candidates_for_wave(1)], (
+        "the ban filter dropped a member who has no UserDataConsent row"
     )
 
 
