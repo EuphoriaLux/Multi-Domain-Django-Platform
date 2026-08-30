@@ -12,7 +12,17 @@
       All venues
     </a>
   </div>
-  <span class="chip chip-live"><span class="dot"></span> Refreshing every 4s</span>
+  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+    {% comment %}Ticket printing rides crush_lu's RawBT pattern: this device
+    (the staff tablet behind the bar) is the print bridge the cloud can't
+    be. The toggle only governs AUTO-printing of newly arrived orders; the
+    per-card "Print ticket" button always works.{% endcomment %}
+    <button id="printer-toggle" class="chip" type="button"
+            title="Auto-print new orders on this device's thermal printer (RawBT)">
+      Printer: off
+    </button>
+    <span class="chip chip-live"><span class="dot"></span> Refreshing every 4s</span>
+  </div>
 </div>
 
 <div class="board">
@@ -52,4 +62,171 @@
     {% endfor %}
   </div>
 </div>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  "use strict";
+
+  // Same delivery mechanism as crush_lu's check-in printing
+  // (triggerRawBtPrint in crush_lu/static/crush_lu/js/alpine-components.js):
+  // primary path is RawBT's local WebSocket, fallback is the Android intent.
+  // Ported rather than shared because that copy lives inside a crush_lu
+  // Alpine component and this page loads neither Alpine nor crush_lu assets.
+  var PRINTER_KEY = "atmos_kds_printer";  // localStorage — survives service
+  var SEEN_KEY = "atmos_kds_printed";     // sessionStorage — one tab, one night
+
+  // Storage access can throw (private mode, cleared site data) and this
+  // page must keep working as a plain order board when it does.
+  function storeGet(store, key) {
+    try { return store.getItem(key); } catch (e) { return null; }
+  }
+  function storeSet(store, key, value) {
+    try { store.setItem(key, value); } catch (e) { /* board still works */ }
+  }
+
+  function printerEnabled() {
+    return storeGet(localStorage, PRINTER_KEY) === "on";
+  }
+
+  function loadSeen() {
+    var raw = storeGet(sessionStorage, SEEN_KEY);
+    if (raw === null) return null;  // null = very first load, seed silently
+    try {
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+  function saveSeen(ids) {
+    // The board only ever shows live + last-30-min orders, so a night's
+    // worth of ids stays small; the slice is just a hard ceiling.
+    storeSet(sessionStorage, SEEN_KEY, JSON.stringify(ids.slice(-300)));
+  }
+
+  function triggerRawBtPrint(base64Payload) {
+    if (!base64Payload || typeof base64Payload !== "string") return;
+    var trimmed = base64Payload.trim();
+    if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+
+    var fireIntentFallback = function () {
+      // Re-validated at the sink (this runs from async ws callbacks). The
+      // base64 charset excludes ":" and "#", so `trimmed` cannot alter the
+      // fixed intent: scheme or inject a second #Intent extras block.
+      if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+      window.location.href =
+        "intent:base64," + trimmed +
+        "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+    };
+
+    try {
+      var binaryString = atob(trimmed);
+      var bytes = new Uint8Array(binaryString.length);
+      for (var i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      var ws = new WebSocket("ws://127.0.0.1:40213/");
+      ws.binaryType = "arraybuffer";
+      var wsHandled = false;
+
+      var fallbackTimer = setTimeout(function () {
+        if (!wsHandled && ws.readyState !== 1) {
+          wsHandled = true;
+          try { ws.close(); } catch (e) {}
+          fireIntentFallback();
+        }
+      }, 400);
+
+      ws.onopen = function () {
+        wsHandled = true;
+        clearTimeout(fallbackTimer);
+        // send() can still throw if the socket drops in the instant after
+        // onopen — without this guard the job would be silently lost with
+        // wsHandled already true and no fallback fired.
+        try {
+          ws.send(bytes.buffer);
+          setTimeout(function () { try { ws.close(); } catch (e) {} }, 250);
+        } catch (e) {
+          fireIntentFallback();
+        }
+      };
+      ws.onerror = function () {
+        if (!wsHandled) {
+          wsHandled = true;
+          clearTimeout(fallbackTimer);
+          fireIntentFallback();
+        }
+      };
+    } catch (e) {
+      fireIntentFallback();
+    }
+  }
+
+  function printOrder(url) {
+    fetch(url, { credentials: "same-origin", headers: { "Accept": "application/json" } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (data && data.success && data.print_payload_base64) {
+          triggerRawBtPrint(data.print_payload_base64);
+        }
+      })
+      .catch(function () { /* next tap or the next auto pass retries */ });
+  }
+
+  // Manual reprint — delegated so it needs no per-card wiring, and works
+  // regardless of the auto-print toggle.
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-print-url]");
+    if (button) printOrder(button.getAttribute("data-print-url"));
+  });
+
+  // Auto-print toggle.
+  var toggle = document.getElementById("printer-toggle");
+  function paintToggle() {
+    if (!toggle) return;
+    var on = printerEnabled();
+    toggle.textContent = on ? "Printer: on" : "Printer: off";
+    toggle.classList.toggle("chip-lamp", on);
+  }
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      storeSet(localStorage, PRINTER_KEY, printerEnabled() ? "off" : "on");
+      paintToggle();
+    });
+    paintToggle();
+  }
+
+  // Auto-print newly arrived orders. The page fully reloads every 4s (meta
+  // refresh), so "newly arrived" is computed against the ids this tab has
+  // already seen, persisted in sessionStorage across those reloads. On the
+  // very first load the whole board is seeded as seen without printing —
+  // opening the KDS mid-service must not replay every open order to paper.
+  var cards = Array.prototype.slice.call(
+    document.querySelectorAll(".ticketcard[data-order-id]")
+  );
+  var seen = loadSeen();
+  if (seen === null) {
+    saveSeen(cards.map(function (card) {
+      return card.getAttribute("data-order-id");
+    }));
+  } else {
+    var queue = [];
+    cards.forEach(function (card) {
+      var id = card.getAttribute("data-order-id");
+      if (seen.indexOf(id) !== -1) return;
+      seen.push(id);
+      // Only fresh `placed` orders go to paper; an order first appearing in
+      // another column was handled before this tab ever saw it.
+      if (printerEnabled() && card.getAttribute("data-order-status") === "placed") {
+        var button = card.querySelector("[data-print-url]");
+        if (button) queue.push(button.getAttribute("data-print-url"));
+      }
+    });
+    // Persist before the staggered sends: if the 4s reload lands mid-queue,
+    // a job may be lost (reprint button covers it) but never duplicated.
+    saveSeen(seen);
+    queue.forEach(function (url, index) {
+      setTimeout(function () { printOrder(url); }, index * 800);
+    });
+  }
+})();
+</script>
 {% endblock %}
