@@ -845,6 +845,14 @@
     color: var(--warn);
   }
 
+  /* Reprint sits with cancel in the quiet tier: routine plumbing, never
+     competing with the one status action the card leads with. */
+  .kds-actions .btn-print { min-height: 40px; font-size: 0.83rem; }
+
+  /* The printer toggle reuses the chip so ON state reads exactly like the
+     other live chips; buttons just need the UA ground stripped. */
+  button.chip { background: transparent; cursor: pointer; }
+
   .vignette {
     font-family: var(--mono);
     font-size: 0.74rem;
