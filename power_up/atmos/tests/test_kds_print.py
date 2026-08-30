@@ -6,9 +6,11 @@ any guest-cookie scoping, so its whole security story is the decorator stack.
 """
 
 import base64
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.test import Client, override_settings
@@ -135,6 +137,36 @@ def test_served_orders_stay_reprintable(client, printable_order):
     response = client.get(_print_url(printable_order))
     assert response.status_code == 200
     assert response.json()["success"] is True
+
+
+@kds_urlconf
+def test_vignette_pending_defers_only_the_race_window(client, printable_order):
+    """A fresh order whose vignette write hasn't landed yet is flagged so
+    auto-print waits a cycle; once the vignette (or enough time) lands, it
+    isn't. The payload itself is served either way — manual reprints don't
+    defer."""
+    client.force_login(_staff_with_view_order())
+    url = _print_url(printable_order)
+
+    fresh = client.get(url).json()
+    assert fresh["vignette_pending"] is True
+    assert fresh["print_payload_base64"]
+
+    Order.objects.filter(pk=printable_order.pk).update(
+        vignette="The night held its breath.", vignette_source="fallback"
+    )
+    assert client.get(url).json()["vignette_pending"] is False
+
+
+@kds_urlconf
+def test_old_storyless_order_is_not_pending_forever(client, printable_order):
+    """If the vignette write died, the order legitimately has none — after
+    the age cutoff it must print rather than stay deferred every cycle."""
+    client.force_login(_staff_with_view_order())
+    Order.objects.filter(pk=printable_order.pk).update(
+        placed_at=timezone.now() - timedelta(seconds=30)
+    )
+    assert client.get(_print_url(printable_order)).json()["vignette_pending"] is False
 
 
 @kds_urlconf

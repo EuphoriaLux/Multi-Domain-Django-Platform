@@ -1137,11 +1137,22 @@ def order_print_payload(request, pk):
     )
     ticket = _ticket_data(order, order.guest, request)
     payload = encode_ticket(render_ticket(ticket, Paper.MM80), Paper.MM80)
+    # order_place() commits the order first and writes the vignette in a
+    # second UPDATE after generate_vignette() (up to ~1.2s later), so a KDS
+    # refresh landing in that window sees the order story-less. Flag it so
+    # the AUTO-print path defers to the next 4s cycle instead of putting a
+    # ticket on paper that never matches the guest's finalized one; a manual
+    # reprint tap ignores the flag. The age cutoff keeps an order whose
+    # vignette write died (it legitimately has none) from pending forever.
+    vignette_pending = not order.vignette_source and (
+        timezone.now() - order.placed_at < timedelta(seconds=15)
+    )
     return JsonResponse(
         {
             "success": True,
             "order_id": str(order.pk),
             "short_code": order.short_code,
+            "vignette_pending": vignette_pending,
             "print_payload_base64": base64.b64encode(payload).decode("ascii"),
         }
     )
