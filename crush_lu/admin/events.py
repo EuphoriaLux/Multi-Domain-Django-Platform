@@ -272,43 +272,67 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.is_private_invitation = False
         return instance
 
-    def clean_registration_mode(self):
-        """Refuse to switch modes once people have signed up.
+    def _effective_curated(self, event_type, registration_mode):
+        """Mirror of MeetupEvent.uses_curated_registration, on loose values.
 
-        The two modes are different contracts. Flipping curated -> direct
-        leaves the existing applications sitting at "applied" while everyone
-        who arrives afterwards is admitted or waitlisted on the spot; flipping
-        direct -> curated leaves confirmed seats beside applications that hold
-        none. Either way the same event has told two groups of members
-        different things about what their sign-up means, and no amount of
-        later selection reconciles that.
-
-        Blocking is the conservative half of Codex's suggestion — migrating
-        existing rows is the other, and which way to migrate them (do confirmed
-        seats become applications? do applications become seats?) is a decision
-        with real consequences for people who already signed up, not something
-        to infer from a dropdown change. Cancel the sign-ups, or make a new
-        event.
+        The behaviour is the product of BOTH fields, so a guard that watches
+        only the mode has a hole in it: turning a curated speed-dating event
+        into a mixer leaves registration_mode untouched while quietly making
+        every later sign-up direct.
         """
-        mode = self.cleaned_data.get("registration_mode")
-        if not self.instance.pk:
-            return mode
-        if mode == self.instance.registration_mode:
-            return mode
-
-        live_signups = (
-            self.instance.eventregistration_set.exclude(status="cancelled").count()
+        return (
+            event_type == "speed_dating"
+            and registration_mode == MeetupEvent.REGISTRATION_MODE_CURATED
         )
-        if live_signups:
-            raise forms.ValidationError(
-                _(
-                    "This event already has %(count)s active sign-up(s), and the "
-                    "two registration modes promise them different things. "
-                    "Cancel the existing sign-ups first, or create a new event."
-                )
-                % {"count": live_signups}
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Refuse to change what a sign-up MEANS once people have signed up.
+        #
+        # The two modes are different contracts. Flipping curated -> direct
+        # leaves the existing applications sitting at "applied" while everyone
+        # who arrives afterwards is admitted or waitlisted on the spot; the
+        # reverse leaves confirmed seats beside applications that hold none.
+        # Either way one event has told two groups of members different things
+        # about what their sign-up means, and no later selection reconciles it.
+        #
+        # Compared on effective behaviour rather than on registration_mode
+        # alone, because event_type is the other half of the switch — see
+        # _effective_curated.
+        #
+        # Blocking is the conservative half. Migrating the existing rows is the
+        # other, and which direction to migrate them (do confirmed seats become
+        # applications? do applications become seats?) has real consequences
+        # for people who already signed up — not something to infer from a
+        # dropdown change. Cancel the sign-ups, or make a new event.
+        if self.instance.pk:
+            was_curated = self._effective_curated(
+                self.instance.event_type, self.instance.registration_mode
             )
-        return mode
+            now_curated = self._effective_curated(
+                cleaned_data.get("event_type", self.instance.event_type),
+                cleaned_data.get(
+                    "registration_mode", self.instance.registration_mode
+                ),
+            )
+            if was_curated != now_curated:
+                live_signups = self.instance.eventregistration_set.exclude(
+                    status="cancelled"
+                ).count()
+                if live_signups:
+                    raise forms.ValidationError(
+                        _(
+                            "This event already has %(count)s active sign-up(s), "
+                            "and this change switches what signing up means — "
+                            "between an application the organiser selects from "
+                            "and a seat granted on arrival. Cancel the existing "
+                            "sign-ups first, or create a new event."
+                        )
+                        % {"count": live_signups}
+                    )
+
+        return cleaned_data
 
     def _post_clean(self):
         """Apply the audience choice BEFORE the model validates itself.
@@ -2481,50 +2505,115 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         applications = list(
             EventRegistration.objects.filter(
                 pk__in=eligible_ids, status="applied"
-            ).select_related("event")
+            ).select_related("event", "user__crushprofile")
         )
-        if applications:
-            by_event = {}
-            for reg in applications:
-                by_event.setdefault(reg.event, []).append(reg)
-            for event, regs in by_event.items():
-                remaining = event.spots_remaining
-                if len(regs) > remaining:
-                    django_messages.error(
-                        request,
-                        _(
-                            "“%(title)s” has %(remaining)s place(s) left but "
-                            "%(selected)s application(s) were selected. Nothing "
-                            "was changed — deselect %(excess)s and try again."
+
+        # The capacity check and the status updates have to be one atomic,
+        # locked unit. Reading spots_remaining and then updating in a separate
+        # statement lets two admins selecting at the same time both see the
+        # last seat free and both spend it — and the seat they overspend comes
+        # with a door ticket and check-in eligibility.
+        #
+        # Gender pools are checked alongside the total: with caps enabled a
+        # male applicant can pass a total-capacity test while the male pool is
+        # already full, which is exactly the case event_register re-checks
+        # under its own lock. Half a guard here would be worse than none,
+        # because it reads as protection.
+        with transaction.atomic():
+            if applications:
+                event_ids_to_lock = sorted({reg.event_id for reg in applications})
+                locked_events = {
+                    event.pk: event
+                    for event in MeetupEvent.objects.select_for_update()
+                    .filter(pk__in=event_ids_to_lock)
+                    .order_by("pk")
+                }
+
+                by_event = {}
+                for reg in applications:
+                    by_event.setdefault(reg.event_id, []).append(reg)
+
+                for event_id, regs in by_event.items():
+                    event = locked_events[event_id]
+                    remaining = event.spots_remaining
+                    if len(regs) > remaining:
+                        django_messages.error(
+                            request,
+                            _(
+                                "“%(title)s” has %(remaining)s place(s) left but "
+                                "%(selected)s application(s) were selected. Nothing "
+                                "was changed — deselect %(excess)s and try again."
+                            )
+                            % {
+                                "title": event.title,
+                                "remaining": remaining,
+                                "selected": len(regs),
+                                "excess": len(regs) - remaining,
+                            },
                         )
-                        % {
-                            "title": event.title,
-                            "remaining": remaining,
-                            "selected": len(regs),
-                            "excess": len(regs) - remaining,
-                        },
-                    )
-                    return
+                        return
 
-        paid_application_ids = set(
-            EventRegistration.objects.filter(
-                pk__in=eligible_ids, status="applied", event__registration_fee__gt=0
-            ).values_list("pk", flat=True)
-        )
-        confirm_ids = [pk for pk in eligible_ids if pk not in paid_application_ids]
+                    if not event.gender_limits_active:
+                        continue
+                    selected_per_pool = {}
+                    for reg in regs:
+                        profile = getattr(reg.user, "crushprofile", None)
+                        gender = getattr(profile, "gender", None)
+                        pool = event.get_gender_pool(gender) if gender else None
+                        if pool is None:
+                            continue
+                        selected_per_pool.setdefault(pool, []).append(gender)
+                    for pool, genders in selected_per_pool.items():
+                        gender = genders[0]
+                        limit = event.get_gender_pool_limit(gender)
+                        if limit is None:
+                            continue
+                        taken = event.get_confirmed_count_for_gender(gender)
+                        if taken + len(genders) > limit:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: the %(pool)s places are capped at "
+                                    "%(limit)s with %(taken)s already taken, but "
+                                    "%(selected)s application(s) in that group were "
+                                    "selected. Nothing was changed."
+                                )
+                                % {
+                                    "title": event.title,
+                                    "pool": pool,
+                                    "limit": limit,
+                                    "taken": taken,
+                                    "selected": len(genders),
+                                },
+                            )
+                            return
 
-        updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
-            status="confirmed",
-            # QuerySet.update bypasses EventRegistration.save(). A restored
-            # registration is a new cancellation-policy cycle and must not
-            # retain the previous cancellation's timing classification.
-            cancelled_at=None,
-        )
-        awaiting_payment = 0
-        if paid_application_ids:
-            awaiting_payment = EventRegistration.objects.filter(
-                pk__in=paid_application_ids
-            ).update(status="pending", cancelled_at=None)
+            # Inside the same locked transaction as the checks above: releasing
+            # the lock before writing would leave exactly the race the lock was
+            # taken to close.
+            paid_application_ids = set(
+                EventRegistration.objects.filter(
+                    pk__in=eligible_ids,
+                    status="applied",
+                    event__registration_fee__gt=0,
+                ).values_list("pk", flat=True)
+            )
+            confirm_ids = [
+                pk for pk in eligible_ids if pk not in paid_application_ids
+            ]
+
+            updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
+                status="confirmed",
+                # QuerySet.update bypasses EventRegistration.save(). A restored
+                # registration is a new cancellation-policy cycle and must not
+                # retain the previous cancellation's timing classification.
+                cancelled_at=None,
+            )
+            awaiting_payment = 0
+            if paid_application_ids:
+                awaiting_payment = EventRegistration.objects.filter(
+                    pk__in=paid_application_ids
+                ).update(status="pending", cancelled_at=None)
 
         # .update() emits no signals, so the per-registration receiver never
         # runs here and the restored tickets would stay voided forever.

@@ -725,39 +725,171 @@ class CuratedOverbookingTests(CuratedRegistrationTestBase):
 
 
 class RegistrationModeChangeTests(CuratedRegistrationTestBase):
-    """The two modes are different contracts; an event cannot offer both."""
+    """An event cannot change what signing up MEANS once people have signed up.
 
-    def _form(self, event, mode):
+    Guarded on effective behaviour rather than the registration_mode field
+    alone: event_type is the other half of the switch, so turning a curated
+    speed-dating event into a mixer would otherwise slip past untouched while
+    making every later sign-up direct.
+    """
+
+    def _form(self, event, **changes):
         from crush_lu.admin.events import MeetupEventAdminForm
 
-        return MeetupEventAdminForm(
-            data={"registration_mode": mode}, instance=event
+        data = {
+            "event_type": event.event_type,
+            "registration_mode": event.registration_mode,
+        }
+        data.update(changes)
+        return MeetupEventAdminForm(data=data, instance=event)
+
+    def _blocked(self, form):
+        """The objection is a non-field error raised from clean()."""
+        form.is_valid()
+        return any(
+            "switches what signing up means" in str(e)
+            for e in form.non_field_errors()
         )
 
     def test_mode_change_is_refused_once_someone_has_signed_up(self):
         self._register(self.user, self.curated)
+        self.assertTrue(self._blocked(self._form(self.curated, registration_mode="direct")))
 
-        form = self._form(self.curated, "direct")
-        self.assertFalse(form.is_valid())
-        self.assertIn("registration_mode", form.errors)
+    def test_event_type_change_is_refused_too(self):
+        """The hole a mode-only guard leaves: the mode stays "curated" and is
+        simply ignored once the type is no longer speed dating."""
+        self._register(self.user, self.curated)
+        self.assertTrue(self._blocked(self._form(self.curated, event_type="mixer")))
 
-    def test_mode_change_is_allowed_with_no_live_signups(self):
+    def test_turning_a_mixer_into_curated_speed_dating_is_refused(self):
+        """The inverse: an ignored "curated" mode becoming an active one."""
+        self.mixer.registration_mode = "curated"
+        self.mixer.save(update_fields=["registration_mode"])
+        self._register(self.user, self.mixer)  # admitted directly, mode ignored
+
+        self.assertTrue(
+            self._blocked(self._form(self.mixer, event_type="speed_dating"))
+        )
+
+    def test_change_is_allowed_with_no_live_signups(self):
         """A cancelled sign-up does not lock the event."""
         from crush_lu.models import EventRegistration
 
         EventRegistration.objects.create(
             event=self.curated, user=self.user, status="cancelled"
         )
-        form = self._form(self.curated, "direct")
-        # Other required fields are absent, so the form as a whole is invalid —
-        # what matters is that registration_mode itself is not the objection.
-        form.is_valid()
-        self.assertNotIn("registration_mode", form.errors)
+        self.assertFalse(
+            self._blocked(self._form(self.curated, registration_mode="direct"))
+        )
 
-    def test_saving_without_changing_the_mode_is_never_blocked(self):
-        """Editing any other field on an event with sign-ups must still work."""
+    def test_an_unrelated_edit_is_never_blocked(self):
+        """Editing any other field on an event with sign-ups must still work —
+        the guard fires on a behaviour change, not on every save."""
         self._register(self.user, self.curated)
+        self.assertFalse(self._blocked(self._form(self.curated)))
 
-        form = self._form(self.curated, "curated")
-        form.is_valid()
-        self.assertNotIn("registration_mode", form.errors)
+    def test_a_type_change_that_does_not_switch_behaviour_is_allowed(self):
+        """direct speed dating -> mixer is both non-curated: nothing changes
+        about what a sign-up means, so there is nothing to protect."""
+        self._register(self.user, self.direct)
+        self.assertFalse(self._blocked(self._form(self.direct, event_type="mixer")))
+
+
+class CuratedGenderPoolSelectionTests(CuratedRegistrationTestBase):
+    """Total capacity is not the only cap the selection has to respect."""
+
+    def _pooled_event(self):
+        event = self._make_event(
+            "Pooled Speed Dating",
+            event_type="speed_dating",
+            registration_mode="curated",
+            max_participants=4,
+            max_participants_m=1,
+            max_participants_f=1,
+            max_participants_nb=2,
+        )
+        return event
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def test_a_full_gender_pool_blocks_selection_despite_free_seats(self):
+        """Two men for one male place, on an event with four seats free: the
+        total test passes and the pool test is the only thing standing in the
+        way."""
+        from crush_lu.models import EventRegistration
+
+        event = self._pooled_event()
+        for i in range(2):
+            user = self._create_member(f"male{i}@example.com", gender="M")
+            EventRegistration.objects.create(
+                event=event, user=user, status="applied"
+            )
+
+        applications = EventRegistration.objects.filter(
+            event=event, status="applied"
+        )
+        self._run_confirm_action(applications)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(event=event, status="applied").count(),
+            2,
+        )
+        self.assertEqual(event.get_confirmed_count(), 0)
+
+    def test_selection_within_every_pool_succeeds(self):
+        from crush_lu.models import EventRegistration
+
+        event = self._pooled_event()
+        for gender, name in (("M", "poolm"), ("F", "poolf")):
+            user = self._create_member(f"{name}@example.com", gender=gender)
+            EventRegistration.objects.create(
+                event=event, user=user, status="applied"
+            )
+
+        applications = EventRegistration.objects.filter(
+            event=event, status="applied"
+        )
+        self._run_confirm_action(applications)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=event, status="confirmed"
+            ).count(),
+            2,
+        )
+
+    def test_seats_already_taken_in_a_pool_are_counted(self):
+        from crush_lu.models import EventRegistration
+
+        event = self._pooled_event()
+        seated = self._create_member("seatedmale@example.com", gender="M")
+        EventRegistration.objects.create(
+            event=event, user=seated, status="confirmed"
+        )
+        applicant = self._create_member("secondmale@example.com", gender="M")
+        EventRegistration.objects.create(
+            event=event, user=applicant, status="applied"
+        )
+
+        self._run_confirm_action(
+            EventRegistration.objects.filter(event=event, status="applied")
+        )
+
+        self.assertEqual(
+            EventRegistration.objects.filter(event=event, status="applied").count(),
+            1,
+        )
