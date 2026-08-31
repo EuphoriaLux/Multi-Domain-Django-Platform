@@ -174,6 +174,8 @@ Args (see the partial's docstring for the full contract):
 - `field` *(required)* — bound Django form field.
 - `label` — override the field's label; pass `""` to suppress.
 - `help` — extra help text (in addition to `field.help_text` if set).
+- `size` — `"sm"` for the compact secondary label used by sub-fields inside a
+  grouped control (e.g. the From/To pair of an age range).
 - `label_class`, `field_class` — extra classes appended.
 
 Don't manually compose `<label>` + `{{ field }}` + error markup in new

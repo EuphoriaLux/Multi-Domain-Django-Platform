@@ -1,0 +1,82 @@
+{% load i18n %}
+{% comment %}
+Speed-dating preference section, shared by event_register.html and the HTMX
+partial _event_registration_form.html so a validation-error re-render cannot
+drop it. Only rendered when the view provides pref_form (speed-dating events).
+
+Gender/language tiles take the visual idiom from Connect step 6, but the
+keyboard-safe wiring from partials/edit_event_identity.html: the real checkbox
+stays in the tab order and the accessibility tree via `sr-only` (never
+`hidden`, which is display:none and unreachable without a mouse), and the tile
+carries the focus ring through `peer-focus-visible`. Each group is a fieldset
+so its name is announced together with the options.
+'P' (prefer not to say) is not a selectable target — the form drops it from the
+choices, so this template renders whatever the field offers.
+{% endcomment %}
+{% if pref_form %}
+<div class="form-group bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/40 rounded-lg p-4 space-y-5">
+    <div>
+        <p class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-1.162-.682 22.045 22.045 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 01-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 01-.69.001l-.002-.001z"/>
+            </svg>
+            {% trans "Your speed-dating preferences" %}
+        </p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {% trans "Used only by the organiser team to compose the tables — never shown to other members." %}
+        </p>
+    </div>
+
+    <fieldset>
+        <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{{ pref_form.preferred_genders.label }}</legend>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {% for value, label in pref_form.preferred_genders.field.choices %}
+            <label class="cursor-pointer block">
+                <input type="checkbox" name="preferred_genders" value="{{ value }}" class="peer sr-only"
+                       {% if pref_form.preferred_genders.value and value in pref_form.preferred_genders.value %}checked{% endif %}>
+                <span class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                            peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300
+                            peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
+                    <span class="text-lg flex-shrink-0" aria-hidden="true">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% else %}✨{% endif %}</span>
+                    <span class="whitespace-nowrap">{{ label }}</span>
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Select all that apply. Leave empty if you're open to everyone." %}</p>
+        {% if pref_form.preferred_genders.errors %}<p class="text-sm text-red-600 dark:text-red-300 mt-1" role="alert">{{ pref_form.preferred_genders.errors.0 }}</p>{% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Preferred age range" %}</legend>
+        <div class="flex items-start gap-3">
+            {% trans "From" as age_min_label %}
+            {% include "crush_lu/components/form_field.html" with field=pref_form.preferred_age_min label=age_min_label size="sm" field_class="flex-1" %}
+            <span class="text-gray-400 mt-5" aria-hidden="true">–</span>
+            {% trans "To" as age_max_label %}
+            {% include "crush_lu/components/form_field.html" with field=pref_form.preferred_age_max label=age_max_label size="sm" field_class="flex-1" %}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{{ pref_form.languages.label }}</legend>
+        <div class="flex flex-wrap gap-2">
+            {% for value, label in pref_form.languages.field.choices %}
+            <label class="cursor-pointer block">
+                <input type="checkbox" name="languages" value="{{ value }}" class="peer sr-only"
+                       {% if pref_form.languages.value and value in pref_form.languages.value %}checked{% endif %}>
+                <span class="block px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
+                            peer-checked:border-crush-purple peer-checked:bg-purple-100 dark:peer-checked:bg-purple-900/40 peer-checked:text-purple-700 dark:peer-checked:text-purple-300
+                            peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
+                    {{ label }}
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Leave empty if any language works for you." %}</p>
+        {% if pref_form.languages.errors %}<p class="text-sm text-red-600 dark:text-red-300 mt-1" role="alert">{{ pref_form.languages.errors.0 }}</p>{% endif %}
+    </fieldset>
+</div>
+{% endif %}

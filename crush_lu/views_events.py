@@ -14,6 +14,7 @@ from .models import (
     CrushProfile,
     MeetupEvent,
     EventRegistration,
+    EventRegistrationPreference,
     EventInvitation,
     EventFeedback,
     PremiumMembership,
@@ -22,7 +23,7 @@ from .models.event_polls import EventPoll
 from .models.events import SEAT_HOLDING_STATUSES
 from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
-from .forms import EventRegistrationForm, EventFeedbackForm
+from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .services.credits import (
     available_credit_cents,
@@ -1358,6 +1359,11 @@ def event_register(request, event_id):
     # future key cannot reach one and miss the other.
     template = "crush_lu/event_register.html"
 
+    # Speed-dating registrations also collect per-application dating
+    # preferences (age range / languages / gender preference). Scoped by event
+    # type so every other event's registration form stays byte-identical.
+    collect_preferences = event.event_type == "speed_dating"
+
     if request.method == "POST":
         form = EventRegistrationForm(
             request.POST,
@@ -1365,7 +1371,16 @@ def event_register(request, event_id):
             requires_age_confirmation=requires_age_confirmation,
             requires_gender_selection=requires_gender_selection,
         )
-        if form.is_valid():
+        pref_form = (
+            EventPreferenceForm(request.POST, event=event)
+            if collect_preferences
+            else None
+        )
+        # Evaluate both unconditionally so an invalid re-render carries the
+        # error messages of each form, not just the first.
+        form_valid = form.is_valid()
+        pref_form_valid = pref_form is None or pref_form.is_valid()
+        if form_valid and pref_form_valid:
             # Use select_for_update + atomic to prevent race condition where
             # concurrent registrations could exceed max_participants
             with transaction.atomic():
@@ -1503,6 +1518,15 @@ def event_register(request, event_id):
                         )
 
                 registration.save()
+                if pref_form is not None:
+                    # update_or_create, not save(): the registration row is
+                    # reused on re-registration, and a stale preference row
+                    # from a cancelled application must be overwritten with
+                    # this application's answers.
+                    EventRegistrationPreference.objects.update_or_create(
+                        registration=registration,
+                        defaults=pref_form.preference_defaults(),
+                    )
                 if registration.status in SEAT_HOLDING_STATUSES:
                     _attach_unclaimed_resale_claim(registration, locked_event)
 
@@ -1551,6 +1575,14 @@ def event_register(request, event_id):
             requires_age_confirmation=requires_age_confirmation,
             requires_gender_selection=requires_gender_selection,
         )
+        pref_form = (
+            EventPreferenceForm(
+                event=event,
+                initial=EventPreferenceForm.initial_for(request.user, profile, event),
+            )
+            if collect_preferences
+            else None
+        )
 
     # Same answer the event page's CTA used to get here, so the button that said
     # "Join Waitlist" does not land on a page headed "Confirm Registration"
@@ -1577,6 +1609,7 @@ def event_register(request, event_id):
     context = {
         "event": event,
         "form": form,
+        "pref_form": pref_form,
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
         "registration_will_waitlist": registration_will_waitlist,

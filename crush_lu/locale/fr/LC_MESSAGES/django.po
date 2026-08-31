@@ -40657,3 +40657,35 @@ msgstr "Merci de soutenir des rencontres authentiques au Luxembourg."
 #: templates/crush_lu/emails/donation_payment_receipt.html
 msgid "Thank you!"
 msgstr "Merci !"
+
+#: crush_lu/models/events.py
+msgid "Gender codes the applicant wants to meet; empty = open to all"
+msgstr "Codes de genre que la personne souhaite rencontrer ; vide = ouvert à tous"
+
+#: crush_lu/models/events.py
+msgid "Event-language codes (en/de/fr/lu) the applicant wants at the table; empty = any"
+msgstr "Codes de langue (en/de/fr/lu) souhaités à table ; vide = indifférent"
+
+#: crush_lu/forms.py
+msgid "Who would you like to meet?"
+msgstr "Qui souhaitez-vous rencontrer ?"
+
+#: crush_lu/forms.py
+msgid "Preferred language at the table"
+msgstr "Langue préférée à table"
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Your speed-dating preferences"
+msgstr "Vos préférences de speed dating"
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Used only by the organiser team to compose the tables — never shown to other members."
+msgstr "Utilisé uniquement par l'équipe d'organisation pour composer les tables — jamais visible par les autres membres."
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Leave empty if any language works for you."
+msgstr "Laissez vide si toutes les langues vous conviennent."
+
+#: templates/crush_lu/privacy_policy.html
+msgid "Speed-dating preferences you optionally state per event (preferred age range, languages, gender preference): used only by the organiser team to compose balanced tables, never shown to other members, and deleted shortly after the event"
+msgstr "Préférences de speed dating que vous indiquez facultativement pour chaque événement (tranche d'âge préférée, langues, préférence de genre) : utilisées uniquement par l'équipe d'organisation pour composer des tables équilibrées, jamais montrées aux autres membres et supprimées peu après l'événement"

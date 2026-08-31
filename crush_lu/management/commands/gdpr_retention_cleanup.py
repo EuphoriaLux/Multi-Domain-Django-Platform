@@ -12,6 +12,7 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
         "phone_otp_days": 30,        # PhoneOTP: phone number + code hash
         "daily_activity_days": 90,   # DailyUserActivity WAU rows
         "call_attempt_days": 365,    # CallAttempt screening-call audit trail
+        "event_preference_days": 30, # EventRegistrationPreference after event
     }
 
 ``DailyUserActivity`` pruning delegates to the existing
@@ -36,6 +37,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
+from crush_lu.models.events import EventRegistrationPreference
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
 
@@ -51,6 +53,10 @@ DEFAULT_RETENTION = {
     "phone_otp_days": 30,
     "daily_activity_days": 90,
     "call_attempt_days": 365,
+    # Speed-dating preference rows (gender preference is Art. 9-adjacent):
+    # organiser-only input for composing the group, worthless once the event
+    # is a month behind us. Window measured from the event's start time.
+    "event_preference_days": 30,
 }
 
 
@@ -69,6 +75,7 @@ class Command(BaseCommand):
         parser.add_argument("--phone-otp-days", type=int, default=None)
         parser.add_argument("--daily-activity-days", type=int, default=None)
         parser.add_argument("--call-attempt-days", type=int, default=None)
+        parser.add_argument("--event-preference-days", type=int, default=None)
 
     def handle(self, *args, **options):
         apply_changes = options["apply"]
@@ -87,14 +94,21 @@ class Command(BaseCommand):
             options["daily_activity_days"], "daily_activity_days"
         )
         call_days = _window(options["call_attempt_days"], "call_attempt_days")
+        pref_days = _window(
+            options["event_preference_days"], "event_preference_days"
+        )
 
         # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
         # future, so `created_at < cutoff` would match — and delete — every
-        # row in the category. Reject it rather than purge everything.
+        # row in the category. Reject it rather than purge everything. For
+        # event preferences a negative window is doubly wrong: the cutoff is
+        # measured from the event's start, so it would delete preferences for
+        # events that have not happened yet.
         for label, value in (
             ("phone_otp_days", phone_days),
             ("daily_activity_days", activity_days),
             ("call_attempt_days", call_days),
+            ("event_preference_days", pref_days),
         ):
             if value < 0:
                 raise CommandError(
@@ -168,6 +182,35 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"  DailyUserActivity older than {activity_days}d: "
                     f"{activity_qs.count()} row(s)"
+                )
+
+        # 4. EventRegistrationPreference — speed-dating preference snapshots
+        # (age range / languages / preferred genders). The registration row
+        # itself is untouched; only the preference side row is pruned, once
+        # the event started more than the window ago.
+        if not budget_hit:
+            pref_qs = EventRegistrationPreference.objects.filter(
+                registration__event__date_time__lt=now - timedelta(days=pref_days)
+            )
+            if apply_changes:
+                # Ordered by the event date, not created_at: expiry is keyed
+                # off the event, and a preference submitted months before a
+                # recent event is younger data than a last-minute registration
+                # for a much older one. Ordering by row age would delete the
+                # former first and leave the oldest special-category data
+                # behind when the budget truncates the sweep.
+                deleted, budget_hit = self._delete_in_chunks(
+                    pref_qs, deadline, order_by="registration__event__date_time"
+                )
+                total_deleted += deleted
+                self.stdout.write(
+                    f"  EventRegistrationPreference for events older than "
+                    f"{pref_days}d: deleted {deleted}"
+                )
+            else:
+                self.stdout.write(
+                    f"  EventRegistrationPreference for events older than "
+                    f"{pref_days}d: {pref_qs.count()} row(s)"
                 )
 
         if apply_changes and budget_hit:
