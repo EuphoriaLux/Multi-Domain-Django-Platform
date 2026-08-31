@@ -316,12 +316,16 @@ class ApplicantSurfacesTests(CuratedRegistrationTestBase):
         )
         self.assertEqual(registration.status, "applied")
 
+        # A valid payment_method is required, otherwise the view rejects on
+        # that instead and the test would pass without ever reaching the
+        # status guard it exists to pin.
         response = self.client.post(
             f"/payments/sumup/create-event-checkout/{registration.pk}/",
-            data="{}",
+            data='{"payment_method": "card"}',
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+        self.assertIn("current state", response.json()["error"])
 
     def test_applicant_can_withdraw(self):
         from crush_lu.models import EventRegistration
