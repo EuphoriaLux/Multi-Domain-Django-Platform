@@ -14,6 +14,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from crush_lu.management.commands.reconcile_sumup_payments import (
+    _history_refund_rank,
     history_row_shows_refund,
     index_history,
     is_checkout_refunded,
@@ -935,27 +936,125 @@ class ExternalDashboardRefundRegressionTests(TestCase):
     @patch(
         "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
     )
-    def test_history_lookup_failure_does_not_report_still_paid_silently(
+    def test_history_lookup_failure_is_an_error_not_a_still_paid_tick(
         self, mock_get_checkout, mock_get_history
     ):
-        """A provider error must reach the log, not vanish into a bare pass."""
+        """An unchecked row must never read as a verified one.
+
+        Logging the provider error is not enough by itself: the row still fell
+        through to the ``✓ … still PAID`` line and was counted clean, and in
+        production the console handler only emits ERROR, so the operator saw a
+        tick for a check that never ran. Now that the targeted lookup runs for
+        every unrefunded row, a transient SumUp failure is routine rather than
+        exceptional — so it has to be reported as unknown, not as paid.
+        """
         self._make_refunded_seat()
         mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
         mock_get_history.side_effect = SumUpError("history unavailable")
 
+        out = io.StringIO()
         with self.assertLogs(
             "crush_lu.management.commands.reconcile_sumup_payments", level="WARNING"
         ) as logs:
             call_command(
                 "reconcile_sumup_payments",
                 reference="CRUSH-EVT-588-ce863b",
-                quiet=True,
+                stdout=out,
             )
 
-        self.assertTrue(
-            any("TAAA4QQ7M99" in line for line in logs.output),
-            logs.output,
+        printed = out.getvalue()
+        self.assertIn("UNKNOWN", printed)
+        self.assertNotIn("still PAID", printed)
+        self.assertIn("1 error(s)", printed)
+        self.assertTrue(any("TAAA4QQ7M99" in line for line in logs.output), logs.output)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_quiet_still_reports_an_unverifiable_row(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """--quiet hides ticks, not errors — an unknown row is actionable."""
+        self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        mock_get_history.side_effect = SumUpError("history unavailable")
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments",
+            reference="CRUSH-EVT-588-ce863b",
+            quiet=True,
+            stdout=out,
         )
+        self.assertIn("UNKNOWN", out.getvalue())
+
+    @patch("crush_lu.management.commands.reconcile_sumup_payments.time.sleep")
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_batch_delay_throttles_the_targeted_history_request(
+        self, mock_get_checkout, mock_get_history, mock_sleep
+    ):
+        """--batch-delay promises a pause "between SumUp API requests".
+
+        The targeted lookup is the second request for a row, and on the now-common
+        unrefunded path it followed the checkout call immediately — two
+        back-to-back calls no value of the setting could throttle.
+        """
+        self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        # No refund anywhere: forces the targeted lookup and nothing else.
+        clean = {k: v for k, v in self.PAYMENT_ROW.items() if k != "refunded_amount"}
+        mock_get_history.return_value = {"items": [clean]}
+
+        call_command(
+            "reconcile_sumup_payments",
+            reference="CRUSH-EVT-588-ce863b",
+            batch_delay=0.05,
+            quiet=True,
+        )
+
+        mock_sleep.assert_called_with(0.05)
+
+    # -- Defect 2, second direction: cumulative totals must win --------------
+
+    def test_cumulative_refunded_total_beats_a_bare_refund_row(self):
+        """Several partial refunds adding up to the capture are a FULL refund.
+
+        Under descending order the newest REFUND row arrives first, and it
+        states only its own amount. Preferring it over the PAYMENT row that
+        carries SumUp's cumulative ``refunded_amount`` makes a fully refunded
+        payment read as partial — which the guard then parks for manual review
+        and never reconciles. The opposite failure of the one this PR fixes,
+        reachable through the same index.
+        """
+        payment_cumulative = dict(self.PAYMENT_ROW, refunded_amount=15.5)
+        latest_partial = dict(self.REFUND_ROW, amount=5.0)
+
+        for order in ([latest_partial, payment_cumulative],
+                      [payment_cumulative, latest_partial]):
+            with self.subTest(first=order[0]["type"]):
+                history_map = index_history({}, order)
+                self.assertEqual(
+                    refunded_amount(self.CHECKOUT_PAYLOAD, history_map=history_map),
+                    Decimal("15.5"),
+                )
+
+    def test_refund_rank_orders_the_three_kinds_of_row(self):
+        bare_payment = {k: v for k, v in self.PAYMENT_ROW.items()
+                        if k != "refunded_amount"}
+        self.assertEqual(_history_refund_rank(self.PAYMENT_ROW), 2)
+        self.assertEqual(_history_refund_rank(self.REFUND_ROW), 1)
+        self.assertEqual(_history_refund_rank(bare_payment), 0)
+        self.assertEqual(_history_refund_rank(None), 0)
 
 
 class HistoryOrderNormalisationTests(TestCase):

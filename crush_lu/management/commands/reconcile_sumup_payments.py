@@ -109,16 +109,46 @@ def history_row_shows_refund(item) -> bool:
     )
 
 
+def _history_refund_rank(item) -> int:
+    """How informative one history row is about a refund. Higher wins.
+
+    2 — states an explicit refunded TOTAL. SumUp keeps a cumulative
+        ``refunded_amount`` on the PAYMENT row, and that total is the only
+        thing that can tell a fully refunded payment from a partly refunded
+        one when the refund was taken in several goes.
+    1 — shows that a refund happened, but not how much in total. A ``REFUND``
+        row states only its OWN amount, so three partial refunds adding up to
+        the full capture look like one small partial.
+    0 — says nothing about a refund.
+
+    Ranking rather than a plain "is it a refund row?" preference because both
+    directions lose money: keep the bare PAYMENT row and the refund is
+    invisible; keep the bare REFUND row over a PAYMENT row carrying the
+    cumulative total and ``refunded_amount()`` under-reads, so the
+    partial-refund guard parks a fully refunded payment as "needs manual
+    review" and it is never reconciled.
+    """
+    if not isinstance(item, dict):
+        return 0
+    if _refunded_total(item) > 0:
+        return 2
+    if history_row_shows_refund(item):
+        return 1
+    return 0
+
+
 def index_history(history_map: dict, items) -> dict:
-    """Index history rows by ``transaction_code``, keeping the refund-bearing one.
+    """Index history rows by ``transaction_code``, keeping the most informative.
 
     A payment and the refund taken against it SHARE a transaction_code and come
     back as two separate rows — a ``PAYMENT``/``SUCCESSFUL`` row and, later, a
     ``REFUND``/``REFUNDED`` one. A plain ``history_map[code] = item`` is
     last-write-wins, so whichever of the pair happened to come last in the
     response won; when that was the PAYMENT row it evicted the REFUND row
-    beside it and the refund vanished. Refund-bearing rows now win regardless
-    of arrival order.
+    beside it and the refund vanished. Rows are now kept by
+    ``_history_refund_rank`` instead, which is order-independent in both
+    directions — see that function for why "prefer the REFUND row" is not
+    enough on its own.
     """
     for item in items or []:
         if not isinstance(item, dict):
@@ -126,10 +156,9 @@ def index_history(history_map: dict, items) -> dict:
         code = item.get("transaction_code")
         if not code:
             continue
-        current = history_map.get(code)
-        if current is None or (
-            history_row_shows_refund(item) and not history_row_shows_refund(current)
-        ):
+        if code not in history_map or _history_refund_rank(
+            item
+        ) > _history_refund_rank(history_map[code]):
             history_map[code] = item
     return history_map
 
@@ -364,6 +393,7 @@ class Command(BaseCommand):
                 )
                 continue
 
+            history_lookup_failed = False
             try:
                 refunded = is_checkout_refunded(remote_data, history_map=history_map)
                 if not refunded:
@@ -386,6 +416,15 @@ class Command(BaseCommand):
                     # the refund. Costs one extra call per unrefunded row,
                     # which is the price of not silently missing money.
                     if code and not history_row_shows_refund(history_map.get(code)):
+                        # ``--batch-delay`` promises a pause "between SumUp API
+                        # requests", and this is the SECOND request for this
+                        # row. Without a sleep here the ordinary unrefunded
+                        # case — now the common path — fires two back-to-back
+                        # calls that no value of the setting can throttle,
+                        # which is how a long sweep earns a rate limit and
+                        # reconciles only part of its window.
+                        if delay > 0:
+                            time.sleep(delay)
                         try:
                             code_data = client.get_transactions_history(
                                 limit=10, transaction_code=code
@@ -395,10 +434,13 @@ class Command(BaseCommand):
                                 remote_data, history_map=history_map
                             )
                         except Exception as exc:
-                            # Was a bare ``pass``. A provider error here means
-                            # the refund check for this row did not happen, and
-                            # the sweep goes on to print "still PAID" — the one
-                            # outcome an operator reads as "checked, and fine".
+                            # Was a bare ``pass``. Logging it is not enough on
+                            # its own: the row still fell through to the
+                            # "still PAID" line below, and the console handler
+                            # only emits ERROR in production, so the operator
+                            # saw a clean tick for a check that never ran. The
+                            # flag makes it an error and skips that line.
+                            history_lookup_failed = True
                             logger.warning(
                                 "Could not look up SumUp history for "
                                 "transaction_code %s (checkout %s): %s",
@@ -417,6 +459,22 @@ class Command(BaseCommand):
                     self.style.ERROR(
                         f"Unreadable payload for checkout {tx_obj.sumup_checkout_id} "
                         f"({tx_obj.transaction_reference}): {exc}"
+                    )
+                )
+                continue
+
+            if history_lookup_failed:
+                # The refund check for this row DID NOT HAPPEN. Reporting it as
+                # "still PAID" is precisely the failure this command exists to
+                # prevent — an unchecked row that reads as verified — so it is
+                # counted as an error and named as unknown. Printed even under
+                # --quiet, which is for actionable desyncs and errors.
+                errors_count += 1
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Could not verify {tx_obj.transaction_reference} "
+                        f"({tx_obj.sumup_checkout_id}): SumUp history "
+                        "unreachable — refund state UNKNOWN, NOT confirmed paid."
                     )
                 )
                 continue
