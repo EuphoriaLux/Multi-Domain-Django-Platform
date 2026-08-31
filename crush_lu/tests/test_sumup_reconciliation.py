@@ -14,6 +14,8 @@ from django.test import TestCase
 from django.utils import timezone
 
 from crush_lu.management.commands.reconcile_sumup_payments import (
+    history_row_shows_refund,
+    index_history,
     is_checkout_refunded,
     refunded_amount,
 )
@@ -21,7 +23,7 @@ from crush_lu.models.credits import CrushCredit, CreditRedemption
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, CrushCoach, PremiumMembership
-from crush_lu.services.sumup import SumUpError
+from crush_lu.services.sumup import SumUpClient, SumUpError, _normalise_history_order
 
 User = get_user_model()
 
@@ -689,3 +691,300 @@ class ExternalRefundRegressionTests(TestCase):
         self.assertEqual(reg.status, "cancelled")
         self.assertEqual(credit.status, CrushCredit.Status.VOID)
 
+
+class ExternalDashboardRefundRegressionTests(TestCase):
+    """Regression cover for a live refund the sweep reported as "still PAID".
+
+    A €15.50 Quiz Night seat was refunded from the SumUp merchant dashboard on
+    2026-08-31. ``reconcile_sumup_payments`` checked that exact payment and
+    printed ``still PAID``, leaving the member holding both the cash and a €20
+    event-cancellation credit. Three independent defects had to line up for
+    that, and each one below is enough on its own to hide a refund — so each
+    gets its own test rather than a single end-to-end one that would go green
+    again the moment any one of them was fixed.
+
+    The payloads here are the shapes SumUp actually returned, not invented
+    ones: the pre-existing history test asserted against a single row carrying
+    ``amount_refunded``, which is a key the history endpoint does not emit.
+    """
+
+    # The two rows SumUp returns for one refunded transaction. They SHARE a
+    # transaction_code, and the refunded total on the payment row is spelled
+    # ``refunded_amount`` — not ``amount_refunded`` as the checkout resource
+    # spells it.
+    PAYMENT_ROW = {
+        "transaction_code": "TAAA4QQ7M99",
+        "transaction_id": "ffaa6390-6976-4291-92b7-7eeb7b0ab449",
+        "type": "PAYMENT",
+        "status": "SUCCESSFUL",
+        "amount": 15.5,
+        "refunded_amount": 15.5,
+        "timestamp": "2026-08-10T21:30:52.891Z",
+    }
+    REFUND_ROW = {
+        "transaction_code": "TAAA4QQ7M99",
+        "transaction_id": "ffaa6390-6976-4291-92b7-7eeb7b0ab449",
+        "type": "REFUND",
+        "status": "REFUNDED",
+        "amount": 15.5,
+        "timestamp": "2026-08-31T12:11:39.170Z",
+    }
+    # What /v0.1/checkouts still says afterwards: nothing at all. A dashboard
+    # refund never mutates the checkout resource, which is the whole reason
+    # this sweep consults the transaction history in the first place.
+    CHECKOUT_PAYLOAD = {
+        "id": "9ff8fb20-77a8-4ee7-b103-b9de4f177152",
+        "status": "PAID",
+        "amount": 15.5,
+        "transaction_code": "TAAA4QQ7M99",
+        "transactions": [
+            {
+                "id": "ffaa6390-6976-4291-92b7-7eeb7b0ab449",
+                "status": "SUCCESSFUL",
+                "transaction_code": "TAAA4QQ7M99",
+                "amount": 15.5,
+            }
+        ],
+    }
+
+    def _make_refunded_seat(self):
+        """A cancelled seat holding an unspent event-cancellation credit."""
+        user = User.objects.create_user(
+            username="dashboard_refund", email="dashboard_refund@crush.lu"
+        )
+        event = MeetupEvent.objects.create(
+            title="Quiz Night | New format",
+            event_type="quiz_night",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timedelta(days=5),
+            registration_deadline=timezone.now() + timedelta(days=4),
+            registration_fee=Decimal("15.50"),
+            is_published=True,
+        )
+        # Mirrors production: issue_credit already cleared payment_confirmed
+        # when the organiser-cancellation credit was minted, so the row the
+        # sweep meets is cancelled and unpaid — only the credit and the
+        # payment status are still out of sync with SumUp.
+        reg = EventRegistration.objects.create(
+            event=event, user=user, status="cancelled", payment_confirmed=False
+        )
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-588-ce863b",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="9ff8fb20-77a8-4ee7-b103-b9de4f177152",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=user,
+            event_registration=reg,
+            event=event,
+        )
+        credit = CrushCredit.objects.create(
+            user=user,
+            # €20.00 against a €15.50 seat: the organiser-cancellation premium.
+            # The gap is what makes the partial-refund guard load-bearing here.
+            amount_cents=2000,
+            reason=CrushCredit.Reason.EVENT_CANCELLED,
+            source_registration=reg,
+            source_payment=tx,
+            cash_refund_eligible=True,
+            status=CrushCredit.Status.ACTIVE,
+        )
+        return tx, credit
+
+    # -- Defect 1: the refunded total is spelled ``refunded_amount`` here -----
+
+    def test_history_payment_row_reports_refund_via_refunded_amount(self):
+        self.assertTrue(history_row_shows_refund(self.PAYMENT_ROW))
+
+    def test_detects_refund_from_payment_row_alone(self):
+        """The PAYMENT row carries the refunded total; no REFUND row needed."""
+        history_map = {"TAAA4QQ7M99": self.PAYMENT_ROW}
+        self.assertTrue(
+            is_checkout_refunded(self.CHECKOUT_PAYLOAD, history_map=history_map)
+        )
+
+    def test_refund_of_full_capture_is_not_read_as_partial(self):
+        """15.50 of 15.50 is full — a partial reading would skip the row.
+
+        ``refunded_amount`` returning 0 off the unread key made every
+        externally refunded payment look like a zero-amount refund, and the
+        credit's €20 face value is not the yardstick — the €15.50 capture is.
+        """
+        history_map = {"TAAA4QQ7M99": self.PAYMENT_ROW}
+        self.assertEqual(
+            refunded_amount(self.CHECKOUT_PAYLOAD, history_map=history_map),
+            Decimal("15.5"),
+        )
+
+    # -- Defect 2: last-write-wins evicted the REFUND row --------------------
+
+    def test_index_history_keeps_refund_signal_whatever_the_arrival_order(self):
+        """The invariant is that the indexed row SHOWS a refund.
+
+        Not that it is the ``REFUND`` row specifically: once the
+        ``refunded_amount`` spelling is read, the PAYMENT row carries the
+        refunded total too and is an equally good answer — a better one for
+        ``refunded_amount()``, which reads the total straight off it.
+        """
+        for order in ([self.REFUND_ROW, self.PAYMENT_ROW],
+                      [self.PAYMENT_ROW, self.REFUND_ROW]):
+            with self.subTest(first=order[0]["type"]):
+                history_map = index_history({}, order)
+                self.assertTrue(history_row_shows_refund(history_map["TAAA4QQ7M99"]))
+
+    def test_index_history_never_lets_a_plain_payment_row_evict_the_refund(self):
+        """The eviction that actually hid this refund.
+
+        A payment row with no refund signal must lose to the REFUND row beside
+        it in BOTH directions. Under the old last-write-wins index, the pair
+        arriving as ``[REFUND, payment]`` left the payment row in the map and
+        the refund was gone.
+        """
+        stale = {k: v for k, v in self.PAYMENT_ROW.items() if k != "refunded_amount"}
+        for order in ([self.REFUND_ROW, stale], [stale, self.REFUND_ROW]):
+            with self.subTest(first=order[0]["type"]):
+                history_map = index_history({}, order)
+                self.assertEqual(history_map["TAAA4QQ7M99"]["type"], "REFUND")
+
+    def test_index_history_survives_junk_rows(self):
+        history_map = index_history({}, [None, "nope", {}, {"status": "REFUNDED"}])
+        self.assertEqual(history_map, {})
+
+    # -- Defect 3: a stale prefetch row suppressed the per-code lookup -------
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_stale_prefetch_row_does_not_suppress_per_code_lookup(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """The prefetch knows the code but not the refund; look again anyway.
+
+        The prefetch covers the account's most recent 100 transactions. A
+        refund taken today against a three-week-old payment falls outside that
+        window while the payment's own row sits inside it — so the code IS
+        present, carries no refund signal, and the old ``code not in
+        history_map`` guard skipped the targeted lookup that would have found
+        the refund.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+
+        stale_payment_row = dict(self.PAYMENT_ROW)
+        stale_payment_row.pop("refunded_amount")
+
+        def history(**kwargs):
+            if kwargs.get("transaction_code") == "TAAA4QQ7M99":
+                return {"items": [self.REFUND_ROW, stale_payment_row]}
+            return {"items": [stale_payment_row]}
+
+        mock_get_history.side_effect = history
+
+        call_command(
+            "reconcile_sumup_payments",
+            reference="CRUSH-EVT-588-ce863b",
+            quiet=True,
+        )
+
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_dry_run_reports_the_refund_without_writing(
+        self, mock_get_checkout, mock_get_history
+    ):
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        mock_get_history.return_value = {
+            "items": [self.REFUND_ROW, self.PAYMENT_ROW]
+        }
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments",
+            reference="CRUSH-EVT-588-ce863b",
+            dry_run=True,
+            stdout=out,
+        )
+
+        self.assertIn("External refund detected", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_history_lookup_failure_does_not_report_still_paid_silently(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """A provider error must reach the log, not vanish into a bare pass."""
+        self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        mock_get_history.side_effect = SumUpError("history unavailable")
+
+        with self.assertLogs(
+            "crush_lu.management.commands.reconcile_sumup_payments", level="WARNING"
+        ) as logs:
+            call_command(
+                "reconcile_sumup_payments",
+                reference="CRUSH-EVT-588-ce863b",
+                quiet=True,
+            )
+
+        self.assertTrue(
+            any("TAAA4QQ7M99" in line for line in logs.output),
+            logs.output,
+        )
+
+
+class HistoryOrderNormalisationTests(TestCase):
+    """``order=desc`` is not a value SumUp's history endpoint understands.
+
+    It does not reject the request either — it silently sorts ASCENDING, so a
+    caller asking for the newest 100 transactions received the oldest 100 the
+    merchant ever took. Any refund made recently was outside the prefetch by
+    construction.
+    """
+
+    def test_short_forms_map_to_the_spelled_out_values(self):
+        self.assertEqual(_normalise_history_order("desc"), "descending")
+        self.assertEqual(_normalise_history_order("DESC"), "descending")
+        self.assertEqual(_normalise_history_order("asc"), "ascending")
+        self.assertEqual(_normalise_history_order("ascending"), "ascending")
+
+    def test_unknown_and_empty_fall_back_to_descending(self):
+        self.assertEqual(_normalise_history_order(""), "descending")
+        self.assertEqual(_normalise_history_order(None), "descending")
+        self.assertEqual(_normalise_history_order("sideways"), "descending")
+
+    @patch("crush_lu.services.sumup.requests.get")
+    def test_client_sends_the_spelling_sumup_honours(self, mock_get):
+        mock_get.return_value = MagicMock(
+            raise_for_status=MagicMock(), json=MagicMock(return_value={"items": []})
+        )
+        SumUpClient(api_key="sup_sk_test", merchant_code="TESTLU")
+        SumUpClient(api_key="sup_sk_test").get_transactions_history(
+            limit=100, order="desc"
+        )
+        self.assertEqual(mock_get.call_args.kwargs["params"]["order"], "descending")

@@ -68,6 +68,30 @@ def extract_successful_transaction_id(checkout_data: Dict[str, Any]) -> Optional
     return candidates[-1]["id"]
 
 
+# SumUp's transaction-history endpoint spells the sort order out in full.
+# ``order=desc`` is not a value it recognises — and it does not reject the
+# request either, it silently sorts ASCENDING and returns the OLDEST rows on
+# the account. A caller asking for the newest 100 transactions to look for a
+# recent refund got the first 100 the merchant ever took, which is how an
+# external refund stayed invisible to the reconciliation sweep.
+_HISTORY_ORDERS = {
+    "desc": "descending",
+    "descending": "descending",
+    "asc": "ascending",
+    "ascending": "ascending",
+}
+
+
+def _normalise_history_order(order: Optional[str]) -> str:
+    """Map a caller's sort order onto the spelling SumUp actually honours.
+
+    Unknown values fall back to ``descending`` rather than being passed
+    through: the endpoint's own default is ascending, and every caller here
+    wants the most recent transactions.
+    """
+    return _HISTORY_ORDERS.get((order or "").strip().lower(), "descending")
+
+
 class SumUpClient:
     """
     Wrapper for SumUp Online Payments REST API.
@@ -232,7 +256,7 @@ class SumUpClient:
     def get_transactions_history(
         self,
         limit: int = 100,
-        order: str = "desc",
+        order: str = "descending",
         oldest_ref: Optional[str] = None,
         statuses: Optional[list] = None,
         transaction_code: Optional[str] = None,
@@ -247,7 +271,7 @@ class SumUpClient:
         url = f"{self.BASE_URL}/v0.1/me/transactions/history"
         params: Dict[str, Any] = {
             "limit": min(max(1, limit), 100),
-            "order": order,
+            "order": _normalise_history_order(order),
         }
         if oldest_ref:
             params["oldest_ref"] = oldest_ref
