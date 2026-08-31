@@ -1048,6 +1048,120 @@ class ExternalDashboardRefundRegressionTests(TestCase):
                     Decimal("15.5"),
                 )
 
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_bare_refund_row_in_prefetch_does_not_suppress_the_lookup(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """A refund row without a total still leaves the AMOUNT unestablished.
+
+        The prefetch covers the account's newest 100 transactions, so for an
+        older capture refunded in several goes it can hold the recent REFUND
+        rows while the PAYMENT row carrying the cumulative ``refunded_amount``
+        sits outside the window. Gating the targeted lookup on "does anything
+        show a refund" skipped it exactly there, and the guard then sized a
+        FULL refund off one partial and parked the payment unreconciled.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+
+        one_partial = dict(self.REFUND_ROW, amount=5.0)
+        cumulative = dict(self.PAYMENT_ROW, refunded_amount=15.5)
+
+        def history(**kwargs):
+            if kwargs.get("transaction_code") == "TAAA4QQ7M99":
+                return {"items": [cumulative, one_partial]}
+            # Prefetch: only the newest refund row is inside the window.
+            return {"items": [one_partial]}
+
+        mock_get_history.side_effect = history
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments", reference="CRUSH-EVT-588-ce863b", stdout=out
+        )
+
+        self.assertNotIn("PARTIAL", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_individual_refunds_are_summed_when_no_cumulative_row_exists(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """Belt and braces: three partials adding to the capture are FULL.
+
+        If SumUp answers the per-code lookup with refund rows but none stating
+        a cumulative total, the individual amounts are added up rather than the
+        largest single one being taken for the whole.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        partials = [
+            dict(self.REFUND_ROW, amount=5.0, id="r1"),
+            dict(self.REFUND_ROW, amount=5.0, id="r2"),
+            dict(self.REFUND_ROW, amount=5.5, id="r3"),
+        ]
+        mock_get_history.return_value = {"items": partials}
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments", reference="CRUSH-EVT-588-ce863b", stdout=out
+        )
+
+        self.assertNotIn("PARTIAL", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_a_genuine_partial_refund_is_still_refused(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """The guard must not be blunted by any of the above.
+
+        Summing and the rank preference exist to stop a FULL refund reading as
+        partial. A refund that really is partial must still be left alone —
+        reconciling it would unbook a still-mostly-paid seat and void the
+        member's credit over a goodwill adjustment.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = self.CHECKOUT_PAYLOAD
+        mock_get_history.return_value = {
+            "items": [dict(self.REFUND_ROW, amount=5.0)]
+        }
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments", reference="CRUSH-EVT-588-ce863b", stdout=out
+        )
+
+        self.assertIn("PARTIAL", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
     def test_refund_rank_orders_the_three_kinds_of_row(self):
         bare_payment = {k: v for k, v in self.PAYMENT_ROW.items()
                         if k != "refunded_amount"}

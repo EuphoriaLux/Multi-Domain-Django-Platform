@@ -395,59 +395,98 @@ class Command(BaseCommand):
 
             history_lookup_failed = False
             try:
+                code = remote_data.get("transaction_code")
+                if not code:
+                    tx_list = remote_data.get("transactions") or []
+                    for t in tx_list:
+                        if isinstance(t, dict) and t.get("transaction_code"):
+                            code = t.get("transaction_code")
+                            break
+
+                # Gather the evidence BEFORE classifying, and ask SumUp about
+                # this transaction unless the prefetch already holds a row
+                # stating a CUMULATIVE refunded total for it.
+                #
+                # Three gates have stood here, each too weak in its own way,
+                # and each hid money:
+                #
+                #   ``code not in history_map`` — the prefetch covers the
+                #   account's most recent 100 transactions, so a refund taken
+                #   today against an older payment falls outside it while the
+                #   payment's own PAYMENT row sits inside. The stale row was
+                #   present, so the one lookup that would have found the refund
+                #   never ran and the sweep reported "still PAID".
+                #
+                #   ``not history_row_shows_refund(...)`` — a bare REFUND row
+                #   then suppressed the lookup instead. That row states only
+                #   its OWN amount, so a capture refunded in several goes reads
+                #   as one small partial, and the guard below parks a fully
+                #   refunded payment as "needs manual review" while quoting a
+                #   figure that is not what was refunded.
+                #
+                # Only a rank-2 row (an explicit cumulative total) can answer
+                # "how much in total", so anything less is worth the call. In
+                # practice that is the same set of rows as the previous gate
+                # plus refund-bearing ones, which are rare.
+                #
+                # This also had to move OUT of ``if not refunded`` — a
+                # refund-bearing row short-circuits detection to True, which is
+                # exactly when the amount still needs establishing.
+                if code and _history_refund_rank(history_map.get(code)) < 2:
+                    # ``--batch-delay`` promises a pause "between SumUp API
+                    # requests", and this is the SECOND request for this row.
+                    # Without a sleep here the ordinary unrefunded case — now
+                    # the common path — fires two back-to-back calls that no
+                    # value of the setting can throttle, which is how a long
+                    # sweep earns a rate limit and reconciles only part of its
+                    # window.
+                    if delay > 0:
+                        time.sleep(delay)
+                    try:
+                        code_data = client.get_transactions_history(
+                            limit=10, transaction_code=code
+                        )
+                        index_history(history_map, code_data.get("items"))
+
+                        # Belt and braces: if SumUp answers with refund rows
+                        # but none carrying a cumulative total, add the
+                        # individual refunds up. Only reachable when no rank-2
+                        # row exists, so a cumulative figure and the refunds
+                        # composing it can never be counted twice.
+                        if _history_refund_rank(history_map.get(code)) < 2:
+                            summed = sum(
+                                (
+                                    _to_decimal(item.get("amount"))
+                                    for item in (code_data.get("items") or [])
+                                    if isinstance(item, dict)
+                                    and item.get("transaction_code") == code
+                                    and (item.get("type") or "").upper() == "REFUND"
+                                ),
+                                Decimal("0"),
+                            )
+                            if summed > 0:
+                                history_map[code] = dict(
+                                    history_map.get(code)
+                                    or {"transaction_code": code},
+                                    refunded_amount=str(summed),
+                                )
+                    except Exception as exc:
+                        # Was a bare ``pass``. Logging it is not enough on its
+                        # own: the row still fell through to the "still PAID"
+                        # line below, and the console handler only emits ERROR
+                        # in production, so the operator saw a clean tick for a
+                        # check that never ran. The flag makes it an error and
+                        # skips that line.
+                        history_lookup_failed = True
+                        logger.warning(
+                            "Could not look up SumUp history for "
+                            "transaction_code %s (checkout %s): %s",
+                            code,
+                            tx_obj.sumup_checkout_id,
+                            exc,
+                        )
+
                 refunded = is_checkout_refunded(remote_data, history_map=history_map)
-                if not refunded:
-                    # If not found in prefetched history_map, attempt fallback lookup by transaction_code
-                    code = remote_data.get("transaction_code")
-                    if not code:
-                        tx_list = remote_data.get("transactions") or []
-                        for t in tx_list:
-                            if isinstance(t, dict) and t.get("transaction_code"):
-                                code = t.get("transaction_code")
-                                break
-                    # Ask SumUp about THIS transaction whenever the prefetch
-                    # holds nothing that shows a refund — not merely when the
-                    # code is absent from it. The prefetch covers the most
-                    # recent 100 transactions on the whole account, so a refund
-                    # taken today against an older payment falls outside that
-                    # window while the payment's own PAYMENT row sits inside
-                    # it; guarding on ``code not in history_map`` let that
-                    # stale row suppress the one lookup that would have found
-                    # the refund. Costs one extra call per unrefunded row,
-                    # which is the price of not silently missing money.
-                    if code and not history_row_shows_refund(history_map.get(code)):
-                        # ``--batch-delay`` promises a pause "between SumUp API
-                        # requests", and this is the SECOND request for this
-                        # row. Without a sleep here the ordinary unrefunded
-                        # case — now the common path — fires two back-to-back
-                        # calls that no value of the setting can throttle,
-                        # which is how a long sweep earns a rate limit and
-                        # reconciles only part of its window.
-                        if delay > 0:
-                            time.sleep(delay)
-                        try:
-                            code_data = client.get_transactions_history(
-                                limit=10, transaction_code=code
-                            )
-                            index_history(history_map, code_data.get("items"))
-                            refunded = is_checkout_refunded(
-                                remote_data, history_map=history_map
-                            )
-                        except Exception as exc:
-                            # Was a bare ``pass``. Logging it is not enough on
-                            # its own: the row still fell through to the
-                            # "still PAID" line below, and the console handler
-                            # only emits ERROR in production, so the operator
-                            # saw a clean tick for a check that never ran. The
-                            # flag makes it an error and skips that line.
-                            history_lookup_failed = True
-                            logger.warning(
-                                "Could not look up SumUp history for "
-                                "transaction_code %s (checkout %s): %s",
-                                code,
-                                tx_obj.sumup_checkout_id,
-                                exc,
-                            )
             except Exception as exc:  # defensive: never let one payload kill the sweep
                 errors_count += 1
                 logger.exception(
@@ -474,7 +513,8 @@ class Command(BaseCommand):
                     self.style.ERROR(
                         f"Could not verify {tx_obj.transaction_reference} "
                         f"({tx_obj.sumup_checkout_id}): SumUp history "
-                        "unreachable — refund state UNKNOWN, NOT confirmed paid."
+                        "unreachable — refund state and amount UNKNOWN, "
+                        "NOT confirmed paid."
                     )
                 )
                 continue
