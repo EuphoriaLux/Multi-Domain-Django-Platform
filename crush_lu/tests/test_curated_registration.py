@@ -893,3 +893,71 @@ class CuratedGenderPoolSelectionTests(CuratedRegistrationTestBase):
             EventRegistration.objects.filter(event=event, status="applied").count(),
             1,
         )
+
+
+class ConcurrentSelectionTests(CuratedRegistrationTestBase):
+    """Two admins selecting the same application must not grant a free seat.
+
+    The failure this pins: both admins read the row as "applied"; the first
+    moves it to "pending" (payment owed); the second then finds it is no
+    longer in the paid set and — deriving its confirm list from the stale
+    pre-lock selection — confirms it outright. A paid seat, granted for free,
+    through the obvious bulk action.
+    """
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def test_a_row_another_admin_already_moved_is_left_alone(self):
+        """Simulates the other admin committing between our unlocked read and
+        our locked re-read, by flipping the row exactly at that boundary."""
+        from decimal import Decimal
+        from unittest.mock import patch
+
+        from crush_lu.models import EventRegistration
+
+        self.curated.registration_fee = Decimal("15.00")
+        self.curated.save(update_fields=["registration_fee"])
+
+        applicant = self._create_member("raced@example.com")
+        self._register(applicant, self.curated)
+        registration = EventRegistration.objects.get(
+            event=self.curated, user=applicant
+        )
+        self.assertEqual(registration.status, "applied")
+
+        real_select_for_update = EventRegistration.objects.select_for_update
+
+        def _flip_then_lock(*args, **kwargs):
+            # The competing admin's write lands here — after our unlocked read
+            # saw "applied", before our locked re-read runs.
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                status="pending"
+            )
+            return real_select_for_update(*args, **kwargs)
+
+        with patch.object(
+            EventRegistration.objects, "select_for_update", _flip_then_lock
+        ):
+            self._run_confirm_action(
+                EventRegistration.objects.filter(pk=registration.pk)
+            )
+
+        registration.refresh_from_db()
+        # Left as the other admin set it. Confirmed here would mean a paid seat
+        # handed over with payment_confirmed still False.
+        self.assertEqual(registration.status, "pending")
+        self.assertFalse(registration.payment_confirmed)

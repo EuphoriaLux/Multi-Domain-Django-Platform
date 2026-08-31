@@ -2502,10 +2502,10 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # cancelled or waitlisted rows over capacity has always been possible
         # here and organisers may rely on it to deliberately overbook; taking
         # that away is a separate decision.
-        applications = list(
+        prelock_application_ids = set(
             EventRegistration.objects.filter(
                 pk__in=eligible_ids, status="applied"
-            ).select_related("event", "user__crushprofile")
+            ).values_list("pk", flat=True)
         )
 
         # The capacity check and the status updates have to be one atomic,
@@ -2520,6 +2520,24 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # under its own lock. Half a guard here would be worse than none,
         # because it reads as protection.
         with transaction.atomic():
+            # Re-read the selected applications under the lock, not just the
+            # event. Locking the event alone left the rows themselves stale:
+            # two admins selecting the same paid application both materialise
+            # it as "applied" before either writes, and the second — finding it
+            # is no longer "applied" and so no longer in paid_application_ids —
+            # would sweep it into confirm_ids and grant the seat WITHOUT
+            # payment. Anything another admin (or the member, withdrawing) has
+            # already moved out of "applied" is dropped from this run entirely,
+            # so a concurrent decision is never silently overwritten.
+            applications = list(
+                EventRegistration.objects.select_for_update()
+                .filter(pk__in=prelock_application_ids, status="applied")
+                .select_related("event", "user__crushprofile")
+                .order_by("pk")
+            )
+            live_application_ids = {reg.pk for reg in applications}
+            stale_application_ids = prelock_application_ids - live_application_ids
+
             if applications:
                 event_ids_to_lock = sorted({reg.event_id for reg in applications})
                 locked_events = {
@@ -2591,15 +2609,18 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # Inside the same locked transaction as the checks above: releasing
             # the lock before writing would leave exactly the race the lock was
             # taken to close.
-            paid_application_ids = set(
-                EventRegistration.objects.filter(
-                    pk__in=eligible_ids,
-                    status="applied",
-                    event__registration_fee__gt=0,
-                ).values_list("pk", flat=True)
-            )
+            #
+            # Everything is derived from the LOCKED read. Deriving confirm_ids
+            # from the pre-lock eligible_ids is what let a row another admin
+            # had just moved to "pending" fall through to "confirmed".
+            paid_application_ids = {
+                reg.pk for reg in applications if reg.event.registration_fee > 0
+            }
             confirm_ids = [
-                pk for pk in eligible_ids if pk not in paid_application_ids
+                pk
+                for pk in eligible_ids
+                if pk not in paid_application_ids
+                and pk not in stale_application_ids
             ]
 
             updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
@@ -2611,8 +2632,10 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             )
             awaiting_payment = 0
             if paid_application_ids:
+                # status="applied" in the filter as well as the lock: belt and
+                # braces against acting on a row that moved under us.
                 awaiting_payment = EventRegistration.objects.filter(
-                    pk__in=paid_application_ids
+                    pk__in=paid_application_ids, status="applied"
                 ).update(status="pending", cancelled_at=None)
 
         # .update() emits no signals, so the per-registration receiver never
@@ -2654,6 +2677,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )
+        if stale_application_ids:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)s selected application(s) had already been acted on "
+                    "by someone else and were left untouched."
+                )
+                % {"count": len(stale_application_ids)},
+            )
         if awaiting_payment:
             django_messages.info(
                 request,
