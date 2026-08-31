@@ -193,8 +193,14 @@ class Command(BaseCommand):
                 registration__event__date_time__lt=now - timedelta(days=pref_days)
             )
             if apply_changes:
+                # Ordered by the event date, not created_at: expiry is keyed
+                # off the event, and a preference submitted months before a
+                # recent event is younger data than a last-minute registration
+                # for a much older one. Ordering by row age would delete the
+                # former first and leave the oldest special-category data
+                # behind when the budget truncates the sweep.
                 deleted, budget_hit = self._delete_in_chunks(
-                    pref_qs, deadline, order_by="created_at"
+                    pref_qs, deadline, order_by="registration__event__date_time"
                 )
                 total_deleted += deleted
                 self.stdout.write(

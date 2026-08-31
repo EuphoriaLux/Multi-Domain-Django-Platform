@@ -1360,17 +1360,37 @@ def export_user_data(request):
         }
 
     # Event registrations
-    registrations = EventRegistration.objects.filter(user=user).select_related("event")
+    registrations = EventRegistration.objects.filter(user=user).select_related(
+        "event", "preference"
+    )
     if registrations.exists():
-        data["event_registrations"] = [
-            {
+        registration_entries = []
+        for reg in registrations:
+            entry = {
                 "event": reg.event.title,
                 "event_date": reg.event.date_time.isoformat() if reg.event.date_time else None,
                 "status": reg.status,
                 "registered_at": reg.created_at.isoformat() if hasattr(reg, "created_at") and reg.created_at else None,
             }
-            for reg in registrations
-        ]
+            # Speed-dating applications carry a preference snapshot (preferred
+            # genders / age range / languages). It is the member's own answer
+            # and Art. 9-adjacent, so it belongs in an export that promises
+            # "all of your personal data"; nested under its registration
+            # because that is the only context in which it means anything.
+            # Absent for every other event type, and gone from later exports
+            # once the retention sweep prunes the row.
+            pref = getattr(reg, "preference", None)
+            if pref is not None:
+                entry["speed_dating_preferences"] = {
+                    "preferred_genders": pref.preferred_genders,
+                    "preferred_age_min": pref.preferred_age_min,
+                    "preferred_age_max": pref.preferred_age_max,
+                    "languages": pref.languages,
+                    "submitted_at": pref.created_at.isoformat() if pref.created_at else None,
+                    "updated_at": pref.updated_at.isoformat() if pref.updated_at else None,
+                }
+            registration_entries.append(entry)
+        data["event_registrations"] = registration_entries
 
     # Crush Credit
     #

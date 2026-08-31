@@ -821,8 +821,20 @@ class EventPreferenceForm(forms.ModelForm):
     server-side validator, and a crossed range is swapped rather than rejected.
     """
 
+    # "Prefer not to say" describes how someone declines to state their own
+    # gender; it is not a group anyone can ask to be seated with. Leaving the
+    # field empty is the way to say "open to everyone", so 'P' is excluded here
+    # rather than in the template — the template iterates these choices, so a
+    # crafted POST carrying preferred_genders=P is rejected server-side instead
+    # of surfacing to organisers as a target group.
+    TARGET_GENDER_CHOICES = [
+        (code, label)
+        for code, label in CrushProfile.GENDER_CHOICES
+        if code != "P"
+    ]
+
     preferred_genders = forms.MultipleChoiceField(
-        choices=CrushProfile.GENDER_CHOICES,
+        choices=TARGET_GENDER_CHOICES,
         required=False,  # empty = open to all
         widget=forms.CheckboxSelectMultiple,
         label=_("Who would you like to meet?"),
@@ -906,10 +918,16 @@ class EventPreferenceForm(forms.ModelForm):
 
         Connect's 8-code language set is filtered down to the 4-code event
         vocabulary (and to the event's own language restriction when present).
+        Connect and the legacy profile still store 'P' as a targetable gender,
+        so a prefilled 'P' is dropped here too — it is not a choice this form
+        offers, and leaving it in would seed a value the field would reject.
         """
         allowed_codes = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
         if event is not None and event.languages:
             allowed_codes &= set(event.languages)
+        allowed_genders = {
+            code for code, _label in EventPreferenceForm.TARGET_GENDER_CHOICES
+        }
 
         # Query rather than traverse user.crush_connect_membership: the reverse
         # OneToOne cache can be stale within a request that touched it earlier.
@@ -918,7 +936,11 @@ class EventPreferenceForm(forms.ModelForm):
         membership = CrushConnectMembership.objects.filter(user=user).first()
         if membership is not None and membership.onboarded_at is not None:
             return {
-                "preferred_genders": list(membership.preferred_genders or []),
+                "preferred_genders": [
+                    code
+                    for code in (membership.preferred_genders or [])
+                    if code in allowed_genders
+                ],
                 "preferred_age_min": membership.preferred_age_min,
                 "preferred_age_max": membership.preferred_age_max,
                 "languages": [
@@ -929,7 +951,11 @@ class EventPreferenceForm(forms.ModelForm):
             }
         if profile is not None:
             return {
-                "preferred_genders": list(profile.preferred_genders or []),
+                "preferred_genders": [
+                    code
+                    for code in (profile.preferred_genders or [])
+                    if code in allowed_genders
+                ],
                 "preferred_age_min": profile.preferred_age_min,
                 "preferred_age_max": profile.preferred_age_max,
                 "languages": [

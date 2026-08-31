@@ -33,6 +33,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from crush_lu.models import (
         CrushProfile,
         EventRegistration,
+        EventRegistrationPreference,
         EventConnection,
         ConnectionMessage,
         JourneyProgress,
@@ -200,6 +201,29 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             reg.save(update_fields=["user"])
             log.append(f"Moved registration for event '{reg.event}' to keeper")
         else:
+            # The keeper's registration wins, but the duplicate's speed-dating
+            # preference row would go with it (OneToOne CASCADE) and the
+            # organiser would silently lose an answer nobody can re-ask for
+            # once selection is under way. Move it over when the keeper's
+            # registration has none; when both sides answered, the surviving
+            # registration keeps its own answers rather than being overwritten
+            # by an application that is about to disappear.
+            duplicate_pref = EventRegistrationPreference.objects.filter(
+                registration=reg
+            ).first()
+            if duplicate_pref is not None:
+                keeper_reg = EventRegistration.objects.get(
+                    event=reg.event, user=keeper_user
+                )
+                if not EventRegistrationPreference.objects.filter(
+                    registration=keeper_reg
+                ).exists():
+                    duplicate_pref.registration = keeper_reg
+                    duplicate_pref.save(update_fields=["registration"])
+                    log.append(
+                        "Moved speed-dating preferences for event "
+                        f"'{reg.event}' to keeper's registration"
+                    )
             reg.delete()
             log.append(f"Deleted duplicate registration for event '{reg.event}'")
 
