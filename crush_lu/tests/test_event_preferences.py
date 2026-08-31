@@ -406,3 +406,322 @@ class PreferenceRetentionTests(EventPreferenceTestBase):
         self._preference_on_event_days_ago(40, "old@example.com")
         call_command("gdpr_retention_cleanup")
         self.assertEqual(EventRegistrationPreference.objects.count(), 1)
+
+
+class PreferenceAccessibilityMarkupTests(EventPreferenceTestBase):
+    """The gender/language tiles must stay reachable without a mouse.
+
+    `hidden` (display:none) takes the real checkbox out of the tab order and
+    the accessibility tree, so a keyboard or screen-reader user cannot set any
+    preference at all. The codebase idiom (partials/edit_event_identity.html)
+    is `peer sr-only` plus a `peer-focus-visible` ring on the tile.
+    """
+
+    def test_tiles_use_sr_only_not_display_none(self):
+        self._login(self.user)
+        response = self.client.get(self._register_url(self.speed_dating))
+        html = response.content.decode()
+        preference_inputs = [
+            line
+            for line in html.splitlines()
+            if 'name="preferred_genders"' in line or 'name="languages"' in line
+        ]
+        self.assertTrue(preference_inputs, "preference tiles did not render")
+        for line in preference_inputs:
+            self.assertIn("peer sr-only", line)
+            self.assertNotIn("peer hidden", line)
+
+    def test_tiles_expose_a_focus_ring(self):
+        self._login(self.user)
+        response = self.client.get(self._register_url(self.speed_dating))
+        self.assertContains(response, "peer-focus-visible:ring-2")
+
+    def test_age_inputs_carry_labels_bound_to_their_ids(self):
+        """The shared form_field partial links label -> input by id.
+
+        Pinned because these fields previously hand-rolled the label/error
+        markup; a regression back to a fork would drop the `for` binding that
+        the partial guarantees.
+        """
+        self._login(self.user)
+        response = self.client.get(self._register_url(self.speed_dating))
+        html = response.content.decode()
+        for field_id in ("id_preferred_age_min", "id_preferred_age_max"):
+            self.assertIn(f'for="{field_id}"', html)
+            self.assertIn(f'id="{field_id}"', html)
+
+
+class PreferredGenderChoiceTests(EventPreferenceTestBase):
+    """'P' (prefer not to say) is not a group anyone can ask to be seated with.
+
+    The template never offered it; the form must reject it too, or a crafted
+    POST lands a value organisers would read as a target group.
+    """
+
+    def test_prefer_not_to_say_is_not_offered(self):
+        from crush_lu.forms import EventPreferenceForm
+
+        codes = [
+            code
+            for code, _label in EventPreferenceForm(event=self.speed_dating)
+            .fields["preferred_genders"]
+            .choices
+        ]
+        self.assertNotIn("P", codes)
+        self.assertEqual(sorted(codes), ["F", "M", "NB", "O"])
+
+    def test_crafted_post_with_prefer_not_to_say_is_rejected(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        self._login(self.user)
+        response = self.client.post(
+            self._register_url(self.speed_dating),
+            {
+                "preferred_genders": ["P"],
+                "preferred_age_min": "25",
+                "preferred_age_max": "35",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            EventRegistration.objects.filter(
+                event=self.speed_dating, user=self.user
+            ).exists()
+        )
+        self.assertEqual(EventRegistrationPreference.objects.count(), 0)
+
+    def test_prefer_not_to_say_is_dropped_from_the_prefill(self):
+        from crush_lu.forms import EventPreferenceForm
+        from crush_lu.models import CrushConnectMembership
+
+        CrushConnectMembership.objects.create(
+            user=self.user,
+            onboarded_at=timezone.now(),
+            preferred_genders=["F", "P"],
+            preferred_age_min=28,
+            preferred_age_max=38,
+            languages=["fr"],
+        )
+        initial = EventPreferenceForm.initial_for(
+            self.user, self.user.crushprofile, self.speed_dating
+        )
+        self.assertEqual(initial["preferred_genders"], ["F"])
+
+
+class PreferenceExportTests(EventPreferenceTestBase):
+    """GDPR Art. 20 export promises "all of your personal data"."""
+
+    def _export(self, user):
+        """Called directly, not over HTTP.
+
+        ``export_user_data`` is routed by crush_lu/urls.py, which the crush.lu
+        urlconf this suite exercises does not mount; the member-flow suite
+        exports through a RequestFactory for the same reason.
+        """
+        import json
+
+        from django.test import RequestFactory
+
+        from crush_lu.views_account import export_user_data
+
+        request = RequestFactory().get("/")
+        request.user = user
+        return json.loads(export_user_data(request).content)
+
+    def test_export_includes_the_preference_snapshot(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        registration = EventRegistration.objects.create(
+            event=self.speed_dating, user=self.user, status="confirmed"
+        )
+        EventRegistrationPreference.objects.create(
+            registration=registration,
+            preferred_genders=["F", "NB"],
+            preferred_age_min=27,
+            preferred_age_max=38,
+            languages=["fr"],
+        )
+        exported = self._export(self.user)
+
+        entry = exported["event_registrations"][0]
+        self.assertEqual(entry["event"], self.speed_dating.title)
+        prefs = entry["speed_dating_preferences"]
+        self.assertEqual(prefs["preferred_genders"], ["F", "NB"])
+        self.assertEqual(prefs["preferred_age_min"], 27)
+        self.assertEqual(prefs["preferred_age_max"], 38)
+        self.assertEqual(prefs["languages"], ["fr"])
+        self.assertIsNotNone(prefs["submitted_at"])
+
+    def test_registration_without_preferences_exports_no_preference_key(self):
+        from crush_lu.models import EventRegistration
+
+        EventRegistration.objects.create(
+            event=self.mixer, user=self.user, status="confirmed"
+        )
+        exported = self._export(self.user)
+
+        entry = exported["event_registrations"][0]
+        self.assertNotIn("speed_dating_preferences", entry)
+
+
+class PreferenceAccountMergeTests(EventPreferenceTestBase):
+    """A merge must not silently drop an applicant's answers.
+
+    When both accounts hold a registration for the same event the duplicate's
+    row is deleted, and the OneToOne CASCADE would take its preference with it.
+    """
+
+    def _merge(self, keeper, duplicate):
+        from crush_lu.services.account_merge import merge_accounts
+
+        return merge_accounts(keeper_user=keeper, duplicate_user=duplicate)
+
+    def test_preference_moves_to_the_keeper_when_it_has_none(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        duplicate = self._create_member("dupe@example.com")
+        keeper_reg = EventRegistration.objects.create(
+            event=self.speed_dating, user=self.user, status="confirmed"
+        )
+        duplicate_reg = EventRegistration.objects.create(
+            event=self.speed_dating, user=duplicate, status="confirmed"
+        )
+        pref = EventRegistrationPreference.objects.create(
+            registration=duplicate_reg,
+            preferred_genders=["F"],
+            preferred_age_min=30,
+            preferred_age_max=40,
+            languages=["fr"],
+        )
+
+        self._merge(self.user, duplicate)
+
+        pref.refresh_from_db()
+        self.assertEqual(pref.registration_id, keeper_reg.pk)
+        self.assertEqual(pref.preferred_genders, ["F"])
+        self.assertFalse(
+            EventRegistration.objects.filter(pk=duplicate_reg.pk).exists()
+        )
+
+    def test_keeper_keeps_its_own_preference_when_both_answered(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        duplicate = self._create_member("dupe2@example.com")
+        keeper_reg = EventRegistration.objects.create(
+            event=self.speed_dating, user=self.user, status="confirmed"
+        )
+        duplicate_reg = EventRegistration.objects.create(
+            event=self.speed_dating, user=duplicate, status="confirmed"
+        )
+        EventRegistrationPreference.objects.create(
+            registration=keeper_reg, preferred_genders=["M"]
+        )
+        EventRegistrationPreference.objects.create(
+            registration=duplicate_reg, preferred_genders=["F"]
+        )
+
+        self._merge(self.user, duplicate)
+
+        self.assertEqual(EventRegistrationPreference.objects.count(), 1)
+        surviving = EventRegistrationPreference.objects.get()
+        self.assertEqual(surviving.registration_id, keeper_reg.pk)
+        self.assertEqual(surviving.preferred_genders, ["M"])
+
+    def test_moved_registration_carries_its_preference(self):
+        """No keeper registration for the event: the row moves, preference and all."""
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        duplicate = self._create_member("dupe3@example.com")
+        duplicate_reg = EventRegistration.objects.create(
+            event=self.speed_dating, user=duplicate, status="confirmed"
+        )
+        pref = EventRegistrationPreference.objects.create(
+            registration=duplicate_reg, preferred_genders=["NB"]
+        )
+
+        self._merge(self.user, duplicate)
+
+        duplicate_reg.refresh_from_db()
+        pref.refresh_from_db()
+        self.assertEqual(duplicate_reg.user_id, self.user.pk)
+        self.assertEqual(pref.registration_id, duplicate_reg.pk)
+
+
+class PreferenceRetentionOrderingTests(EventPreferenceTestBase):
+    """A budget-truncated sweep must delete the oldest *event* first.
+
+    Expiry is keyed off the event date, so ordering the batch by the row's own
+    created_at can leave the oldest special-category data behind: a preference
+    submitted months ahead of a recent event is a younger event than a
+    last-minute registration for a much older one.
+    """
+
+    def _preference(self, event_days_ago, created_at, username):
+        from crush_lu.models import (
+            EventRegistration,
+            EventRegistrationPreference,
+            MeetupEvent,
+        )
+
+        event = MeetupEvent.objects.create(
+            title=f"Past speed dating {username}",
+            description="Ordering fixture",
+            event_type="speed_dating",
+            date_time=timezone.now() - timedelta(days=event_days_ago),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=10,
+            registration_deadline=timezone.now() - timedelta(days=event_days_ago + 2),
+            is_published=True,
+            profile_requirement="none",
+        )
+        registration = EventRegistration.objects.create(
+            event=event, user=self._create_member(username), status="attended"
+        )
+        pref = EventRegistrationPreference.objects.create(
+            registration=registration, preferred_genders=["F"]
+        )
+        # auto_now_add ignores an assigned value; rewrite it after the fact.
+        EventRegistrationPreference.objects.filter(pk=pref.pk).update(
+            created_at=created_at
+        )
+        return pref
+
+    def test_oldest_event_is_deleted_first_when_the_budget_runs_out(self):
+        import time
+
+        from crush_lu.management.commands.gdpr_retention_cleanup import Command
+        from crush_lu.models import EventRegistrationPreference
+
+        now = timezone.now()
+        # Registered long ago for a recent-ish event: the youngest data, but
+        # the oldest row.
+        early_bird = self._preference(
+            event_days_ago=31, created_at=now - timedelta(days=200),
+            username="early@example.com",
+        )
+        # Registered yesterday for a much older event: the oldest data.
+        latecomer = self._preference(
+            event_days_ago=400, created_at=now - timedelta(days=1),
+            username="late@example.com",
+        )
+
+        command = Command()
+        expired = EventRegistrationPreference.objects.filter(
+            registration__event__date_time__lt=now - timedelta(days=30)
+        )
+        deleted, budget_hit = command._delete_in_chunks(
+            expired,
+            deadline=time.monotonic() - 1,  # budget already spent
+            order_by="registration__event__date_time",
+            chunk_size=1,
+        )
+
+        self.assertEqual(deleted, 1)
+        self.assertTrue(budget_hit)
+        self.assertFalse(
+            EventRegistrationPreference.objects.filter(pk=latecomer.pk).exists()
+        )
+        self.assertTrue(
+            EventRegistrationPreference.objects.filter(pk=early_bird.pk).exists()
+        )
