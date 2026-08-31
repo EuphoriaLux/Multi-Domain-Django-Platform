@@ -1053,3 +1053,72 @@ class ReturningPaidApplicantTests(CuratedRegistrationTestBase):
         registration.refresh_from_db()
         self.assertEqual(registration.status, "pending")
         self.assertFalse(registration.payment_confirmed)
+
+
+class ReservedSeatBannerTests(CuratedRegistrationTestBase):
+    """Premium buys priority past the reserved block, not a place in a group
+    the organiser composes by hand.
+
+    ``event_full_for_user`` is False on a curated event by design — an
+    application is never refused for capacity — so the reserved-seat banner
+    would fire as soon as the organiser confirmed enough people to fill the
+    public block, promising "A seat is reserved for you" to someone whose
+    submit only creates an ``applied`` row the organiser may still turn down.
+    """
+
+    def _make_premium(self, user):
+        from crush_lu.models import CrushCoach, CrushProfile, PremiumMembership
+
+        coach_user = User.objects.create_user(
+            username=f"coach_{user.username}",
+            email=f"coach_{user.username}",
+            password="testpass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        # Both halves, as PremiumMembership.confirm() writes them.
+        CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        PremiumMembership.objects.create(
+            user=user, coach=coach, status="active", payment_confirmed=True
+        )
+
+    def _fill_the_public_block(self, event):
+        """One confirmed seat against a public capacity of one."""
+        from crush_lu.models import EventRegistration
+
+        event.max_participants = 2
+        event.reserved_premium_seats = 1
+        event.save(update_fields=["max_participants", "reserved_premium_seats"])
+        EventRegistration.objects.create(
+            event=event,
+            user=self._create_member(f"seated{event.pk}@example.com", gender="F"),
+            status="confirmed",
+        )
+
+    def _premium_viewer(self, username):
+        viewer = self._create_member(username)
+        self._make_premium(viewer)
+        self._login(viewer)
+        return viewer
+
+    def test_no_reserved_seat_promise_on_a_curated_event(self):
+        self._fill_the_public_block(self.curated)
+        self._premium_viewer("premcurated@example.com")
+
+        response = self.client.get(f"/en/events/{self.curated.id}/")
+
+        # The precondition the banner keys off is genuinely met...
+        self.assertTrue(self.curated.is_full_for(is_premium=False))
+        self.assertFalse(response.context["event_full_for_user"])
+        # ...and the banner is still suppressed.
+        self.assertFalse(response.context["premium_reserved_seat_available"])
+        self.assertNotContains(response, "A seat is reserved for you")
+
+    def test_a_direct_event_still_promises_the_reserved_seat(self):
+        """The suppression must be scoped to curated mode and nothing else."""
+        self._fill_the_public_block(self.direct)
+        self._premium_viewer("premdirect@example.com")
+
+        response = self.client.get(f"/en/events/{self.direct.id}/")
+
+        self.assertTrue(response.context["premium_reserved_seat_available"])
+        self.assertContains(response, "A seat is reserved for you")

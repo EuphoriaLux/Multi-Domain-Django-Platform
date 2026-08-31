@@ -981,8 +981,17 @@ def event_detail(request, event_id):
     #
     # `is_full_for` here costs no query and cannot disagree with the CTA above:
     # registration_capacity() memoised the count it used, and this reads it.
+    #
+    # Never on a curated event. `event_full_for_user` is False there by
+    # design — an application is never refused for capacity — so this would
+    # fire the moment the organiser has confirmed enough people to fill the
+    # public block, and promise "A seat is reserved for you" to someone whose
+    # submit creates an `applied` row the organiser may still turn down.
+    # Premium buys priority past the reserved-seat block; it does not buy a
+    # place in a group the organiser composes by hand.
     premium_reserved_seat_available = (
         user_is_premium
+        and not event.uses_curated_registration
         and event.is_full_for(is_premium=False)
         and not event_full_for_user
     )
@@ -1541,7 +1550,9 @@ def event_register(request, event_id):
                         else:
                             messages.info(
                                 request,
-                                _("Event is full. You have been added to the waitlist."),
+                                _(
+                                    "Event is full. You have been added to the waitlist."
+                                ),
                             )
                     else:
                         # A paid event's seat is held, not confirmed, until the money
@@ -1549,7 +1560,9 @@ def event_register(request, event_id):
                         # "pending" still counts toward capacity and still yields a
                         # door ticket (see SEAT_HOLDING_STATUSES); it only changes
                         # what the status *claims*. Free events are unaffected.
-                        registration.status = _admitted_status(locked_event, registration)
+                        registration.status = _admitted_status(
+                            locked_event, registration
+                        )
                         if registration.status == "pending":
                             messages.success(
                                 request,
