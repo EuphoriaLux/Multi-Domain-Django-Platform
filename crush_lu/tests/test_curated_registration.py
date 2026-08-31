@@ -647,3 +647,117 @@ class CuratedAdminSelectionTests(CuratedRegistrationTestBase):
 
         registration.refresh_from_db()
         self.assertEqual(registration.status, "confirmed")
+
+
+class CuratedOverbookingTests(CuratedRegistrationTestBase):
+    """The applicant pool is meant to outnumber the seats, which makes
+    over-selecting an ordinary slip rather than an edge case."""
+
+    def _applications(self, count):
+        from crush_lu.models import EventRegistration
+
+        for i in range(count):
+            self._register(self._create_member(f"over{i}@example.com"), self.curated)
+        return EventRegistration.objects.filter(event=self.curated, status="applied")
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def test_selecting_more_applications_than_places_changes_nothing(self):
+        from crush_lu.models import EventRegistration
+
+        # max_participants is 2.
+        applications = self._applications(3)
+        self._run_confirm_action(applications)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=self.curated, status="applied"
+            ).count(),
+            3,
+        )
+        self.assertEqual(self.curated.get_confirmed_count(), 0)
+
+    def test_selecting_exactly_the_remaining_places_succeeds(self):
+        from crush_lu.models import EventRegistration
+
+        applications = self._applications(2)
+        self._run_confirm_action(applications)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=self.curated, status="confirmed"
+            ).count(),
+            2,
+        )
+
+    def test_capacity_already_taken_is_counted(self):
+        """Remaining places, not total places — a second selection round must
+        not re-spend seats the first one already awarded."""
+        from crush_lu.models import EventRegistration
+
+        seated = self._create_member("seated@example.com")
+        EventRegistration.objects.create(
+            event=self.curated, user=seated, status="confirmed"
+        )
+        applications = self._applications(2)  # only 1 place left
+        self._run_confirm_action(applications)
+
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=self.curated, status="applied"
+            ).count(),
+            2,
+        )
+
+
+class RegistrationModeChangeTests(CuratedRegistrationTestBase):
+    """The two modes are different contracts; an event cannot offer both."""
+
+    def _form(self, event, mode):
+        from crush_lu.admin.events import MeetupEventAdminForm
+
+        return MeetupEventAdminForm(
+            data={"registration_mode": mode}, instance=event
+        )
+
+    def test_mode_change_is_refused_once_someone_has_signed_up(self):
+        self._register(self.user, self.curated)
+
+        form = self._form(self.curated, "direct")
+        self.assertFalse(form.is_valid())
+        self.assertIn("registration_mode", form.errors)
+
+    def test_mode_change_is_allowed_with_no_live_signups(self):
+        """A cancelled sign-up does not lock the event."""
+        from crush_lu.models import EventRegistration
+
+        EventRegistration.objects.create(
+            event=self.curated, user=self.user, status="cancelled"
+        )
+        form = self._form(self.curated, "direct")
+        # Other required fields are absent, so the form as a whole is invalid —
+        # what matters is that registration_mode itself is not the objection.
+        form.is_valid()
+        self.assertNotIn("registration_mode", form.errors)
+
+    def test_saving_without_changing_the_mode_is_never_blocked(self):
+        """Editing any other field on an event with sign-ups must still work."""
+        self._register(self.user, self.curated)
+
+        form = self._form(self.curated, "curated")
+        form.is_valid()
+        self.assertNotIn("registration_mode", form.errors)

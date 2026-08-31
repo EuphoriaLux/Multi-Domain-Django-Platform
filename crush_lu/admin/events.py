@@ -272,6 +272,44 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.is_private_invitation = False
         return instance
 
+    def clean_registration_mode(self):
+        """Refuse to switch modes once people have signed up.
+
+        The two modes are different contracts. Flipping curated -> direct
+        leaves the existing applications sitting at "applied" while everyone
+        who arrives afterwards is admitted or waitlisted on the spot; flipping
+        direct -> curated leaves confirmed seats beside applications that hold
+        none. Either way the same event has told two groups of members
+        different things about what their sign-up means, and no amount of
+        later selection reconciles that.
+
+        Blocking is the conservative half of Codex's suggestion — migrating
+        existing rows is the other, and which way to migrate them (do confirmed
+        seats become applications? do applications become seats?) is a decision
+        with real consequences for people who already signed up, not something
+        to infer from a dropdown change. Cancel the sign-ups, or make a new
+        event.
+        """
+        mode = self.cleaned_data.get("registration_mode")
+        if not self.instance.pk:
+            return mode
+        if mode == self.instance.registration_mode:
+            return mode
+
+        live_signups = (
+            self.instance.eventregistration_set.exclude(status="cancelled").count()
+        )
+        if live_signups:
+            raise forms.ValidationError(
+                _(
+                    "This event already has %(count)s active sign-up(s), and the "
+                    "two registration modes promise them different things. "
+                    "Cancel the existing sign-ups first, or create a new event."
+                )
+                % {"count": live_signups}
+            )
+        return mode
+
     def _post_clean(self):
         """Apply the audience choice BEFORE the model validates itself.
 
@@ -2428,6 +2466,46 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # through this action keeps its current behaviour byte-for-byte: a
         # cancelled or waitlisted row still confirms as it always has, paid or
         # not. Widening that is a separate decision, not this change's to make.
+        # Selecting more applicants than there are places overbooks the event
+        # outright — and on a curated event that is an ordinary slip, not an
+        # edge case, because the applicant pool is *designed* to outnumber the
+        # seats. Refuse the whole action rather than promote an arbitrary
+        # subset: which applicants get in is the organiser's decision, and
+        # silently letting the database's row order make it would be worse
+        # than doing nothing.
+        #
+        # Scoped to applications, like the paid-event rule below. Confirming
+        # cancelled or waitlisted rows over capacity has always been possible
+        # here and organisers may rely on it to deliberately overbook; taking
+        # that away is a separate decision.
+        applications = list(
+            EventRegistration.objects.filter(
+                pk__in=eligible_ids, status="applied"
+            ).select_related("event")
+        )
+        if applications:
+            by_event = {}
+            for reg in applications:
+                by_event.setdefault(reg.event, []).append(reg)
+            for event, regs in by_event.items():
+                remaining = event.spots_remaining
+                if len(regs) > remaining:
+                    django_messages.error(
+                        request,
+                        _(
+                            "“%(title)s” has %(remaining)s place(s) left but "
+                            "%(selected)s application(s) were selected. Nothing "
+                            "was changed — deselect %(excess)s and try again."
+                        )
+                        % {
+                            "title": event.title,
+                            "remaining": remaining,
+                            "selected": len(regs),
+                            "excess": len(regs) - remaining,
+                        },
+                    )
+                    return
+
         paid_application_ids = set(
             EventRegistration.objects.filter(
                 pk__in=eligible_ids, status="applied", event__registration_fee__gt=0
