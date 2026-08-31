@@ -312,9 +312,7 @@ class MeetupEventAdminForm(forms.ModelForm):
             )
             now_curated = self._effective_curated(
                 cleaned_data.get("event_type", self.instance.event_type),
-                cleaned_data.get(
-                    "registration_mode", self.instance.registration_mode
-                ),
+                cleaned_data.get("registration_mode", self.instance.registration_mode),
             )
             if was_curated != now_curated:
                 live_signups = self.instance.eventregistration_set.exclude(
@@ -521,6 +519,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "is_cancelled",
         "get_echo_lu_status",
     )
+
     def get_queryset(self, request):
         """Annotate the changelist with the registration counts it displays.
 
@@ -2502,6 +2501,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # cancelled or waitlisted rows over capacity has always been possible
         # here and organisers may rely on it to deliberately overbook; taking
         # that away is a separate decision.
+
+        # Local import, as everywhere else in this module: views_events pulls
+        # in the payment and wallet stacks at module scope, and admin.events is
+        # imported during app registry population.
+        from crush_lu.views_events import _admitted_status
+
         prelock_application_ids = set(
             EventRegistration.objects.filter(
                 pk__in=eligible_ids, status="applied"
@@ -2524,20 +2529,33 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # event. Locking the event alone left the rows themselves stale:
             # two admins selecting the same paid application both materialise
             # it as "applied" before either writes, and the second — finding it
-            # is no longer "applied" and so no longer in paid_application_ids —
+            # is no longer "applied" and so no longer needs payment —
             # would sweep it into confirm_ids and grant the seat WITHOUT
             # payment. Anything another admin (or the member, withdrawing) has
             # already moved out of "applied" is dropped from this run entirely,
             # so a concurrent decision is never silently overwritten.
+            #
+            # NO select_related() on this query. "user__crushprofile" is a
+            # REVERSE one-to-one, so it joins as a LEFT OUTER JOIN, and
+            # PostgreSQL refuses FOR UPDATE on the nullable side of an outer
+            # join — the whole action would raise NotSupportedError before
+            # updating anyone. _promote_from_waitlist carries the same warning
+            # for the same reason. SQLite ignores select_for_update() entirely,
+            # so the test suite cannot see this; profiles and events are read
+            # separately below. "event" is dropped too: joining it here would
+            # take the event locks in registration order, while the explicit
+            # lock below takes them sorted by pk, and two admins acquiring the
+            # same two events in opposite orders deadlock.
             applications = list(
                 EventRegistration.objects.select_for_update()
                 .filter(pk__in=prelock_application_ids, status="applied")
-                .select_related("event", "user__crushprofile")
                 .order_by("pk")
             )
             live_application_ids = {reg.pk for reg in applications}
             stale_application_ids = prelock_application_ids - live_application_ids
 
+            locked_events = {}
+            profiles_by_user = {}
             if applications:
                 event_ids_to_lock = sorted({reg.event_id for reg in applications})
                 locked_events = {
@@ -2545,6 +2563,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     for event in MeetupEvent.objects.select_for_update()
                     .filter(pk__in=event_ids_to_lock)
                     .order_by("pk")
+                }
+                # Separate query, for the outer-join reason above.
+                profiles_by_user = {
+                    profile.user_id: profile
+                    for profile in CrushProfile.objects.filter(
+                        user_id__in={reg.user_id for reg in applications}
+                    )
                 }
 
                 by_event = {}
@@ -2575,7 +2600,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                         continue
                     selected_per_pool = {}
                     for reg in regs:
-                        profile = getattr(reg.user, "crushprofile", None)
+                        profile = profiles_by_user.get(reg.user_id)
                         gender = getattr(profile, "gender", None)
                         pool = event.get_gender_pool(gender) if gender else None
                         if pool is None:
@@ -2613,14 +2638,22 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # Everything is derived from the LOCKED read. Deriving confirm_ids
             # from the pre-lock eligible_ids is what let a row another admin
             # had just moved to "pending" fall through to "confirmed".
-            paid_application_ids = {
-                reg.pk for reg in applications if reg.event.registration_fee > 0
+            #
+            # _admitted_status, not the fee alone. A member who paid, cancelled
+            # late and then reapplied keeps payment_confirmed on the REUSED
+            # row, and that helper exists precisely so such a row is admitted
+            # as "confirmed" instead of being asked to pay a second time for
+            # money we already hold — the UI would show payment due while
+            # checkout rejected them as already paid.
+            pending_application_ids = {
+                reg.pk
+                for reg in applications
+                if _admitted_status(locked_events[reg.event_id], reg) == "pending"
             }
             confirm_ids = [
                 pk
                 for pk in eligible_ids
-                if pk not in paid_application_ids
-                and pk not in stale_application_ids
+                if pk not in pending_application_ids and pk not in stale_application_ids
             ]
 
             updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
@@ -2631,11 +2664,11 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 cancelled_at=None,
             )
             awaiting_payment = 0
-            if paid_application_ids:
+            if pending_application_ids:
                 # status="applied" in the filter as well as the lock: belt and
                 # braces against acting on a row that moved under us.
                 awaiting_payment = EventRegistration.objects.filter(
-                    pk__in=paid_application_ids, status="applied"
+                    pk__in=pending_application_ids, status="applied"
                 ).update(status="pending", cancelled_at=None)
 
         # .update() emits no signals, so the per-registration receiver never

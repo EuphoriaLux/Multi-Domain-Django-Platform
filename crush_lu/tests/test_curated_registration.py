@@ -144,9 +144,7 @@ class CuratedSignupTests(CuratedRegistrationTestBase):
         response = self._register(self.user, self.curated)
         self.assertEqual(response.status_code, 302)
 
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(registration.status, "applied")
 
     def test_preferences_are_still_collected(self):
@@ -156,9 +154,7 @@ class CuratedSignupTests(CuratedRegistrationTestBase):
         self._register(
             self.user, self.curated, preferred_genders=["F"], languages=["en"]
         )
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         pref = EventRegistrationPreference.objects.get(registration=registration)
         self.assertEqual(pref.preferred_genders, ["F"])
         self.assertEqual(pref.preferred_age_min, 25)
@@ -194,9 +190,7 @@ class CuratedSignupTests(CuratedRegistrationTestBase):
         self.curated.save(update_fields=["registration_fee"])
 
         self._register(self.user, self.curated)
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(registration.status, "applied")
         self.assertFalse(registration.payment_confirmed)
 
@@ -276,9 +270,7 @@ class ApplicantSurfacesTests(CuratedRegistrationTestBase):
         from crush_lu.models.events import SEAT_HOLDING_STATUSES
 
         self._register(self.user, self.curated)
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertNotIn(registration.status, SEAT_HOLDING_STATUSES)
 
     def test_applying_twice_is_refused(self):
@@ -311,9 +303,7 @@ class ApplicantSurfacesTests(CuratedRegistrationTestBase):
         self.curated.registration_fee = Decimal("15.00")
         self.curated.save(update_fields=["registration_fee"])
         self._register(self.user, self.curated)
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(registration.status, "applied")
 
         # A valid payment_method is required, otherwise the view rejects on
@@ -334,9 +324,7 @@ class ApplicantSurfacesTests(CuratedRegistrationTestBase):
         response = self.client.post(f"/en/events/{self.curated.id}/cancel/")
         self.assertIn(response.status_code, (200, 302))
 
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(registration.status, "cancelled")
 
 
@@ -348,9 +336,7 @@ class OrganiserSelectionTests(CuratedRegistrationTestBase):
         from crush_lu.models import EventRegistration
 
         self._register(self.user, self.curated)
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(self.curated.get_confirmed_count(), 0)
 
         registration.status = "confirmed"
@@ -368,9 +354,7 @@ class OrganiserSelectionTests(CuratedRegistrationTestBase):
         self._register(chosen, self.curated)
         self._register(passed_over, self.curated)
 
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=chosen
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=chosen)
         registration.status = "confirmed"
         registration.save(update_fields=["status"])
 
@@ -479,9 +463,7 @@ class CuratedSurfaceConsistencyTests(CuratedRegistrationTestBase):
         """event_ticket gates on SEAT_HOLDING_STATUSES, so the link would 403."""
         self._register(self.user, self.curated)
         response = self.client.get("/en/my-events/")
-        self.assertNotContains(
-            response, f"/events/{self.curated.id}/ticket/"
-        )
+        self.assertNotContains(response, f"/events/{self.curated.id}/ticket/")
 
 
 class CuratedOutlookTests(CuratedRegistrationTestBase):
@@ -534,9 +516,7 @@ class CuratedOutlookTests(CuratedRegistrationTestBase):
         self._fill_to_capacity()
         self._register(self.user, self.curated)
 
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=self.user
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=self.user)
         self.assertEqual(registration.status, "applied")
 
 
@@ -601,9 +581,7 @@ class CuratedAdminSelectionTests(CuratedRegistrationTestBase):
         from crush_lu.models import EventRegistration
 
         registration = self._applied_registration("free@example.com")
-        self._run_confirm_action(
-            EventRegistration.objects.filter(pk=registration.pk)
-        )
+        self._run_confirm_action(EventRegistration.objects.filter(pk=registration.pk))
 
         registration.refresh_from_db()
         self.assertEqual(registration.status, "confirmed")
@@ -619,9 +597,7 @@ class CuratedAdminSelectionTests(CuratedRegistrationTestBase):
         self.curated.save(update_fields=["registration_fee"])
         registration = self._applied_registration("paid@example.com")
 
-        self._run_confirm_action(
-            EventRegistration.objects.filter(pk=registration.pk)
-        )
+        self._run_confirm_action(EventRegistration.objects.filter(pk=registration.pk))
 
         registration.refresh_from_db()
         self.assertEqual(registration.status, "pending")
@@ -641,9 +617,7 @@ class CuratedAdminSelectionTests(CuratedRegistrationTestBase):
             event=self.direct, user=user, status="cancelled"
         )
 
-        self._run_confirm_action(
-            EventRegistration.objects.filter(pk=registration.pk)
-        )
+        self._run_confirm_action(EventRegistration.objects.filter(pk=registration.pk))
 
         registration.refresh_from_db()
         self.assertEqual(registration.status, "confirmed")
@@ -747,13 +721,14 @@ class RegistrationModeChangeTests(CuratedRegistrationTestBase):
         """The objection is a non-field error raised from clean()."""
         form.is_valid()
         return any(
-            "switches what signing up means" in str(e)
-            for e in form.non_field_errors()
+            "switches what signing up means" in str(e) for e in form.non_field_errors()
         )
 
     def test_mode_change_is_refused_once_someone_has_signed_up(self):
         self._register(self.user, self.curated)
-        self.assertTrue(self._blocked(self._form(self.curated, registration_mode="direct")))
+        self.assertTrue(
+            self._blocked(self._form(self.curated, registration_mode="direct"))
+        )
 
     def test_event_type_change_is_refused_too(self):
         """The hole a mode-only guard leaves: the mode stays "curated" and is
@@ -835,13 +810,9 @@ class CuratedGenderPoolSelectionTests(CuratedRegistrationTestBase):
         event = self._pooled_event()
         for i in range(2):
             user = self._create_member(f"male{i}@example.com", gender="M")
-            EventRegistration.objects.create(
-                event=event, user=user, status="applied"
-            )
+            EventRegistration.objects.create(event=event, user=user, status="applied")
 
-        applications = EventRegistration.objects.filter(
-            event=event, status="applied"
-        )
+        applications = EventRegistration.objects.filter(event=event, status="applied")
         self._run_confirm_action(applications)
 
         self.assertEqual(
@@ -856,19 +827,13 @@ class CuratedGenderPoolSelectionTests(CuratedRegistrationTestBase):
         event = self._pooled_event()
         for gender, name in (("M", "poolm"), ("F", "poolf")):
             user = self._create_member(f"{name}@example.com", gender=gender)
-            EventRegistration.objects.create(
-                event=event, user=user, status="applied"
-            )
+            EventRegistration.objects.create(event=event, user=user, status="applied")
 
-        applications = EventRegistration.objects.filter(
-            event=event, status="applied"
-        )
+        applications = EventRegistration.objects.filter(event=event, status="applied")
         self._run_confirm_action(applications)
 
         self.assertEqual(
-            EventRegistration.objects.filter(
-                event=event, status="confirmed"
-            ).count(),
+            EventRegistration.objects.filter(event=event, status="confirmed").count(),
             2,
         )
 
@@ -877,13 +842,9 @@ class CuratedGenderPoolSelectionTests(CuratedRegistrationTestBase):
 
         event = self._pooled_event()
         seated = self._create_member("seatedmale@example.com", gender="M")
-        EventRegistration.objects.create(
-            event=event, user=seated, status="confirmed"
-        )
+        EventRegistration.objects.create(event=event, user=seated, status="confirmed")
         applicant = self._create_member("secondmale@example.com", gender="M")
-        EventRegistration.objects.create(
-            event=event, user=applicant, status="applied"
-        )
+        EventRegistration.objects.create(event=event, user=applicant, status="applied")
 
         self._run_confirm_action(
             EventRegistration.objects.filter(event=event, status="applied")
@@ -934,9 +895,7 @@ class ConcurrentSelectionTests(CuratedRegistrationTestBase):
 
         applicant = self._create_member("raced@example.com")
         self._register(applicant, self.curated)
-        registration = EventRegistration.objects.get(
-            event=self.curated, user=applicant
-        )
+        registration = EventRegistration.objects.get(event=self.curated, user=applicant)
         self.assertEqual(registration.status, "applied")
 
         real_select_for_update = EventRegistration.objects.select_for_update
@@ -959,5 +918,138 @@ class ConcurrentSelectionTests(CuratedRegistrationTestBase):
         registration.refresh_from_db()
         # Left as the other admin set it. Confirmed here would mean a paid seat
         # handed over with payment_confirmed still False.
+        self.assertEqual(registration.status, "pending")
+        self.assertFalse(registration.payment_confirmed)
+
+
+class LockedQueryShapeTests(CuratedRegistrationTestBase):
+    """The locked read must not join the nullable side of an outer join.
+
+    PostgreSQL rejects ``FOR UPDATE`` against the nullable side of a LEFT OUTER
+    JOIN with ``NotSupportedError``, and ``user__crushprofile`` is a *reverse*
+    one-to-one, so ``select_related`` on it produces exactly that join. The
+    action would abort before updating anyone.
+
+    SQLite ignores ``select_for_update()`` altogether, so no ordinary test can
+    see this failure — the assertion is therefore on the SQL the ORM builds
+    rather than on the database's reaction to it. ``_promote_from_waitlist``
+    carries the same warning for the same reason.
+    """
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def test_no_locked_query_selects_across_an_outer_join(self):
+        from unittest.mock import patch
+
+        from django.db.models import QuerySet
+
+        from crush_lu.models import EventRegistration
+
+        applicant = self._create_member("shape@example.com")
+        self._register(applicant, self.curated)
+        registration = EventRegistration.objects.get(event=self.curated, user=applicant)
+        self.assertEqual(registration.status, "applied")
+
+        locked_sql = []
+        real_fetch_all = QuerySet._fetch_all
+
+        def _record(self):
+            if getattr(self.query, "select_for_update", False):
+                locked_sql.append(str(self.query))
+            return real_fetch_all(self)
+
+        with patch.object(QuerySet, "_fetch_all", _record):
+            self._run_confirm_action(
+                EventRegistration.objects.filter(pk=registration.pk)
+            )
+
+        self.assertTrue(
+            locked_sql, "the action took no lock at all — the guard is gone"
+        )
+        for sql in locked_sql:
+            self.assertNotIn(
+                "LEFT OUTER JOIN",
+                sql,
+                "FOR UPDATE across a nullable outer join raises "
+                "NotSupportedError on PostgreSQL:\n%s" % sql,
+            )
+
+
+class ReturningPaidApplicantTests(CuratedRegistrationTestBase):
+    """A member who already paid must not be asked to pay a second time.
+
+    A late cancellation reuses the same registration row on re-application, and
+    that row keeps ``payment_confirmed``. Classifying by the event fee alone
+    would move them to Pending Payment: the UI shows payment due while checkout
+    rejects them as already paid. ``_admitted_status`` exists to draw this line.
+    """
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def _paid_curated_event(self):
+        from decimal import Decimal
+
+        self.curated.registration_fee = Decimal("15.00")
+        self.curated.save(update_fields=["registration_fee"])
+
+    def test_an_already_paid_applicant_is_confirmed_not_charged_again(self):
+        from crush_lu.models import EventRegistration
+
+        self._paid_curated_event()
+        applicant = self._create_member("paidalready@example.com")
+        self._register(applicant, self.curated)
+        registration = EventRegistration.objects.get(event=self.curated, user=applicant)
+        self.assertEqual(registration.status, "applied")
+        # The money we still hold from the cancelled cycle.
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            payment_confirmed=True
+        )
+
+        self._run_confirm_action(EventRegistration.objects.filter(pk=registration.pk))
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+        self.assertTrue(registration.payment_confirmed)
+
+    def test_an_unpaid_applicant_on_the_same_event_still_goes_to_pending(self):
+        """The rule must stay narrow: only an already-paid row skips payment."""
+        from crush_lu.models import EventRegistration
+
+        self._paid_curated_event()
+        applicant = self._create_member("notpaid@example.com")
+        self._register(applicant, self.curated)
+        registration = EventRegistration.objects.get(event=self.curated, user=applicant)
+
+        self._run_confirm_action(EventRegistration.objects.filter(pk=registration.pk))
+
+        registration.refresh_from_db()
         self.assertEqual(registration.status, "pending")
         self.assertFalse(registration.payment_confirmed)
