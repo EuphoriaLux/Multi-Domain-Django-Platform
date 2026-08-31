@@ -459,6 +459,17 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "is_cancelled",
         "get_echo_lu_status",
     )
+    def get_queryset(self, request):
+        """Annotate the changelist with the registration counts it displays.
+
+        get_confirmed_count / get_waitlist_count / get_applied_count all prefer
+        an annotation when one is present and fall back to a per-row query when
+        it is not — so without this the default 50-row page fires up to 150
+        extra COUNTs, and the annotation added alongside get_applied_count
+        would never actually be used.
+        """
+        return super().get_queryset(request).with_registration_counts()
+
     list_filter = (
         "event_type",
         "registration_mode",
@@ -1403,8 +1414,12 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         email_limit = max(
             1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
         )
+        # "applied" belongs here even though it holds no seat and is owed no
+        # credit: a curated applicant is waiting on a selection decision that
+        # a cancelled event will never deliver. Leaving them out means the one
+        # group still expecting to hear from us hears nothing at all.
         affected_registration = Q(
-            status__in=("pending", "confirmed", "waitlist", "attended")
+            status__in=("applied", "pending", "confirmed", "waitlist", "attended")
         ) | Q(issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED)
         candidates = list(
             EventRegistration.objects.filter(
@@ -2403,13 +2418,35 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             .values_list("event_id", flat=True)
             .distinct()
         )
-        updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
+        # Selecting an applicant on a PAID curated event owes them a payment
+        # request, not a seat. Confirming outright would hand out a seat, a
+        # door ticket, check-in eligibility and reminders before any money
+        # arrived — `_admitted_status` draws exactly this line at signup, and
+        # this is that same rule applied to the selection step.
+        #
+        # Scoped to "applied" on a paid event so every pre-existing path
+        # through this action keeps its current behaviour byte-for-byte: a
+        # cancelled or waitlisted row still confirms as it always has, paid or
+        # not. Widening that is a separate decision, not this change's to make.
+        paid_application_ids = set(
+            EventRegistration.objects.filter(
+                pk__in=eligible_ids, status="applied", event__registration_fee__gt=0
+            ).values_list("pk", flat=True)
+        )
+        confirm_ids = [pk for pk in eligible_ids if pk not in paid_application_ids]
+
+        updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
             status="confirmed",
             # QuerySet.update bypasses EventRegistration.save(). A restored
             # registration is a new cancellation-policy cycle and must not
             # retain the previous cancellation's timing classification.
             cancelled_at=None,
         )
+        awaiting_payment = 0
+        if paid_application_ids:
+            awaiting_payment = EventRegistration.objects.filter(
+                pk__in=paid_application_ids
+            ).update(status="pending", cancelled_at=None)
 
         # .update() emits no signals, so the per-registration receiver never
         # runs here and the restored tickets would stay voided forever.
@@ -2450,6 +2487,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )
+        if awaiting_payment:
+            django_messages.info(
+                request,
+                _(
+                    "%(count)s selected application(s) on paid events were set "
+                    "to Pending Payment rather than Confirmed — their seat is "
+                    "held until payment arrives."
+                )
+                % {"count": awaiting_payment},
+            )
         if skipped:
             django_messages.warning(
                 request,

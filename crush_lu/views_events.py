@@ -645,8 +645,12 @@ def my_events(request):
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            # "applied" included: withdrawing an application is exactly the
+            # thing an applicant may still want to do, and event_cancel accepts
+            # it. Deliberately NOT SEAT_HOLDING_STATUSES — that set includes
+            # "attended", which event_cancel rejects outright.
             "can_cancel": reg.event.date_time > now
-            and reg.status in ("pending", "confirmed", "waitlist"),
+            and reg.status in ("applied", "pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
             "has_sufficient_crush_credit": credit_balance_cents
             >= int(reg.event.registration_fee * 100),
@@ -709,6 +713,25 @@ def _registration_outlook(event, profile, gender=None):
     first. Anything that changes who gets waitlisted must change here too, or
     both pages go back to guessing.
     """
+    # A curated event never waitlists: `event_register` skips the capacity test
+    # entirely and every sign-up becomes an application. Returning the
+    # capacity-based answer here would have both surfaces offering "Join
+    # Waitlist" and a full-event warning to someone whose submit actually
+    # creates an `applied` row with no queue position — exactly the
+    # second-surface disagreement (#866) this helper exists to prevent. Pools
+    # are still returned: the gender mix is useful information to an applicant
+    # even though it does not gate them.
+    if event.uses_curated_registration:
+        _, _, pools = event.registration_capacity(
+            is_premium=bool(profile and profile.has_active_premium)
+        )
+        user_gender = gender or getattr(profile, "gender", None)
+        user_pool = None
+        if pools and user_gender:
+            pool_key = event.get_gender_pool(user_gender)
+            user_pool = next((p for p in pools if p["key"] == pool_key), None)
+        return pools, user_pool, False, None
+
     is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
     # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a

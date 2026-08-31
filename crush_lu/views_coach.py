@@ -2358,7 +2358,7 @@ def coach_event_detail(request, event_id):
 
     # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")
-    if status_filter not in ("all", "confirmed", "waitlist", "other"):
+    if status_filter not in ("all", "confirmed", "waitlist", "other", "applied"):
         status_filter = "all"
 
     # Batch-query latest ProfileSubmission per registered user
@@ -2511,7 +2511,15 @@ def coach_event_detail(request, event_id):
         "waitlist_count": waitlist_count,
         "other_count": other_count,
         "spots_remaining": spots_remaining,
-        "total_registrations": confirmed_count + waitlist_count + other_count,
+        # Applications are counted here even though they hold no seat: this is
+        # the organiser's "how many people signed up" figure, and a curated
+        # event with ten applications and nobody selected yet would otherwise
+        # report zero while rendering ten cards underneath it. Capacity is a
+        # separate number (confirmed_count / spots_remaining) and deliberately
+        # still excludes them.
+        "total_registrations": (
+            confirmed_count + waitlist_count + other_count + len(all_applied)
+        ),
         "status_filter": status_filter,
         "gender_pool_stats": gender_pool_stats,
         "connection_count": connection_count,

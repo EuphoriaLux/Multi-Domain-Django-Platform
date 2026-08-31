@@ -427,3 +427,223 @@ class CoachApplicantVisibilityTests(CuratedRegistrationTestBase):
         self.assertEqual(
             response.context["spots_remaining"], self.curated.max_participants
         )
+
+
+class CuratedSurfaceConsistencyTests(CuratedRegistrationTestBase):
+    """Surfaces must not describe an applicant as someone holding a seat.
+
+    Adding "applied" to the member's own event lists exposed the status to
+    templates whose fall-through branch means "confirmed". An unselected
+    applicant shown as admitted — or handed a ticket button that only 403s — is
+    worse than not seeing the application at all.
+    """
+
+    def test_event_detail_does_not_call_an_applicant_registered(self):
+        self._register(self.user, self.curated)
+        response = self.client.get(f"/en/events/{self.curated.id}/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("Your application is in!", html)
+        self.assertNotIn("You&#x27;re registered for this event!", html)
+
+    def test_event_detail_offers_no_checkout_to_a_paid_applicant(self):
+        """The server rejects the click anyway; the point is not to offer a
+        payment that is designed to fail."""
+        from decimal import Decimal
+
+        self.curated.registration_fee = Decimal("15.00")
+        self.curated.save(update_fields=["registration_fee"])
+        self._register(self.user, self.curated)
+
+        response = self.client.get(f"/en/events/{self.curated.id}/")
+        self.assertNotContains(response, "js-sumup-checkout-detail")
+
+    def test_my_events_shows_applied_not_confirmed(self):
+        self._register(self.user, self.curated)
+        response = self.client.get("/en/my-events/")
+        self.assertEqual(response.status_code, 200)
+        entries = [
+            e
+            for e in response.context["upcoming_registrations"]
+            if e["event"].pk == self.curated.pk
+        ]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["registration"].status, "applied")
+        # Neither a seat nor money owed.
+        self.assertFalse(entries[0]["is_waitlist"])
+        self.assertFalse(entries[0]["is_pending_payment"])
+        # ...but withdrawing is still allowed.
+        self.assertTrue(entries[0]["can_cancel"])
+
+    def test_my_events_offers_no_ticket_to_an_applicant(self):
+        """event_ticket gates on SEAT_HOLDING_STATUSES, so the link would 403."""
+        self._register(self.user, self.curated)
+        response = self.client.get("/en/my-events/")
+        self.assertNotContains(
+            response, f"/events/{self.curated.id}/ticket/"
+        )
+
+
+class CuratedOutlookTests(CuratedRegistrationTestBase):
+    """A curated event never waitlists, so no surface may offer a waitlist."""
+
+    def _fill_to_capacity(self):
+        from crush_lu.models import EventRegistration
+
+        for i in range(self.curated.max_participants):
+            user = self._create_member(f"seated{i}@example.com")
+            EventRegistration.objects.create(
+                event=self.curated, user=user, status="confirmed"
+            )
+
+    def test_full_curated_event_still_reports_no_waitlist(self):
+        from crush_lu.views_events import _registration_outlook
+
+        self._fill_to_capacity()
+        self.curated.refresh_from_db()
+        self.assertTrue(self.curated.is_full)
+
+        _pools, _user_pool, will_waitlist, reason = _registration_outlook(
+            self.curated, self.user.crushprofile
+        )
+        self.assertFalse(will_waitlist)
+        self.assertIsNone(reason)
+
+    def test_full_direct_event_still_reports_a_waitlist(self):
+        """The curated bypass must not leak into ordinary events."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.views_events import _registration_outlook
+
+        for i in range(self.direct.max_participants):
+            user = self._create_member(f"directseat{i}@example.com")
+            EventRegistration.objects.create(
+                event=self.direct, user=user, status="confirmed"
+            )
+        self.direct.refresh_from_db()
+
+        _pools, _user_pool, will_waitlist, reason = _registration_outlook(
+            self.direct, self.user.crushprofile
+        )
+        self.assertTrue(will_waitlist)
+        self.assertEqual(reason, "total")
+
+    def test_applying_to_a_full_curated_event_still_applies(self):
+        """Not merely cosmetic: the outlook must agree with what POST does."""
+        from crush_lu.models import EventRegistration
+
+        self._fill_to_capacity()
+        self._register(self.user, self.curated)
+
+        registration = EventRegistration.objects.get(
+            event=self.curated, user=self.user
+        )
+        self.assertEqual(registration.status, "applied")
+
+
+class CoachApplicationsFilterTests(CuratedRegistrationTestBase):
+    def _make_coach(self):
+        from crush_lu.models import CrushCoach
+
+        user = self._create_member("filtercoach@example.com")
+        CrushCoach.objects.create(user=user, is_active=True)
+        return user
+
+    def test_applied_filter_is_reachable(self):
+        """The template branch is dead unless the view's allow-list keeps it."""
+        self._register(self._create_member("f1@example.com"), self.curated)
+
+        self._login(self._make_coach())
+        response = self.client.get(
+            f"/en/coach/events/{self.curated.id}/?status=applied"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["status_filter"], "applied")
+
+    def test_signup_total_counts_applications(self):
+        """Ten cards under a "Total Signups: 0" heading is not a summary."""
+        for i in range(3):
+            self._register(self._create_member(f"t{i}@example.com"), self.curated)
+
+        self._login(self._make_coach())
+        response = self.client.get(f"/en/coach/events/{self.curated.id}/")
+        self.assertEqual(response.context["total_registrations"], 3)
+        # Capacity is a different number and still excludes them.
+        self.assertEqual(response.context["confirmed_count"], 0)
+
+
+class CuratedAdminSelectionTests(CuratedRegistrationTestBase):
+    """The bulk confirm action is the obvious way to select a group."""
+
+    def _applied_registration(self, username="bulk@example.com"):
+        from crush_lu.models import EventRegistration
+
+        user = self._create_member(username)
+        self._register(user, self.curated)
+        return EventRegistration.objects.get(event=self.curated, user=user)
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        admin_instance = EventRegistrationAdmin(EventRegistration, AdminSite())
+        admin_instance.confirm_registrations(request, queryset)
+
+    def test_free_event_application_is_confirmed(self):
+        from crush_lu.models import EventRegistration
+
+        registration = self._applied_registration("free@example.com")
+        self._run_confirm_action(
+            EventRegistration.objects.filter(pk=registration.pk)
+        )
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+
+    def test_paid_event_application_goes_to_pending_not_confirmed(self):
+        """Money-safety: confirming outright would grant a seat, a door ticket
+        and check-in eligibility on a paid event before anyone paid."""
+        from decimal import Decimal
+
+        from crush_lu.models import EventRegistration
+
+        self.curated.registration_fee = Decimal("15.00")
+        self.curated.save(update_fields=["registration_fee"])
+        registration = self._applied_registration("paid@example.com")
+
+        self._run_confirm_action(
+            EventRegistration.objects.filter(pk=registration.pk)
+        )
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "pending")
+        self.assertFalse(registration.payment_confirmed)
+
+    def test_a_cancelled_row_on_a_paid_event_still_confirms(self):
+        """The paid-event rule is scoped to applications: every pre-existing
+        path through this action must keep behaving exactly as before."""
+        from decimal import Decimal
+
+        from crush_lu.models import EventRegistration
+
+        self.direct.registration_fee = Decimal("15.00")
+        self.direct.save(update_fields=["registration_fee"])
+        user = self._create_member("wascancelled@example.com")
+        registration = EventRegistration.objects.create(
+            event=self.direct, user=user, status="cancelled"
+        )
+
+        self._run_confirm_action(
+            EventRegistration.objects.filter(pk=registration.pk)
+        )
+
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
