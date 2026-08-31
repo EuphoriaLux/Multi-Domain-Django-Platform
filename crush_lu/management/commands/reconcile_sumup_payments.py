@@ -487,6 +487,13 @@ class Command(BaseCommand):
                         )
 
                 refunded = is_checkout_refunded(remote_data, history_map=history_map)
+                # Sized here rather than below so the blocking decision and the
+                # partial-refund guard read the same numbers.
+                refunded_amt = (
+                    refunded_amount(remote_data, history_map=history_map)
+                    if refunded
+                    else Decimal("0")
+                )
             except Exception as exc:  # defensive: never let one payload kill the sweep
                 errors_count += 1
                 logger.exception(
@@ -502,7 +509,28 @@ class Command(BaseCommand):
                 )
                 continue
 
-            if history_lookup_failed:
+            captured_amt = tx_obj.amount or Decimal("0")
+
+            # A failed history lookup blocks only when what is already in hand
+            # cannot classify the row safely. When the CHECKOUT resource itself
+            # establishes both the refund AND a total covering the capture,
+            # nothing the history could have added would change the answer —
+            # further refunds cannot make a full refund less than full — so
+            # refusing there would strand a plainly refunded payment on a
+            # transient provider blip. Introduced when the lookup moved out of
+            # ``if not refunded``: before that, a checkout-confirmed refund
+            # never reached this branch at all.
+            #
+            # Deliberately narrow. A refund SumUp reports by status alone, with
+            # no amount, does NOT qualify: the established rule that an unknown
+            # amount counts as full rests on having asked and been told
+            # nothing, which is not the same as having been unable to ask, and
+            # reconciling a partial as full unbooks a still-mostly-paid seat
+            # and voids the member's credit.
+            evidence_is_sufficient = (
+                refunded and captured_amt > 0 and refunded_amt >= captured_amt
+            )
+            if history_lookup_failed and not evidence_is_sufficient:
                 # The refund check for this row DID NOT HAPPEN. Reporting it as
                 # "still PAID" is precisely the failure this command exists to
                 # prevent — an unchecked row that reads as verified — so it is
@@ -525,8 +553,6 @@ class Command(BaseCommand):
                 # void the member's credit over what may be a small goodwill
                 # adjustment. Amount 0 means SumUp signalled the refund by status
                 # alone and told us no amount — treated as full, as before.
-                refunded_amt = refunded_amount(remote_data, history_map=history_map)
-                captured_amt = tx_obj.amount or Decimal("0")
                 is_partial = (
                     refunded_amt > 0
                     and captured_amt > 0

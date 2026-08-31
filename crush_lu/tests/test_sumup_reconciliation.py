@@ -1162,6 +1162,73 @@ class ExternalDashboardRefundRegressionTests(TestCase):
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
         self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
 
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_checkout_confirmed_full_refund_survives_a_history_outage(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """Don't strand a plainly refunded payment on a provider blip.
+
+        When the checkout resource itself reports the refund AND a total
+        covering the capture, nothing the history could add would change the
+        answer — further refunds cannot make a full refund less than full. A
+        regression from moving the lookup out of ``if not refunded``: before
+        that, a checkout-confirmed refund never reached the blocking branch.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = dict(
+            self.CHECKOUT_PAYLOAD, status="REFUNDED", amount_refunded=15.5
+        )
+        mock_get_history.side_effect = SumUpError("history unavailable")
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments", reference="CRUSH-EVT-588-ce863b", stdout=out
+        )
+
+        self.assertNotIn("UNKNOWN", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments."
+        "SumUpClient.get_transactions_history"
+    )
+    @patch(
+        "crush_lu.management.commands.reconcile_sumup_payments.SumUpClient.get_checkout"
+    )
+    def test_status_only_refund_still_blocks_when_history_is_unreachable(
+        self, mock_get_checkout, mock_get_history
+    ):
+        """The exemption is narrow: a refund with no AMOUNT is not enough.
+
+        The established rule that an unknown amount counts as full rests on
+        having asked and been told nothing. Being unable to ask is not the
+        same, and treating it as full would unbook a still-mostly-paid seat if
+        the refund turned out to be partial.
+        """
+        tx, credit = self._make_refunded_seat()
+        mock_get_checkout.return_value = dict(self.CHECKOUT_PAYLOAD, status="REFUNDED")
+        mock_get_history.side_effect = SumUpError("history unavailable")
+
+        out = io.StringIO()
+        call_command(
+            "reconcile_sumup_payments", reference="CRUSH-EVT-588-ce863b", stdout=out
+        )
+
+        self.assertIn("UNKNOWN", out.getvalue())
+        tx.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+
     def test_refund_rank_orders_the_three_kinds_of_row(self):
         bare_payment = {k: v for k, v in self.PAYMENT_ROW.items()
                         if k != "refunded_amount"}
