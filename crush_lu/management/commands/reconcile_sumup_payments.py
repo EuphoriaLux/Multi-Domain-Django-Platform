@@ -19,6 +19,12 @@ Usage::
 
     # Reconcile a single checkout
     python manage.py reconcile_sumup_payments --checkout-id <sumup_checkout_id>
+
+⚠️ ``--days`` windows on ``PaymentTransaction.created_at`` — when the member
+PAID, not when the refund happened. A refund taken today against a three-week-old
+seat is outside ``--days 7`` no matter how recent the refund is. To check a
+refund you just made, name the payment instead: ``--reference`` and
+``--checkout-id`` skip the date window entirely.
 """
 
 import logging
@@ -70,6 +76,93 @@ def _to_decimal(value) -> Decimal:
     return parsed
 
 
+# SumUp spells the refunded total differently in the two places it reports it:
+# the checkout resource says ``amount_refunded``, the transaction-history rows
+# say ``refunded_amount``. Only the first was ever read, so a history row
+# recording a full refund — the one place an externally-refunded payment shows
+# up at all — reported nothing refunded.
+_REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
+
+
+def _refunded_total(item) -> Decimal:
+    """Largest refunded total this payload reports, under either spelling."""
+    if not isinstance(item, dict):
+        return Decimal("0")
+    return max(_to_decimal(item.get(key)) for key in _REFUNDED_TOTAL_KEYS)
+
+
+def history_row_shows_refund(item) -> bool:
+    """Does one transaction-history row record a refund?
+
+    Kept as one predicate because the same four signals are asked for in three
+    places — indexing, detection, and the fallback's decision to look again —
+    and a copy that learns about ``refunded_amount`` while its siblings do not
+    is exactly the drift that hid the last one.
+    """
+    if not isinstance(item, dict):
+        return False
+    return (
+        (item.get("status") or "").upper() == "REFUNDED"
+        or (item.get("type") or "").upper() == "REFUND"
+        or _refunded_total(item) > 0
+        or bool(item.get("refunds"))
+    )
+
+
+def _history_refund_rank(item) -> int:
+    """How informative one history row is about a refund. Higher wins.
+
+    2 — states an explicit refunded TOTAL. SumUp keeps a cumulative
+        ``refunded_amount`` on the PAYMENT row, and that total is the only
+        thing that can tell a fully refunded payment from a partly refunded
+        one when the refund was taken in several goes.
+    1 — shows that a refund happened, but not how much in total. A ``REFUND``
+        row states only its OWN amount, so three partial refunds adding up to
+        the full capture look like one small partial.
+    0 — says nothing about a refund.
+
+    Ranking rather than a plain "is it a refund row?" preference because both
+    directions lose money: keep the bare PAYMENT row and the refund is
+    invisible; keep the bare REFUND row over a PAYMENT row carrying the
+    cumulative total and ``refunded_amount()`` under-reads, so the
+    partial-refund guard parks a fully refunded payment as "needs manual
+    review" and it is never reconciled.
+    """
+    if not isinstance(item, dict):
+        return 0
+    if _refunded_total(item) > 0:
+        return 2
+    if history_row_shows_refund(item):
+        return 1
+    return 0
+
+
+def index_history(history_map: dict, items) -> dict:
+    """Index history rows by ``transaction_code``, keeping the most informative.
+
+    A payment and the refund taken against it SHARE a transaction_code and come
+    back as two separate rows — a ``PAYMENT``/``SUCCESSFUL`` row and, later, a
+    ``REFUND``/``REFUNDED`` one. A plain ``history_map[code] = item`` is
+    last-write-wins, so whichever of the pair happened to come last in the
+    response won; when that was the PAYMENT row it evicted the REFUND row
+    beside it and the refund vanished. Rows are now kept by
+    ``_history_refund_rank`` instead, which is order-independent in both
+    directions — see that function for why "prefer the REFUND row" is not
+    enough on its own.
+    """
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("transaction_code")
+        if not code:
+            continue
+        if code not in history_map or _history_refund_rank(
+            item
+        ) > _history_refund_rank(history_map[code]):
+            history_map[code] = item
+    return history_map
+
+
 def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     """Best available total refunded on this checkout or transaction history.
 
@@ -80,14 +173,14 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     if not isinstance(data, dict):
         return Decimal("0")
 
-    candidates = [_to_decimal(data.get("amount_refunded"))]
+    candidates = [_refunded_total(data)]
 
     per_tx_total = Decimal("0")
     refunds_total = Decimal("0")
     for tx in data.get("transactions") or []:
         if not isinstance(tx, dict):
             continue
-        per_tx_total += _to_decimal(tx.get("amount_refunded"))
+        per_tx_total += _refunded_total(tx)
         for refund in tx.get("refunds") or []:
             if isinstance(refund, dict):
                 refunds_total += _to_decimal(refund.get("amount"))
@@ -95,7 +188,7 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
         tx_code = tx.get("transaction_code")
         if tx_code and history_map and tx_code in history_map:
             hist_item = history_map[tx_code]
-            hist_amt_ref = _to_decimal(hist_item.get("amount_refunded"))
+            hist_amt_ref = _refunded_total(hist_item)
             if hist_amt_ref > 0:
                 candidates.append(hist_amt_ref)
             elif (hist_item.get("status") or "").upper() == "REFUNDED":
@@ -104,7 +197,7 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     code = data.get("transaction_code")
     if code and history_map and code in history_map:
         hist_item = history_map[code]
-        hist_amt_ref = _to_decimal(hist_item.get("amount_refunded"))
+        hist_amt_ref = _refunded_total(hist_item)
         if hist_amt_ref > 0:
             candidates.append(hist_amt_ref)
         elif (hist_item.get("status") or "").upper() == "REFUNDED":
@@ -120,11 +213,16 @@ def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool
     Checks:
     - Checkout-level status == "REFUNDED"
     - Any transaction entry status == "REFUNDED"
-    - Any transaction entry has non-empty "refunds" list or amount_refunded > 0
-    - Top-level amount_refunded > 0
+    - Any transaction entry has non-empty "refunds" list or a refunded total > 0
+    - Top-level refunded total > 0
     - Transaction history matching by transaction_code reports status == "REFUNDED",
-      type == "REFUND", or amount_refunded > 0 (for external dashboard/POS refunds
+      type == "REFUND", or a refunded total > 0 (for external dashboard/POS refunds
       where SumUp does not mutate the static /v0.1/checkouts resource).
+
+    "Refunded total" is read under both spellings SumUp uses — ``amount_refunded``
+    on the checkout resource, ``refunded_amount`` on transaction-history rows. See
+    ``_REFUNDED_TOTAL_KEYS``; reading only the first is what let a fully refunded
+    payment report nothing.
 
     Detection only. Whether the refund was full or partial is decided by the
     caller against the captured amount — see ``handle()``.
@@ -136,7 +234,7 @@ def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool
     if status == "REFUNDED":
         return True
 
-    if _to_decimal(data.get("amount_refunded")) > 0:
+    if _refunded_total(data) > 0:
         return True
 
     transactions = data.get("transactions") or []
@@ -146,29 +244,15 @@ def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool
         tx_status = (tx.get("status") or "").upper()
         if tx_status == "REFUNDED":
             return True
-        if tx.get("refunds") or _to_decimal(tx.get("amount_refunded")) > 0:
+        if tx.get("refunds") or _refunded_total(tx) > 0:
             return True
         tx_code = tx.get("transaction_code")
-        if tx_code and history_map and tx_code in history_map:
-            hist_item = history_map[tx_code]
-            if (
-                (hist_item.get("status") or "").upper() == "REFUNDED"
-                or (hist_item.get("type") or "").upper() == "REFUND"
-                or _to_decimal(hist_item.get("amount_refunded")) > 0
-                or len(hist_item.get("refunds") or []) > 0
-            ):
-                return True
+        if tx_code and history_map and history_row_shows_refund(history_map.get(tx_code)):
+            return True
 
     code = data.get("transaction_code")
-    if code and history_map and code in history_map:
-        hist_item = history_map[code]
-        if (
-            (hist_item.get("status") or "").upper() == "REFUNDED"
-            or (hist_item.get("type") or "").upper() == "REFUND"
-            or _to_decimal(hist_item.get("amount_refunded")) > 0
-            or len(hist_item.get("refunds") or []) > 0
-        ):
-            return True
+    if code and history_map and history_row_shows_refund(history_map.get(code)):
+        return True
 
     return False
 
@@ -266,11 +350,10 @@ class Command(BaseCommand):
         try:
             # Prefetch recent merchant transaction history to catch refunds done via
             # the dashboard/POS terminal that do not mutate the static checkout resource.
-            history_data = client.get_transactions_history(limit=100, order="desc")
-            for item in history_data.get("items", []):
-                code = item.get("transaction_code")
-                if code:
-                    history_map[code] = item
+            history_data = client.get_transactions_history(
+                limit=100, order="descending"
+            )
+            index_history(history_map, history_data.get("items"))
         except Exception as exc:
             logger.warning("Could not prefetch SumUp transaction history: %s", exc)
 
@@ -310,30 +393,107 @@ class Command(BaseCommand):
                 )
                 continue
 
+            history_lookup_failed = False
             try:
+                code = remote_data.get("transaction_code")
+                if not code:
+                    tx_list = remote_data.get("transactions") or []
+                    for t in tx_list:
+                        if isinstance(t, dict) and t.get("transaction_code"):
+                            code = t.get("transaction_code")
+                            break
+
+                # Gather the evidence BEFORE classifying, and ask SumUp about
+                # this transaction unless the prefetch already holds a row
+                # stating a CUMULATIVE refunded total for it.
+                #
+                # Three gates have stood here, each too weak in its own way,
+                # and each hid money:
+                #
+                #   ``code not in history_map`` — the prefetch covers the
+                #   account's most recent 100 transactions, so a refund taken
+                #   today against an older payment falls outside it while the
+                #   payment's own PAYMENT row sits inside. The stale row was
+                #   present, so the one lookup that would have found the refund
+                #   never ran and the sweep reported "still PAID".
+                #
+                #   ``not history_row_shows_refund(...)`` — a bare REFUND row
+                #   then suppressed the lookup instead. That row states only
+                #   its OWN amount, so a capture refunded in several goes reads
+                #   as one small partial, and the guard below parks a fully
+                #   refunded payment as "needs manual review" while quoting a
+                #   figure that is not what was refunded.
+                #
+                # Only a rank-2 row (an explicit cumulative total) can answer
+                # "how much in total", so anything less is worth the call. In
+                # practice that is the same set of rows as the previous gate
+                # plus refund-bearing ones, which are rare.
+                #
+                # This also had to move OUT of ``if not refunded`` — a
+                # refund-bearing row short-circuits detection to True, which is
+                # exactly when the amount still needs establishing.
+                if code and _history_refund_rank(history_map.get(code)) < 2:
+                    # ``--batch-delay`` promises a pause "between SumUp API
+                    # requests", and this is the SECOND request for this row.
+                    # Without a sleep here the ordinary unrefunded case — now
+                    # the common path — fires two back-to-back calls that no
+                    # value of the setting can throttle, which is how a long
+                    # sweep earns a rate limit and reconciles only part of its
+                    # window.
+                    if delay > 0:
+                        time.sleep(delay)
+                    try:
+                        code_data = client.get_transactions_history(
+                            limit=10, transaction_code=code
+                        )
+                        index_history(history_map, code_data.get("items"))
+
+                        # Belt and braces: if SumUp answers with refund rows
+                        # but none carrying a cumulative total, add the
+                        # individual refunds up. Only reachable when no rank-2
+                        # row exists, so a cumulative figure and the refunds
+                        # composing it can never be counted twice.
+                        if _history_refund_rank(history_map.get(code)) < 2:
+                            summed = sum(
+                                (
+                                    _to_decimal(item.get("amount"))
+                                    for item in (code_data.get("items") or [])
+                                    if isinstance(item, dict)
+                                    and item.get("transaction_code") == code
+                                    and (item.get("type") or "").upper() == "REFUND"
+                                ),
+                                Decimal("0"),
+                            )
+                            if summed > 0:
+                                history_map[code] = dict(
+                                    history_map.get(code)
+                                    or {"transaction_code": code},
+                                    refunded_amount=str(summed),
+                                )
+                    except Exception as exc:
+                        # Was a bare ``pass``. Logging it is not enough on its
+                        # own: the row still fell through to the "still PAID"
+                        # line below, and the console handler only emits ERROR
+                        # in production, so the operator saw a clean tick for a
+                        # check that never ran. The flag makes it an error and
+                        # skips that line.
+                        history_lookup_failed = True
+                        logger.warning(
+                            "Could not look up SumUp history for "
+                            "transaction_code %s (checkout %s): %s",
+                            code,
+                            tx_obj.sumup_checkout_id,
+                            exc,
+                        )
+
                 refunded = is_checkout_refunded(remote_data, history_map=history_map)
-                if not refunded:
-                    # If not found in prefetched history_map, attempt fallback lookup by transaction_code
-                    code = remote_data.get("transaction_code")
-                    if not code:
-                        tx_list = remote_data.get("transactions") or []
-                        for t in tx_list:
-                            if isinstance(t, dict) and t.get("transaction_code"):
-                                code = t.get("transaction_code")
-                                break
-                    if code and code not in history_map:
-                        try:
-                            code_data = client.get_transactions_history(
-                                limit=10, transaction_code=code
-                            )
-                            for item in code_data.get("items", []):
-                                if item.get("transaction_code") == code:
-                                    history_map[code] = item
-                            refunded = is_checkout_refunded(
-                                remote_data, history_map=history_map
-                            )
-                        except Exception:
-                            pass
+                # Sized here rather than below so the blocking decision and the
+                # partial-refund guard read the same numbers.
+                refunded_amt = (
+                    refunded_amount(remote_data, history_map=history_map)
+                    if refunded
+                    else Decimal("0")
+                )
             except Exception as exc:  # defensive: never let one payload kill the sweep
                 errors_count += 1
                 logger.exception(
@@ -349,14 +509,50 @@ class Command(BaseCommand):
                 )
                 continue
 
+            captured_amt = tx_obj.amount or Decimal("0")
+
+            # A failed history lookup blocks only when what is already in hand
+            # cannot classify the row safely. When the CHECKOUT resource itself
+            # establishes both the refund AND a total covering the capture,
+            # nothing the history could have added would change the answer —
+            # further refunds cannot make a full refund less than full — so
+            # refusing there would strand a plainly refunded payment on a
+            # transient provider blip. Introduced when the lookup moved out of
+            # ``if not refunded``: before that, a checkout-confirmed refund
+            # never reached this branch at all.
+            #
+            # Deliberately narrow. A refund SumUp reports by status alone, with
+            # no amount, does NOT qualify: the established rule that an unknown
+            # amount counts as full rests on having asked and been told
+            # nothing, which is not the same as having been unable to ask, and
+            # reconciling a partial as full unbooks a still-mostly-paid seat
+            # and voids the member's credit.
+            evidence_is_sufficient = (
+                refunded and captured_amt > 0 and refunded_amt >= captured_amt
+            )
+            if history_lookup_failed and not evidence_is_sufficient:
+                # The refund check for this row DID NOT HAPPEN. Reporting it as
+                # "still PAID" is precisely the failure this command exists to
+                # prevent — an unchecked row that reads as verified — so it is
+                # counted as an error and named as unknown. Printed even under
+                # --quiet, which is for actionable desyncs and errors.
+                errors_count += 1
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Could not verify {tx_obj.transaction_reference} "
+                        f"({tx_obj.sumup_checkout_id}): SumUp history "
+                        "unreachable — refund state and amount UNKNOWN, "
+                        "NOT confirmed paid."
+                    )
+                )
+                continue
+
             if refunded:
                 # A partial refund is not a cancellation. Reconciling one would
                 # unbook a still-mostly-paid seat, release it to the waitlist and
                 # void the member's credit over what may be a small goodwill
                 # adjustment. Amount 0 means SumUp signalled the refund by status
                 # alone and told us no amount — treated as full, as before.
-                refunded_amt = refunded_amount(remote_data, history_map=history_map)
-                captured_amt = tx_obj.amount or Decimal("0")
                 is_partial = (
                     refunded_amt > 0
                     and captured_amt > 0
