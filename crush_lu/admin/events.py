@@ -449,6 +449,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_registration_count",
         "get_confirmed_count",
         "get_waitlist_count",
+        "get_applied_count",
         "max_participants",
         "get_spots_remaining",
         "is_private_invitation",
@@ -460,6 +461,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     )
     list_filter = (
         "event_type",
+        "registration_mode",
         "is_published",
         "is_cancelled",
         "is_private_invitation",
@@ -606,7 +608,23 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "description": "Assign coaches to facilitate this event. They will be shown on the attendees page.",
             },
         ),
-        ("Registration", {"fields": ("registration_deadline", "registration_fee")}),
+        (
+            "Registration",
+            {
+                "fields": (
+                    "registration_deadline",
+                    "registration_fee",
+                    "registration_mode",
+                ),
+                "description": (
+                    "Curated mode takes effect on speed-dating events only. "
+                    "Sign-ups land as \u201cApplied\u201d and hold no seat, so "
+                    "applications can outnumber the places; you compose the "
+                    "group by moving the ones you want to Confirmed (free "
+                    "event) or Pending Payment (paid event)."
+                ),
+            },
+        ),
         (
             _("Advanced: Private Invitation Settings"),
             {

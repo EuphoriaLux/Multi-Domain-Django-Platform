@@ -2290,6 +2290,12 @@ def coach_event_detail(request, event_id):
     all_confirmed = [r for r in all_regs if r.status in SEAT_HOLDING_STATUSES]
     all_waitlisted = [r for r in all_regs if r.status == "waitlist"]
     all_other = [r for r in all_regs if r.status in ("pending", "no_show")]
+    # Curated applications. A bucket of their own rather than folded into
+    # `all_other`: they hold no seat, so they must stay out of confirmed_count
+    # and spots_remaining, but the organiser still has to see them — this is
+    # the pool the group gets composed from, and the preference chips that
+    # inform that choice render on these very cards.
+    all_applied = [r for r in all_regs if r.status == "applied"]
 
     # Annotate each waitlisted registration with its global queue position and
     # per-gender-pool position so the coach can see who is next in line.
@@ -2367,7 +2373,7 @@ def coach_event_detail(request, event_id):
             if sub.profile.user_id not in latest_submissions:
                 latest_submissions[sub.profile.user_id] = sub
 
-    for reg in all_confirmed + all_waitlisted + all_other:
+    for reg in all_confirmed + all_waitlisted + all_other + all_applied:
         reg.latest_submission = latest_submissions.get(reg.user_id)
 
     confirmed_count = len(all_confirmed)
@@ -2499,6 +2505,8 @@ def coach_event_detail(request, event_id):
         "confirmed_registrations": all_confirmed,
         "waitlist_registrations": all_waitlisted,
         "other_registrations": all_other,
+        "applied_registrations": all_applied,
+        "applied_count": len(all_applied),
         "confirmed_count": confirmed_count,
         "waitlist_count": waitlist_count,
         "other_count": other_count,

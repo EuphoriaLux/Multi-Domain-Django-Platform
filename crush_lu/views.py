@@ -319,8 +319,10 @@ def _verification_path_context(profile, user):
             # A pending (unpaid) seat is just as much a commitment to be
             # verified at the event as a confirmed one -- omitting it showed the
             # generic "Verify now" prompt to someone who had already chosen the
-            # event path and holds a seat.
-            status__in=(*SEAT_HOLDING_STATUSES, "waitlist"),
+            # event path and holds a seat. "applied" counts for the same
+            # reason: a curated applicant has chosen the event path, and
+            # verification is exactly what the organiser will select on.
+            status__in=(*SEAT_HOLDING_STATUSES, "waitlist", "applied"),
             event__is_cancelled=False,
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         ).select_related("event")
@@ -468,7 +470,10 @@ def dashboard(request):
             event = reg.event
             if not _event_is_visible(event):
                 return False
-            if reg.status not in (*SEAT_HOLDING_STATUSES, "waitlist"):
+            # "applied" belongs here even though it holds no seat: the member
+            # did sign up, and an application that vanished from their own
+            # event list until an organiser acted would read as a lost form.
+            if reg.status not in (*SEAT_HOLDING_STATUSES, "waitlist", "applied"):
                 return False
             return event.end_time >= _now
 
@@ -492,7 +497,8 @@ def dashboard(request):
                 # Deliberately NOT SEAT_HOLDING_STATUSES: that set includes
                 # "attended", and event_cancel() rejects an attended
                 # registration outright.
-                and next_registration.status in ("confirmed", "pending", "waitlist")
+                and next_registration.status
+                in ("confirmed", "pending", "waitlist", "applied")
             )
 
         # Anything that needs the member to act, surfaced above the fold instead

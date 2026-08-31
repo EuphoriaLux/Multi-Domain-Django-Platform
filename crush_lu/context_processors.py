@@ -239,7 +239,9 @@ def crush_user_context(request):
             EventRegistration.objects.filter(
                 user=request.user,
                 event__date_time__gte=generous_cutoff,
-                status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
+                # "applied" holds no seat, but the member still signed up and
+                # expects to see it among their upcoming events.
+                status__in=[*SEAT_HOLDING_STATUSES, "waitlist", "applied"],
             )
             .select_related("event")
             .order_by("event__date_time")

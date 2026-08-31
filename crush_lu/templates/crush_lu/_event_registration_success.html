@@ -5,11 +5,21 @@
   (EventRegistration.payment_confirmed is stamped by the payment flow, not here), so
   we must NOT report registration_fee as revenue at this point — that would overstate
   revenue and mis-train paid-campaign optimization on unpaid reservations.
+    - applied (curated)  -> event_application / Lead (no seat, no money owed)
     - waitlist           -> join_waitlist / Lead
     - paid + unpaid      -> event_reservation / Schedule (no revenue)
     - free (or paid-and-already-confirmed) -> purchase with the genuine paid amount
 {% endcomment %}
-{% if registration.status == 'waitlist' %}
+{% if registration.status == 'applied' %}
+{% comment %}
+  A curated application is a lead and nothing more: no seat is held and no
+  money is owed yet, so it must fire neither "event_reservation" (there is no
+  reservation) nor "purchase" (which the free-event branch below would
+  otherwise reach, reporting revenue for a place that may never be offered).
+{% endcomment %}
+{% ga4_event "event_application" item_id=event.id item_name=event.title %}
+{% fb_event "Lead" content_name=event.title %}
+{% elif registration.status == 'waitlist' %}
 {% ga4_event "join_waitlist" event_id=event.id item_name=event.title %}
 {% fb_event "Lead" content_name=event.title %}
 {% elif event.registration_fee > 0 and not registration.payment_confirmed %}
@@ -20,7 +30,20 @@
 {% fb_event "Purchase" value=event.registration_fee currency="EUR" content_name=event.title %}
 {% endif %}
 <div id="registration-form-container" class="text-center py-8" role="status" aria-live="polite">
-    {% if registration.status == 'waitlist' %}
+    {% if registration.status == 'applied' %}
+        {% comment %}
+          Curated speed dating: the sign-up is an application, not a seat. The
+          generic branch below would claim "You're Registered!" and promise a
+          confirmation email that is deliberately not sent at this stage.
+        {% endcomment %}
+        <div class="mb-4">
+            {% include "shared/icons/clock.html" with class="w-16 h-16 text-crush-purple mx-auto" %}
+        </div>
+        <h3 class="text-2xl font-bold mb-2">{% trans "Application Received!" %}</h3>
+        <p class="text-gray-600 dark:text-gray-300 mb-6">
+            {% trans "The organiser team composes the group before the event. We'll let you know whether you have a place — you don't need to pay anything yet." %}
+        </p>
+    {% elif registration.status == 'waitlist' %}
         <div class="mb-4">
             {% include "shared/icons/clock.html" with class="w-16 h-16 text-yellow-500 mx-auto" %}
         </div>
@@ -56,7 +79,13 @@
     {% endif %}
 
     <div class="flex flex-col gap-3">
-        {% if event.registration_fee > 0 and not registration.payment_confirmed %}
+        {% comment %}
+          The status test is load-bearing on a paid curated event: an applicant
+          has not been given a place, so offering checkout would take money for
+          a seat the organiser may never award. Payment is requested after
+          selection, when the registration moves out of "applied".
+        {% endcomment %}
+        {% if event.registration_fee > 0 and not registration.payment_confirmed and registration.status != 'applied' %}
         {% if has_sufficient_crush_credit %}
         <button data-sumup-reg-id="{{ registration.id }}" data-payment-method="credit" class="js-sumup-checkout-success btn-crush-solid w-full">
             <span>{% trans "Pay with Crush Credit" %}</span>
