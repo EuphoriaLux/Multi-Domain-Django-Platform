@@ -40822,3 +40822,33 @@ msgstr "L’état du paiement a changé. Veuillez réessayer."
 #: models/credits.py
 msgid "Curated group became unavailable"
 msgstr "Le groupe organisé n’est plus disponible"
+
+#: models/events.py
+msgid "Unpaid-group withdrawal"
+msgstr "Retrait d’un membre sans paiement"
+
+#: email_helpers.py
+#, python-brace-format
+msgid "Your application for {title} is being reconsidered"
+msgstr "Votre candidature pour {title} est de nouveau à l’étude"
+
+#: templates/crush_lu/emails/curated_group_withdrawal.html
+msgid "Your application is being reconsidered"
+msgstr "Votre candidature est de nouveau à l’étude"
+
+#, python-format
+msgid "Hello %(first_name)s,"
+msgstr "Bonjour %(first_name)s,"
+
+#, python-format
+msgid "The selected group for <strong>%(title)s</strong> can no longer go ahead as planned, so we have returned your application to the selection pool."
+msgstr "Le groupe sélectionné pour <strong>%(title)s</strong> ne peut plus avoir lieu comme prévu. Nous avons donc replacé votre candidature dans le pool de sélection."
+
+msgid "No payment was taken for this place."
+msgstr "Aucun paiement n’a été prélevé pour cette place."
+
+msgid "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required."
+msgstr "Nous réexaminerons votre candidature si un autre groupe viable peut être constitué. Nous vous contacterons avant qu’un paiement ne soit nécessaire."
+
+msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
+msgstr "Vous n’avez rien à faire pour rester dans le pool. Si vos projets ont changé, vous pouvez retirer votre candidature depuis la page de l’événement."

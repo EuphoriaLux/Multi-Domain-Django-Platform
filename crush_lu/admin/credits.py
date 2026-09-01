@@ -167,7 +167,12 @@ class CrushCreditAdmin(admin.ModelAdmin):
     date_hierarchy = "issued_at"
     ordering = ["-issued_at"]
     inlines = [CreditRedemptionInline]
-    actions = ["void_credits", "refund_via_sumup"]
+    actions = [
+        "void_credits",
+        "refund_via_sumup",
+        "reconcile_sumup_refund_completed",
+        "reconcile_sumup_refund_not_sent",
+    ]
 
     readonly_fields = (
         "user",
@@ -220,7 +225,10 @@ class CrushCreditAdmin(admin.ModelAdmin):
                     "and use the &ldquo;Refund via SumUp&rdquo; action to send "
                     "the money and void the credit in one step, or refund by "
                     "hand in the SumUp dashboard and use &ldquo;Void selected "
-                    "credits&rdquo; instead."
+                    "credits&rdquo; instead. If a SumUp request leaves a row "
+                    "locked as REFUNDING, first verify the outcome in SumUp, "
+                    "then use exactly one of the two RECOVERY actions. Those "
+                    "actions never send another provider request."
                 ),
             },
         ),
@@ -479,7 +487,13 @@ class CrushCreditAdmin(admin.ModelAdmin):
                 failed += 1
                 try:
                     _credit, restore_outcome = restore_cash_refund_lease(
-                        credit_id, payment.pk
+                        credit_id,
+                        payment.pk,
+                        note=(
+                            f"— refund lease released by "
+                            f"{request.user.email or request.user}: SumUp "
+                            "preflight failed before any refund request was sent."
+                        ),
                     )
                 except Exception as restore_exc:  # noqa: BLE001
                     restore_outcome = f"restore_failed: {restore_exc}"
@@ -611,6 +625,134 @@ class CrushCreditAdmin(admin.ModelAdmin):
                 f"Refunded {refunded} credit(s) via SumUp.",
                 level=messages.SUCCESS,
             )
+
+    def _reconcile_cash_refund_leases(self, request, queryset, *, refunded):
+        """Apply one human-verified outcome to ambiguous ``REFUNDING`` rows.
+
+        This method performs no provider I/O. Staff must inspect SumUp first,
+        then deliberately choose one of the two public actions below. The
+        service re-locks payment before credit and revalidates the lease before
+        either making value spendable or recording that cash has left.
+        """
+        if not self.has_refund_permission(request):
+            raise PermissionDenied
+
+        actor = request.user.email or request.user
+        reconciled = skipped = blocked = 0
+        expected_outcome = "finalized" if refunded else "restored"
+
+        for selected_credit in queryset.only("pk", "source_payment_id").order_by("pk"):
+            credit_id = selected_credit.pk
+            payment_id = selected_credit.source_payment_id
+            if payment_id is None:
+                blocked += 1
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: recovery blocked because its source "
+                    "payment is missing. It remains REFUNDING.",
+                    level=messages.ERROR,
+                )
+                continue
+
+            try:
+                if refunded:
+                    _credit, _payment, outcome = finalize_cash_refund(
+                        credit_id,
+                        payment_id,
+                        note=(
+                            f"— reconciled by {actor}: staff verified in SumUp "
+                            "that the full refund was completed."
+                        ),
+                    )
+                else:
+                    _credit, outcome = restore_cash_refund_lease(
+                        credit_id,
+                        payment_id,
+                        note=(
+                            f"— reconciled by {actor}: staff verified in SumUp "
+                            "that no refund was sent; credit restored."
+                        ),
+                    )
+            except Exception as exc:  # noqa: BLE001 — keep the batch observable
+                blocked += 1
+                logger.error(
+                    "Cash-refund recovery failed for credit %s (payment %s): %s",
+                    credit_id,
+                    payment_id,
+                    exc,
+                    exc_info=True,
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: recovery raised {exc}; it was left "
+                    "unchanged.",
+                    level=messages.ERROR,
+                )
+                continue
+
+            if outcome == expected_outcome:
+                reconciled += 1
+                result = (
+                    "refund recorded and credit voided"
+                    if refunded
+                    else "credit restored without sending a refund"
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: {result}.",
+                    level=messages.SUCCESS,
+                )
+            elif outcome == "inactive":
+                skipped += 1
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: not REFUNDING; left unchanged.",
+                    level=messages.WARNING,
+                )
+            else:
+                blocked += 1
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: recovery blocked by validation "
+                    f"(outcome={outcome}); it remains REFUNDING.",
+                    level=messages.ERROR,
+                )
+
+        if reconciled:
+            self.message_user(
+                request,
+                f"Reconciled {reconciled} verified refund lease(s).",
+                level=messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"Skipped {skipped} row(s) that were not REFUNDING.",
+                level=messages.WARNING,
+            )
+        if blocked:
+            self.message_user(
+                request,
+                f"Blocked {blocked} unsafe recovery attempt(s); inspect those "
+                "rows and their SumUp payments.",
+                level=messages.ERROR,
+            )
+
+    @admin.action(
+        description="✅ RECOVERY: SumUp verified REFUNDED — finalize locally",
+        permissions=["refund"],
+    )
+    def reconcile_sumup_refund_completed(self, request, queryset):
+        """Finalize leases only after staff verify the refund in SumUp."""
+        self._reconcile_cash_refund_leases(request, queryset, refunded=True)
+
+    @admin.action(
+        description="↩️ RECOVERY: SumUp verified NOT REFUNDED — restore credit",
+        permissions=["refund"],
+    )
+    def reconcile_sumup_refund_not_sent(self, request, queryset):
+        """Restore leases only after staff verify SumUp sent no refund."""
+        self._reconcile_cash_refund_leases(request, queryset, refunded=False)
 
     def has_add_permission(self, request):
         # Issued through services.credits.issue_credit, which is also what
@@ -805,10 +947,7 @@ def issue_goodwill_credit(modeladmin, request, queryset):
                         user,
                         amount_cents,
                         CrushCredit.Reason.GOODWILL,
-                        note=(
-                            f"{note}\n— issued by "
-                            f"{request.user.email or request.user}"
-                        ),
+                        note=f"{note}\n— issued by {request.user.email or request.user}",
                     )
                     if credit is not None:
                         issued += 1

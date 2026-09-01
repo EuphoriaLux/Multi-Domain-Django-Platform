@@ -38,7 +38,11 @@ from crush_lu.services.credits import (
     redeem_for_registration,
     settle_pending_resale_credit,
 )
-from crush_lu.services.sumup import SumUpClient, SumUpError
+from crush_lu.services.sumup import (
+    SumUpClient,
+    SumUpConfigurationError,
+    SumUpError,
+)
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
 
@@ -214,6 +218,23 @@ def _release_event_checkout_claim(_registration_id, token):
         token=token,
         state=EventCheckoutCreationClaim.State.ACTIVE,
     ).delete()
+
+
+def _sumup_checkout_creation_was_definitively_rejected(error):
+    """Return whether SumUp proved that the checkout POST was rejected.
+
+    ``SumUpClient`` preserves the underlying ``requests`` exception as the
+    cause of ``SumUpError``. Explicit validation/auth/content rejections prove
+    that no checkout was created. Transport errors, 5xx responses, request
+    timeouts and conflicts remain outcome-ambiguous: a duplicate-reference
+    conflict can itself be evidence that an earlier POST created a checkout.
+    """
+
+    if isinstance(error, SumUpConfigurationError):
+        return True
+    response = getattr(error.__cause__, "response", None)
+    status_code = getattr(response, "status_code", None)
+    return status_code in {400, 401, 403, 404, 405, 415, 422, 429}
 
 
 def _publish_event_checkout_provider_id(token, checkout_id):
@@ -436,8 +457,14 @@ def create_sumup_event_checkout(request, registration_id):
                 return_url=return_url,
             )
         except SumUpError as exc:
-            # A timeout is ambiguous: SumUp may have accepted the POST. Keep
-            # the durable reference instead of allowing a second checkout.
+            # A provider-side rejection proves that no checkout was created,
+            # so the member may retry after the request/configuration is fixed.
+            # Ambiguous transport/server failures keep the durable reference:
+            # SumUp may have accepted the POST before the failure surfaced.
+            if _sumup_checkout_creation_was_definitively_rejected(exc):
+                _release_event_checkout_claim(
+                    claim_state["registration_id"], claim_state["token"]
+                )
             logger.error("Failed to create SumUp event checkout: %s", exc)
             return JsonResponse(
                 {

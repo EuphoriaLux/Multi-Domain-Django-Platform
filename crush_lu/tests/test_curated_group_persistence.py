@@ -687,6 +687,16 @@ class GroupLifecycleTests(CuratedGroupPersistenceBase):
         with self.assertRaisesMessage(ValidationError, "cannot change"):
             self.event.full_clean()
 
+    def test_certified_projection_freezes_application_deadline(self):
+        group, _, _ = self.make_viable_group()
+        group.mark_provisional(audit_data=self.fairness_audit())
+        self.event.registration_deadline += timedelta(hours=1)
+
+        with self.assertRaisesMessage(ValidationError, "cannot change") as raised:
+            self.event.full_clean()
+
+        self.assertIn("registration_deadline", raised.exception.message_dict)
+
     def test_certified_projection_freezes_price_and_age(self):
         group, _, _ = self.make_viable_group()
         group.mark_provisional(audit_data=self.fairness_audit())

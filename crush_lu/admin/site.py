@@ -228,17 +228,18 @@ class CrushLuAdminSite(admin.AdminSite):
             'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
             'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
             'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
-            'paymenttransaction': {'order': 4, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
-            'crushcredit': {'order': 5, 'icon': '🎟️', 'group': 'Events & Meetups'},  # store credit ledger
-            'creditredemption': {'order': 6, 'icon': '🧾', 'group': 'Events & Meetups'},
-            'presentationqueue': {'order': 7, 'icon': '📋', 'group': 'Events & Meetups'},
-            'presentationrating': {'order': 8, 'icon': '⭐', 'group': 'Events & Meetups'},
-            'eventpoll': {'order': 9, 'icon': '🗳️', 'group': 'Events & Meetups'},
-            'eventpollvote': {'order': 10, 'icon': '📊', 'group': 'Events & Meetups'},
-            'eventfeedback': {'order': 11, 'icon': '📝', 'group': 'Events & Meetups'},
-            'eventlobbyparticipation': {'order': 12, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
-            'eventmeetsignal': {'order': 13, 'icon': '👋', 'group': 'Events & Meetups'},
-            'eventmeetingconfirmation': {'order': 14, 'icon': '✅', 'group': 'Events & Meetups'},
+            'curatedeventgroup': {'order': 4, 'icon': '🧩', 'group': 'Events & Meetups'},
+            'paymenttransaction': {'order': 5, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
+            'crushcredit': {'order': 6, 'icon': '🎟️', 'group': 'Events & Meetups'},  # store credit ledger
+            'creditredemption': {'order': 7, 'icon': '🧾', 'group': 'Events & Meetups'},
+            'presentationqueue': {'order': 8, 'icon': '📋', 'group': 'Events & Meetups'},
+            'presentationrating': {'order': 9, 'icon': '⭐', 'group': 'Events & Meetups'},
+            'eventpoll': {'order': 10, 'icon': '🗳️', 'group': 'Events & Meetups'},
+            'eventpollvote': {'order': 11, 'icon': '📊', 'group': 'Events & Meetups'},
+            'eventfeedback': {'order': 12, 'icon': '📝', 'group': 'Events & Meetups'},
+            'eventlobbyparticipation': {'order': 13, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
+            'eventmeetsignal': {'order': 14, 'icon': '👋', 'group': 'Events & Meetups'},
+            'eventmeetingconfirmation': {'order': 15, 'icon': '✅', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP: Quiz Night (Live quiz event management)

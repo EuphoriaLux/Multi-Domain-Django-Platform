@@ -732,7 +732,7 @@ class CuratedEventGroupInline(admin.TabularInline):
             "rounds": summary.get("rounds", "—"),
             "dates": summary.get("minimum_dates", "—"),
         }
-        url = reverse("admin:crush_lu_curatedeventgroup_change", args=[obj.pk])
+        url = reverse("crush_admin:crush_lu_curatedeventgroup_change", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', url, label)
 
 
@@ -782,6 +782,9 @@ class CuratedEventGroupAdmin(admin.ModelAdmin):
     fields = readonly_fields
 
     def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

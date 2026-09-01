@@ -27,7 +27,7 @@ from django.http import HttpResponse
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from requests import HTTPError
+from requests import HTTPError, Timeout
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import (
@@ -51,6 +51,7 @@ from crush_lu.services.curated_group_workflow import (
     repair_degraded_event_groups,
     start_curated_rounds,
 )
+from crush_lu.services.sumup import SumUpConfigurationError, SumUpError
 from crush_lu.views_payments import _apply_paid_checkout
 
 User = get_user_model()
@@ -166,6 +167,20 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
                 event_registration=registration,
             )
         return payments
+
+    def degrade_group_without_replacement(self, group, registrations):
+        """Leave fewer than five candidates without firing the signal callback."""
+
+        EventRegistration.objects.filter(
+            pk__in=[registration.pk for registration in registrations[:2]]
+        ).update(status="cancelled")
+        with transaction.atomic():
+            locked = CuratedEventGroup.objects.select_for_update().get(pk=group.pk)
+            locked._mark_degraded_locked(
+                reason=CuratedEventGroup.DEGRADATION_REASON_ORGANISER
+            )
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
 
     def checkout_url(self, registration):
         return reverse(
@@ -559,29 +574,162 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             ).values_list("registration_id", flat=True)
         )
         departing = next(reg for reg in registrations if reg.pk in selected_ids)
+        departing_checkout = PaymentTransaction.objects.create(
+            transaction_reference="CURATED-DROPPED-REPROJECT",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-CURATED-DROPPED-REPROJECT",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=departing.user,
+            event_registration=departing,
+        )
         departing.status = "cancelled"
         departing.save(update_fields=["status"])
         degraded.refresh_from_db()
         self.assertEqual(degraded.status, CuratedEventGroup.STATUS_DEGRADED)
 
-        replacement = generate_group_projection(
-            event,
-            deterministic_seed="degraded-replacement",
-        )
+        with self.assertRaisesMessage(
+            ValidationError, "must use the audited repair action"
+        ):
+            generate_group_projection(event, deterministic_seed="unsafe-bypass")
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            return_value=True,
+        ) as ensure_not_payable:
+            remedy = repair_degraded_event_groups(event)
 
         degraded.refresh_from_db()
-        replacement_group = CuratedEventGroup.objects.get(pk=replacement.group_ids[0])
+        departing_checkout.refresh_from_db()
+        replacement_group = CuratedEventGroup.objects.get(
+            event=event,
+            generation=remedy.replacement_generation,
+        )
         pinned_ids = selected_ids - {departing.pk}
         replacement_ids = set(
             replacement_group.memberships.filter(released_at__isnull=True).values_list(
                 "registration_id", flat=True
             )
         )
-        self.assertEqual(replacement.status, CuratedEventGroup.STATUS_PROVISIONAL)
-        self.assertTrue(replacement.projection.retains_all_pinned)
+        ensure_not_payable.assert_called_once_with(departing_checkout.sumup_checkout_id)
+        self.assertEqual(remedy.action, "reprojected")
+        self.assertEqual(departing_checkout.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(replacement_group.status, CuratedEventGroup.STATUS_PROVISIONAL)
         self.assertTrue(pinned_ids <= replacement_ids)
         self.assertEqual(degraded.status, CuratedEventGroup.STATUS_CANCELLED)
         self.assertFalse(degraded.memberships.filter(released_at__isnull=True).exists())
+
+    def test_reprojection_reconciles_lease_when_member_returns_during_provider_call(
+        self,
+    ):
+        event, registrations, degraded = self.certify_one_group()
+        departing = registrations[0]
+        transaction_reference = "CURATED-RETURNING-LEASE"
+        old_checkout_id = "CHK-CURATED-RETURNING-LEASE"
+        claim = EventCheckoutCreationClaim.objects.create(
+            registration=departing,
+            registration_id_snapshot=departing.pk,
+            event_id_snapshot=event.pk,
+            transaction_reference=transaction_reference,
+            payment_method="card",
+            provider_checkout_id=old_checkout_id,
+        )
+        old_payment = PaymentTransaction.objects.create(
+            transaction_reference=transaction_reference,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=old_checkout_id,
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=departing.user,
+            event_registration=departing,
+        )
+        departing.status = "cancelled"
+        departing.save(update_fields=["status"])
+        degraded.refresh_from_db()
+        self.assertEqual(degraded.status, CuratedEventGroup.STATUS_DEGRADED)
+
+        def member_returns_while_sumup_is_unlocked(_checkout_id):
+            EventRegistration.objects.filter(pk=departing.pk).update(
+                status="pending",
+                cancelled_at=None,
+            )
+            return True
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            side_effect=member_returns_while_sumup_is_unlocked,
+        ) as ensure_not_payable:
+            remedy = repair_degraded_event_groups(event)
+
+        ensure_not_payable.assert_called_once_with(old_checkout_id)
+        self.assertEqual(remedy.action, "reprojected")
+        replacement_group = CuratedEventGroup.objects.get(
+            event=event,
+            generation=remedy.replacement_generation,
+        )
+        self.assertTrue(
+            replacement_group.memberships.filter(
+                registration=departing,
+                released_at__isnull=True,
+            ).exists()
+        )
+        old_payment.refresh_from_db()
+        self.assertEqual(old_payment.status, PaymentTransaction.Status.CANCELLED)
+        self.assertFalse(
+            EventCheckoutCreationClaim.objects.filter(pk=claim.pk).exists()
+        )
+        self.assertFalse(
+            EventCheckoutCreationClaim.objects.filter(
+                state=EventCheckoutCreationClaim.State.RETIRING
+            ).exists()
+        )
+
+        self.client.force_login(departing.user)
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            return_value={"id": "CHK-CURATED-AFTER-RETURN", "status": "PENDING"},
+        ):
+            retried = self.client.post(self.checkout_url(departing))
+
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json()["checkout_id"], "CHK-CURATED-AFTER-RETURN")
+
+    def test_ambiguous_dropped_member_claim_blocks_reprojection(self):
+        event, registrations, degraded = self.certify_one_group(applicant_count=7)
+        selected_ids = set(
+            degraded.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        departing = next(reg for reg in registrations if reg.pk in selected_ids)
+        claim = EventCheckoutCreationClaim.objects.create(
+            registration=departing,
+            registration_id_snapshot=departing.pk,
+            event_id_snapshot=event.pk,
+            transaction_reference="CURATED-DROPPED-AMBIGUOUS",
+            payment_method="card",
+        )
+        departing.status = "cancelled"
+        departing.save(update_fields=["status"])
+
+        with self.assertRaisesMessage(
+            ValidationError, "ambiguous checkout claims without a provider ID"
+        ):
+            repair_degraded_event_groups(event)
+
+        degraded.refresh_from_db()
+        claim.refresh_from_db()
+        self.assertEqual(degraded.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(claim.state, EventCheckoutCreationClaim.State.ACTIVE)
+        self.assertTrue(
+            degraded.memberships.filter(
+                registration=departing, released_at__isnull=True
+            ).exists()
+        )
 
     def test_account_merge_refuses_released_cancelled_group_history(self):
         event = self.make_event()
@@ -666,6 +814,141 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             ).exists()
         )
         self.assertFalse(EventCheckoutCreationClaim.objects.exists())
+
+    def test_definitive_sumup_rejection_releases_claim_for_retry(self):
+        _event, registrations, group = self.certify_one_group()
+        registration = next(
+            registration
+            for registration in registrations
+            if group.memberships.filter(registration=registration).exists()
+        )
+        self.client.force_login(registration.user)
+        rejected_response = Mock(status_code=400)
+        rejected = SumUpError("SumUp rejected checkout creation")
+        rejected.__cause__ = HTTPError(response=rejected_response)
+
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            side_effect=[rejected, {"id": "CHK-AFTER-REJECTION", "status": "PENDING"}],
+        ) as create_checkout:
+            failed = self.client.post(self.checkout_url(registration))
+            self.assertEqual(failed.status_code, 500)
+            self.assertFalse(EventCheckoutCreationClaim.objects.exists())
+
+            retried = self.client.post(self.checkout_url(registration))
+
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json()["checkout_id"], "CHK-AFTER-REJECTION")
+        self.assertEqual(create_checkout.call_count, 2)
+        self.assertFalse(EventCheckoutCreationClaim.objects.exists())
+
+    def test_local_sumup_configuration_failure_releases_claim_for_retry(self):
+        _event, registrations, group = self.certify_one_group()
+        registration = next(
+            registration
+            for registration in registrations
+            if group.memberships.filter(registration=registration).exists()
+        )
+        self.client.force_login(registration.user)
+
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            side_effect=[
+                SumUpConfigurationError("SUMUP_API_KEY is not configured"),
+                {"id": "CHK-AFTER-CONFIG-FIX", "status": "PENDING"},
+            ],
+        ) as create_checkout:
+            failed = self.client.post(self.checkout_url(registration))
+            self.assertEqual(failed.status_code, 500)
+            self.assertFalse(EventCheckoutCreationClaim.objects.exists())
+
+            retried = self.client.post(self.checkout_url(registration))
+
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json()["checkout_id"], "CHK-AFTER-CONFIG-FIX")
+        self.assertEqual(create_checkout.call_count, 2)
+
+    def test_sumup_rate_limit_rejection_releases_claim_for_retry(self):
+        _event, registrations, group = self.certify_one_group()
+        registration = next(
+            registration
+            for registration in registrations
+            if group.memberships.filter(registration=registration).exists()
+        )
+        self.client.force_login(registration.user)
+        rate_limited = SumUpError("SumUp rate limit rejected checkout creation")
+        rate_limited.__cause__ = HTTPError(response=Mock(status_code=429))
+
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            side_effect=[
+                rate_limited,
+                {"id": "CHK-AFTER-RATE-LIMIT", "status": "PENDING"},
+            ],
+        ) as create_checkout:
+            failed = self.client.post(self.checkout_url(registration))
+            self.assertEqual(failed.status_code, 500)
+            self.assertFalse(EventCheckoutCreationClaim.objects.exists())
+
+            retried = self.client.post(self.checkout_url(registration))
+
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(retried.json()["checkout_id"], "CHK-AFTER-RATE-LIMIT")
+        self.assertEqual(create_checkout.call_count, 2)
+
+    def test_ambiguous_sumup_timeout_retains_claim_and_blocks_retry(self):
+        _event, registrations, group = self.certify_one_group()
+        registration = next(
+            registration
+            for registration in registrations
+            if group.memberships.filter(registration=registration).exists()
+        )
+        self.client.force_login(registration.user)
+        ambiguous = SumUpError("SumUp checkout outcome is unknown")
+        ambiguous.__cause__ = Timeout("response timed out")
+
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            side_effect=ambiguous,
+        ) as create_checkout:
+            failed = self.client.post(self.checkout_url(registration))
+            blocked = self.client.post(self.checkout_url(registration))
+
+        self.assertEqual(failed.status_code, 500)
+        self.assertEqual(blocked.status_code, 409)
+        create_checkout.assert_called_once()
+        claim = EventCheckoutCreationClaim.objects.get(registration=registration)
+        self.assertEqual(claim.state, EventCheckoutCreationClaim.State.ACTIVE)
+        self.assertEqual(claim.provider_checkout_id, "")
+
+    def test_sumup_conflict_retains_claim_as_possible_prior_creation(self):
+        _event, registrations, group = self.certify_one_group()
+        registration = next(
+            registration
+            for registration in registrations
+            if group.memberships.filter(registration=registration).exists()
+        )
+        self.client.force_login(registration.user)
+        conflict = SumUpError("checkout reference may already exist")
+        conflict.__cause__ = HTTPError(response=Mock(status_code=409))
+
+        with patch(
+            "crush_lu.views_payments.SumUpClient.create_checkout",
+            side_effect=conflict,
+        ) as create_checkout:
+            failed = self.client.post(self.checkout_url(registration))
+            blocked = self.client.post(self.checkout_url(registration))
+
+        self.assertEqual(failed.status_code, 500)
+        self.assertEqual(blocked.status_code, 409)
+        create_checkout.assert_called_once()
+        self.assertTrue(
+            EventCheckoutCreationClaim.objects.filter(
+                registration=registration,
+                state=EventCheckoutCreationClaim.State.ACTIVE,
+                provider_checkout_id="",
+            ).exists()
+        )
 
     def test_manual_payment_refuses_stale_attended_to_pending_admin_post(self):
         from crush_lu.admin.events import (
@@ -996,24 +1279,30 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         not_found = Mock(status_code=404)
         not_found.raise_for_status.side_effect = HTTPError(response=not_found)
 
-        with patch(
-            "crush_lu.services.sumup.requests.delete",
-            return_value=not_found,
-        ) as delete, patch.object(client, "get_checkout") as get_checkout:
+        with (
+            patch(
+                "crush_lu.services.sumup.requests.delete",
+                return_value=not_found,
+            ) as delete,
+            patch.object(client, "get_checkout") as get_checkout,
+        ):
             self.assertTrue(client.ensure_checkout_not_payable("CHK-ALREADY-GONE"))
 
         delete.assert_called_once()
         get_checkout.assert_not_called()
 
-        with patch.object(
-            client,
-            "deactivate_checkout",
-            return_value=False,
-        ) as deactivate, patch.object(
-            client,
-            "get_checkout",
-            return_value={"id": "CHK-FAILED", "status": "FAILED"},
-        ) as get_checkout:
+        with (
+            patch.object(
+                client,
+                "deactivate_checkout",
+                return_value=False,
+            ) as deactivate,
+            patch.object(
+                client,
+                "get_checkout",
+                return_value={"id": "CHK-FAILED", "status": "FAILED"},
+            ) as get_checkout,
+        ):
             self.assertTrue(client.ensure_checkout_not_payable("CHK-FAILED"))
 
         deactivate.assert_called_once_with("CHK-FAILED")
@@ -1410,6 +1699,208 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         self.assertEqual(notice.status, CuratedGroupNotification.Status.PENDING)
         deliver.assert_called_once()
 
+    def test_degraded_group_retires_pending_checkout_before_roster_release(self):
+        event, registrations, group = self.certify_one_group()
+        selected = registrations[2]
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CURATED-PENDING-RETIRE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-CURATED-PENDING-RETIRE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=selected.user,
+            event_registration=selected,
+        )
+        self.degrade_group_without_replacement(group, registrations)
+        provider_atomic_depths = []
+
+        def provider_retirement(_checkout_id):
+            provider_atomic_depths.append(
+                sum(
+                    not getattr(block, "_from_testcase", False)
+                    for block in transaction.get_connection().atomic_blocks
+                )
+            )
+            return True
+
+        with (
+            patch(
+                "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+                side_effect=provider_retirement,
+            ) as ensure_not_payable,
+            patch(
+                "crush_lu.services.curated_group_notifications."
+                "deliver_curated_group_notifications"
+            ) as deliver,
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                remedy = repair_degraded_event_groups(event)
+
+        ensure_not_payable.assert_called_once_with(payment.sumup_checkout_id)
+        self.assertEqual(provider_atomic_depths, [0])
+        self.assertEqual(remedy.action, "compensated")
+        group.refresh_from_db()
+        payment.refresh_from_db()
+        selected.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertEqual(payment.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(selected.status, "applied")
+        self.assertFalse(selected.payment_confirmed)
+        self.assertTrue(
+            CuratedGroupNotification.objects.filter(
+                registration=selected,
+                kind=CuratedGroupNotification.Kind.WITHDRAWAL,
+                status=CuratedGroupNotification.Status.PENDING,
+            ).exists()
+        )
+        deliver.assert_called_once()
+
+    def test_degraded_group_stays_frozen_when_checkout_cannot_be_retired(self):
+        event, registrations, group = self.certify_one_group()
+        selected = registrations[2]
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CURATED-PENDING-BLOCKED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-CURATED-PENDING-BLOCKED",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=selected.user,
+            event_registration=selected,
+        )
+        self.degrade_group_without_replacement(group, registrations)
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            return_value=False,
+        ):
+            with self.assertRaisesMessage(
+                ValidationError, "provider checkouts not proven closed"
+            ):
+                repair_degraded_event_groups(event)
+
+        group.refresh_from_db()
+        payment.refresh_from_db()
+        selected.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+        self.assertEqual(selected.status, "pending")
+        self.assertTrue(
+            group.memberships.filter(
+                registration=selected, released_at__isnull=True
+            ).exists()
+        )
+        self.assertFalse(CuratedGroupNotification.objects.filter(event=event).exists())
+
+    def test_capture_racing_retirement_is_compensated_instead_of_blocked(self):
+        event, registrations, group = self.certify_one_group()
+        selected = registrations[2]
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CURATED-PENDING-RACE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-CURATED-PENDING-RACE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=selected.user,
+            event_registration=selected,
+        )
+        self.degrade_group_without_replacement(group, registrations)
+
+        def captured_before_revalidation(_checkout_id):
+            PaymentTransaction.objects.filter(pk=payment.pk).update(
+                status=PaymentTransaction.Status.PAID,
+                paid_at=timezone.now(),
+            )
+            EventRegistration.objects.filter(pk=selected.pk).update(
+                status="confirmed",
+                payment_confirmed=True,
+                payment_date=timezone.now(),
+            )
+            return False
+
+        with (
+            patch(
+                "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+                side_effect=captured_before_revalidation,
+            ),
+            patch(
+                "crush_lu.services.curated_group_notifications."
+                "deliver_curated_group_notifications"
+            ),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                remedy = repair_degraded_event_groups(event)
+
+        payment.refresh_from_db()
+        group.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertEqual(remedy.compensated_registration_ids, (selected.pk,))
+        credit = CrushCredit.objects.get(source_payment=payment)
+        self.assertEqual(credit.amount_cents, 1500)
+        self.assertTrue(credit.cash_refund_eligible)
+
+    def test_ambiguous_providerless_claim_blocks_roster_release(self):
+        event, registrations, group = self.certify_one_group()
+        selected = registrations[2]
+        claim = EventCheckoutCreationClaim.objects.create(
+            registration=selected,
+            registration_id_snapshot=selected.pk,
+            event_id_snapshot=event.pk,
+            transaction_reference="CURATED-AMBIGUOUS-CLAIM",
+            payment_method="card",
+        )
+        self.degrade_group_without_replacement(group, registrations)
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable"
+        ) as ensure_not_payable:
+            with self.assertRaisesMessage(
+                ValidationError, "ambiguous checkout claims without a provider ID"
+            ):
+                repair_degraded_event_groups(event)
+
+        ensure_not_payable.assert_not_called()
+        group.refresh_from_db()
+        claim.refresh_from_db()
+        selected.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(claim.state, EventCheckoutCreationClaim.State.ACTIVE)
+        self.assertEqual(selected.status, "pending")
+
+    def test_failed_repair_does_not_steal_an_existing_retiring_claim_lease(self):
+        event, registrations, group = self.certify_one_group()
+        selected = registrations[2]
+        claim = EventCheckoutCreationClaim.objects.create(
+            registration=selected,
+            registration_id_snapshot=selected.pk,
+            event_id_snapshot=event.pk,
+            transaction_reference="CURATED-OTHER-RETIREMENT-LEASE",
+            payment_method="card",
+            provider_checkout_id="CHK-CURATED-OTHER-LEASE",
+            state=EventCheckoutCreationClaim.State.RETIRING,
+        )
+        self.degrade_group_without_replacement(group, registrations)
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            return_value=False,
+        ):
+            with self.assertRaisesMessage(
+                ValidationError, "provider checkouts not proven closed"
+            ):
+                repair_degraded_event_groups(event)
+
+        claim.refresh_from_db()
+        group.refresh_from_db()
+        self.assertEqual(claim.state, EventCheckoutCreationClaim.State.RETIRING)
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+
     def test_late_canceller_is_not_paid_group_remedy_but_innocent_payers_are(self):
         event, registrations, group = self.certify_one_group(
             event_overrides={"date_time": timezone.now() + timedelta(hours=24)}
@@ -1421,9 +1912,12 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         # delivery.  The generic late-cancellation callback runs first, then
         # the degraded-group callback decides that five people cannot form a
         # viable group and compensates only the innocent payers.
-        with patch("crush_lu.views_payments._send_member_cancellation_safely"), patch(
-            "crush_lu.services.curated_group_notifications."
-            "deliver_curated_group_notifications"
+        with (
+            patch("crush_lu.views_payments._send_member_cancellation_safely"),
+            patch(
+                "crush_lu.services.curated_group_notifications."
+                "deliver_curated_group_notifications"
+            ),
         ):
             with self.captureOnCommitCallbacks(execute=True):
                 departing.status = "cancelled"

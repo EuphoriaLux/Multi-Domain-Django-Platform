@@ -3659,7 +3659,9 @@ class RefundViaSumUpAdminActionTests(CreditFixture):
         self.assertEqual(leased.status, CrushCredit.Status.REFUNDING)
         self.assertEqual(payment.pk, payment_id)
 
-        _credit, restore_outcome = restore_cash_refund_lease(credit.pk, payment_id)
+        _credit, restore_outcome = restore_cash_refund_lease(
+            credit.pk, payment_id, note="Preflight proved no refund was sent."
+        )
         self.assertEqual(restore_outcome, "restored")
         credit.refresh_from_db()
         self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
@@ -3691,12 +3693,118 @@ class RefundViaSumUpAdminActionTests(CreditFixture):
         payment.status = PaymentTransaction.Status.REFUNDED
         payment.save(update_fields=["status", "updated_at"])
 
-        _credit, restore_outcome = restore_cash_refund_lease(credit.pk, payment_id)
+        _credit, restore_outcome = restore_cash_refund_lease(
+            credit.pk, payment_id, note="Preflight proved no refund was sent."
+        )
 
         self.assertEqual(restore_outcome, "payment_changed")
         credit.refresh_from_db()
         self.assertEqual(credit.status, CrushCredit.Status.REFUNDING)
         self.assertEqual(available_credit_cents(credit.user), 0)
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    @patch("crush_lu.admin.credits.SumUpClient.get_checkout")
+    def test_staff_can_finalize_a_refund_verified_in_sumup_without_retrying_it(
+        self, mock_get_checkout, mock_refund
+    ):
+        credit = self._cash_refund_eligible_credit(email="verify-refunded@crush.lu")
+        payment_id = credit.source_payment_id
+        _credit, _payment, lease_outcome = lease_cash_refund(credit.pk)
+        self.assertEqual(lease_outcome, "leased")
+
+        staff = self._staff()
+        admin_obj = self._admin()
+        admin_obj.reconcile_sumup_refund_completed(
+            _admin_request(staff), CrushCredit.objects.filter(pk=credit.pk)
+        )
+
+        mock_get_checkout.assert_not_called()
+        mock_refund.assert_not_called()
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        self.assertIn(staff.email, credit.note)
+        self.assertIn(
+            "verified in SumUp that the full refund was completed", credit.note
+        )
+        payment = PaymentTransaction.objects.get(pk=payment_id)
+        self.assertEqual(payment.status, PaymentTransaction.Status.REFUNDED)
+
+    @patch("crush_lu.admin.credits.SumUpClient.refund_transaction")
+    @patch("crush_lu.admin.credits.SumUpClient.get_checkout")
+    def test_staff_can_restore_a_refund_verified_not_sent_without_provider_io(
+        self, mock_get_checkout, mock_refund
+    ):
+        credit = self._cash_refund_eligible_credit(email="verify-unsent@crush.lu")
+        payment_id = credit.source_payment_id
+        _credit, _payment, lease_outcome = lease_cash_refund(credit.pk)
+        self.assertEqual(lease_outcome, "leased")
+
+        staff = self._staff()
+        admin_obj = self._admin()
+        admin_obj.reconcile_sumup_refund_not_sent(
+            _admin_request(staff), CrushCredit.objects.filter(pk=credit.pk)
+        )
+
+        mock_get_checkout.assert_not_called()
+        mock_refund.assert_not_called()
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.ACTIVE)
+        self.assertEqual(available_credit_cents(credit.user), credit.amount_cents)
+        self.assertIn(staff.email, credit.note)
+        self.assertIn("verified in SumUp that no refund was sent", credit.note)
+        payment = PaymentTransaction.objects.get(pk=payment_id)
+        self.assertEqual(payment.status, PaymentTransaction.Status.PAID)
+
+    def test_recovery_refuses_an_unexpected_payment_state_and_keeps_the_lease(self):
+        credit = self._cash_refund_eligible_credit(email="changed-payment@crush.lu")
+        payment_id = credit.source_payment_id
+        _credit, payment, lease_outcome = lease_cash_refund(credit.pk)
+        self.assertEqual(lease_outcome, "leased")
+        payment.status = PaymentTransaction.Status.FAILED
+        payment.save(update_fields=["status", "updated_at"])
+
+        admin_obj = self._admin()
+        admin_obj.reconcile_sumup_refund_completed(
+            _admin_request(self._staff()),
+            CrushCredit.objects.filter(pk=credit.pk),
+        )
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.REFUNDING)
+        self.assertNotIn("verified in SumUp", credit.note)
+        payment = PaymentTransaction.objects.get(pk=payment_id)
+        self.assertEqual(payment.status, PaymentTransaction.Status.FAILED)
+
+    def test_recovery_actions_require_the_dedicated_refund_permission(self):
+        credit = self._cash_refund_eligible_credit(email="recovery-perm@crush.lu")
+        lease_cash_refund(credit.pk)
+        staff = self._user("recovery-nopower@crush.lu")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = _admin_request(staff)
+        admin_obj = self._admin()
+        queryset = CrushCredit.objects.filter(pk=credit.pk)
+
+        with self.assertRaises(PermissionDenied):
+            admin_obj.reconcile_sumup_refund_completed(request, queryset)
+        with self.assertRaises(PermissionDenied):
+            admin_obj.reconcile_sumup_refund_not_sent(request, queryset)
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.REFUNDING)
+
+    def test_refund_lease_transitions_require_an_audit_note(self):
+        credit = self._cash_refund_eligible_credit(email="missing-note@crush.lu")
+        payment_id = credit.source_payment_id
+        lease_cash_refund(credit.pk)
+
+        with self.assertRaisesMessage(ValueError, "requires an audit note"):
+            restore_cash_refund_lease(credit.pk, payment_id, note="")
+        with self.assertRaisesMessage(ValueError, "requires an audit note"):
+            finalize_cash_refund(credit.pk, payment_id, note="")
+
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.REFUNDING)
 
 
 class CrushCreditRefundNeverAutomaticTests(CreditFixture):

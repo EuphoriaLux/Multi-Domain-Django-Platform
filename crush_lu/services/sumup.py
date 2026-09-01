@@ -17,6 +17,10 @@ class SumUpError(Exception):
     pass
 
 
+class SumUpConfigurationError(SumUpError):
+    """Local preflight failure raised before a provider request is sent."""
+
+
 def clean_credential(value: Optional[str]) -> str:
     """Normalise a credential pasted into an env var or App Service setting.
 
@@ -116,7 +120,7 @@ class SumUpClient:
             # Fail here rather than sending "Bearer " and letting SumUp answer
             # a generic 401 — that error is indistinguishable from a revoked or
             # mistyped key and sends you hunting in the wrong place.
-            raise SumUpError(
+            raise SumUpConfigurationError(
                 "SUMUP_API_KEY is not configured — set it in the environment "
                 "(App Service application settings) and restart."
             )

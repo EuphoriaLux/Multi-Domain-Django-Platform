@@ -76,6 +76,7 @@ from .events import (
     EventInvitationInline,
     EventVotingSessionInline,
     PresentationQueueInline,
+    CuratedEventGroupAdmin,
     MeetupEventAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
@@ -273,6 +274,7 @@ from crush_lu.models import (
     ScreeningSlot,
     PremiumMembership,
     MeetupEvent,
+    CuratedEventGroup,
     EventRegistration,
     EventInvitation,
     EventFeedback,
@@ -393,6 +395,7 @@ crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
+crush_admin_site.register(CuratedEventGroup, CuratedEventGroupAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
 crush_admin_site.register(EventFeedback, EventFeedbackAdmin)

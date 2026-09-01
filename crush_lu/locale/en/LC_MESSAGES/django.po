@@ -27503,3 +27503,33 @@ msgstr ""
 #: models/credits.py
 msgid "Curated group became unavailable"
 msgstr ""
+
+#: models/events.py
+msgid "Unpaid-group withdrawal"
+msgstr ""
+
+#: email_helpers.py
+#, python-brace-format
+msgid "Your application for {title} is being reconsidered"
+msgstr ""
+
+#: templates/crush_lu/emails/curated_group_withdrawal.html
+msgid "Your application is being reconsidered"
+msgstr ""
+
+#, python-format
+msgid "Hello %(first_name)s,"
+msgstr ""
+
+#, python-format
+msgid "The selected group for <strong>%(title)s</strong> can no longer go ahead as planned, so we have returned your application to the selection pool."
+msgstr ""
+
+msgid "No payment was taken for this place."
+msgstr ""
+
+msgid "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required."
+msgstr ""
+
+msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
+msgstr ""

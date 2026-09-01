@@ -874,6 +874,7 @@ class MeetupEvent(models.Model):
             projection_fields = (
                 "event_type",
                 "registration_mode",
+                "registration_deadline",
                 "max_participants",
                 "max_participants_m",
                 "max_participants_f",
@@ -3334,11 +3335,12 @@ class CuratedEventGroupMembership(models.Model):
 
 
 class CuratedGroupNotification(models.Model):
-    """Durable, resumable delivery record for selection and remedy mail."""
+    """Durable delivery record for selection, remedy and withdrawal mail."""
 
     class Kind(models.TextChoices):
         SELECTION = "selection", _("Selection invitation")
         REMEDY = "remedy", _("Unavailable-group payment remedy")
+        WITHDRAWAL = "withdrawal", _("Unpaid-group withdrawal")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")

@@ -2,13 +2,14 @@
 
 The projector is deliberately pure.  This module is the narrow bridge from its
 deterministic result to durable groups, schedules and the event-registration
-lifecycle.  Every mutating entry point uses the shared lock order:
+lifecycle. Projection-only entry points use the shared roster lock order:
 
     event -> registrations -> groups -> memberships -> pairings -> participants
 
-That order is also used by selection, cancellation and final check-in.  Keeping
-it here prevents a re-projection from publishing half of a generation or
-deadlocking a payment/cancellation path.
+Payment-aware remedy entry points acquire ``PaymentTransaction`` first, then
+the same roster order, and checkout claims last. Keeping both orders explicit
+prevents a re-projection from publishing half a generation or deadlocking a
+payment/cancellation path.
 """
 
 import logging
@@ -25,7 +26,6 @@ from crush_lu.models.events import (
     CuratedEventGroupMembership,
     CuratedEventPairing,
     CuratedEventPairingParticipant,
-    CuratedGroupNotification,
     EventRegistration,
     MeetupEvent,
 )
@@ -78,6 +78,26 @@ class DegradedEventRemedy:
     replacement_generation: int | None = None
     compensated_registration_ids: tuple[int, ...] = ()
     credit_ids: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _CheckoutRetirementPlan:
+    """Provider checkout IDs that must be proven closed outside the DB lock."""
+
+    checkout_ids: tuple[str, ...]
+    leased_claims: tuple[tuple[int, str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class _CheckoutRetirementBlocked:
+    """A live or ambiguous checkout prevents irreversible roster release."""
+
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class _RetryLockedRepair:
+    """A checkout row appeared while the operation waited for the event lock."""
 
 
 def requires_curated_group_certification(event):
@@ -336,7 +356,6 @@ def _store_group_schedule(group, projected_group, *, actor=None):
     CuratedEventPairingParticipant.objects.bulk_create(participants)
 
 
-@transaction.atomic
 def generate_group_projection(event_or_id, *, actor=None, deterministic_seed=None):
     """Project and atomically publish a complete replacement generation.
 
@@ -344,8 +363,28 @@ def generate_group_projection(event_or_id, *, actor=None, deterministic_seed=Non
     replaced, but only if the projector retains every already invited, paid or
     checked-in registration.  When such pinned people exist, the replacement is
     certified as provisional inside the same transaction so no payment window
-    opens onto a draft or stale generation.
+    opens onto a draft or stale generation. A degraded generation must instead
+    use :func:`repair_degraded_event_groups`, which retires checkouts before it
+    invokes the private verified-reprojection path below.
     """
+
+    return _generate_group_projection(
+        event_or_id,
+        actor=actor,
+        deterministic_seed=deterministic_seed,
+        allow_degraded_replacement=False,
+    )
+
+
+@transaction.atomic
+def _generate_group_projection(
+    event_or_id,
+    *,
+    actor=None,
+    deterministic_seed=None,
+    allow_degraded_replacement,
+):
+    """Publish a projection; degraded replacement is repair-only."""
 
     event, existing_groups = _lock_event_state(event_or_id)
     _validate_pre_round_event(event, action="generate")
@@ -361,6 +400,13 @@ def generate_group_projection(event_or_id, *, actor=None, deterministic_seed=Non
     if any(group.status == CuratedEventGroup.STATUS_LOCKED for group in active_groups):
         raise ValidationError(
             "The current generation is locked for the evening and cannot be reprojected."
+        )
+    if not allow_degraded_replacement and any(
+        group.status == CuratedEventGroup.STATUS_DEGRADED for group in existing_groups
+    ):
+        raise ValidationError(
+            "A degraded generation must use the audited repair action so every "
+            "dropped member checkout is retired before roster release."
         )
 
     projection = project_event_groups(event, deterministic_seed=deterministic_seed)
@@ -719,27 +765,161 @@ def registration_has_certified_payable_group(registration, *, event=None):
     return summary["schedule_digest"] == membership.group.schedule_digest
 
 
-@transaction.atomic
 def repair_degraded_event_groups(event_or_id, *, actor=None):
     """Reproject a degraded pre-event generation or compensate its payers.
 
-    Status exits and erasure first make certification non-payable. This second
-    phase owns every event payment before the ordinary event/group lock order,
-    so it can either install a complete pinned replacement or release the
-    degraded roster only after all previously captured value is restored.
-    Locked/started groups are never reassigned.
+    Provider I/O deliberately sits between short atomic phases. The first phase
+    leases known checkout claims only after taking the global payment -> event
+    -> roster -> claim lock order. The final phase revalidates that same state
+    and releases the roster only after every still-pending SumUp checkout is
+    proven non-payable. Locked/started groups are never reassigned.
     """
 
-    from crush_lu.models.payments import PaymentTransaction
+    from crush_lu.services.sumup import SumUpClient
+
+    event_id = _event_id(event_or_id)
+    retirement_proofs = {}
+    # claim PK -> (provider checkout ID, transaction reference). Once this
+    # invocation leases a claim, it owns that exact snapshot until a later
+    # locked phase deletes it safely or restores it ACTIVE and blocks.
+    leased_claims = {}
+    client = None
+    # A checkout worker that was already between its DB phases may publish one
+    # new row after our first snapshot. Re-running from the payment lock closes
+    # that race without ever taking payment locks after the event lock.
+    for _attempt in range(4):
+        with transaction.atomic():
+            result = _repair_degraded_event_groups_locked(
+                event_id,
+                actor=actor,
+                retirement_proofs=retirement_proofs,
+                leased_claims=leased_claims,
+            )
+        if isinstance(result, DegradedEventRemedy):
+            return result
+        if isinstance(result, _RetryLockedRepair):
+            continue
+        if isinstance(result, _CheckoutRetirementBlocked):
+            raise ValidationError(result.reason)
+
+        if client is None:
+            client = SumUpClient()
+        leased_claims.update(
+            {
+                claim_id: (checkout_id, transaction_reference)
+                for claim_id, checkout_id, transaction_reference in result.leased_claims
+            }
+        )
+        for checkout_id in result.checkout_ids:
+            retirement_proofs[checkout_id] = client.ensure_checkout_not_payable(
+                checkout_id
+            )
+
+    raise ValidationError(
+        "Checkout state kept changing while the degraded group was being "
+        "repaired. The group remains unavailable; retry the repair action."
+    )
+
+
+def _reconcile_owned_checkout_leases(
+    *,
+    locked_payments,
+    leased_claims,
+    retirement_proofs,
+    claim_model,
+    payment_model,
+):
+    """Finish or safely restore every claim leased by this repair invocation."""
+
+    if not leased_claims:
+        return None
+
+    claims_by_id = {
+        claim.pk: claim
+        for claim in claim_model.objects.select_for_update()
+        .filter(pk__in=leased_claims)
+        .exclude(state=claim_model.State.RETIRED)
+        .order_by("pk")
+    }
+    unresolved = []
+    for claim_id, (checkout_id, transaction_reference) in leased_claims.items():
+        claim = claims_by_id.get(claim_id)
+        matching_payments = [
+            payment
+            for payment in locked_payments
+            if payment.transaction_reference == transaction_reference
+            or payment.sumup_checkout_id == checkout_id
+        ]
+        pending_payments = [
+            payment
+            for payment in matching_payments
+            if payment.status == payment_model.Status.PENDING
+        ]
+        has_terminal_payment = any(
+            payment.status != payment_model.Status.PENDING
+            for payment in matching_payments
+        )
+        snapshot_matches = claim is None or (
+            claim.provider_checkout_id == checkout_id
+            and claim.transaction_reference == transaction_reference
+        )
+        provider_safe = retirement_proofs.get(checkout_id, False)
+
+        if provider_safe:
+            for payment in pending_payments:
+                payment.status = payment_model.Status.CANCELLED
+                payment.failure_reason = (
+                    "Certified curated group changed while its checkout was "
+                    "being retired; SumUp proved this checkout non-payable."
+                )
+                payment.save(update_fields=["status", "failure_reason", "updated_at"])
+
+        safe_to_finish = snapshot_matches and (
+            provider_safe or (has_terminal_payment and not pending_payments)
+        )
+        if safe_to_finish:
+            if claim is not None:
+                claim.delete()
+            continue
+
+        if claim is not None and claim.state == claim_model.State.RETIRING:
+            claim.state = claim_model.State.ACTIVE
+            claim.save(update_fields=["state"])
+        unresolved.append(checkout_id)
+
+    if unresolved:
+        return _CheckoutRetirementBlocked(
+            reason=(
+                "The degraded roster was not released because provider checkouts "
+                "not proven closed were restored for safe recovery: "
+                + ", ".join(sorted(set(unresolved)))
+                + "."
+            )
+        )
+    return None
+
+
+def _repair_degraded_event_groups_locked(
+    event_id, *, actor=None, retirement_proofs=None, leased_claims=None
+):
+    """Run one locked repair phase without making provider network calls."""
+
+    from crush_lu.models.payments import (
+        EventCheckoutCreationClaim,
+        PaymentTransaction,
+    )
     from crush_lu.services.credits import (
         credit_registration_for_unavailable_curated_group,
     )
     from crush_lu.services.curated_group_notifications import (
         deliver_curated_group_notifications,
         enqueue_remedy_notification,
+        enqueue_withdrawal_notification,
     )
 
-    event_id = _event_id(event_or_id)
+    retirement_proofs = retirement_proofs or {}
+    if leased_claims is None:
+        leased_claims = {}
     registration_ids = list(
         EventRegistration.objects.filter(event_id=event_id)
         .order_by("pk")
@@ -754,6 +934,29 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
         .order_by("pk")
     )
     event, groups = _lock_event_state(event_id)
+
+    # A checkout may have been inserted while this transaction waited for the
+    # event row. Do not lock it in reverse order; release everything and begin
+    # again so the new row is owned before the event/roster locks.
+    current_payment_ids = set(
+        PaymentTransaction.objects.filter(
+            Q(event_id=event_id) | Q(event_registration_id__in=registration_ids),
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        ).values_list("pk", flat=True)
+    )
+    if current_payment_ids != {payment.pk for payment in locked_payments}:
+        return _RetryLockedRepair()
+
+    lease_block = _reconcile_owned_checkout_leases(
+        locked_payments=locked_payments,
+        leased_claims=leased_claims,
+        retirement_proofs=retirement_proofs,
+        claim_model=EventCheckoutCreationClaim,
+        payment_model=PaymentTransaction,
+    )
+    if lease_block is not None:
+        return lease_block
+
     degraded = [
         group for group in groups if group.status == CuratedEventGroup.STATUS_DEGRADED
     ]
@@ -786,43 +989,212 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
         )
 
     may_reproject = not had_locked_roster and timezone.now() < event.date_time
+    replacement_projection = None
     if may_reproject:
         projection = project_event_groups(event)
         if projection.viable_groups and projection.retains_all_pinned:
-            try:
-                stored = generate_group_projection(
-                    event,
-                    actor=actor,
-                    deterministic_seed=projection.deterministic_seed,
-                )
-            except ValidationError:
-                logger.warning(
-                    "Could not replace degraded curated groups for event %s; "
-                    "falling back to full-value compensation.",
-                    event.pk,
-                    exc_info=True,
-                )
-            else:
-                return DegradedEventRemedy(
-                    action="reprojected",
-                    degraded_group_ids=degraded_ids,
-                    replacement_generation=stored.generation,
-                )
+            replacement_projection = projection
 
-    affected_ids = list(
+    affected_generations = {}
+    for registration_id, generation in (
         CuratedEventGroupMembership.objects.filter(
             group_id__in=degraded_ids,
             released_at__isnull=True,
         )
         .order_by("registration_id")
-        .values_list("registration_id", flat=True)
-    )
+        .values_list("registration_id", "group__generation")
+    ):
+        affected_generations[registration_id] = max(
+            generation, affected_generations.get(registration_id, 0)
+        )
+    affected_ids = sorted(affected_generations)
+    retirement_ids = affected_ids
+    if replacement_projection is not None:
+        retained_ids = set(replacement_projection.selected_registration_ids)
+        retirement_ids = sorted(set(affected_ids) - retained_ids)
     registrations = {
         registration.pk: registration
         for registration in EventRegistration.objects.filter(pk__in=affected_ids)
         .select_related("event", "user")
         .order_by("pk")
     }
+
+    claims = list(
+        EventCheckoutCreationClaim.objects.select_for_update()
+        .filter(
+            Q(registration_id__in=retirement_ids)
+            | Q(registration_id_snapshot__in=retirement_ids)
+        )
+        .exclude(state=EventCheckoutCreationClaim.State.RETIRED)
+        .order_by("pk")
+    )
+    relevant_payments = [
+        payment
+        for payment in locked_payments
+        if payment.event_registration_id in retirement_ids
+    ]
+    pending_sumup = [
+        payment
+        for payment in relevant_payments
+        if payment.provider == PaymentTransaction.Provider.SUMUP
+        and payment.status == PaymentTransaction.Status.PENDING
+    ]
+    payments_by_reference = {
+        payment.transaction_reference: payment for payment in relevant_payments
+    }
+
+    unknown_payment_ids = [
+        payment.pk for payment in pending_sumup if not payment.sumup_checkout_id
+    ]
+    unknown_claim_ids = [
+        claim.pk
+        for claim in claims
+        if claim.payment_method == "card"
+        and not claim.provider_checkout_id
+        and claim.transaction_reference not in payments_by_reference
+    ]
+    checkout_ids = {
+        payment.sumup_checkout_id
+        for payment in pending_sumup
+        if payment.sumup_checkout_id
+    }
+    checkout_ids.update(
+        claim.provider_checkout_id
+        for claim in claims
+        if claim.payment_method == "card"
+        and claim.provider_checkout_id
+        and (
+            claim.transaction_reference not in payments_by_reference
+            or payments_by_reference[claim.transaction_reference].status
+            == PaymentTransaction.Status.PENDING
+        )
+    )
+    missing_proofs = sorted(checkout_ids - retirement_proofs.keys())
+    if missing_proofs:
+        # RETIRING makes an in-flight creator compensate a newly-created remote
+        # checkout instead of publishing it after the group became unavailable.
+        newly_leased_claims = []
+        for claim in claims:
+            if (
+                claim.payment_method == "card"
+                and claim.provider_checkout_id in missing_proofs
+                and claim.state == EventCheckoutCreationClaim.State.ACTIVE
+            ):
+                claim.state = EventCheckoutCreationClaim.State.RETIRING
+                claim.save(update_fields=["state"])
+                newly_leased_claims.append(
+                    (
+                        claim.pk,
+                        claim.provider_checkout_id,
+                        claim.transaction_reference,
+                    )
+                )
+        return _CheckoutRetirementPlan(
+            checkout_ids=tuple(missing_proofs),
+            leased_claims=tuple(newly_leased_claims),
+        )
+
+    unproven_checkout_ids = sorted(
+        checkout_id
+        for checkout_id in checkout_ids
+        if not retirement_proofs.get(checkout_id, False)
+        and any(
+            payment.sumup_checkout_id == checkout_id
+            and payment.status == PaymentTransaction.Status.PENDING
+            for payment in pending_sumup
+        )
+    )
+    unproven_checkout_ids.extend(
+        checkout_id
+        for checkout_id in sorted(checkout_ids)
+        if not retirement_proofs.get(checkout_id, False)
+        and any(
+            claim.provider_checkout_id == checkout_id
+            and (
+                claim.transaction_reference not in payments_by_reference
+                or payments_by_reference[claim.transaction_reference].status
+                == PaymentTransaction.Status.PENDING
+            )
+            for claim in claims
+        )
+        and checkout_id not in unproven_checkout_ids
+    )
+    if unknown_payment_ids or unknown_claim_ids or unproven_checkout_ids:
+        # Leave claims reusable by the provider-safe recovery command/admin
+        # retry. No roster, credit, or registration state changes in this path.
+        for claim in claims:
+            if (
+                claim.pk in leased_claims
+                and claim.state == EventCheckoutCreationClaim.State.RETIRING
+            ):
+                claim.state = EventCheckoutCreationClaim.State.ACTIVE
+                claim.save(update_fields=["state"])
+        details = []
+        if unknown_payment_ids:
+            details.append(
+                "pending payment rows without a provider ID: "
+                + ", ".join(map(str, unknown_payment_ids))
+            )
+        if unknown_claim_ids:
+            details.append(
+                "ambiguous checkout claims without a provider ID: "
+                + ", ".join(map(str, unknown_claim_ids))
+            )
+        if unproven_checkout_ids:
+            details.append(
+                "provider checkouts not proven closed: "
+                + ", ".join(unproven_checkout_ids)
+            )
+        return _CheckoutRetirementBlocked(
+            reason=(
+                "The degraded roster was not released because live checkout "
+                "retirement is incomplete (" + "; ".join(details) + ")."
+            )
+        )
+
+    for payment in relevant_payments:
+        if payment.status != PaymentTransaction.Status.PENDING:
+            continue
+        payment.status = PaymentTransaction.Status.CANCELLED
+        payment.failure_reason = (
+            "Certified curated group became unavailable; this checkout was "
+            "retired before the roster was released."
+        )
+        payment.save(update_fields=["status", "failure_reason", "updated_at"])
+
+    # Card claims are now either provider-proven safe or backed by a terminal
+    # payment row. Credit claims never opened an external checkout. Deleting the
+    # lease lets a member pay normally if a later projection selects them again.
+    for claim in claims:
+        claim.delete()
+
+    if replacement_projection is not None:
+        try:
+            stored = _generate_group_projection(
+                event,
+                actor=actor,
+                deterministic_seed=replacement_projection.deterministic_seed,
+                allow_degraded_replacement=True,
+            )
+        except ValidationError:
+            logger.warning(
+                "Could not replace degraded curated groups for event %s after "
+                "retiring dropped-member checkouts; leaving the group degraded.",
+                event.pk,
+                exc_info=True,
+            )
+            return _CheckoutRetirementBlocked(
+                reason=(
+                    "Dropped-member checkouts were retired, but the replacement "
+                    "projection could not be certified. The group remains degraded."
+                )
+            )
+        return DegradedEventRemedy(
+            action="reprojected",
+            degraded_group_ids=degraded_ids,
+            replacement_generation=stored.generation,
+        )
+
     latest_paid = {}
     for payment in locked_payments:
         if (
@@ -833,27 +1205,41 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
 
     compensated = []
     credit_ids = []
+    queued_notice_ids = set()
     for registration_id in affected_ids:
         registration = registrations.get(registration_id)
         if registration is None:
             continue
-        if registration.payment_confirmed and registration.status not in {
+        paid_payment = latest_paid.get(registration_id)
+        if (
+            registration.payment_confirmed or paid_payment is not None
+        ) and registration.status not in {
             "cancelled",
             "no_show",
         }:
             credits = credit_registration_for_unavailable_curated_group(
                 registration,
-                payment=latest_paid.get(registration_id),
+                payment=paid_payment,
             )
             compensated.append(registration_id)
             credit_ids.extend(credit.pk for credit in credits)
-            enqueue_remedy_notification(registration, credits)
+            notice = enqueue_remedy_notification(registration, credits)
+            if notice is not None:
+                queued_notice_ids.add(notice.pk)
         elif registration.status in {"pending", "confirmed"}:
             EventRegistration.objects.filter(pk=registration_id).update(
                 status="applied",
                 payment_confirmed=False,
                 payment_date=None,
             )
+            registration.status = "applied"
+            registration.payment_confirmed = False
+            registration.payment_date = None
+            notice = enqueue_withdrawal_notification(
+                registration, affected_generations[registration_id]
+            )
+            if notice is not None:
+                queued_notice_ids.add(notice.pk)
 
     for group in degraded:
         group.release_degraded_memberships_for_remedy(
@@ -865,15 +1251,15 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
             reason="Certified group unavailable; payers compensated.",
         )
 
-    if compensated:
-        # One bounded callback, never one synchronous network call per payer.
-        # Every unsent or failed row remains in the durable queue for the
-        # admin recovery action.
+    if queued_notice_ids:
+        # Drain exactly this repair's committed outbox rows in bounded slices.
+        # A failed early row is attempted once and cannot starve later members;
+        # every failure remains durable for the admin recovery action.
         transaction.on_commit(
             partial(
                 deliver_curated_group_notifications,
-                event_ids=[event.pk],
-                kinds=[CuratedGroupNotification.Kind.REMEDY],
+                notice_ids=sorted(queued_notice_ids),
+                drain=True,
             )
         )
 

@@ -226,15 +226,24 @@ def lease_cash_refund(credit_id):
     return credit, source_payment, "leased"
 
 
-def restore_cash_refund_lease(credit_id, payment_id):
+def restore_cash_refund_lease(credit_id, payment_id, *, note):
     """Restore a lease only when no refund POST was attempted.
 
     This is intentionally a narrow recovery primitive for definitive
     *pre-refund* failures such as being unable to read the checkout or find its
-    successful transaction id. Once ``refund_transaction`` has been called,
-    its exception may mean SumUp accepted the request before the response was
-    lost; callers must leave the credit ``REFUNDING`` for reconciliation.
+    successful transaction id. It is also the local half of the explicit admin
+    recovery path after staff have verified in SumUp that an ambiguous refund
+    was not sent. Once ``refund_transaction`` has been called, its exception
+    may mean SumUp accepted the request before the response was lost; callers
+    must not invoke this until that outcome has been checked by a human.
+
+    ``note`` is mandatory because restoring a leased credit makes value
+    spendable again. The reason and actor must remain on the ledger row.
     """
+
+    if not note or not str(note).strip():
+        raise ValueError("A cash-refund lease restoration requires an audit note.")
+    note = str(note).strip()
 
     with transaction.atomic():
         source_payment = (
@@ -245,6 +254,10 @@ def restore_cash_refund_lease(credit_id, payment_id):
         credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
         if credit.status != CrushCredit.Status.REFUNDING:
             return credit, "inactive"
+        if not credit.cash_refund_eligible:
+            return credit, "ineligible"
+        if credit.redemptions.exists():
+            return credit, "spent"
         if (
             source_payment is None
             or credit.source_payment_id != source_payment.pk
@@ -255,7 +268,8 @@ def restore_cash_refund_lease(credit_id, payment_id):
             return credit, "payment_changed"
 
         credit.status = CrushCredit.Status.ACTIVE
-        credit.save(update_fields=["status"])
+        credit.note = f"{credit.note}\n{note}".strip()
+        credit.save(update_fields=["status", "note"])
 
     return credit, "restored"
 
@@ -266,8 +280,13 @@ def finalize_cash_refund(credit_id, payment_id, *, note):
     Provider success is already known when this runs. A local exception rolls
     back both writes and leaves the separately committed ``REFUNDING`` lease in
     place, making the ambiguous state visible and non-spendable until staff
-    reconcile it.
+    reconcile it. ``note`` is mandatory so both the automatic success path and
+    a staff-verified recovery remain attributable on the ledger row.
     """
+
+    if not note or not str(note).strip():
+        raise ValueError("A cash-refund finalization requires an audit note.")
+    note = str(note).strip()
 
     with transaction.atomic():
         source_payment = (
@@ -278,10 +297,20 @@ def finalize_cash_refund(credit_id, payment_id, *, note):
         credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
         if credit.status != CrushCredit.Status.REFUNDING:
             return credit, source_payment, "inactive"
+        if not credit.cash_refund_eligible:
+            return credit, source_payment, "ineligible"
+        if credit.redemptions.exists():
+            return credit, source_payment, "spent"
         if (
             source_payment is None
             or credit.source_payment_id != source_payment.pk
             or source_payment.provider != PaymentTransaction.Provider.SUMUP
+            or source_payment.status
+            not in {
+                PaymentTransaction.Status.PAID,
+                PaymentTransaction.Status.REFUNDED,
+            }
+            or not source_payment.sumup_checkout_id
         ):
             return credit, source_payment, "payment_changed"
 
