@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -1452,6 +1453,42 @@ class EventRegistration(models.Model):
         return (
             f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
         )
+
+    def clean(self):
+        """Refuse "applied" on an event that does not run curated registration.
+
+        ``applied`` is deliberately outside ``SEAT_HOLDING_STATUSES``, so
+        setting it releases the member's seat, voids their door ticket and
+        drops them from reminders and the wallet pass. On a curated event that
+        is precisely the point. On a direct-mode event -- every mixer and every
+        speed dating running the ordinary flow -- it is a misclick in an admin
+        dropdown that costs a member their place with nothing on screen to say
+        so, and no email either.
+
+        The status dropdown is offered on every registration form in the admin
+        and on the inline under the event, on all events regardless of mode, so
+        this check is the only thing between that dropdown and a silently lost
+        seat. Deliberately at the model rather than on one form, so the inline
+        is covered too.
+        """
+        super().clean()
+        if (
+            self.status == "applied"
+            and self.event_id
+            and not self.event.uses_curated_registration
+        ):
+            raise ValidationError(
+                {
+                    "status": _(
+                        "“Applied” belongs to speed-dating events whose "
+                        "registration mode is Curated. “%(title)s” admits "
+                        "members on arrival, so an application here would "
+                        "release the seat without telling anyone. Set the "
+                        "event to Curated first, or choose another status."
+                    )
+                    % {"title": self.event.title}
+                }
+            )
 
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""

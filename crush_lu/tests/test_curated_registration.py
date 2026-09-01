@@ -1122,3 +1122,106 @@ class ReservedSeatBannerTests(CuratedRegistrationTestBase):
 
         self.assertTrue(response.context["premium_reserved_seat_available"])
         self.assertContains(response, "A seat is reserved for you")
+
+
+class AppliedStatusIsRefusedOffCuratedEventsTests(CuratedRegistrationTestBase):
+    """The admin status dropdown offers "Applied" on every registration.
+
+    ``applied`` sits outside ``SEAT_HOLDING_STATUSES``, so choosing it releases
+    the seat, voids the door ticket and drops the member from reminders and the
+    wallet pass — silently, with no email. On a curated event that is the
+    mechanism. On a direct-mode event, which is every mixer and every speed
+    dating running the ordinary flow, it is one misclick away from a member
+    losing a place they paid for.
+    """
+
+    def _registration(self, event, status="confirmed", username=None):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=event,
+            user=self._create_member(username or f"holder{event.pk}@example.com"),
+            status=status,
+        )
+
+    def _admin_form(self, registration, status):
+        """The form the admin change page builds, over its own fieldset."""
+        from django.forms.models import modelform_factory
+
+        from crush_lu.models import EventRegistration
+
+        form_class = modelform_factory(
+            EventRegistration, fields=["event", "user", "status"]
+        )
+        return form_class(
+            data={
+                "event": registration.event_id,
+                "user": registration.user_id,
+                "status": status,
+            },
+            instance=registration,
+        )
+
+    def _status_errors(self, registration):
+        """Field errors from model validation, as a dict — never an exception.
+
+        Asserting on the "status" key rather than on ValidationError being
+        raised at all keeps these tests honest: an unrelated required field
+        would otherwise make a broken guard look like a passing test.
+        """
+        from django.core.exceptions import ValidationError
+
+        try:
+            registration.full_clean()
+        except ValidationError as exc:
+            return exc.error_dict if hasattr(exc, "error_dict") else {}
+        return {}
+
+    def test_applied_is_refused_on_a_direct_speed_dating_event(self):
+        registration = self._registration(self.direct)
+        form = self._admin_form(registration, "applied")
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)
+
+    def test_applied_is_refused_on_a_mixer(self):
+        """`uses_curated_registration` checks the type as well as the mode, so a
+        mixer flipped to curated is still direct — and still guarded."""
+        self.mixer.registration_mode = "curated"
+        self.mixer.save(update_fields=["registration_mode"])
+        registration = self._registration(self.mixer)
+
+        form = self._admin_form(registration, "applied")
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)
+
+    def test_applied_is_accepted_on_a_curated_event(self):
+        """The guard must not obstruct the workflow it exists to protect."""
+        registration = self._registration(self.curated)
+
+        form = self._admin_form(registration, "applied")
+
+        self.assertTrue(form.is_valid(), form.errors.as_text())
+
+    def test_an_ordinary_status_change_on_a_direct_event_still_works(self):
+        """Scoped to `applied`: every status an organiser sets today is
+        untouched on every event that has not opted in."""
+        registration = self._registration(self.direct)
+
+        for status in ("pending", "confirmed", "waitlist", "cancelled", "attended"):
+            with self.subTest(status=status):
+                form = self._admin_form(registration, status)
+                self.assertTrue(form.is_valid(), form.errors.as_text())
+
+    def test_the_guard_lives_on_the_model_so_the_inline_is_covered_too(self):
+        """MeetupEventAdmin's inline edits status through its own form."""
+        registration = self._registration(self.direct)
+        registration.status = "applied"
+
+        self.assertIn("status", self._status_errors(registration))
+
+    def test_a_curated_application_passes_model_validation(self):
+        registration = self._registration(self.curated, status="applied")
+
+        self.assertNotIn("status", self._status_errors(registration))
