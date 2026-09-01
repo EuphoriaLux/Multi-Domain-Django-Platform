@@ -46,7 +46,11 @@ _MAX_MEMBERSHIP_CANDIDATES_PER_TRACK = 128
 _MAX_VIABLE_CANDIDATES_PER_TRACK = 96
 _MAX_LARGE_GROUP_MEMBERSHIP_CANDIDATES = 24
 _MAX_LARGE_GROUP_VIABLE_CANDIDATES = 16
-_PLAN_BEAM_WIDTH = 512
+_LOCAL_PLAN_BEAM_WIDTH = 128
+# Cross-track objectives are monotone under union for an exact group count;
+# retain the single dominant state per count. Seeded tie variation may differ,
+# but never a safety, fairness, coverage, leximin, target, or resilience score.
+_GLOBAL_TRACK_PLAN_BEAM_WIDTH = 1
 _EXACT_MATCHING_MEMBER_LIMIT = 18
 
 # How big a mutual-match pool is, expressed in tables rather than people. The
@@ -1381,20 +1385,112 @@ def _select_candidate_plan(
         for candidate in candidates
     }
     pinned_mask = sum(1 << index_by_id[key] for key in pinned_ids)
+    candidates_by_track: dict[str, list[_GroupCandidate]] = {}
+    for candidate in candidates:
+        candidates_by_track.setdefault(candidate.track_id, []).append(candidate)
+
+    # Tracks are disjoint connected components, so solve set-packing locally
+    # and combine only the best local plan for each feasible group count. This
+    # avoids multiplying every membership alternative from one component by
+    # every alternative in another (50 ten-person tracks previously produced
+    # more than 2,000 candidates across 50 x 512 global beam buckets).
+    track_options: list[tuple[str, tuple[tuple[int, _PlanState], ...]]] = []
+    for track_id in sorted(candidates_by_track):
+        track_candidates = tuple(candidates_by_track[track_id])
+        track_members = {
+            registration_id
+            for candidate in track_candidates
+            for registration_id in candidate.registration_ids
+        }
+        minimum_candidate_size = min(
+            len(candidate.registration_ids) for candidate in track_candidates
+        )
+        local_group_limit = min(
+            group_limit,
+            len(track_members) // minimum_candidate_size,
+        )
+        options = _best_local_track_plans(
+            track_candidates,
+            masks=masks,
+            pinned_mask=pinned_mask,
+            group_limit=local_group_limit,
+            target_dates=target_dates,
+            seed=f"{seed}:{track_id}",
+        )
+        track_options.append((track_id, options))
+
+    beams: dict[int, list[_PlanState]] = {0: [_PlanState(member_mask=0, candidates=())]}
+    for _track_id, options in track_options:
+        combined: dict[int, list[_PlanState]] = {
+            count: list(states) for count, states in beams.items()
+        }
+        for current_count, states in beams.items():
+            for option_count, option in options:
+                total_count = current_count + option_count
+                if total_count > group_limit:
+                    continue
+                destination = combined.setdefault(total_count, [])
+                for state in states:
+                    # Components are disjoint by construction. Keep the check
+                    # as an invariant backstop if track generation ever changes.
+                    if state.member_mask & option.member_mask:
+                        continue
+                    destination.append(
+                        _PlanState(
+                            member_mask=state.member_mask | option.member_mask,
+                            candidates=(*state.candidates, *option.candidates),
+                        )
+                    )
+        beams = {
+            count: _prune_plan_states(
+                states,
+                pinned_mask=pinned_mask,
+                target_dates=target_dates,
+                seed=seed,
+                limit=_GLOBAL_TRACK_PLAN_BEAM_WIDTH,
+            )
+            for count, states in combined.items()
+            if states
+        }
+
+    finalists = [state for states in beams.values() for state in states]
+    if not finalists:
+        return ()
+    best = max(
+        finalists,
+        key=lambda state: _plan_score(
+            state,
+            pinned_mask=pinned_mask,
+            target_dates=target_dates,
+            seed=seed,
+        ),
+    )
+    return best.candidates
+
+
+def _best_local_track_plans(
+    candidates: Sequence[_GroupCandidate],
+    *,
+    masks: Mapping[_GroupCandidate, int],
+    pinned_mask: int,
+    group_limit: int,
+    target_dates: int,
+    seed: str,
+) -> tuple[tuple[int, _PlanState], ...]:
+    if group_limit < 1:
+        return ()
     ordered_candidates = tuple(
         sorted(
             candidates,
             key=lambda candidate: (
                 -len(candidate.pinned_registration_ids),
                 -len(candidate.registration_ids),
-                candidate.track_id,
                 _tie_value(seed, "candidate", *candidate.registration_ids),
             ),
         )
     )
     beams: dict[int, list[_PlanState]] = {count: [] for count in range(group_limit + 1)}
     beams[0] = [_PlanState(member_mask=0, candidates=())]
-
     for candidate in ordered_candidates:
         previous = {count: tuple(states) for count, states in beams.items()}
         candidate_mask = masks[candidate]
@@ -1414,21 +1510,17 @@ def _select_candidate_plan(
                 pinned_mask=pinned_mask,
                 target_dates=target_dates,
                 seed=seed,
+                limit=_LOCAL_PLAN_BEAM_WIDTH,
             )
 
-    finalists = [state for states in beams.values() for state in states]
-    if not finalists:
-        return ()
-    best = max(
-        finalists,
-        key=lambda state: _plan_score(
-            state,
-            pinned_mask=pinned_mask,
-            target_dates=target_dates,
-            seed=seed,
-        ),
+    # For disjoint tracks, every objective before the seeded final tie is
+    # monotone under union with the same outside plan. One locally best state
+    # per exact group count is therefore enough for the global composition.
+    return tuple(
+        (count, states[0])
+        for count, states in sorted(beams.items())
+        if count and states
     )
-    return best.candidates
 
 
 def _prune_plan_states(
@@ -1437,6 +1529,7 @@ def _prune_plan_states(
     pinned_mask: int,
     target_dates: int,
     seed: str,
+    limit: int,
 ) -> list[_PlanState]:
     unique: dict[tuple[int, tuple[tuple[int, ...], ...]], _PlanState] = {}
     for state in states:
@@ -1454,7 +1547,7 @@ def _prune_plan_states(
             seed=seed,
         ),
         reverse=True,
-    )[:_PLAN_BEAM_WIDTH]
+    )[:limit]
 
 
 def _plan_score(

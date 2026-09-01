@@ -491,3 +491,30 @@ class GroupProjectionTests(SimpleTestCase):
         self.assertLess(elapsed, 10.0)
         self.assertEqual(len(projection.viable_groups), 1)
         self.assertEqual(projection.viable_groups[0].minimum_dates_achieved, 7)
+
+    def test_many_disjoint_tracks_have_bounded_plan_composition(self):
+        # Fifty independent complete components used to feed all 2,050 local
+        # membership alternatives into one 50-bucket global set-packing beam.
+        # Track-local optimisation must collapse those alternatives before the
+        # cross-track fairness pass.
+        applicants = [
+            _applicant(
+                key,
+                languages=(f"l{(key - 1) // 10}",),
+            )
+            for key in range(1, 501)
+        ]
+
+        started = perf_counter()
+        projection = project_groups(
+            _event(group_size=10, group_limit=50, pk=957),
+            applicants,
+            minimum_dates=5,
+            target_dates=7,
+        )
+        elapsed = perf_counter() - started
+
+        self.assertLess(elapsed, 10.0)
+        self.assertEqual(len(projection.viable_groups), 50)
+        self.assertEqual(len(projection.selected_registration_ids), 500)
+        self.assertTrue(projection.retains_all_pinned)
