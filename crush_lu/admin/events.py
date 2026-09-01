@@ -16,9 +16,9 @@ from django import forms
 from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages as django_messages
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery, Sum
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -29,6 +29,8 @@ from modeltranslation.admin import TranslationAdmin
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.models import (
+    CuratedEventGroup,
+    CuratedEventGroupMembership,
     EventRegistration,
     EventInvitation,
     EventVotingSession,
@@ -386,6 +388,10 @@ class EventRegistrationAdminForm(forms.ModelForm):
         if not user and getattr(self.instance, "user_id", None):
             user = self.instance.user
         status = cleaned_data.get("status") or getattr(self.instance, "status", None)
+        payment_confirmed = cleaned_data.get(
+            "payment_confirmed",
+            getattr(self.instance, "payment_confirmed", False),
+        )
 
         # Truly-missing data (new row with nothing posted): let Django's own
         # required-field errors surface rather than masking them here.
@@ -410,6 +416,106 @@ class EventRegistrationAdminForm(forms.ModelForm):
                     {"status": applied_message}
                     if "status" in self.fields
                     else applied_message
+                )
+
+        previous_status = None
+        if self.instance.pk:
+            previous_status = (
+                EventRegistration.objects.filter(pk=self.instance.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+        transition_message = self.instance.group_transition_status_message(
+            event=event,
+            previous_status=previous_status,
+            new_status=status,
+        )
+        if transition_message is not None:
+            raise forms.ValidationError(
+                {"status": transition_message}
+                if "status" in self.fields
+                else transition_message
+            )
+        event_change_message = self.instance.group_event_change_message(
+            event=event,
+            new_status=status,
+        )
+        if event_change_message is not None:
+            raise forms.ValidationError(
+                {"event": event_change_message}
+                if "event" in self.fields
+                else event_change_message
+            )
+
+        previous_payment_confirmed = False
+        if self.instance.pk:
+            previous_payment_confirmed = (
+                EventRegistration.objects.filter(pk=self.instance.pk)
+                .values_list("payment_confirmed", flat=True)
+                .first()
+                or False
+            )
+        if (
+            payment_confirmed
+            and not previous_payment_confirmed
+            and event.uses_curated_registration
+            and event.group_size
+        ):
+            active_generation = (
+                CuratedEventGroup.objects.filter(
+                    event=event,
+                    status__in=(
+                        CuratedEventGroup.STATUS_PROVISIONAL,
+                        CuratedEventGroup.STATUS_LOCKED,
+                    ),
+                )
+                .order_by("-generation")
+                .values_list("generation", flat=True)
+                .first()
+            )
+            membership = None
+            if self.instance.pk and active_generation is not None:
+                membership = (
+                    CuratedEventGroupMembership.objects.select_related("group")
+                    .filter(
+                        event=event,
+                        registration_id=self.instance.pk,
+                        released_at__isnull=True,
+                        group__generation=active_generation,
+                        group__status__in=(
+                            CuratedEventGroup.STATUS_PROVISIONAL,
+                            CuratedEventGroup.STATUS_LOCKED,
+                        ),
+                    )
+                    .first()
+                )
+            certified = False
+            if membership is not None and status in SEAT_HOLDING_STATUSES:
+                try:
+                    current_summary = membership.group.schedule_viability(
+                        evaluate_preferences=False
+                    )
+                except ValidationError:
+                    current_summary = None
+                certified = bool(
+                    current_summary
+                    and current_summary["schedule_digest"]
+                    == membership.group.schedule_digest
+                )
+            if not certified:
+                raise forms.ValidationError(
+                    {
+                        "payment_confirmed": _(
+                            "Payment can be recorded only after the complete "
+                            "current provisional group was explicitly selected "
+                            "and its certified roster is still intact."
+                        )
+                    }
+                    if "payment_confirmed" in self.fields
+                    else _(
+                        "Payment can be recorded only after the complete current "
+                        "provisional group was explicitly selected."
+                    )
                 )
 
         # Cancelled registrations don't need to pass the age gate.
@@ -517,6 +623,165 @@ class PresentationQueueInline(admin.TabularInline):
     show_change_link = True
 
 
+class CuratedEventGroupInline(admin.TabularInline):
+    """Read-only visibility into the projection chosen for this evening.
+
+    Group transitions rebuild rosters and schedules as one audited operation;
+    exposing ordinary inline add/delete controls would let a coach bypass the
+    viability and lock safeguards one row at a time.
+    """
+
+    model = CuratedEventGroup
+    extra = 0
+    can_delete = False
+    fields = (
+        "generation",
+        "group_number",
+        "status",
+        "member_manifest",
+        "schedule_manifest",
+        "policy_version",
+        "seed",
+        "provisional_at",
+        "locked_at",
+        "degraded_at",
+        "degradation_reason",
+    )
+    readonly_fields = fields
+    verbose_name = _("Curated parallel group")
+    verbose_name_plural = _("Curated parallel groups (read-only)")
+
+    def get_queryset(self, request):
+        latest_generation = (
+            CuratedEventGroup.objects.filter(event_id=OuterRef("event_id"))
+            .order_by("-generation")
+            .values("generation")[:1]
+        )
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(_latest_generation=Subquery(latest_generation))
+            .filter(generation=F("_latest_generation"))
+            .prefetch_related(
+                "memberships__registration__user",
+            )
+        )
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description=_("Members"))
+    def member_manifest(self, obj):
+        rows = []
+        for membership in obj.memberships.all():
+            user = membership.registration.user
+            label = user.get_full_name() or user.email or user.username
+            if membership.released_at:
+                label = _("%(member)s (released)") % {"member": label}
+            rows.append(str(label))
+        return format_html("{}", ", ".join(rows) if rows else _("No members"))
+
+    @admin.display(description=_("Stored schedule"))
+    def schedule_manifest(self, obj):
+        summary = obj.viability_summary or {}
+        label = _("%(rounds)s rounds; minimum %(dates)s dates") % {
+            "rounds": summary.get("rounds", "—"),
+            "dates": summary.get("minimum_dates", "—"),
+        }
+        url = reverse("admin:crush_lu_curatedeventgroup_change", args=[obj.pk])
+        return format_html('<a href="{}">{}</a>', url, label)
+
+
+@admin.register(CuratedEventGroup)
+class CuratedEventGroupAdmin(admin.ModelAdmin):
+    """Read-only audit trail; detailed schedules load only on one group page."""
+
+    list_display = (
+        "event",
+        "generation",
+        "group_number",
+        "status",
+        "policy_version",
+        "provisional_at",
+        "locked_at",
+        "degraded_at",
+    )
+    list_filter = ("status", "policy_version")
+    search_fields = ("event__title", "seed")
+    list_select_related = ("event",)
+    readonly_fields = (
+        "event",
+        "generation",
+        "group_number",
+        "status",
+        "policy_version",
+        "seed",
+        "member_manifest",
+        "stored_schedule",
+        "audit_data",
+        "viability_summary",
+        "schedule_digest",
+        "created_by",
+        "created_at",
+        "provisional_by",
+        "provisional_at",
+        "locked_by",
+        "locked_at",
+        "degraded_by",
+        "degraded_at",
+        "degradation_reason",
+        "cancelled_by",
+        "cancelled_at",
+        "cancellation_reason",
+        "updated_at",
+    )
+    fields = readonly_fields
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description=_("Members"))
+    def member_manifest(self, obj):
+        memberships = obj.memberships.select_related("registration__user").order_by(
+            "position", "pk"
+        )
+        labels = []
+        for membership in memberships:
+            user = membership.registration.user
+            label = user.get_full_name() or user.email or user.username
+            if membership.released_at:
+                label = _("%(member)s (released)") % {"member": label}
+            labels.append(str(label))
+        return format_html("{}", ", ".join(labels) if labels else _("No members"))
+
+    @admin.display(description=_("Stored schedule"))
+    def stored_schedule(self, obj):
+        pairings = obj.pairings.prefetch_related(
+            "participants__registration__user"
+        ).order_by("round_number", "table_number")
+        rows = []
+        for pairing in pairings:
+            names = []
+            for participant in pairing.participants.all():
+                user = participant.registration.user
+                names.append(user.get_full_name() or user.email or user.username)
+            rows.append(
+                _("R%(round)d/T%(table)d: %(members)s")
+                % {
+                    "round": pairing.round_number,
+                    "table": pairing.table_number,
+                    "members": " ↔ ".join(names) if names else "—",
+                }
+            )
+        return format_html("{}", " | ".join(rows) if rows else _("No schedule"))
+
+
 class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     form = MeetupEventAdminForm
     list_display = (
@@ -595,6 +860,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     )
     inlines = [
         QuizEventInline,
+        CuratedEventGroupInline,
         EventRegistrationInline,
         EventInvitationInline,
         EventVotingSessionInline,
@@ -668,6 +934,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             {
                 "fields": (
                     "max_participants",
+                    ("group_size", "planned_groups"),
                     "reserved_premium_seats",
                     ("max_participants_m", "max_participants_f", "max_participants_nb"),
                     "min_age",
@@ -2391,8 +2658,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         """Confirm selected registrations, skipping anyone who doesn't meet age limits."""
         eligible_ids = []
         skipped = 0
+        invalid_parallel_entries = []
         for reg in queryset.select_related("event", "user__crushprofile"):
             event = reg.event
+            if (
+                event.uses_curated_registration
+                and event.group_size
+                and reg.status != "applied"
+            ):
+                invalid_parallel_entries.append(reg.pk)
+                continue
             if event.min_age > 18 or event.max_age < 99:
                 profile = getattr(reg.user, "crushprofile", None)
                 age = profile.age if profile else None
@@ -2400,6 +2675,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     skipped += 1
                     continue
             eligible_ids.append(reg.pk)
+        if invalid_parallel_entries:
+            django_messages.error(
+                request,
+                _(
+                    "Configured parallel groups can only grant seats from "
+                    "Applied through a complete provisional-group selection. "
+                    "Nothing was changed."
+                ),
+            )
+            return
         # Serials of seats being restored from ANY invalid status — their Apple
         # ticket is currently `voided` and has to be told it is live again.
         # Keyed off SEAT_HOLDING_STATUSES rather than "cancelled" alone, to
@@ -2532,6 +2817,14 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 pk__in=eligible_ids, status="applied"
             ).values_list("pk", flat=True)
         )
+        prelock_event_ids = sorted(
+            set(
+                EventRegistration.objects.filter(
+                    pk__in=prelock_application_ids,
+                    status="applied",
+                ).values_list("event_id", flat=True)
+            )
+        )
 
         # The capacity check and the status updates have to be one atomic,
         # locked unit. Reading spots_remaining and then updating in a separate
@@ -2545,6 +2838,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # under its own lock. Half a guard here would be worse than none,
         # because it reads as protection.
         with transaction.atomic():
+            # The member-cancellation path takes the event lock before any
+            # registration locks. Keep that global order here too or an admin
+            # selection racing a cancellation can deadlock on PostgreSQL.
+            locked_events = {
+                event.pk: event
+                for event in MeetupEvent.objects.select_for_update()
+                .filter(pk__in=prelock_event_ids)
+                .order_by("pk")
+            }
             # Re-read the selected applications under the lock, not just the
             # event. Locking the event alone left the rows themselves stale:
             # two admins selecting the same paid application both materialise
@@ -2563,27 +2865,23 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             # for the same reason. SQLite ignores select_for_update() entirely,
             # so the test suite cannot see this; profiles and events are read
             # separately below. "event" is dropped too: joining it here would
-            # take the event locks in registration order, while the explicit
-            # lock below takes them sorted by pk, and two admins acquiring the
-            # same two events in opposite orders deadlock.
+            # take event locks implicitly in registration order, after the
+            # explicit sorted event-first lock above established the global
+            # order shared with member cancellation.
             applications = list(
                 EventRegistration.objects.select_for_update()
-                .filter(pk__in=prelock_application_ids, status="applied")
+                .filter(
+                    pk__in=prelock_application_ids,
+                    event_id__in=locked_events,
+                    status="applied",
+                )
                 .order_by("pk")
             )
             live_application_ids = {reg.pk for reg in applications}
             stale_application_ids = prelock_application_ids - live_application_ids
 
-            locked_events = {}
             profiles_by_user = {}
             if applications:
-                event_ids_to_lock = sorted({reg.event_id for reg in applications})
-                locked_events = {
-                    event.pk: event
-                    for event in MeetupEvent.objects.select_for_update()
-                    .filter(pk__in=event_ids_to_lock)
-                    .order_by("pk")
-                }
                 # Separate query, for the outer-join reason above.
                 profiles_by_user = {
                     profile.user_id: profile
@@ -2598,7 +2896,12 @@ class EventRegistrationAdmin(admin.ModelAdmin):
 
                 for event_id, regs in by_event.items():
                     event = locked_events[event_id]
-                    remaining = event.spots_remaining
+                    # A configured parallel night is selected in complete
+                    # groups, not against the raw venue ceiling. This matters
+                    # both when the coach committed fewer than the maximum and
+                    # when max_participants has a remainder smaller than one
+                    # group. Direct events intentionally keep the same value.
+                    remaining = event.selection_spots_remaining
                     if len(regs) > remaining:
                         django_messages.error(
                             request,
@@ -2615,6 +2918,166 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                             },
                         )
                         return
+
+                    # On a parallel curated night, a checkbox alone must not
+                    # create a payment request. The applicant must belong to a
+                    # schedule that passed the five-date guarantee and was
+                    # explicitly promoted to PROVISIONAL. Legacy curated
+                    # events without group_size retain the existing manual
+                    # selection workflow.
+                    if event.group_size:
+                        registration_ids = {reg.pk for reg in regs}
+                        active_groups = list(
+                            CuratedEventGroup.objects.select_for_update()
+                            .filter(event_id=event_id)
+                            .filter(
+                                status__in=(
+                                    CuratedEventGroup.STATUS_PROVISIONAL,
+                                    CuratedEventGroup.STATUS_LOCKED,
+                                )
+                            )
+                            .order_by("pk")
+                        )
+                        current_generation = max(
+                            (group.generation for group in active_groups),
+                            default=None,
+                        )
+                        memberships = list(
+                            CuratedEventGroupMembership.objects.select_for_update()
+                            .select_related("group")
+                            .filter(
+                                event_id=event_id,
+                                registration_id__in=registration_ids,
+                                released_at__isnull=True,
+                            )
+                            .order_by("pk")
+                        )
+                        payable_ids = {
+                            membership.registration_id
+                            for membership in memberships
+                            if membership.group.status
+                            == CuratedEventGroup.STATUS_PROVISIONAL
+                            and membership.group.generation == current_generation
+                        }
+                        unready = registration_ids - payable_ids
+                        if unready:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: %(count)d selected applicant(s) "
+                                    "are not in a viable provisional group. Nothing "
+                                    "was changed — approve the stored group schedule "
+                                    "before inviting payment."
+                                )
+                                % {"title": event.title, "count": len(unready)},
+                            )
+                            return
+
+                        touched_group_ids = {
+                            membership.group_id for membership in memberships
+                        }
+                        generation_groups = list(
+                            CuratedEventGroup.objects.select_for_update()
+                            .filter(
+                                event_id=event_id,
+                                generation=current_generation,
+                            )
+                            .order_by("group_number", "pk")
+                        )
+                        touched_group_numbers = {
+                            group.group_number
+                            for group in generation_groups
+                            if group.pk in touched_group_ids
+                        }
+                        highest_touched_number = max(touched_group_numbers)
+                        prefix_groups = [
+                            group
+                            for group in generation_groups
+                            if group.group_number <= highest_touched_number
+                        ]
+                        prefix_numbers = {group.group_number for group in prefix_groups}
+                        unsatisfied_prefix = prefix_numbers != set(
+                            range(1, highest_touched_number + 1)
+                        )
+                        for prefix_group in prefix_groups:
+                            if prefix_group.status not in {
+                                CuratedEventGroup.STATUS_PROVISIONAL,
+                                CuratedEventGroup.STATUS_LOCKED,
+                            }:
+                                unsatisfied_prefix = True
+                                break
+                            if (
+                                prefix_group.pk not in touched_group_ids
+                                and prefix_group.memberships.filter(
+                                    released_at__isnull=True,
+                                    registration__status="applied",
+                                ).exists()
+                            ):
+                                unsatisfied_prefix = True
+                                break
+                        if unsatisfied_prefix:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: groups must be selected in "
+                                    "fairness order with no skipped group number. "
+                                    "Invite or resolve every earlier group first."
+                                )
+                                % {"title": event.title},
+                            )
+                            return
+                        roster_memberships = list(
+                            CuratedEventGroupMembership.objects.select_for_update()
+                            .filter(
+                                group_id__in=touched_group_ids,
+                                released_at__isnull=True,
+                            )
+                            .order_by("pk")
+                        )
+                        still_applied_ids = set(
+                            EventRegistration.objects.filter(
+                                curated_group_memberships__in=roster_memberships,
+                                status="applied",
+                            ).values_list("pk", flat=True)
+                        )
+                        if registration_ids != still_applied_ids:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: select every still-applied "
+                                    "member of each touched provisional group in "
+                                    "one action. Nothing was changed."
+                                )
+                                % {"title": event.title},
+                            )
+                            return
+                        try:
+                            for group in active_groups:
+                                if group.pk in touched_group_ids:
+                                    summary = group.schedule_viability(
+                                        evaluate_preferences=False
+                                    )
+                                    if (
+                                        summary["schedule_digest"]
+                                        != group.schedule_digest
+                                    ):
+                                        raise ValidationError(
+                                            _(
+                                                "The roster or schedule changed "
+                                                "after provisional approval."
+                                            )
+                                        )
+                        except ValidationError as error:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: the stored provisional schedule "
+                                    "is no longer viable (%(reason)s). Nothing was "
+                                    "changed."
+                                )
+                                % {"title": event.title, "reason": error},
+                            )
+                            return
 
                     if not event.gender_limits_active:
                         continue
@@ -2829,27 +3292,78 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     @admin.action(description=_("⏳ Move to waitlist"))
     def move_to_waitlist(self, request, queryset):
         """Move selected registrations to waitlist"""
-        # Serials losing their seat, collected before the update while the old
-        # status is still readable. Waitlist is not a seat-holding status, so
-        # the rebuilt ticket is `voided` — but .update() emits no signals, so
-        # without this the holder keeps a ticket that still looks valid at the
-        # door.
-        voiding_serials = list(
-            queryset.filter(status__in=SEAT_HOLDING_STATUSES)
-            .exclude(apple_wallet_ticket_serial="")
-            .values_list("apple_wallet_ticket_serial", flat=True)
-        )
+        selected_ids = list(queryset.values_list("pk", flat=True))
+        if not selected_ids:
+            return
+        with transaction.atomic():
+            event_ids = sorted(
+                set(
+                    EventRegistration.objects.filter(pk__in=selected_ids)
+                    .order_by()
+                    .values_list("event_id", flat=True)
+                )
+            )
+            list(
+                MeetupEvent.objects.select_for_update()
+                .filter(pk__in=event_ids)
+                .order_by("pk")
+            )
+            locked_registrations = list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id__in=event_ids)
+                .order_by("pk")
+            )
+            selected = [
+                registration
+                for registration in locked_registrations
+                if registration.pk in selected_ids
+            ]
+            group_ids = list(
+                CuratedEventGroupMembership.objects.filter(
+                    registration_id__in=selected_ids,
+                    released_at__isnull=True,
+                ).values_list("group_id", flat=True)
+            )
+            groups = list(
+                CuratedEventGroup.objects.select_for_update()
+                .filter(pk__in=group_ids)
+                .order_by("pk")
+            )
+            if any(group.status == CuratedEventGroup.STATUS_LOCKED for group in groups):
+                self.message_user(
+                    request,
+                    _(
+                        "No registrations were moved: at least one selected "
+                        "attendee belongs to a locked final group."
+                    ),
+                    level=django_messages.ERROR,
+                )
+                return
+            degraded_events = set()
+            for group in groups:
+                if group._mark_degraded_locked(
+                    reason=CuratedEventGroup.DEGRADATION_REASON_STATUS_EXIT
+                ):
+                    degraded_events.add(group.event_id)
 
-        # Captured before the update: the queryset may be filtered on status, in
-        # which case it matches nothing once the rows have moved. Restricted to
-        # rows that actually hold a seat, since waitlist/cancelled/no_show ->
-        # waitlist changes neither capacity nor availability on the page.
-        waitlisted_event_ids = list(
-            queryset.filter(status__in=SEAT_HOLDING_STATUSES)
-            .values_list("event_id", flat=True)
-            .distinct()
-        )
-        updated = queryset.update(status="waitlist")
+            # Serials losing their seat, captured while the locked rows still
+            # carry their previous status. Waitlist is not seat-holding.
+            voiding_serials = [
+                registration.apple_wallet_ticket_serial
+                for registration in selected
+                if registration.status in SEAT_HOLDING_STATUSES
+                and registration.apple_wallet_ticket_serial
+            ]
+            waitlisted_event_ids = sorted(
+                {
+                    registration.event_id
+                    for registration in selected
+                    if registration.status in SEAT_HOLDING_STATUSES
+                }
+            )
+            updated = EventRegistration.objects.filter(pk__in=selected_ids).update(
+                status="waitlist"
+            )
 
         # Seat-holding -> waitlist frees a seat, and .update() emits no signals,
         # so the indexing receiver has to be driven by hand here too.
@@ -2884,6 +3398,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         django_messages.success(
             request, f"Moved {updated} registration(s) to waitlist."
         )
+        if degraded_events:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)d event(s) now contain a degraded curated group "
+                    "and require atomic reprojection or compensation."
+                )
+                % {"count": len(degraded_events)},
+            )
 
 
 class EventInvitationAdmin(admin.ModelAdmin):
