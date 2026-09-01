@@ -358,6 +358,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
             'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
             'userdataconsent': {'order': 3, 'icon': '🔏', 'group': 'Technical & Debug'},  # GDPR audit
+            'eventcheckoutcreationclaim': {'order': 4, 'icon': '🧾', 'group': 'Technical & Debug'},
         }
 
         # Groups that only superusers may see in the menu. Coaches keep the

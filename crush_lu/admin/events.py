@@ -2511,9 +2511,20 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         promoted = False
         locked_event = None
         form_initial = getattr(form, "initial", {})
-        initial_status = form_initial.get("status", obj.status)
+        persisted_initial = {}
+        if obj.pk:
+            persisted_initial = (
+                EventRegistration.objects.filter(pk=obj.pk)
+                .values("status", "payment_confirmed")
+                .first()
+                or {}
+            )
+        initial_status = form_initial.get(
+            "status", persisted_initial.get("status", obj.status)
+        )
         initial_payment_confirmed = form_initial.get(
-            "payment_confirmed", obj.payment_confirmed
+            "payment_confirmed",
+            persisted_initial.get("payment_confirmed", obj.payment_confirmed),
         )
         payment_changed = "payment_confirmed" in form.changed_data
         if payment_changed and "status" in form.changed_data:
