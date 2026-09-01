@@ -392,6 +392,26 @@ class EventRegistrationAdminForm(forms.ModelForm):
         if not event or not user:
             return cleaned_data
 
+        # "Applied" holds no seat, so choosing it on an event that admits
+        # members on arrival silently releases one. Checked HERE rather than
+        # relying on EventRegistration.clean(), because this is the only place
+        # that can see the event when the inline sits under a *new* event:
+        # BaseInlineFormSet._construct_form sets only `event_id = parent.pk`,
+        # which is None while the parent is unsaved, and the FK object is never
+        # copied onto the instance because EventRegistrationInline.fields does
+        # not list `event`. The parent reaches us as `cleaned_data["event"]`
+        # instead -- BaseInlineFormSet.add_fields puts an InlineForeignKeyField
+        # there whose value is the parent object, saved or not. That is the
+        # same fallback the age gate above already depends on.
+        if status == "applied":
+            applied_message = EventRegistration.applied_status_message(event)
+            if applied_message is not None:
+                raise forms.ValidationError(
+                    {"status": applied_message}
+                    if "status" in self.fields
+                    else applied_message
+                )
+
         # Cancelled registrations don't need to pass the age gate.
         if status == "cancelled":
             return cleaned_data

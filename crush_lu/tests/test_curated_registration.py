@@ -1122,3 +1122,242 @@ class ReservedSeatBannerTests(CuratedRegistrationTestBase):
 
         self.assertTrue(response.context["premium_reserved_seat_available"])
         self.assertContains(response, "A seat is reserved for you")
+
+
+class AppliedStatusIsRefusedOffCuratedEventsTests(CuratedRegistrationTestBase):
+    """The admin status dropdown offers "Applied" on every registration.
+
+    ``applied`` sits outside ``SEAT_HOLDING_STATUSES``, so choosing it releases
+    the seat, voids the door ticket and drops the member from reminders and the
+    wallet pass — silently, with no email. On a curated event that is the
+    mechanism. On a direct-mode event, which is every mixer and every speed
+    dating running the ordinary flow, it is one misclick away from a member
+    losing a place they paid for.
+    """
+
+    def _registration(self, event, status="confirmed", username=None):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=event,
+            user=self._create_member(username or f"holder{event.pk}@example.com"),
+            status=status,
+        )
+
+    def _admin_form(self, registration, status):
+        """The form the admin change page builds, over its own fieldset."""
+        from django.forms.models import modelform_factory
+
+        from crush_lu.models import EventRegistration
+
+        form_class = modelform_factory(
+            EventRegistration, fields=["event", "user", "status"]
+        )
+        return form_class(
+            data={
+                "event": registration.event_id,
+                "user": registration.user_id,
+                "status": status,
+            },
+            instance=registration,
+        )
+
+    def _status_errors(self, registration):
+        """Field errors from model validation, as a dict — never an exception.
+
+        Asserting on the "status" key rather than on ValidationError being
+        raised at all keeps these tests honest: an unrelated required field
+        would otherwise make a broken guard look like a passing test.
+        """
+        from django.core.exceptions import ValidationError
+
+        try:
+            registration.full_clean()
+        except ValidationError as exc:
+            return exc.error_dict if hasattr(exc, "error_dict") else {}
+        return {}
+
+    def test_applied_is_refused_on_a_direct_speed_dating_event(self):
+        registration = self._registration(self.direct)
+        form = self._admin_form(registration, "applied")
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)
+
+    def test_applied_is_refused_on_a_mixer(self):
+        """`uses_curated_registration` checks the type as well as the mode, so a
+        mixer flipped to curated is still direct — and still guarded."""
+        self.mixer.registration_mode = "curated"
+        self.mixer.save(update_fields=["registration_mode"])
+        registration = self._registration(self.mixer)
+
+        form = self._admin_form(registration, "applied")
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)
+
+    def test_applied_is_accepted_on_a_curated_event(self):
+        """The guard must not obstruct the workflow it exists to protect."""
+        registration = self._registration(self.curated)
+
+        form = self._admin_form(registration, "applied")
+
+        self.assertTrue(form.is_valid(), form.errors.as_text())
+
+    def test_an_ordinary_status_change_on_a_direct_event_still_works(self):
+        """Scoped to `applied`: every status an organiser sets today is
+        untouched on every event that has not opted in."""
+        registration = self._registration(self.direct)
+
+        for status in ("pending", "confirmed", "waitlist", "cancelled", "attended"):
+            with self.subTest(status=status):
+                form = self._admin_form(registration, status)
+                self.assertTrue(form.is_valid(), form.errors.as_text())
+
+    def test_the_guard_lives_on_the_model_so_the_inline_is_covered_too(self):
+        """MeetupEventAdmin's inline edits status through its own form."""
+        registration = self._registration(self.direct)
+        registration.status = "applied"
+
+        self.assertIn("status", self._status_errors(registration))
+
+    def test_a_curated_application_passes_model_validation(self):
+        registration = self._registration(self.curated, status="applied")
+
+        self.assertNotIn("status", self._status_errors(registration))
+
+
+class AppliedGuardUnderTheRealInlineFormsetTests(CuratedRegistrationTestBase):
+    """Driven through an actual inline formset, not a hand-wired instance.
+
+    A first attempt at this guard lived only on the model and asked
+    ``self.event``, and a test that set ``registration.event = event`` by hand
+    made it look correct. The real lifecycle never does that. Under the admin
+    inline, ``BaseInlineFormSet._construct_form`` sets only
+    ``event_id = parent.pk`` — None while the parent event is unsaved — and
+    ``construct_instance`` never copies the FK object across, because
+    ``EventRegistrationInline.fields`` does not list ``event``. So the model
+    cannot see its event at all, and the guard silently did nothing on exactly
+    the path it was written for.
+
+    These tests therefore build the formset the way the admin does, and one of
+    them asserts the awkward precondition directly so the others cannot go back
+    to passing for the wrong reason.
+    """
+
+    PREFIX = "eventregistration_set"
+
+    def _formset_class(self):
+        from django.forms.models import inlineformset_factory
+
+        from crush_lu.admin.events import EventRegistrationAdminForm
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # Mirrors EventRegistrationInline: same form, same fields, and
+        # crucially `event` absent from them.
+        return inlineformset_factory(
+            MeetupEvent,
+            EventRegistration,
+            form=EventRegistrationAdminForm,
+            fields=("user", "status", "payment_confirmed"),
+            extra=0,
+            can_delete=False,
+        )
+
+    def _unsaved_event(self, event_type="speed_dating", registration_mode="direct"):
+        from crush_lu.models import MeetupEvent
+
+        return MeetupEvent(
+            title="Brand new, never saved",
+            description="Being created through the admin's add form",
+            event_type=event_type,
+            registration_mode=registration_mode,
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=14,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+            profile_requirement="none",
+        )
+
+    def _bound_formset(self, event, status, username):
+        member = self._create_member(username)
+        data = {
+            f"{self.PREFIX}-TOTAL_FORMS": "1",
+            f"{self.PREFIX}-INITIAL_FORMS": "0",
+            f"{self.PREFIX}-MIN_NUM_FORMS": "0",
+            f"{self.PREFIX}-MAX_NUM_FORMS": "1000",
+            f"{self.PREFIX}-0-user": str(member.pk),
+            f"{self.PREFIX}-0-status": status,
+        }
+        return self._formset_class()(data=data, instance=event)
+
+    def test_the_inline_really_cannot_see_its_event_through_the_instance(self):
+        """The precondition the whole fix turns on.
+
+        If Django ever starts populating the FK object before validation, this
+        fails — and that is the signal to simplify the guard back onto the
+        model, not to adjust this test.
+        """
+        formset = self._bound_formset(
+            self._unsaved_event(), "confirmed", "premise@example.com"
+        )
+        formset.is_valid()
+
+        self.assertIsNone(formset.forms[0].instance.event_id)
+
+    def test_applied_is_refused_on_the_inline_under_a_new_direct_event(self):
+        formset = self._bound_formset(
+            self._unsaved_event(), "applied", "newdirect@example.com"
+        )
+
+        self.assertFalse(formset.is_valid())
+        self.assertIn("status", formset.forms[0].errors)
+
+    def test_applied_is_allowed_on_the_inline_under_a_new_curated_event(self):
+        formset = self._bound_formset(
+            self._unsaved_event(registration_mode="curated"),
+            "applied",
+            "newcurated@example.com",
+        )
+
+        self.assertTrue(formset.is_valid(), formset.errors)
+
+    def test_applied_is_refused_on_the_inline_under_a_saved_direct_event(self):
+        formset = self._bound_formset(self.direct, "applied", "saveddirect@example.com")
+
+        self.assertFalse(formset.is_valid())
+        self.assertIn("status", formset.forms[0].errors)
+
+    def test_an_ordinary_status_on_the_inline_is_untouched(self):
+        formset = self._bound_formset(
+            self._unsaved_event(), "confirmed", "ordinary@example.com"
+        )
+
+        self.assertTrue(formset.is_valid(), formset.errors)
+
+
+class AppliedGuardModelBackstopTests(CuratedRegistrationTestBase):
+    """The model check still covers anything that runs full_clean()."""
+
+    def test_a_registration_with_no_event_at_all_does_not_explode(self):
+        """`self.event` raises rather than returning None when the FK was never
+        set. The guard must swallow that — the required-field error belongs to
+        the form, not a 500 from inside clean()."""
+        from crush_lu.models import EventRegistration
+
+        registration = EventRegistration(
+            user=self._create_member("noevent@example.com"), status="applied"
+        )
+
+        registration.clean()  # must not raise
+
+    def test_applied_status_message_is_none_when_the_event_is_unknown(self):
+        """ "Cannot tell" must never be spelled the same way as "allowed" by
+        accident — both callers pass None only for an incomplete form."""
+        from crush_lu.models import EventRegistration
+
+        self.assertIsNone(EventRegistration.applied_status_message(None))
+        self.assertIsNone(EventRegistration.applied_status_message(self.curated))
+        self.assertIsNotNone(EventRegistration.applied_status_message(self.direct))
