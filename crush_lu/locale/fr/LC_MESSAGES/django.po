@@ -40768,3 +40768,57 @@ msgstr "Retirer ma candidature"
 #: templates/crush_lu/event_detail.html
 msgid "to apply for this event."
 msgstr "pour postuler à cet événement."
+
+#: email_helpers.py templates/crush_lu/emails/curated_group_payment_remedy.html
+#, python-brace-format
+msgid "Your payment for {title} was returned"
+msgstr "Votre paiement pour {title} a été restitué"
+
+msgid "Your payment was returned"
+msgstr "Votre paiement a été restitué"
+
+#, python-format
+msgid "When your payment for <strong>%(title)s</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place."
+msgstr "Lorsque votre paiement pour <strong>%(title)s</strong> a été finalisé, nous ne pouvions plus honorer la place sélectionnée selon ses conditions certifiées. Nous n’avons donc pas confirmé de place."
+
+#, python-format
+msgid "We've immediately returned %(amount)s EUR in Crush Credit to your account."
+msgstr "Nous avons immédiatement restitué %(amount)s EUR sous forme de Crush Credit sur votre compte."
+
+msgid "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes."
+msgstr "Comme nous n’avons pas pu fournir la place sélectionnée que vous avez payée, vous pouvez demander un remboursement à la place. Répondez à cet e-mail afin que nous l’organisions. Si vous utilisez une partie du crédit, l’option de remboursement prend fin."
+
+msgid "The cash-refund option has closed because some or all of this credit has already been used."
+msgstr "L’option de remboursement est fermée, car une partie ou la totalité de ce crédit a déjà été utilisée."
+
+msgid "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates."
+msgstr "Cette réservation a été payée avec du Crush Credit ; sa valeur d’origine a donc été rétablie avec ses dates d’expiration d’origine."
+
+msgid "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method."
+msgstr "La valeur totale a été restituée sous forme de Crush Credit. Répondez à cet e-mail si vous souhaitez que nous vérifiions le mode de paiement d’origine."
+
+msgid "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically."
+msgstr "Votre candidature reste dans le pool. Nous vous contacterons si un nouveau groupe viable est sélectionné ; aucun nouveau montant ne vous sera facturé automatiquement."
+
+msgid "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically."
+msgstr "Cette soirée ne peut plus être recomposée. Aucune place n’a été confirmée et aucun nouveau montant ne vous sera facturé automatiquement."
+
+#: views_payments.py
+msgid "A payment checkout is already being prepared. Please wait and try again."
+msgstr "Un paiement est déjà en cours de préparation. Veuillez patienter et réessayer."
+
+msgid "The registration changed while payment was being prepared. Please try again."
+msgstr "L’inscription a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "The event price changed while payment was being prepared. Please try again."
+msgstr "Le prix de l’événement a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "This registration is no longer available."
+msgstr "Cette inscription n’est plus disponible."
+
+msgid "Payment state changed. Please try again."
+msgstr "L’état du paiement a changé. Veuillez réessayer."
+
+#: models/credits.py
+msgid "Curated group became unavailable"
+msgstr "Le groupe organisé n’est plus disponible"

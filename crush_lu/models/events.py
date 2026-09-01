@@ -429,6 +429,23 @@ class MeetupEvent(models.Model):
             "full ceiling."
         ),
     )
+    curated_rounds_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_(
+            "Audited start of round one for a locked curated evening. Once set, "
+            "the all-evening groups are delivered history and never reprojected."
+        ),
+    )
+    curated_rounds_started_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="curated_evenings_started",
+    )
 
     # Status & Features
     is_published = models.BooleanField(default=False)
@@ -858,8 +875,14 @@ class MeetupEvent(models.Model):
                 "event_type",
                 "registration_mode",
                 "max_participants",
+                "max_participants_m",
+                "max_participants_f",
+                "max_participants_nb",
                 "group_size",
                 "planned_groups",
+                "min_age",
+                "max_age",
+                "registration_fee",
             )
             previous_projection = (
                 type(self).objects.filter(pk=self.pk).values(*projection_fields).first()
@@ -880,7 +903,7 @@ class MeetupEvent(models.Model):
             ).exists()
             if changed_projection_fields and has_certified_projection:
                 message = _(
-                    "Projection capacity and mode cannot change while a "
+                    "Projection admission rules, price, capacity and mode cannot change while a "
                     "provisional, locked or degraded group exists. Use an audited "
                     "reprojection workflow first."
                 )
@@ -3310,6 +3333,67 @@ class CuratedEventGroupMembership(models.Model):
         self.save(update_fields=["released_at", "released_by", "release_reason"])
 
 
+class CuratedGroupNotification(models.Model):
+    """Durable, resumable delivery record for selection and remedy mail."""
+
+    class Kind(models.TextChoices):
+        SELECTION = "selection", _("Selection invitation")
+        REMEDY = "remedy", _("Unavailable-group payment remedy")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        SENDING = "sending", _("Sending")
+        SENT = "sent", _("Sent")
+        CANCELLED = "cancelled", _("Cancelled as stale")
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_notifications",
+    )
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="curated_notifications",
+    )
+    source_payment = models.ForeignKey(
+        "crush_lu.PaymentTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="curated_notifications",
+    )
+    event_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    registration_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    dedupe_key = models.CharField(max_length=96, unique=True)
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    claim_token = models.UUIDField(null=True, blank=True, editable=False)
+    claimed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        indexes = [
+            models.Index(
+                fields=["status", "kind", "created_at"],
+                name="curated_notice_queue_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.kind} notice {self.pk} ({self.status})"
+
+
 class CuratedEventPairing(models.Model):
     """One table in one round of a group's finalizable schedule."""
 
@@ -3539,19 +3623,26 @@ def _degrade_curated_group_before_registration_erasure(
 ):
     """Invalidate certified lineage before legal erasure cascades its seats."""
     origin_model = getattr(origin, "model", None)
-    if isinstance(origin, MeetupEvent) or origin_model is MeetupEvent:
-        # The containing event and all its groups are already being removed.
-        return
     if not instance.pk:
         return
     with transaction.atomic(using=using):
-        registration = (
-            EventRegistration.objects.using(using)
-            .select_for_update()
-            .filter(pk=instance.pk)
-            .first()
+        # This is the first EventRegistration pre_delete receiver registered,
+        # so it must acquire the global financial prefix before touching the
+        # registration/group rows. A separate later receiver would invert the
+        # callback order and deadlock on PostgreSQL.
+        from crush_lu.services.event_checkout_retirement import (
+            protect_live_event_checkout_deletion,
         )
-        if registration is None:
+
+        protect_live_event_checkout_deletion(
+            event_ids=[instance.event_id],
+            registration_ids=[instance.pk],
+            using=using,
+        )
+        if isinstance(origin, MeetupEvent) or origin_model is MeetupEvent:
+            # The containing event and all its groups are already being
+            # removed, but only after the checkout guard above proves that
+            # cascade cannot orphan a payable widget.
             return
         group_ids = list(
             CuratedEventGroupMembership.objects.using(using)

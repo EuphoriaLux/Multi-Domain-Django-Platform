@@ -62,6 +62,24 @@ logger = logging.getLogger(__name__)
 _thread_local = threading.local()
 
 
+@receiver(pre_delete, sender=MeetupEvent)
+def protect_event_with_live_checkout(sender, instance, using, **kwargs):
+    from crush_lu.services.event_checkout_retirement import (
+        protect_live_event_checkout_deletion,
+    )
+
+    registration_ids = list(
+        EventRegistration.objects.using(using)
+        .filter(event_id=instance.pk)
+        .values_list("pk", flat=True)
+    )
+    protect_live_event_checkout_deletion(
+        event_ids=[instance.pk],
+        registration_ids=registration_ids,
+        using=using,
+    )
+
+
 # =============================================================================
 # WALLET PASS UPDATE TRIGGERS
 # =============================================================================
@@ -3818,6 +3836,46 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
             )
 
     transaction.on_commit(_promote_after_commit)
+
+
+def _repair_degraded_curated_event_safely(event_id):
+    """Run the durable reproject-or-compensate phase after a roster exit."""
+
+    from crush_lu.services.curated_group_workflow import (
+        repair_degraded_event_groups,
+    )
+
+    try:
+        repair_degraded_event_groups(event_id)
+    except Exception:
+        # DEGRADED is deliberately non-payable and visible in admin, so a
+        # failed callback leaves a safe, retryable state rather than reopening
+        # checkout on a stale guarantee.
+        logger.exception(
+            "Automatic curated-group remedy failed for event %s; group remains "
+            "DEGRADED and non-payable.",
+            event_id,
+        )
+
+
+def _schedule_degraded_curated_event_remedy(instance):
+    for event_id in getattr(instance, "_curated_group_degraded_event_ids", ()):
+        transaction.on_commit(
+            lambda event_id=event_id: _repair_degraded_curated_event_safely(event_id)
+        )
+
+
+@receiver(post_save, sender=EventRegistration)
+def repair_curated_group_after_registration_exit(
+    sender, instance, created, raw=False, **kwargs
+):
+    if not raw and not created:
+        _schedule_degraded_curated_event_remedy(instance)
+
+
+@receiver(post_delete, sender=EventRegistration)
+def repair_curated_group_after_registration_erasure(sender, instance, **kwargs):
+    _schedule_degraded_curated_event_remedy(instance)
 
 
 @receiver(post_save, sender=EventRegistration)

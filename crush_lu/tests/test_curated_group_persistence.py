@@ -687,6 +687,23 @@ class GroupLifecycleTests(CuratedGroupPersistenceBase):
         with self.assertRaisesMessage(ValidationError, "cannot change"):
             self.event.full_clean()
 
+    def test_certified_projection_freezes_price_and_age(self):
+        group, _, _ = self.make_viable_group()
+        group.mark_provisional(audit_data=self.fairness_audit())
+
+        changes = (
+            {"registration_fee": Decimal("15.00")},
+            {"min_age": 21},
+        )
+        for changed_fields in changes:
+            with self.subTest(changed_fields=changed_fields):
+                event = MeetupEvent.objects.get(pk=self.event.pk)
+                for field_name, value in changed_fields.items():
+                    setattr(event, field_name, value)
+
+                with self.assertRaisesMessage(ValidationError, "cannot change"):
+                    event.full_clean()
+
     def test_profile_edit_after_provisional_does_not_rewrite_frozen_proof(self):
         group, registrations, _ = self.make_viable_group()
         preference = registrations[0].preference
@@ -1153,7 +1170,7 @@ class AdminSelectionAndVisibilityTests(CuratedGroupPersistenceBase):
         with self.assertRaisesMessage(ValidationError, "bulk Confirm action"):
             registration.save()
 
-    def test_waitlist_action_degrades_a_provisional_group(self):
+    def test_waitlist_action_remedies_a_provisional_group_immediately(self):
         group, registrations, _ = self.make_viable_group()
         group.mark_provisional(audit_data=self.fairness_audit())
         admin_object = EventRegistrationAdmin(EventRegistration, AdminSite())
@@ -1165,7 +1182,8 @@ class AdminSelectionAndVisibilityTests(CuratedGroupPersistenceBase):
 
         group.refresh_from_db()
         registrations[0].refresh_from_db()
-        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertFalse(group.memberships.filter(released_at__isnull=True).exists())
         self.assertEqual(registrations[0].status, "waitlist")
 
     def test_waitlist_action_cannot_change_a_locked_group_member(self):

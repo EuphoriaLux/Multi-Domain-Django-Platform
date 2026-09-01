@@ -217,6 +217,12 @@ class CuratedGroupSurfaceTests(TestCase):
             response,
             "The group size and number of groups will be set after applications are reviewed.",
         )
+        self.assertNotContains(
+            response,
+            "at least five mutually compatible mini-dates",
+        )
+        self.assertNotContains(response, "producing a viable round schedule")
+        self.assertNotContains(response, "selected for a viable provisional group")
         self.assertNotContains(response, "None")
 
     def test_paid_applicant_sees_selection_then_payment_and_can_withdraw(self):
@@ -241,10 +247,15 @@ class CuratedGroupSurfaceTests(TestCase):
     def test_curated_structured_data_does_not_publish_stale_seats(self):
         for index in range(self.curated.max_participants):
             user = self._member(f"selected-{index}@example.com")
-            EventRegistration.objects.create(
+            registration = EventRegistration.objects.create(
                 event=self.curated,
                 user=user,
-                status="confirmed",
+                status="applied",
+            )
+            # Reproduce legacy/stale database state without asking the current
+            # model lifecycle to grant an uncertified curated seat.
+            EventRegistration.objects.filter(pk=registration.pk).update(
+                status="confirmed"
             )
 
         response = self._detail(self.curated)

@@ -26,12 +26,15 @@ from crush_lu.models.events import (
     EventRegistration,
     MeetupEvent,
 )
-from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.credits import (
     credit_registration_for_cancelled_event,
+    credit_registration_for_unavailable_curated_group,
     credit_transaction_reference,
+    issue_credit,
     issue_cancellation_credits,
+    payment_amount_cents,
     redeem_for_registration,
     settle_pending_resale_credit,
 )
@@ -111,14 +114,155 @@ def _may_ask_sumup(scope, checkout_id):
     return True if claimed is None else claimed
 
 
+def _lock_event_checkout_state(registration_id, event_id):
+    """Lock one checkout's database scope in the global payment-first order."""
+
+    payments = list(
+        PaymentTransaction.objects.select_for_update()
+        .filter(
+            event_registration_id=registration_id,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        )
+        .order_by("pk")
+    )
+    payment_ids = {payment.pk for payment in payments}
+    event = MeetupEvent.objects.select_for_update().get(pk=event_id)
+
+    from crush_lu.services.curated_group_workflow import (
+        lock_event_group_payment_state,
+        requires_curated_group_certification,
+    )
+
+    if requires_curated_group_certification(event):
+        event, _groups = lock_event_group_payment_state(event.pk)
+    registration = (
+        EventRegistration.objects.select_for_update()
+        .select_related("event", "user")
+        .get(pk=registration_id)
+    )
+    # A competing creator can have committed a payment while this transaction
+    # waited for the event.  Do not lock that late row after the event (which
+    # would invert the callback order); ask the caller to release and retry the
+    # payment-first acquisition instead.
+    current_ids = set(
+        PaymentTransaction.objects.filter(
+            event_registration_id=registration_id,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+        ).values_list("pk", flat=True)
+    )
+    return payments, event, registration, bool(current_ids - payment_ids)
+
+
+def _event_checkout_validation_error(
+    registration, event, *, acting_user, payment_method
+):
+    """Return a member-facing response when a freshly locked seat is not payable."""
+
+    from crush_lu.models.profiles import UserDataConsent
+
+    if UserDataConsent.objects.filter(
+        user_id=registration.user_id,
+        crushlu_banned=True,
+    ).exists():
+        return JsonResponse(
+            {"error": _("This registration is no longer available.")},
+            status=409,
+        )
+
+    if registration.user_id != acting_user.pk and (
+        not acting_user.is_staff or payment_method == "credit"
+    ):
+        return JsonResponse(
+            {"error": _("Unauthorized access to this registration.")}, status=403
+        )
+    if registration.payment_confirmed:
+        return JsonResponse(
+            {"error": _("This registration is already paid.")}, status=400
+        )
+    if registration.status not in ("pending", "confirmed"):
+        return JsonResponse(
+            {"error": _("This registration cannot be paid for in its current state.")},
+            status=400,
+        )
+    if event.is_cancelled:
+        return JsonResponse({"error": _("This event has been cancelled.")}, status=400)
+    if event.registration_fee <= Decimal("0.00"):
+        return JsonResponse(
+            {"error": _("This event does not require payment.")}, status=400
+        )
+
+    from crush_lu.services.curated_group_workflow import (
+        registration_has_certified_payable_group,
+    )
+
+    if not registration_has_certified_payable_group(registration, event=event):
+        logger.warning(
+            "Refused checkout for curated registration %s without a current "
+            "certified payable group.",
+            registration.pk,
+        )
+        return JsonResponse(
+            {"error": _("This registration cannot be paid for in its current state.")},
+            status=400,
+        )
+    return None
+
+
+def _release_event_checkout_claim(_registration_id, token):
+    # Token is globally unique and survives registration SET_NULL on erasure.
+    EventCheckoutCreationClaim.objects.filter(
+        token=token,
+        state=EventCheckoutCreationClaim.State.ACTIVE,
+    ).delete()
+
+
+def _publish_event_checkout_provider_id(token, checkout_id):
+    """Bind the remote ID or return the durable state that refused it."""
+
+    with transaction.atomic():
+        claim = (
+            EventCheckoutCreationClaim.objects.select_for_update()
+            .filter(token=token)
+            .first()
+        )
+        if claim is None:
+            return None
+        if claim.state != EventCheckoutCreationClaim.State.ACTIVE:
+            return claim.state
+        claim.provider_checkout_id = checkout_id
+        claim.save(update_fields=["provider_checkout_id"])
+        return EventCheckoutCreationClaim.State.ACTIVE
+
+
+def _discard_compensated_retiring_event_claim(token):
+    """Finish a cleanup lease after this worker proved its checkout closed."""
+
+    with transaction.atomic():
+        claim = (
+            EventCheckoutCreationClaim.objects.select_for_update()
+            .filter(token=token)
+            .first()
+        )
+        if (
+            claim is not None
+            and claim.state == EventCheckoutCreationClaim.State.RETIRING
+            and not claim.provider_checkout_id
+        ):
+            claim.delete()
+
+
 @login_required
 @require_POST
 def create_sumup_event_checkout(request, registration_id):
-    """
-    Creates a SumUp checkout session for an event registration.
-    """
-    registration = get_object_or_404(EventRegistration, pk=registration_id)
+    """Create a fresh event checkout without locking a roster over network I/O.
 
+    Three short database phases surround the SumUp calls.  A durable one-row
+    claim serializes the first-checkout case (where there is no payment row to
+    lock yet), while every phase that combines state follows the same order as
+    the callback: payments -> event -> registrations/group state -> claim.
+    """
+
+    initial = get_object_or_404(EventRegistration, pk=registration_id)
     try:
         payload = (
             json.loads(request.body or b"{}")
@@ -131,221 +275,169 @@ def create_sumup_event_checkout(request, registration_id):
     if payment_method not in {"card", "credit"}:
         return JsonResponse({"error": _("Invalid payment method.")}, status=400)
 
-    if registration.user != request.user and (
-        not request.user.is_staff or payment_method == "credit"
-    ):
+    claim_state = None
+    for _attempt in range(3):
+        with transaction.atomic():
+            try:
+                payments, event, registration, scope_changed = (
+                    _lock_event_checkout_state(initial.pk, initial.event_id)
+                )
+            except (EventRegistration.DoesNotExist, MeetupEvent.DoesNotExist):
+                return JsonResponse(
+                    {"error": _("This registration is no longer available.")},
+                    status=409,
+                )
+            if scope_changed:
+                continue
+            error = _event_checkout_validation_error(
+                registration,
+                event,
+                acting_user=request.user,
+                payment_method=payment_method,
+            )
+            if error is not None:
+                return error
+
+            claim = (
+                EventCheckoutCreationClaim.objects.select_for_update()
+                .filter(registration_id=registration.pk)
+                .first()
+            )
+            if claim is not None:
+                # Age does not prove that the remote POST failed. A timeout or
+                # stopped worker may have created a live checkout whose ID was
+                # never stored, so request traffic never takes over a claim.
+                # The provider-safe cleanup command owns stale retirement.
+                return JsonResponse(
+                    {
+                        "error": _(
+                            "A payment checkout is already being prepared. "
+                            "Please wait and try again."
+                        )
+                    },
+                    status=409,
+                )
+
+            checkout_ref = f"CRUSH-EVT-{registration.pk}-{uuid.uuid4().hex[:10]}"
+            claim = EventCheckoutCreationClaim.objects.create(
+                registration=registration,
+                registration_id_snapshot=registration.pk,
+                event_id_snapshot=event.pk,
+                transaction_reference=checkout_ref,
+                payment_method=payment_method,
+            )
+            superseded = tuple(
+                (
+                    payment.pk,
+                    payment.sumup_checkout_id,
+                )
+                for payment in payments
+                if payment.status == PaymentTransaction.Status.PENDING
+                and payment.sumup_checkout_id
+            )
+            claim_state = {
+                "token": claim.token,
+                "checkout_ref": checkout_ref,
+                "registration_id": registration.pk,
+                "event_id": event.pk,
+                "amount": event.registration_fee,
+                "title": event.title,
+                "superseded": superseded,
+            }
+        break
+
+    if claim_state is None:
         return JsonResponse(
-            {"error": _("Unauthorized access to this registration.")}, status=403
+            {
+                "error": _(
+                    "A payment checkout is already being prepared. "
+                    "Please wait and try again."
+                )
+            },
+            status=409,
         )
 
-    # Every eligibility check lives inside the lock below, on re-read rows --
-    # duplicating them out here only invites the two copies to drift.
+    client = SumUpClient()
+    deactivated = {
+        payment_id: client.deactivate_checkout(checkout_id)
+        for payment_id, checkout_id in claim_state["superseded"]
+    }
 
-    # Always open a FRESH checkout; supersede any older one.
-    #
-    # Reuse-and-reconcile was removed because it required asking SumUp whether
-    # an old checkout was still payable, and that call can itself apply a
-    # payment -- sequencing it against an editable price, a cancellable event
-    # and a concurrent webhook produced a new defect three rounds running.
-    # Creating a new checkout every time removes the question: nothing to
-    # reconcile, no staleness, no provider call on this path.
-    #
-    # Superseding is what replaces reuse as double-charge protection: the old
-    # checkout is deactivated at SumUp so only the newest is payable.
-    #
-    # LOCK ORDER: PaymentTransaction rows FIRST, then EventRegistration -- the
-    # same order _apply_paid_checkout uses. Taking them the other way round is
-    # an ABBA deadlock against a webhook for one of those very rows, and
-    # PostgreSQL resolves it by aborting somebody. This has been got wrong more
-    # than once here; the order is the invariant, not the comment.
+    # Publish provider deactivations under the payment rows, then the event and
+    # claim.  No network request runs in this transaction.
+    supersede_failed = False
     with transaction.atomic():
-        superseded = list(
-            PaymentTransaction.objects.select_for_update()
+        old_rows = {
+            row.pk: row
+            for row in PaymentTransaction.objects.select_for_update()
+            .filter(pk__in=deactivated)
+            .order_by("pk")
+        }
+        MeetupEvent.objects.select_for_update().get(pk=claim_state["event_id"])
+        EventRegistration.objects.select_for_update().get(
+            pk=claim_state["registration_id"]
+        )
+        claim = (
+            EventCheckoutCreationClaim.objects.select_for_update()
             .filter(
-                event_registration_id=registration.pk,
-                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                status=PaymentTransaction.Status.PENDING,
+                registration_id=claim_state["registration_id"],
+                token=claim_state["token"],
             )
-            .exclude(sumup_checkout_id="")
+            .first()
         )
-        registration = EventRegistration.objects.select_for_update().get(
-            pk=registration.pk
-        )
-        event = MeetupEvent.objects.only("registration_fee", "is_cancelled").get(
-            pk=registration.event_id
-        )
-        amount = event.registration_fee
-
-        if registration.payment_confirmed:
-            return JsonResponse(
-                {"error": _("This registration is already paid.")}, status=400
-            )
-        if registration.status not in ("pending", "confirmed"):
-            return JsonResponse(
-                {
-                    "error": _(
-                        "This registration cannot be paid for in its current state."
-                    )
-                },
-                status=400,
-            )
-        if event.is_cancelled:
-            return JsonResponse(
-                {"error": _("This event has been cancelled.")}, status=400
-            )
-        if amount <= Decimal("0.00"):
-            return JsonResponse(
-                {"error": _("This event does not require payment.")}, status=400
-            )
-
-        client = SumUpClient()
-        # Whether every older checkout is now provably dead. This gates every
-        # replacement payment method below: opening another card widget while
-        # an older one may just have captured exposes the member to two card
-        # charges just as surely as spending credit would expose them to a
-        # card-plus-credit double payment.
-        all_superseded = True
-        for old in superseded:
-            if client.deactivate_checkout(old.sumup_checkout_id):
-                # CANCELLED, not FAILED. Both are terminal and behave
-                # identically everywhere (_sync_checkout_with_sumup returns
-                # early for any non-PENDING row, and only PAID unlocks
-                # anything), but they answer different questions. SumUp's
-                # dashboard lists a deactivated checkout as a failed sale, so
-                # an organiser looking at a row of "Échec" needs some way to
-                # tell the ones we killed ourselves from the ones a bank
-                # declined. Marking our own supersessions FAILED made those two
-                # indistinguishable in the only record we control.
-                old.status = PaymentTransaction.Status.CANCELLED
-                # Deliberately not translated: this field is read in the Coach
-                # Panel, which is forced to English, and it would otherwise be
-                # frozen in whatever language the member happened to browse in.
-                old.failure_reason = (
+        if claim is None:
+            supersede_failed = True
+        for payment_id, accepted in deactivated.items():
+            row = old_rows.get(payment_id)
+            if row is None or row.status == PaymentTransaction.Status.PAID:
+                supersede_failed = True
+                continue
+            if not accepted and row.status == PaymentTransaction.Status.PENDING:
+                supersede_failed = True
+                continue
+            if accepted and row.status == PaymentTransaction.Status.PENDING:
+                row.status = PaymentTransaction.Status.CANCELLED
+                row.failure_reason = (
                     "Superseded by a newer checkout — the member re-opened the "
                     "payment page, so this one was deactivated at SumUp before "
                     "any card was charged."
                 )
-                # updated_at is auto_now, so it only moves if it is named here —
-                # and the admin shows it as when the row was last touched.
-                old.save(update_fields=["status", "failure_reason", "updated_at"])
-                logger.info(
-                    "Superseded SumUp checkout %s for registration %s",
-                    old.sumup_checkout_id,
-                    registration.id,
+                row.save(update_fields=["status", "failure_reason", "updated_at"])
+        if supersede_failed and claim is not None:
+            claim.delete()
+
+    if supersede_failed:
+        logger.warning(
+            "Could not safely supersede every checkout for registration %s",
+            claim_state["registration_id"],
+        )
+        return JsonResponse(
+            {
+                "error": _(
+                    "Your earlier card checkout could not be closed. "
+                    "Please wait and try again."
                 )
-            else:
-                # Deactivation failed -- SumUp unreachable, or the checkout was
-                # just PAID and can no longer be cancelled. Leave the row
-                # PENDING: _sync_checkout_with_sumup returns immediately for any
-                # non-PENDING row, so marking it terminal here would make a
-                # captured payment permanently invisible to both the webhook and
-                # the browser return, leaving the member unpaid and chargeable
-                # again on the new checkout.
-                all_superseded = False
-                logger.warning(
-                    "Could not deactivate SumUp checkout %s for registration %s "
-                    "— left PENDING so reconciliation can still apply it",
-                    old.sumup_checkout_id,
-                    registration.id,
-                )
-
-        # Re-read immediately before exposing a payable widget. The deactivate
-        # calls above are network I/O, and an organiser can cancel the event
-        # while they are in flight -- returning a widget then means a captured
-        # charge with no seat and a manual refund.
-        event.refresh_from_db()
-        if event.is_cancelled:
-            return JsonResponse(
-                {"error": _("This event has been cancelled.")}, status=400
-            )
-        amount = event.registration_fee
-
-        if not all_superseded:
-            return JsonResponse(
-                {
-                    "error": _(
-                        "Your earlier card checkout could not be closed. "
-                        "Please wait and try again."
-                    )
-                },
-                status=409,
-            )
-
-        # Crush Credit, before SumUp is asked for anything.
-        #
-        # WHOLE SEAT OR NOTHING, on purpose. Either the balance covers the
-        # whole price and no card is charged at all, or the member pays the
-        # full price by card and every cent of their credit is left where it
-        # is. Every event is EUR 15.50, so a split credit/card payment buys
-        # nothing real and costs partial captures, SumUp's minimum-charge
-        # threshold and refunding a part of a capture.
-        #
-        # Deliberately AFTER the supersede loop above, and gated on it having
-        # WORKED. A member sitting on a stale PENDING checkout still holds a
-        # payable widget, and paying with credit must not leave that widget
-        # alive to take a card payment for a seat credit has already bought.
-        #
-        # ``deactivate_checkout`` returning False is not a nuisance case: it
-        # means SumUp was unreachable, or that the checkout could no longer be
-        # cancelled *because it had just been paid*. In the second case the
-        # webhook for it is at this moment blocked on the row lock this request
-        # holds. Spend credit here and the sequence completes as: seat
-        # confirmed against credit, lock released, webhook marks the card
-        # payment PAID — and the member has paid twice for one seat, in two
-        # currencies, with only one of them refundable.
-        #
-        # So when anything failed to deactivate, the shared guard above stops
-        # both methods before either a new widget or a credit spend exists.
-        credit_tx = None
-        if payment_method == "credit":
-            credit_tx = _pay_registration_with_credit(registration, amount)
-            if credit_tx is None:
-                return JsonResponse(
-                    {
-                        "error": _(
-                            "Your Crush Credit balance does not cover this event."
-                        )
-                    },
-                    status=400,
-                )
-
-        if credit_tx is not None:
-            destination = reverse(
-                "crush_lu:event_detail", kwargs={"event_id": registration.event_id}
-            )
-            return JsonResponse(
-                {
-                    "success": True,
-                    "paid_with_credit": True,
-                    "amount": float(amount),
-                    "currency": "EUR",
-                    "transaction_reference": credit_tx.transaction_reference,
-                    "redirect_url": destination,
-                    # Every existing caller does
-                    # `if (data.success && data.widget_url) location = widget_url`,
-                    # so the same key carries the destination here rather than
-                    # a widget URL. `redirect_url` above is the name new
-                    # callers should read; this one keeps the four templates
-                    # and alpine-components.js working untouched.
-                    "widget_url": destination,
-                }
-            )
-
-        checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
-        description = f"Crush.lu Event: {registration.event.title[:50]}"
-        return_url = request.build_absolute_uri(
-            f"/payments/sumup/return/?ref={checkout_ref}"
+            },
+            status=409,
         )
 
+    checkout_data = None
+    checkout_id = None
+    if payment_method == "card":
+        return_url = request.build_absolute_uri(
+            f"/payments/sumup/return/?ref={claim_state['checkout_ref']}"
+        )
         try:
             checkout_data = client.create_checkout(
-                amount=float(amount),
+                amount=float(claim_state["amount"]),
                 currency="EUR",
-                checkout_reference=checkout_ref,
-                description=description,
+                checkout_reference=claim_state["checkout_ref"],
+                description=f"Crush.lu Event: {claim_state['title'][:50]}",
                 return_url=return_url,
             )
         except SumUpError as exc:
+            # A timeout is ambiguous: SumUp may have accepted the POST. Keep
+            # the durable reference instead of allowing a second checkout.
             logger.error("Failed to create SumUp event checkout: %s", exc)
             return JsonResponse(
                 {
@@ -355,32 +447,209 @@ def create_sumup_event_checkout(request, registration_id):
                 },
                 status=500,
             )
-
         checkout_id = checkout_data.get("id")
         if not checkout_id:
             return JsonResponse(
                 {"error": _("SumUp did not return a valid checkout ID.")}, status=500
             )
-
-        PaymentTransaction.objects.create(
-            transaction_reference=checkout_ref,
-            provider=PaymentTransaction.Provider.SUMUP,
-            sumup_checkout_id=checkout_id,
-            amount=amount,
-            currency="EUR",
-            status=PaymentTransaction.Status.PENDING,
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            user=request.user,
-            event_registration=registration,
-            raw_response=checkout_data,
+        published_state = _publish_event_checkout_provider_id(
+            claim_state["token"], checkout_id
         )
+        if published_state != EventCheckoutCreationClaim.State.ACTIVE:
+            if published_state == EventCheckoutCreationClaim.State.RETIRED:
+                return JsonResponse(
+                    {"error": _("Payment state changed. Please try again.")},
+                    status=409,
+                )
+            if client.deactivate_checkout(checkout_id):
+                _discard_compensated_retiring_event_claim(claim_state["token"])
+            else:
+                with transaction.atomic():
+                    claim = (
+                        EventCheckoutCreationClaim.objects.select_for_update()
+                        .filter(token=claim_state["token"])
+                        .first()
+                    )
+                    if (
+                        claim is not None
+                        and claim.state != EventCheckoutCreationClaim.State.RETIRED
+                    ):
+                        claim.provider_checkout_id = checkout_id
+                        claim.state = EventCheckoutCreationClaim.State.ACTIVE
+                        claim.save(update_fields=["provider_checkout_id", "state"])
+            return JsonResponse(
+                {"error": _("Payment state changed. Please try again.")},
+                status=409,
+            )
+
+    credit_tx = None
+    hidden_card_tx = None
+    final_error = None
+    for _attempt in range(3):
+        with transaction.atomic():
+            try:
+                payments, event, registration, scope_changed = (
+                    _lock_event_checkout_state(
+                        claim_state["registration_id"], claim_state["event_id"]
+                    )
+                )
+            except (EventRegistration.DoesNotExist, MeetupEvent.DoesNotExist):
+                final_error = JsonResponse(
+                    {
+                        "error": _(
+                            "The registration changed while payment was being "
+                            "prepared. Please try again."
+                        )
+                    },
+                    status=409,
+                )
+                break
+            if scope_changed:
+                continue
+            claim_record = (
+                EventCheckoutCreationClaim.objects.select_for_update()
+                .filter(
+                    registration_id=registration.pk,
+                    token=claim_state["token"],
+                )
+                .first()
+            )
+            retired_by_deletion = bool(
+                claim_record is not None
+                and claim_record.state == EventCheckoutCreationClaim.State.RETIRED
+            )
+            claim = (
+                claim_record
+                if claim_record is not None
+                and claim_record.state == EventCheckoutCreationClaim.State.ACTIVE
+                else None
+            )
+            if retired_by_deletion:
+                final_error = JsonResponse(
+                    {"error": _("Payment state changed. Please try again.")},
+                    status=409,
+                )
+            elif claim is None:
+                final_error = JsonResponse(
+                    {
+                        "error": _(
+                            "The registration changed while payment was being "
+                            "prepared. Please try again."
+                        )
+                    },
+                    status=409,
+                )
+            else:
+                final_error = _event_checkout_validation_error(
+                    registration,
+                    event,
+                    acting_user=request.user,
+                    payment_method=payment_method,
+                )
+                if (
+                    final_error is None
+                    and event.registration_fee != claim_state["amount"]
+                ):
+                    final_error = JsonResponse(
+                        {
+                            "error": _(
+                                "The event price changed while payment was being "
+                                "prepared. Please try again."
+                            )
+                        },
+                        status=409,
+                    )
+
+            if payment_method == "card" and not retired_by_deletion:
+                # Persist every provider checkout, including one that failed
+                # final revalidation, so a rare failed deactivation still has
+                # a webhook/reconciliation target and the automatic remedy.
+                hidden_card_tx = PaymentTransaction.objects.create(
+                    transaction_reference=claim_state["checkout_ref"],
+                    provider=PaymentTransaction.Provider.SUMUP,
+                    sumup_checkout_id=checkout_id,
+                    amount=claim_state["amount"],
+                    currency="EUR",
+                    status=PaymentTransaction.Status.PENDING,
+                    purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                    user=request.user,
+                    event_registration=registration,
+                    raw_response=checkout_data,
+                )
+            elif final_error is None:
+                credit_tx = _pay_registration_with_credit(
+                    registration, claim_state["amount"]
+                )
+                if credit_tx is None:
+                    final_error = JsonResponse(
+                        {
+                            "error": _(
+                                "Your Crush Credit balance does not cover this event."
+                            )
+                        },
+                        status=400,
+                    )
+            if claim is not None:
+                claim.delete()
+        break
+
+    if payment_method == "credit":
+        if credit_tx is None:
+            _release_event_checkout_claim(
+                claim_state["registration_id"], claim_state["token"]
+            )
+            return final_error or JsonResponse(
+                {"error": _("Payment state changed. Please try again.")}, status=409
+            )
+        destination = reverse(
+            "crush_lu:event_detail", kwargs={"event_id": claim_state["event_id"]}
+        )
+        return JsonResponse(
+            {
+                "success": True,
+                "paid_with_credit": True,
+                "amount": float(claim_state["amount"]),
+                "currency": "EUR",
+                "transaction_reference": credit_tx.transaction_reference,
+                "redirect_url": destination,
+                "widget_url": destination,
+            }
+        )
+
+    if hidden_card_tx is None:
+        # The checkout exists at SumUp but could not be published locally.
+        # Try to close it and report a retryable state; it was never exposed.
+        if client.deactivate_checkout(checkout_id):
+            _release_event_checkout_claim(
+                claim_state["registration_id"], claim_state["token"]
+            )
+        return final_error or JsonResponse(
+            {"error": _("Payment state changed. Please try again.")}, status=409
+        )
+
+    if final_error is not None:
+        if client.deactivate_checkout(checkout_id):
+            with transaction.atomic():
+                hidden = PaymentTransaction.objects.select_for_update().get(
+                    pk=hidden_card_tx.pk
+                )
+                if hidden.status == PaymentTransaction.Status.PENDING:
+                    hidden.status = PaymentTransaction.Status.CANCELLED
+                    hidden.failure_reason = (
+                        "Checkout creation lost final eligibility revalidation; "
+                        "the unexposed SumUp checkout was deactivated."
+                    )
+                    hidden.save(
+                        update_fields=["status", "failure_reason", "updated_at"]
+                    )
+        return final_error
 
     return JsonResponse(
         {
             "success": True,
             "checkout_id": checkout_id,
-            "checkout_reference": checkout_ref,
-            "amount": float(amount),
+            "checkout_reference": claim_state["checkout_ref"],
+            "amount": float(claim_state["amount"]),
             "currency": "EUR",
             "widget_url": f"/payments/sumup/widget/{checkout_id}/",
         }
@@ -989,9 +1258,50 @@ def _apply_paid_checkout(tx_obj, data):
         locked.failure_reason = ""
         locked.save()
 
+        # Legacy rows may have lost their registration before the deletion
+        # guards in this PR existed. A late provider capture must not become
+        # paid-without-any-remedy merely because the FK is already NULL. The
+        # user-owned SumUp transaction is still enough evidence to record the
+        # full liability in the same atomic callback.
         if (
             locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
-            and locked.event_registration
+            and not locked.event_registration_id
+        ):
+            credit = None
+            if locked.user_id and locked.provider == PaymentTransaction.Provider.SUMUP:
+                from crush_lu.models.credits import CrushCredit
+
+                credit = issue_credit(
+                    locked.user,
+                    payment_amount_cents(locked),
+                    CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+                    payment=locked,
+                    cash_refund_eligible=True,
+                    note=(
+                        "Full captured value returned because a legacy event "
+                        "checkout no longer had a registration to fulfil."
+                    ),
+                )
+            locked.failure_reason = (
+                "Captured after the event registration link was already erased; "
+                + (
+                    "full value recorded as refundable Crush Credit."
+                    if credit is not None
+                    else "manual financial reconciliation required."
+                )
+            )
+            locked.save(update_fields=["failure_reason", "updated_at"])
+            logger.critical(
+                "SumUp event payment %s completed without registration "
+                "attribution — payment recorded; remedy_credit=%s.",
+                locked.transaction_reference,
+                getattr(credit, "pk", None),
+            )
+            return
+
+        if (
+            locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+            and locked.event_registration_id
         ):
             # Lock and re-read the registration before deciding anything about
             # it. Locking only the PaymentTransaction left the revalidation
@@ -1000,8 +1310,22 @@ def _apply_paid_checkout(tx_obj, data):
             # cancellation committing, and then overwrite it with "confirmed".
             registration_id = locked.event_registration_id
             snapshot = EventRegistration.objects.only(
-                "resale_source_registration_id"
+                "event_id", "resale_source_registration_id"
             ).get(pk=registration_id)
+            # PaymentTransaction is already locked.  Take the event before any
+            # registration, then (for configured curated nights) the complete
+            # roster and schedule.  This makes the digest/status predicate one
+            # atomic fact rather than an unlocked series of queries.
+            locked_event = MeetupEvent.objects.select_for_update().get(
+                pk=snapshot.event_id
+            )
+            from crush_lu.services.curated_group_workflow import (
+                lock_event_group_payment_state,
+                requires_curated_group_certification,
+            )
+
+            if requires_curated_group_certification(locked_event):
+                locked_event, _groups = lock_event_group_payment_state(locked_event.pk)
             registration_ids = {registration_id}
             if snapshot.resale_source_registration_id:
                 registration_ids.add(snapshot.resale_source_registration_id)
@@ -1118,21 +1442,66 @@ def _apply_paid_checkout(tx_obj, data):
                 )
                 return
 
+            # A no-show has already consumed the organiser's reserved place
+            # under the ordinary attendance/cancellation policy.  A late card
+            # capture is real money and remains attributable, but it must not
+            # restore attendance and must not mint the curated-group failure
+            # remedy reserved for innocent members whose promised group
+            # disappeared.
+            if reg.status == "no_show":
+                reg.payment_confirmed = True
+                reg.payment_date = timezone.now()
+                reg.save(update_fields=["payment_confirmed", "payment_date"])
+                logger.error(
+                    "SumUp payment %s completed after registration %s was marked "
+                    "no-show — payment recorded, attendance not restored, and "
+                    "no curated-group remedy issued.",
+                    locked.transaction_reference,
+                    reg.pk,
+                )
+                return
+
+            # Selection can change while a SumUp widget is open.  The capture
+            # is real and remains PAID in our audit row, but a stale/cancelled
+            # curated group must never turn that capture into a seat.  The
+            # helper compares the current roster/schedule digest with the
+            # provisional certification and also rechecks active statuses.
+            from crush_lu.services.curated_group_workflow import (
+                registration_has_certified_payable_group,
+            )
+
+            if not registration_has_certified_payable_group(reg):
+                credits = credit_registration_for_unavailable_curated_group(
+                    reg,
+                    payment=locked,
+                )
+                from crush_lu.services.curated_group_notifications import (
+                    deliver_curated_group_notifications,
+                    enqueue_remedy_notification,
+                )
+
+                enqueue_remedy_notification(reg, credits)
+                transaction.on_commit(
+                    partial(
+                        deliver_curated_group_notifications,
+                        registration_ids=[reg.pk],
+                        kinds=["remedy"],
+                    )
+                )
+                logger.error(
+                    "SumUp payment %s completed for curated registration %s but "
+                    "its group certification is no longer current — payment "
+                    "recorded, seat NOT confirmed, full-value remedy issued.",
+                    locked.transaction_reference,
+                    reg.pk,
+                )
+                return
+
             # Re-validate at completion, not just at checkout creation. A member
-            # can open the widget and then cancel (or the organiser can cancel
-            # the event) while the payment is in flight; the checkout stays
-            # payable, and confirming unconditionally would resurrect a seat the
-            # member deliberately released, or sell one for an event that is off.
-            #
-            # SumUp has already captured the money by the time this runs, so the
-            # transaction is still marked PAID -- dropping it would lose the only
-            # record of a real charge. What we refuse to do is hand back the
-            # seat. Logged at error level because this needs a human refund.
-            # Allow-list, not "reject cancelled". Staff can move a row to
-            # waitlist or no_show while the widget is open; confirming those
-            # would hand a waitlisted member an over-capacity seat or erase a
-            # recorded no-show. Only a seat-holding status may be confirmed by
-            # a payment ("confirmed" covers legacy unpaid rows).
+            # can open the widget and then lose its ordinary direct-event seat
+            # while payment is in flight. Curated waitlist/no-show exits were
+            # handled above first: those captures have an automatic full-value
+            # remedy rather than this legacy manual-refund path.
             if reg.status not in SEAT_HOLDING_STATUSES:
                 logger.error(
                     "SumUp payment %s completed for registration %s but it "
@@ -1152,6 +1521,39 @@ def _apply_paid_checkout(tx_obj, data):
             # payment bought the seat outright. Judged here, where the amount
             # actually captured is known.
             if locked.amount != reg.event.registration_fee:
+                if requires_curated_group_certification(reg.event):
+                    credits = credit_registration_for_unavailable_curated_group(
+                        reg,
+                        payment=locked,
+                        note=(
+                            "Full payment value returned because the event price "
+                            "changed while the certified curated checkout was open."
+                        ),
+                    )
+                    from crush_lu.services.curated_group_notifications import (
+                        deliver_curated_group_notifications,
+                        enqueue_remedy_notification,
+                    )
+
+                    enqueue_remedy_notification(reg, credits)
+                    transaction.on_commit(
+                        partial(
+                            deliver_curated_group_notifications,
+                            registration_ids=[reg.pk],
+                            kinds=["remedy"],
+                        )
+                    )
+                    logger.error(
+                        "SumUp payment %s completed for curated registration %s "
+                        "at %s %s after its certified price changed to %s EUR — "
+                        "seat NOT confirmed; full-value remedy issued.",
+                        locked.transaction_reference,
+                        reg.pk,
+                        locked.amount,
+                        locked.currency,
+                        reg.event.registration_fee,
+                    )
+                    return
                 logger.error(
                     "SumUp payment %s completed for registration %s at %s %s but "
                     "the event fee is now %s EUR — payment recorded, seat NOT "

@@ -22,15 +22,19 @@ minimum number of mutually compatible mini-dates.
 
 from __future__ import annotations
 
+import hmac
+import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
+from django.conf import settings
+
 from crush_lu.matching import passes_event_hard_filters
 
-GROUPING_POLICY_VERSION = "reciprocal-graph-v1"
+GROUPING_POLICY_VERSION = "reciprocal-graph-v2"
 DEFAULT_MIN_DATES = 5
 DEFAULT_TARGET_DATES = 7
 MAX_GROUPING_APPLICANTS = 500
@@ -52,6 +56,14 @@ _LOCAL_PLAN_BEAM_WIDTH = 128
 # but never a safety, fairness, coverage, leximin, target, or resilience score.
 _GLOBAL_TRACK_PLAN_BEAM_WIDTH = 1
 _EXACT_MATCHING_MEMBER_LIMIT = 18
+
+_GENDER_POOL_ORDER = ("m", "f", "nb")
+_GENDER_POOL_FIELDS = {
+    "m": "max_participants_m",
+    "f": "max_participants_f",
+    "nb": "max_participants_nb",
+}
+_GENDER_POOL_MAP = {"M": "m", "F": "f", "NB": "nb", "O": "nb", "P": "nb"}
 
 # How big a mutual-match pool is, expressed in tables rather than people. The
 # caller turns these into copy; they exist as keys so the thresholds live in one
@@ -138,6 +150,7 @@ class GroupProjection:
 
     policy_version: str
     deterministic_seed: str
+    input_digest: str
     group_size_limit: int
     group_limit: int
     minimum_dates_required: int
@@ -197,6 +210,7 @@ class _GroupCandidate:
 class _PlanState:
     member_mask: int
     candidates: tuple[_GroupCandidate, ...]
+    pool_counts: tuple[int, int, int]
 
 
 def _applicant(registration):
@@ -234,7 +248,10 @@ def _applicant(registration):
         preferred_age_max=getattr(pref, "preferred_age_max", None) or 99,
         languages=tuple(getattr(pref, "languages", None) or ()),
         status=status,
-        pinned=status in PINNED_REGISTRATION_STATUSES,
+        pinned=(
+            status in PINNED_REGISTRATION_STATUSES
+            or bool(getattr(registration, "payment_confirmed", False))
+        ),
         eligible_for_grouping=not incomplete_reasons,
         incomplete_reasons=tuple(incomplete_reasons),
     )
@@ -340,7 +357,11 @@ def match_bucket(count, group_size):
     return MATCH_BUCKET_FEW
 
 
-def build_compatibility_graph(applicants: Iterable[Any]) -> CompatibilityGraph:
+def build_compatibility_graph(
+    applicants: Iterable[Any],
+    *,
+    ineligibility_reasons: Mapping[int, tuple[str, ...]] | None = None,
+) -> CompatibilityGraph:
     """Return the reciprocal hard-filter graph for event applicants.
 
     No Connect membership, profile-completeness, score, or demographic route is
@@ -349,6 +370,7 @@ def build_compatibility_graph(applicants: Iterable[Any]) -> CompatibilityGraph:
     """
 
     by_id: dict[int, Any] = {}
+    ineligibility_reasons = ineligibility_reasons or {}
     for applicant in applicants:
         registration_id = getattr(applicant, "registration_id", None)
         if registration_id is None:
@@ -370,11 +392,13 @@ def build_compatibility_graph(applicants: Iterable[Any]) -> CompatibilityGraph:
     edges: list[tuple[int, int]] = []
     for index, left_id in enumerate(registration_ids):
         left = by_id[left_id]
-        if _grouping_incomplete_reasons(left):
+        if ineligibility_reasons.get(left_id) or _grouping_incomplete_reasons(left):
             continue
         for right_id in registration_ids[index + 1 :]:
             right = by_id[right_id]
-            if _grouping_incomplete_reasons(right):
+            if ineligibility_reasons.get(right_id) or _grouping_incomplete_reasons(
+                right
+            ):
                 continue
             if not passes_event_hard_filters(left, right):
                 continue
@@ -448,6 +472,12 @@ def project_groups(
         raise ValueError("target_dates must be at least minimum_dates")
 
     applicants = tuple(applicants)
+    input_digest = _projection_input_digest(
+        event,
+        applicants,
+        minimum_dates=minimum_dates,
+        target_dates=target_dates,
+    )
     group_size = _event_group_size(event, len(applicants))
     if group_size > MAX_PROJECTED_GROUP_SIZE:
         raise GroupingGroupSizeTooLarge(
@@ -455,7 +485,15 @@ def project_groups(
             f"limit of {MAX_PROJECTED_GROUP_SIZE}; run an explicit offline/manual "
             "review instead."
         )
-    graph = build_compatibility_graph(applicants)
+    ineligibility_reasons = {
+        applicant.registration_id: reasons
+        for applicant in applicants
+        if (reasons := _projection_incomplete_reasons(event, applicant))
+    }
+    graph = build_compatibility_graph(
+        applicants,
+        ineligibility_reasons=ineligibility_reasons,
+    )
     by_id = {applicant.registration_id: applicant for applicant in applicants}
 
     group_limit = _event_group_limit(event)
@@ -472,10 +510,10 @@ def project_groups(
         if bool(getattr(applicant, "pinned", False))
         or getattr(applicant, "status", None) in PINNED_REGISTRATION_STATUSES
     )
-    ineligibility_reasons = {
-        registration_id: reasons
+    gender_pool_limits = _event_gender_pool_limits(event)
+    pool_by_registration = {
+        registration_id: _gender_pool_for_applicant(applicant)
         for registration_id, applicant in by_id.items()
-        if (reasons := _grouping_incomplete_reasons(applicant))
     }
 
     if (
@@ -492,6 +530,7 @@ def project_groups(
             minimum_dates=minimum_dates,
             target_dates=target_dates,
             ineligibility_reasons=ineligibility_reasons,
+            input_digest=input_digest,
         )
 
     candidates: list[_GroupCandidate] = []
@@ -518,6 +557,8 @@ def project_groups(
         group_limit=search_group_limit,
         target_dates=target_dates,
         seed=seed,
+        pool_by_registration=pool_by_registration,
+        pool_limits=gender_pool_limits,
     )
 
     coverage = frozenset(
@@ -591,6 +632,7 @@ def project_groups(
     return GroupProjection(
         policy_version=GROUPING_POLICY_VERSION,
         deterministic_seed=seed,
+        input_digest=input_digest,
         group_size_limit=group_size,
         group_limit=group_limit,
         minimum_dates_required=minimum_dates,
@@ -617,6 +659,79 @@ def _event_group_size(event, applicant_count: int) -> int:
     return applicant_count
 
 
+def _projection_input_digest(event, applicants, *, minimum_dates, target_dates):
+    """Keyed proof of every input, without persisting preference values."""
+
+    applicant_rows = []
+    for applicant in sorted(
+        applicants,
+        key=lambda candidate: (
+            candidate.registration_id is None,
+            candidate.registration_id or candidate.user_id,
+        ),
+    ):
+        applicant_rows.append(
+            {
+                "registration_id": applicant.registration_id,
+                "user_id": applicant.user_id,
+                "status": getattr(applicant, "status", None),
+                "pinned": bool(getattr(applicant, "pinned", False)),
+                "eligible": bool(getattr(applicant, "eligible_for_grouping", True)),
+                "incomplete_reasons": sorted(
+                    getattr(applicant, "incomplete_reasons", ()) or ()
+                ),
+                "gender": getattr(applicant, "gender", None),
+                "age": getattr(applicant, "age", None),
+                "preferred_genders": sorted(
+                    getattr(applicant, "preferred_genders", ()) or ()
+                ),
+                "preferred_age_min": getattr(applicant, "preferred_age_min", None),
+                "preferred_age_max": getattr(applicant, "preferred_age_max", None),
+                "languages": sorted(getattr(applicant, "languages", ()) or ()),
+            }
+        )
+    payload = {
+        "policy_version": GROUPING_POLICY_VERSION,
+        "event_id": getattr(event, "pk", None),
+        "event_type": getattr(event, "event_type", None),
+        "registration_mode": getattr(event, "registration_mode", None),
+        "registration_deadline": (
+            event.registration_deadline.isoformat()
+            if getattr(event, "registration_deadline", None)
+            else None
+        ),
+        "date_time": (
+            event.date_time.isoformat() if getattr(event, "date_time", None) else None
+        ),
+        "capacity": {
+            "max_participants": getattr(event, "max_participants", None),
+            "group_size": getattr(event, "group_size", None),
+            "planned_groups": getattr(event, "planned_groups", None),
+            "registration_fee": str(getattr(event, "registration_fee", "")),
+            "max_participants_m": getattr(event, "max_participants_m", None),
+            "max_participants_f": getattr(event, "max_participants_f", None),
+            "max_participants_nb": getattr(event, "max_participants_nb", None),
+        },
+        "event_age_range": {
+            "minimum": getattr(event, "min_age", None),
+            "maximum": getattr(event, "max_age", None),
+        },
+        "minimum_dates": minimum_dates,
+        "target_dates": target_dates,
+        "applicants": applicant_rows,
+    }
+    digest_key = getattr(
+        settings,
+        "CURATED_GROUP_INPUT_DIGEST_KEY",
+        settings.SECRET_KEY,
+    )
+    return hmac.new(
+        str(digest_key).encode("utf-8"),
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        sha256,
+    ).hexdigest()
+
+
 def _grouping_incomplete_reasons(applicant: Any) -> tuple[str, ...]:
     """Normalise fail-closed eligibility for every grouping entry point."""
 
@@ -628,6 +743,44 @@ def _grouping_incomplete_reasons(applicant: Any) -> tuple[str, ...]:
     if not bool(getattr(applicant, "eligible_for_grouping", True)) and not reasons:
         reasons.append("incomplete_application")
     return tuple(reasons)
+
+
+def _projection_incomplete_reasons(event, applicant: Any) -> tuple[str, ...]:
+    """Fail closed on both application data and current event admission rules."""
+
+    reasons = list(_grouping_incomplete_reasons(applicant))
+    age = getattr(applicant, "age", None)
+    minimum_age = getattr(event, "min_age", None)
+    maximum_age = getattr(event, "max_age", None)
+    if (
+        age is not None
+        and minimum_age is not None
+        and maximum_age is not None
+        and not (minimum_age <= age <= maximum_age)
+        and "outside_event_age_range" not in reasons
+    ):
+        reasons.append("outside_event_age_range")
+    return tuple(reasons)
+
+
+def _event_gender_pool_limits(event) -> Mapping[str, int]:
+    """Return active event-wide seat caps, or no constraint when incomplete."""
+
+    if not bool(getattr(event, "gender_limits_active", False)):
+        return MappingProxyType({})
+    limits = {
+        pool: getattr(event, field_name, None)
+        for pool, field_name in _GENDER_POOL_FIELDS.items()
+    }
+    if any(limit is None for limit in limits.values()):
+        return MappingProxyType({})
+    return MappingProxyType(
+        {pool: max(0, int(limit)) for pool, limit in limits.items()}
+    )
+
+
+def _gender_pool_for_applicant(applicant: Any) -> str | None:
+    return _GENDER_POOL_MAP.get(getattr(applicant, "gender", None))
 
 
 def _event_group_limit(event) -> int:
@@ -667,12 +820,14 @@ def _empty_projection(
     minimum_dates: int,
     target_dates: int,
     ineligibility_reasons: Mapping[int, tuple[str, ...]],
+    input_digest: str,
 ) -> GroupProjection:
     ordered_ids = tuple(sorted(registration_ids))
     ordered_pinned = tuple(sorted(pinned_ids))
     return GroupProjection(
         policy_version=GROUPING_POLICY_VERSION,
         deterministic_seed=seed,
+        input_digest=input_digest,
         group_size_limit=group_size,
         group_limit=group_limit,
         minimum_dates_required=minimum_dates,
@@ -1370,6 +1525,8 @@ def _select_candidate_plan(
     group_limit: int,
     target_dates: int,
     seed: str,
+    pool_by_registration: Mapping[int, str | None],
+    pool_limits: Mapping[str, int],
 ) -> tuple[_GroupCandidate, ...]:
     if not candidates or group_limit < 1:
         return ()
@@ -1381,6 +1538,24 @@ def _select_candidate_plan(
         candidate: sum(
             1 << index_by_id[registration_id]
             for registration_id in candidate.registration_ids
+        )
+        for candidate in candidates
+    }
+    capacity_active = bool(pool_limits)
+    pool_limit_vector = tuple(
+        int(pool_limits.get(pool, len(registration_ids))) for pool in _GENDER_POOL_ORDER
+    )
+    candidate_pool_counts = {
+        candidate: (
+            tuple(
+                sum(
+                    pool_by_registration.get(registration_id) == pool
+                    for registration_id in candidate.registration_ids
+                )
+                for pool in _GENDER_POOL_ORDER
+            )
+            if capacity_active
+            else (0, 0, 0)
         )
         for candidate in candidates
     }
@@ -1416,40 +1591,61 @@ def _select_candidate_plan(
             group_limit=local_group_limit,
             target_dates=target_dates,
             seed=f"{seed}:{track_id}",
+            candidate_pool_counts=candidate_pool_counts,
+            pool_limit_vector=pool_limit_vector,
         )
         track_options.append((track_id, options))
 
-    beams: dict[int, list[_PlanState]] = {0: [_PlanState(member_mask=0, candidates=())]}
+    empty_state = _PlanState(
+        member_mask=0,
+        candidates=(),
+        pool_counts=(0, 0, 0),
+    )
+    beams: dict[tuple[int, tuple[int, int, int]], list[_PlanState]] = {
+        (0, empty_state.pool_counts): [empty_state]
+    }
     for _track_id, options in track_options:
-        combined: dict[int, list[_PlanState]] = {
-            count: list(states) for count, states in beams.items()
+        combined: dict[tuple[int, tuple[int, int, int]], list[_PlanState]] = {
+            key: list(states) for key, states in beams.items()
         }
-        for current_count, states in beams.items():
+        for (current_count, _current_pool_counts), states in beams.items():
             for option_count, option in options:
                 total_count = current_count + option_count
                 if total_count > group_limit:
                     continue
-                destination = combined.setdefault(total_count, [])
                 for state in states:
                     # Components are disjoint by construction. Keep the check
                     # as an invariant backstop if track generation ever changes.
                     if state.member_mask & option.member_mask:
                         continue
+                    total_pool_counts = _add_pool_counts(
+                        state.pool_counts,
+                        option.pool_counts,
+                    )
+                    if not _pool_counts_fit(
+                        total_pool_counts,
+                        pool_limit_vector,
+                    ):
+                        continue
+                    destination = combined.setdefault(
+                        (total_count, total_pool_counts), []
+                    )
                     destination.append(
                         _PlanState(
                             member_mask=state.member_mask | option.member_mask,
                             candidates=(*state.candidates, *option.candidates),
+                            pool_counts=total_pool_counts,
                         )
                     )
         beams = {
-            count: _prune_plan_states(
+            key: _prune_plan_states(
                 states,
                 pinned_mask=pinned_mask,
                 target_dates=target_dates,
                 seed=seed,
                 limit=_GLOBAL_TRACK_PLAN_BEAM_WIDTH,
             )
-            for count, states in combined.items()
+            for key, states in combined.items()
             if states
         }
 
@@ -1476,6 +1672,8 @@ def _best_local_track_plans(
     group_limit: int,
     target_dates: int,
     seed: str,
+    candidate_pool_counts: Mapping[_GroupCandidate, tuple[int, int, int]],
+    pool_limit_vector: tuple[int, int, int],
 ) -> tuple[tuple[int, _PlanState], ...]:
     if group_limit < 1:
         return ()
@@ -1489,38 +1687,68 @@ def _best_local_track_plans(
             ),
         )
     )
-    beams: dict[int, list[_PlanState]] = {count: [] for count in range(group_limit + 1)}
-    beams[0] = [_PlanState(member_mask=0, candidates=())]
+    empty_state = _PlanState(
+        member_mask=0,
+        candidates=(),
+        pool_counts=(0, 0, 0),
+    )
+    beams: dict[tuple[int, tuple[int, int, int]], list[_PlanState]] = {
+        (0, empty_state.pool_counts): [empty_state]
+    }
     for candidate in ordered_candidates:
-        previous = {count: tuple(states) for count, states in beams.items()}
+        previous = {key: tuple(states) for key, states in beams.items()}
         candidate_mask = masks[candidate]
-        for count in range(1, group_limit + 1):
-            expanded = list(beams[count])
-            for state in previous[count - 1]:
+        for (count, _pool_counts), states in previous.items():
+            if count >= group_limit:
+                continue
+            for state in states:
                 if state.member_mask & candidate_mask:
                     continue
+                total_pool_counts = _add_pool_counts(
+                    state.pool_counts,
+                    candidate_pool_counts[candidate],
+                )
+                if not _pool_counts_fit(total_pool_counts, pool_limit_vector):
+                    continue
+                key = (count + 1, total_pool_counts)
+                expanded = list(beams.get(key, ()))
                 expanded.append(
                     _PlanState(
                         member_mask=state.member_mask | candidate_mask,
                         candidates=(*state.candidates, candidate),
+                        pool_counts=total_pool_counts,
                     )
                 )
-            beams[count] = _prune_plan_states(
-                expanded,
-                pinned_mask=pinned_mask,
-                target_dates=target_dates,
-                seed=seed,
-                limit=_LOCAL_PLAN_BEAM_WIDTH,
-            )
+                beams[key] = _prune_plan_states(
+                    expanded,
+                    pinned_mask=pinned_mask,
+                    target_dates=target_dates,
+                    seed=seed,
+                    limit=_LOCAL_PLAN_BEAM_WIDTH,
+                )
 
     # For disjoint tracks, every objective before the seeded final tie is
     # monotone under union with the same outside plan. One locally best state
     # per exact group count is therefore enough for the global composition.
     return tuple(
         (count, states[0])
-        for count, states in sorted(beams.items())
+        for (count, _pool_counts), states in sorted(beams.items())
         if count and states
     )
+
+
+def _add_pool_counts(
+    left: tuple[int, int, int],
+    right: tuple[int, int, int],
+) -> tuple[int, int, int]:
+    return tuple(a + b for a, b in zip(left, right, strict=True))
+
+
+def _pool_counts_fit(
+    counts: tuple[int, int, int],
+    limits: tuple[int, int, int],
+) -> bool:
+    return all(count <= limit for count, limit in zip(counts, limits, strict=True))
 
 
 def _prune_plan_states(

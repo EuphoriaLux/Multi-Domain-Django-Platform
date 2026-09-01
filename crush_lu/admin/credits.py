@@ -11,9 +11,9 @@ Two staff surfaces beyond the ledger itself:
   because "why does this member have €20" is the question the ledger exists to
   answer, and a blank note makes it unanswerable a month later.
 * **The cash-refund queue**, a filter over ``cash_refund_eligible``. When
-  Crush.lu cancels an event, Luxembourg consumer guidance entitles the member
-  to their money back if they ask, and a voucher is not a substitute. Staff
-  can send the refund at SumUp and withdraw the credit in one click via
+  Crush.lu cancels an event or cannot provide the certified curated group it
+  sold, the member may ask for their money back and a voucher is not a
+  substitute. Staff can send the refund at SumUp and withdraw the credit via
   ``refund_via_sumup`` — the row still has to be found and selected by a
   human, and the action never runs anywhere unattended.
 """
@@ -35,11 +35,13 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
-from crush_lu.models.payments import PaymentTransaction
 from crush_lu.services.credits import (
     available_credit_cents,
+    finalize_cash_refund,
     issue_credit,
+    lease_cash_refund,
     payment_amount_cents,
+    restore_cash_refund_lease,
     void_credit,
 )
 from crush_lu.services.sumup import (
@@ -60,6 +62,7 @@ DEFAULT_REFUND_BUDGET_SECONDS = 60.0
 
 _STATUS_COLOURS = {
     CrushCredit.Status.ACTIVE: ("#28a745", "💳"),
+    CrushCredit.Status.REFUNDING: ("#0d6efd", "🔒"),
     CrushCredit.Status.CONSUMED: ("#6c757d", "✅"),
     CrushCredit.Status.EXPIRED: ("#fd7e14", "⌛"),
     CrushCredit.Status.VOID: ("#dc3545", "🚫"),
@@ -210,9 +213,10 @@ class CrushCreditAdmin(admin.ModelAdmin):
             {
                 "fields": ("cash_refund_eligible",),
                 "description": (
-                    "Set only when Crush.lu cancelled the event. Those members "
-                    "may ask for their money back instead of the credit, and "
-                    "are entitled to it. Select eligible rows on the changelist "
+                    "Set only when Crush.lu cancelled the event or could not "
+                    "provide the certified curated group sold. Those members "
+                    "may ask for their money back instead of the credit. Select "
+                    "eligible rows on the changelist "
                     "and use the &ldquo;Refund via SumUp&rdquo; action to send "
                     "the money and void the credit in one step, or refund by "
                     "hand in the SumUp dashboard and use &ldquo;Void selected "
@@ -396,6 +400,12 @@ class CrushCreditAdmin(admin.ModelAdmin):
         issues €20.00 credit against a €15.50 payment, and refunding €20.00
         in cash on top of that would hand back more than was ever taken.
 
+        Before provider I/O the action commits a ``REFUNDING`` lease under the
+        payment -> credit lock order. A checkout cannot spend that leased value.
+        A definitive pre-refund failure restores ``ACTIVE``; any exception from
+        the money-moving POST remains ``REFUNDING`` because the provider may
+        have accepted it before its response was lost.
+
         Bounded like ``PaymentTransactionAdmin.recheck_with_sumup`` — no
         task worker, so this calls SumUp inline, one row at a time, under a
         gunicorn timeout.
@@ -418,58 +428,106 @@ class CrushCreditAdmin(admin.ModelAdmin):
         refunded = failed = skipped = 0
         stopped_early = []
 
-        for credit in queryset.select_related("source_payment").order_by("pk"):
-            if credit.pk not in eligible_pks:
+        for selected_credit in queryset.only("pk").order_by("pk"):
+            credit_id = selected_credit.pk
+            if credit_id not in eligible_pks:
                 skipped += 1
                 continue
 
             if refunded + failed >= limit or time.monotonic() > deadline:
-                stopped_early.append(credit.pk)
+                stopped_early.append(credit_id)
                 continue
 
-            payment = credit.source_payment
-            if (
-                payment is None
-                or payment.provider != PaymentTransaction.Provider.SUMUP
-                or payment.status != PaymentTransaction.Status.PAID
-                or not payment.sumup_checkout_id
-            ):
+            try:
+                credit, payment, lease_outcome = lease_cash_refund(credit_id)
+            except Exception as exc:  # noqa: BLE001 — report one row, keep batch moving
+                failed += 1
+                logger.error(
+                    "Could not lease credit %s for a SumUp refund: %s",
+                    credit_id,
+                    exc,
+                    exc_info=True,
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: refund lease FAILED — {exc}. No "
+                    "provider call was made.",
+                    level=messages.ERROR,
+                )
+                continue
+
+            if lease_outcome != "leased":
                 skipped += 1
                 self.message_user(
                     request,
-                    f"Credit #{credit.pk}: no refundable SumUp payment attached — "
-                    "skipped.",
+                    f"Credit #{credit_id}: not refundable now "
+                    f"(outcome={lease_outcome}) — skipped.",
                     level=messages.WARNING,
                 )
                 continue
 
+            # Reading the checkout and locating its successful transaction are
+            # definitive pre-refund steps: if either fails, no refund POST was
+            # attempted and the lease can safely become spendable again.
             try:
                 client = SumUpClient()
                 checkout_data = client.get_checkout(payment.sumup_checkout_id)
                 transaction_id = extract_successful_transaction_id(checkout_data)
                 if not transaction_id:
                     raise SumUpError("no successful transaction found on this checkout")
-                # Full refund of what was actually captured — never the
-                # credit's face value. Omitting `amount` is a full refund.
-                client.refund_transaction(transaction_id)
-            except Exception as exc:  # noqa: BLE001 — never 500 the admin on a
-                # provider call. Mirrors recheck_with_sumup: a bare connection
-                # error must report exactly like a SumUpError, not crash the
-                # changelist mid-selection and leave later rows unattempted.
+            except Exception as exc:  # noqa: BLE001 — no refund POST happened
                 failed += 1
+                try:
+                    _credit, restore_outcome = restore_cash_refund_lease(
+                        credit_id, payment.pk
+                    )
+                except Exception as restore_exc:  # noqa: BLE001
+                    restore_outcome = f"restore_failed: {restore_exc}"
+                    logger.error(
+                        "Credit %s pre-refund check failed and its lease could "
+                        "not be restored: %s",
+                        credit_id,
+                        restore_exc,
+                        exc_info=True,
+                    )
                 logger.error(
-                    "SumUp refund failed for credit %s (payment %s): %s",
-                    credit.pk,
+                    "SumUp refund preflight failed for credit %s (payment %s): %s",
+                    credit_id,
                     payment.pk,
                     exc,
                     exc_info=True,
                 )
                 self.message_user(
                     request,
-                    f"Credit #{credit.pk}: SumUp refund FAILED — {exc}. Nothing "
-                    "was changed here; the credit is still active and no cash "
-                    "moved (or SumUp already reports it as refunded/not "
-                    "refundable — check the SumUp dashboard before retrying).",
+                    f"Credit #{credit_id}: refund preflight FAILED — {exc}. No "
+                    f"refund request was sent; lease outcome={restore_outcome}.",
+                    level=messages.ERROR,
+                )
+                continue
+
+            # This is the point of no safe automatic rollback. A timeout or
+            # other exception can arrive after SumUp accepted the POST, so any
+            # failure below leaves the durable REFUNDING lease in place.
+            try:
+                # Full refund of what was actually captured — never the
+                # credit's face value. Omitting `amount` is a full refund.
+                client.refund_transaction(transaction_id)
+            except Exception as exc:  # noqa: BLE001 — provider outcome is ambiguous
+                failed += 1
+                logger.error(
+                    "SumUp refund outcome is ambiguous for credit %s "
+                    "(payment %s, txn %s): %s",
+                    credit_id,
+                    payment.pk,
+                    transaction_id,
+                    exc,
+                    exc_info=True,
+                )
+                self.message_user(
+                    request,
+                    f"Credit #{credit_id}: SumUp refund outcome is UNKNOWN "
+                    f"(txn {transaction_id}) — the credit remains locked as "
+                    "REFUNDING. Do not retry the refund; reconcile it in SumUp.",
                     level=messages.ERROR,
                 )
                 continue
@@ -480,52 +538,54 @@ class CrushCreditAdmin(admin.ModelAdmin):
             # the one message that matters: reconcile by hand, the refund
             # already went through.
             try:
-                _credit, outcome = void_credit(
-                    credit.pk,
+                _credit, _payment, outcome = finalize_cash_refund(
+                    credit_id,
+                    payment.pk,
                     note=(
                         f"— refunded "
                         f"{format_cents(payment_amount_cents(payment), payment.currency)} "
                         f"via SumUp (txn {transaction_id}) by "
                         f"{request.user.email or request.user}."
                     ),
-                    mark_source_payment_refunded=True,
                 )
             except Exception as exc:  # noqa: BLE001 — see comment above
+                failed += 1
                 logger.error(
-                    "Credit %s: SumUp refund (txn %s) succeeded but voiding "
-                    "the local ledger raised: %s",
-                    credit.pk,
+                    "Credit %s: SumUp refund (txn %s) succeeded but finalizing "
+                    "the local lease raised: %s",
+                    credit_id,
                     transaction_id,
                     exc,
                     exc_info=True,
                 )
                 self.message_user(
                     request,
-                    f"Credit #{credit.pk}: SumUp refund SUCCEEDED (txn "
+                    f"Credit #{credit_id}: SumUp refund SUCCEEDED (txn "
                     f"{transaction_id}) but recording it here raised an error "
                     f"({exc}) — the member has already been refunded in cash; "
-                    "reconcile the credit ledger by hand now.",
+                    "the credit remains REFUNDING; reconcile by hand now.",
                     level=messages.ERROR,
                 )
                 continue
 
-            if outcome == "voided":
+            if outcome == "finalized":
                 refunded += 1
                 self.message_user(
                     request,
-                    f"Credit #{credit.pk}: refunded via SumUp and voided.",
+                    f"Credit #{credit_id}: refunded via SumUp and voided.",
                     level=messages.SUCCESS,
                 )
             else:
+                failed += 1
                 # The money is already gone at SumUp — this is not a state to
                 # retry, it is a state to reconcile by hand immediately.
                 self.message_user(
                     request,
-                    f"Credit #{credit.pk}: SumUp refund SUCCEEDED (txn "
+                    f"Credit #{credit_id}: SumUp refund SUCCEEDED (txn "
                     f"{transaction_id}) but the credit could not be voided "
                     f"automatically (outcome={outcome}) — the member has "
-                    "already been refunded in cash; reconcile the credit "
-                    "ledger by hand now.",
+                    "already been refunded in cash; leave REFUNDING in place "
+                    "and reconcile the ledger by hand now.",
                     level=messages.ERROR,
                 )
 

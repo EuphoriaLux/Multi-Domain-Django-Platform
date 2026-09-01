@@ -15,9 +15,10 @@ so **no test here can catch a violation** — the ordering is maintained by
 reading, not by running. Two rules keep this module out of the cycle:
 
 1. Attribution reads never lock ``PaymentTransaction`` or ``CrushProfile``.
-   The one reconciliation exception is :func:`void_credit`, which locks the
-   source payment **before** the credit and touches no registration. That is the
-   same PaymentTransaction → CrushCredit direction as checkout.
+   The reconciliation exceptions are :func:`void_credit` and the cash-refund
+   lease helpers. They lock the source payment **before** the credit and touch
+   no registration. That is the same PaymentTransaction → CrushCredit
+   direction as checkout.
 2. ``CrushCredit`` is always locked **last**. :func:`redeem_for_registration`
    is the only code anywhere that locks it, and it runs with the
    ``PaymentTransaction`` and ``EventRegistration`` locks for those very rows
@@ -68,6 +69,7 @@ _REASONS_RELEASING_PAYMENT = frozenset(
         CrushCredit.Reason.MEMBER_CANCELLATION,
         CrushCredit.Reason.SEAT_RESOLD,
         CrushCredit.Reason.EVENT_CANCELLED,
+        CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
     }
 )
 
@@ -126,9 +128,9 @@ def void_credit(
     """Void one ledger row through the same guarded lifecycle door.
 
     Returns ``(credit, outcome)`` where outcome is ``voided``, ``spent`` or
-    ``inactive``. When staff confirms a cash refund, the captured SumUp payment
-    is locked first and moved to ``REFUNDED`` in the same transaction so revenue
-    reporting and the payment ledger agree with the credit ledger.
+    ``inactive``. When staff confirms a cash refund, the captured SumUp or
+    manually recorded payment is locked first and moved to ``REFUNDED`` in the
+    same transaction so revenue reporting agrees with the credit ledger.
     """
     snapshot = CrushCredit.objects.only("source_payment_id").get(pk=credit_id)
     payment_id = snapshot.source_payment_id if mark_source_payment_refunded else None
@@ -156,18 +158,144 @@ def void_credit(
             mark_source_payment_refunded
             and credit.cash_refund_eligible
             and source_payment is not None
-            and source_payment.provider == PaymentTransaction.Provider.SUMUP
+            and source_payment.provider
+            in {
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            }
             and source_payment.status == PaymentTransaction.Status.PAID
         ):
             source_payment.status = PaymentTransaction.Status.REFUNDED
             source_payment.failure_reason = (
-                "Full cash refund reconciled through the Crush Credit queue."
+                "Full cash or original-method refund reconciled through the "
+                "Crush Credit queue."
             )
             source_payment.save(
                 update_fields=["status", "failure_reason", "updated_at"]
             )
 
     return credit, "voided"
+
+
+def lease_cash_refund(credit_id):
+    """Freeze one refundable credit before SumUp refund I/O begins.
+
+    Returns ``(credit, source_payment, outcome)``. ``outcome`` is ``leased``
+    only when the credit was active, unexpired, wholly unspent and backed by a
+    paid SumUp checkout. Every other outcome is a refusal and moves no state.
+
+    The lease commits *before* provider I/O. ``REFUNDING`` is deliberately not
+    spendable, so a member cannot buy a seat with the credit while SumUp is
+    sending the same value back in cash. Payment is locked before credit to
+    preserve the global payment -> credit lock order.
+    """
+
+    snapshot = CrushCredit.objects.only("source_payment_id").get(pk=credit_id)
+    payment_id = snapshot.source_payment_id
+
+    with transaction.atomic():
+        source_payment = None
+        if payment_id:
+            source_payment = (
+                PaymentTransaction.objects.select_for_update(of=("self",))
+                .filter(pk=payment_id)
+                .first()
+            )
+
+        credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
+        if credit.status != CrushCredit.Status.ACTIVE:
+            return credit, source_payment, "inactive"
+        if credit.expires_at <= timezone.now():
+            return credit, source_payment, "expired"
+        if credit.redemptions.exists():
+            return credit, source_payment, "spent"
+        if not credit.cash_refund_eligible:
+            return credit, source_payment, "ineligible"
+        if (
+            source_payment is None
+            or credit.source_payment_id != source_payment.pk
+            or source_payment.provider != PaymentTransaction.Provider.SUMUP
+            or source_payment.status != PaymentTransaction.Status.PAID
+            or not source_payment.sumup_checkout_id
+        ):
+            return credit, source_payment, "payment_unavailable"
+
+        credit.status = CrushCredit.Status.REFUNDING
+        credit.save(update_fields=["status"])
+
+    return credit, source_payment, "leased"
+
+
+def restore_cash_refund_lease(credit_id, payment_id):
+    """Restore a lease only when no refund POST was attempted.
+
+    This is intentionally a narrow recovery primitive for definitive
+    *pre-refund* failures such as being unable to read the checkout or find its
+    successful transaction id. Once ``refund_transaction`` has been called,
+    its exception may mean SumUp accepted the request before the response was
+    lost; callers must leave the credit ``REFUNDING`` for reconciliation.
+    """
+
+    with transaction.atomic():
+        source_payment = (
+            PaymentTransaction.objects.select_for_update(of=("self",))
+            .filter(pk=payment_id)
+            .first()
+        )
+        credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
+        if credit.status != CrushCredit.Status.REFUNDING:
+            return credit, "inactive"
+        if (
+            source_payment is None
+            or credit.source_payment_id != source_payment.pk
+            or source_payment.provider != PaymentTransaction.Provider.SUMUP
+            or source_payment.status != PaymentTransaction.Status.PAID
+            or not source_payment.sumup_checkout_id
+        ):
+            return credit, "payment_changed"
+
+        credit.status = CrushCredit.Status.ACTIVE
+        credit.save(update_fields=["status"])
+
+    return credit, "restored"
+
+
+def finalize_cash_refund(credit_id, payment_id, *, note):
+    """Atomically settle a successful SumUp refund and its leased credit.
+
+    Provider success is already known when this runs. A local exception rolls
+    back both writes and leaves the separately committed ``REFUNDING`` lease in
+    place, making the ambiguous state visible and non-spendable until staff
+    reconcile it.
+    """
+
+    with transaction.atomic():
+        source_payment = (
+            PaymentTransaction.objects.select_for_update(of=("self",))
+            .filter(pk=payment_id)
+            .first()
+        )
+        credit = CrushCredit.objects.select_for_update().get(pk=credit_id)
+        if credit.status != CrushCredit.Status.REFUNDING:
+            return credit, source_payment, "inactive"
+        if (
+            source_payment is None
+            or credit.source_payment_id != source_payment.pk
+            or source_payment.provider != PaymentTransaction.Provider.SUMUP
+        ):
+            return credit, source_payment, "payment_changed"
+
+        credit.status = CrushCredit.Status.VOID
+        credit.note = f"{credit.note}\n{note}".strip()
+        credit.save(update_fields=["status", "note"])
+
+        source_payment.status = PaymentTransaction.Status.REFUNDED
+        source_payment.failure_reason = (
+            "Full cash refund reconciled through the Crush Credit queue."
+        )
+        source_payment.save(update_fields=["status", "failure_reason", "updated_at"])
+
+    return credit, source_payment, "finalized"
 
 
 def paid_amount_cents(registration):
@@ -835,6 +963,65 @@ def credit_registration_for_cancelled_event(registration, *, payment=None, note=
         payment=payment,
         note=note,
     )
+
+
+def credit_registration_for_unavailable_curated_group(
+    registration, *, payment=None, note=""
+):
+    """Return a capture when its certified curated group ceased to be viable.
+
+    SumUp may capture after another roster member cancelled or erased their
+    account.  The payer did nothing wrong and cannot be left with only a log
+    entry: restore the full value immediately, retain a cash-refund liability
+    for card captures. Before the scheduled start the application remains
+    available for a later fair reprojection; after that point the email is
+    terminal. Credit-funded payments are restored to their original
+    tranches/expiry dates by ``_issue_payment_return_credits``.
+    """
+
+    if payment is None:
+        amount_cents, payment = paid_amount_cents(registration)
+    else:
+        amount_cents = payment_amount_cents(payment)
+    if amount_cents <= 0:
+        return []
+    if payment is not None:
+        existing = list(
+            CrushCredit.objects.filter(
+                source_payment=payment,
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).order_by("pk")
+        )
+        if existing:
+            return existing
+    refundable = (
+        payment is not None
+        and payment.provider
+        in (PaymentTransaction.Provider.SUMUP, PaymentTransaction.Provider.MANUAL)
+        and payment.status == PaymentTransaction.Status.PAID
+    )
+    credits = _issue_payment_return_credits(
+        registration,
+        payment,
+        amount_cents,
+        CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+        cash_refund_eligible=refundable,
+        note=note
+        or (
+            "Full payment value returned because the certified curated group "
+            "was no longer viable at capture."
+        ),
+    )
+    if registration.status in {"pending", "confirmed"}:
+        registration.__class__.objects.filter(pk=registration.pk).update(
+            status="applied",
+            payment_confirmed=False,
+            payment_date=None,
+        )
+        registration.status = "applied"
+        registration.payment_confirmed = False
+        registration.payment_date = None
+    return credits
 
 
 def event_cancelled_premium_cents():

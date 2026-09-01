@@ -9,6 +9,7 @@ Comprehensive tests for event functionality including:
 
 Run with: pytest crush_lu/tests/test_events.py -v
 """
+
 from datetime import date, timedelta
 from decimal import Decimal
 from django.test import TestCase, Client, override_settings
@@ -29,64 +30,63 @@ class EventRegistrationTests(TestCase):
         self.client = Client()
 
         self.user = User.objects.create_user(
-            username='testuser@example.com',
-            email='testuser@example.com',
-            password='testpass123',
-            first_name='Test',
-            last_name='User'
+            username="testuser@example.com",
+            email="testuser@example.com",
+            password="testpass123",
+            first_name="Test",
+            last_name="User",
         )
 
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
-            is_active=True
+            is_active=True,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Test Speed Dating',
-            description='A test event',
-            event_type='speed_dating',
+            title="Test Speed Dating",
+            description="A test event",
+            event_type="speed_dating",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg City',
-            address='123 Test Street',
+            location="Luxembourg City",
+            address="123 Test Street",
             max_participants=20,
             min_age=18,
             max_age=35,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_registration_within_deadline(self):
         """Test user can register before deadline."""
         from crush_lu.models import EventRegistration
 
-        self.client.login(username='testuser@example.com', password='testpass123')
+        self.client.login(username="testuser@example.com", password="testpass123")
 
         registration = EventRegistration.objects.create(
-            event=self.event,
-            user=self.user
+            event=self.event, user=self.user
         )
 
         self.assertIsNotNone(registration)
-        self.assertEqual(registration.status, 'pending')
+        self.assertEqual(registration.status, "pending")
 
     def test_registration_after_deadline_not_open(self):
         """Test registration is not open after deadline."""
         from crush_lu.models import MeetupEvent
 
         past_deadline_event = MeetupEvent.objects.create(
-            title='Past Deadline Event',
-            description='Event with past deadline',
-            event_type='mixer',
+            title="Past Deadline Event",
+            description="Event with past deadline",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(days=1),  # Past deadline
-            is_published=True
+            is_published=True,
         )
 
         self.assertFalse(past_deadline_event.is_registration_open)
@@ -101,16 +101,14 @@ class EventRegistrationTests(TestCase):
 
         # Register first user
         EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='confirmed'
+            event=self.event, user=self.user, status="confirmed"
         )
 
         # Create second user
         user2 = User.objects.create_user(
-            username='user2@example.com',
-            email='user2@example.com',
-            password='testpass123'
+            username="user2@example.com",
+            email="user2@example.com",
+            password="testpass123",
         )
 
         # Second registration should recognize event is full
@@ -126,26 +124,22 @@ class EventRegistrationTests(TestCase):
 
         # Register first user as confirmed
         reg1 = EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='confirmed'
+            event=self.event, user=self.user, status="confirmed"
         )
 
         # Create and register second user on waitlist
         user2 = User.objects.create_user(
-            username='user2@example.com',
-            email='user2@example.com',
-            password='testpass123'
+            username="user2@example.com",
+            email="user2@example.com",
+            password="testpass123",
         )
 
         reg2 = EventRegistration.objects.create(
-            event=self.event,
-            user=user2,
-            status='waitlist'
+            event=self.event, user=user2, status="waitlist"
         )
 
         # Cancel first registration
-        reg1.status = 'cancelled'
+        reg1.status = "cancelled"
         reg1.save()
 
         # Event should no longer be full
@@ -161,15 +155,15 @@ class EventCapacityTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title='Capacity Test Event',
-            description='Testing capacity',
-            event_type='mixer',
+            title="Capacity Test Event",
+            description="Testing capacity",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=5,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_spots_remaining_decreases(self):
@@ -179,15 +173,13 @@ class EventCapacityTests(TestCase):
         initial_spots = self.event.spots_remaining
 
         user = User.objects.create_user(
-            username='test@example.com',
-            email='test@example.com',
-            password='testpass123'
+            username="test@example.com",
+            email="test@example.com",
+            password="testpass123",
         )
 
         EventRegistration.objects.create(
-            event=self.event,
-            user=user,
-            status='confirmed'
+            event=self.event, user=user, status="confirmed"
         )
 
         self.assertEqual(self.event.spots_remaining, initial_spots - 1)
@@ -199,14 +191,12 @@ class EventCapacityTests(TestCase):
         # Create multiple users and registrations
         for i in range(3):
             user = User.objects.create_user(
-                username=f'user{i}@example.com',
-                email=f'user{i}@example.com',
-                password='testpass123'
+                username=f"user{i}@example.com",
+                email=f"user{i}@example.com",
+                password="testpass123",
             )
             EventRegistration.objects.create(
-                event=self.event,
-                user=user,
-                status='confirmed'
+                event=self.event, user=user, status="confirmed"
             )
 
         self.assertEqual(self.event.get_confirmed_count(), 3)
@@ -218,14 +208,12 @@ class EventCapacityTests(TestCase):
         # Create waitlist registrations
         for i in range(2):
             user = User.objects.create_user(
-                username=f'waitlist{i}@example.com',
-                email=f'waitlist{i}@example.com',
-                password='testpass123'
+                username=f"waitlist{i}@example.com",
+                email=f"waitlist{i}@example.com",
+                password="testpass123",
             )
             EventRegistration.objects.create(
-                event=self.event,
-                user=user,
-                status='waitlist'
+                event=self.event, user=user, status="waitlist"
             )
 
         self.assertEqual(self.event.get_waitlist_count(), 2)
@@ -237,42 +225,44 @@ class EventVotingTests(TestCase):
     def setUp(self):
         """Set up test data."""
         from crush_lu.models import (
-            MeetupEvent, EventVotingSession, GlobalActivityOption, EventRegistration, CrushProfile
+            MeetupEvent,
+            EventVotingSession,
+            GlobalActivityOption,
+            EventRegistration,
+            CrushProfile,
         )
 
         self.user = User.objects.create_user(
-            username='voter@example.com',
-            email='voter@example.com',
-            password='testpass123',
-            first_name='Voter',
-            last_name='User'
+            username="voter@example.com",
+            email="voter@example.com",
+            password="testpass123",
+            first_name="Voter",
+            last_name="User",
         )
 
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Voting Test Event',
-            description='Testing voting',
-            event_type='speed_dating',
+            title="Voting Test Event",
+            description="Testing voting",
+            event_type="speed_dating",
             date_time=timezone.now() + timedelta(hours=1),  # Starts soon
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=1),  # Closed
-            is_published=True
+            is_published=True,
         )
 
         # Register user for event
         EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='confirmed'
+            event=self.event, user=self.user, status="confirmed"
         )
 
         # Create voting session
@@ -280,26 +270,27 @@ class EventVotingTests(TestCase):
             event=self.event,
             is_active=True,
             voting_start_time=timezone.now() - timedelta(minutes=5),  # Started
-            voting_end_time=timezone.now() + timedelta(minutes=25)  # Open for 25 more mins
+            voting_end_time=timezone.now()
+            + timedelta(minutes=25),  # Open for 25 more mins
         )
 
         # Create GlobalActivityOption instances (used for voting)
         self.option1, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='spicy_questions',
+            activity_variant="spicy_questions",
             defaults={
-                'activity_type': 'speed_dating_twist',
-                'display_name': 'Spicy Questions First',
-                'description': 'Break the ice with bold, fun questions right away',
-            }
+                "activity_type": "speed_dating_twist",
+                "display_name": "Spicy Questions First",
+                "description": "Break the ice with bold, fun questions right away",
+            },
         )
 
         self.option2, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='music',
+            activity_variant="music",
             defaults={
-                'activity_type': 'presentation_style',
-                'display_name': 'With Favorite Music',
-                'description': 'Introduce yourself while your favorite song plays',
-            }
+                "activity_type": "presentation_style",
+                "display_name": "With Favorite Music",
+                "description": "Introduce yourself while your favorite song plays",
+            },
         )
 
     def test_vote_submission(self):
@@ -307,9 +298,7 @@ class EventVotingTests(TestCase):
         from crush_lu.models import EventActivityVote
 
         vote = EventActivityVote.objects.create(
-            event=self.event,
-            user=self.user,
-            selected_option=self.option1
+            event=self.event, user=self.user, selected_option=self.option1
         )
 
         self.assertIsNotNone(vote)
@@ -321,15 +310,12 @@ class EventVotingTests(TestCase):
 
         # Create a vote
         EventActivityVote.objects.create(
-            event=self.event,
-            user=self.user,
-            selected_option=self.option1
+            event=self.event, user=self.user, selected_option=self.option1
         )
 
         # Count votes for this event and option
         vote_count = EventActivityVote.objects.filter(
-            event=self.event,
-            selected_option=self.option1
+            event=self.event, selected_option=self.option1
         ).count()
 
         self.assertEqual(vote_count, 1)
@@ -344,22 +330,22 @@ class EventVotingTests(TestCase):
 
         # Create a different event for this test to avoid unique constraint violation
         another_event = MeetupEvent.objects.create(
-            title='Another Event',
-            description='Testing closed session',
-            event_type='mixer',
+            title="Another Event",
+            description="Testing closed session",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(hours=1),
-            location='Luxembourg',
-            address='456 Test Street',
+            location="Luxembourg",
+            address="456 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=1),
-            is_published=True
+            is_published=True,
         )
 
         closed_session = EventVotingSession.objects.create(
             event=another_event,
             is_active=True,
             voting_start_time=timezone.now() - timedelta(hours=2),
-            voting_end_time=timezone.now() - timedelta(hours=1)  # Ended
+            voting_end_time=timezone.now() - timedelta(hours=1),  # Ended
         )
 
         self.assertFalse(closed_session.is_voting_open)
@@ -371,14 +357,12 @@ class EventVotingTests(TestCase):
         # Create multiple votes
         for i in range(3):
             user = User.objects.create_user(
-                username=f'voter{i}@example.com',
-                email=f'voter{i}@example.com',
-                password='testpass123'
+                username=f"voter{i}@example.com",
+                email=f"voter{i}@example.com",
+                password="testpass123",
             )
             EventActivityVote.objects.create(
-                event=self.event,
-                user=user,
-                selected_option=self.option1
+                event=self.event, user=user, selected_option=self.option1
             )
 
         # Update total votes on session
@@ -387,8 +371,7 @@ class EventVotingTests(TestCase):
 
         # Count votes for this option
         vote_count = EventActivityVote.objects.filter(
-            event=self.event,
-            selected_option=self.option1
+            event=self.event, selected_option=self.option1
         ).count()
 
         # Calculate percentage
@@ -404,17 +387,17 @@ class EventAgeRestrictionTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title='Age Restricted Event',
-            description='For 25-35 only',
-            event_type='mixer',
+            title="Age Restricted Event",
+            description="For 25-35 only",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             min_age=25,
             max_age=35,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
     def test_user_within_age_range(self):
@@ -424,17 +407,17 @@ class EventAgeRestrictionTests(TestCase):
         # User is 28 (within 25-35)
         today = date.today()
         user = User.objects.create_user(
-            username='test28@example.com',
-            email='test28@example.com',
-            password='testpass123'
+            username="test28@example.com",
+            email="test28@example.com",
+            password="testpass123",
         )
 
         profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(today.year - 28, 1, 1),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         # Age should be within range
@@ -448,17 +431,17 @@ class EventAgeRestrictionTests(TestCase):
         # User is 22 (below 25)
         today = date.today()
         user = User.objects.create_user(
-            username='test22@example.com',
-            email='test22@example.com',
-            password='testpass123'
+            username="test22@example.com",
+            email="test22@example.com",
+            password="testpass123",
         )
 
         profile = CrushProfile.objects.create(
             user=user,
             date_of_birth=date(today.year - 22, 1, 1),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         # Age should be below minimum
@@ -473,52 +456,50 @@ class EventCancellationTests(TestCase):
         from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
 
         self.user = User.objects.create_user(
-            username='cancel@example.com',
-            email='cancel@example.com',
-            password='testpass123',
-            first_name='Cancel',
-            last_name='Test'
+            username="cancel@example.com",
+            email="cancel@example.com",
+            password="testpass123",
+            first_name="Cancel",
+            last_name="Test",
         )
 
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 5, 15),
-            gender='M',
-            location='Luxembourg',
-            is_approved=True
+            gender="M",
+            location="Luxembourg",
+            is_approved=True,
         )
 
         self.event = MeetupEvent.objects.create(
-            title='Cancellation Test Event',
-            description='Testing cancellation',
-            event_type='mixer',
+            title="Cancellation Test Event",
+            description="Testing cancellation",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() + timedelta(days=5),
-            is_published=True
+            is_published=True,
         )
 
         self.registration = EventRegistration.objects.create(
-            event=self.event,
-            user=self.user,
-            status='confirmed'
+            event=self.event, user=self.user, status="confirmed"
         )
 
     def test_user_can_cancel_registration(self):
         """Test user can cancel their registration."""
-        self.registration.status = 'cancelled'
+        self.registration.status = "cancelled"
         self.registration.save()
 
         self.registration.refresh_from_db()
-        self.assertEqual(self.registration.status, 'cancelled')
+        self.assertEqual(self.registration.status, "cancelled")
 
     def test_cancelled_registration_frees_spot(self):
         """Test cancelling registration frees up a spot."""
         initial_confirmed = self.event.get_confirmed_count()
 
-        self.registration.status = 'cancelled'
+        self.registration.status = "cancelled"
         self.registration.save()
 
         self.assertEqual(self.event.get_confirmed_count(), initial_confirmed - 1)
@@ -539,12 +520,12 @@ class WaitlistPromotionTests(TestCase):
         from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
-            title='Waitlist Promotion Test',
-            description='Testing waitlist promotion',
-            event_type='mixer',
+            title="Waitlist Promotion Test",
+            description="Testing waitlist promotion",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=4,
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
@@ -556,14 +537,14 @@ class WaitlistPromotionTests(TestCase):
         user = User.objects.create_user(
             username=username,
             email=username,
-            password='testpass123',
-            first_name=username.split('@')[0],
+            password="testpass123",
+            first_name=username.split("@")[0],
         )
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1995, 1, 1),
             gender=gender,
-            location='Luxembourg',
+            location="Luxembourg",
         )
         return user
 
@@ -571,14 +552,16 @@ class WaitlistPromotionTests(TestCase):
         return User.objects.create_user(
             username=username,
             email=username,
-            password='testpass123',
+            password="testpass123",
         )
 
     def _register(self, user, status):
         from crush_lu.models import EventRegistration
 
         return EventRegistration.objects.create(
-            event=self.event, user=user, status=status,
+            event=self.event,
+            user=user,
+            status=status,
         )
 
     def _make_premium(self, user):
@@ -612,18 +595,18 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u1 = self._create_user_with_profile('g1@test.com', 'M')
-        u2 = self._create_user_with_profile('g2@test.com', 'F')
-        u3 = self._create_user_with_profile('g3@test.com', 'M')
+        u1 = self._create_user_with_profile("g1@test.com", "M")
+        u2 = self._create_user_with_profile("g2@test.com", "F")
+        u3 = self._create_user_with_profile("g3@test.com", "M")
 
         # max=3, 1 reserved → public_capacity=2.
         self.event.max_participants = 3
         self.event.reserved_premium_seats = 1
         self.event.save()
 
-        self._register(u1, 'confirmed')
-        self._register(u2, 'confirmed')   # public 2/2 full, total 2/3
-        self._register(u3, 'waitlist')    # general
+        self._register(u1, "confirmed")
+        self._register(u2, "confirmed")  # public 2/2 full, total 2/3
+        self._register(u3, "waitlist")  # general
 
         with transaction.atomic():
             locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
@@ -639,20 +622,20 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u1 = self._create_user_with_profile('g1@test.com', 'M')
-        u2 = self._create_user_with_profile('g2@test.com', 'F')
-        u3 = self._create_user_with_profile('g3@test.com', 'M')   # general, earlier
-        u4 = self._create_user_with_profile('p4@test.com', 'F')   # premium, later
+        u1 = self._create_user_with_profile("g1@test.com", "M")
+        u2 = self._create_user_with_profile("g2@test.com", "F")
+        u3 = self._create_user_with_profile("g3@test.com", "M")  # general, earlier
+        u4 = self._create_user_with_profile("p4@test.com", "F")  # premium, later
         self._make_premium(u4)
 
         self.event.max_participants = 3
         self.event.reserved_premium_seats = 1
         self.event.save()
 
-        self._register(u1, 'confirmed')
-        self._register(u2, 'confirmed')   # public 2/2 full, total 2/3
-        self._register(u3, 'waitlist')    # general — cannot take reserved seat
-        reg4 = self._register(u4, 'waitlist')  # premium — eligible for reserved seat
+        self._register(u1, "confirmed")
+        self._register(u2, "confirmed")  # public 2/2 full, total 2/3
+        self._register(u3, "waitlist")  # general — cannot take reserved seat
+        reg4 = self._register(u4, "waitlist")  # premium — eligible for reserved seat
 
         with transaction.atomic():
             locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
@@ -661,7 +644,7 @@ class WaitlistPromotionTests(TestCase):
         self.assertIsNotNone(promoted)
         self.assertEqual(promoted.user, u4)
         reg4.refresh_from_db()
-        self.assertEqual(reg4.status, 'confirmed')
+        self.assertEqual(reg4.status, "confirmed")
 
     def _make_coach_only(self, user):
         """A coach with NO PremiumMembership -- what the attendance auto-assign
@@ -735,19 +718,19 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u1 = self._create_user_with_profile('u1@test.com', 'M')
-        u2 = self._create_user_with_profile('u2@test.com', 'F')
-        u3 = self._create_user_with_profile('u3@test.com', 'M')
+        u1 = self._create_user_with_profile("u1@test.com", "M")
+        u2 = self._create_user_with_profile("u2@test.com", "F")
+        u3 = self._create_user_with_profile("u3@test.com", "M")
 
         self.event.max_participants = 1
         self.event.save()
 
-        reg1 = self._register(u1, 'confirmed')
-        reg2 = self._register(u2, 'waitlist')
-        reg3 = self._register(u3, 'waitlist')
+        reg1 = self._register(u1, "confirmed")
+        reg2 = self._register(u2, "waitlist")
+        reg3 = self._register(u3, "waitlist")
 
         # Cancel the confirmed user
-        reg1.status = 'cancelled'
+        reg1.status = "cancelled"
         reg1.save()
 
         with transaction.atomic():
@@ -757,17 +740,17 @@ class WaitlistPromotionTests(TestCase):
         self.assertIsNotNone(promoted)
         self.assertEqual(promoted.user, u2)  # First in line (FIFO)
         reg2.refresh_from_db()
-        self.assertEqual(reg2.status, 'confirmed')
+        self.assertEqual(reg2.status, "confirmed")
 
     def test_gender_aware_no_promotion_when_pool_full(self):
         """No promotion when only waitlisted candidate's gender pool is full."""
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
-        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
-        u_f2 = self._create_user_with_profile('f2@test.com', 'F')
-        u_f3 = self._create_user_with_profile('f3@test.com', 'F')
+        u_m1 = self._create_user_with_profile("m1@test.com", "M")
+        u_f1 = self._create_user_with_profile("f1@test.com", "F")
+        u_f2 = self._create_user_with_profile("f2@test.com", "F")
+        u_f3 = self._create_user_with_profile("f3@test.com", "F")
 
         self.event.max_participants = 4
         self.event.max_participants_m = 2
@@ -775,15 +758,15 @@ class WaitlistPromotionTests(TestCase):
         self.event.max_participants_nb = 0
         self.event.save()
 
-        reg_m1 = self._register(u_m1, 'confirmed')
-        reg_f1 = self._register(u_f1, 'confirmed')
-        reg_f2 = self._register(u_f2, 'confirmed')
+        reg_m1 = self._register(u_m1, "confirmed")
+        reg_f1 = self._register(u_f1, "confirmed")
+        reg_f2 = self._register(u_f2, "confirmed")
         # f3 on waitlist — female pool full (2/2), total not full (3/4)
-        reg_f3 = self._register(u_f3, 'waitlist')
+        reg_f3 = self._register(u_f3, "waitlist")
 
         # Cancel the male → male pool now 0/2, total 2/4
         # But only waitlisted candidate is f3 whose pool is full (2/2)
-        reg_m1.status = 'cancelled'
+        reg_m1.status = "cancelled"
         reg_m1.save()
 
         with transaction.atomic():
@@ -798,9 +781,9 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
-        u_f2 = self._create_user_with_profile('f2@test.com', 'F')
-        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
+        u_f1 = self._create_user_with_profile("f1@test.com", "F")
+        u_f2 = self._create_user_with_profile("f2@test.com", "F")
+        u_m1 = self._create_user_with_profile("m1@test.com", "M")
 
         self.event.max_participants = 4
         self.event.max_participants_m = 2
@@ -808,13 +791,13 @@ class WaitlistPromotionTests(TestCase):
         self.event.max_participants_nb = 0
         self.event.save()
 
-        reg_f1 = self._register(u_f1, 'confirmed')
-        reg_m1 = self._register(u_m1, 'confirmed')
+        reg_f1 = self._register(u_f1, "confirmed")
+        reg_m1 = self._register(u_m1, "confirmed")
         # f2 on waitlist (registered after, but female pool has room: 1/2)
-        reg_f2 = self._register(u_f2, 'waitlist')
+        reg_f2 = self._register(u_f2, "waitlist")
 
         # Cancel f1 → should promote f2 (same pool, has room)
-        reg_f1.status = 'cancelled'
+        reg_f1.status = "cancelled"
         reg_f1.save()
 
         with transaction.atomic():
@@ -829,9 +812,9 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
-        u_m2 = self._create_user_with_profile('m2@test.com', 'M')
-        u_f1 = self._create_user_with_profile('f1@test.com', 'F')
+        u_m1 = self._create_user_with_profile("m1@test.com", "M")
+        u_m2 = self._create_user_with_profile("m2@test.com", "M")
+        u_f1 = self._create_user_with_profile("f1@test.com", "F")
 
         self.event.max_participants = 4
         self.event.max_participants_m = 2
@@ -839,13 +822,13 @@ class WaitlistPromotionTests(TestCase):
         self.event.max_participants_nb = 0
         self.event.save()
 
-        reg_m1 = self._register(u_m1, 'confirmed')
-        reg_m2 = self._register(u_m2, 'confirmed')
+        reg_m1 = self._register(u_m1, "confirmed")
+        reg_m2 = self._register(u_m2, "confirmed")
         # f1 on waitlist — total was full when she registered
-        reg_f1 = self._register(u_f1, 'waitlist')
+        reg_f1 = self._register(u_f1, "waitlist")
 
         # Cancel m1 → no males on waitlist, fallback to f1 whose pool has room (0/2)
-        reg_m1.status = 'cancelled'
+        reg_m1.status = "cancelled"
         reg_m1.save()
 
         with transaction.atomic():
@@ -860,15 +843,17 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        users = [self._create_user_with_profile(f'u{i}@test.com', 'M') for i in range(5)]
+        users = [
+            self._create_user_with_profile(f"u{i}@test.com", "M") for i in range(5)
+        ]
 
         self.event.max_participants = 4
         self.event.save()
 
         # 4 confirmed, 1 waitlisted
         for u in users[:4]:
-            self._register(u, 'confirmed')
-        reg_wl = self._register(users[4], 'waitlist')
+            self._register(u, "confirmed")
+        reg_wl = self._register(users[4], "waitlist")
 
         # Don't cancel anyone — event is full
         with transaction.atomic():
@@ -882,18 +867,20 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        users = [self._create_user_with_profile(f'u{i}@test.com', 'M') for i in range(6)]
+        users = [
+            self._create_user_with_profile(f"u{i}@test.com", "M") for i in range(6)
+        ]
 
         self.event.max_participants = 4
         self.event.save()
 
         for u in users[:4]:
-            self._register(u, 'confirmed')
-        reg_wl1 = self._register(users[4], 'waitlist')
-        reg_wl2 = self._register(users[5], 'waitlist')
+            self._register(u, "confirmed")
+        reg_wl1 = self._register(users[4], "waitlist")
+        reg_wl2 = self._register(users[5], "waitlist")
 
         # Waitlisted user cancels — doesn't free a confirmed spot
-        reg_wl1.status = 'cancelled'
+        reg_wl1.status = "cancelled"
         reg_wl1.save()
 
         with transaction.atomic():
@@ -908,8 +895,8 @@ class WaitlistPromotionTests(TestCase):
         from django.db import transaction
         from crush_lu.views_events import _promote_from_waitlist
 
-        u_m1 = self._create_user_with_profile('m1@test.com', 'M')
-        u_no_gender = self._create_user_without_profile('nogender@test.com')
+        u_m1 = self._create_user_with_profile("m1@test.com", "M")
+        u_no_gender = self._create_user_without_profile("nogender@test.com")
 
         self.event.max_participants = 4
         self.event.max_participants_m = 2
@@ -917,11 +904,11 @@ class WaitlistPromotionTests(TestCase):
         self.event.max_participants_nb = 0
         self.event.save()
 
-        reg_m1 = self._register(u_m1, 'confirmed')
-        reg_ng = self._register(u_no_gender, 'waitlist')
+        reg_m1 = self._register(u_m1, "confirmed")
+        reg_ng = self._register(u_no_gender, "waitlist")
 
         # Cancel m1 → genderless user should be skipped
-        reg_m1.status = 'cancelled'
+        reg_m1.status = "cancelled"
         reg_m1.save()
 
         with transaction.atomic():
@@ -930,7 +917,7 @@ class WaitlistPromotionTests(TestCase):
 
         self.assertIsNone(promoted)
         reg_ng.refresh_from_db()
-        self.assertEqual(reg_ng.status, 'waitlist')  # Still waitlisted
+        self.assertEqual(reg_ng.status, "waitlist")  # Still waitlisted
 
 
 @override_settings(
@@ -955,12 +942,12 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         self.today = date.today()
 
         self.event = MeetupEvent.objects.create(
-            title='30-40 Mixer',
-            description='For 30-40 only',
-            event_type='mixer',
+            title="30-40 Mixer",
+            description="For 30-40 only",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             min_age=30,
             max_age=40,
@@ -969,16 +956,16 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         )
 
         self.open_event = MeetupEvent.objects.create(
-            title='Open Mixer',
-            description='No age limits, no profile required',
-            event_type='mixer',
+            title="Open Mixer",
+            description="No age limits, no profile required",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             min_age=18,
             max_age=99,
-            profile_requirement='none',
+            profile_requirement="none",
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
         )
@@ -988,15 +975,18 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
-            username=email, email=email, password='testpass123',
-            first_name='Test', last_name='User',
+            username=email,
+            email=email,
+            password="testpass123",
+            first_name="Test",
+            last_name="User",
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(self.today.year - age, 1, 1),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
             is_active=True,
         )
@@ -1004,14 +994,15 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
 
     def _post_register(self, event):
         from django.urls import reverse
-        url = reverse('crush_lu:event_register', kwargs={'event_id': event.id})
+
+        url = reverse("crush_lu:event_register", kwargs={"event_id": event.id})
         return self.client.post(url, {}, follow=False)
 
     def test_user_below_min_age_is_rejected(self):
         """A 25-year-old cannot register for a min_age=30 event (BYPASS FIX)."""
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('young@example.com', 25)
+        user = self._make_user("young@example.com", 25)
         self.client.force_login(user)
 
         response = self._post_register(self.event)
@@ -1026,7 +1017,7 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         """A 45-year-old cannot register for a max_age=40 event (BYPASS FIX)."""
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('old@example.com', 45)
+        user = self._make_user("old@example.com", 45)
         self.client.force_login(user)
 
         response = self._post_register(self.event)
@@ -1040,7 +1031,7 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         """A 35-year-old CAN register for a 30-40 event."""
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('fit@example.com', 35)
+        user = self._make_user("fit@example.com", 35)
         self.client.force_login(user)
 
         response = self._post_register(self.event)
@@ -1048,7 +1039,7 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         self.assertEqual(response.status_code, 302)
         reg = EventRegistration.objects.filter(event=self.event, user=user).first()
         self.assertIsNotNone(reg)
-        self.assertEqual(reg.status, 'confirmed')
+        self.assertEqual(reg.status, "confirmed")
 
     def test_profileless_user_blocked_from_age_restricted_event(self):
         """A user without a profile is redirected to create_profile, not registered."""
@@ -1056,9 +1047,9 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
-            username='noprofile@example.com',
-            email='noprofile@example.com',
-            password='testpass123',
+            username="noprofile@example.com",
+            email="noprofile@example.com",
+            password="testpass123",
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         self.client.force_login(user)
@@ -1066,7 +1057,7 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         response = self._post_register(self.event)
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn('profile', response.url)
+        self.assertIn("profile", response.url)
         self.assertFalse(
             EventRegistration.objects.filter(event=self.event, user=user).exists()
         )
@@ -1075,12 +1066,12 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         """A user exactly at min_age is allowed."""
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('boundary-min@example.com', 30)
+        user = self._make_user("boundary-min@example.com", 30)
         self.client.force_login(user)
         self._post_register(self.event)
         self.assertTrue(
             EventRegistration.objects.filter(
-                event=self.event, user=user, status='confirmed'
+                event=self.event, user=user, status="confirmed"
             ).exists()
         )
 
@@ -1088,12 +1079,12 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         """A user exactly at max_age is allowed."""
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('boundary-max@example.com', 40)
+        user = self._make_user("boundary-max@example.com", 40)
         self.client.force_login(user)
         self._post_register(self.event)
         self.assertTrue(
             EventRegistration.objects.filter(
-                event=self.event, user=user, status='confirmed'
+                event=self.event, user=user, status="confirmed"
             ).exists()
         )
 
@@ -1102,9 +1093,9 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
-            username='openuser@example.com',
-            email='openuser@example.com',
-            password='testpass123',
+            username="openuser@example.com",
+            email="openuser@example.com",
+            password="testpass123",
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         self.client.force_login(user)
@@ -1114,7 +1105,9 @@ class EventAgeEnforcementOnRegisterTests(TestCase):
         # only because they didn't tick the checkbox.
         response = self._post_register(self.open_event)
         # Should NOT be redirected to create_profile — open event is reachable.
-        self.assertNotIn('create-profile', response.url if response.status_code == 302 else '')
+        self.assertNotIn(
+            "create-profile", response.url if response.status_code == 302 else ""
+        )
 
 
 class EventRegistrationAdminFormAgeTests(TestCase):
@@ -1125,12 +1118,12 @@ class EventRegistrationAdminFormAgeTests(TestCase):
 
         self.today = date.today()
         self.event = MeetupEvent.objects.create(
-            title='Admin Age Event',
-            description='30-40',
-            event_type='mixer',
+            title="Admin Age Event",
+            description="30-40",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=10,
             min_age=30,
             max_age=40,
@@ -1142,13 +1135,15 @@ class EventRegistrationAdminFormAgeTests(TestCase):
         from crush_lu.models import CrushProfile
 
         user = User.objects.create_user(
-            username=email, email=email, password='testpass123',
+            username=email,
+            email=email,
+            password="testpass123",
         )
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(self.today.year - age, 1, 1),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
         )
         return user
@@ -1156,34 +1151,34 @@ class EventRegistrationAdminFormAgeTests(TestCase):
     def test_admin_form_rejects_underage_user(self):
         from crush_lu.admin.events import EventRegistrationAdminForm
 
-        user = self._make_user('admin-young@example.com', 22)
+        user = self._make_user("admin-young@example.com", 22)
         form = EventRegistrationAdminForm(
-            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+            data={"event": self.event.pk, "user": user.pk, "status": "confirmed"}
         )
         self.assertFalse(form.is_valid())
-        self.assertIn('__all__', form.errors)
+        self.assertIn("__all__", form.errors)
 
     def test_admin_form_rejects_user_without_dob(self):
         from crush_lu.admin.events import EventRegistrationAdminForm
         from crush_lu.models import CrushProfile
 
         user = User.objects.create_user(
-            username='admin-nodob@example.com',
-            email='admin-nodob@example.com',
-            password='testpass123',
+            username="admin-nodob@example.com",
+            email="admin-nodob@example.com",
+            password="testpass123",
         )
-        CrushProfile.objects.create(user=user, location='Luxembourg')  # no DOB
+        CrushProfile.objects.create(user=user, location="Luxembourg")  # no DOB
         form = EventRegistrationAdminForm(
-            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+            data={"event": self.event.pk, "user": user.pk, "status": "confirmed"}
         )
         self.assertFalse(form.is_valid())
 
     def test_admin_form_accepts_eligible_user(self):
         from crush_lu.admin.events import EventRegistrationAdminForm
 
-        user = self._make_user('admin-ok@example.com', 35)
+        user = self._make_user("admin-ok@example.com", 35)
         form = EventRegistrationAdminForm(
-            data={'event': self.event.pk, 'user': user.pk, 'status': 'confirmed'}
+            data={"event": self.event.pk, "user": user.pk, "status": "confirmed"}
         )
         self.assertTrue(form.is_valid(), form.errors)
 
@@ -1191,9 +1186,9 @@ class EventRegistrationAdminFormAgeTests(TestCase):
         """Cancelled rows bypass the gate (historical / cleanup use-case)."""
         from crush_lu.admin.events import EventRegistrationAdminForm
 
-        user = self._make_user('admin-cancelled@example.com', 22)
+        user = self._make_user("admin-cancelled@example.com", 22)
         form = EventRegistrationAdminForm(
-            data={'event': self.event.pk, 'user': user.pk, 'status': 'cancelled'}
+            data={"event": self.event.pk, "user": user.pk, "status": "cancelled"}
         )
         self.assertTrue(form.is_valid(), form.errors)
 
@@ -1208,13 +1203,13 @@ class EventRegistrationAdminFormAgeTests(TestCase):
         from crush_lu.admin.events import EventRegistrationAdminForm
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('inline-young@example.com', 22)
+        user = self._make_user("inline-young@example.com", 22)
         instance = EventRegistration.objects.create(
-            event=self.event, user=user, status='waitlist'
+            event=self.event, user=user, status="waitlist"
         )
         # Simulate inline: event and user are NOT in POST data; only status is.
         form = EventRegistrationAdminForm(
-            data={'status': 'confirmed'}, instance=instance
+            data={"status": "confirmed"}, instance=instance
         )
         self.assertFalse(form.is_valid())
 
@@ -1228,12 +1223,12 @@ class EventRegistrationAdminFormAgeTests(TestCase):
         from crush_lu.admin.events import EventRegistrationAdminForm
         from crush_lu.models import EventRegistration
 
-        user = self._make_user('changelist-young@example.com', 22)
+        user = self._make_user("changelist-young@example.com", 22)
         instance = EventRegistration.objects.create(
-            event=self.event, user=user, status='waitlist'
+            event=self.event, user=user, status="waitlist"
         )
         form = EventRegistrationAdminForm(
-            data={'status': 'confirmed', 'payment_confirmed': False},
+            data={"status": "confirmed", "payment_confirmed": False},
             instance=instance,
         )
         self.assertFalse(form.is_valid())
@@ -1275,25 +1270,29 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         self.admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
 
         self.staff = User.objects.create_superuser(
-            username='dup-admin', email='dup-admin@test.lu', password='x',
+            username="dup-admin",
+            email="dup-admin@test.lu",
+            password="x",
         )
         self.member = User.objects.create_user(
-            username='dup-member', email='dup-member@test.lu', password='x',
+            username="dup-member",
+            email="dup-member@test.lu",
+            password="x",
         )
         self.event = MeetupEvent.objects.create(
-            title='Duplicate Guard Event',
-            description='no age restriction, so the age gate stays inert',
-            event_type='mixer',
+            title="Duplicate Guard Event",
+            description="no age restriction, so the age gate stays inert",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=10,
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
         )
 
     def _request(self):
-        request = self.factory.post('/')
+        request = self.factory.post("/")
         request.user = self.staff
         request.session = {}
         request._messages = self.FallbackStorage(request)
@@ -1308,13 +1307,13 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         prefix = formset_cls.get_default_prefix()
         formset = formset_cls(
             {
-                f'{prefix}-TOTAL_FORMS': '1',
-                f'{prefix}-INITIAL_FORMS': '0',
-                f'{prefix}-MIN_NUM_FORMS': '0',
-                f'{prefix}-MAX_NUM_FORMS': '1000',
-                f'{prefix}-0-id': '',
-                f'{prefix}-0-user': str(user.pk),
-                f'{prefix}-0-status': 'confirmed',
+                f"{prefix}-TOTAL_FORMS": "1",
+                f"{prefix}-INITIAL_FORMS": "0",
+                f"{prefix}-MIN_NUM_FORMS": "0",
+                f"{prefix}-MAX_NUM_FORMS": "1000",
+                f"{prefix}-0-id": "",
+                f"{prefix}-0-user": str(user.pk),
+                f"{prefix}-0-status": "confirmed",
             },
             instance=self.event,
         )
@@ -1335,7 +1334,7 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
 
         # The twin request lands after validation and before the save.
         EventRegistration.objects.create(
-            event=self.event, user=self.member, status='confirmed'
+            event=self.event, user=self.member, status="confirmed"
         )
 
         request = self._request()
@@ -1348,8 +1347,8 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
             1,
         )
         self.assertTrue(
-            any('Already registered' in m for m in self._messages(request)),
-            f'expected a warning naming the skipped user, got {self._messages(request)}',
+            any("Already registered" in m for m in self._messages(request)),
+            f"expected a warning naming the skipped user, got {self._messages(request)}",
         )
 
     def test_registration_is_still_created_when_there_is_no_conflict(self):
@@ -1360,10 +1359,8 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         request = self._request()
         self.admin.save_formset(request, self._parent_form(), formset, change=True)
 
-        registration = EventRegistration.objects.get(
-            event=self.event, user=self.member
-        )
-        self.assertEqual(registration.status, 'confirmed')
+        registration = EventRegistration.objects.get(event=self.event, user=self.member)
+        self.assertEqual(registration.status, "confirmed")
         self.assertEqual(self._messages(request), [])
 
     def test_a_conflicting_winner_is_reported_field_by_field(self):
@@ -1383,7 +1380,7 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         EventRegistration.objects.create(
             event=self.event,
             user=self.member,
-            status='waitlist',
+            status="waitlist",
             payment_confirmed=False,
         )
 
@@ -1393,15 +1390,13 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         messages = self._messages(request)
         self.assertEqual(len(messages), 1, messages)
         message = messages[0]
-        self.assertIn('was not applied', message)
+        self.assertIn("was not applied", message)
         # The status the admin submitted and the one that actually won.
-        self.assertIn('confirmed', message)
-        self.assertIn('waitlist', message)
+        self.assertIn("confirmed", message)
+        self.assertIn("waitlist", message)
         # The winner is left exactly as the other request wrote it.
-        registration = EventRegistration.objects.get(
-            event=self.event, user=self.member
-        )
-        self.assertEqual(registration.status, 'waitlist')
+        registration = EventRegistration.objects.get(event=self.event, user=self.member)
+        self.assertEqual(registration.status, "waitlist")
 
     def test_skipped_rows_stay_out_of_the_admin_history(self):
         """
@@ -1416,7 +1411,7 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
 
         formset = self._validated_formset_adding(self.member)
         EventRegistration.objects.create(
-            event=self.event, user=self.member, status='confirmed'
+            event=self.event, user=self.member, status="confirmed"
         )
 
         parent_form = self._parent_form()
@@ -1426,9 +1421,9 @@ class MeetupEventAdminDuplicateRegistrationTests(TestCase):
         self.assertEqual(formset.changed_objects, [])
         change_message = construct_change_message(parent_form, [formset], False)
         self.assertEqual(
-            [entry for entry in change_message if 'added' in entry],
+            [entry for entry in change_message if "added" in entry],
             [],
-            f'history claims a rolled-back row was added: {change_message}',
+            f"history claims a rolled-back row was added: {change_message}",
         )
 
     def test_other_integrity_errors_are_not_swallowed(self):
@@ -1465,8 +1460,11 @@ class CheckInVotingGateTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
         from crush_lu.models import (
-            MeetupEvent, EventRegistration, EventVotingSession,
-            GlobalActivityOption, CrushProfile,
+            MeetupEvent,
+            EventRegistration,
+            EventVotingSession,
+            GlobalActivityOption,
+            CrushProfile,
         )
         from crush_lu.models.profiles import UserDataConsent
 
@@ -1475,55 +1473,61 @@ class CheckInVotingGateTests(TestCase):
 
         # Attended user (checked in)
         self.attended_user = User.objects.create_user(
-            username='attended@example.com',
-            email='attended@example.com',
-            password='testpass123',
-            first_name='Attended',
-            last_name='User',
+            username="attended@example.com",
+            email="attended@example.com",
+            password="testpass123",
+            first_name="Attended",
+            last_name="User",
         )
-        UserDataConsent.objects.filter(user=self.attended_user).update(crushlu_consent_given=True)
+        UserDataConsent.objects.filter(user=self.attended_user).update(
+            crushlu_consent_given=True
+        )
         CrushProfile.objects.create(
             user=self.attended_user,
             date_of_birth=date(1995, 1, 1),
-            gender='F',
-            location='Luxembourg',
+            gender="F",
+            location="Luxembourg",
             is_approved=True,
             is_active=True,
         )
 
         # Confirmed-but-not-checked-in user
         self.confirmed_user = User.objects.create_user(
-            username='confirmed@example.com',
-            email='confirmed@example.com',
-            password='testpass123',
-            first_name='Confirmed',
-            last_name='User',
+            username="confirmed@example.com",
+            email="confirmed@example.com",
+            password="testpass123",
+            first_name="Confirmed",
+            last_name="User",
         )
-        UserDataConsent.objects.filter(user=self.confirmed_user).update(crushlu_consent_given=True)
+        UserDataConsent.objects.filter(user=self.confirmed_user).update(
+            crushlu_consent_given=True
+        )
         CrushProfile.objects.create(
             user=self.confirmed_user,
             date_of_birth=date(1995, 1, 1),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             is_approved=True,
             is_active=True,
         )
 
         # Unregistered user
         self.unregistered_user = User.objects.create_user(
-            username='unregistered@example.com',
-            email='unregistered@example.com',
-            password='testpass123',
+            username="unregistered@example.com",
+            email="unregistered@example.com",
+            password="testpass123",
         )
-        UserDataConsent.objects.filter(user=self.unregistered_user).update(crushlu_consent_given=True)
+        UserDataConsent.objects.filter(user=self.unregistered_user).update(
+            crushlu_consent_given=True
+        )
 
         self.event = MeetupEvent.objects.create(
-            title='Gate Test Event',
-            description='Check-in gate testing',
-            event_type='speed_dating',
+            title="Gate Test Event",
+            description="Check-in gate testing",
+            event_type="speed_dating",
             date_time=timezone.now() - timedelta(hours=1),  # Already started
-            location='Luxembourg',
-            address='1 Test Street',
+            location="Luxembourg",
+            address="1 Test Street",
             max_participants=20,
             registration_deadline=timezone.now() - timedelta(hours=2),
             enable_activity_voting=True,
@@ -1531,10 +1535,10 @@ class CheckInVotingGateTests(TestCase):
         )
 
         EventRegistration.objects.create(
-            event=self.event, user=self.attended_user, status='attended'
+            event=self.event, user=self.attended_user, status="attended"
         )
         EventRegistration.objects.create(
-            event=self.event, user=self.confirmed_user, status='confirmed'
+            event=self.event, user=self.confirmed_user, status="confirmed"
         )
 
         # enable_activity_voting=True triggers a post_save signal that
@@ -1543,75 +1547,82 @@ class CheckInVotingGateTests(TestCase):
         self.voting_session, _ = EventVotingSession.objects.update_or_create(
             event=self.event,
             defaults={
-                'is_active': True,
-                'voting_start_time': timezone.now() - timedelta(minutes=10),
-                'voting_end_time': timezone.now() + timedelta(minutes=20),
+                "is_active": True,
+                "voting_start_time": timezone.now() - timedelta(minutes=10),
+                "voting_end_time": timezone.now() + timedelta(minutes=20),
             },
         )
 
         self.option_twist, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='spicy_questions',
+            activity_variant="spicy_questions",
             defaults={
-                'activity_type': 'speed_dating_twist',
-                'display_name': 'Spicy Questions',
-                'description': 'Bold ice-breaker questions',
+                "activity_type": "speed_dating_twist",
+                "display_name": "Spicy Questions",
+                "description": "Bold ice-breaker questions",
             },
         )
         self.option_style, _ = GlobalActivityOption.objects.get_or_create(
-            activity_variant='music',
+            activity_variant="music",
             defaults={
-                'activity_type': 'presentation_style',
-                'display_name': 'With Favorite Music',
-                'description': 'Introduce yourself while your song plays',
+                "activity_type": "presentation_style",
+                "display_name": "With Favorite Music",
+                "description": "Introduce yourself while your song plays",
             },
         )
 
     def _vote_url(self):
-        return reverse('submit_vote_api', kwargs={'event_id': self.event.id})
+        return reverse("submit_vote_api", kwargs={"event_id": self.event.id})
 
     def _results_api_url(self):
-        return reverse('voting_results_api', kwargs={'event_id': self.event.id})
+        return reverse("voting_results_api", kwargs={"event_id": self.event.id})
 
     def _vote_view_url(self):
-        return reverse('crush_lu:event_activity_vote', kwargs={'event_id': self.event.id})
+        return reverse(
+            "crush_lu:event_activity_vote", kwargs={"event_id": self.event.id}
+        )
 
     def _presentations_url(self):
-        return reverse('crush_lu:event_presentations', kwargs={'event_id': self.event.id})
+        return reverse(
+            "crush_lu:event_presentations", kwargs={"event_id": self.event.id}
+        )
 
     def test_confirmed_user_cannot_submit_vote_api(self):
         """Confirmed (not checked-in) user gets 403 on vote submission API."""
         import json
+
         self.client.force_login(self.confirmed_user)
         response = self.client.post(
             self._vote_url(),
-            data=json.dumps({'option_id': self.option_twist.id}),
-            content_type='application/json',
+            data=json.dumps({"option_id": self.option_twist.id}),
+            content_type="application/json",
         )
         self.assertEqual(response.status_code, 403)
         data = response.json()
-        self.assertFalse(data['success'])
+        self.assertFalse(data["success"])
 
     def test_attended_user_can_submit_vote_api(self):
         """Attended (checked-in) user can submit a vote via API."""
         import json
+
         self.client.force_login(self.attended_user)
         response = self.client.post(
             self._vote_url(),
-            data=json.dumps({'option_id': self.option_twist.id}),
-            content_type='application/json',
+            data=json.dumps({"option_id": self.option_twist.id}),
+            content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
+        self.assertTrue(data["success"])
 
     def test_unregistered_user_cannot_submit_vote_api(self):
         """User with no registration gets 403 on vote submission API."""
         import json
+
         self.client.force_login(self.unregistered_user)
         response = self.client.post(
             self._vote_url(),
-            data=json.dumps({'option_id': self.option_twist.id}),
-            content_type='application/json',
+            data=json.dumps({"option_id": self.option_twist.id}),
+            content_type="application/json",
         )
         self.assertEqual(response.status_code, 403)
 
@@ -1621,7 +1632,7 @@ class CheckInVotingGateTests(TestCase):
         response = self.client.get(self._vote_view_url())
         # Must be redirected (not allowed to reach the voting form)
         self.assertEqual(response.status_code, 302)
-        self.assertIn('lobby', response['Location'])
+        self.assertIn("lobby", response["Location"])
 
     def test_confirmed_user_cannot_see_results_api(self):
         """Confirmed (not checked-in) user gets 403 on voting results API."""
@@ -1629,7 +1640,7 @@ class CheckInVotingGateTests(TestCase):
         response = self.client.get(self._results_api_url())
         self.assertEqual(response.status_code, 403)
         data = response.json()
-        self.assertFalse(data['success'])
+        self.assertFalse(data["success"])
 
     def test_attended_user_can_see_results_api(self):
         """Attended user can fetch voting results via API."""
@@ -1637,7 +1648,7 @@ class CheckInVotingGateTests(TestCase):
         response = self.client.get(self._results_api_url())
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(data['success'])
+        self.assertTrue(data["success"])
 
     def test_confirmed_user_blocked_from_presentations(self):
         """Confirmed user is redirected away from the presentations view."""
@@ -1653,44 +1664,50 @@ class CoachAssignmentOnAttendanceTests(TestCase):
         from crush_lu.models import MeetupEvent, CrushCoach, CrushProfile
 
         self.event = MeetupEvent.objects.create(
-            title='Coach Assignment Test',
-            description='Testing coach assignment on attendance',
-            event_type='mixer',
+            title="Coach Assignment Test",
+            description="Testing coach assignment on attendance",
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=10,
             registration_deadline=timezone.now() + timedelta(days=5),
             is_published=True,
         )
         coach_user = User.objects.create_user(
-            username='coach@test.com', email='coach@test.com', password='testpass123',
+            username="coach@test.com",
+            email="coach@test.com",
+            password="testpass123",
         )
         self.coach = CrushCoach.objects.create(user=coach_user, is_active=True)
         self.event.coaches.add(self.coach)
 
         self.user = User.objects.create_user(
-            username='member@test.com', email='member@test.com', password='testpass123',
+            username="member@test.com",
+            email="member@test.com",
+            password="testpass123",
         )
         self.profile = CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1995, 1, 1),
-            gender='F',
-            location='Luxembourg',
+            gender="F",
+            location="Luxembourg",
         )
 
     def _register(self, status):
         from crush_lu.models import EventRegistration
 
         return EventRegistration.objects.create(
-            event=self.event, user=self.user, status=status,
+            event=self.event,
+            user=self.user,
+            status=status,
         )
 
     def test_attendance_assigns_event_coach(self):
-        reg = self._register('confirmed')
+        reg = self._register("confirmed")
         self.assertIsNone(self.profile.assigned_coach_id)
 
-        reg.status = 'attended'
+        reg.status = "attended"
         reg.save()
 
         self.profile.refresh_from_db()
@@ -1701,14 +1718,16 @@ class CoachAssignmentOnAttendanceTests(TestCase):
         from crush_lu.models import CrushCoach
 
         other_user = User.objects.create_user(
-            username='coach2@test.com', email='coach2@test.com', password='testpass123',
+            username="coach2@test.com",
+            email="coach2@test.com",
+            password="testpass123",
         )
         other_coach = CrushCoach.objects.create(user=other_user, is_active=True)
         self.profile.assigned_coach = other_coach
-        self.profile.save(update_fields=['assigned_coach'])
+        self.profile.save(update_fields=["assigned_coach"])
 
-        reg = self._register('confirmed')
-        reg.status = 'attended'
+        reg = self._register("confirmed")
+        reg.status = "attended"
         reg.save()
 
         self.profile.refresh_from_db()
@@ -1716,7 +1735,7 @@ class CoachAssignmentOnAttendanceTests(TestCase):
         self.assertEqual(self.profile.assigned_coach_id, other_coach.id)
 
     def test_confirmed_only_does_not_assign(self):
-        self._register('confirmed')
+        self._register("confirmed")
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.assigned_coach_id)
 
@@ -1743,10 +1762,10 @@ class EntryEventRegistrationGateTests(TestCase):
         self.today = date.today()
 
         common = dict(
-            event_type='mixer',
+            event_type="mixer",
             date_time=timezone.now() + timedelta(days=7),
-            location='Luxembourg',
-            address='123 Test Street',
+            location="Luxembourg",
+            address="123 Test Street",
             max_participants=20,
             min_age=18,
             max_age=99,
@@ -1754,15 +1773,15 @@ class EntryEventRegistrationGateTests(TestCase):
             is_published=True,
         )
         self.entry_event = MeetupEvent.objects.create(
-            title='Entry Mixer',
-            description='Come get verified in person',
-            profile_requirement='completed',
+            title="Entry Mixer",
+            description="Come get verified in person",
+            profile_requirement="completed",
             **common,
         )
         self.members_event = MeetupEvent.objects.create(
-            title='Members Social',
-            description='Verified members only',
-            profile_requirement='approved',
+            title="Members Social",
+            description="Verified members only",
+            profile_requirement="approved",
             **common,
         )
 
@@ -1771,32 +1790,36 @@ class EntryEventRegistrationGateTests(TestCase):
         from crush_lu.models.profiles import UserDataConsent
 
         user = User.objects.create_user(
-            username=email, email=email, password='testpass123',
-            first_name='Test', last_name='User',
+            username=email,
+            email=email,
+            password="testpass123",
+            first_name="Test",
+            last_name="User",
         )
         UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         CrushProfile.objects.create(
             user=user,
             date_of_birth=date(self.today.year - 30, 1, 1),
-            gender='M',
-            location='Luxembourg',
+            gender="M",
+            location="Luxembourg",
             verification_status=verification_status,
             phone_verified=phone_verified,
-            phone_number='+352621000000' if phone_verified else '',
+            phone_number="+352621000000" if phone_verified else "",
             is_active=True,
         )
         return user
 
     def _post_register(self, event):
         from django.urls import reverse
-        url = reverse('crush_lu:event_register', kwargs={'event_id': event.id})
+
+        url = reverse("crush_lu:event_register", kwargs={"event_id": event.id})
         return self.client.post(url, {}, follow=False)
 
     def test_completed_unverified_profile_can_register_entry_event(self):
         from crush_lu.models import EventRegistration
 
         user = self._make_user(
-            'pending@example.com', verification_status='pending', phone_verified=True
+            "pending@example.com", verification_status="pending", phone_verified=True
         )
         self.client.force_login(user)
         self._post_register(self.entry_event)
@@ -1808,8 +1831,8 @@ class EntryEventRegistrationGateTests(TestCase):
         from crush_lu.models import EventRegistration
 
         user = self._make_user(
-            'incomplete@example.com',
-            verification_status='incomplete',
+            "incomplete@example.com",
+            verification_status="incomplete",
             phone_verified=False,
         )
         self.client.force_login(user)
@@ -1823,7 +1846,7 @@ class EntryEventRegistrationGateTests(TestCase):
         from crush_lu.models import EventRegistration
 
         user = self._make_user(
-            'verified@example.com', verification_status='verified', phone_verified=True
+            "verified@example.com", verification_status="verified", phone_verified=True
         )
         self.client.force_login(user)
         self._post_register(self.entry_event)
@@ -1835,13 +1858,15 @@ class EntryEventRegistrationGateTests(TestCase):
         from crush_lu.models import EventRegistration
 
         user = self._make_user(
-            'pending2@example.com', verification_status='pending', phone_verified=True
+            "pending2@example.com", verification_status="pending", phone_verified=True
         )
         self.client.force_login(user)
         resp = self._post_register(self.members_event)
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(
-            EventRegistration.objects.filter(event=self.members_event, user=user).exists()
+            EventRegistration.objects.filter(
+                event=self.members_event, user=user
+            ).exists()
         )
 
 
@@ -1963,9 +1988,7 @@ class PaidEventPendingPaymentTests(TestCase):
         )
 
         with transaction.atomic():
-            locked = MeetupEvent.objects.select_for_update().get(
-                pk=self.paid_event.pk
-            )
+            locked = MeetupEvent.objects.select_for_update().get(pk=self.paid_event.pk)
             promoted = _promote_from_waitlist(locked)
 
         self.assertIsNotNone(promoted)
@@ -1986,9 +2009,7 @@ class PaidEventPendingPaymentTests(TestCase):
         )
 
         with transaction.atomic():
-            locked = MeetupEvent.objects.select_for_update().get(
-                pk=self.free_event.pk
-            )
+            locked = MeetupEvent.objects.select_for_update().get(pk=self.free_event.pk)
             promoted = _promote_from_waitlist(locked)
 
         self.assertIsNotNone(promoted)
@@ -2101,6 +2122,8 @@ class PendingPaymentDoorAndAdminTests(TestCase):
         from crush_lu.admin.events import EventRegistrationAdmin
         from crush_lu.models import EventRegistration
         from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
 
         reg = EventRegistration.objects.create(
             event=self.event, user=self.user, status="pending"
@@ -2108,30 +2131,67 @@ class PendingPaymentDoorAndAdminTests(TestCase):
         reg.payment_confirmed = True
 
         admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
-        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
-        admin_obj.save_model(request=None, obj=reg, form=form, change=True)
+        form = type(
+            "F",
+            (),
+            {
+                "changed_data": ["payment_confirmed"],
+                "initial": {"status": "pending", "payment_confirmed": False},
+            },
+        )()
+        request = RequestFactory().post("/admin/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        admin_obj.save_model(request=request, obj=reg, form=form, change=True)
 
         reg.refresh_from_db()
         self.assertEqual(reg.status, "confirmed")
         self.assertIsNotNone(reg.payment_date)
 
-    def test_admin_confirming_payment_does_not_conjure_a_seat(self):
-        """Ticking the box on a waitlisted row must not admit them."""
+    def test_admin_confirming_payment_does_not_bypass_selection(self):
+        """Ticking the box on an unselected row must not take their money."""
         from crush_lu.admin.events import EventRegistrationAdmin
         from crush_lu.models import EventRegistration
+        from crush_lu.models.payments import PaymentTransaction
         from django.contrib.admin.sites import AdminSite
-
-        reg = EventRegistration.objects.create(
-            event=self.event, user=self.user, status="waitlist"
-        )
-        reg.payment_confirmed = True
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
 
         admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
-        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
-        admin_obj.save_model(request=None, obj=reg, form=form, change=True)
+        for status in ("applied", "waitlist"):
+            with self.subTest(status=status):
+                reg = EventRegistration.objects.create(
+                    event=self.event, user=self.user, status=status
+                )
+                reg.payment_confirmed = True
+                form = type(
+                    "F",
+                    (),
+                    {
+                        "changed_data": ["payment_confirmed"],
+                        "initial": {
+                            "status": status,
+                            "payment_confirmed": False,
+                        },
+                    },
+                )()
+                request = RequestFactory().post("/admin/")
+                request.session = {}
+                request._messages = FallbackStorage(request)
+                admin_obj.save_model(
+                    request=request,
+                    obj=reg,
+                    form=form,
+                    change=True,
+                )
 
-        reg.refresh_from_db()
-        self.assertEqual(reg.status, "waitlist")
+                reg.refresh_from_db()
+                self.assertEqual(reg.status, status)
+                self.assertFalse(reg.payment_confirmed)
+                self.assertFalse(
+                    PaymentTransaction.objects.filter(event_registration=reg).exists()
+                )
+                reg.delete()
 
     def test_already_paid_registration_readmits_as_confirmed(self):
         """Re-registering after a cancellation must not ask for the money twice.
@@ -2305,9 +2365,7 @@ class PendingSeatSweepTests(TestCase):
             u = User.objects.create_user(
                 username=f"cap{i}@test.com", email=f"cap{i}@test.com", password="p"
             )
-            EventRegistration.objects.create(
-                event=self.event, user=u, status="pending"
-            )
+            EventRegistration.objects.create(event=self.event, user=u, status="pending")
 
         # The canonical annotation and the method must agree, and both must see
         # the event as full.
@@ -2376,8 +2434,7 @@ class CancelAffordanceTests(TestCase):
         )
         body = self.client.get(reverse("crush_lu:dashboard")).content.decode()
         return (
-            reverse("crush_lu:event_cancel", kwargs={"event_id": self.event.id})
-            in body
+            reverse("crush_lu:event_cancel", kwargs={"event_id": self.event.id}) in body
         )
 
     def test_pending_is_offered_cancel(self):

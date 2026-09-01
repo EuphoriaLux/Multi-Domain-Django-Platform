@@ -51,14 +51,19 @@ def _applicant(
     )
 
 
-def _event(*, group_size, group_limit, pk=951):
-    return SimpleNamespace(
-        pk=pk,
-        group_size=group_size,
-        planned_groups=group_limit,
-        max_groups=group_limit,
-        max_participants=group_size * group_limit,
-    )
+def _event(*, group_size, group_limit, pk=951, **overrides):
+    values = {
+        "gender_limits_active": False,
+        "min_age": 18,
+        "max_age": 99,
+        "pk": pk,
+        "group_size": group_size,
+        "planned_groups": group_limit,
+        "max_groups": group_limit,
+        "max_participants": group_size * group_limit,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
 
 
 class CompatibilityGraphTests(SimpleTestCase):
@@ -205,6 +210,47 @@ class CompatibilityGraphTests(SimpleTestCase):
 
 
 class GroupProjectionTests(SimpleTestCase):
+    def test_event_gender_pool_cap_is_enforced_during_projection(self):
+        event = _event(
+            group_size=6,
+            group_limit=1,
+            gender_limits_active=True,
+            max_participants_m=5,
+            max_participants_f=6,
+            max_participants_nb=6,
+        )
+        applicants = [_applicant(key, gender="M") for key in range(1, 7)]
+
+        projection = project_groups(
+            event,
+            applicants,
+            minimum_dates=5,
+            target_dates=7,
+        )
+
+        self.assertEqual(projection.viable_groups, ())
+        self.assertEqual(projection.selected_registration_ids, ())
+
+    def test_event_age_range_fails_closed_inside_the_projector(self):
+        event = _event(group_size=6, group_limit=1, min_age=30, max_age=40)
+        applicants = [
+            *[_applicant(key, age=32) for key in range(1, 7)],
+            _applicant(7, age=29),
+        ]
+
+        projection = project_groups(
+            event,
+            applicants,
+            minimum_dates=5,
+            target_dates=7,
+        )
+
+        self.assertEqual(projection.selected_registration_ids, tuple(range(1, 7)))
+        self.assertEqual(
+            dict(projection.ineligibility_reasons)[7],
+            ("outside_event_age_range",),
+        )
+
     def test_adversarial_group_size_is_rejected_before_graph_construction(self):
         applicants = [_applicant(key) for key in range(1, 501)]
         event = _event(group_size=500, group_limit=1, pk=950)

@@ -34,14 +34,16 @@ or a claim that headcount alone makes a group viable.
         {% endif %}
     </div>
 
-    <ul class="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-        <li>{% trans "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed." %}</li>
-        {% if event.registration_fee > 0 %}
-            <li>{% trans "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply." %}</li>
-        {% else %}
-            <li>{% trans "If selected for a viable provisional group, you will receive a separate confirmation." %}</li>
-        {% endif %}
-        <li>{% trans "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal." %}</li>
-        <li>{% trans "Groups are finalized before the first round and stay together for the whole evening." %}</li>
-    </ul>
+    {% if outlook.group_size %}
+        <ul class="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+            <li>{% trans "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed." %}</li>
+            {% if event.registration_fee > 0 %}
+                <li>{% trans "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply." %}</li>
+            {% else %}
+                <li>{% trans "If selected for a viable provisional group, you will receive a separate confirmation." %}</li>
+            {% endif %}
+            <li>{% trans "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal." %}</li>
+            <li>{% trans "Groups are finalized before the first round and stay together for the whole evening." %}</li>
+        </ul>
+    {% endif %}
 </div>

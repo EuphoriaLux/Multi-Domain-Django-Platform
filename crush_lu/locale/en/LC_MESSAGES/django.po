@@ -27449,3 +27449,57 @@ msgstr ""
 #: templates/crush_lu/event_detail.html
 msgid "to apply for this event."
 msgstr ""
+
+#: email_helpers.py templates/crush_lu/emails/curated_group_payment_remedy.html
+#, python-brace-format
+msgid "Your payment for {title} was returned"
+msgstr ""
+
+msgid "Your payment was returned"
+msgstr ""
+
+#, python-format
+msgid "When your payment for <strong>%(title)s</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place."
+msgstr ""
+
+#, python-format
+msgid "We've immediately returned %(amount)s EUR in Crush Credit to your account."
+msgstr ""
+
+msgid "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes."
+msgstr ""
+
+msgid "The cash-refund option has closed because some or all of this credit has already been used."
+msgstr ""
+
+msgid "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates."
+msgstr ""
+
+msgid "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method."
+msgstr ""
+
+msgid "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically."
+msgstr ""
+
+msgid "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically."
+msgstr ""
+
+#: views_payments.py
+msgid "A payment checkout is already being prepared. Please wait and try again."
+msgstr ""
+
+msgid "The registration changed while payment was being prepared. Please try again."
+msgstr ""
+
+msgid "The event price changed while payment was being prepared. Please try again."
+msgstr ""
+
+msgid "This registration is no longer available."
+msgstr ""
+
+msgid "Payment state changed. Please try again."
+msgstr ""
+
+#: models/credits.py
+msgid "Curated group became unavailable"
+msgstr ""
