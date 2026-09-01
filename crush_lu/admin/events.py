@@ -2691,6 +2691,62 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     pk__in=pending_application_ids, status="applied"
                 ).update(status="pending", cancelled_at=None)
 
+            # Carry a released paid seat's resale claim onto the applicant now
+            # taking it.
+            #
+            # When a paid attendee cancels late, their 50% share is owed once
+            # somebody else takes and pays for the seat. On a direct event the
+            # replacement picks the claim up automatically: waitlist promotion
+            # and event_register both call _attach_unclaimed_resale_claim. A
+            # curated event has neither -- no waitlist to promote from, and the
+            # sign-up made an application that took no seat -- so the claim sat
+            # on the cancelled row and the replacement arrived without it.
+            # Settlement then found no resale_source_* links and issued
+            # nothing, so the original member LOST THEIR SHARE PERMANENTLY even
+            # after the replacement paid in full. Selection is the moment the
+            # seat actually changes hands, so it is where the claim moves.
+            #
+            # AFTER the status writes above, which is what makes this safe.
+            # _attach_unclaimed_resale_claim decides a claim is already taken by
+            # looking for another row in SEAT_HOLDING_STATUSES carrying it.
+            # Called before the updates, every applicant in the run would still
+            # be "applied" -- seat-holding to nobody -- and each would be handed
+            # the SAME claim. Afterwards they all hold seats, so the existing
+            # check separates them with no bookkeeping of our own. Ordering the
+            # calls by pk gives the oldest claim to the lowest-numbered
+            # applicant, deterministically rather than by database whim.
+            resale_claims_attached = 0
+            if applications:
+                from crush_lu.services.credits import settle_pending_resale_credit
+                from crush_lu.views_events import _attach_unclaimed_resale_claim
+
+                for reg in applications:
+                    # Scoped to applications, like the paid-event rule above:
+                    # a cancelled or waitlisted row confirmed through this
+                    # action behaves exactly as it does today.
+                    #
+                    # No registration_fee test here. _resale_claim_from already
+                    # weighs the fee against captured payments and returned
+                    # credits, and a fee lowered to zero after someone paid
+                    # still owes them; second-guessing it would drop that case.
+                    if (
+                        reg.resale_source_registration_id
+                        or reg.resale_source_payment_id
+                    ):
+                        continue  # already carries one
+                    if (
+                        _attach_unclaimed_resale_claim(reg, locked_events[reg.event_id])
+                        is None
+                    ):
+                        continue
+                    resale_claims_attached += 1
+                    # A returning applicant whose earlier payment still stands
+                    # is admitted straight to "confirmed", so no later checkout
+                    # will settle this for them. _promote_from_waitlist settles
+                    # the same case at the same point.
+                    if reg.payment_confirmed:
+                        settle_pending_resale_credit(reg)
+
         # .update() emits no signals, so the per-registration receiver never
         # runs here and the restored tickets would stay voided forever.
         if restored_serials:
@@ -2748,6 +2804,18 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     "held until payment arrives."
                 )
                 % {"count": awaiting_payment},
+            )
+        if resale_claims_attached:
+            # Worth saying out loud: it commits the organiser to paying someone
+            # a 50% share out of this seat, and it is otherwise invisible.
+            django_messages.info(
+                request,
+                _(
+                    "%(count)s selected applicant(s) took a seat released by a "
+                    "late cancellation. The member who cancelled earns their "
+                    "50%% resale share once the new attendee has paid."
+                )
+                % {"count": resale_claims_attached},
             )
         if skipped:
             django_messages.warning(

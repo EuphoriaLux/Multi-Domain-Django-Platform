@@ -23,7 +23,7 @@ Run with: pytest crush_lu/tests/test_curated_registration.py -v
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 User = get_user_model()
@@ -1361,3 +1361,203 @@ class AppliedGuardModelBackstopTests(CuratedRegistrationTestBase):
         self.assertIsNone(EventRegistration.applied_status_message(None))
         self.assertIsNone(EventRegistration.applied_status_message(self.curated))
         self.assertIsNotNone(EventRegistration.applied_status_message(self.direct))
+
+
+@override_settings(CRUSH_CREDIT_LATE_CANCELLATION_HOURS=48)
+class ReleasedSeatClaimsFollowTheSelectedApplicantTests(CuratedRegistrationTestBase):
+    """A late canceller's 50% share must survive a curated selection.
+
+    When a paid attendee cancels late, they are owed half once somebody else
+    takes and pays for the seat. On a direct event the replacement picks that
+    obligation up on their own — waitlist promotion and `event_register` both
+    call `_attach_unclaimed_resale_claim`. A curated event has neither path:
+    there is no waitlist, and the sign-up created an application holding no
+    seat. So the claim stayed on the cancelled row, the replacement arrived
+    without it, and settlement found nothing to settle. The canceller lost
+    their share permanently, even after the replacement paid in full.
+
+    The claim is therefore attached at selection — and *after* the status
+    writes, which is what keeps two applicants in one run from being handed
+    the same claim.
+    """
+
+    def _run_confirm_action(self, queryset):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/")
+        request.user = self.user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        EventRegistrationAdmin(EventRegistration, AdminSite()).confirm_registrations(
+            request, queryset
+        )
+
+    def setUp(self):
+        super().setUp()
+        from decimal import Decimal
+
+        # Inside the late-cancellation window (default 48h), which is what
+        # makes a released seat carry an obligation at all.
+        self.event = self._make_event(
+            "Curated, paid, imminent",
+            event_type="speed_dating",
+            registration_mode="curated",
+            registration_fee=Decimal("15.50"),
+            max_participants=4,
+            date_time=timezone.now() + timedelta(hours=24),
+            registration_deadline=timezone.now() + timedelta(hours=12),
+        )
+
+    def _released_seat(self, username):
+        """A late cancellation that leaves a share owed to `username`.
+
+        payment_confirmed stays False: that is the contingent branch of
+        `_resale_claim_from`, the cash-or-transfer member who cancelled before
+        paying. It is the cheapest source to build and exercises exactly the
+        attach path under test.
+        """
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event,
+            user=self._create_member(username),
+            status="cancelled",
+            cancelled_at=timezone.now(),
+            payment_confirmed=False,
+        )
+
+    def _applicant(self, username):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event,
+            user=self._create_member(username),
+            status="applied",
+        )
+
+    def _select(self, *registrations):
+        from crush_lu.models import EventRegistration
+
+        self._run_confirm_action(
+            EventRegistration.objects.filter(pk__in=[r.pk for r in registrations])
+        )
+        for registration in registrations:
+            registration.refresh_from_db()
+
+    def test_the_released_seat_really_does_carry_a_claim(self):
+        """Precondition. If this fails the others prove nothing, because
+        `_attach_unclaimed_resale_claim` would find no source either way."""
+        from crush_lu.views_events import _resale_claim_from
+
+        source = self._released_seat("precondition@example.com")
+
+        self.assertIsNotNone(_resale_claim_from(source, self.event))
+
+    def test_a_selected_applicant_inherits_the_released_seat_claim(self):
+        source = self._released_seat("cancelled@example.com")
+        applicant = self._applicant("replacement@example.com")
+
+        self._select(applicant)
+
+        self.assertEqual(applicant.status, "pending")  # paid event
+        self.assertEqual(applicant.resale_source_registration_id, source.pk)
+        self.assertEqual(applicant.resale_beneficiary_id, source.user_id)
+
+    def test_two_applicants_selected_together_do_not_share_one_claim(self):
+        """The trap that made attaching *before* the status writes wrong.
+
+        `_attach_unclaimed_resale_claim` treats a claim as taken when another
+        row in SEAT_HOLDING_STATUSES already carries it. Run before the
+        updates, both applicants are still "applied" — seat-holding to nobody —
+        and both would be handed this single seat's claim, promising the same
+        50% twice.
+        """
+        source = self._released_seat("cancelled@example.com")
+        first = self._applicant("first@example.com")
+        second = self._applicant("second@example.com")
+
+        self._select(first, second)
+
+        carriers = [
+            reg
+            for reg in (first, second)
+            if reg.resale_source_registration_id == source.pk
+        ]
+        self.assertEqual(len(carriers), 1, "one released seat, one claim")
+
+    def test_two_released_seats_go_to_two_different_applicants(self):
+        first_source = self._released_seat("cancelled1@example.com")
+        second_source = self._released_seat("cancelled2@example.com")
+        first = self._applicant("first@example.com")
+        second = self._applicant("second@example.com")
+
+        self._select(first, second)
+
+        claimed = {
+            first.resale_source_registration_id,
+            second.resale_source_registration_id,
+        }
+        self.assertEqual(claimed, {first_source.pk, second_source.pk})
+
+    def test_an_applicant_already_carrying_a_claim_is_not_reassigned(self):
+        earlier_source = self._released_seat("cancelled1@example.com")
+        self._released_seat("cancelled2@example.com")
+        applicant = self._applicant("carrier@example.com")
+        applicant.resale_source_registration = earlier_source
+        applicant.resale_beneficiary = earlier_source.user
+        applicant.save(
+            update_fields=["resale_source_registration", "resale_beneficiary"]
+        )
+
+        self._select(applicant)
+
+        self.assertEqual(applicant.resale_source_registration_id, earlier_source.pk)
+
+    def test_nothing_is_attached_when_no_seat_was_released(self):
+        applicant = self._applicant("plain@example.com")
+
+        self._select(applicant)
+
+        self.assertEqual(applicant.status, "pending")
+        self.assertIsNone(applicant.resale_source_registration_id)
+        self.assertIsNone(applicant.resale_source_payment_id)
+
+    def test_a_cancelled_row_confirmed_on_a_direct_event_is_untouched(self):
+        """Scoped to applications, like every other rule in this action: the
+        pre-existing paths keep behaving exactly as they do today."""
+        from decimal import Decimal
+
+        from crush_lu.models import EventRegistration
+
+        direct = self._make_event(
+            "Direct, paid, imminent",
+            event_type="speed_dating",
+            registration_mode="direct",
+            registration_fee=Decimal("15.50"),
+            date_time=timezone.now() + timedelta(hours=24),
+            registration_deadline=timezone.now() + timedelta(hours=12),
+        )
+        EventRegistration.objects.create(
+            event=direct,
+            user=self._create_member("directcancelled@example.com"),
+            status="cancelled",
+            cancelled_at=timezone.now(),
+            payment_confirmed=False,
+        )
+        returning = EventRegistration.objects.create(
+            event=direct,
+            user=self._create_member("directreturning@example.com"),
+            status="cancelled",
+            cancelled_at=timezone.now(),
+        )
+
+        self._select(returning)
+
+        self.assertEqual(returning.status, "confirmed")
+        self.assertIsNone(returning.resale_source_registration_id)
