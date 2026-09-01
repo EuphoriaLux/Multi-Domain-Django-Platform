@@ -1454,8 +1454,9 @@ class EventRegistration(models.Model):
             f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
         )
 
-    def clean(self):
-        """Refuse "applied" on an event that does not run curated registration.
+    @staticmethod
+    def applied_status_message(event):
+        """Why "applied" is wrong for ``event``, or None when it is allowed.
 
         ``applied`` is deliberately outside ``SEAT_HOLDING_STATUSES``, so
         setting it releases the member's seat, voids their door ticket and
@@ -1465,46 +1466,54 @@ class EventRegistration(models.Model):
         dropdown that costs a member their place with nothing on screen to say
         so, and no email either.
 
-        The status dropdown is offered on every registration form in the admin
-        and on the inline under the event, on all events regardless of mode, so
-        this check is the only thing between that dropdown and a silently lost
-        seat. Deliberately at the model rather than on one form, so the inline
-        is covered too.
+        One rule, one message, two callers: :meth:`clean` below and
+        ``EventRegistrationAdminForm.clean``. They see the event by different
+        routes and neither reaches every case alone, so keeping the rule here
+        is what stops them drifting apart.
 
-        Resolved through ``self.event`` rather than ``self.event_id``, because
-        those differ in exactly the case the inline creates. Adding a
-        registration inline while creating a NEW event validates the formset
-        before the parent is saved: Django has already assigned the unsaved
-        parent to the FK, so ``self.event`` is that event -- carrying the
-        event_type and registration_mode just typed into the form -- while
-        ``self.event_id`` is still None. Testing the id would skip the guard
-        there, and nothing revalidates afterwards: the formset saves the row
-        with ``Model.save()``, which never calls ``full_clean()``.
+        ``event`` of None means "cannot tell" -- never "allowed". The callers
+        only pass None when there is no event to judge against at all, which is
+        an incomplete form whose required-field error is its own to report.
+
+        Returns the message rather than a built ``ValidationError`` so each
+        caller can aim it: at the ``status`` field where the form has one, and
+        as a non-field error where it does not, rather than ``add_error``
+        raising ``ValueError`` over a field that is not there.
+        """
+        if event is None or event.uses_curated_registration:
+            return None
+        return _(
+            "“Applied” belongs to speed-dating events whose registration "
+            "mode is Curated. “%(title)s” admits members on arrival, so an "
+            "application here would release the seat without telling anyone. "
+            "Set the event to Curated first, or choose another status."
+        ) % {"title": event.title}
+
+    def clean(self):
+        """Backstop for the "applied" rule, for anything running full_clean().
+
+        Covers the standalone change page and any other ModelForm over this
+        model. It canNOT cover the admin inline under a *new* event, and that
+        is not a fixable oversight: ``BaseInlineFormSet._construct_form`` sets
+        only ``event_id = parent.pk`` -- None while the parent is unsaved --
+        and ``construct_instance`` never copies the FK object across, because
+        ``EventRegistrationInline.fields`` does not list ``event``. So the row
+        being validated genuinely does not know its event, by any route the
+        model can reach. The parent exists only on the formset, which is why
+        ``EventRegistrationAdminForm.clean`` carries the same check against
+        the event it resolves from ``cleaned_data`` -- and why that form, not
+        this method, is what actually guards the inline.
         """
         super().clean()
+        if self.status != "applied":
+            return
         try:
             event = self.event
         except ObjectDoesNotExist:
-            # Nothing to judge against -- an incomplete form. The FK is
-            # required, so the form already fails on its own account.
             event = None
-        if (
-            self.status == "applied"
-            and event is not None
-            and not event.uses_curated_registration
-        ):
-            raise ValidationError(
-                {
-                    "status": _(
-                        "“Applied” belongs to speed-dating events whose "
-                        "registration mode is Curated. “%(title)s” admits "
-                        "members on arrival, so an application here would "
-                        "release the seat without telling anyone. Set the "
-                        "event to Curated first, or choose another status."
-                    )
-                    % {"title": event.title}
-                }
-            )
+        message = self.applied_status_message(event)
+        if message is not None:
+            raise ValidationError({"status": message})
 
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""
