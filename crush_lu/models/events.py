@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -1470,12 +1470,28 @@ class EventRegistration(models.Model):
         this check is the only thing between that dropdown and a silently lost
         seat. Deliberately at the model rather than on one form, so the inline
         is covered too.
+
+        Resolved through ``self.event`` rather than ``self.event_id``, because
+        those differ in exactly the case the inline creates. Adding a
+        registration inline while creating a NEW event validates the formset
+        before the parent is saved: Django has already assigned the unsaved
+        parent to the FK, so ``self.event`` is that event -- carrying the
+        event_type and registration_mode just typed into the form -- while
+        ``self.event_id`` is still None. Testing the id would skip the guard
+        there, and nothing revalidates afterwards: the formset saves the row
+        with ``Model.save()``, which never calls ``full_clean()``.
         """
         super().clean()
+        try:
+            event = self.event
+        except ObjectDoesNotExist:
+            # Nothing to judge against -- an incomplete form. The FK is
+            # required, so the form already fails on its own account.
+            event = None
         if (
             self.status == "applied"
-            and self.event_id
-            and not self.event.uses_curated_registration
+            and event is not None
+            and not event.uses_curated_registration
         ):
             raise ValidationError(
                 {
@@ -1486,7 +1502,7 @@ class EventRegistration(models.Model):
                         "release the seat without telling anyone. Set the "
                         "event to Curated first, or choose another status."
                     )
-                    % {"title": self.event.title}
+                    % {"title": event.title}
                 }
             )
 

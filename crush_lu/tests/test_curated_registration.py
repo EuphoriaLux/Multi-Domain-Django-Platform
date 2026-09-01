@@ -1225,3 +1225,79 @@ class AppliedStatusIsRefusedOffCuratedEventsTests(CuratedRegistrationTestBase):
         registration = self._registration(self.curated, status="applied")
 
         self.assertNotIn("status", self._status_errors(registration))
+
+
+class AppliedGuardOnAnUnsavedParentEventTests(CuratedRegistrationTestBase):
+    """The inline under a *new* event hands the guard an unsaved parent.
+
+    Django validates an inline formset before saving its parent, having already
+    assigned the unsaved parent to the child's FK. So the registration knows
+    which event it belongs to — `self.event` carries the event_type and
+    registration_mode just typed into the form — while `self.event_id` is still
+    None. A guard keyed on the id skips this entirely, and nothing revalidates
+    afterwards: the formset saves the row through `Model.save()`, which never
+    calls `full_clean()`.
+    """
+
+    def _unsaved_event(self, event_type="speed_dating", registration_mode="direct"):
+        from crush_lu.models import MeetupEvent
+
+        return MeetupEvent(
+            title="Brand new, never saved",
+            description="Created through the admin's add form",
+            event_type=event_type,
+            registration_mode=registration_mode,
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=14,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+            profile_requirement="none",
+        )
+
+    def _child_of(self, event, status="applied"):
+        """A registration wired to `event` the way the inline wires it."""
+        from crush_lu.models import EventRegistration
+
+        registration = EventRegistration(
+            user=self._create_member(f"inline{status}@example.com"),
+            status=status,
+        )
+        registration.event = event
+        return registration
+
+    def test_the_parent_really_is_unsaved_and_unidentified(self):
+        """Guards the premise: if this ever stops holding, the tests below stop
+        testing what they claim to."""
+        registration = self._child_of(self._unsaved_event())
+
+        self.assertIsNone(registration.event_id)
+        self.assertIsNotNone(registration.event)
+        self.assertEqual(registration.event.event_type, "speed_dating")
+
+    def test_applied_is_refused_under_an_unsaved_direct_event(self):
+        from django.core.exceptions import ValidationError
+
+        registration = self._child_of(self._unsaved_event())
+
+        with self.assertRaises(ValidationError) as caught:
+            registration.clean()
+        self.assertIn("status", caught.exception.error_dict)
+
+    def test_applied_is_allowed_under_an_unsaved_curated_event(self):
+        registration = self._child_of(self._unsaved_event(registration_mode="curated"))
+
+        registration.clean()  # must not raise
+
+    def test_a_registration_with_no_event_at_all_is_left_to_the_form(self):
+        """`self.event` raises rather than returning None when the FK was never
+        set. The guard must swallow that, not 500 — the required-field error is
+        the form's to report."""
+        from crush_lu.models import EventRegistration
+
+        registration = EventRegistration(
+            user=self._create_member("noevent@example.com"), status="applied"
+        )
+
+        registration.clean()  # must not raise
