@@ -383,6 +383,40 @@ class MeetupEvent(models.Model):
         ),
     )
 
+    # Parallel groups on a curated night.
+    #
+    # A GROUP is the set of people who spend the evening together, rotating
+    # among the tables; a table is a two-seat station, not a cohort. A curated
+    # speed dating runs several groups of the same size side by side in one
+    # room -- three parallel groups is three separate speed datings, not one
+    # large one -- and how many actually run is decided by how many people
+    # applied. So capacity is elastic in units of a group rather than a single
+    # number fixed when the event was created: `max_participants` stays the
+    # ceiling (group_size x the most groups the venue can host) and
+    # `planned_groups` is the organiser's commitment for this particular night.
+    #
+    # Both NULL on every existing event and rejected outright off a curated one,
+    # so nothing about a direct-mode event changes.
+    group_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Curated speed dating only: how many people are in one group. Set "
+            "max participants to this times the most groups you can run in "
+            "parallel."
+        ),
+    )
+    planned_groups = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Curated speed dating only: how many parallel groups you have "
+            "committed to running. Leave blank while undecided — the event "
+            "page then says “up to N” and selection measures against the "
+            "full ceiling."
+        ),
+    )
+
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
@@ -611,10 +645,20 @@ class MeetupEvent(models.Model):
         :meth:`registration_capacity` take the *total* from this same read
         instead of counting again.
         """
+        return self._counts_by_gender(SEAT_HOLDING_STATUSES)
+
+    def _counts_by_gender(self, statuses):
+        """One grouped query: ``{gender_code_or_None: registrations}``.
+
+        Shared by the seat counts above and the applicant pool, which need the
+        identical shape over different statuses -- and must keep the identical
+        blind spots, since a member belonging to no pool has to be invisible to
+        both or the two disagree about the same person.
+        """
         # order_by() strips any default ordering: a Meta.ordering field would
         # otherwise join the GROUP BY and split each gender into several rows.
         return dict(
-            self.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
+            self.eventregistration_set.filter(status__in=statuses)
             .order_by()
             .values_list("user__crushprofile__gender")
             .annotate(seats=models.Count("id"))
@@ -703,6 +747,24 @@ class MeetupEvent(models.Model):
             self.max_participants_nb,
         ]
         set_caps = [c for c in gender_caps if c is not None]
+        # Gender caps and curation are alternative mechanisms, and running both
+        # is worse than picking either. The caps decide the mix at the door on a
+        # first-come event; on a curated one the organiser decides it when they
+        # compose the groups -- but the cap still gates the selection action
+        # (see the pool check in admin.events.confirm_registrations), so a cap
+        # left at 0 makes that whole group unselectable with nothing on screen
+        # to say so. A curated speed dating carrying max_participants_nb = 0 is
+        # a product built for LGBTQ+ nights that silently cannot seat anyone
+        # non-binary. Checked before the all-three rule so a curated event gets
+        # the message that applies to it.
+        if set_caps and self.uses_curated_registration:
+            raise ValidationError(
+                _(
+                    "Clear the per-gender caps on a curated event — the groups "
+                    "are composed by the organiser, and a cap left here blocks "
+                    "that group from being selected at all."
+                )
+            )
         if 0 < len(set_caps) < 3:
             raise ValidationError(
                 _(
@@ -710,6 +772,55 @@ class MeetupEvent(models.Model):
                     "for a total-only cap."
                 )
             )
+
+        # Parallel groups: only on a curated night, and only in a shape the
+        # venue ceiling can actually hold.
+        if (
+            self.group_size is not None or self.planned_groups is not None
+        ) and not self.uses_curated_registration:
+            raise ValidationError(
+                {
+                    "group_size": _(
+                        "Group size and planned groups apply to curated "
+                        "speed-dating events only."
+                    )
+                }
+            )
+        if self.group_size is not None:
+            if self.group_size < 2:
+                raise ValidationError(
+                    {"group_size": _("A group needs at least 2 places.")}
+                )
+            if self.group_size > self.max_participants:
+                raise ValidationError(
+                    {
+                        "group_size": _(
+                            "Group size (%(size)d) cannot exceed total max "
+                            "participants (%(max)d)."
+                        )
+                        % {"size": self.group_size, "max": self.max_participants}
+                    }
+                )
+        if self.planned_groups is not None:
+            if self.group_size is None:
+                raise ValidationError(
+                    {
+                        "planned_groups": _(
+                            "Set the group size before committing to a number "
+                            "of groups."
+                        )
+                    }
+                )
+            if not 1 <= self.planned_groups <= self.max_groups:
+                raise ValidationError(
+                    {
+                        "planned_groups": _(
+                            "Planned groups must be between 1 and %(max)d for "
+                            "this capacity."
+                        )
+                        % {"max": self.max_groups}
+                    }
+                )
 
         # Age range validation
         if self.min_age > self.max_age:
@@ -1095,6 +1206,47 @@ class MeetupEvent(models.Model):
             and self.registration_mode == self.REGISTRATION_MODE_CURATED
         )
 
+    @property
+    def max_groups(self):
+        """Most groups this night could run — the ceiling, not the commitment.
+
+        Derived from ``max_participants`` rather than stored, so the two can
+        never disagree. Always at least 1: an event without ``group_size`` is
+        one group of ``max_participants``, which is what every event was before
+        parallel groups existed.
+        """
+        if not self.group_size:
+            return 1
+        return max(1, self.max_participants // self.group_size)
+
+    @property
+    def selection_capacity(self):
+        """How many people may actually be given a seat on this event.
+
+        Deliberately NOT ``spots_remaining``'s ``max_participants``. On a
+        curated night the organiser commits to a number of groups, and running
+        two of them means 28 seats exist even though the venue ceiling is 42 —
+        so the selection guard has to measure against the commitment or it will
+        happily seat a third group's worth of people into a room nobody booked.
+
+        Falls back to ``max_participants`` whenever the group fields are unset
+        or the event is not curated, which is every event that exists today.
+        Capped by ``max_participants`` as well, so a stale ``planned_groups``
+        left behind by a later capacity cut can never exceed the venue.
+        """
+        if self.uses_curated_registration and self.group_size and self.planned_groups:
+            return min(self.max_participants, self.group_size * self.planned_groups)
+        return self.max_participants
+
+    @property
+    def selection_spots_remaining(self):
+        """Seats left against :attr:`selection_capacity`.
+
+        The mirror of ``spots_remaining``, which stays keyed to
+        ``max_participants`` because every direct-mode surface reads it.
+        """
+        return max(0, self.selection_capacity - self.get_confirmed_count())
+
     def get_applied_count(self):
         """Applications awaiting organiser selection.
 
@@ -1104,6 +1256,70 @@ class MeetupEvent(models.Model):
         if hasattr(self, "applied_count_annotated"):
             return self.applied_count_annotated
         return self.eventregistration_set.filter(status="applied").count()
+
+    def get_application_pool(self):
+        """What the applicant pool looks like, for the member-facing card.
+
+        Curated sign-ups hold no seat, so every capacity read on this model
+        ignores them — which is why the event page's seat chips sit frozen at
+        the raw caps while applications pour in. This is the number that
+        actually moves, plus the two pieces of social proof that make it worth
+        looking at.
+
+        ``groups_unlocked`` counts whole groups the pool could fill and comes
+        from the TOTAL, never from the per-gender minimum. A gender-feasible
+        public projection leaks the imbalance by implication -- fifty applicants
+        and still one group invites exactly one conclusion -- and it can *fall*
+        when somebody withdraws, which reads as punishment for a stranger's
+        decision. The gender-feasible number is a planning input, so it is
+        computed for the coach page instead, off ``by_pool``.
+
+        ``by_pool`` is ORGANISER-ONLY and must never reach a member surface:
+        per-gender application counts are the thing the whole display is
+        designed not to publish.
+        """
+        size = self.group_size or self.max_participants
+        applications = self.get_applied_count()
+        groups_unlocked = min(self.max_groups, applications // size) if size else 0
+        # Applications still needed to open one more group, or 0 at the ceiling.
+        next_group_at = (
+            0
+            if groups_unlocked >= self.max_groups
+            else size * (groups_unlocked + 1) - applications
+        )
+
+        # One pass over the applications for both badges. A "first timer" is
+        # someone with no attended registration ANYWHERE, not merely none on
+        # this event -- the reassurance being offered is "you will not be the
+        # only new face", which is about Crush as a whole.
+        attended_before = EventRegistration.objects.filter(
+            user_id=models.OuterRef("user_id"), status="attended"
+        )
+        counts = (
+            self.eventregistration_set.filter(status="applied")
+            .annotate(has_attended=models.Exists(attended_before))
+            .aggregate(
+                first_timers=models.Count("id", filter=models.Q(has_attended=False)),
+                certified=models.Count(
+                    "id",
+                    filter=models.Q(
+                        user__crushprofile__verification_status="verified"
+                    ),
+                ),
+            )
+        )
+
+        return {
+            "applications": applications,
+            "group_size": size,
+            "max_groups": self.max_groups,
+            "planned_groups": self.planned_groups,
+            "groups_unlocked": groups_unlocked,
+            "next_group_at": next_group_at,
+            "first_timers": counts["first_timers"] or 0,
+            "certified": counts["certified"] or 0,
+            "by_pool": self._counts_by_gender(("applied",)),
+        }
 
     def get_waitlist_count(self):
         """

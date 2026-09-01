@@ -412,6 +412,58 @@ def has_matching_profile(profile):
     )
 
 
+def passes_event_hard_filters(a, b):
+    """Would these two applicants want to sit at the same table?
+
+    The event-side sibling of :func:`passes_hard_filters`, and deliberately NOT
+    a call into it. That one opens with ``has_matching_profile`` -- a Crush
+    Connect completeness gate on qualities/defects/sought_qualities -- which
+    every applicant who never joined Connect fails. Reusing it to compose an
+    event table would silently exclude most of the pool while looking like a
+    compatibility decision.
+
+    Two further differences, both because the inputs mean different things:
+
+    * **Gender is required in BOTH directions.** Connect treats an empty
+      ``preferred_genders`` as "hasn't filled this in yet" and only rejects a
+      pair when *neither* side wants the other. On an event application the
+      field is asked for explicitly and an empty list means "open to all"
+      (see ``EventRegistrationPreference``), so a stated preference is a real
+      answer and one-sided interest is not enough for people who will spend a
+      timed round face to face.
+    * **Languages come from the application**, not ``profile.event_languages``:
+      what someone wants to speak at this table is what they said when applying.
+
+    Args are duck-typed -- anything carrying ``gender``, ``age``,
+    ``preferred_genders``, ``preferred_age_min/max`` and ``languages``. Unknown
+    values never block: a missing age or gender is treated as compatible rather
+    than filtered out, because an applicant who left something blank should be
+    seated, not stranded.
+    """
+    # Mutual gender interest. Empty = open to all, on either side.
+    genders_a = a.preferred_genders or []
+    genders_b = b.preferred_genders or []
+    if genders_a and b.gender and b.gender not in genders_a:
+        return False
+    if genders_b and a.gender and a.gender not in genders_b:
+        return False
+
+    # Shared language. Empty = happy with any table.
+    langs_a = set(a.languages or [])
+    langs_b = set(b.languages or [])
+    if langs_a and langs_b and not (langs_a & langs_b):
+        return False
+
+    # Mutual age fit. 18-99 is the untouched default and filters nobody.
+    age_a, age_b = a.age, b.age
+    if age_a is not None and not (b.preferred_age_min <= age_a <= b.preferred_age_max):
+        return False
+    if age_b is not None and not (a.preferred_age_min <= age_b <= a.preferred_age_max):
+        return False
+
+    return True
+
+
 def passes_hard_filters(profile_a, profile_b):
     """Check if two profiles pass hard compatibility filters.
 
