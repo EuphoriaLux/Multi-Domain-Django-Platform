@@ -423,12 +423,26 @@
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
                                 <div class="flex-1">
+                                    {% if user_registration.status == 'applied' %}
+                                    <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Your application is in!" %}</p>
+                                    <p class="text-xs sm:text-sm">{% trans "The organiser team composes the group before the event and will let you know whether you have a place. Nothing to pay yet." %}</p>
+                                    {% else %}
                                     <p class="font-semibold text-sm sm:text-base mb-1">{% trans "You're registered for this event!" %}</p>
                                     <p class="text-xs sm:text-sm">{% blocktrans with status=user_registration.get_status_display %}Status: {{ status }}{% endblocktrans %}</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
-                        {% if event.registration_fee > 0 and not user_registration.payment_confirmed %}
+                        {% comment %}
+                          The status test is load-bearing on a paid curated
+                          event: an applicant has not been given a place, so
+                          these buttons would take money for a seat the
+                          organiser may never award. create_sumup_event_checkout
+                          allow-lists ("pending", "confirmed") and so rejects
+                          the click server-side — this keeps the member from
+                          being offered a payment that is designed to fail.
+                        {% endcomment %}
+                        {% if event.registration_fee > 0 and not user_registration.payment_confirmed and user_registration.status != 'applied' %}
                         {% if has_sufficient_crush_credit %}
                         <button data-sumup-reg-id="{{ user_registration.id }}" data-payment-method="credit" class="js-sumup-checkout-detail btn-crush-solid w-full mb-3">
                             <span>{% trans "Pay with Crush Credit" %}</span>

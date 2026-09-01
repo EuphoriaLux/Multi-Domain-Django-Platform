@@ -533,6 +533,9 @@
                                                         </div>
                                                         {% if registration.status == 'waitlist' %}
                                                             <span class="badge badge-secondary ml-2">{% trans "Waitlist" %}</span>
+                                                        {% elif registration.status == 'applied' %}
+                                                            {# The success tick below means "you have a seat". An application does not. #}
+                                                            <span class="badge badge-secondary ml-2">{% trans "Applied" %}</span>
                                                         {% else %}
                                                             <span class="badge badge-success ml-2">✓</span>
                                                         {% endif %}

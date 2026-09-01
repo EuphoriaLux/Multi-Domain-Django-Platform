@@ -26,6 +26,15 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
 
+# "applied" is deliberately NOT in the list above. A curated speed-dating
+# application is an expression of interest, not a seat: forty people may apply
+# for twenty places, and the organiser picks. Because capacity, door tickets,
+# check-in, reminders, wallet passes and the KPI/metrics rollups all derive
+# from SEAT_HOLDING_STATUSES, leaving "applied" out of it is what keeps an
+# application from consuming a place or minting a ticket. Selection is a move
+# from "applied" into a seat-holding status, and that single transition is what
+# grants all of the above at once.
+
 # Luxembourg's 12 cantons, stored as display names rather than slugs.
 #
 # The profile side keeps the same 12 as `canton-*` slugs (crush_lu/forms.py),
@@ -93,7 +102,7 @@ class MeetupEventQuerySet(models.QuerySet):
 
     def with_registration_counts(self):
         """
-        Annotate queryset with confirmed_count and waitlist_count.
+        Annotate queryset with confirmed_count, waitlist_count and applied_count.
 
         Use this instead of calling get_confirmed_count() in a loop to avoid N+1 queries:
 
@@ -116,6 +125,11 @@ class MeetupEventQuerySet(models.QuerySet):
             ),
             waitlist_count_annotated=Count(
                 "eventregistration", filter=Q(eventregistration__status="waitlist")
+            ),
+            # Curated applications, kept apart from confirmed_count so an
+            # over-subscribed applicant pool can never read as a full event.
+            applied_count_annotated=Count(
+                "eventregistration", filter=Q(eventregistration__status="applied")
             ),
         )
 
@@ -338,6 +352,34 @@ class MeetupEvent(models.Model):
     registration_deadline = models.DateTimeField()
     registration_fee = models.DecimalField(
         max_digits=6, decimal_places=2, default=0.00, help_text=_("Event fee in EUR")
+    )
+
+    # How a sign-up becomes a seat.
+    #
+    # "direct" is the historical behaviour and stays the default: whoever
+    # arrives first is admitted (or waitlisted) by the capacity check at signup
+    # time, and a paid event holds the seat as "pending" until SumUp confirms.
+    #
+    # "curated" inverts that for speed dating: sign-ups land as "applied",
+    # which holds no seat at all, and the organiser composes the group from the
+    # applicant pool afterwards. Deliberately per-event rather than per-type —
+    # switching every speed-dating event to an application flow at once would
+    # change the deal for events already taking sign-ups.
+    REGISTRATION_MODE_DIRECT = "direct"
+    REGISTRATION_MODE_CURATED = "curated"
+    REGISTRATION_MODE_CHOICES = [
+        (REGISTRATION_MODE_DIRECT, _("Direct — first come, first served")),
+        (REGISTRATION_MODE_CURATED, _("Curated — organiser selects the group")),
+    ]
+    registration_mode = models.CharField(
+        max_length=10,
+        choices=REGISTRATION_MODE_CHOICES,
+        default=REGISTRATION_MODE_DIRECT,
+        db_index=True,
+        help_text=_(
+            "Curated mode applies to speed dating only: sign-ups are held as "
+            "applications that take no seat until an organiser selects them."
+        ),
     )
 
     # Status & Features
@@ -1036,6 +1078,32 @@ class MeetupEvent(models.Model):
             status__in=SEAT_HOLDING_STATUSES
         ).count()
 
+    @property
+    def uses_curated_registration(self):
+        """Do sign-ups on this event land as applications rather than seats?
+
+        Both halves are required. ``registration_mode`` is a plain field an
+        admin can set on any event, but the curated flow only makes sense where
+        a preference snapshot is collected to compose the group — which is
+        speed dating alone (see ``event_register``). Checking the type here,
+        rather than trusting the field, keeps a mixer accidentally flipped to
+        "curated" behaving exactly as it does today.
+        """
+        return (
+            self.event_type == "speed_dating"
+            and self.registration_mode == self.REGISTRATION_MODE_CURATED
+        )
+
+    def get_applied_count(self):
+        """Applications awaiting organiser selection.
+
+        Counted separately from ``get_confirmed_count`` on purpose: these hold
+        no seat, so they must never be folded into capacity.
+        """
+        if hasattr(self, "applied_count_annotated"):
+            return self.applied_count_annotated
+        return self.eventregistration_set.filter(status="applied").count()
+
     def get_waitlist_count(self):
         """
         Get count of waitlisted registrations.
@@ -1108,6 +1176,9 @@ class EventRegistration(models.Model):
     """User registration for meetup events"""
 
     STATUS_CHOICES = [
+        # Curated speed dating only: an application awaiting organiser
+        # selection. Holds no seat (see SEAT_HOLDING_STATUSES).
+        ("applied", _("Applied — awaiting selection")),
         ("pending", _("Pending Payment")),
         ("confirmed", _("Confirmed")),
         ("waitlist", _("Waitlist")),

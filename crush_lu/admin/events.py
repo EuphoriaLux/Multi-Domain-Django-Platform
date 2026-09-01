@@ -272,6 +272,66 @@ class MeetupEventAdminForm(forms.ModelForm):
         instance.is_private_invitation = False
         return instance
 
+    def _effective_curated(self, event_type, registration_mode):
+        """Mirror of MeetupEvent.uses_curated_registration, on loose values.
+
+        The behaviour is the product of BOTH fields, so a guard that watches
+        only the mode has a hole in it: turning a curated speed-dating event
+        into a mixer leaves registration_mode untouched while quietly making
+        every later sign-up direct.
+        """
+        return (
+            event_type == "speed_dating"
+            and registration_mode == MeetupEvent.REGISTRATION_MODE_CURATED
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Refuse to change what a sign-up MEANS once people have signed up.
+        #
+        # The two modes are different contracts. Flipping curated -> direct
+        # leaves the existing applications sitting at "applied" while everyone
+        # who arrives afterwards is admitted or waitlisted on the spot; the
+        # reverse leaves confirmed seats beside applications that hold none.
+        # Either way one event has told two groups of members different things
+        # about what their sign-up means, and no later selection reconciles it.
+        #
+        # Compared on effective behaviour rather than on registration_mode
+        # alone, because event_type is the other half of the switch — see
+        # _effective_curated.
+        #
+        # Blocking is the conservative half. Migrating the existing rows is the
+        # other, and which direction to migrate them (do confirmed seats become
+        # applications? do applications become seats?) has real consequences
+        # for people who already signed up — not something to infer from a
+        # dropdown change. Cancel the sign-ups, or make a new event.
+        if self.instance.pk:
+            was_curated = self._effective_curated(
+                self.instance.event_type, self.instance.registration_mode
+            )
+            now_curated = self._effective_curated(
+                cleaned_data.get("event_type", self.instance.event_type),
+                cleaned_data.get("registration_mode", self.instance.registration_mode),
+            )
+            if was_curated != now_curated:
+                live_signups = self.instance.eventregistration_set.exclude(
+                    status="cancelled"
+                ).count()
+                if live_signups:
+                    raise forms.ValidationError(
+                        _(
+                            "This event already has %(count)s active sign-up(s), "
+                            "and this change switches what signing up means — "
+                            "between an application the organiser selects from "
+                            "and a seat granted on arrival. Cancel the existing "
+                            "sign-ups first, or create a new event."
+                        )
+                        % {"count": live_signups}
+                    )
+
+        return cleaned_data
+
     def _post_clean(self):
         """Apply the audience choice BEFORE the model validates itself.
 
@@ -449,6 +509,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_registration_count",
         "get_confirmed_count",
         "get_waitlist_count",
+        "get_applied_count",
         "max_participants",
         "get_spots_remaining",
         "is_private_invitation",
@@ -458,8 +519,21 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "is_cancelled",
         "get_echo_lu_status",
     )
+
+    def get_queryset(self, request):
+        """Annotate the changelist with the registration counts it displays.
+
+        get_confirmed_count / get_waitlist_count / get_applied_count all prefer
+        an annotation when one is present and fall back to a per-row query when
+        it is not — so without this the default 50-row page fires up to 150
+        extra COUNTs, and the annotation added alongside get_applied_count
+        would never actually be used.
+        """
+        return super().get_queryset(request).with_registration_counts()
+
     list_filter = (
         "event_type",
+        "registration_mode",
         "is_published",
         "is_cancelled",
         "is_private_invitation",
@@ -606,7 +680,23 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "description": "Assign coaches to facilitate this event. They will be shown on the attendees page.",
             },
         ),
-        ("Registration", {"fields": ("registration_deadline", "registration_fee")}),
+        (
+            "Registration",
+            {
+                "fields": (
+                    "registration_deadline",
+                    "registration_fee",
+                    "registration_mode",
+                ),
+                "description": (
+                    "Curated mode takes effect on speed-dating events only. "
+                    "Sign-ups land as \u201cApplied\u201d and hold no seat, so "
+                    "applications can outnumber the places; you compose the "
+                    "group by moving the ones you want to Confirmed (free "
+                    "event) or Pending Payment (paid event)."
+                ),
+            },
+        ),
         (
             _("Advanced: Private Invitation Settings"),
             {
@@ -1385,8 +1475,12 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         email_limit = max(
             1, getattr(settings, "CRUSH_CREDIT_CANCELLATION_EMAIL_LIMIT", 50)
         )
+        # "applied" belongs here even though it holds no seat and is owed no
+        # credit: a curated applicant is waiting on a selection decision that
+        # a cancelled event will never deliver. Leaving them out means the one
+        # group still expecting to hear from us hears nothing at all.
         affected_registration = Q(
-            status__in=("pending", "confirmed", "waitlist", "attended")
+            status__in=("applied", "pending", "confirmed", "waitlist", "attended")
         ) | Q(issued_credits__reason=CrushCredit.Reason.EVENT_CANCELLED)
         candidates = list(
             EventRegistration.objects.filter(
@@ -2385,13 +2479,197 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             .values_list("event_id", flat=True)
             .distinct()
         )
-        updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
-            status="confirmed",
-            # QuerySet.update bypasses EventRegistration.save(). A restored
-            # registration is a new cancellation-policy cycle and must not
-            # retain the previous cancellation's timing classification.
-            cancelled_at=None,
+        # Selecting an applicant on a PAID curated event owes them a payment
+        # request, not a seat. Confirming outright would hand out a seat, a
+        # door ticket, check-in eligibility and reminders before any money
+        # arrived — `_admitted_status` draws exactly this line at signup, and
+        # this is that same rule applied to the selection step.
+        #
+        # Scoped to "applied" on a paid event so every pre-existing path
+        # through this action keeps its current behaviour byte-for-byte: a
+        # cancelled or waitlisted row still confirms as it always has, paid or
+        # not. Widening that is a separate decision, not this change's to make.
+        # Selecting more applicants than there are places overbooks the event
+        # outright — and on a curated event that is an ordinary slip, not an
+        # edge case, because the applicant pool is *designed* to outnumber the
+        # seats. Refuse the whole action rather than promote an arbitrary
+        # subset: which applicants get in is the organiser's decision, and
+        # silently letting the database's row order make it would be worse
+        # than doing nothing.
+        #
+        # Scoped to applications, like the paid-event rule below. Confirming
+        # cancelled or waitlisted rows over capacity has always been possible
+        # here and organisers may rely on it to deliberately overbook; taking
+        # that away is a separate decision.
+
+        # Local import, as everywhere else in this module: views_events pulls
+        # in the payment and wallet stacks at module scope, and admin.events is
+        # imported during app registry population.
+        from crush_lu.views_events import _admitted_status
+
+        prelock_application_ids = set(
+            EventRegistration.objects.filter(
+                pk__in=eligible_ids, status="applied"
+            ).values_list("pk", flat=True)
         )
+
+        # The capacity check and the status updates have to be one atomic,
+        # locked unit. Reading spots_remaining and then updating in a separate
+        # statement lets two admins selecting at the same time both see the
+        # last seat free and both spend it — and the seat they overspend comes
+        # with a door ticket and check-in eligibility.
+        #
+        # Gender pools are checked alongside the total: with caps enabled a
+        # male applicant can pass a total-capacity test while the male pool is
+        # already full, which is exactly the case event_register re-checks
+        # under its own lock. Half a guard here would be worse than none,
+        # because it reads as protection.
+        with transaction.atomic():
+            # Re-read the selected applications under the lock, not just the
+            # event. Locking the event alone left the rows themselves stale:
+            # two admins selecting the same paid application both materialise
+            # it as "applied" before either writes, and the second — finding it
+            # is no longer "applied" and so no longer needs payment —
+            # would sweep it into confirm_ids and grant the seat WITHOUT
+            # payment. Anything another admin (or the member, withdrawing) has
+            # already moved out of "applied" is dropped from this run entirely,
+            # so a concurrent decision is never silently overwritten.
+            #
+            # NO select_related() on this query. "user__crushprofile" is a
+            # REVERSE one-to-one, so it joins as a LEFT OUTER JOIN, and
+            # PostgreSQL refuses FOR UPDATE on the nullable side of an outer
+            # join — the whole action would raise NotSupportedError before
+            # updating anyone. _promote_from_waitlist carries the same warning
+            # for the same reason. SQLite ignores select_for_update() entirely,
+            # so the test suite cannot see this; profiles and events are read
+            # separately below. "event" is dropped too: joining it here would
+            # take the event locks in registration order, while the explicit
+            # lock below takes them sorted by pk, and two admins acquiring the
+            # same two events in opposite orders deadlock.
+            applications = list(
+                EventRegistration.objects.select_for_update()
+                .filter(pk__in=prelock_application_ids, status="applied")
+                .order_by("pk")
+            )
+            live_application_ids = {reg.pk for reg in applications}
+            stale_application_ids = prelock_application_ids - live_application_ids
+
+            locked_events = {}
+            profiles_by_user = {}
+            if applications:
+                event_ids_to_lock = sorted({reg.event_id for reg in applications})
+                locked_events = {
+                    event.pk: event
+                    for event in MeetupEvent.objects.select_for_update()
+                    .filter(pk__in=event_ids_to_lock)
+                    .order_by("pk")
+                }
+                # Separate query, for the outer-join reason above.
+                profiles_by_user = {
+                    profile.user_id: profile
+                    for profile in CrushProfile.objects.filter(
+                        user_id__in={reg.user_id for reg in applications}
+                    )
+                }
+
+                by_event = {}
+                for reg in applications:
+                    by_event.setdefault(reg.event_id, []).append(reg)
+
+                for event_id, regs in by_event.items():
+                    event = locked_events[event_id]
+                    remaining = event.spots_remaining
+                    if len(regs) > remaining:
+                        django_messages.error(
+                            request,
+                            _(
+                                "“%(title)s” has %(remaining)s place(s) left but "
+                                "%(selected)s application(s) were selected. Nothing "
+                                "was changed — deselect %(excess)s and try again."
+                            )
+                            % {
+                                "title": event.title,
+                                "remaining": remaining,
+                                "selected": len(regs),
+                                "excess": len(regs) - remaining,
+                            },
+                        )
+                        return
+
+                    if not event.gender_limits_active:
+                        continue
+                    selected_per_pool = {}
+                    for reg in regs:
+                        profile = profiles_by_user.get(reg.user_id)
+                        gender = getattr(profile, "gender", None)
+                        pool = event.get_gender_pool(gender) if gender else None
+                        if pool is None:
+                            continue
+                        selected_per_pool.setdefault(pool, []).append(gender)
+                    for pool, genders in selected_per_pool.items():
+                        gender = genders[0]
+                        limit = event.get_gender_pool_limit(gender)
+                        if limit is None:
+                            continue
+                        taken = event.get_confirmed_count_for_gender(gender)
+                        if taken + len(genders) > limit:
+                            django_messages.error(
+                                request,
+                                _(
+                                    "“%(title)s”: the %(pool)s places are capped at "
+                                    "%(limit)s with %(taken)s already taken, but "
+                                    "%(selected)s application(s) in that group were "
+                                    "selected. Nothing was changed."
+                                )
+                                % {
+                                    "title": event.title,
+                                    "pool": pool,
+                                    "limit": limit,
+                                    "taken": taken,
+                                    "selected": len(genders),
+                                },
+                            )
+                            return
+
+            # Inside the same locked transaction as the checks above: releasing
+            # the lock before writing would leave exactly the race the lock was
+            # taken to close.
+            #
+            # Everything is derived from the LOCKED read. Deriving confirm_ids
+            # from the pre-lock eligible_ids is what let a row another admin
+            # had just moved to "pending" fall through to "confirmed".
+            #
+            # _admitted_status, not the fee alone. A member who paid, cancelled
+            # late and then reapplied keeps payment_confirmed on the REUSED
+            # row, and that helper exists precisely so such a row is admitted
+            # as "confirmed" instead of being asked to pay a second time for
+            # money we already hold — the UI would show payment due while
+            # checkout rejected them as already paid.
+            pending_application_ids = {
+                reg.pk
+                for reg in applications
+                if _admitted_status(locked_events[reg.event_id], reg) == "pending"
+            }
+            confirm_ids = [
+                pk
+                for pk in eligible_ids
+                if pk not in pending_application_ids and pk not in stale_application_ids
+            ]
+
+            updated = EventRegistration.objects.filter(pk__in=confirm_ids).update(
+                status="confirmed",
+                # QuerySet.update bypasses EventRegistration.save(). A restored
+                # registration is a new cancellation-policy cycle and must not
+                # retain the previous cancellation's timing classification.
+                cancelled_at=None,
+            )
+            awaiting_payment = 0
+            if pending_application_ids:
+                # status="applied" in the filter as well as the lock: belt and
+                # braces against acting on a row that moved under us.
+                awaiting_payment = EventRegistration.objects.filter(
+                    pk__in=pending_application_ids, status="applied"
+                ).update(status="pending", cancelled_at=None)
 
         # .update() emits no signals, so the per-registration receiver never
         # runs here and the restored tickets would stay voided forever.
@@ -2432,6 +2710,25 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )
+        if stale_application_ids:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)s selected application(s) had already been acted on "
+                    "by someone else and were left untouched."
+                )
+                % {"count": len(stale_application_ids)},
+            )
+        if awaiting_payment:
+            django_messages.info(
+                request,
+                _(
+                    "%(count)s selected application(s) on paid events were set "
+                    "to Pending Payment rather than Confirmed — their seat is "
+                    "held until payment arrives."
+                )
+                % {"count": awaiting_payment},
+            )
         if skipped:
             django_messages.warning(
                 request,

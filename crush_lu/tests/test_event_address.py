@@ -200,6 +200,9 @@ class TestAdminFormPostcode:
             "duration_minutes": 120,
             "registration_deadline": start.strftime("%Y-%m-%d %H:%M:%S"),
             "registration_fee": "0.00",
+            # Required on the admin form: the model default only applies to
+            # instance creation, so a bound form has to carry it.
+            "registration_mode": "direct",
             "max_participants": 20,
             "reserved_premium_seats": 0,
             "min_age": 18,

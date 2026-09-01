@@ -645,8 +645,12 @@ def my_events(request):
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            # "applied" included: withdrawing an application is exactly the
+            # thing an applicant may still want to do, and event_cancel accepts
+            # it. Deliberately NOT SEAT_HOLDING_STATUSES — that set includes
+            # "attended", which event_cancel rejects outright.
             "can_cancel": reg.event.date_time > now
-            and reg.status in ("pending", "confirmed", "waitlist"),
+            and reg.status in ("applied", "pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
             "has_sufficient_crush_credit": credit_balance_cents
             >= int(reg.event.registration_fee * 100),
@@ -709,6 +713,25 @@ def _registration_outlook(event, profile, gender=None):
     first. Anything that changes who gets waitlisted must change here too, or
     both pages go back to guessing.
     """
+    # A curated event never waitlists: `event_register` skips the capacity test
+    # entirely and every sign-up becomes an application. Returning the
+    # capacity-based answer here would have both surfaces offering "Join
+    # Waitlist" and a full-event warning to someone whose submit actually
+    # creates an `applied` row with no queue position — exactly the
+    # second-surface disagreement (#866) this helper exists to prevent. Pools
+    # are still returned: the gender mix is useful information to an applicant
+    # even though it does not gate them.
+    if event.uses_curated_registration:
+        _, _, pools = event.registration_capacity(
+            is_premium=bool(profile and profile.has_active_premium)
+        )
+        user_gender = gender or getattr(profile, "gender", None)
+        user_pool = None
+        if pools and user_gender:
+            pool_key = event.get_gender_pool(user_gender)
+            user_pool = next((p for p in pools if p["key"] == pool_key), None)
+        return pools, user_pool, False, None
+
     is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
     # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a
@@ -958,8 +981,17 @@ def event_detail(request, event_id):
     #
     # `is_full_for` here costs no query and cannot disagree with the CTA above:
     # registration_capacity() memoised the count it used, and this reads it.
+    #
+    # Never on a curated event. `event_full_for_user` is False there by
+    # design — an application is never refused for capacity — so this would
+    # fire the moment the organiser has confirmed enough people to fill the
+    # public block, and promise "A seat is reserved for you" to someone whose
+    # submit creates an `applied` row the organiser may still turn down.
+    # Premium buys priority past the reserved-seat block; it does not buy a
+    # place in a group the organiser composes by hand.
     premium_reserved_seat_available = (
         user_is_premium
+        and not event.uses_curated_registration
         and event.is_full_for(is_premium=False)
         and not event_full_for_user
     )
@@ -1469,53 +1501,80 @@ def event_register(request, event_id):
                     registration.event = locked_event
                     registration.user = request.user
 
-                # Determine confirmed vs waitlist using both total and gender caps.
-                # Premium members -- an ACTIVE PremiumMembership, not merely an
-                # `assigned_coach` -- can claim reserved seats, so their fullness
-                # is measured against the full capacity.
-                user_gender = getattr(profile, "gender", None)
-                is_premium = bool(profile and profile.has_active_premium)
-                total_full = locked_event.is_full_for(is_premium=is_premium)
-                gender_pool_full = (
-                    locked_event.gender_limits_active
-                    and user_gender
-                    and locked_event.is_gender_pool_full(user_gender)
-                )
-
-                if total_full or gender_pool_full:
-                    registration.status = "waitlist"
-                    if gender_pool_full and not total_full:
-                        messages.info(
-                            request,
-                            _(
-                                "All spots for your gender group are taken. "
-                                "You have been added to the waitlist."
-                            ),
-                        )
-                    else:
-                        messages.info(
-                            request,
-                            _("Event is full. You have been added to the waitlist."),
-                        )
+                # A curated event admits nobody at signup: the sign-up is an
+                # application and the organiser composes the group afterwards.
+                # No capacity test runs, because applications are *meant* to
+                # outnumber the places — that is the point of curating — and
+                # "applied" holds no seat (see SEAT_HOLDING_STATUSES), so an
+                # over-subscribed pool cannot overfill the event. No waitlist
+                # either: there is no queue to be behind while nobody has been
+                # admitted. Falling through to the shared tail below is
+                # deliberate — it writes the preference row, skips the resale
+                # claim and the confirmation email (both keyed off
+                # SEAT_HOLDING_STATUSES and the status name), and returns the
+                # same success response as every other path.
+                if locked_event.uses_curated_registration:
+                    registration.status = "applied"
+                    messages.success(
+                        request,
+                        _(
+                            "Your application has been received. The organiser "
+                            "team composes the group before the event and will "
+                            "let you know whether you have a place."
+                        ),
+                    )
                 else:
-                    # A paid event's seat is held, not confirmed, until the money
-                    # arrives -- the SumUp return handler flips it to "confirmed".
-                    # "pending" still counts toward capacity and still yields a
-                    # door ticket (see SEAT_HOLDING_STATUSES); it only changes
-                    # what the status *claims*. Free events are unaffected.
-                    registration.status = _admitted_status(locked_event, registration)
-                    if registration.status == "pending":
-                        messages.success(
-                            request,
-                            _(
-                                "Your spot is reserved! Please complete payment "
-                                "to confirm your registration."
-                            ),
-                        )
+                    # Determine confirmed vs waitlist using both total and gender caps.
+                    # Premium members -- an ACTIVE PremiumMembership, not merely an
+                    # `assigned_coach` -- can claim reserved seats, so their fullness
+                    # is measured against the full capacity.
+                    user_gender = getattr(profile, "gender", None)
+                    is_premium = bool(profile and profile.has_active_premium)
+                    total_full = locked_event.is_full_for(is_premium=is_premium)
+                    gender_pool_full = (
+                        locked_event.gender_limits_active
+                        and user_gender
+                        and locked_event.is_gender_pool_full(user_gender)
+                    )
+
+                    if total_full or gender_pool_full:
+                        registration.status = "waitlist"
+                        if gender_pool_full and not total_full:
+                            messages.info(
+                                request,
+                                _(
+                                    "All spots for your gender group are taken. "
+                                    "You have been added to the waitlist."
+                                ),
+                            )
+                        else:
+                            messages.info(
+                                request,
+                                _(
+                                    "Event is full. You have been added to the waitlist."
+                                ),
+                            )
                     else:
-                        messages.success(
-                            request, _("Successfully registered for the event!")
+                        # A paid event's seat is held, not confirmed, until the money
+                        # arrives -- the SumUp return handler flips it to "confirmed".
+                        # "pending" still counts toward capacity and still yields a
+                        # door ticket (see SEAT_HOLDING_STATUSES); it only changes
+                        # what the status *claims*. Free events are unaffected.
+                        registration.status = _admitted_status(
+                            locked_event, registration
                         )
+                        if registration.status == "pending":
+                            messages.success(
+                                request,
+                                _(
+                                    "Your spot is reserved! Please complete payment "
+                                    "to confirm your registration."
+                                ),
+                            )
+                        else:
+                            messages.success(
+                                request, _("Successfully registered for the event!")
+                            )
 
                 registration.save()
                 if pref_form is not None:
