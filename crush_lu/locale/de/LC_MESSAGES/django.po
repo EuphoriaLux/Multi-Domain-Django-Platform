@@ -40555,3 +40555,82 @@ msgstr "Lass das Feld leer, wenn jede Sprache für dich passt."
 #: templates/crush_lu/privacy_policy.html
 msgid "Speed-dating preferences you optionally state per event (preferred age range, languages, gender preference): used only by the organiser team to compose balanced tables, never shown to other members, and deleted shortly after the event"
 msgstr "Speed-Dating-Präferenzen, die Sie optional pro Veranstaltung angeben (bevorzugte Altersspanne, Sprachen, Geschlechtspräferenz): werden nur vom Organisationsteam genutzt, um ausgewogene Tische zusammenzustellen, anderen Mitgliedern nie angezeigt und kurz nach der Veranstaltung gelöscht"
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The overall application pool is large enough to explore group combinations."
+msgstr "Es gibt insgesamt genug Bewerbungen, um mögliche Gruppenkombinationen zu prüfen."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applications are open and the overall pool is still building."
+msgstr "Bewerbungen sind offen und der gesamte Pool wächst noch."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "Groups are designed for around %(size)s people."
+msgstr "Die Gruppen sind für etwa %(size)s Personen ausgelegt."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The organiser currently plans one group, subject to compatible applications and a viable round schedule."
+msgid_plural "The organiser currently plans %(count)s groups, subject to compatible applications and a viable round schedule."
+msgstr[0] "Das Organisationsteam plant derzeit eine Gruppe, abhängig von passenden Bewerbungen und einem tragfähigen Rundenplan."
+msgstr[1] "Das Organisationsteam plant derzeit %(count)s Gruppen, abhängig von passenden Bewerbungen und einem tragfähigen Rundenplan."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The venue can host up to one group."
+msgid_plural "The venue can host up to %(count)s parallel groups."
+msgstr[0] "Am Veranstaltungsort kann bis zu eine Gruppe stattfinden."
+msgstr[1] "Am Veranstaltungsort können bis zu %(count)s parallele Gruppen stattfinden."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "One flexible group can run at the venue."
+msgstr "Eine flexible Gruppe kann am Veranstaltungsort stattfinden."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The group size and number of groups will be set after applications are reviewed."
+msgstr "Gruppengröße und Gruppenanzahl werden nach Prüfung der Bewerbungen festgelegt."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed."
+msgstr "Deine Bewerbung reserviert keinen Platz. Die Auswahl hängt davon ab, ob gegenseitige Präferenzen einen tragfähigen Rundenplan ermöglichen; ein Platz ist nicht garantiert."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply."
+msgstr "Wenn du für eine tragfähige vorläufige Gruppe ausgewählt wirst, erhältst du eine Zahlungseinladung. Beim Bewerben wird dir nichts berechnet."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will receive a separate confirmation."
+msgstr "Wenn du für eine tragfähige vorläufige Gruppe ausgewählt wirst, erhältst du eine separate Bestätigung."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Groups are finalized before the first round and stay together for the whole evening."
+msgstr "Die Gruppen werden vor der ersten Runde endgültig festgelegt und bleiben den ganzen Abend zusammen."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal."
+msgstr "Jede endgültig festgelegte Gruppe wird für mindestens fünf gegenseitig passende Mini-Dates pro Person geplant; Ziel sind sieben."
+
+#: templates/crush_lu/components/event_registration_cta_label.html
+msgid "Apply for This Event"
+msgstr "Für diese Veranstaltung bewerben"
+
+#: templates/crush_lu/event_detail.html
+msgid "Flexible groups"
+msgstr "Flexible Gruppen"
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
+msgstr "Das Organisationsteam prüft die gegenseitigen Präferenzen und lädt dich nur dann zur Zahlung ein, wenn du für eine tragfähige vorläufige Gruppe ausgewählt wirst. Eine Auswahl ist nicht garantiert."
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed."
+msgstr "Das Organisationsteam prüft die gegenseitigen Präferenzen und bestätigt deinen Platz nur, wenn eine tragfähige vorläufige Gruppe gebildet werden kann. Eine Auswahl ist nicht garantiert."
+
+#: templates/crush_lu/event_detail.html
+msgid "Withdraw Application"
+msgstr "Bewerbung zurückziehen"
+
+#: templates/crush_lu/event_detail.html
+msgid "to apply for this event."
+msgstr "um dich für diese Veranstaltung zu bewerben."

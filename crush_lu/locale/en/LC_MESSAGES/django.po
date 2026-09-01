@@ -27370,3 +27370,82 @@ msgstr ""
 #: templates/crush_lu/emails/donation_payment_receipt.html
 msgid "Thank you!"
 msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The overall application pool is large enough to explore group combinations."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applications are open and the overall pool is still building."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "Groups are designed for around %(size)s people."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The organiser currently plans one group, subject to compatible applications and a viable round schedule."
+msgid_plural "The organiser currently plans %(count)s groups, subject to compatible applications and a viable round schedule."
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The venue can host up to one group."
+msgid_plural "The venue can host up to %(count)s parallel groups."
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "One flexible group can run at the venue."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The group size and number of groups will be set after applications are reviewed."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will receive a separate confirmation."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Groups are finalized before the first round and stay together for the whole evening."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal."
+msgstr ""
+
+#: templates/crush_lu/components/event_registration_cta_label.html
+msgid "Apply for This Event"
+msgstr ""
+
+#: templates/crush_lu/event_detail.html
+msgid "Flexible groups"
+msgstr ""
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
+msgstr ""
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed."
+msgstr ""
+
+#: templates/crush_lu/event_detail.html
+msgid "Withdraw Application"
+msgstr ""
+
+#: templates/crush_lu/event_detail.html
+msgid "to apply for this event."
+msgstr ""

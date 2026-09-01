@@ -718,19 +718,14 @@ def _registration_outlook(event, profile, gender=None):
     # capacity-based answer here would have both surfaces offering "Join
     # Waitlist" and a full-event warning to someone whose submit actually
     # creates an `applied` row with no queue position — exactly the
-    # second-surface disagreement (#866) this helper exists to prevent. Pools
-    # are still returned: the gender mix is useful information to an applicant
-    # even though it does not gate them.
+    # second-surface disagreement (#866) this helper exists to prevent.
+    #
+    # Do not return the gender pools either. They are organiser planning data
+    # for a curated event, not seat availability, and publishing them lets an
+    # applicant infer which preference/demographic pool is underserved. The
+    # member-facing group outlook is built separately from a strict whitelist.
     if event.uses_curated_registration:
-        _, _, pools = event.registration_capacity(
-            is_premium=bool(profile and profile.has_active_premium)
-        )
-        user_gender = gender or getattr(profile, "gender", None)
-        user_pool = None
-        if pools and user_gender:
-            pool_key = event.get_gender_pool(user_gender)
-            user_pool = next((p for p in pools if p["key"] == pool_key), None)
-        return pools, user_pool, False, None
+        return [], None, False, None
 
     is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
@@ -773,6 +768,38 @@ def _registration_outlook(event, profile, gender=None):
     else:
         reason = None
     return pools, user_pool, total_full or pool_blocks, reason
+
+
+def _curated_member_outlook(event):
+    """Return a privacy-safe group outlook for a curated event detail page.
+
+    ``MeetupEvent.get_application_pool()`` intentionally contains both public
+    aggregates and organiser-only ``by_pool`` counts. Never pass that mapping
+    through to a template. This helper copies only configuration values and a
+    coarse overall-interest state, so adding a sensitive key to the model
+    helper cannot accidentally publish it later.
+
+    ``groups_unlocked`` is headcount-only, not proof that mutual preferences
+    can produce a viable round schedule. The public state therefore says only
+    that combinations can be explored; it never promises a group or selection.
+    """
+    if not event.uses_curated_registration:
+        return None
+
+    pool = event.get_application_pool()
+    groups_unlocked = max(0, int(pool.get("groups_unlocked") or 0))
+    configured_group_size = event.group_size
+    configured_max_groups = int(pool.get("max_groups") or 0)
+
+    return {
+        "interest_state": "exploring" if groups_unlocked else "collecting",
+        "group_size": configured_group_size,
+        "planned_groups": event.planned_groups,
+        "max_groups": configured_max_groups if configured_group_size else None,
+        "parallel_groups_possible": bool(
+            configured_group_size and configured_max_groups > 1
+        ),
+    }
 
 
 def event_detail(request, event_id):
@@ -859,6 +886,25 @@ def event_detail(request, event_id):
         lang_map[lang] for lang in (event.languages or []) if lang in lang_map
     ]
 
+    if event.uses_curated_registration:
+        offer_availability = (
+            "https://schema.org/InStock"
+            if event.is_registration_accepting
+            else "https://schema.org/OutOfStock"
+        )
+    else:
+        # Preserve direct-mode structured-data behaviour byte for byte: a full
+        # direct event is SoldOut, while a closed or unpublished one is merely
+        # unavailable.
+        offer_availability = (
+            "https://schema.org/SoldOut"
+            if event.is_full
+            else (
+                "https://schema.org/InStock"
+                if event.is_registration_open
+                else "https://schema.org/OutOfStock"
+            )
+        )
     event_jsonld_data = {
         "@context": "https://schema.org",
         "@type": schema_type,
@@ -883,19 +929,10 @@ def event_detail(request, event_id):
             "url": f"https://crush.lu{event_url}",
             "price": format(event.registration_fee, ".2f"),
             "priceCurrency": "EUR",
-            "availability": (
-                "https://schema.org/SoldOut"
-                if event.is_full
-                else (
-                    "https://schema.org/InStock"
-                    if event.is_registration_open
-                    else "https://schema.org/OutOfStock"
-                )
-            ),
+            "availability": offer_availability,
             "validFrom": event.created_at.isoformat(),
         },
         "maximumAttendeeCapacity": event.max_participants,
-        "remainingAttendeeCapacity": event.spots_remaining,
         "typicalAgeRange": f"{event.min_age}-{event.max_age}",
         "image": (
             event.image.url
@@ -908,6 +945,12 @@ def event_detail(request, event_id):
             "suggestedMaxAge": event.max_age,
         },
     }
+    # Curated sign-ups are applications, not claims on the venue ceiling. A
+    # remaining-seat figure would therefore be both stale and misleading while
+    # applications are open. Keep the established schema unchanged for direct
+    # events, where this number is genuine bookable capacity.
+    if not event.uses_curated_registration:
+        event_jsonld_data["remainingAttendeeCapacity"] = event.spots_remaining
     if event_languages:
         event_jsonld_data["inLanguage"] = (
             event_languages if len(event_languages) > 1 else event_languages[0]
@@ -1002,6 +1045,7 @@ def event_detail(request, event_id):
     from .services.event_lobby import lobby_cta
 
     event_lobby_cta = lobby_cta(request.user, event, registration=registration)
+    curated_group_outlook = _curated_member_outlook(event)
 
     context = {
         "event": event,
@@ -1021,6 +1065,7 @@ def event_detail(request, event_id):
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
         "event_lobby_cta": event_lobby_cta,
+        "curated_group_outlook": curated_group_outlook,
         "has_sufficient_crush_credit": bool(
             request.user.is_authenticated
             and available_credit_cents(request.user)
