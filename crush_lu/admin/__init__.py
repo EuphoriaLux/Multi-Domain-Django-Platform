@@ -76,6 +76,7 @@ from .events import (
     EventInvitationInline,
     EventVotingSessionInline,
     PresentationQueueInline,
+    CuratedEventGroupAdmin,
     MeetupEventAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
@@ -222,7 +223,7 @@ from .event_lobby import (
 
 from .metrics import WeeklyMetricsSnapshotAdmin
 
-from .payments import PaymentTransactionAdmin
+from .payments import EventCheckoutCreationClaimAdmin, PaymentTransactionAdmin
 
 from .credits import (
     CashRefundQueueFilter,
@@ -273,6 +274,7 @@ from crush_lu.models import (
     ScreeningSlot,
     PremiumMembership,
     MeetupEvent,
+    CuratedEventGroup,
     EventRegistration,
     EventInvitation,
     EventFeedback,
@@ -354,6 +356,7 @@ from crush_lu.models import (
     CacheStationAttempt,
     CacheChallengeAttempt,
     WeeklyMetricsSnapshot,
+    EventCheckoutCreationClaim,
     PaymentTransaction,
     CrushCredit,
     CreditRedemption,
@@ -365,7 +368,6 @@ from crush_lu.models import (
     ConfirmedEncounter,
     ConfirmedEncounterRemovalRequest,
 )
-
 
 # ============================================================================
 # REGISTER ALL MODELS WITH CUSTOM ADMIN SITE
@@ -393,12 +395,14 @@ crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
+crush_admin_site.register(CuratedEventGroup, CuratedEventGroupAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
 crush_admin_site.register(EventFeedback, EventFeedbackAdmin)
 
 # Payments (SumUp) — event fees and Connect Premium in one place
 crush_admin_site.register(PaymentTransaction, PaymentTransactionAdmin)
+crush_admin_site.register(EventCheckoutCreationClaim, EventCheckoutCreationClaimAdmin)
 
 # Crush Credit — the store-credit ledger that replaced cash refunds
 crush_admin_site.register(CrushCredit, CrushCreditAdmin)
@@ -553,6 +557,7 @@ crush_admin_site.register(PatchNote, PatchNoteAdmin)
 # Register User model with crush_admin_site for proper navigation
 # This allows coaches to navigate to User records while staying within /crush-admin/
 from django.contrib.auth.models import User
+
 crush_admin_site.register(User, CrushUserAdmin)
 
 
@@ -562,196 +567,168 @@ crush_admin_site.register(User, CrushUserAdmin)
 
 __all__ = [
     # Admin site
-    'crush_admin_site',
-
+    "crush_admin_site",
     # Filters
-    'ReviewTimeFilter',
-    'CoachAssignmentFilter',
-    'SubmissionWorkflowFilter',
-    'DaysSinceSignupFilter',
-    'DaysPendingApprovalFilter',
-    'ProfileCompletenessFilter',
-    'EventParticipationFilter',
-
+    "ReviewTimeFilter",
+    "CoachAssignmentFilter",
+    "SubmissionWorkflowFilter",
+    "DaysSinceSignupFilter",
+    "DaysPendingApprovalFilter",
+    "ProfileCompletenessFilter",
+    "EventParticipationFilter",
     # Special
-    'SpecialUserExperienceAdmin',
-
+    "SpecialUserExperienceAdmin",
     # Profiles
-    'CrushCoachAdmin',
-    'ProfileSubmissionProfileInline',
-    'CrushProfileAdmin',
-    'ProfileSubmissionAdmin',
-    'CoachSessionAdmin',
-    'ScreeningSlotAdmin',
-    'ApprovedProfile',
-    'ApprovedProfileAdmin',
-    'AwaitingReviewProfile',
-    'AwaitingReviewProfileAdmin',
-    'IncompleteProfile',
-    'IncompleteProfileAdmin',
-    'CompletedSubmission',
-    'CompletedSubmissionAdmin',
-    'InProcessSubmission',
-    'InProcessSubmissionAdmin',
-    'PendingReviewProfile',
-    'PendingReviewProfileAdmin',
-    'RevisionNeededProfile',
-    'RevisionNeededProfileAdmin',
-    'RecontactCoachProfile',
-    'RecontactCoachProfileAdmin',
-    'RejectedProfile',
-    'RejectedProfileAdmin',
-
+    "CrushCoachAdmin",
+    "ProfileSubmissionProfileInline",
+    "CrushProfileAdmin",
+    "ProfileSubmissionAdmin",
+    "CoachSessionAdmin",
+    "ScreeningSlotAdmin",
+    "ApprovedProfile",
+    "ApprovedProfileAdmin",
+    "AwaitingReviewProfile",
+    "AwaitingReviewProfileAdmin",
+    "IncompleteProfile",
+    "IncompleteProfileAdmin",
+    "CompletedSubmission",
+    "CompletedSubmissionAdmin",
+    "InProcessSubmission",
+    "InProcessSubmissionAdmin",
+    "PendingReviewProfile",
+    "PendingReviewProfileAdmin",
+    "RevisionNeededProfile",
+    "RevisionNeededProfileAdmin",
+    "RecontactCoachProfile",
+    "RecontactCoachProfileAdmin",
+    "RejectedProfile",
+    "RejectedProfileAdmin",
     # Events
-    'EventRegistrationInline',
-    'EventInvitationInline',
-    'EventVotingSessionInline',
-    'PresentationQueueInline',
-    'MeetupEventAdmin',
-    'EventRegistrationAdmin',
-    'EventInvitationAdmin',
-    'EventFeedbackAdmin',
-    'CallAttemptAdmin',
-
+    "EventRegistrationInline",
+    "EventInvitationInline",
+    "EventVotingSessionInline",
+    "PresentationQueueInline",
+    "MeetupEventAdmin",
+    "EventRegistrationAdmin",
+    "EventInvitationAdmin",
+    "EventFeedbackAdmin",
+    "CallAttemptAdmin",
     # Crush Spark
-    'CrushSparkAdmin',
-
+    "CrushSparkAdmin",
     # Connections
-    'EventConnectionAdmin',
-    'ConnectionMessageAdmin',
-
+    "EventConnectionAdmin",
+    "ConnectionMessageAdmin",
     # Activities
-    'EventActivityOptionInline',
-    'GlobalActivityOptionAdmin',
-    'EventActivityOptionAdmin',
-    'EventActivityVoteAdmin',
-    'EventVotingSessionAdmin',
-    'PresentationQueueAdmin',
-    'PresentationRatingAdmin',
-
+    "EventActivityOptionInline",
+    "GlobalActivityOptionAdmin",
+    "EventActivityOptionAdmin",
+    "EventActivityVoteAdmin",
+    "EventVotingSessionAdmin",
+    "PresentationQueueAdmin",
+    "PresentationRatingAdmin",
     # Journey
-    'JourneyChapterInline',
-    'JourneyChallengeInline',
-    'JourneyRewardInline',
-    'ChapterProgressInline',
-    'JourneyConfigurationAdmin',
-    'JourneyChapterAdmin',
-    'JourneyChallengeAdmin',
-    'JourneyRewardAdmin',
-    'JourneyProgressAdmin',
-    'ChapterProgressAdmin',
-    'ChallengeAttemptAdmin',
-    'RewardProgressAdmin',
-    'JourneyGiftAdmin',
-
+    "JourneyChapterInline",
+    "JourneyChallengeInline",
+    "JourneyRewardInline",
+    "ChapterProgressInline",
+    "JourneyConfigurationAdmin",
+    "JourneyChapterAdmin",
+    "JourneyChallengeAdmin",
+    "JourneyRewardAdmin",
+    "JourneyProgressAdmin",
+    "ChapterProgressAdmin",
+    "ChallengeAttemptAdmin",
+    "RewardProgressAdmin",
+    "JourneyGiftAdmin",
     # Advent
-    'AdventDoorContentInline',
-    'AdventDoorInline',
-    'QRCodeTokenInline',
-    'AdventCalendarAdmin',
-    'AdventDoorAdmin',
-    'AdventDoorContentAdmin',
-    'AdventProgressAdmin',
-    'QRCodeTokenAdmin',
-
+    "AdventDoorContentInline",
+    "AdventDoorInline",
+    "QRCodeTokenInline",
+    "AdventCalendarAdmin",
+    "AdventDoorAdmin",
+    "AdventDoorContentAdmin",
+    "AdventProgressAdmin",
+    "QRCodeTokenAdmin",
     # Notifications
-    'PushSubscriptionAdmin',
-    'CoachPushSubscriptionAdmin',
-    'NotificationAdmin',
-
+    "PushSubscriptionAdmin",
+    "CoachPushSubscriptionAdmin",
+    "NotificationAdmin",
     # Preferences
-    'UserActivityAdmin',
-    'EmailPreferenceAdmin',
-    'ProfileReminderAdmin',
-
+    "UserActivityAdmin",
+    "EmailPreferenceAdmin",
+    "ProfileReminderAdmin",
     # Referrals
-    'ReferralCodeAdmin',
-    'ReferralAttributionAdmin',
-
+    "ReferralCodeAdmin",
+    "ReferralAttributionAdmin",
     # Users
-    'CrushProfileUserInline',
-    'CrushCoachUserInline',
-    'CrushUserAdmin',
-    'UserDataConsentAdmin',
-
+    "CrushProfileUserInline",
+    "CrushCoachUserInline",
+    "CrushUserAdmin",
+    "UserDataConsentAdmin",
     # Wallet
-    'WalletPassFilter',
-    'WalletPassAdmin',
-    'WalletPassProxy',
-
+    "WalletPassFilter",
+    "WalletPassAdmin",
+    "WalletPassProxy",
     # PWA Devices
-    'PWADeviceInstallationAdmin',
-
+    "PWADeviceInstallationAdmin",
     # OAuth State (debugging)
-    'OAuthStateAdmin',
-
+    "OAuthStateAdmin",
     # PassKit Device Registration
-    'PasskitDeviceRegistrationAdmin',
-
+    "PasskitDeviceRegistrationAdmin",
     # Newsletter
-    'NewsletterAdmin',
-    'NewsletterRecipientAdmin',
-
+    "NewsletterAdmin",
+    "NewsletterRecipientAdmin",
     # Multi-channel Campaigns
-    'CampaignAdmin',
-    'CampaignRecipientAdmin',
-
+    "CampaignAdmin",
+    "CampaignRecipientAdmin",
     # Site Configuration
-    'CrushSiteConfigAdmin',
-
+    "CrushSiteConfigAdmin",
     # Event Polls
-    'EventPollOptionInline',
-    'EventPollAdmin',
-    'EventPollVoteAdmin',
-
+    "EventPollOptionInline",
+    "EventPollAdmin",
+    "EventPollVoteAdmin",
     # Crush Connect
-    'CrushConnectWaitlistAdmin',
-    'CrushConnectMembershipAdmin',
-    'InterestAdmin',
-    'SparkPromptAdmin',
-    'ConnectCoachPickAdmin',
-    'ConnectCycleFeedbackAdmin',
-
+    "CrushConnectWaitlistAdmin",
+    "CrushConnectMembershipAdmin",
+    "InterestAdmin",
+    "SparkPromptAdmin",
+    "ConnectCoachPickAdmin",
+    "ConnectCycleFeedbackAdmin",
     # Matching
-    'TraitAdmin',
-    'MatchScoreAdmin',
-
+    "TraitAdmin",
+    "MatchScoreAdmin",
     # Weekly KPI Snapshots
-    'WeeklyMetricsSnapshotAdmin',
-
+    "WeeklyMetricsSnapshotAdmin",
     # Crush Credit
-    'CrushCreditAdmin',
-    'CreditRedemptionAdmin',
-    'CreditRedemptionInline',
-    'CashRefundQueueFilter',
-    'issue_goodwill_credit',
-
+    "CrushCreditAdmin",
+    "CreditRedemptionAdmin",
+    "CreditRedemptionInline",
+    "CashRefundQueueFilter",
+    "issue_goodwill_credit",
     # Changelog / Patch Notes
-    'PatchReleaseAdmin',
-    'PatchNoteAdmin',
-    'PatchNoteInline',
-
+    "PatchReleaseAdmin",
+    "PatchNoteAdmin",
+    "PatchNoteInline",
     # Live Quiz
-    'QuizRoundInline',
-    'QuizQuestionInline',
-    'QuizTableMembershipInline',
-    'QuizEventAdmin',
-    'QuizRoundAdmin',
-    'QuizQuestionAdmin',
-    'QuizTableAdmin',
-    'QuizRotationScheduleInline',
-    'TableRoundScoreAdmin',
-    'IndividualScoreAdmin',
-
+    "QuizRoundInline",
+    "QuizQuestionInline",
+    "QuizTableMembershipInline",
+    "QuizEventAdmin",
+    "QuizRoundAdmin",
+    "QuizQuestionAdmin",
+    "QuizTableAdmin",
+    "QuizRotationScheduleInline",
+    "TableRoundScoreAdmin",
+    "IndividualScoreAdmin",
     # Crush Cache
-    'CacheStationInline',
-    'CacheChallengeInline',
-    'CacheTeamMemberInline',
-    'CacheHuntAdmin',
-    'CacheStationAdmin',
-    'CacheChallengeAdmin',
-    'CacheTeamAdmin',
-    'CacheTeamProgressAdmin',
-    'CacheStationAttemptAdmin',
-    'CacheChallengeAttemptAdmin',
+    "CacheStationInline",
+    "CacheChallengeInline",
+    "CacheTeamMemberInline",
+    "CacheHuntAdmin",
+    "CacheStationAdmin",
+    "CacheChallengeAdmin",
+    "CacheTeamAdmin",
+    "CacheTeamProgressAdmin",
+    "CacheStationAttemptAdmin",
+    "CacheChallengeAttemptAdmin",
 ]

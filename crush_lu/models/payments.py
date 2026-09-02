@@ -31,6 +31,53 @@ class PaymentTransactionQuerySet(models.QuerySet):
         )
 
 
+class EventCheckoutCreationClaim(models.Model):
+    """Durable mutex while one event checkout is being replaced at SumUp.
+
+    A row lock cannot cover the first-checkout case because no payment row
+    exists yet, and holding the event/roster locks over provider I/O stalls an
+    entire curated evening.  This one-per-registration claim bridges the short
+    database validation phases around the unlocked network phase.  The stored
+    reference also leaves an audit handle if the process stops after SumUp
+    creates a checkout but before the local payment row is published.
+    """
+
+    class State(models.TextChoices):
+        ACTIVE = "active", _("Active")
+        RETIRING = "retiring", _("Retiring")
+        RETIRED = "retired", _("Safely retired")
+
+    registration = models.OneToOneField(
+        "crush_lu.EventRegistration",
+        # Account erasure must not be held hostage by an abandoned worker.
+        # Snapshot ids below keep the claim operable after this link clears.
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="checkout_creation_claim",
+    )
+    registration_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    event_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    transaction_reference = models.CharField(max_length=64, unique=True)
+    payment_method = models.CharField(
+        max_length=10,
+        choices=(("card", _("Card")), ("credit", _("Crush Credit"))),
+    )
+    claimed_at = models.DateTimeField(default=timezone.now, db_index=True)
+    state = models.CharField(
+        max_length=10,
+        choices=State.choices,
+        default=State.ACTIVE,
+        db_index=True,
+    )
+    provider_checkout_id = models.CharField(max_length=100, blank=True, default="")
+
+    class Meta:
+        verbose_name = _("Event checkout creation claim")
+        verbose_name_plural = _("Event checkout creation claims")
+
+
 class PaymentTransaction(models.Model):
     """
     Tracks payment transactions initiated via payment providers (SumUp).

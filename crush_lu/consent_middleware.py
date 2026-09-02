@@ -87,6 +87,24 @@ class CrushConsentMiddleware:
         if self.is_on_crush_domain(request) and self._is_exempt_path(request.path):
             return self.get_response(request)
 
+        # A checkout retirement can temporarily pause profile deletion after
+        # committing a payment-blocking tombstone.  Let that member resume
+        # only the exact deletion endpoints; every payment and product route
+        # remains banned, and successful deletion replaces this transient
+        # reason with the permanent user-deletion reason.
+        if (
+            self.is_on_crush_domain(request)
+            and request.user.is_authenticated
+            and self._is_deletion_retry_path(request.path)
+        ):
+            consent = getattr(request.user, "data_consent", None)
+            if (
+                consent is not None
+                and consent.crushlu_banned
+                and consent.crushlu_ban_reason == "deletion_in_progress"
+            ):
+                return self.get_response(request)
+
         # Check ban status before anything else (for authenticated Crush.lu users)
         if self.is_on_crush_domain(request) and request.user.is_authenticated:
             if self.is_banned(request.user):
@@ -145,6 +163,19 @@ class CrushConsentMiddleware:
 
         # Root path is always exempt
         return path == "/"
+
+    def _is_deletion_retry_path(self, path):
+        """Match only self-service routes that can finish a paused erasure."""
+
+        for lang_prefix in ["/en/", "/fr/", "/de/"]:
+            if path.startswith(lang_prefix):
+                path = "/" + path[len(lang_prefix) :]
+                break
+        return path in {
+            "/account/delete/",
+            "/account/delete-profile/",
+            "/account/gdpr/",
+        }
 
     def is_on_crush_domain(self, request):
         """Check if request is on the Crush.lu domain."""

@@ -41,6 +41,50 @@ _STATUS_COLOURS = {
 }
 
 
+class EventCheckoutCreationClaimAdmin(admin.ModelAdmin):
+    """Read-only visibility into short-lived or abandoned checkout claims."""
+
+    list_display = (
+        "transaction_reference",
+        "registration_id_snapshot",
+        "event_id_snapshot",
+        "payment_method",
+        "state",
+        "provider_checkout_id",
+        "claimed_at",
+    )
+    search_fields = (
+        "transaction_reference",
+        "provider_checkout_id",
+        "registration_id_snapshot",
+        "event_id_snapshot",
+    )
+    ordering = ("-claimed_at",)
+    date_hierarchy = "claimed_at"
+    readonly_fields = (
+        "registration",
+        "registration_id_snapshot",
+        "event_id_snapshot",
+        "token",
+        "transaction_reference",
+        "payment_method",
+        "state",
+        "claimed_at",
+        "provider_checkout_id",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Use cleanup_event_checkout_claims --apply so a known SumUp checkout
+        # is deactivated before its claim disappears.
+        return False
+
+
 class PaymentTransactionAdmin(admin.ModelAdmin):
     """Read-only view of every checkout we have ever opened at SumUp."""
 

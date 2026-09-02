@@ -1,0 +1,49 @@
+{% load i18n %}
+{% comment %}
+Privacy-safe member outlook for a curated speed-dating event.
+
+The view passes a strict whitelist. In particular, this partial must never
+receive or derive `get_application_pool().by_pool`, exact preference shortages,
+or a claim that headcount alone makes a group viable.
+{% endcomment %}
+<div data-curated-group-outlook class="ml-7 space-y-3">
+    <p class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
+        {% if outlook.interest_state == "exploring" %}
+            {% trans "The overall application pool is large enough to explore group combinations." %}
+        {% else %}
+            {% trans "Applications are open and the overall pool is still building." %}
+        {% endif %}
+    </p>
+
+    <div class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3 text-sm text-purple-900 dark:text-purple-200">
+        {% if outlook.group_size %}
+            <p>{% blocktrans with size=outlook.group_size %}Groups are designed for around {{ size }} people.{% endblocktrans %}</p>
+            {% if outlook.planned_groups %}
+                <p class="mt-1">
+                    {% blocktrans count count=outlook.planned_groups %}The organiser currently plans one group, subject to compatible applications and a viable round schedule.{% plural %}The organiser currently plans {{ count }} groups, subject to compatible applications and a viable round schedule.{% endblocktrans %}
+                </p>
+            {% elif outlook.parallel_groups_possible %}
+                <p class="mt-1">
+                    {% blocktrans count count=outlook.max_groups %}The venue can host up to one group.{% plural %}The venue can host up to {{ count }} parallel groups.{% endblocktrans %}
+                </p>
+            {% else %}
+                <p class="mt-1">{% trans "One flexible group can run at the venue." %}</p>
+            {% endif %}
+        {% else %}
+            <p>{% trans "The group size and number of groups will be set after applications are reviewed." %}</p>
+        {% endif %}
+    </div>
+
+    {% if outlook.group_size %}
+        <ul class="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+            <li>{% trans "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed." %}</li>
+            {% if event.registration_fee > 0 %}
+                <li>{% trans "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply." %}</li>
+            {% else %}
+                <li>{% trans "If selected for a viable provisional group, you will receive a separate confirmation." %}</li>
+            {% endif %}
+            <li>{% trans "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal." %}</li>
+            <li>{% trans "Groups are finalized before the first round and stay together for the whole evening." %}</li>
+        </ul>
+    {% endif %}
+</div>

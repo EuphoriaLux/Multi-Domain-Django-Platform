@@ -12,7 +12,7 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
         "phone_otp_days": 30,        # PhoneOTP: phone number + code hash
         "daily_activity_days": 90,   # DailyUserActivity WAU rows
         "call_attempt_days": 365,    # CallAttempt screening-call audit trail
-        "event_preference_days": 30, # EventRegistrationPreference after event
+        "event_preference_days": 30, # preferences + named group schedule
     }
 
 ``DailyUserActivity`` pruning delegates to the existing
@@ -37,7 +37,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from crush_lu.models.events import EventRegistrationPreference
+from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreference
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
 
@@ -90,13 +90,9 @@ class Command(BaseCommand):
             return cli_value if cli_value is not None else windows[key]
 
         phone_days = _window(options["phone_otp_days"], "phone_otp_days")
-        activity_days = _window(
-            options["daily_activity_days"], "daily_activity_days"
-        )
+        activity_days = _window(options["daily_activity_days"], "daily_activity_days")
         call_days = _window(options["call_attempt_days"], "call_attempt_days")
-        pref_days = _window(
-            options["event_preference_days"], "event_preference_days"
-        )
+        pref_days = _window(options["event_preference_days"], "event_preference_days")
 
         # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
         # future, so `created_at < cutoff` would match — and delete — every
@@ -134,9 +130,7 @@ class Command(BaseCommand):
                 otp_qs, deadline, order_by="created_at"
             )
             total_deleted += deleted
-            self.stdout.write(
-                f"  PhoneOTP older than {phone_days}d: deleted {deleted}"
-            )
+            self.stdout.write(f"  PhoneOTP older than {phone_days}d: deleted {deleted}")
         else:
             self.stdout.write(
                 f"  PhoneOTP older than {phone_days}d: {otp_qs.count()} row(s)"
@@ -184,7 +178,32 @@ class Command(BaseCommand):
                     f"{activity_qs.count()} row(s)"
                 )
 
-        # 4. EventRegistrationPreference — speed-dating preference snapshots
+        # 4. Curated group lineage — named rosters and exact pairings are
+        # derived dating/preference information. The aggregate fairness proof
+        # and digest have served their support window once the event is a month
+        # behind us, so prune the group root and its cascaded member/schedule
+        # rows before pruning the raw preference snapshots below. Event and
+        # registration history remain intact.
+        if not budget_hit:
+            group_qs = CuratedEventGroup.objects.filter(
+                event__date_time__lt=now - timedelta(days=pref_days)
+            )
+            if apply_changes:
+                deleted, budget_hit = self._delete_in_chunks(
+                    group_qs, deadline, order_by="event__date_time"
+                )
+                total_deleted += deleted
+                self.stdout.write(
+                    "  Curated group roster/schedule data for events older than "
+                    f"{pref_days}d: deleted {deleted} row(s), including cascades"
+                )
+            else:
+                self.stdout.write(
+                    "  Curated groups for events older than "
+                    f"{pref_days}d: {group_qs.count()} group(s)"
+                )
+
+        # 5. EventRegistrationPreference — speed-dating preference snapshots
         # (age range / languages / preferred genders). The registration row
         # itself is untouched; only the preference side row is pruned, once
         # the event started more than the window ago.
@@ -214,10 +233,12 @@ class Command(BaseCommand):
                 )
 
         if apply_changes and budget_hit:
-            self.stdout.write(self.style.WARNING(
-                f"Time budget reached — {total_deleted} row(s) deleted so far; "
-                "remaining expired rows will be pruned on the next sweep."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Time budget reached — {total_deleted} row(s) deleted so far; "
+                    "remaining expired rows will be pruned on the next sweep."
+                )
+            )
         elif apply_changes:
             self.stdout.write(
                 self.style.SUCCESS(
@@ -225,9 +246,7 @@ class Command(BaseCommand):
                 )
             )
         else:
-            self.stdout.write(
-                "Dry-run only — re-run with --apply to delete."
-            )
+            self.stdout.write("Dry-run only — re-run with --apply to delete.")
 
     def _delete_in_chunks(
         self, queryset, deadline, order_by, chunk_size=RETENTION_CHUNK_SIZE

@@ -33,7 +33,9 @@ class SiteTestMixin:
 
 class SumUpServiceTests(TestCase):
     def setUp(self):
-        self.client_service = SumUpClient(api_key="test_api_key", merchant_code="test_merchant")
+        self.client_service = SumUpClient(
+            api_key="test_api_key", merchant_code="test_merchant"
+        )
 
     @patch("requests.post")
     def test_create_checkout_success(self, mock_post):
@@ -71,7 +73,9 @@ class SumUpServiceTests(TestCase):
     def test_client_strips_whitespace_outside_quotes(self):
         self.assertEqual(SumUpClient().api_key, "quoted_key")
 
-    @override_settings(SUMUP_API_KEY='"  padded_key  "', SUMUP_MERCHANT_CODE="'  MAV9HKVS  '")
+    @override_settings(
+        SUMUP_API_KEY='"  padded_key  "', SUMUP_MERCHANT_CODE="'  MAV9HKVS  '"
+    )
     def test_client_strips_whitespace_inside_quotes(self):
         """Quotes outermost, whitespace inside. A single strip-then-unquote pass
         leaves the inner padding behind and SumUp answers a bare 401."""
@@ -80,7 +84,7 @@ class SumUpServiceTests(TestCase):
         self.assertEqual(client.merchant_code, "MAV9HKVS")
 
     def test_clean_credential_handles_nested_wrapping(self):
-        self.assertEqual(clean_credential('  "  \'  key  \'  "  '), "key")
+        self.assertEqual(clean_credential("  \"  '  key  '  \"  "), "key")
         self.assertEqual(clean_credential(None), "")
         self.assertEqual(clean_credential(""), "")
 
@@ -118,11 +122,11 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
             password="password123",
         )
         from crush_lu.models.profiles import UserDataConsent
+
         UserDataConsent.objects.update_or_create(
             user=self.user,
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
-
 
         self.profile = CrushProfile.objects.create(
             user=self.user,
@@ -165,10 +169,12 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         mock_create_checkout.return_value = {"id": "CHK_EVT_001", "status": "PENDING"}
         self.client.force_login(self.user)
 
-        url = reverse("sumup_create_event_checkout", kwargs={"registration_id": self.registration.id})
+        url = reverse(
+            "sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
         response = self.client.post(url)
         self.assertEqual(response.status_code, 200)
-
 
         data = response.json()
         self.assertTrue(data["success"])
@@ -255,13 +261,19 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_customer")
-    def test_create_sumup_premium_checkout_view(self, mock_create_customer, mock_create_checkout):
-        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+    def test_create_sumup_premium_checkout_view(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        mock_create_customer.return_value = {
+            "customer_id": f"crush-user-{self.user.id}"
+        }
         mock_create_checkout.return_value = {"id": "CHK_PREM_001", "status": "PENDING"}
         self.client.force_login(self.user)
 
-
-        url = reverse("sumup_create_premium_checkout", kwargs={"membership_id": self.membership.id})
+        url = reverse(
+            "sumup_create_premium_checkout",
+            kwargs={"membership_id": self.membership.id},
+        )
         response = self.client.post(url)
 
         self.assertEqual(response.status_code, 200)
@@ -289,8 +301,14 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         mock_get_checkout.return_value = {"id": "CHK_EVT_100", "status": "PAID"}
 
         url = reverse("sumup_webhook")
-        payload = {"id": "CHK_EVT_100", "status": "PAID", "event_type": "CHECKOUT_COMPLETED"}
-        response = self.client.post(url, data=json.dumps(payload), content_type="application/json")
+        payload = {
+            "id": "CHK_EVT_100",
+            "status": "PAID",
+            "event_type": "CHECKOUT_COMPLETED",
+        }
+        response = self.client.post(
+            url, data=json.dumps(payload), content_type="application/json"
+        )
 
         self.assertEqual(response.status_code, 200)
         tx.refresh_from_db()
@@ -409,8 +427,14 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         mock_get_checkout.return_value = {"id": "CHK_PREM_200", "status": "PAID"}
 
         url = reverse("sumup_webhook")
-        payload = {"id": "CHK_PREM_200", "status": "PAID", "event_type": "CHECKOUT_COMPLETED"}
-        response = self.client.post(url, data=json.dumps(payload), content_type="application/json")
+        payload = {
+            "id": "CHK_PREM_200",
+            "status": "PAID",
+            "event_type": "CHECKOUT_COMPLETED",
+        }
+        response = self.client.post(
+            url, data=json.dumps(payload), content_type="application/json"
+        )
 
         self.assertEqual(response.status_code, 200)
         tx.refresh_from_db()
@@ -473,7 +497,9 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
     def test_displayed_price_matches_charged_price(
         self, mock_create_customer, mock_create_checkout
     ):
-        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_customer.return_value = {
+            "customer_id": f"crush-user-{self.user.id}"
+        }
         mock_create_checkout.return_value = {"id": "CHK_PRICE_001", "status": "PENDING"}
         self.client.force_login(self.user)
 
@@ -643,7 +669,9 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
     @patch("crush_lu.views_payments.SumUpClient.create_customer")
     def test_selected_tester_can_pay(self, mock_create_customer, mock_create_checkout):
         """The allowlist opens the path it is supposed to open."""
-        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_customer.return_value = {
+            "customer_id": f"crush-user-{self.user.id}"
+        }
         mock_create_checkout.return_value = {"id": "CHK_BETA_OK", "status": "PENDING"}
         self._select_as_tester()
         self.client.force_login(self.user)
@@ -700,7 +728,9 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
     ):
         """Turning the funnel off must restore open self-serve purchase — the
         new check is scoped to the beta, not a second permanent gate."""
-        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_customer.return_value = {
+            "customer_id": f"crush-user-{self.user.id}"
+        }
         mock_create_checkout.return_value = {"id": "CHK_BETA_OFF", "status": "PENDING"}
         self.client.force_login(self.user)
 
@@ -950,7 +980,9 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
     ):
         """Only a CAPTURED payment blocks. A declined or abandoned attempt must
         still be retryable, or one bad card would strand the member."""
-        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_customer.return_value = {
+            "customer_id": f"crush-user-{self.user.id}"
+        }
         mock_create_checkout.return_value = {"id": "CHK_RETRY_OK", "status": "PENDING"}
         self._open_checkout()  # left PENDING
         self._select_as_tester()
@@ -1082,7 +1114,9 @@ class CheckoutGuardTests(SiteTestMixin, TestCase):
         mock_create_checkout.assert_not_called()
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    def test_successful_payment_sends_the_promised_confirmation(self, mock_get_checkout):
+    def test_successful_payment_sends_the_promised_confirmation(
+        self, mock_get_checkout
+    ):
         """The payment-pending email promises a confirmation once paid."""
         from django.core import mail
 
@@ -1388,17 +1422,13 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
             )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response["Location"], reverse("crush_lu:crush_connect_hub")
-        )
+        self.assertEqual(response["Location"], reverse("crush_lu:crush_connect_hub"))
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "active")
         # The message rides along through whatever redirect chain the hub gate
         # sends them down, so it does not depend on the hub rendering.
         texts = [str(m) for m in response.wsgi_request._messages]
-        self.assertTrue(
-            any("Premium" in t and "Robin" in t for t in texts), texts
-        )
+        self.assertTrue(any("Premium" in t and "Robin" in t for t in texts), texts)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_the_confirmation_is_actually_rendered_where_the_gate_lands_them(
@@ -1563,9 +1593,7 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         texts = [str(m) for m in response.wsgi_request._messages]
         self.assertTrue(any("votre coach est Robin" in t for t in texts), texts)
         self.assertFalse(any("your coach is" in t for t in texts), texts)
-        self.assertTrue(
-            response["Location"].startswith("/fr/"), response["Location"]
-        )
+        self.assertTrue(response["Location"].startswith("/fr/"), response["Location"])
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_an_explicit_preference_beats_the_browsing_language(
@@ -1594,14 +1622,10 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         client.force_login(self.user)
 
         with self.captureOnCommitCallbacks(execute=True):
-            response = client.get(
-                reverse("sumup_payment_return"), {"ref": "PREMFR"}
-            )
+            response = client.get(reverse("sumup_payment_return"), {"ref": "PREMFR"})
 
         texts = [str(m) for m in response.wsgi_request._messages]
-        self.assertTrue(
-            any("votre coach est Robin" in t for t in texts), texts
-        )
+        self.assertTrue(any("votre coach est Robin" in t for t in texts), texts)
         self.assertFalse(any("your coach is" in t for t in texts), texts)
         # The whole page, not just the line this PR added: a French
         # confirmation beside an English "Payment completed successfully" is
@@ -1610,9 +1634,7 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
             any("Payment completed successfully" in t for t in texts), texts
         )
         # ...and it must not land them on an English page.
-        self.assertTrue(
-            response["Location"].startswith("/fr/"), response["Location"]
-        )
+        self.assertTrue(response["Location"].startswith("/fr/"), response["Location"])
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_an_explicit_english_survives_a_french_browser(self, mock_get_checkout):
@@ -1691,9 +1713,7 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertFalse(any("Robin" in t for t in texts), texts)
         self.assertFalse(any("Premium" in t for t in texts), texts)
         # Indistinguishable from a reference that does not exist at all.
-        self.assertTrue(
-            any("reference not found" in t for t in texts), texts
-        )
+        self.assertTrue(any("reference not found" in t for t in texts), texts)
         # ...and a stranger must not be able to drive the payment either.
         mock_get_checkout.assert_not_called()
         self.membership.refresh_from_db()
@@ -1904,13 +1924,15 @@ class SeatStatusAtCompletionTests(SiteTestMixin, TestCase):
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
 
     def test_payment_does_not_erase_a_recorded_no_show(self):
+        """The no-show remains, while the captured-value marker is retained."""
         self.registration.status = "no_show"
         self.registration.save()
 
         self._apply("NS")
 
         self.assertEqual(self.registration.status, "no_show")
-        self.assertFalse(self.registration.payment_confirmed)
+        self.assertTrue(self.registration.payment_confirmed)
+        self.assertIsNotNone(self.registration.payment_date)
 
     def test_pending_still_confirms(self):
         """The allow-list must not break the ordinary path."""
@@ -2054,11 +2076,9 @@ class CheckoutLockOrderTests(TestCase):
     """Pin the lock order structurally — it has been inverted twice.
 
     A deadlock only shows up under real concurrency, which the test client
-    cannot express, so the runtime tests below can never catch it. This reads
-    the source instead: in the checkout path the PaymentTransaction lock must be
-    acquired before the EventRegistration lock, matching _apply_paid_checkout.
-    Taking them the other way round is an ABBA deadlock against a webhook for
-    those very rows.
+    cannot express, so the runtime tests below can never catch it. The creator
+    delegates its combined state lock to ``_lock_event_checkout_state``; both
+    that helper and completion must take payment -> event -> registration.
     """
 
     def _lock_sequence(self, func):
@@ -2066,18 +2086,18 @@ class CheckoutLockOrderTests(TestCase):
         import re
 
         src = inspect.getsource(func)
-        return re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src) or re.findall(
-            r"(\w+)\.objects[\s\S]{0,40}?select_for_update", src
-        )
+        return re.findall(
+            r"(\w+)\.objects\s*\.?\s*select_for_update", src
+        ) or re.findall(r"(\w+)\.objects[\s\S]{0,40}?select_for_update", src)
 
     def test_creation_locks_transaction_before_registration(self):
-        from crush_lu.views_payments import create_sumup_event_checkout
+        from crush_lu.views_payments import _lock_event_checkout_state
 
-        seq = self._lock_sequence(create_sumup_event_checkout)
+        seq = self._lock_sequence(_lock_event_checkout_state)
         self.assertEqual(
-            seq[:2],
-            ["PaymentTransaction", "EventRegistration"],
-            f"checkout path must lock PaymentTransaction first; got {seq}",
+            seq[:3],
+            ["PaymentTransaction", "MeetupEvent", "EventRegistration"],
+            f"checkout state must lock payment -> event -> registration; got {seq}",
         )
 
     def test_completion_locks_transaction_before_registration(self):
@@ -2085,20 +2105,20 @@ class CheckoutLockOrderTests(TestCase):
 
         seq = self._lock_sequence(_apply_paid_checkout)
         self.assertEqual(
-            seq[:2],
-            ["PaymentTransaction", "EventRegistration"],
-            f"completion path must lock PaymentTransaction first; got {seq}",
+            seq[:3],
+            ["PaymentTransaction", "MeetupEvent", "EventRegistration"],
+            f"completion path must lock payment -> event -> registration; got {seq}",
         )
 
     def test_both_paths_agree(self):
         from crush_lu.views_payments import (
             _apply_paid_checkout,
-            create_sumup_event_checkout,
+            _lock_event_checkout_state,
         )
 
         self.assertEqual(
-            self._lock_sequence(create_sumup_event_checkout)[:2],
-            self._lock_sequence(_apply_paid_checkout)[:2],
+            self._lock_sequence(_lock_event_checkout_state)[:3],
+            self._lock_sequence(_apply_paid_checkout)[:3],
         )
 
 
@@ -4638,7 +4658,7 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
 
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     def test_refuses_the_decimal_literals_that_are_not_amounts(self, mock_create):
-        """"Infinity" and "NaN" parse as Decimal — neither is a donation.
+        """ "Infinity" and "NaN" parse as Decimal — neither is a donation.
 
         Infinity is the dangerous one: no ``< min`` or ``> max`` comparison
         rejects it, so it would sail through to SumUp as ``inf``. NaN fails the
@@ -4698,9 +4718,7 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
 
     @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_a_native_shell_without_commerce_may_not_open_a_checkout(
-        self, mock_create
-    ):
+    def test_a_native_shell_without_commerce_may_not_open_a_checkout(self, mock_create):
         """Hiding the button does not close the endpoint the webview can reach.
 
         Apple and Google both treat payment taken outside their billing as

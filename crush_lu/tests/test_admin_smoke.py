@@ -14,6 +14,7 @@ Run with: pytest crush_lu/tests/test_admin_smoke.py -v
 """
 
 import io
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -27,8 +28,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.admin import crush_admin_site
+from crush_lu.admin.events import CuratedEventGroupInline
 from crush_lu.models import (
     CallAttempt,
+    CrushCoach,
+    CuratedEventGroup,
     EventFeedback,
     EventRegistration,
     MeetupEvent,
@@ -91,10 +95,73 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
         )
 
     def test_new_models_are_registered(self):
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            CuratedEventGroup,
+        ):
             self.assertIn(
                 model, crush_admin_site._registry, f"{model.__name__} not registered"
             )
+
+    def test_non_staff_coach_can_open_curated_schedule_read_only(self):
+        coach = User.objects.create_user(
+            username="schedule_coach",
+            email="schedule-coach@test.lu",
+            password="x",
+            is_staff=False,
+        )
+        CrushCoach.objects.create(user=coach, is_active=True)
+        User.objects.filter(pk=coach.pk).update(is_staff=False)
+        coach.refresh_from_db()
+        self.assertFalse(coach.is_staff)
+        coach.user_permissions.add(
+            Permission.objects.get(codename="view_curatedeventgroup")
+        )
+        event = MeetupEvent.objects.create(
+            title="Coach schedule",
+            description="Read-only schedule access",
+            event_type="speed_dating",
+            registration_mode="curated",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="Test venue",
+            max_participants=6,
+            group_size=6,
+            planned_groups=1,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            profile_requirement="none",
+        )
+        group = CuratedEventGroup.objects.create(
+            event=event,
+            generation=1,
+            group_number=1,
+        )
+        url = reverse("crush_admin:crush_lu_curatedeventgroup_change", args=[group.pk])
+        inline = CuratedEventGroupInline(MeetupEvent, crush_admin_site)
+
+        self.assertIn(f'href="{url}"', str(inline.schedule_manifest(group)))
+        self.assertTrue(url.startswith("/crush-admin/"))
+
+        self.client.force_login(coach)
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["has_change_permission"])
+        self.assertNotContains(response, 'name="_save"')
+
+    def test_curated_schedule_admin_is_fully_read_only(self):
+        request = type("Req", (), {"user": self.superuser})()
+        model_admin = crush_admin_site._registry[CuratedEventGroup]
+
+        self.assertFalse(model_admin.has_add_permission(request))
+        self.assertFalse(model_admin.has_change_permission(request))
+        self.assertFalse(model_admin.has_delete_permission(request))
+        for field in CuratedEventGroup._meta.fields:
+            if field.editable and field.name != "id":
+                self.assertIn(field.name, model_admin.readonly_fields)
 
     def test_log_style_admins_disallow_add_and_delete(self):
         """App-written records must not be creatable or deletable by hand."""
@@ -448,5 +515,3 @@ class ImageUploadSizeTests(TestCase):
 
         with self.assertRaises(ValidationError):
             process_uploaded_image(truncated_file)
-
-

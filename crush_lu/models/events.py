@@ -1,10 +1,14 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.core.validators import MaxValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
+import hashlib
+import json
 import re
 import uuid
 from .profiles import CrushCoach, SpecialUserExperience
@@ -26,6 +30,14 @@ MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 # the annotation when present*, so if the two lists ever disagree the same event
 # reports different capacities depending on how it was fetched.
 SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
+
+# Product contract for a viable curated evening. A participant is guaranteed
+# five different compatible mini-dates, so a group needs at least six people;
+# seven dates remains the quality target when the applicant graph supports it.
+CURATED_MIN_GUARANTEED_DATES = 5
+CURATED_MIN_GROUP_SIZE = CURATED_MIN_GUARANTEED_DATES + 1
+CURATED_TARGET_DATES = 7
+CURATED_MAX_PROJECTED_GROUP_SIZE = 42
 
 # "applied" is deliberately NOT in the list above. A curated speed-dating
 # application is an expression of interest, not a seat: forty people may apply
@@ -383,6 +395,58 @@ class MeetupEvent(models.Model):
         ),
     )
 
+    # Parallel groups on a curated night.
+    #
+    # A GROUP is the set of people who spend the evening together, rotating
+    # among the tables; a table is a two-seat station, not a cohort. A curated
+    # speed dating runs several groups of the same size side by side in one
+    # room -- three parallel groups is three separate speed datings, not one
+    # large one -- and how many actually run is decided by how many people
+    # applied. So capacity is elastic in units of a group rather than a single
+    # number fixed when the event was created: `max_participants` stays the
+    # ceiling (group_size x the most groups the venue can host) and
+    # `planned_groups` is the organiser's commitment for this particular night.
+    #
+    # Both NULL on every existing event and rejected outright off a curated one,
+    # so nothing about a direct-mode event changes.
+    group_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Curated speed dating only: how many people are in one group "
+            "(6–42; six is required to guarantee at least 5 different dates). "
+            "Set max participants to this times the most groups you can run in "
+            "parallel."
+        ),
+    )
+    planned_groups = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Curated speed dating only: how many parallel groups you have "
+            "committed to running. Leave blank while undecided — the event "
+            "page then says “up to N” and selection measures against the "
+            "full ceiling."
+        ),
+    )
+    curated_rounds_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_(
+            "Audited start of round one for a locked curated evening. Once set, "
+            "the all-evening groups are delivered history and never reprojected."
+        ),
+    )
+    curated_rounds_started_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="curated_evenings_started",
+    )
+
     # Status & Features
     is_published = models.BooleanField(default=False)
     is_cancelled = models.BooleanField(default=False)
@@ -611,10 +675,20 @@ class MeetupEvent(models.Model):
         :meth:`registration_capacity` take the *total* from this same read
         instead of counting again.
         """
+        return self._counts_by_gender(SEAT_HOLDING_STATUSES)
+
+    def _counts_by_gender(self, statuses):
+        """One grouped query: ``{gender_code_or_None: registrations}``.
+
+        Shared by the seat counts above and the applicant pool, which need the
+        identical shape over different statuses -- and must keep the identical
+        blind spots, since a member belonging to no pool has to be invisible to
+        both or the two disagree about the same person.
+        """
         # order_by() strips any default ordering: a Meta.ordering field would
         # otherwise join the GROUP BY and split each gender into several rows.
         return dict(
-            self.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
+            self.eventregistration_set.filter(status__in=statuses)
             .order_by()
             .values_list("user__crushprofile__gender")
             .annotate(seats=models.Count("id"))
@@ -703,6 +777,24 @@ class MeetupEvent(models.Model):
             self.max_participants_nb,
         ]
         set_caps = [c for c in gender_caps if c is not None]
+        # Gender caps and curation are alternative mechanisms, and running both
+        # is worse than picking either. The caps decide the mix at the door on a
+        # first-come event; on a curated one the organiser decides it when they
+        # compose the groups -- but the cap still gates the selection action
+        # (see the pool check in admin.events.confirm_registrations), so a cap
+        # left at 0 makes that whole group unselectable with nothing on screen
+        # to say so. A curated speed dating carrying max_participants_nb = 0 is
+        # a product built for LGBTQ+ nights that silently cannot seat anyone
+        # non-binary. Checked before the all-three rule so a curated event gets
+        # the message that applies to it.
+        if set_caps and self.uses_curated_registration:
+            raise ValidationError(
+                _(
+                    "Clear the per-gender caps on a curated event — the groups "
+                    "are composed by the organiser, and a cap left here blocks "
+                    "that group from being selected at all."
+                )
+            )
         if 0 < len(set_caps) < 3:
             raise ValidationError(
                 _(
@@ -710,6 +802,115 @@ class MeetupEvent(models.Model):
                     "for a total-only cap."
                 )
             )
+
+        # Parallel groups: only on a curated night, and only in a shape the
+        # venue ceiling can actually hold.
+        if (
+            self.group_size is not None or self.planned_groups is not None
+        ) and not self.uses_curated_registration:
+            raise ValidationError(
+                {
+                    "group_size": _(
+                        "Group size and planned groups apply to curated "
+                        "speed-dating events only."
+                    )
+                }
+            )
+        if self.group_size is not None:
+            if self.group_size < CURATED_MIN_GROUP_SIZE:
+                raise ValidationError(
+                    {
+                        "group_size": _(
+                            "A curated group needs at least %(members)d people "
+                            "to guarantee %(dates)d different dates each."
+                        )
+                        % {
+                            "members": CURATED_MIN_GROUP_SIZE,
+                            "dates": CURATED_MIN_GUARANTEED_DATES,
+                        }
+                    }
+                )
+            if self.group_size > CURATED_MAX_PROJECTED_GROUP_SIZE:
+                raise ValidationError(
+                    {
+                        "group_size": _(
+                            "A projected group cannot exceed %(maximum)d people."
+                        )
+                        % {"maximum": CURATED_MAX_PROJECTED_GROUP_SIZE}
+                    }
+                )
+            if self.group_size > self.max_participants:
+                raise ValidationError(
+                    {
+                        "group_size": _(
+                            "Group size (%(size)d) cannot exceed total max "
+                            "participants (%(max)d)."
+                        )
+                        % {"size": self.group_size, "max": self.max_participants}
+                    }
+                )
+        if self.planned_groups is not None:
+            if self.group_size is None:
+                raise ValidationError(
+                    {
+                        "planned_groups": _(
+                            "Set the group size before committing to a number "
+                            "of groups."
+                        )
+                    }
+                )
+            if not 1 <= self.planned_groups <= self.max_groups:
+                raise ValidationError(
+                    {
+                        "planned_groups": _(
+                            "Planned groups must be between 1 and %(max)d for "
+                            "this capacity."
+                        )
+                        % {"max": self.max_groups}
+                    }
+                )
+
+        if self.pk:
+            projection_fields = (
+                "event_type",
+                "registration_mode",
+                "registration_deadline",
+                "max_participants",
+                "max_participants_m",
+                "max_participants_f",
+                "max_participants_nb",
+                "group_size",
+                "planned_groups",
+                "min_age",
+                "max_age",
+                "registration_fee",
+            )
+            previous_projection = (
+                type(self).objects.filter(pk=self.pk).values(*projection_fields).first()
+            )
+            changed_projection_fields = [
+                field_name
+                for field_name in projection_fields
+                if previous_projection is not None
+                and previous_projection[field_name] != getattr(self, field_name)
+            ]
+            has_certified_projection = CuratedEventGroup.objects.filter(
+                event_id=self.pk,
+                status__in=(
+                    CuratedEventGroup.STATUS_PROVISIONAL,
+                    CuratedEventGroup.STATUS_LOCKED,
+                    CuratedEventGroup.STATUS_DEGRADED,
+                ),
+            ).exists()
+            if changed_projection_fields and has_certified_projection:
+                message = _(
+                    "Projection admission rules, price, capacity and mode cannot change while a "
+                    "provisional, locked or degraded group exists. Use an audited "
+                    "reprojection workflow first."
+                )
+                raise ValidationError(
+                    {field_name: message for field_name in changed_projection_fields}
+                )
 
         # Age range validation
         if self.min_age > self.max_age:
@@ -1095,6 +1296,60 @@ class MeetupEvent(models.Model):
             and self.registration_mode == self.REGISTRATION_MODE_CURATED
         )
 
+    @property
+    def max_groups(self):
+        """Most groups this night could run — the ceiling, not the commitment.
+
+        Derived from ``max_participants`` rather than stored, so the two can
+        never disagree. Always at least 1: an event without ``group_size`` is
+        one group of ``max_participants``, which is what every event was before
+        parallel groups existed.
+        """
+        if not self.group_size:
+            return 1
+        # A remainder is intentionally left unused. Rounding up would turn the
+        # venue's physical ceiling into a suggestion (35 places with groups of
+        # 16 must never become three groups / 48 invitations).
+        return max(1, self.max_participants // self.group_size)
+
+    @property
+    def group_capacity_remainder(self):
+        """Venue places that cannot form another complete parallel group."""
+        if not self.group_size:
+            return 0
+        return self.max_participants % self.group_size
+
+    @property
+    def selection_capacity(self):
+        """How many people may actually be given a seat on this event.
+
+        Deliberately NOT ``spots_remaining``'s ``max_participants``. On a
+        curated night the organiser commits to a number of groups, and running
+        two of them means 28 seats exist even though the venue ceiling is 42 —
+        so the selection guard has to measure against the commitment or it will
+        happily seat a third group's worth of people into a room nobody booked.
+
+        Falls back to ``max_participants`` whenever the group fields are unset
+        or the event is not curated, which is every event that exists today.
+        A configured curated night always selects in *whole groups*, including
+        when ``planned_groups`` is still blank. That makes a non-divisible
+        venue ceiling explicit and safe: the remainder stays unused instead of
+        becoming an undersized extra group or being rounded above the venue.
+        """
+        if self.uses_curated_registration and self.group_size:
+            groups = self.planned_groups or self.max_groups
+            return min(self.max_participants, self.group_size * groups)
+        return self.max_participants
+
+    @property
+    def selection_spots_remaining(self):
+        """Seats left against :attr:`selection_capacity`.
+
+        The mirror of ``spots_remaining``, which stays keyed to
+        ``max_participants`` because every direct-mode surface reads it.
+        """
+        return max(0, self.selection_capacity - self.get_confirmed_count())
+
     def get_applied_count(self):
         """Applications awaiting organiser selection.
 
@@ -1104,6 +1359,71 @@ class MeetupEvent(models.Model):
         if hasattr(self, "applied_count_annotated"):
             return self.applied_count_annotated
         return self.eventregistration_set.filter(status="applied").count()
+
+    def get_application_pool(self, *, include_private_breakdown=False):
+        """What the applicant pool looks like, for the member-facing card.
+
+        Curated sign-ups hold no seat, so every capacity read on this model
+        ignores them — which is why the event page's seat chips sit frozen at
+        the raw caps while applications pour in. This is the number that
+        actually moves, plus the two pieces of social proof that make it worth
+        looking at.
+
+        ``groups_unlocked`` counts whole groups the pool could fill and comes
+        from the TOTAL, never from the per-gender minimum. A gender-feasible
+        public projection leaks the imbalance by implication -- fifty applicants
+        and still one group invites exactly one conclusion -- and it can *fall*
+        when somebody withdraws, which reads as punishment for a stranger's
+        decision. The gender-feasible number is a planning input, so it is
+        computed for the coach page instead, off ``by_pool``.
+
+        The per-gender ``by_pool`` breakdown is ORGANISER-ONLY and therefore
+        opt-in. The default member-safe result neither returns nor queries it;
+        per-gender application counts are the thing the whole display is
+        designed not to publish.
+        """
+        size = self.group_size or self.max_participants
+        applications = self.get_applied_count()
+        groups_unlocked = min(self.max_groups, applications // size) if size else 0
+        # Applications still needed to open one more group, or 0 at the ceiling.
+        next_group_at = (
+            0
+            if groups_unlocked >= self.max_groups
+            else size * (groups_unlocked + 1) - applications
+        )
+
+        # One pass over the applications for both badges. A "first timer" is
+        # someone with no attended registration ANYWHERE, not merely none on
+        # this event -- the reassurance being offered is "you will not be the
+        # only new face", which is about Crush as a whole.
+        attended_before = EventRegistration.objects.filter(
+            user_id=models.OuterRef("user_id"), status="attended"
+        )
+        counts = (
+            self.eventregistration_set.filter(status="applied")
+            .annotate(has_attended=models.Exists(attended_before))
+            .aggregate(
+                first_timers=models.Count("id", filter=models.Q(has_attended=False)),
+                certified=models.Count(
+                    "id",
+                    filter=models.Q(user__crushprofile__verification_status="verified"),
+                ),
+            )
+        )
+
+        result = {
+            "applications": applications,
+            "group_size": size,
+            "max_groups": self.max_groups,
+            "planned_groups": self.planned_groups,
+            "groups_unlocked": groups_unlocked,
+            "next_group_at": next_group_at,
+            "first_timers": counts["first_timers"] or 0,
+            "certified": counts["certified"] or 0,
+        }
+        if include_private_breakdown:
+            result["by_pool"] = self._counts_by_gender(("applied",))
+        return result
 
     def get_waitlist_count(self):
         """
@@ -1505,18 +1825,127 @@ class EventRegistration(models.Model):
         this method, is what actually guards the inline.
         """
         super().clean()
-        if self.status != "applied":
-            return
         try:
             event = self.event
         except ObjectDoesNotExist:
             event = None
-        message = self.applied_status_message(event)
-        if message is not None:
-            raise ValidationError({"status": message})
+        if self.status == "applied":
+            message = self.applied_status_message(event)
+            if message is not None:
+                raise ValidationError({"status": message})
+
+        transition_message = self.group_transition_status_message(event=event)
+        if transition_message is not None:
+            raise ValidationError({"status": transition_message})
+        event_change_message = self.group_event_change_message(event=event)
+        if event_change_message is not None:
+            raise ValidationError({"event": event_change_message})
+
+    def group_transition_status_message(
+        self,
+        *,
+        event=None,
+        previous_status=None,
+        new_status=None,
+        locked_group_membership=None,
+    ):
+        """Why a direct status write would bypass a curated group invariant."""
+        if event is None:
+            try:
+                event = self.event
+            except ObjectDoesNotExist:
+                return None
+        if previous_status is None and self.pk:
+            previous_status = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+        new_status = new_status or self.status
+
+        if (
+            previous_status not in SEAT_HOLDING_STATUSES
+            and new_status in SEAT_HOLDING_STATUSES
+            and event.uses_curated_registration
+            and event.group_size
+        ):
+            return _(
+                "Parallel-group seats must be granted through the bulk "
+                "Confirm action so the complete current provisional roster is "
+                "checked atomically."
+            )
+        leaving_locked_attendance = new_status != "attended" and self.pk
+        if leaving_locked_attendance and locked_group_membership is None:
+            locked_group_membership = CuratedEventGroupMembership.objects.filter(
+                registration_id=self.pk,
+                released_at__isnull=True,
+                group__status=CuratedEventGroup.STATUS_LOCKED,
+            ).exists()
+        if leaving_locked_attendance and locked_group_membership:
+            return _(
+                "This attendee belongs to a locked final group. Cancel or reopen "
+                "the group through the audited group workflow before changing "
+                "attendance."
+            )
+        return None
+
+    def group_event_change_message(
+        self,
+        *,
+        event=None,
+        previous_event_id=None,
+        new_status=None,
+        has_derived_group_rows=None,
+    ):
+        """Why moving this row would corrupt or bypass a group projection."""
+        if not self.pk:
+            return None
+        if event is None:
+            try:
+                event = self.event
+            except ObjectDoesNotExist:
+                return None
+        if previous_event_id is None:
+            previous_event_id = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("event_id", flat=True)
+                .first()
+            )
+        if previous_event_id is None or previous_event_id == event.pk:
+            return None
+        if has_derived_group_rows is None:
+            has_derived_group_rows = (
+                CuratedEventGroupMembership.objects.filter(
+                    registration_id=self.pk
+                ).exists()
+                or CuratedEventPairingParticipant.objects.filter(
+                    registration_id=self.pk
+                ).exists()
+            )
+        if has_derived_group_rows:
+            return _(
+                "A registration with curated-group history cannot be moved to "
+                "another event. Create or merge the destination registration "
+                "through the audited group workflow."
+            )
+        new_status = new_status or self.status
+        if (
+            new_status in SEAT_HOLDING_STATUSES
+            and event.uses_curated_registration
+            and event.group_size
+        ):
+            return _(
+                "A seat-holding registration cannot be moved into a configured "
+                "parallel-group event. Select its complete provisional group "
+                "instead."
+            )
+        return None
 
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""
+        self.__dict__.pop("_curated_group_degraded_event_ids", None)
         update_fields = kwargs.get("update_fields")
         if self.status == "cancelled" and self.cancelled_at is None:
             self.cancelled_at = timezone.now()
@@ -1528,6 +1957,126 @@ class EventRegistration(models.Model):
             self.cancelled_at = None
             if update_fields is not None:
                 kwargs["update_fields"] = set(update_fields) | {"cancelled_at"}
+
+        writes_group_sensitive_fields = update_fields is None or bool(
+            {"status", "event", "event_id"}.intersection(update_fields)
+        )
+        if self.pk and writes_group_sensitive_fields:
+            # Existing check-in/payment callers can already hold this
+            # registration row before calling save(). Never request its event
+            # for an ordinary status write here: doing so would invert the
+            # lifecycle's event -> registration order. Registration -> group is
+            # the common suffix and still closes the finalisation race: either
+            # lock() waits and re-reads a non-attendee, or this save waits and
+            # re-reads a LOCKED group.
+            stored_event_id = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("event_id", flat=True)
+                .first()
+            )
+            with transaction.atomic():
+                stored = (
+                    type(self)
+                    .objects.select_for_update()
+                    .filter(pk=self.pk)
+                    .values("status", "event_id")
+                    .first()
+                )
+                if stored is not None and stored["event_id"] != stored_event_id:
+                    raise ValidationError(
+                        {
+                            "event": _(
+                                "This registration's event changed concurrently; "
+                                "reload it before saving."
+                            )
+                        }
+                    )
+                membership_rows = list(
+                    CuratedEventGroupMembership.objects.filter(
+                        registration_id=self.pk,
+                    ).values_list("group_id", "released_at")
+                )
+                active_group_ids = {
+                    group_id
+                    for group_id, released_at in membership_rows
+                    if released_at is None
+                }
+                group_ids = active_group_ids | {
+                    group_id for group_id, _released_at in membership_rows
+                }
+                group_ids.update(
+                    CuratedEventPairingParticipant.objects.filter(
+                        registration_id=self.pk
+                    ).values_list("group_id", flat=True)
+                )
+                locked_groups = list(
+                    CuratedEventGroup.objects.select_for_update()
+                    .filter(pk__in=group_ids)
+                    .order_by("pk")
+                )
+                previous_status = stored["status"] if stored is not None else None
+                target_event = self.event
+                event_change_message = self.group_event_change_message(
+                    event=target_event,
+                    previous_event_id=(
+                        stored["event_id"] if stored is not None else None
+                    ),
+                    new_status=self.status,
+                    has_derived_group_rows=bool(group_ids),
+                )
+                if event_change_message is not None:
+                    raise ValidationError({"event": event_change_message})
+                transition_message = self.group_transition_status_message(
+                    event=target_event,
+                    previous_status=previous_status,
+                    new_status=self.status,
+                    locked_group_membership=any(
+                        group.pk in active_group_ids
+                        and group.status == CuratedEventGroup.STATUS_LOCKED
+                        for group in locked_groups
+                    ),
+                )
+                if transition_message is not None:
+                    raise ValidationError({"status": transition_message})
+                degraded_event_ids = set()
+                if self.status not in {
+                    "applied",
+                    "pending",
+                    "confirmed",
+                    "attended",
+                }:
+                    for group in locked_groups:
+                        if (
+                            group.pk in active_group_ids
+                            and group.status == CuratedEventGroup.STATUS_PROVISIONAL
+                            and group._mark_degraded_locked(
+                                reason=(
+                                    CuratedEventGroup.DEGRADATION_REASON_STATUS_EXIT
+                                )
+                            )
+                        ):
+                            degraded_event_ids.add(group.event_id)
+                if degraded_event_ids:
+                    # A post_save integration may schedule the remedy on_commit
+                    # without inferring user IDs from the audit payload.
+                    self._curated_group_degraded_event_ids = tuple(
+                        sorted(degraded_event_ids)
+                    )
+                return super().save(*args, **kwargs)
+
+        if self.pk:
+            # ``update_fields`` deliberately excludes status, so no status
+            # or event, so a stale in-memory value must not be interpreted as
+            # a new seat grant or event move.
+            return super().save(*args, **kwargs)
+
+        transition_message = self.group_transition_status_message(
+            previous_status=None,
+            new_status=self.status,
+        )
+        if transition_message is not None:
+            raise ValidationError({"status": transition_message})
         return super().save(*args, **kwargs)
 
     @property
@@ -1551,6 +2100,1584 @@ class EventRegistration(models.Model):
             return False
         profile = getattr(self.user, "crushprofile", None)
         return profile is not None and profile.verification_status == "verified"
+
+
+class CuratedEventGroup(models.Model):
+    """A durable, auditable cohort for one curated speed-dating evening.
+
+    A group is provisional while selected members are invited and pay. Coaches
+    may deliberately reopen that projection before the evening. ``locked`` is
+    the final check-in state: the roster and schedule are immutable from that
+    point so nobody silently changes groups after round one starts.
+    """
+
+    STATUS_DRAFT = "draft"
+    STATUS_PROVISIONAL = "provisional"
+    STATUS_LOCKED = "locked"
+    STATUS_DEGRADED = "degraded"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, _("Draft")),
+        (STATUS_PROVISIONAL, _("Provisional — selected and payable")),
+        (STATUS_LOCKED, _("Locked — final evening roster")),
+        (STATUS_DEGRADED, _("Degraded — reproject or compensate")),
+        (STATUS_CANCELLED, _("Cancelled")),
+    ]
+    FROZEN_STATUSES = (STATUS_LOCKED, STATUS_DEGRADED, STATUS_CANCELLED)
+    DEGRADATION_REASON_STATUS_EXIT = "registration_status_exit"
+    DEGRADATION_REASON_ERASURE = "registration_erased"
+    DEGRADATION_REASON_INTEGRITY = "roster_integrity_changed"
+    DEGRADATION_REASON_ORGANISER = "organiser_reprojection"
+    DEGRADATION_REASONS = frozenset(
+        {
+            DEGRADATION_REASON_STATUS_EXIT,
+            DEGRADATION_REASON_ERASURE,
+            DEGRADATION_REASON_INTEGRITY,
+            DEGRADATION_REASON_ORGANISER,
+        }
+    )
+    MIN_GUARANTEED_DATES = CURATED_MIN_GUARANTEED_DATES
+    TARGET_DATES = CURATED_TARGET_DATES
+    AUDIT_SCHEMA_VERSION = 1
+    FAIRNESS_AUDIT_KEYS = frozenset(
+        {
+            "min_required",
+            "min_achieved",
+            "target_requested",
+            "target_achieved",
+            "members_meeting_target",
+            "track_size",
+            "track_ordinal",
+            "underserved_priority",
+            "alternative_scarcity_score",
+            "one_drop_resilient",
+            "pinned_member_count",
+        }
+    )
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_groups",
+    )
+    generation = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text=_(
+            "Projection generation. Recalculations increment this value so "
+            "cancelled history does not consume the evening's group numbers."
+        ),
+    )
+    group_number = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_DRAFT,
+        db_index=True,
+    )
+    policy_version = models.CharField(max_length=64, default="reciprocal-graph-v1")
+    seed = models.CharField(
+        max_length=64,
+        default="0",
+        help_text=_("Deterministic seed used to reproduce this projection."),
+    )
+    audit_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=_(
+            "Non-sensitive projection scores and decision metadata. Do not "
+            "copy member preference values here."
+        ),
+    )
+    viability_summary = models.JSONField(default=dict, blank=True)
+    schedule_digest = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        editable=False,
+        help_text=_(
+            "SHA-256 proof of the provisional roster and schedule structure; "
+            "contains no raw preference or profile values."
+        ),
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    provisional_at = models.DateTimeField(null=True, blank=True)
+    provisional_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    degraded_at = models.DateTimeField(null=True, blank=True)
+    degraded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    degradation_reason = models.CharField(max_length=64, blank=True, default="")
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    cancellation_reason = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["event_id", "group_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "generation", "group_number"],
+                name="curated_group_unique_number_per_generation",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(generation__gte=1, group_number__gte=1),
+                name="curated_group_positive_identity",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status="draft",
+                        provisional_at__isnull=True,
+                        locked_at__isnull=True,
+                        degraded_at__isnull=True,
+                        cancelled_at__isnull=True,
+                    )
+                    | models.Q(
+                        status="provisional",
+                        provisional_at__isnull=False,
+                        locked_at__isnull=True,
+                        degraded_at__isnull=True,
+                        cancelled_at__isnull=True,
+                    )
+                    | models.Q(
+                        status="locked",
+                        provisional_at__isnull=False,
+                        locked_at__isnull=False,
+                        degraded_at__isnull=True,
+                        cancelled_at__isnull=True,
+                    )
+                    | models.Q(
+                        status="degraded",
+                        provisional_at__isnull=False,
+                        degraded_at__isnull=False,
+                        cancelled_at__isnull=True,
+                    )
+                    | models.Q(status="cancelled", cancelled_at__isnull=False)
+                ),
+                name="curated_group_lifecycle_timestamps",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.event.title} — generation {self.generation}, "
+            f"group {self.group_number} ({self.status})"
+        )
+
+    def clean(self):
+        super().clean()
+        try:
+            event = self.event
+        except ObjectDoesNotExist:
+            return
+        errors = {}
+        if not event.uses_curated_registration:
+            errors["event"] = _("Groups belong to curated speed-dating events only.")
+        elif event.group_size is None:
+            errors["event"] = _(
+                "Set the event group size before creating a group projection."
+            )
+        elif self.group_number is not None and self.group_number > event.max_groups:
+            errors["group_number"] = _(
+                "This event can host at most %(maximum)d whole group(s)."
+            ) % {"maximum": event.max_groups}
+
+        if self.status == self.STATUS_DRAFT:
+            if (
+                self.provisional_at
+                or self.locked_at
+                or self.degraded_at
+                or self.cancelled_at
+            ):
+                errors["status"] = _(
+                    "A draft group cannot carry provisional, lock, degradation "
+                    "or cancellation timestamps."
+                )
+        elif self.status == self.STATUS_PROVISIONAL:
+            if (
+                self.provisional_at is None
+                or self.locked_at
+                or self.degraded_at
+                or self.cancelled_at
+            ):
+                errors["status"] = _(
+                    "A provisional group needs its approval timestamp and "
+                    "cannot already be locked or cancelled."
+                )
+            if not self.schedule_digest:
+                errors["status"] = _(
+                    "A provisional group needs its certified schedule proof."
+                )
+        elif self.status == self.STATUS_LOCKED:
+            if self.provisional_at is None or self.locked_at is None:
+                errors["status"] = _(
+                    "A locked group must first be provisional and record both "
+                    "transition timestamps."
+                )
+            if self.degraded_at or self.cancelled_at:
+                errors["status"] = _("A locked group cannot be marked cancelled.")
+            if not self.schedule_digest:
+                errors["status"] = _("A locked group needs its schedule proof.")
+        elif self.status == self.STATUS_DEGRADED:
+            if self.provisional_at is None or self.degraded_at is None:
+                errors["status"] = _(
+                    "A degraded group must retain its provisional proof and "
+                    "record when certification was invalidated."
+                )
+            if self.cancelled_at:
+                errors["status"] = _(
+                    "A degraded group cannot already be marked cancelled."
+                )
+            if self.degradation_reason not in self.DEGRADATION_REASONS:
+                errors["degradation_reason"] = _(
+                    "Use a privacy-safe degradation reason code."
+                )
+        elif self.status == self.STATUS_CANCELLED and self.cancelled_at is None:
+            errors["status"] = _("A cancelled group needs a cancellation timestamp.")
+
+        if self.status in {self.STATUS_PROVISIONAL, self.STATUS_LOCKED}:
+            fairness_decision = self.audit_data.get("fairness_decision")
+            if (
+                self.audit_data.get("schema_version") != self.AUDIT_SCHEMA_VERSION
+                or self.audit_data.get("policy_version") != self.policy_version
+                or self.audit_data.get("seed") != self.seed
+                or self.audit_data.get("generation") != self.generation
+                or not isinstance(fairness_decision, dict)
+                or not fairness_decision
+            ):
+                errors["audit_data"] = _(
+                    "A certified group needs versioned, privacy-safe fairness "
+                    "evidence bound to its policy, seed and generation."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            previous = None
+            if self.pk:
+                previous = (
+                    type(self)
+                    .objects.select_for_update()
+                    .filter(pk=self.pk)
+                    .values("status", "event_id", "generation", "group_number")
+                    .first()
+                )
+            previous_status = previous["status"] if previous is not None else None
+            if previous_status is None and self.status != self.STATUS_DRAFT:
+                raise ValidationError(
+                    {
+                        "status": _(
+                            "A curated group must be created as a draft before it "
+                            "can enter the audited lifecycle."
+                        )
+                    }
+                )
+            if previous is not None and (
+                self.event_id != previous["event_id"]
+                or self.generation != previous["generation"]
+                or self.group_number != previous["group_number"]
+            ):
+                raise ValidationError(
+                    {
+                        "event": _(
+                            "A saved group's event, generation and display number "
+                            "are immutable; create a replacement generation."
+                        )
+                    }
+                )
+            if (
+                previous_status is not None
+                and self.status != previous_status
+                and not getattr(self, "_lifecycle_transition_authorized", False)
+            ):
+                raise ValidationError(
+                    {
+                        "status": _(
+                            "Use the audited group lifecycle methods to change this "
+                            "status."
+                        )
+                    }
+                )
+            allowed = {
+                self.STATUS_DRAFT: {
+                    self.STATUS_DRAFT,
+                    self.STATUS_PROVISIONAL,
+                    self.STATUS_CANCELLED,
+                },
+                self.STATUS_PROVISIONAL: {
+                    self.STATUS_DRAFT,
+                    self.STATUS_PROVISIONAL,
+                    self.STATUS_LOCKED,
+                    self.STATUS_DEGRADED,
+                    self.STATUS_CANCELLED,
+                },
+                self.STATUS_LOCKED: {
+                    self.STATUS_LOCKED,
+                    self.STATUS_DEGRADED,
+                    self.STATUS_CANCELLED,
+                },
+                self.STATUS_DEGRADED: {
+                    self.STATUS_DEGRADED,
+                    self.STATUS_CANCELLED,
+                },
+                self.STATUS_CANCELLED: {self.STATUS_CANCELLED},
+            }
+            if (
+                previous_status is not None
+                and self.status not in allowed[previous_status]
+            ):
+                raise ValidationError(
+                    {
+                        "status": _(
+                            "A curated group cannot move from %(old)s to %(new)s."
+                        )
+                        % {"old": previous_status, "new": self.status}
+                    }
+                )
+            if (
+                previous_status == self.STATUS_LOCKED
+                and self.status == self.STATUS_LOCKED
+            ):
+                raise ValidationError(_("A locked group is an immutable final roster."))
+            if (
+                previous_status == self.STATUS_PROVISIONAL
+                and self.status == self.STATUS_PROVISIONAL
+            ):
+                raise ValidationError(
+                    _(
+                        "A provisional group is immutable; explicitly reopen it "
+                        "before recomputing the projection."
+                    )
+                )
+            if previous_status == self.STATUS_CANCELLED:
+                raise ValidationError(
+                    _("A cancelled group is an immutable audit record.")
+                )
+            if (
+                previous_status == self.STATUS_DEGRADED
+                and self.status == self.STATUS_DEGRADED
+            ):
+                raise ValidationError(
+                    _("A degraded group is frozen pending an audited remedy.")
+                )
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def _save_lifecycle_transition(self):
+        """Persist a transition already validated under canonical row locks."""
+        self._lifecycle_transition_authorized = True
+        try:
+            return self.save()
+        finally:
+            del self._lifecycle_transition_authorized
+
+    def _mark_degraded_locked(self, *, reason, by=None):
+        """Invalidate certification while the caller owns this group row lock."""
+        if reason not in self.DEGRADATION_REASONS:
+            raise ValidationError(_("Use a privacy-safe degradation reason code."))
+        if self.status == self.STATUS_DEGRADED:
+            return False
+        if self.status not in {self.STATUS_PROVISIONAL, self.STATUS_LOCKED}:
+            return False
+        if self.status == self.STATUS_LOCKED and reason not in {
+            self.DEGRADATION_REASON_ERASURE,
+            self.DEGRADATION_REASON_INTEGRITY,
+        }:
+            raise ValidationError(
+                _(
+                    "A locked final group can be degraded only by an exceptional "
+                    "erasure or integrity event, never ordinary reprojection."
+                )
+            )
+        previous_status = self.status
+        degraded_at = timezone.now()
+        audit_data = dict(self.audit_data)
+        audit_data["degradation"] = {
+            "at": degraded_at.isoformat(),
+            "from_status": previous_status,
+            "reason": reason,
+        }
+        self.status = self.STATUS_DEGRADED
+        self.degraded_at = degraded_at
+        self.degraded_by = by
+        self.degradation_reason = reason
+        self.audit_data = audit_data
+        self._save_lifecycle_transition()
+        return True
+
+    def degrade_for_reprojection(self, *, reason, by=None):
+        """Canonically remove a certified group from the payable generation."""
+        if not self.pk:
+            raise ValidationError(_("Save the group before degrading it."))
+        with transaction.atomic():
+            MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=self.event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            changed = group._mark_degraded_locked(reason=reason, by=by)
+            self.__dict__.update(group.__dict__)
+            return changed
+
+    def release_degraded_memberships_for_remedy(
+        self, *, by=None, reason="reprojected_or_compensated"
+    ):
+        """Release a degraded roster inside a larger atomic remedy service.
+
+        The caller must keep the surrounding transaction open until every
+        pinned member is either installed in a replacement projection or has
+        entered the compensation path. This primitive deliberately does not
+        send email, issue credit, or invent that business decision.
+        """
+        if not transaction.get_connection().in_atomic_block:
+            raise ValidationError(
+                _(
+                    "Degraded memberships may be released only inside the "
+                    "atomic reprojection or compensation transaction."
+                )
+            )
+        MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+        list(
+            EventRegistration.objects.select_for_update()
+            .filter(event_id=self.event_id)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        group = type(self).objects.select_for_update().get(pk=self.pk)
+        if group.status != self.STATUS_DEGRADED:
+            raise ValidationError(
+                _("Only a degraded group can enter the roster remedy workflow.")
+            )
+        active_memberships = group.memberships.filter(released_at__isnull=True)
+        registration_ids = list(
+            active_memberships.order_by("registration_id").values_list(
+                "registration_id", flat=True
+            )
+        )
+        active_memberships.update(
+            released_at=timezone.now(),
+            released_by=by,
+            release_reason=reason,
+        )
+        return registration_ids
+
+    def delete(self, *args, **kwargs):
+        if not self.pk:
+            return (0, {})
+        stored_event_id = (
+            type(self)
+            .objects.filter(pk=self.pk)
+            .values_list("event_id", flat=True)
+            .first()
+        )
+        with transaction.atomic():
+            MeetupEvent.objects.select_for_update().get(pk=stored_event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=stored_event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            is_used = (
+                group.memberships.exists()
+                or group.pairings.exists()
+                or group.pairing_participants.exists()
+            )
+            if group.status != self.STATUS_DRAFT or is_used:
+                raise ValidationError(
+                    _(
+                        "Only an unused draft group may be deleted; use "
+                        "cancellation to retain every used projection as an "
+                        "audit record."
+                    )
+                )
+            result = super(CuratedEventGroup, group).delete(*args, **kwargs)
+            self.pk = None
+            return result
+
+    def schedule_viability(
+        self, *, require_checked_in=False, evaluate_preferences=True
+    ):
+        """Validate the stored schedule and return privacy-safe quality metrics.
+
+        A provisional projection may include applicants, payment-pending and
+        confirmed members. Final locking is stricter: every active member must
+        already be checked in (``attended``), so a cancellation, no-show or
+        unpaid invite can never prop up the five-date guarantee.
+
+        Round/table shape is certified here too. Wall-clock feasibility still
+        depends on the organiser's mini-date duration, turnover and venue plan;
+        those inputs do not exist on ``MeetupEvent`` yet, so this model does not
+        invent or imply a duration guarantee.
+        """
+        if not self.pk:
+            raise ValidationError(_("Save the draft group before scheduling it."))
+
+        eligible_statuses = (
+            {"attended"}
+            if require_checked_in
+            else {"applied", "pending", "confirmed", "attended"}
+        )
+        active_memberships = self.memberships.filter(released_at__isnull=True)
+        if active_memberships.exclude(event_id=self.event_id).exists() or (
+            active_memberships.exclude(registration__event_id=self.event_id).exists()
+        ):
+            raise ValidationError(
+                _(
+                    "Every active membership and registration must belong to "
+                    "the group's event."
+                )
+            )
+        invalid_memberships = active_memberships.exclude(
+            registration__status__in=eligible_statuses
+        )
+        if invalid_memberships.exists():
+            if require_checked_in:
+                raise ValidationError(
+                    _("Every active group member must be checked in before lock.")
+                )
+            raise ValidationError(
+                _(
+                    "Cancelled, waitlisted and no-show registrations cannot "
+                    "count toward group viability."
+                )
+            )
+        member_ids = set(active_memberships.values_list("registration_id", flat=True))
+        if len(member_ids) > (self.event.group_size or 0):
+            raise ValidationError(
+                _("The active roster is larger than the configured group size.")
+            )
+        if len(member_ids) <= self.MIN_GUARANTEED_DATES:
+            raise ValidationError(
+                _(
+                    "A viable group needs at least %(minimum)d members so each "
+                    "person can receive %(dates)d different dates."
+                )
+                % {
+                    "minimum": self.MIN_GUARANTEED_DATES + 1,
+                    "dates": self.MIN_GUARANTEED_DATES,
+                }
+            )
+
+        applicants = {}
+        if evaluate_preferences:
+            from crush_lu.services.event_grouping import _applicant
+
+            registrations = list(
+                EventRegistration.objects.filter(pk__in=member_ids).select_related(
+                    "user__crushprofile", "preference"
+                )
+            )
+            for registration in registrations:
+                applicant = _applicant(registration)
+                # The grouping engine annotates this fail-closed decision and
+                # its reasons. Keep a local backstop for older adapters during
+                # rolling deploys: a preference-less or identity-less row is
+                # incomplete, never silently "open to everyone".
+                fallback_eligible = (
+                    hasattr(registration, "preference")
+                    and getattr(registration.user, "crushprofile", None) is not None
+                    and applicant.gender is not None
+                    and applicant.age is not None
+                )
+                if not getattr(applicant, "eligible_for_grouping", fallback_eligible):
+                    reasons = getattr(applicant, "incomplete_reasons", None) or []
+                    reason_text = ", ".join(str(reason) for reason in reasons)
+                    raise ValidationError(
+                        _(
+                            "Every provisional member needs a complete event "
+                            "preference snapshot and matching identity%(reasons)s."
+                        )
+                        % {
+                            "reasons": (
+                                _(" (%(reasons)s)") % {"reasons": reason_text}
+                                if reason_text
+                                else ""
+                            )
+                        }
+                    )
+                applicants[registration.pk] = applicant
+        partner_ids = {registration_id: set() for registration_id in member_ids}
+        seen_pairs = set()
+        tables_by_round = {}
+        proof_pairings = []
+        pairings = list(self.pairings.prefetch_related("participants"))
+        if not pairings:
+            raise ValidationError(_("A provisional group needs a stored schedule."))
+
+        rounds = set()
+        for pairing in pairings:
+            if pairing.event_id != self.event_id or pairing.group_id != self.pk:
+                raise ValidationError(
+                    _(
+                        "Every stored pairing must belong to the group's event "
+                        "and generation."
+                    )
+                )
+            participants = list(pairing.participants.all())
+            if len(participants) != 2:
+                raise ValidationError(
+                    _(
+                        "Round %(round)d table %(table)d must contain exactly "
+                        "two participants."
+                    )
+                    % {
+                        "round": pairing.round_number,
+                        "table": pairing.table_number,
+                    }
+                )
+            first, second = participants
+            if any(
+                participant.event_id != self.event_id
+                or participant.group_id != self.pk
+                or participant.round_number != pairing.round_number
+                for participant in participants
+            ):
+                raise ValidationError(
+                    _(
+                        "Every schedule seat must match its pairing's event, "
+                        "group and round."
+                    )
+                )
+            if (
+                first.registration_id not in member_ids
+                or second.registration_id not in member_ids
+            ):
+                raise ValidationError(
+                    _("Every scheduled participant must be an active group member.")
+                )
+            pair_key = frozenset((first.registration_id, second.registration_id))
+            if pair_key in seen_pairs:
+                raise ValidationError(
+                    _("The same two members cannot be paired in multiple rounds.")
+                )
+            seen_pairs.add(pair_key)
+            if evaluate_preferences:
+                from crush_lu.matching import passes_event_hard_filters
+
+                if not passes_event_hard_filters(
+                    applicants[first.registration_id],
+                    applicants[second.registration_id],
+                ):
+                    raise ValidationError(
+                        _(
+                            "Every stored date must satisfy both members' event "
+                            "preferences."
+                        )
+                    )
+            partner_ids[first.registration_id].add(second.registration_id)
+            partner_ids[second.registration_id].add(first.registration_id)
+            rounds.add(pairing.round_number)
+            tables_by_round.setdefault(pairing.round_number, set()).add(
+                pairing.table_number
+            )
+            proof_pairings.append(
+                (
+                    pairing.round_number,
+                    pairing.table_number,
+                    min(first.registration_id, second.registration_id),
+                    max(first.registration_id, second.registration_id),
+                )
+            )
+
+        if rounds != set(range(1, max(rounds) + 1)):
+            raise ValidationError(_("Schedule rounds must be contiguous from round 1."))
+        if len(rounds) > self.TARGET_DATES:
+            raise ValidationError(
+                _("A group schedule cannot exceed %(target)d rounds.")
+                % {"target": self.TARGET_DATES}
+            )
+        max_tables = (self.event.group_size or 0) // 2
+        for round_number, table_numbers in tables_by_round.items():
+            if table_numbers != set(range(1, max(table_numbers) + 1)):
+                raise ValidationError(
+                    _("Table numbers in round %(round)d must be contiguous from 1.")
+                    % {"round": round_number}
+                )
+            if len(table_numbers) > max_tables:
+                raise ValidationError(
+                    _(
+                        "Round %(round)d exceeds this group's %(tables)d-table "
+                        "venue limit."
+                    )
+                    % {"round": round_number, "tables": max_tables}
+                )
+
+        date_counts = [len(partners) for partners in partner_ids.values()]
+        minimum_dates = min(date_counts)
+        if minimum_dates < self.MIN_GUARANTEED_DATES:
+            raise ValidationError(
+                _(
+                    "This schedule gives someone only %(actual)d different "
+                    "date(s); the guarantee is %(minimum)d."
+                )
+                % {
+                    "actual": minimum_dates,
+                    "minimum": self.MIN_GUARANTEED_DATES,
+                }
+            )
+        proof_payload = {
+            "policy_version": self.policy_version,
+            "seed": self.seed,
+            "capacity": {
+                "max_participants": self.event.max_participants,
+                "group_size": self.event.group_size,
+                "planned_groups": self.event.planned_groups,
+            },
+            "members": sorted(member_ids),
+            "pairings": sorted(proof_pairings),
+        }
+        schedule_digest = hashlib.sha256(
+            json.dumps(
+                proof_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        return {
+            "members": len(member_ids),
+            "rounds": len(rounds),
+            "minimum_dates": minimum_dates,
+            "target_dates": self.TARGET_DATES,
+            "members_meeting_target": sum(
+                count >= self.TARGET_DATES for count in date_counts
+            ),
+            "schedule_digest": schedule_digest,
+        }
+
+    def mark_provisional(self, *, by=None, audit_data=None):
+        if not self.pk:
+            raise ValidationError(_("Save the draft group before approving it."))
+        if not isinstance(audit_data, dict) or set(audit_data) != {"fairness_decision"}:
+            raise ValidationError(
+                {
+                    "audit_data": _(
+                        "Provide exactly one privacy-safe fairness_decision "
+                        "object before approving a group."
+                    )
+                }
+            )
+        fairness_decision = audit_data["fairness_decision"]
+        boolean_metrics = {
+            "target_achieved",
+            "underserved_priority",
+            "one_drop_resilient",
+        }
+        integer_metrics = (
+            self.FAIRNESS_AUDIT_KEYS - boolean_metrics - {"alternative_scarcity_score"}
+        )
+        if (
+            not isinstance(fairness_decision, dict)
+            or not fairness_decision
+            or set(fairness_decision) != self.FAIRNESS_AUDIT_KEYS
+            or any(
+                not isinstance(fairness_decision[key], bool) for key in boolean_metrics
+            )
+            or any(
+                not isinstance(fairness_decision[key], int)
+                or isinstance(fairness_decision[key], bool)
+                for key in integer_metrics
+            )
+            or not isinstance(
+                fairness_decision["alternative_scarcity_score"], (int, float)
+            )
+            or isinstance(fairness_decision["alternative_scarcity_score"], bool)
+        ):
+            raise ValidationError(
+                {
+                    "audit_data": _(
+                        "fairness_decision must contain only approved, "
+                        "non-sensitive numeric or boolean projection metrics."
+                    )
+                }
+            )
+        with transaction.atomic():
+            # Global order shared with selection: event, registrations, group,
+            # then child rows. The locks make validation and the state flip one
+            # indivisible certification rather than two raceable operations.
+            MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=self.event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            list(
+                CuratedEventGroupMembership.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            list(
+                CuratedEventPairing.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            list(
+                CuratedEventPairingParticipant.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            if group.status != self.STATUS_DRAFT:
+                raise ValidationError(_("Only a draft group can become provisional."))
+            summary = group.schedule_viability()
+            pinned_member_count = (
+                group.memberships.filter(released_at__isnull=True)
+                .filter(
+                    models.Q(
+                        registration__status__in=(
+                            "pending",
+                            "confirmed",
+                            "attended",
+                        )
+                    )
+                    | models.Q(registration__payment_confirmed=True)
+                )
+                .count()
+            )
+            derived_fairness_metrics = {
+                "min_required": self.MIN_GUARANTEED_DATES,
+                "min_achieved": summary["minimum_dates"],
+                "target_requested": self.TARGET_DATES,
+                "target_achieved": (
+                    summary["members_meeting_target"] == summary["members"]
+                ),
+                "members_meeting_target": summary["members_meeting_target"],
+                "pinned_member_count": pinned_member_count,
+            }
+            mismatched_metrics = [
+                key
+                for key, expected in derived_fairness_metrics.items()
+                if fairness_decision[key] != expected
+            ]
+            if mismatched_metrics:
+                raise ValidationError(
+                    {
+                        "audit_data": _(
+                            "Fairness evidence does not match the stored roster "
+                            "and schedule metrics: %(metrics)s."
+                        )
+                        % {"metrics": ", ".join(sorted(mismatched_metrics))}
+                    }
+                )
+            group.status = self.STATUS_PROVISIONAL
+            group.provisional_at = timezone.now()
+            group.provisional_by = by
+            group.viability_summary = summary
+            group.schedule_digest = summary["schedule_digest"]
+            group.audit_data = {
+                "schema_version": self.AUDIT_SCHEMA_VERSION,
+                "policy_version": group.policy_version,
+                "seed": group.seed,
+                "generation": group.generation,
+                "fairness_decision": fairness_decision,
+            }
+            group._save_lifecycle_transition()
+            self.__dict__.update(group.__dict__)
+        return summary
+
+    def reopen_draft(self):
+        with transaction.atomic():
+            MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=self.event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            if group.status != self.STATUS_PROVISIONAL:
+                raise ValidationError(_("Only a provisional group can be reopened."))
+            if group._has_pinned_members():
+                raise ValidationError(
+                    _(
+                        "A group with invited, paid or checked-in members cannot be "
+                        "reopened directly. Reproject it atomically while keeping "
+                        "those members pinned."
+                    )
+                )
+            group.status = self.STATUS_DRAFT
+            group.provisional_at = None
+            group.provisional_by = None
+            group.viability_summary = {}
+            group.schedule_digest = ""
+            group.audit_data = {}
+            group._save_lifecycle_transition()
+            self.__dict__.update(group.__dict__)
+
+    def lock(self, *, by=None):
+        if not self.pk:
+            raise ValidationError(_("Save the group before locking it."))
+        with transaction.atomic():
+            MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=self.event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            list(
+                CuratedEventGroupMembership.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            list(
+                CuratedEventPairing.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            list(
+                CuratedEventPairingParticipant.objects.select_for_update()
+                .filter(group=group)
+                .order_by("pk")
+            )
+            if group.status != self.STATUS_PROVISIONAL:
+                raise ValidationError(_("Only a provisional group can be locked."))
+            locked_summary = group.schedule_viability(
+                require_checked_in=True,
+                evaluate_preferences=False,
+            )
+            if locked_summary["schedule_digest"] != group.schedule_digest:
+                raise ValidationError(
+                    _(
+                        "The final roster or schedule no longer matches its "
+                        "provisional certification."
+                    )
+                )
+            group.status = self.STATUS_LOCKED
+            group.locked_at = timezone.now()
+            group.locked_by = by
+            group._save_lifecycle_transition()
+            self.__dict__.update(group.__dict__)
+
+    def cancel(self, *, by=None, reason=""):
+        with transaction.atomic():
+            MeetupEvent.objects.select_for_update().get(pk=self.event_id)
+            list(
+                EventRegistration.objects.select_for_update()
+                .filter(event_id=self.event_id)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+            group = type(self).objects.select_for_update().get(pk=self.pk)
+            if group.status == self.STATUS_CANCELLED:
+                raise ValidationError(_("This group is already cancelled."))
+            if group._has_pinned_members():
+                raise ValidationError(
+                    _(
+                        "A group with invited, paid or checked-in members cannot be "
+                        "cancelled directly. Reproject it atomically while keeping "
+                        "those members pinned."
+                    )
+                )
+            provisional_audit = None
+            if group.status == self.STATUS_PROVISIONAL:
+                # Canonical cancellation owns the group lock and may thaw an
+                # uninvited projection internally. Ordinary child mutation
+                # remains forbidden while PROVISIONAL.
+                provisional_audit = {
+                    "at": group.provisional_at,
+                    "by": group.provisional_by,
+                    "summary": group.viability_summary,
+                    "digest": group.schedule_digest,
+                }
+                group.status = self.STATUS_DRAFT
+                group.provisional_at = None
+                group.provisional_by = None
+                group.viability_summary = {}
+                group.schedule_digest = ""
+                group._save_lifecycle_transition()
+            if group.status != self.STATUS_LOCKED:
+                for membership in group.memberships.filter(released_at__isnull=True):
+                    membership.release(by=by, reason=reason)
+            group.status = self.STATUS_CANCELLED
+            group.cancelled_at = timezone.now()
+            group.cancelled_by = by
+            group.cancellation_reason = reason
+            if provisional_audit is not None:
+                group.provisional_at = provisional_audit["at"]
+                group.provisional_by = provisional_audit["by"]
+                group.viability_summary = provisional_audit["summary"]
+                group.schedule_digest = provisional_audit["digest"]
+            group._save_lifecycle_transition()
+            self.__dict__.update(group.__dict__)
+
+    def _has_pinned_members(self):
+        return (
+            self.memberships.filter(released_at__isnull=True)
+            .filter(
+                models.Q(registration__status__in=("pending", "confirmed", "attended"))
+                | models.Q(registration__payment_confirmed=True)
+            )
+            .exists()
+        )
+
+
+def _lock_curated_child_scope(*, event_ids, group_ids):
+    """Acquire the global event -> registrations -> group mutation order."""
+    event_ids = sorted(event_id for event_id in event_ids if event_id is not None)
+    group_ids = sorted(group_id for group_id in group_ids if group_id is not None)
+    list(
+        MeetupEvent.objects.select_for_update().filter(pk__in=event_ids).order_by("pk")
+    )
+    list(
+        EventRegistration.objects.select_for_update()
+        .filter(event_id__in=event_ids)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    return list(
+        CuratedEventGroup.objects.select_for_update()
+        .filter(pk__in=group_ids)
+        .order_by("pk")
+    )
+
+
+class CuratedEventGroupMembership(models.Model):
+    """Current or historical assignment of one registration to a group."""
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_group_memberships",
+    )
+    group = models.ForeignKey(
+        CuratedEventGroup,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="curated_group_memberships",
+    )
+    position = models.PositiveSmallIntegerField()
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    release_reason = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["group_id", "position", "assigned_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["registration"],
+                condition=models.Q(released_at__isnull=True),
+                name="curated_member_one_active_group",
+            ),
+            models.UniqueConstraint(
+                fields=["group", "position"],
+                condition=models.Q(released_at__isnull=True),
+                name="curated_member_unique_active_position",
+            ),
+        ]
+
+    def __str__(self):
+        state = "released" if self.released_at else "active"
+        return f"{self.registration.user} in {self.group} ({state})"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.group_id and self.event_id and self.group.event_id != self.event_id:
+            errors["event"] = _("The assignment event must match its group.")
+        if (
+            self.registration_id
+            and self.event_id
+            and self.registration.event_id != self.event_id
+        ):
+            errors["registration"] = _(
+                "The assigned registration must belong to the same event."
+            )
+        if self.released_at is None and self.registration_id:
+            if self.registration.status not in {
+                "applied",
+                "pending",
+                "confirmed",
+                "attended",
+            }:
+                errors["registration"] = _(
+                    "Only an active applicant or attendee can hold a group place."
+                )
+        if (
+            self.released_at is None
+            and self.group_id
+            and self.group.status
+            in {
+                CuratedEventGroup.STATUS_LOCKED,
+                CuratedEventGroup.STATUS_CANCELLED,
+            }
+        ):
+            if not self.pk:
+                errors["group"] = _(
+                    "Members cannot be added to a locked or cancelled group."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def _guard_frozen_roster(self):
+        event_ids = {self.event_id}
+        group_ids = {self.group_id}
+        if self.pk:
+            old_values = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("event_id", "group_id")
+                .first()
+            )
+            if old_values:
+                event_ids.add(old_values[0])
+                group_ids.add(old_values[1])
+        groups = _lock_curated_child_scope(
+            event_ids=event_ids,
+            group_ids=group_ids,
+        )
+        if any(
+            group.status in CuratedEventGroup.FROZEN_STATUSES
+            or group.status == CuratedEventGroup.STATUS_PROVISIONAL
+            for group in groups
+        ):
+            raise ValidationError(
+                _(
+                    "A provisional, locked or cancelled group roster cannot be "
+                    "changed outside an atomic reprojection."
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_roster()
+            if self.pk:
+                previous_identity = (
+                    type(self)
+                    .objects.filter(pk=self.pk)
+                    .values_list("event_id", "group_id", "registration_id")
+                    .first()
+                )
+                if previous_identity != (
+                    self.event_id,
+                    self.group_id,
+                    self.registration_id,
+                ):
+                    raise ValidationError(
+                        _(
+                            "A saved assignment's event, group and registration "
+                            "are immutable; release it and create a replacement."
+                        )
+                    )
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_roster()
+            return super().delete(*args, **kwargs)
+
+    def release(self, *, by=None, reason=""):
+        if self.released_at is not None:
+            raise ValidationError(_("This group assignment is already released."))
+        self.released_at = timezone.now()
+        self.released_by = by
+        self.release_reason = reason
+        self.save(update_fields=["released_at", "released_by", "release_reason"])
+
+
+class CuratedGroupNotification(models.Model):
+    """Durable delivery record for selection, remedy and withdrawal mail."""
+
+    class Kind(models.TextChoices):
+        SELECTION = "selection", _("Selection invitation")
+        REMEDY = "remedy", _("Unavailable-group payment remedy")
+        WITHDRAWAL = "withdrawal", _("Unpaid-group withdrawal")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        SENDING = "sending", _("Sending")
+        SENT = "sent", _("Sent")
+        CANCELLED = "cancelled", _("Cancelled as stale")
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_notifications",
+    )
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="curated_notifications",
+    )
+    source_payment = models.ForeignKey(
+        "crush_lu.PaymentTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="curated_notifications",
+    )
+    event_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    registration_id_snapshot = models.PositiveBigIntegerField(db_index=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    dedupe_key = models.CharField(max_length=96, unique=True)
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    claim_token = models.UUIDField(null=True, blank=True, editable=False)
+    claimed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempt_count = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        indexes = [
+            models.Index(
+                fields=["status", "kind", "created_at"],
+                name="curated_notice_queue_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.kind} notice {self.pk} ({self.status})"
+
+
+class CuratedEventPairing(models.Model):
+    """One table in one round of a group's finalizable schedule."""
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_pairings",
+    )
+    group = models.ForeignKey(
+        CuratedEventGroup,
+        on_delete=models.CASCADE,
+        related_name="pairings",
+    )
+    round_number = models.PositiveSmallIntegerField()
+    table_number = models.PositiveSmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["group_id", "round_number", "table_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "round_number", "table_number"],
+                name="curated_pairing_unique_table_per_round",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.group} — round {self.round_number}, table {self.table_number}"
+
+    def clean(self):
+        super().clean()
+        if self.group_id and self.event_id and self.group.event_id != self.event_id:
+            raise ValidationError(
+                {"event": _("The pairing event must match its group.")}
+            )
+
+    def _guard_frozen_schedule(self):
+        event_ids = {self.event_id}
+        group_ids = {self.group_id}
+        if self.pk:
+            old_values = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("event_id", "group_id")
+                .first()
+            )
+            if old_values:
+                event_ids.add(old_values[0])
+                group_ids.add(old_values[1])
+        groups = _lock_curated_child_scope(
+            event_ids=event_ids,
+            group_ids=group_ids,
+        )
+        if any(
+            group.status in CuratedEventGroup.FROZEN_STATUSES
+            or group.status == CuratedEventGroup.STATUS_PROVISIONAL
+            for group in groups
+        ):
+            raise ValidationError(
+                _(
+                    "A provisional, locked or cancelled group schedule cannot be "
+                    "changed outside an atomic reprojection."
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_schedule()
+            if self.pk and self.participants.exists():
+                previous_identity = (
+                    type(self)
+                    .objects.filter(pk=self.pk)
+                    .values_list("event_id", "group_id", "round_number")
+                    .first()
+                )
+                if previous_identity != (
+                    self.event_id,
+                    self.group_id,
+                    self.round_number,
+                ):
+                    raise ValidationError(
+                        _(
+                            "A pairing with assigned seats cannot move to another "
+                            "event, group or round."
+                        )
+                    )
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_schedule()
+            return super().delete(*args, **kwargs)
+
+
+class CuratedEventPairingParticipant(models.Model):
+    """Normalized schedule seat with a DB-enforced one-slot-per-round rule."""
+
+    SEAT_A = "a"
+    SEAT_B = "b"
+    SEAT_CHOICES = [(SEAT_A, _("A")), (SEAT_B, _("B"))]
+
+    event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.CASCADE,
+        related_name="curated_pairing_participants",
+    )
+    group = models.ForeignKey(
+        CuratedEventGroup,
+        on_delete=models.CASCADE,
+        related_name="pairing_participants",
+    )
+    pairing = models.ForeignKey(
+        CuratedEventPairing,
+        on_delete=models.CASCADE,
+        related_name="participants",
+    )
+    round_number = models.PositiveSmallIntegerField()
+    registration = models.ForeignKey(
+        EventRegistration,
+        on_delete=models.CASCADE,
+        related_name="curated_pairing_participations",
+    )
+    seat = models.CharField(max_length=1, choices=SEAT_CHOICES)
+
+    class Meta:
+        ordering = ["pairing_id", "seat"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "round_number", "registration"],
+                name="curated_participant_one_group_slot_per_round",
+            ),
+            models.UniqueConstraint(
+                fields=["pairing", "seat"],
+                name="curated_participant_unique_pairing_seat",
+            ),
+            models.UniqueConstraint(
+                fields=["pairing", "registration"],
+                name="curated_participant_unique_in_pairing",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.registration.user} — {self.pairing} ({self.seat})"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.pairing_id:
+            if self.event_id and self.pairing.event_id != self.event_id:
+                errors["event"] = _("The schedule seat event must match its pairing.")
+            if self.group_id and self.pairing.group_id != self.group_id:
+                errors["group"] = _("The schedule seat group must match its pairing.")
+            if self.round_number != self.pairing.round_number:
+                errors["round_number"] = _(
+                    "The schedule seat round must match its pairing."
+                )
+        if (
+            self.registration_id
+            and self.event_id
+            and self.registration.event_id != self.event_id
+        ):
+            errors["registration"] = _(
+                "The scheduled registration must belong to the same event."
+            )
+        if self.group_id and self.registration_id:
+            is_member = CuratedEventGroupMembership.objects.filter(
+                group_id=self.group_id,
+                registration_id=self.registration_id,
+                released_at__isnull=True,
+            ).exists()
+            if not is_member:
+                errors["registration"] = _(
+                    "A scheduled participant must be an active group member."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def _guard_frozen_schedule(self):
+        event_ids = {self.event_id}
+        group_ids = {self.group_id}
+        if self.pk:
+            old_values = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("event_id", "group_id")
+                .first()
+            )
+            if old_values:
+                event_ids.add(old_values[0])
+                group_ids.add(old_values[1])
+        groups = _lock_curated_child_scope(
+            event_ids=event_ids,
+            group_ids=group_ids,
+        )
+        if any(
+            group.status in CuratedEventGroup.FROZEN_STATUSES
+            or group.status == CuratedEventGroup.STATUS_PROVISIONAL
+            for group in groups
+        ):
+            raise ValidationError(
+                _(
+                    "A provisional, locked or cancelled group schedule cannot be "
+                    "changed outside an atomic reprojection."
+                )
+            )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_schedule()
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            self._guard_frozen_schedule()
+            return super().delete(*args, **kwargs)
+
+
+@receiver(
+    pre_delete,
+    sender=EventRegistration,
+    dispatch_uid="degrade_curated_group_before_registration_erasure",
+)
+def _degrade_curated_group_before_registration_erasure(
+    sender, instance, using, origin, **kwargs
+):
+    """Invalidate certified lineage before legal erasure cascades its seats."""
+    origin_model = getattr(origin, "model", None)
+    if not instance.pk:
+        return
+    with transaction.atomic(using=using):
+        # This is the first EventRegistration pre_delete receiver registered,
+        # so it must acquire the global financial prefix before touching the
+        # registration/group rows. A separate later receiver would invert the
+        # callback order and deadlock on PostgreSQL.
+        from crush_lu.services.event_checkout_retirement import (
+            protect_live_event_checkout_deletion,
+        )
+
+        protect_live_event_checkout_deletion(
+            event_ids=[instance.event_id],
+            registration_ids=[instance.pk],
+            using=using,
+        )
+        if isinstance(origin, MeetupEvent) or origin_model is MeetupEvent:
+            # The containing event and all its groups are already being
+            # removed, but only after the checkout guard above proves that
+            # cascade cannot orphan a payable widget.
+            return
+        group_ids = list(
+            CuratedEventGroupMembership.objects.using(using)
+            .filter(
+                registration_id=instance.pk,
+                released_at__isnull=True,
+            )
+            .values_list("group_id", flat=True)
+        )
+        groups = list(
+            CuratedEventGroup.objects.using(using)
+            .select_for_update()
+            .filter(
+                pk__in=group_ids,
+                status__in=(
+                    CuratedEventGroup.STATUS_PROVISIONAL,
+                    CuratedEventGroup.STATUS_LOCKED,
+                ),
+            )
+            .order_by("pk")
+        )
+        degraded_event_ids = set()
+        for group in groups:
+            if group._mark_degraded_locked(
+                reason=CuratedEventGroup.DEGRADATION_REASON_ERASURE
+            ):
+                degraded_event_ids.add(group.event_id)
+        if degraded_event_ids:
+            # post_delete receivers can enqueue a compensation/reprojection
+            # service on_commit without retaining the erased member identity.
+            instance._curated_group_degraded_event_ids = tuple(
+                sorted(degraded_event_ids)
+            )
 
 
 class EventRegistrationPreference(models.Model):

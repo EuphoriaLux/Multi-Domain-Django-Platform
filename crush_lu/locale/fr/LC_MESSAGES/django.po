@@ -40689,3 +40689,166 @@ msgstr "Laissez vide si toutes les langues vous conviennent."
 #: templates/crush_lu/privacy_policy.html
 msgid "Speed-dating preferences you optionally state per event (preferred age range, languages, gender preference): used only by the organiser team to compose balanced tables, never shown to other members, and deleted shortly after the event"
 msgstr "Préférences de speed dating que vous indiquez facultativement pour chaque événement (tranche d'âge préférée, langues, préférence de genre) : utilisées uniquement par l'équipe d'organisation pour composer des tables équilibrées, jamais montrées aux autres membres et supprimées peu après l'événement"
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The overall application pool is large enough to explore group combinations."
+msgstr "Le nombre total de candidatures est suffisant pour étudier différentes compositions de groupes."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applications are open and the overall pool is still building."
+msgstr "Les candidatures sont ouvertes et le vivier global est encore en train de se constituer."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "Groups are designed for around %(size)s people."
+msgstr "Les groupes sont conçus pour environ %(size)s personnes."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The organiser currently plans one group, subject to compatible applications and a viable round schedule."
+msgid_plural "The organiser currently plans %(count)s groups, subject to compatible applications and a viable round schedule."
+msgstr[0] "L'équipe organisatrice prévoit actuellement un groupe, sous réserve de candidatures compatibles et d'un planning de rencontres viable."
+msgstr[1] "L'équipe organisatrice prévoit actuellement %(count)s groupes, sous réserve de candidatures compatibles et d'un planning de rencontres viable."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The venue can host up to one group."
+msgid_plural "The venue can host up to %(count)s parallel groups."
+msgstr[0] "Le lieu peut accueillir jusqu'à un groupe."
+msgstr[1] "Le lieu peut accueillir jusqu'à %(count)s groupes en parallèle."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "One flexible group can run at the venue."
+msgstr "Un groupe flexible peut être organisé sur place."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The group size and number of groups will be set after applications are reviewed."
+msgstr "La taille et le nombre des groupes seront définis après examen des candidatures."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed."
+msgstr "Votre candidature ne réserve pas de place. La sélection dépend de préférences mutuelles permettant d'établir un planning de rencontres viable, et aucune place n'est garantie."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply."
+msgstr "Si vous êtes sélectionné(e) pour un groupe provisoire viable, vous serez invité(e) à payer. Aucun montant ne vous est facturé lors de votre candidature."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will receive a separate confirmation."
+msgstr "Si vous êtes sélectionné(e) pour un groupe provisoire viable, vous recevrez une confirmation distincte."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Groups are finalized before the first round and stay together for the whole evening."
+msgstr "Les groupes sont finalisés avant le premier tour et restent ensemble pendant toute la soirée."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal."
+msgstr "Chaque groupe finalisé est planifié pour offrir à chaque personne au moins cinq mini-rencontres mutuellement compatibles, avec un objectif de sept."
+
+#: templates/crush_lu/components/event_registration_cta_label.html
+msgid "Apply for This Event"
+msgstr "Postuler à cet événement"
+
+#: templates/crush_lu/event_detail.html
+msgid "Flexible groups"
+msgstr "Groupes flexibles"
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
+msgstr "L'équipe organisatrice examine les préférences mutuelles et ne vous invitera à payer que si vous êtes sélectionné(e) pour un groupe provisoire viable. La sélection n'est pas garantie."
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed."
+msgstr "L'équipe organisatrice examine les préférences mutuelles et ne confirmera votre place que si un groupe provisoire viable peut être constitué. La sélection n'est pas garantie."
+
+#: templates/crush_lu/event_detail.html
+msgid "Withdraw Application"
+msgstr "Retirer ma candidature"
+
+#: templates/crush_lu/event_detail.html
+msgid "to apply for this event."
+msgstr "pour postuler à cet événement."
+
+#: email_helpers.py templates/crush_lu/emails/curated_group_payment_remedy.html
+#, python-brace-format
+msgid "Your payment for {title} was returned"
+msgstr "Votre paiement pour {title} a été restitué"
+
+msgid "Your payment was returned"
+msgstr "Votre paiement a été restitué"
+
+#, python-format
+msgid "When your payment for <strong>%(title)s</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place."
+msgstr "Lorsque votre paiement pour <strong>%(title)s</strong> a été finalisé, nous ne pouvions plus honorer la place sélectionnée selon ses conditions certifiées. Nous n’avons donc pas confirmé de place."
+
+#, python-format
+msgid "We've immediately returned %(amount)s EUR in Crush Credit to your account."
+msgstr "Nous avons immédiatement restitué %(amount)s EUR sous forme de Crush Credit sur votre compte."
+
+msgid "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes."
+msgstr "Comme nous n’avons pas pu fournir la place sélectionnée que vous avez payée, vous pouvez demander un remboursement à la place. Répondez à cet e-mail afin que nous l’organisions. Si vous utilisez une partie du crédit, l’option de remboursement prend fin."
+
+msgid "The cash-refund option has closed because some or all of this credit has already been used."
+msgstr "L’option de remboursement est fermée, car une partie ou la totalité de ce crédit a déjà été utilisée."
+
+msgid "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates."
+msgstr "Cette réservation a été payée avec du Crush Credit ; sa valeur d’origine a donc été rétablie avec ses dates d’expiration d’origine."
+
+msgid "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method."
+msgstr "La valeur totale a été restituée sous forme de Crush Credit. Répondez à cet e-mail si vous souhaitez que nous vérifiions le mode de paiement d’origine."
+
+msgid "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically."
+msgstr "Votre candidature reste dans le pool. Nous vous contacterons si un nouveau groupe viable est sélectionné ; aucun nouveau montant ne vous sera facturé automatiquement."
+
+msgid "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically."
+msgstr "Cette soirée ne peut plus être recomposée. Aucune place n’a été confirmée et aucun nouveau montant ne vous sera facturé automatiquement."
+
+#: views_payments.py
+msgid "A payment checkout is already being prepared. Please wait and try again."
+msgstr "Un paiement est déjà en cours de préparation. Veuillez patienter et réessayer."
+
+msgid "The registration changed while payment was being prepared. Please try again."
+msgstr "L’inscription a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "The event price changed while payment was being prepared. Please try again."
+msgstr "Le prix de l’événement a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "This registration is no longer available."
+msgstr "Cette inscription n’est plus disponible."
+
+msgid "Payment state changed. Please try again."
+msgstr "L’état du paiement a changé. Veuillez réessayer."
+
+#: models/credits.py
+msgid "Curated group became unavailable"
+msgstr "Le groupe organisé n’est plus disponible"
+
+#: models/events.py
+msgid "Unpaid-group withdrawal"
+msgstr "Retrait d’un membre sans paiement"
+
+#: email_helpers.py
+#, python-brace-format
+msgid "Your application for {title} is being reconsidered"
+msgstr "Votre candidature pour {title} est de nouveau à l’étude"
+
+#: templates/crush_lu/emails/curated_group_withdrawal.html
+msgid "Your application is being reconsidered"
+msgstr "Votre candidature est de nouveau à l’étude"
+
+#, python-format
+msgid "Hello %(first_name)s,"
+msgstr "Bonjour %(first_name)s,"
+
+#, python-format
+msgid "The selected group for <strong>%(title)s</strong> can no longer go ahead as planned, so we have returned your application to the selection pool."
+msgstr "Le groupe sélectionné pour <strong>%(title)s</strong> ne peut plus avoir lieu comme prévu. Nous avons donc replacé votre candidature dans le pool de sélection."
+
+msgid "No payment was taken for this place."
+msgstr "Aucun paiement n’a été prélevé pour cette place."
+
+msgid "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required."
+msgstr "Nous réexaminerons votre candidature si un autre groupe viable peut être constitué. Nous vous contacterons avant qu’un paiement ne soit nécessaire."
+
+msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
+msgstr "Vous n’avez rien à faire pour rester dans le pool. Si vos projets ont changé, vous pouvez retirer votre candidature depuis la page de l’événement."

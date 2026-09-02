@@ -1057,6 +1057,110 @@ def send_event_cancelled_by_organiser(
     return sent
 
 
+def send_curated_group_payment_remedy(registration, credits, request=None):
+    """Tell a payer that a stale curated group did not become a paid seat."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    credits = list(credits)
+    user = registration.user
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    cash_refund_available = any(
+        credit.cash_refund_still_available for credit in credits
+    )
+    context = {
+        "user": user,
+        "registration": registration,
+        "event": registration.event,
+        "credits": credits,
+        "has_credit": bool(credits),
+        "credit_lines": [
+            {
+                "amount": format_cents(credit.amount_cents),
+                "expires_at": credit.expires_at,
+            }
+            for credit in credits
+        ],
+        "credit_total": sum(credit.amount_cents for credit in credits) / 100,
+        "cash_refund_available": cash_refund_available,
+        "cash_refund_option_closed": (
+            any(credit.cash_refund_eligible for credit in credits)
+            and not cash_refund_available
+        ),
+        "credit_funded": bool(credits)
+        and all(credit.restored_from_credit_id for credit in credits),
+        "reselection_possible": (
+            registration.event.curated_rounds_started_at is None
+            and timezone.now() < registration.event.date_time
+        ),
+        "events_url": get_user_language_url(user, "crush_lu:event_list", request),
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+
+    with translation.override(lang):
+        subject = _("Your payment for {title} was returned").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/curated_group_payment_remedy.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_curated_group_withdrawal_notice(registration, request=None):
+    """Tell an unpaid applicant that their application is back in the pool."""
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    user = registration.user
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    context = {
+        "user": user,
+        "registration": registration,
+        "event": registration.event,
+        "event_url": get_user_language_url(
+            user,
+            "crush_lu:event_detail",
+            request,
+            kwargs={"event_id": registration.event_id},
+        ),
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+
+    with translation.override(lang):
+        subject = _("Your application for {title} is being reconsidered").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/curated_group_withdrawal.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_event_reminder(registration, request=None, days_until_event=1):
     """
     Send event reminder email.

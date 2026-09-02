@@ -32,6 +32,9 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from allauth.socialaccount.models import SocialAccount
     from crush_lu.models import (
         CrushProfile,
+        CuratedEventGroup,
+        CuratedEventGroupMembership,
+        CuratedEventPairingParticipant,
         EventRegistration,
         EventRegistrationPreference,
         EventConnection,
@@ -43,6 +46,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         UserDataConsent,
         UserActivity,
         ProfileReminder,
+        MeetupEvent,
     )
     from crush_lu.models.referrals import ReferralCode, ReferralAttribution
 
@@ -56,6 +60,111 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         f"({duplicate_user.email}) -> keeper {keeper_user.id} "
         f"({keeper_user.email}) by admin {admin_user}"
     )
+
+    # Payment callbacks and checkout creation use payment -> event -> every
+    # event registration -> group state.  Take the same prefix before touching
+    # either account so a merge cannot detach a checkout midway through a real
+    # capture or delete a certified group member behind the schedule digest.
+    from crush_lu.models.payments import (
+        EventCheckoutCreationClaim,
+        PaymentTransaction,
+    )
+
+    account_registration_ids = list(
+        EventRegistration.objects.filter(
+            user__in=(keeper_user, duplicate_user)
+        ).values_list("pk", flat=True)
+    )
+    locked_payments = list(
+        PaymentTransaction.objects.select_for_update(of=("self",))
+        .filter(
+            Q(user_id__in=(keeper_user.pk, duplicate_user.pk))
+            | Q(event_registration_id__in=account_registration_ids)
+        )
+        .order_by("pk")
+    )
+    affected_event_ids = list(
+        EventRegistration.objects.filter(
+            Q(user__in=(keeper_user, duplicate_user))
+            | Q(resale_beneficiary__in=(keeper_user, duplicate_user))
+        )
+        .order_by("event_id")
+        .values_list("event_id", flat=True)
+        .distinct()
+    )
+    list(
+        MeetupEvent.objects.select_for_update()
+        .filter(pk__in=affected_event_ids)
+        .order_by("pk")
+    )
+    locked_event_registrations = list(
+        EventRegistration.objects.select_for_update()
+        .filter(event_id__in=affected_event_ids)
+        .select_related("event")
+        .order_by("pk")
+    )
+    locked_registration_ids = [row.pk for row in locked_event_registrations]
+    locked_groups = list(
+        CuratedEventGroup.objects.select_for_update()
+        .filter(event_id__in=affected_event_ids)
+        .order_by("pk")
+    )
+
+    if EventCheckoutCreationClaim.objects.filter(
+        registration_id__in=locked_registration_ids
+    ).exists():
+        raise ValueError(
+            "Cannot merge these accounts while an event checkout is being "
+            "prepared. Retry after it completes or retire the stale claim."
+        )
+
+    registrations_by_event_user = {
+        (row.event_id, row.user_id): row for row in locked_event_registrations
+    }
+    payment_status_by_registration = {}
+    for payment in locked_payments:
+        if payment.event_registration_id:
+            payment_status_by_registration.setdefault(
+                payment.event_registration_id, set()
+            ).add(payment.status)
+    derived_group_registration_ids = set(
+        CuratedEventGroupMembership.objects.filter(
+            registration_id__in=locked_registration_ids,
+        ).values_list("registration_id", flat=True)
+    )
+    derived_group_registration_ids.update(
+        CuratedEventPairingParticipant.objects.filter(
+            registration_id__in=locked_registration_ids,
+        ).values_list("registration_id", flat=True)
+    )
+    for row in locked_event_registrations:
+        if row.user_id != duplicate_user.pk:
+            continue
+        keeper_registration = registrations_by_event_user.get(
+            (row.event_id, keeper_user.pk)
+        )
+        if keeper_registration is None:
+            continue
+        if row.pk in derived_group_registration_ids:
+            raise ValueError(
+                "Cannot collapse duplicate registrations while one belongs to "
+                "curated-group history. Preserve or resolve that audited history first."
+            )
+        statuses = payment_status_by_registration.get(row.pk, set())
+        if PaymentTransaction.Status.PENDING in statuses:
+            raise ValueError(
+                "Cannot collapse duplicate registrations with a pending event "
+                "transaction. Resolve the checkout first."
+            )
+        if row.payment_confirmed:
+            raise ValueError(
+                "Cannot collapse a duplicate registration that still holds paid "
+                "seat value. Return or transfer that value explicitly first."
+            )
+
+    # Keep the local name intentionally used: evaluating the row locks is the
+    # point even when no conflict is found.
+    del locked_groups
 
     # 1. Move SocialAccounts
     for sa in SocialAccount.objects.filter(user=duplicate_user):
@@ -111,8 +220,6 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     # user: a checkout paid during or after the merge looks up a profile that
     # has since been moved or deleted and grants no badge, and the keeper
     # cannot open the widget or return page for a payment they made.
-    from crush_lu.models.payments import PaymentTransaction
-
     moved_payments = PaymentTransaction.objects.filter(
         user=duplicate_user, purpose=PaymentTransaction.Purpose.DONATION
     ).update(user=keeper_user)
