@@ -42,7 +42,10 @@ from crush_lu.services.curated_group_workflow import (
     lock_current_generation,
     start_curated_rounds,
 )
-from crush_lu.services.event_grouping import project_event_groups
+from crush_lu.services.event_grouping import (
+    GroupingPoolTooLarge,
+    project_event_groups,
+)
 
 User = get_user_model()
 
@@ -574,9 +577,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
 
         with patch(
             "crush_lu.services.curated_group_insights.project_event_groups",
-            side_effect=__import__(
-                "crush_lu.services.event_grouping", fromlist=["GroupingPoolTooLarge"]
-            ).GroupingPoolTooLarge("too big"),
+            side_effect=GroupingPoolTooLarge("too big"),
         ):
             response = self.page(event)
 

@@ -388,11 +388,15 @@ def _group_card(group, memberships, participants):
     ]
     active_names = {member["name"] for member in members if not member["released"]}
 
+    # A round may seat fewer tables than another (someone sits out), so pad
+    # every round to the widest one and the template's grid stays aligned.
+    max_tables = max((len(tables) for tables in tables_by_round.values()), default=0)
     schedule = []
     for round_number in sorted(tables_by_round):
+        by_table = tables_by_round[round_number]
         tables = [
-            tables_by_round[round_number][t]
-            for t in sorted(tables_by_round[round_number])
+            by_table.get(table_number, {"table": table_number, "a": "", "b": ""})
+            for table_number in range(1, max_tables + 1)
         ]
         seated = {table["a"] for table in tables} | {table["b"] for table in tables}
         schedule.append(
