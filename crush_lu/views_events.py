@@ -787,8 +787,6 @@ FIRST_TIMERS_SIGNAL_MIN = 3
 VERIFIED_SIGNAL_MIN_APPLICATIONS = 5
 VERIFIED_SIGNAL_MIN_SHARE = 0.6
 
-MEMBER_SELECTED_STATUSES = ("pending", "confirmed", "attended")
-
 
 def _curated_member_outlook(event, *, user=None, profile=None, registration=None):
     """Return a privacy-safe group outlook for a curated event detail page.
@@ -812,7 +810,9 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
       ``applied``): the bucketed mutual-match count from
       ``count_mutual_matches``/``match_bucket`` (``few``, ``half``,
       ``evening``, ``multiple``), or ``profile_incomplete`` when the profile
-      lacks the gender or date of birth every comparison needs. The count
+      lacks the gender or date of birth every comparison needs; only on an
+      event with a configured group size, which is what the bucket is sized
+      in. The count
       itself never leaves this function: an exact integer over Art.
       9-adjacent preference rows is a derived disclosure.
     * ``several_first_timers`` / ``mostly_verified`` -- social proof above the
@@ -847,18 +847,22 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
     if user is None or not user.is_authenticated or profile is None:
         return outlook
 
-    if registration is not None and registration.status in MEMBER_SELECTED_STATUSES:
+    # Selected means seat-holding: pending, confirmed or attended.
+    if registration is not None and registration.status in SEAT_HOLDING_STATUSES:
         outlook["group"] = _curated_member_group(registration)
         return outlook
     if registration is not None and registration.status != "applied":
         return outlook
 
-    viewer = viewer_applicant(user, profile, event, registration=registration)
-    if not viewer.gender or viewer.age is None:
-        outlook["viewer_match"] = "profile_incomplete"
-    elif configured_group_size:
-        count = count_mutual_matches(viewer, load_applicants(event))
-        outlook["viewer_match"] = match_bucket(count, configured_group_size)
+    # The bucket is sized in groups, so without a configured group size there
+    # is no sentence to promise -- not even the completion hint.
+    if configured_group_size:
+        viewer = viewer_applicant(user, profile, event, registration=registration)
+        if not viewer.gender or viewer.age is None:
+            outlook["viewer_match"] = "profile_incomplete"
+        else:
+            count = count_mutual_matches(viewer, load_applicants(event))
+            outlook["viewer_match"] = match_bucket(count, configured_group_size)
 
     applications = int(pool.get("applications") or 0)
     outlook["several_first_timers"] = (

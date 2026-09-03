@@ -226,6 +226,10 @@ class CuratedGroupSurfaceTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.context["curated_group_outlook"]["group_size"])
+        # The match bucket is sized in groups: no group size, no sentence, not
+        # even the completion hint.
+        self.assertIsNone(response.context["curated_group_outlook"]["viewer_match"])
+        self.assertNotContains(response, "data-curated-viewer-match")
         self.assertContains(
             response,
             "The group size and number of groups will be set after applications are reviewed.",

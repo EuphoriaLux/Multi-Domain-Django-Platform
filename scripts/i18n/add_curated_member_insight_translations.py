@@ -167,34 +167,46 @@ def _template_msgids(path):
     text = open(path, encoding="utf-8").read()
     found = set()
     for match in re.finditer(r"{%\s*trans\s+(['\"])(.*?)\1\s*%}", text):
-        found.add(match.group(2))
+        found.add((match.group(2), None))
     for match in re.finditer(
         r"{%\s*blocktrans\b[^%]*%}(.*?){%\s*endblocktrans\s*%}", text, re.S
     ):
-        # A plural block is keyed by its singular form; the existing outlook
-        # partial carries two of those and they are already translated.
-        singular = match.group(1).split("{% plural %}")[0]
-        found.add(re.sub(r"{{\s*(\w+)\s*}}", r"%(\1)s", singular))
+        body = match.group(1)
+        singular, plural = (
+            body.split("{% plural %}") if "{% plural %}" in body else (body, None)
+        )
+
+        def convert(fragment):
+            return re.sub(r"{{\s*(\w+)\s*}}", r"%(\1)s", fragment)
+
+        found.add((convert(singular), convert(plural) if plural else None))
     return found
 
 
 def check():
-    """Refuse to run when the sources and this table disagree."""
+    """Refuse to run when the sources and this table disagree.
 
-    existing = {
-        entry.msgid
+    Independent of whether the catalog has been written yet: a msgid (or
+    plural form) that appears in the partials but neither here nor in the
+    catalog is a typo that would fall back to English, and a declared entry
+    no longer present in the partials is an orphan.
+    """
+
+    catalog_pairs = {
+        (entry.msgid, entry.msgid_plural or None)
         for entry in polib.pofile("crush_lu/locale/en/LC_MESSAGES/django.po")
     }
     extracted = _template_msgids("crush_lu/" + OUTLOOK[0]) | _template_msgids(
         "crush_lu/" + GROUP[0]
     )
-    extracted_new = {msgid for msgid in extracted if msgid not in existing}
-    declared = set(NEW)
-    missing = extracted_new - declared
-    orphans = {msgid for msgid in declared - extracted if msgid not in existing}
+    declared = {(msgid, None) for msgid in NEW}
+    missing = extracted - declared - catalog_pairs
+    orphans = declared - extracted
     problems = []
     if missing:
-        problems.append(f"in sources but not in NEW: {sorted(missing)}")
+        problems.append(
+            f"in sources but in neither NEW nor the catalog: {sorted(missing)}"
+        )
     if orphans:
         problems.append(f"in NEW but not in sources: {sorted(orphans)}")
     if problems:
