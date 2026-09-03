@@ -3335,12 +3335,13 @@ class CuratedEventGroupMembership(models.Model):
 
 
 class CuratedGroupNotification(models.Model):
-    """Durable delivery record for selection, remedy and withdrawal mail."""
+    """Durable delivery record for selection, remedy, withdrawal and reserve mail."""
 
     class Kind(models.TextChoices):
         SELECTION = "selection", _("Selection invitation")
         REMEDY = "remedy", _("Unavailable-group payment remedy")
         WITHDRAWAL = "withdrawal", _("Unpaid-group withdrawal")
+        RESERVE = "reserve", _("Not selected — application stays in the pool")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")

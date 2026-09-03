@@ -40852,3 +40852,45 @@ msgstr "Nous réexaminerons votre candidature si un autre groupe viable peut êt
 
 msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
 msgstr "Vous n’avez rien à faire pour rester dans le pool. Si vos projets ont changé, vous pouvez retirer votre candidature depuis la page de l’événement."
+#: email_helpers.py
+msgid "Your application for {title} stays in the pool"
+msgstr "Votre candidature pour {title} reste dans le pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "Your application stays in the pool"
+msgstr "Votre candidature reste dans le pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Thank you for applying to <strong>%(title)s</strong>. The first groups for "
+"this evening have now been formed, and we could not place you in one of them"
+" this time."
+msgstr ""
+"Merci d’avoir postulé pour <strong>%(title)s</strong>. Les premiers groupes "
+"de cette soirée sont maintenant formés et nous n’avons pas pu vous y "
+"attribuer une place cette fois-ci."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "No payment was taken. Your application stays in the pool."
+msgstr "Aucun paiement n’a été prélevé. Votre candidature reste dans le pool."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Groups can still change before the evening. If a place opens in a group that"
+" works for you, we will contact you before any payment is required."
+msgstr ""
+"Les groupes peuvent encore évoluer avant la soirée. Si une place se libère "
+"dans un groupe qui vous correspond, nous vous contacterons avant tout "
+"paiement."
+
+#: models/events.py
+msgid "Not selected — application stays in the pool"
+msgstr "Non sélectionné — la candidature reste dans le pool"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications open"
+msgstr "Groupes sur sélection · candidatures ouvertes"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications closed"
+msgstr "Groupes sur sélection · candidatures closes"

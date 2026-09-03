@@ -2276,6 +2276,65 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             6,
         )
 
+    def test_invite_action_tells_left_out_applicants_they_stay_in_the_pool(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        event = self.make_event()
+        registrations = self.make_applicants(event, 7)
+        stored = generate_group_projection(event, deterministic_seed="reserve")
+        approve_current_generation(event)
+        group = CuratedEventGroup.objects.get(pk=stored.group_ids[0])
+        selected_ids = set(
+            group.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(len(selected_ids), 6)
+        (left_out,) = [
+            registration
+            for registration in registrations
+            if registration.pk not in selected_ids
+        ]
+        request = self.admin_request()
+
+        MeetupEventAdmin(MeetupEvent, AdminSite()).invite_approved_curated_groups(
+            request, MeetupEvent.objects.filter(pk=event.pk)
+        )
+
+        left_out.refresh_from_db()
+        self.assertEqual(left_out.status, "applied")
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                pk__in=selected_ids, status="pending"
+            ).count(),
+            6,
+        )
+        notice = CuratedGroupNotification.objects.get(
+            registration=left_out, kind=CuratedGroupNotification.Kind.RESERVE
+        )
+        self.assertEqual(notice.status, CuratedGroupNotification.Status.SENT)
+        reserve_mail = [
+            message for message in mail.outbox if message.to == [left_out.user.email]
+        ]
+        self.assertEqual(len(reserve_mail), 1)
+        self.assertEqual(
+            reserve_mail[0].subject,
+            "Your application for Elastic evening stays in the pool",
+        )
+        # The six invited members get the payment request, never the reserve
+        # notice.
+        self.assertFalse(
+            CuratedGroupNotification.objects.filter(
+                registration_id__in=selected_ids,
+                kind=CuratedGroupNotification.Kind.RESERVE,
+            ).exists()
+        )
+        rendered_messages = [str(message) for message in request._messages]
+        self.assertTrue(
+            any("stay in the pool" in message for message in rendered_messages),
+            rendered_messages,
+        )
+
     def test_gdpr_export_contains_only_members_own_schedule_coordinates(self):
         _event, registrations, group = self.certify_one_group()
         member = next(

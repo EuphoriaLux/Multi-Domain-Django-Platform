@@ -27533,3 +27533,39 @@ msgstr ""
 
 msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
 msgstr ""
+#: email_helpers.py
+msgid "Your application for {title} stays in the pool"
+msgstr ""
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "Your application stays in the pool"
+msgstr ""
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Thank you for applying to <strong>%(title)s</strong>. The first groups for "
+"this evening have now been formed, and we could not place you in one of them"
+" this time."
+msgstr ""
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "No payment was taken. Your application stays in the pool."
+msgstr ""
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Groups can still change before the evening. If a place opens in a group that"
+" works for you, we will contact you before any payment is required."
+msgstr ""
+
+#: models/events.py
+msgid "Not selected — application stays in the pool"
+msgstr ""
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications open"
+msgstr ""
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications closed"
+msgstr ""

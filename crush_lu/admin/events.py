@@ -3226,6 +3226,8 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         )
         curated_notice_generations = {}
         selection_delivery = None
+        reserve_notice_ids = []
+        reserve_delivery = None
 
         # The capacity check and the status updates have to be one atomic,
         # locked unit. Reading spots_remaining and then updating in a separate
@@ -3632,6 +3634,29 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     }
                 )
 
+                # Everyone still "applied" on the event who holds no place in
+                # the invited generation learns that they stay in the pool.
+                # Without this, a non-selected applicant kept reading "Your
+                # application is in!" indefinitely. Enqueued inside the same
+                # transaction as the status writes so the outbox row is as
+                # durable as the selection it reports on.
+                from crush_lu.services.curated_group_notifications import (
+                    enqueue_reserve_notifications,
+                )
+
+                reserve_scope = {}
+                for reg in applications:
+                    if reg.pk in curated_notice_ids:
+                        reserve_scope[reg.event_id] = curated_notice_generations[reg.pk]
+                for scoped_event_id, generation in sorted(reserve_scope.items()):
+                    reserve_notice_ids.extend(
+                        enqueue_reserve_notifications(
+                            scoped_event_id,
+                            generation=generation,
+                            exclude_registration_ids=curated_notice_ids,
+                        )
+                    )
+
             # Legacy/direct event selection keeps its existing single-message
             # callback. The projector's potentially 500-person path never
             # enters this loop.
@@ -3652,6 +3677,14 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 registration_ids=curated_notice_ids,
                 kinds=["selection"],
             )
+            if reserve_notice_ids:
+                # Bounded like the invitations: a remainder stays queued for
+                # the "Deliver pending curated emails" action.
+                reserve_delivery = deliver_curated_group_notifications(
+                    notice_ids=reserve_notice_ids,
+                    kinds=["reserve"],
+                    drain=True,
+                )
 
         # .update() emits no signals, so the per-registration receiver never
         # runs here and the restored tickets would stay voided forever.
@@ -3722,6 +3755,20 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     "sent": selection_delivery.sent,
                     "failed": selection_delivery.failed,
                     "remaining": selection_delivery.remaining,
+                },
+            )
+        if reserve_delivery is not None:
+            django_messages.info(
+                request,
+                _(
+                    "Applicants not selected this time: %(sent)d told they stay "
+                    "in the pool, %(failed)d failed and remain retryable, "
+                    "%(remaining)d still queued."
+                )
+                % {
+                    "sent": reserve_delivery.sent,
+                    "failed": reserve_delivery.failed,
+                    "remaining": reserve_delivery.remaining,
                 },
             )
         if resale_claims_attached:

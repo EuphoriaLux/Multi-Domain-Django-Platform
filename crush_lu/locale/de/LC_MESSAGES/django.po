@@ -40718,3 +40718,45 @@ msgstr "Wenn sich eine andere passende Gruppe bilden lässt, berücksichtigen wi
 
 msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
 msgstr "Du musst nichts tun, um im Pool zu bleiben. Wenn sich deine Pläne geändert haben, kannst du deine Bewerbung auf der Eventseite zurückziehen."
+#: email_helpers.py
+msgid "Your application for {title} stays in the pool"
+msgstr "Deine Bewerbung für {title} bleibt im Pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "Your application stays in the pool"
+msgstr "Deine Bewerbung bleibt im Pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Thank you for applying to <strong>%(title)s</strong>. The first groups for "
+"this evening have now been formed, and we could not place you in one of them"
+" this time."
+msgstr ""
+"Danke für deine Bewerbung für <strong>%(title)s</strong>. Die ersten Gruppen"
+" für diesen Abend stehen jetzt fest, und dieses Mal konnten wir dir keinen "
+"Platz in einer davon geben."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "No payment was taken. Your application stays in the pool."
+msgstr "Es wurde keine Zahlung eingezogen. Deine Bewerbung bleibt im Pool."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Groups can still change before the evening. If a place opens in a group that"
+" works for you, we will contact you before any payment is required."
+msgstr ""
+"Die Gruppen können sich bis zum Abend noch ändern. Wenn ein Platz in einer "
+"passenden Gruppe frei wird, melden wir uns bei dir, bevor eine Zahlung "
+"fällig wird."
+
+#: models/events.py
+msgid "Not selected — application stays in the pool"
+msgstr "Nicht ausgewählt — Bewerbung bleibt im Pool"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications open"
+msgstr "Kuratierte Gruppen · Bewerbungen offen"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications closed"
+msgstr "Kuratierte Gruppen · Bewerbungen geschlossen"
