@@ -112,6 +112,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         with_preference=True,
         status="applied",
         first_name=None,
+        preferred_genders=(),
     ):
         user = self.make_user(
             f"member-{event.pk}-{index}@example.com",
@@ -130,7 +131,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         if with_preference:
             EventRegistrationPreference.objects.create(
                 registration=registration,
-                preferred_genders=[],
+                preferred_genders=list(preferred_genders),
                 preferred_age_min=18,
                 preferred_age_max=99,
                 languages=[],
@@ -395,10 +396,52 @@ class CoachCuratedGroupsPanelTests(TestCase):
             registration_deadline=timezone.now() + timedelta(days=1)
         )
 
-        panel = self.page(event).context["curated_groups_panel"]
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
 
+        # Stale, but regenerating is refused until the reopened window closes.
         self.assertTrue(panel["preflight"]["stale"])
-        self.assertEqual(panel["next_action"], "regenerate")
+        self.assertEqual(panel["next_action"], "wait_for_deadline")
+        self.assertContains(response, NEXT_ACTION_LABELS["wait_for_deadline"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["regenerate"])
+
+    def test_empty_projection_after_deadline_has_nothing_to_generate(self):
+        """Six applicants who all want to meet women, and no woman applied:
+        the projector runs fine and finds no viable group, and Generate would
+        refuse the same pool."""
+        event = self.make_event()
+        for index in range(6):
+            self.make_applicant(event, index, gender="M", preferred_genders=("F",))
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+
+        self.assertEqual(panel["stage"], "none")
+        self.assertEqual(panel["preflight"]["viable_groups"], 0)
+        self.assertEqual(panel["preflight"]["left_out"], 6)
+        self.assertIsNone(panel["preflight"]["error"])
+        self.assertEqual(panel["next_action"], "no_viable_group")
+        self.assertContains(response, NEXT_ACTION_LABELS["no_viable_group"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["generate"])
+        self.assertEqual(len(panel["left_out"]["eligible"]), 6)
+
+    def test_stale_draft_with_no_viable_regeneration_says_so(self):
+        event = self.make_event()
+        registrations = self.make_applicants(event)
+        generate_group_projection(event, deterministic_seed="coach-panel")
+        # Everyone now wants to meet women only; the pool has none.
+        EventRegistrationPreference.objects.filter(
+            registration__in=registrations
+        ).update(preferred_genders=["F"])
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+
+        self.assertEqual(panel["stage"], "draft")
+        self.assertTrue(panel["preflight"]["stale"])
+        self.assertEqual(panel["preflight"]["viable_groups"], 0)
+        self.assertEqual(panel["next_action"], "no_viable_group")
+        self.assertNotContains(response, NEXT_ACTION_LABELS["regenerate"])
 
     def test_provisional_stage_says_invite_then_check_in(self):
         event = self.make_event()
@@ -497,6 +540,35 @@ class CoachCuratedGroupsPanelTests(TestCase):
             [p["registration_id"] for p in panel["left_out"]["eligible"]],
             [dropped.pk],
         )
+
+    def test_degraded_after_round_one_started_is_audit_only(self):
+        event = self.make_event()
+        group = self.certify(event)
+        EventRegistration.objects.filter(event=event).update(
+            status="attended", payment_confirmed=True, payment_date=timezone.now()
+        )
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        event.refresh_from_db()
+        lock_current_generation(event, actor=self.coach)
+        start_curated_rounds(event, actor=self.coach)
+        with transaction.atomic():
+            locked = CuratedEventGroup.objects.select_for_update().get(pk=group.pk)
+            locked._mark_degraded_locked(
+                reason=CuratedEventGroup.DEGRADATION_REASON_ERASURE
+            )
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+
+        self.assertEqual(panel["stage"], "degraded")
+        self.assertTrue(panel["rounds_started"])
+        self.assertEqual(panel["next_action"], "degraded_after_start")
+        self.assertContains(response, NEXT_ACTION_LABELS["degraded_after_start"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["repair"])
+        self.assertContains(response, "Round one was already marked as started.")
+        self.assertContains(response, "was locked")
 
     def test_cancelled_event_names_no_action(self):
         event = self.make_event(is_cancelled=True)
@@ -702,8 +774,10 @@ class CoachCuratedGroupsPanelTests(TestCase):
 
     def test_banner_and_reasons_are_localized(self):
         event = self.make_event()
-        self.make_applicants(event, 5)
-        self.make_applicant(event, 5, with_preference=False)
+        # Six eligible applicants make one viable group, so Generate is the next
+        # step; the seventh, without preferences, is the localized reason.
+        self.make_applicants(event, 6)
+        self.make_applicant(event, 6, with_preference=False)
 
         expectations = {
             "fr": (

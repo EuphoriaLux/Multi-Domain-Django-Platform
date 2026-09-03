@@ -27853,3 +27853,15 @@ msgid ""
 "The event has ended without round one being marked as started. Nothing left "
 "to do here."
 msgstr ""
+#: services/curated_group_insights.py
+msgid ""
+"The projector finds no viable group in this pool: nobody can be seated with "
+"at least five mutually compatible dates yet, so there is nothing to generate"
+" until more compatible applicants apply."
+msgstr ""
+
+#: services/curated_group_insights.py
+msgid ""
+"This group degraded after round one had started. The repair action only "
+"records the audit; nothing is reprojected or compensated."
+msgstr ""

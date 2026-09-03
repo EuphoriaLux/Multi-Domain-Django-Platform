@@ -78,6 +78,8 @@ NEXT_PROJECTOR_REFUSED = "projector_refused"
 NEXT_PAST_START_UNGENERATED = "past_start_ungenerated"
 NEXT_PAST_START_UNINVITED = "past_start_uninvited"
 NEXT_ENDED = "ended"
+NEXT_NO_VIABLE_GROUP = "no_viable_group"
+NEXT_DEGRADED_AFTER_START = "degraded_after_start"
 
 # Admin action names quoted verbatim (minus the emoji) so a coach can find the
 # entry in the actions dropdown.
@@ -115,6 +117,15 @@ NEXT_ACTION_LABELS = {
     NEXT_ENDED: _(
         "The event has ended without round one being marked as started. Nothing "
         "left to do here."
+    ),
+    NEXT_NO_VIABLE_GROUP: _(
+        "The projector finds no viable group in this pool: nobody can be seated "
+        "with at least five mutually compatible dates yet, so there is nothing to "
+        "generate until more compatible applicants apply."
+    ),
+    NEXT_DEGRADED_AFTER_START: _(
+        "This group degraded after round one had started. The repair action only "
+        "records the audit; nothing is reprojected or compensated."
     ),
 }
 
@@ -221,6 +232,7 @@ def coach_group_panel(event, registrations=None):
         now=now,
         deadline_passed=deadline_passed,
         stale=stale,
+        projection=projection,
         projection_error=projection_error,
     )
 
@@ -318,19 +330,25 @@ def _next_action(
     now,
     deadline_passed,
     stale,
+    projection,
     projection_error,
 ):
     """Name the one admin action that can actually succeed right now.
 
     Mirrors the workflow's own refusals: generate, approve and invite all stop
     at the scheduled start (``_validate_pre_round_event`` without the
-    late-check-in allowance), lock and repair run until the event ends, and a
-    pool the projector refuses can be neither generated nor approved.
+    late-check-in allowance); lock and repair run until the event ends; a
+    generation is refused while the application window is open, when the
+    projector cannot run on the pool, and when it runs but finds no viable
+    group; and a group that degrades after round one was delivered gets an
+    audit-only repair, not a reprojection.
     """
 
     if event.is_cancelled:
         return NEXT_CANCELLED
     if stage == STAGE_DEGRADED:
+        if event.curated_rounds_started_at is not None:
+            return NEXT_DEGRADED_AFTER_START
         return NEXT_REPAIR
     if stage == STAGE_STARTED:
         return NEXT_DELIVERED
@@ -352,9 +370,14 @@ def _next_action(
         return NEXT_PAST_START_UNGENERATED
     if projection_error:
         return NEXT_PROJECTOR_REFUSED
-    if stage == STAGE_DRAFT:
-        return NEXT_REGENERATE if stale else NEXT_APPROVE
-    return NEXT_GENERATE if deadline_passed else NEXT_WAIT_FOR_DEADLINE
+    if stage == STAGE_DRAFT and not stale:
+        return NEXT_APPROVE
+    # A (re)generation is next -- if the workflow would accept one.
+    if not deadline_passed:
+        return NEXT_WAIT_FOR_DEADLINE
+    if projection is not None and not projection.viable_groups:
+        return NEXT_NO_VIABLE_GROUP
+    return NEXT_REGENERATE if stage == STAGE_DRAFT else NEXT_GENERATE
 
 
 def _preflight(candidates, projection, projection_error, stale):

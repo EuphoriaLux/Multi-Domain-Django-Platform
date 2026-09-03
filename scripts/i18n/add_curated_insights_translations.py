@@ -350,6 +350,41 @@ NEW = {
             "comme commencée. Plus rien à faire ici."
         ),
     },
+    (
+        "The projector finds no viable group in this pool: nobody can be seated "
+        "with at least five mutually compatible dates yet, so there is nothing to "
+        "generate until more compatible applicants apply."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Der Projektor findet in diesem Pool keine tragfähige Gruppe: Noch kann "
+            "niemand mit mindestens fünf gegenseitig passenden Dates platziert "
+            "werden, also gibt es nichts zu erstellen, bis sich mehr passende "
+            "Bewerber melden."
+        ),
+        "fr": (
+            "Le projecteur ne trouve aucun groupe viable dans ce pool : personne ne "
+            "peut encore être placé avec au moins cinq rencontres mutuellement "
+            "compatibles, il n’y a donc rien à générer tant que davantage de "
+            "candidats compatibles ne se sont pas inscrits."
+        ),
+    },
+    (
+        "This group degraded after round one had started. The repair action only "
+        "records the audit; nothing is reprojected or compensated."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Diese Gruppe wurde beeinträchtigt, nachdem Runde eins bereits begonnen "
+            "hatte. Die Reparatur-Aktion hält nur den Audit fest; es wird nichts neu "
+            "berechnet oder entschädigt."
+        ),
+        "fr": (
+            "Ce groupe s’est dégradé après le début de la première ronde. L’action "
+            "de réparation ne fait qu’enregistrer l’audit ; rien n’est recomposé ni "
+            "compensé."
+        ),
+    },
     # -- ineligibility reasons (module) -------------------------------------
     "no event preferences on the application": {
         "occ": MODULE,
