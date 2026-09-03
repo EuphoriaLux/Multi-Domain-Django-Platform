@@ -19,7 +19,7 @@ from a @coach_required page only and must never be reused on a member surface.
     </div>
 
     {# 1. State banner: where the evening is and which admin action comes next #}
-    <div data-curated-stage="{{ panel.stage }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4 border-l-4 {% if panel.stage == 'degraded' %}border-red-500{% elif panel.stage == 'started' %}border-emerald-500{% elif panel.stage == 'locked' %}border-green-500{% elif panel.stage == 'provisional' %}border-blue-500{% elif panel.stage == 'draft' %}border-amber-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+    <div data-curated-stage="{{ panel.stage }}" class="card p-5 mb-4 border-l-4 {% if panel.stage == 'degraded' %}border-red-500{% elif panel.stage == 'started' %}border-emerald-500{% elif panel.stage == 'locked' %}border-green-500{% elif panel.stage == 'provisional' %}border-blue-500{% elif panel.stage == 'draft' %}border-amber-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
         <p class="font-semibold dark:text-white">
             {% if panel.stage == 'degraded' %}
                 {% blocktrans with generation=panel.generation %}Generation {{ generation }} is degraded and needs repair{% endblocktrans %}
@@ -54,7 +54,7 @@ from a @coach_required page only and must never be reused on a member surface.
 
     {# 2. Preflight: what the projector would do with the pool right now #}
     {% if panel.preflight %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4" data-curated-preflight>
+    <div class="card p-5 mb-4" data-curated-preflight>
         <div class="flex flex-wrap items-center gap-2 mb-3">
             <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "What the projector would do with the pool right now" %}</p>
             {% if panel.preflight.stale %}
@@ -88,7 +88,7 @@ from a @coach_required page only and must never be reused on a member surface.
 
     {# 3. One card per group of the current generation #}
     {% for group in panel.groups %}
-    <div data-curated-group="{{ group.number }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4">
+    <div data-curated-group="{{ group.number }}" class="card p-5 mb-4">
         <div class="flex flex-wrap items-center gap-2 mb-3">
             <h4 class="font-semibold dark:text-white">{% blocktrans with number=group.number %}Group {{ number }}{% endblocktrans %}</h4>
             {% if group.status == 'locked' %}
@@ -182,7 +182,7 @@ from a @coach_required page only and must never be reused on a member surface.
     {% endfor %}
 
     {# 4. Left out: every candidate without an active place, and why #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5" data-curated-left-out>
+    <div class="card p-5" data-curated-left-out>
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
             {% if panel.left_out.preview %}{% trans "Would be left out" %}{% else %}{% trans "Left out" %}{% endif %}
         </p>

@@ -74,6 +74,10 @@ NEXT_START = "start"
 NEXT_DELIVERED = "delivered"
 NEXT_REPAIR = "repair"
 NEXT_CANCELLED = "cancelled"
+NEXT_PROJECTOR_REFUSED = "projector_refused"
+NEXT_PAST_START_UNGENERATED = "past_start_ungenerated"
+NEXT_PAST_START_UNINVITED = "past_start_uninvited"
+NEXT_ENDED = "ended"
 
 # Admin action names quoted verbatim (minus the emoji) so a coach can find the
 # entry in the actions dropdown.
@@ -95,6 +99,23 @@ NEXT_ACTION_LABELS = {
     NEXT_DELIVERED: _("Round one has been marked as started. Nothing left to do here."),
     NEXT_REPAIR: _("Run “Reproject or compensate degraded groups”."),
     NEXT_CANCELLED: _("The event is cancelled; no group action applies."),
+    NEXT_PROJECTOR_REFUSED: _(
+        "The projector refused this pool, so groups can be neither generated nor "
+        "approved; reduce the pool or review it offline first."
+    ),
+    NEXT_PAST_START_UNGENERATED: _(
+        "The scheduled start has passed without an approved generation; groups can "
+        "no longer be generated or approved for this event."
+    ),
+    NEXT_PAST_START_UNINVITED: _(
+        "The scheduled start has passed, so the remaining applicants can no longer "
+        "be invited. Check in the members who are here, then run “Lock checked-in "
+        "curated groups”."
+    ),
+    NEXT_ENDED: _(
+        "The event has ended without round one being marked as started. Nothing "
+        "left to do here."
+    ),
 }
 
 INELIGIBILITY_LABELS = {
@@ -153,7 +174,8 @@ def coach_group_panel(event, registrations=None):
 
     groups = current_generation_groups(event)
     stage = _stage(event, groups)
-    deadline_passed = timezone.now() >= event.registration_deadline
+    now = timezone.now()
+    deadline_passed = now >= event.registration_deadline
 
     projection = None
     projection_error = None
@@ -196,8 +218,10 @@ def coach_group_panel(event, registrations=None):
         event,
         stage,
         memberships,
+        now=now,
         deadline_passed=deadline_passed,
         stale=stale,
+        projection_error=projection_error,
     )
 
     preflight = None
@@ -219,7 +243,13 @@ def coach_group_panel(event, registrations=None):
         person = _person(registration, reasons=reasons_by_id.get(registration.pk, ()))
         (left_out_blocked if person["reasons"] else left_out_eligible).append(person)
 
-    admin_url = reverse("crush_admin:crush_lu_meetupevent_changelist")
+    # The coach panel is mounted on the crush.lu urlconf only. Name it, so the
+    # link resolves the same way whether this runs inside a crush.lu request
+    # or from a shell/test on the default urlconf.
+    admin_url = reverse(
+        "crush_admin:crush_lu_meetupevent_changelist",
+        urlconf="azureproject.urls_crush",
+    )
     if event.title:
         admin_url = f"{admin_url}?{urlencode({'q': event.title})}"
 
@@ -280,13 +310,33 @@ def _draft_is_stale(event, stage, groups, projection):
     )
 
 
-def _next_action(event, stage, memberships, *, deadline_passed, stale):
+def _next_action(
+    event,
+    stage,
+    memberships,
+    *,
+    now,
+    deadline_passed,
+    stale,
+    projection_error,
+):
+    """Name the one admin action that can actually succeed right now.
+
+    Mirrors the workflow's own refusals: generate, approve and invite all stop
+    at the scheduled start (``_validate_pre_round_event`` without the
+    late-check-in allowance), lock and repair run until the event ends, and a
+    pool the projector refuses can be neither generated nor approved.
+    """
+
     if event.is_cancelled:
         return NEXT_CANCELLED
     if stage == STAGE_DEGRADED:
         return NEXT_REPAIR
     if stage == STAGE_STARTED:
         return NEXT_DELIVERED
+    if event.end_time <= now:
+        return NEXT_ENDED
+    past_start = event.date_time <= now
     if stage == STAGE_LOCKED:
         return NEXT_START
     if stage == STAGE_PROVISIONAL:
@@ -295,7 +345,13 @@ def _next_action(event, stage, memberships, *, deadline_passed, stale):
             and membership.registration.status == "applied"
             for membership in memberships
         )
-        return NEXT_INVITE if still_applied else NEXT_CHECK_IN_AND_LOCK
+        if still_applied:
+            return NEXT_PAST_START_UNINVITED if past_start else NEXT_INVITE
+        return NEXT_CHECK_IN_AND_LOCK
+    if past_start:
+        return NEXT_PAST_START_UNGENERATED
+    if projection_error:
+        return NEXT_PROJECTOR_REFUSED
     if stage == STAGE_DRAFT:
         return NEXT_REGENERATE if stale else NEXT_APPROVE
     return NEXT_GENERATE if deadline_passed else NEXT_WAIT_FOR_DEADLINE
@@ -368,9 +424,16 @@ def _group_card(group, memberships, participants):
         tables = tables_by_round.setdefault(participant.round_number, {})
         table = tables.setdefault(
             participant.pairing.table_number,
-            {"table": participant.pairing.table_number, "a": "", "b": ""},
+            {
+                "table": participant.pairing.table_number,
+                "a": "",
+                "b": "",
+                "a_id": None,
+                "b_id": None,
+            },
         )
         table[participant.seat] = _display_name(participant.registration.user)
+        table[f"{participant.seat}_id"] = participant.registration_id
 
     # Active members first in seating position, released ones after them,
     # struck through by the template.
@@ -386,7 +449,17 @@ def _group_card(group, memberships, participants):
         )
         for membership in ordered
     ]
-    active_names = {member["name"] for member in members if not member["released"]}
+    # Identity is the registration id, never the display name: two members
+    # can share a first name, and the projector seats people, not labels.
+    active_ids = {
+        membership.registration_id
+        for membership in own_memberships
+        if membership.released_at is None
+    }
+    names_by_id = {
+        membership.registration_id: _display_name(membership.registration.user)
+        for membership in own_memberships
+    }
 
     # A round may seat fewer tables than another (someone sits out), so pad
     # every round to the widest one and the template's grid stays aligned.
@@ -395,15 +468,23 @@ def _group_card(group, memberships, participants):
     for round_number in sorted(tables_by_round):
         by_table = tables_by_round[round_number]
         tables = [
-            by_table.get(table_number, {"table": table_number, "a": "", "b": ""})
+            by_table.get(
+                table_number,
+                {"table": table_number, "a": "", "b": "", "a_id": None, "b_id": None},
+            )
             for table_number in range(1, max_tables + 1)
         ]
-        seated = {table["a"] for table in tables} | {table["b"] for table in tables}
+        seated_ids = {table["a_id"] for table in tables} | {
+            table["b_id"] for table in tables
+        }
         schedule.append(
             {
                 "round": round_number,
                 "tables": tables,
-                "sitting_out": sorted(active_names - seated),
+                "sitting_out": sorted(
+                    names_by_id[registration_id]
+                    for registration_id in active_ids - seated_ids
+                ),
             }
         )
 
@@ -435,7 +516,7 @@ def _group_card(group, memberships, participants):
         "status_display": group.get_status_display(),
         "degraded_from": degradation.get("from_status") or "",
         "members": members,
-        "active_count": len(active_names),
+        "active_count": len(active_ids),
         "projected_size": projected_size,
         "rounds": rounds,
         "minimum_dates": minimum_dates,

@@ -27829,3 +27829,27 @@ msgid "%(count)d member already held a seat when this projection ran."
 msgid_plural "%(count)d members already held a seat when this projection ran."
 msgstr[0] ""
 msgstr[1] ""
+#: services/curated_group_insights.py
+msgid ""
+"The projector refused this pool, so groups can be neither generated nor "
+"approved; reduce the pool or review it offline first."
+msgstr ""
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed without an approved generation; groups can no"
+" longer be generated or approved for this event."
+msgstr ""
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed, so the remaining applicants can no longer be"
+" invited. Check in the members who are here, then run “Lock checked-in "
+"curated groups”."
+msgstr ""
+
+#: services/curated_group_insights.py
+msgid ""
+"The event has ended without round one being marked as started. Nothing left "
+"to do here."
+msgstr ""

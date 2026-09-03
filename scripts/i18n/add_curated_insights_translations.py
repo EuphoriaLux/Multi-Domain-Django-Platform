@@ -288,6 +288,68 @@ NEW = {
         "de": "Die Veranstaltung ist abgesagt; keine Gruppenaktion nötig.",
         "fr": "L’événement est annulé ; aucune action de groupe ne s’applique.",
     },
+    (
+        "The projector refused this pool, so groups can be neither generated nor "
+        "approved; reduce the pool or review it offline first."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Der Projektor hat diesen Pool abgelehnt; Gruppen können weder erstellt "
+            "noch freigegeben werden. Verkleinere den Pool oder prüfe ihn zuerst "
+            "offline."
+        ),
+        "fr": (
+            "Le projecteur a refusé ce pool : les groupes ne peuvent être ni "
+            "générés ni approuvés. Réduisez le pool ou examinez-le d’abord hors "
+            "ligne."
+        ),
+    },
+    (
+        "The scheduled start has passed without an approved generation; groups can "
+        "no longer be generated or approved for this event."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Der geplante Beginn ist ohne freigegebene Generation verstrichen; für "
+            "diese Veranstaltung können keine Gruppen mehr erstellt oder "
+            "freigegeben werden."
+        ),
+        "fr": (
+            "Le début prévu est passé sans génération approuvée ; il n’est plus "
+            "possible de générer ni d’approuver des groupes pour cet événement."
+        ),
+    },
+    (
+        "The scheduled start has passed, so the remaining applicants can no longer "
+        "be invited. Check in the members who are here, then run “Lock checked-in "
+        "curated groups”."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Der geplante Beginn ist verstrichen, die übrigen Bewerber können nicht "
+            "mehr eingeladen werden. Checke die anwesenden Mitglieder ein und "
+            "führe dann „Lock checked-in curated groups“ aus."
+        ),
+        "fr": (
+            "Le début prévu est passé : les candidats restants ne peuvent plus "
+            "être invités. Enregistrez les membres présents, puis lancez « Lock "
+            "checked-in curated groups »."
+        ),
+    },
+    (
+        "The event has ended without round one being marked as started. Nothing "
+        "left to do here."
+    ): {
+        "occ": MODULE,
+        "de": (
+            "Die Veranstaltung ist zu Ende, ohne dass Runde eins als gestartet "
+            "markiert wurde. Hier gibt es nichts mehr zu tun."
+        ),
+        "fr": (
+            "L’événement est terminé sans que la première ronde ait été marquée "
+            "comme commencée. Plus rien à faire ici."
+        ),
+    },
     # -- ineligibility reasons (module) -------------------------------------
     "no event preferences on the application": {
         "occ": MODULE,
@@ -400,29 +462,31 @@ def _module_msgids(path):
 
 
 def check():
-    """Refuse to run when the sources and this table disagree."""
+    """Refuse to run when the sources and this table disagree.
 
-    existing = {
-        entry.msgid
+    Independent of whether the catalog has been written yet: a msgid (or
+    plural form) that appears in the sources but neither here nor in the
+    catalog is a typo that would fall back to English, and a declared entry
+    no longer present in the sources is an orphan.
+    """
+
+    catalog_pairs = {
+        (entry.msgid, entry.msgid_plural or None)
         for entry in polib.pofile("crush_lu/locale/en/LC_MESSAGES/django.po")
     }
     extracted = _template_msgids("crush_lu/" + PANEL[0]) | _module_msgids(
         "crush_lu/" + MODULE[0]
     )
-    extracted_new = {pair for pair in extracted if pair[0] not in existing}
     declared = {(msgid, spec.get("plural")) for msgid, spec in NEW.items()}
+    missing = extracted - declared - catalog_pairs
     # The "Groups" tab lives in coach_event_detail.html, which carries dozens
     # of untranslated organiser strings this script does not own.
-    declared_from_sources = declared - {("Groups", None)}
-    missing = extracted_new - declared_from_sources
-    orphans = (
-        declared_from_sources
-        - extracted_new
-        - {pair for pair in declared_from_sources if pair[0] in existing}
-    )
+    orphans = declared - extracted - {("Groups", None)}
     problems = []
     if missing:
-        problems.append(f"in sources but not in NEW: {sorted(missing)}")
+        problems.append(
+            f"in sources but in neither NEW nor the catalog: {sorted(missing)}"
+        )
     if orphans:
         problems.append(f"in NEW but not in sources: {sorted(orphans)}")
     if problems:

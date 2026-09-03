@@ -5,8 +5,9 @@ action, previews what the projector would do with the pool, mirrors the
 stored generation (members, dates, fairness audit, pairing schedule) and
 lists who is left out and why. Nothing here changes a group.
 
-Paths use ``reverse()`` under the crush.lu urlconf, like the workflow
-integration tests, because the coach page lives behind i18n_patterns there.
+Paths are literal with ``HTTP_HOST=crush.lu``: the host middleware selects the
+crush urlconf per request, and ``reverse()`` would resolve against the default
+one (see AGENTS.md, multi-domain test convention).
 """
 
 import re
@@ -17,8 +18,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
-from django.test import TestCase, override_settings
-from django.urls import reverse
+from django.test import TestCase
 from django.utils import timezone
 
 from crush_lu.models import CrushCoach
@@ -62,7 +62,6 @@ PANEL_MARKERS = (
 )
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class CoachCuratedGroupsPanelTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -112,9 +111,11 @@ class CoachCuratedGroupsPanelTests(TestCase):
         date_of_birth=date(1995, 1, 1),
         with_preference=True,
         status="applied",
+        first_name=None,
     ):
         user = self.make_user(
-            f"member-{event.pk}-{index}@example.com", first_name=f"Member {index}"
+            f"member-{event.pk}-{index}@example.com",
+            first_name=first_name or f"Member {index}",
         )
         CrushProfile.objects.create(
             user=user,
@@ -159,13 +160,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         return re.sub(r"\?status=\w+", "", html)
 
     def page(self, event, status=None, language="en"):
-        # reverse() prefixes the language that is active in this process,
-        # which the previous request may have left at fr or de.
-        url = re.sub(
-            r"^/[a-z]{2}/",
-            f"/{language}/",
-            reverse("crush_lu:coach_event_detail", args=[event.pk]),
-        )
+        url = f"/{language}/coach/events/{event.pk}/"
         if status:
             url = f"{url}?status={status}"
         response = self.client.get(url)
@@ -584,7 +579,105 @@ class CoachCuratedGroupsPanelTests(TestCase):
         panel = response.context["curated_groups_panel"]
         self.assertEqual(panel["preflight"]["error"], "too big")
         self.assertIsNone(panel["preflight"]["viable_groups"])
+        self.assertEqual(panel["next_action"], "projector_refused")
         self.assertContains(response, "The projector refused this pool: too big")
+        self.assertContains(response, NEXT_ACTION_LABELS["projector_refused"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["generate"])
+
+    def test_projector_refusal_on_a_draft_is_not_approvable(self):
+        event = self.make_event()
+        self.make_applicants(event)
+        generate_group_projection(event, deterministic_seed="coach-panel")
+
+        with patch(
+            "crush_lu.services.curated_group_insights.project_event_groups",
+            side_effect=GroupingPoolTooLarge("too big"),
+        ):
+            response = self.page(event)
+
+        panel = response.context["curated_groups_panel"]
+        self.assertEqual(panel["stage"], "draft")
+        self.assertEqual(panel["next_action"], "projector_refused")
+        self.assertEqual(panel["preflight"]["error"], "too big")
+        self.assertContains(response, NEXT_ACTION_LABELS["projector_refused"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["approve"])
+
+    def test_past_start_without_an_approved_generation_cannot_generate(self):
+        event = self.make_event()
+        self.make_applicants(event)
+
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        panel = self.page(event).context["curated_groups_panel"]
+        self.assertEqual(panel["stage"], "none")
+        self.assertEqual(panel["next_action"], "past_start_ungenerated")
+
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() + timedelta(days=7)
+        )
+        generate_group_projection(event, deterministic_seed="coach-panel")
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+        self.assertEqual(panel["stage"], "draft")
+        self.assertEqual(panel["next_action"], "past_start_ungenerated")
+        self.assertContains(response, NEXT_ACTION_LABELS["past_start_ungenerated"])
+        self.assertNotContains(response, NEXT_ACTION_LABELS["approve"])
+
+    def test_past_start_provisional_applicants_cannot_be_invited(self):
+        event = self.make_event()
+        self.make_applicants(event)
+        generate_group_projection(event, deterministic_seed="coach-panel")
+        approve_current_generation(event)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+        self.assertEqual(panel["next_action"], "past_start_uninvited")
+        self.assertContains(response, NEXT_ACTION_LABELS["past_start_uninvited"])
+
+        EventRegistration.objects.filter(event=event).update(status="pending")
+        panel = self.page(event).context["curated_groups_panel"]
+        self.assertEqual(panel["next_action"], "check_in_and_lock")
+
+    def test_ended_event_has_nothing_left_to_do(self):
+        event = self.make_event()
+        self.certify(event)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(hours=5)
+        )
+
+        response = self.page(event)
+        panel = response.context["curated_groups_panel"]
+        self.assertEqual(panel["stage"], "provisional")
+        self.assertEqual(panel["next_action"], "ended")
+        self.assertContains(response, NEXT_ACTION_LABELS["ended"])
+
+    def test_namesakes_are_seated_and_counted_by_registration(self):
+        """Seven open applicants over three tables: one person sits out every
+        round, and two of them share a first name."""
+        event = self.make_event(group_size=7, max_participants=14)
+        for index in range(7):
+            self.make_applicant(
+                event, index, first_name="Twin" if index in (1, 2) else None
+            )
+        generate_group_projection(event, deterministic_seed="coach-panel")
+
+        panel = self.page(event).context["curated_groups_panel"]
+        [card] = panel["groups"]
+
+        self.assertEqual(card["active_count"], 7)
+        self.assertEqual(sum(1 for m in card["members"] if m["name"] == "Twin"), 2)
+        self.assertEqual(len(card["schedule"]), 7)
+        for round_ in card["schedule"]:
+            self.assertEqual(len(round_["sitting_out"]), 1, round_)
+        sitting_out = [round_["sitting_out"][0] for round_ in card["schedule"]]
+        self.assertEqual(sitting_out.count("Twin"), 2)
 
     # -- privacy and i18n ---------------------------------------------------
 
