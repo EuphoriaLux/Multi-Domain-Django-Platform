@@ -387,7 +387,17 @@ def _generate_group_projection(
     """Publish a projection; degraded replacement is repair-only."""
 
     event, existing_groups = _lock_event_state(event_or_id)
-    _validate_pre_round_event(event, action="generate")
+    # The organiser-facing Generate action stays conservative and refuses
+    # once the scheduled start has passed. The degraded-group repair path may
+    # still replace an unlocked provisional generation after that point:
+    # nothing has been delivered until the explicit round-one marker, and the
+    # check-in window is exactly when a no-show is discovered. Locked rosters
+    # never reach here (``had_locked_roster`` short-circuits the repair).
+    _validate_pre_round_event(
+        event,
+        action="generate",
+        allow_during_late_check_in=allow_degraded_replacement,
+    )
     if not requires_curated_group_certification(event):
         raise ValidationError(
             "Set a valid group size on a curated speed-dating event first."
@@ -766,7 +776,7 @@ def registration_has_certified_payable_group(registration, *, event=None):
 
 
 def repair_degraded_event_groups(event_or_id, *, actor=None):
-    """Reproject a degraded pre-event generation or compensate its payers.
+    """Reproject a degraded pre-round-one generation or compensate its payers.
 
     Provider I/O deliberately sits between short atomic phases. The first phase
     leases known checkout claims only after taking the global payment -> event
@@ -988,7 +998,14 @@ def _repair_degraded_event_groups_locked(
             action="post_start_audit_only", degraded_group_ids=degraded_ids
         )
 
-    may_reproject = not had_locked_roster and timezone.now() < event.date_time
+    # Reprojection is allowed until the evening has actually begun, not until
+    # the scheduled start. On a real night the doors open at ``date_time`` and
+    # a no-show is only known once check-in is over, so gating on the clock
+    # turned every late no-show into a whole-group refund regardless of how
+    # many people were still in the room. The explicit round-one marker
+    # (checked above) is the delivery boundary; ``end_time`` is the backstop
+    # for an evening nobody ever marked as started.
+    may_reproject = not had_locked_roster and timezone.now() < event.end_time
     replacement_projection = None
     if may_reproject:
         projection = project_event_groups(event)

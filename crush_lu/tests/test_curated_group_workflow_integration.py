@@ -2183,6 +2183,99 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         self.assertEqual(sum(credit.amount_cents for credit in credits), 5 * 1500)
         self.assertTrue(all(credit.cash_refund_eligible for credit in credits))
 
+    def test_post_start_provisional_no_show_reprojects_when_group_stays_viable(self):
+        """A late no-show in a seven-person group keeps the other six seated.
+
+        Doors open at ``date_time`` and a no-show is only known once check-in
+        is over, so the repair must still be allowed to reproject an unlocked
+        provisional generation after the scheduled start. The six who came
+        are retained in a new certified group and nobody is refunded.
+        """
+        event, registrations, group = self.certify_one_group(
+            applicant_count=7,
+            event_overrides={"group_size": 7},
+        )
+        payments = self.mark_group_paid(registrations)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        no_show = registrations[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        replacement = CuratedEventGroup.objects.get(
+            event=event,
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+        )
+        self.assertEqual(replacement.generation, group.generation + 1)
+        retained_ids = set(
+            replacement.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(
+            retained_ids,
+            {registration.pk for registration in registrations[1:]},
+        )
+        self.assertFalse(
+            CrushCredit.objects.filter(
+                source_payment_id__in=[payment.pk for payment in payments.values()],
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).exists()
+        )
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                pk__in=retained_ids, status="confirmed", payment_confirmed=True
+            ).count(),
+            6,
+        )
+
+    def test_post_start_repair_still_compensates_after_event_end(self):
+        """Once the evening is over, an unlocked degraded group cannot reproject."""
+        event, registrations, group = self.certify_one_group(
+            applicant_count=7,
+            event_overrides={"group_size": 7},
+        )
+        payments = self.mark_group_paid(registrations)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(hours=12)
+        )
+        no_show = registrations[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertFalse(
+            CuratedEventGroup.objects.filter(
+                event=event, status=CuratedEventGroup.STATUS_PROVISIONAL
+            ).exists()
+        )
+        innocent_payment_ids = [
+            payments[registration.pk].pk for registration in registrations[1:]
+        ]
+        self.assertEqual(
+            CrushCredit.objects.filter(
+                source_payment_id__in=innocent_payment_ids,
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).count(),
+            6,
+        )
+
     def test_gdpr_export_contains_only_members_own_schedule_coordinates(self):
         _event, registrations, group = self.certify_one_group()
         member = next(
