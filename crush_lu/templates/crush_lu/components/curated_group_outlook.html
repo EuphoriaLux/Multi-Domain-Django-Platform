@@ -5,6 +5,10 @@ Privacy-safe member outlook for a curated speed-dating event.
 The view passes a strict whitelist. In particular, this partial must never
 receive or derive `get_application_pool().by_pool`, exact preference shortages,
 or a claim that headcount alone makes a group viable.
+
+`outlook.viewer_match` is a bucket name, never a count, and the two social
+proof flags are booleans above documented thresholds. Both are absent (None /
+False) for anonymous viewers, who get the card exactly as before.
 {% endcomment %}
 <div data-curated-group-outlook class="ml-7 space-y-3">
     <p class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
@@ -14,6 +18,27 @@ or a claim that headcount alone makes a group viable.
             {% trans "Applications are open and the overall pool is still building." %}
         {% endif %}
     </p>
+    {% if outlook.viewer_match %}
+    <p data-curated-viewer-match="{{ outlook.viewer_match }}" class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
+        {% if outlook.viewer_match == "profile_incomplete" %}
+            {% trans "Add your gender and date of birth to your profile to see how well the current applicants match your preferences." %}
+        {% elif outlook.viewer_match == "few" %}
+            {% trans "Few of the current applicants match your preferences; widening them helps." %}
+        {% elif outlook.viewer_match == "half" %}
+            {% trans "About half an evening's worth of the current applicants match your preferences." %}
+        {% elif outlook.viewer_match == "evening" %}
+            {% trans "Enough of the current applicants match your preferences to fill an evening." %}
+        {% else %}
+            {% trans "Enough of the current applicants match your preferences for more than one group." %}
+        {% endif %}
+    </p>
+    {% endif %}
+    {% if outlook.several_first_timers or outlook.mostly_verified %}
+    <ul data-curated-social-proof class="list-disc pl-5 space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+        {% if outlook.several_first_timers %}<li>{% trans "Several first-timers have applied." %}</li>{% endif %}
+        {% if outlook.mostly_verified %}<li>{% trans "Most applicants are verified." %}</li>{% endif %}
+    </ul>
+    {% endif %}
 
     <div class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3 text-sm text-purple-900 dark:text-purple-200">
         {% if outlook.group_size %}

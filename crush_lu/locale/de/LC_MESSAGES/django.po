@@ -41090,3 +41090,93 @@ msgstr ""
 "Diese Gruppe wurde beeinträchtigt, nachdem Runde eins bereits begonnen "
 "hatte. Die Reparatur-Aktion hält nur den Audit fest; es wird nichts neu "
 "berechnet oder entschädigt."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Add your gender and date of birth to your profile to see how well the "
+"current applicants match your preferences."
+msgstr ""
+"Ergänze dein Geschlecht und dein Geburtsdatum in deinem Profil, um zu sehen,"
+" wie gut die aktuellen Bewerber zu deinen Vorlieben passen."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Few of the current applicants match your preferences; widening them helps."
+msgstr ""
+"Nur wenige der aktuellen Bewerber passen zu deinen Vorlieben; sie zu "
+"erweitern hilft."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"About half an evening's worth of the current applicants match your "
+"preferences."
+msgstr ""
+"Die aktuellen Bewerber, die zu deinen Vorlieben passen, reichen für etwa "
+"einen halben Abend."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences to fill an evening."
+msgstr ""
+"Genug der aktuellen Bewerber passen zu deinen Vorlieben, um einen Abend zu "
+"füllen."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences for more than one "
+"group."
+msgstr ""
+"Genug der aktuellen Bewerber passen zu deinen Vorlieben für mehr als eine "
+"Gruppe."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Several first-timers have applied."
+msgstr "Mehrere Neulinge haben sich beworben."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Most applicants are verified."
+msgstr "Die meisten Bewerber sind verifiziert."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is final."
+msgstr "Deine Gruppe steht fest."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is provisional."
+msgstr "Deine Gruppe ist vorläufig."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"You are in a group of %(size)s people; %(rounds)s rounds are planned; "
+"everyone gets at least %(minimum)s mini-dates."
+msgstr ""
+"Du bist in einer Gruppe von %(size)s Personen; %(rounds)s Runden sind "
+"geplant; alle bekommen mindestens %(minimum)s Mini-Dates."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"Groups stay together for the whole evening; this one is locked and will not "
+"change."
+msgstr ""
+"Gruppen bleiben den ganzen Abend zusammen; diese ist gesperrt und ändert "
+"sich nicht mehr."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your tables"
+msgstr "Deine Tische"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: table %(table)s, seat %(seat)s"
+msgstr "Runde %(round)s: Tisch %(table)s, Platz %(seat)s"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: break"
+msgstr "Runde %(round)s: Pause"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"The group can still change until it is locked before the first round. Your "
+"tables appear here once it is final."
+msgstr ""
+"Die Gruppe kann sich noch ändern, bis sie vor der ersten Runde gesperrt "
+"wird. Deine Tische erscheinen hier, sobald sie feststeht."
