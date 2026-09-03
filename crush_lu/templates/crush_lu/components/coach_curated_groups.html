@@ -1,0 +1,224 @@
+{% load i18n %}
+{% comment %}
+Coach-only insight panel for a curated speed-dating evening.
+
+Expects `panel` from crush_lu.services.curated_group_insights.coach_group_panel
+and `event`. Everything is read-only: the lifecycle actions live in the coach
+panel (Django admin) and this partial only says which one comes next.
+
+This partial names other members, their gender and their age. It is included
+from a @coach_required page only and must never be reused on a member surface.
+{% endcomment %}
+<div data-curated-groups-panel class="mb-8">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
+        <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{% trans "Curated groups" %}</h3>
+        {% if panel.generation %}
+        <span class="text-xs text-gray-400 dark:text-gray-500 normal-case">{% blocktrans with generation=panel.generation %}generation {{ generation }}{% endblocktrans %}</span>
+        {% endif %}
+    </div>
+
+    {# 1. State banner: where the evening is and which admin action comes next #}
+    <div data-curated-stage="{{ panel.stage }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4 border-l-4 {% if panel.stage == 'degraded' %}border-red-500{% elif panel.stage == 'started' %}border-emerald-500{% elif panel.stage == 'locked' %}border-green-500{% elif panel.stage == 'provisional' %}border-blue-500{% elif panel.stage == 'draft' %}border-amber-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+        <p class="font-semibold dark:text-white">
+            {% if panel.stage == 'degraded' %}
+                {% blocktrans with generation=panel.generation %}Generation {{ generation }} is degraded and needs repair{% endblocktrans %}
+            {% elif panel.stage == 'started' %}
+                {% trans "Round one has started" %}
+            {% elif panel.stage == 'locked' %}
+                {% blocktrans with generation=panel.generation %}Generation {{ generation }} is locked: final evening roster{% endblocktrans %}
+            {% elif panel.stage == 'provisional' %}
+                {% blocktrans with generation=panel.generation %}Generation {{ generation }} is provisional: selected and payable{% endblocktrans %}
+            {% elif panel.stage == 'draft' %}
+                {% blocktrans with generation=panel.generation %}Generation {{ generation }} is a draft{% endblocktrans %}
+            {% else %}
+                {% trans "No groups generated yet" %}
+            {% endif %}
+        </p>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+            {% if panel.deadline_passed %}
+                {% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Applications closed {{ deadline }}{% endblocktrans %}
+            {% else %}
+                {% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Applications close {{ deadline }}{% endblocktrans %}
+            {% endif %}
+            {% if panel.rounds_started and panel.stage == 'degraded' %}
+                {% trans "Round one was already marked as started." %}
+            {% endif %}
+        </p>
+        <p class="text-sm text-gray-700 dark:text-gray-200 mt-2">
+            <span class="font-medium">{% trans "Next step:" %}</span>
+            {{ panel.next_action_label }}
+            <a href="{{ panel.admin_url }}" class="text-crush-purple dark:text-purple-400 hover:underline whitespace-nowrap">{% trans "Open the coach panel" %} →</a>
+        </p>
+    </div>
+
+    {# 2. Preflight: what the projector would do with the pool right now #}
+    {% if panel.preflight %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4" data-curated-preflight>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "What the projector would do with the pool right now" %}</p>
+            {% if panel.preflight.stale %}
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">{% trans "Draft is stale" %}</span>
+            {% endif %}
+        </div>
+        {% if panel.preflight.error %}
+        <p class="text-sm text-red-600 dark:text-red-400">{% blocktrans with error=panel.preflight.error %}The projector refused this pool: {{ error }}{% endblocktrans %}</p>
+        {% else %}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+                <p class="text-2xl font-bold dark:text-white">{{ panel.preflight.applications }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Applications" %}</p>
+            </div>
+            <div>
+                <p class="text-2xl font-bold dark:text-white">{{ panel.preflight.eligible }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Eligible" %}</p>
+            </div>
+            <div>
+                <p class="text-2xl font-bold {% if panel.preflight.viable_groups %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ panel.preflight.viable_groups }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Viable groups" %}</p>
+            </div>
+            <div>
+                <p class="text-2xl font-bold {% if panel.preflight.left_out %}text-amber-600 dark:text-amber-400{% else %}dark:text-white{% endif %}">{{ panel.preflight.left_out }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Would be left out" %}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# 3. One card per group of the current generation #}
+    {% for group in panel.groups %}
+    <div data-curated-group="{{ group.number }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-4">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <h4 class="font-semibold dark:text-white">{% blocktrans with number=group.number %}Group {{ number }}{% endblocktrans %}</h4>
+            {% if group.status == 'locked' %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{% trans "Locked" %}</span>
+            {% elif group.status == 'provisional' %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">{% trans "Provisional" %}</span>
+            {% elif group.status == 'degraded' %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full">{% trans "Degraded" %}{% if group.degraded_from == 'locked' %} · {% trans "was locked" %}{% elif group.degraded_from %} · {% trans "was provisional" %}{% endif %}</span>
+            {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{% trans "Draft" %}</span>
+            {% endif %}
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+                {% blocktrans count counter=group.rounds %}{{ counter }} round{% plural %}{{ counter }} rounds{% endblocktrans %}
+                ·
+                {% if group.target_achieved %}
+                    {% blocktrans with target=group.target_dates %}everyone meets the {{ target }}-date target{% endblocktrans %}
+                {% elif group.members_meeting_target is not None %}
+                    {% blocktrans with meeting=group.members_meeting_target members=group.projected_size target=group.target_dates %}{{ meeting }} of {{ members }} meet the {{ target }}-date target{% endblocktrans %}
+                {% endif %}
+                {% if group.minimum_dates %}
+                    · {% blocktrans with minimum=group.minimum_dates %}at least {{ minimum }} dates each{% endblocktrans %}
+                {% endif %}
+                {% if group.one_drop_resilient %}
+                    · {% trans "survives one drop-out" %}
+                {% elif group.one_drop_resilient == False %}
+                    · {% trans "does not survive a drop-out" %}
+                {% endif %}
+            </span>
+        </div>
+
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for member in group.members %}
+            <li class="py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm {% if member.released %}text-gray-400 dark:text-gray-500 line-through{% else %}text-gray-800 dark:text-gray-100{% endif %}">
+                <a href="{% url 'crush_lu:coach_member_overview' member.user_id %}" class="font-medium hover:text-crush-purple transition-colors">{{ member.name }}</a>
+                {% if member.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>
+                {% elif member.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>
+                {% elif member.gender %}<span class="text-purple-500 text-xs" title="{{ member.gender_display }}">&#9898;</span>{% endif %}
+                {% if member.age %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ member.age }} {% trans "years" %}</span>{% endif %}
+                {% if member.verified %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">&#10003; {% trans "Verified" %}</span>
+                {% else %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">{% trans "Not Verified" %}</span>
+                {% endif %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full {% if member.status == 'attended' or member.status == 'confirmed' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300{% elif member.status == 'pending' %}bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300{% elif member.status == 'applied' %}bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300{% else %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300{% endif %}">{{ member.status_display }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">{% blocktrans count counter=member.dates %}{{ counter }} mini-date{% plural %}{{ counter }} mini-dates{% endblocktrans %}</span>
+                {% if member.released %}<span class="text-xs">{% trans "Released" %}</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+
+        {% if group.why %}
+        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Why this group" %}</p>
+            <ul class="list-disc pl-5 space-y-0.5 text-sm text-gray-700 dark:text-gray-300">
+                {% for sentence in group.why %}<li>{{ sentence }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {# 5. Pairing schedule, collapsed by default #}
+        {% if group.schedule %}
+        <details class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <summary class="cursor-pointer text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">{% trans "Show pairing schedule" %}</summary>
+            <div class="overflow-x-auto mt-3">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <th class="pr-4 py-1">{% trans "Round" %}</th>
+                            {% for table in group.schedule.0.tables %}
+                            <th class="pr-4 py-1">{% blocktrans with table=table.table %}Table {{ table }}{% endblocktrans %}</th>
+                            {% endfor %}
+                            <th class="pr-4 py-1">{% trans "Sitting out" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                        {% for round in group.schedule %}
+                        <tr class="text-gray-800 dark:text-gray-100">
+                            <td class="pr-4 py-1 font-medium">{{ round.round }}</td>
+                            {% for table in round.tables %}
+                            <td class="pr-4 py-1 whitespace-nowrap">{{ table.a }} ↔ {{ table.b }}</td>
+                            {% endfor %}
+                            <td class="pr-4 py-1 text-gray-500 dark:text-gray-400">{% if round.sitting_out %}{{ round.sitting_out|join:", " }}{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {# 4. Left out: every candidate without an active place, and why #}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5" data-curated-left-out>
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+            {% if panel.left_out.preview %}{% trans "Would be left out" %}{% else %}{% trans "Left out" %}{% endif %}
+        </p>
+        {% if not panel.left_out.blocked and not panel.left_out.eligible %}
+        <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Nobody is left out." %}</p>
+        {% endif %}
+        {% if panel.left_out.blocked %}
+        <p class="text-sm font-medium text-red-700 dark:text-red-300 mb-1">{% trans "Cannot be placed" %}</p>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700 mb-3">
+            {% for person in panel.left_out.blocked %}
+            <li class="py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-800 dark:text-gray-100">
+                <a href="{% url 'crush_lu:coach_member_overview' person.user_id %}" class="font-medium hover:text-crush-purple transition-colors">{{ person.name }}</a>
+                {% if person.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>
+                {% elif person.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>
+                {% elif person.gender %}<span class="text-purple-500 text-xs" title="{{ person.gender_display }}">&#9898;</span>{% endif %}
+                {% if person.age %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ person.age }} {% trans "years" %}</span>{% endif %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{{ person.status_display }}</span>
+                <span class="text-xs text-red-600 dark:text-red-400">{{ person.reasons|join:", " }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if panel.left_out.eligible %}
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-300 mb-1">{% trans "Eligible but not placed" %}</p>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for person in panel.left_out.eligible %}
+            <li class="py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-800 dark:text-gray-100">
+                <a href="{% url 'crush_lu:coach_member_overview' person.user_id %}" class="font-medium hover:text-crush-purple transition-colors">{{ person.name }}</a>
+                {% if person.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>
+                {% elif person.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>
+                {% elif person.gender %}<span class="text-purple-500 text-xs" title="{{ person.gender_display }}">&#9898;</span>{% endif %}
+                {% if person.age %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ person.age }} {% trans "years" %}</span>{% endif %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{{ person.status_display }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>

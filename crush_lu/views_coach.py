@@ -2356,9 +2356,20 @@ def coach_event_detail(request, event_id):
             if entry["limit"]
         ]
 
+    # Curated "Groups" panel: stage, projector preflight, one card per group
+    # of the current generation, and who is left out and why. None on a
+    # direct event or a legacy curated event without a group size, and then
+    # the template renders nothing new and the tab does not exist.
+    from .services.curated_group_insights import coach_group_panel
+
+    curated_groups_panel = coach_group_panel(event, all_regs)
+
     # Status filter — controls which section(s) the template renders
     status_filter = request.GET.get("status", "all")
-    if status_filter not in ("all", "confirmed", "waitlist", "other", "applied"):
+    status_filters = ("all", "confirmed", "waitlist", "other", "applied")
+    if curated_groups_panel is not None:
+        status_filters += ("groups",)
+    if status_filter not in status_filters:
         status_filter = "all"
 
     # Batch-query latest ProfileSubmission per registered user
@@ -2521,6 +2532,7 @@ def coach_event_detail(request, event_id):
             confirmed_count + waitlist_count + other_count + len(all_applied)
         ),
         "status_filter": status_filter,
+        "curated_groups_panel": curated_groups_panel,
         "gender_pool_stats": gender_pool_stats,
         "connection_count": connection_count,
         "mutual_connections": mutual_connections,
