@@ -113,6 +113,89 @@ def enqueue_withdrawal_notification(registration, generation):
     return notice
 
 
+def _application_cycle(registered_at):
+    """Identify one application on a reused registration row."""
+
+    return registered_at.strftime("%Y%m%d%H%M%S%f") if registered_at else ""
+
+
+def _reserve_dedupe_key(event_id, registration_id, registered_at):
+    return f"reserve:{event_id}:{registration_id}:{_application_cycle(registered_at)}"
+
+
+def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_ids=()):
+    """Persist one reserve notice per applicant left out of an invited generation.
+
+    Called from the invite step, inside its transaction. The pool is every
+    still-open application on the event that holds no place in a provisional
+    or locked group of ``generation`` and was not part of this invite. The
+    dedupe key deliberately carries no generation: a later regeneration that
+    leaves the same person out again must not mail them a second time, while a
+    later selection cancels an unsent notice as stale at delivery time.
+
+    The key does carry the application cycle. A withdrawn registration row is
+    reused when the member applies again and ``registered_at`` is reset at
+    that moment, so a fresh application is a fresh decision and earns a fresh
+    notice; an unsent notice from the previous cycle is cancelled as stale.
+
+    Returns the IDs of notices that are still pending so the caller can drain
+    exactly this batch once the transaction commits.
+    """
+
+    event_id = int(event_id)
+    generation = int(generation)
+    selected_ids = CuratedEventGroupMembership.objects.filter(
+        event_id=event_id,
+        released_at__isnull=True,
+        group__generation=generation,
+        group__status__in=(
+            CuratedEventGroup.STATUS_PROVISIONAL,
+            CuratedEventGroup.STATUS_LOCKED,
+        ),
+    ).values_list("registration_id", flat=True)
+    left_out = list(
+        EventRegistration.objects.filter(event_id=event_id, status="applied")
+        .exclude(pk__in=selected_ids)
+        .exclude(pk__in=[int(pk) for pk in exclude_registration_ids])
+        .order_by("pk")
+        .values_list("pk", "registered_at")
+    )
+    if not left_out:
+        return []
+    dedupe_keys = [
+        _reserve_dedupe_key(event_id, registration_id, registered_at)
+        for registration_id, registered_at in left_out
+    ]
+    CuratedGroupNotification.objects.bulk_create(
+        [
+            CuratedGroupNotification(
+                event_id=event_id,
+                registration_id=registration_id,
+                event_id_snapshot=event_id,
+                registration_id_snapshot=registration_id,
+                kind=CuratedGroupNotification.Kind.RESERVE,
+                dedupe_key=dedupe_key,
+                payload={
+                    "generation": generation,
+                    "application_cycle": _application_cycle(registered_at),
+                },
+            )
+            for (registration_id, registered_at), dedupe_key in zip(
+                left_out, dedupe_keys, strict=True
+            )
+        ],
+        ignore_conflicts=True,
+    )
+    return list(
+        CuratedGroupNotification.objects.filter(
+            dedupe_key__in=dedupe_keys,
+            status=CuratedGroupNotification.Status.PENDING,
+        )
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+
+
 def _pending_notices(
     *, event_ids=None, registration_ids=None, kinds=None, notice_ids=None
 ):
@@ -311,6 +394,56 @@ def _deliver_withdrawal_notice(notice):
     return ("sent", "") if delivered else ("retry", "Mail delivery returned false.")
 
 
+def _deliver_reserve_notice(notice):
+    registration = (
+        EventRegistration.objects.select_related("event", "user")
+        .filter(
+            pk=notice.registration_id_snapshot,
+            event_id=notice.event_id_snapshot,
+        )
+        .first()
+    )
+    if registration is None:
+        return "stale", "Registration no longer belongs to the notice event."
+    if registration.status != "applied":
+        return "stale", "Registration is no longer an open application."
+    # A retried notice must not promise a pool that no longer exists: the
+    # event was cancelled, or it has started and a post-start repair only
+    # draws on seat holders, so nobody in the pool can be placed any more.
+    event = registration.event
+    if event.is_cancelled:
+        return "stale", "The event was cancelled."
+    if event.date_time <= timezone.now():
+        return "stale", "The event has started; the pool can no longer be drawn on."
+    # The registration row is reused when a member withdraws and applies
+    # again; a notice queued for the earlier application must not describe
+    # the new one.
+    expected_cycle = notice.payload.get("application_cycle")
+    if expected_cycle is not None and expected_cycle != _application_cycle(
+        registration.registered_at
+    ):
+        return "stale", "The member applied again since this notice was queued."
+    # A regeneration between enqueue and delivery may have given this person
+    # a place after all. Any current provisional or locked group counts, not
+    # only the generation that left them out.
+    selected_now = CuratedEventGroupMembership.objects.filter(
+        event_id=notice.event_id_snapshot,
+        registration_id=registration.pk,
+        released_at__isnull=True,
+        group__status__in=(
+            CuratedEventGroup.STATUS_PROVISIONAL,
+            CuratedEventGroup.STATUS_LOCKED,
+        ),
+    ).exists()
+    if selected_now:
+        return "stale", "Registration now holds a place in a current group."
+
+    from crush_lu.email_helpers import send_curated_group_reserve_notice
+
+    delivered = send_curated_group_reserve_notice(registration)
+    return ("sent", "") if delivered else ("retry", "Mail delivery returned false.")
+
+
 def _deliver_claimed_notice(notice_id, token):
     notice = CuratedGroupNotification.objects.filter(
         pk=notice_id,
@@ -326,6 +459,8 @@ def _deliver_claimed_notice(notice_id, token):
             outcome, error = _deliver_remedy_notice(notice)
         elif notice.kind == CuratedGroupNotification.Kind.WITHDRAWAL:
             outcome, error = _deliver_withdrawal_notice(notice)
+        elif notice.kind == CuratedGroupNotification.Kind.RESERVE:
+            outcome, error = _deliver_reserve_notice(notice)
         else:
             outcome, error = "stale", "Unknown curated notification kind."
     except Exception as exc:  # noqa: BLE001 - a mail outage stays retryable

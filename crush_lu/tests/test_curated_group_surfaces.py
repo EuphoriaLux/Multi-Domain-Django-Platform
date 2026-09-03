@@ -289,3 +289,24 @@ class CuratedGroupSurfaceTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 for phrase in phrases:
                     self.assertContains(response, phrase)
+
+    def test_event_card_never_prints_a_seat_count_for_a_curated_event(self):
+        """Applications hold no seat, so "18 spots left" would sit frozen at
+        the venue ceiling however large the pool grew. The direct card is
+        untouched."""
+        response = self.client.get("/en/events/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Curated groups · applications open")
+        self.assertContains(response, "18 spots left", count=1)
+
+    def test_event_card_says_applications_closed_after_the_deadline(self):
+        MeetupEvent.objects.filter(pk=self.curated.pk).update(
+            registration_deadline=timezone.now() - timedelta(hours=1)
+        )
+
+        response = self.client.get("/en/events/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Curated groups · applications closed")
+        self.assertNotContains(response, "Curated groups · applications open")

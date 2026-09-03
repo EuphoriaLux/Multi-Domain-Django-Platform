@@ -2183,6 +2183,226 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         self.assertEqual(sum(credit.amount_cents for credit in credits), 5 * 1500)
         self.assertTrue(all(credit.cash_refund_eligible for credit in credits))
 
+    def test_post_start_provisional_no_show_reprojects_when_group_stays_viable(self):
+        """A late no-show in a seven-person group keeps the other six seated.
+
+        Doors open at ``date_time`` and a no-show is only known once check-in
+        is over, so the repair must still be allowed to reproject an unlocked
+        provisional generation after the scheduled start. The six who came
+        are retained in a new certified group and nobody is refunded.
+        """
+        event, registrations, group = self.certify_one_group(
+            applicant_count=7,
+            event_overrides={"group_size": 7},
+        )
+        payments = self.mark_group_paid(registrations)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        no_show = registrations[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        replacement = CuratedEventGroup.objects.get(
+            event=event,
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+        )
+        self.assertEqual(replacement.generation, group.generation + 1)
+        retained_ids = set(
+            replacement.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(
+            retained_ids,
+            {registration.pk for registration in registrations[1:]},
+        )
+        self.assertFalse(
+            CrushCredit.objects.filter(
+                source_payment_id__in=[payment.pk for payment in payments.values()],
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).exists()
+        )
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                pk__in=retained_ids, status="confirmed", payment_confirmed=True
+            ).count(),
+            6,
+        )
+
+    def test_post_start_reprojection_never_recruits_an_applicant_from_the_pool(self):
+        """After the start only invited people may be reshuffled.
+
+        The pool is designed to outnumber the seats, so an open application
+        is almost always available to top a group back up. Recruiting one
+        after the start would seat somebody who is at home: they can no
+        longer be invited and the lock would refuse for everyone else.
+        """
+        event, registrations, group = self.certify_one_group(
+            applicant_count=8,
+            event_overrides={"group_size": 7},
+        )
+        selected_ids = set(
+            group.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(len(selected_ids), 7)
+        (left_out,) = [
+            registration
+            for registration in registrations
+            if registration.pk not in selected_ids
+        ]
+        self.assertEqual(left_out.status, "applied")
+        members = [
+            registration
+            for registration in registrations
+            if registration.pk in selected_ids
+        ]
+        payments = self.mark_group_paid(members)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        no_show = members[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        replacement = CuratedEventGroup.objects.get(
+            event=event,
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+        )
+        replacement_ids = set(
+            replacement.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(replacement_ids, selected_ids - {no_show.pk})
+        self.assertNotIn(left_out.pk, replacement_ids)
+        left_out.refresh_from_db()
+        self.assertEqual(left_out.status, "applied")
+        self.assertFalse(
+            CuratedEventGroupMembership.objects.filter(
+                registration=left_out, released_at__isnull=True
+            ).exists()
+        )
+        self.assertFalse(
+            CrushCredit.objects.filter(
+                source_payment_id__in=[payment.pk for payment in payments.values()],
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).exists()
+        )
+
+    def test_post_start_repair_still_compensates_after_event_end(self):
+        """Once the evening is over, an unlocked degraded group cannot reproject."""
+        event, registrations, group = self.certify_one_group(
+            applicant_count=7,
+            event_overrides={"group_size": 7},
+        )
+        payments = self.mark_group_paid(registrations)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(hours=12)
+        )
+        no_show = registrations[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertFalse(
+            CuratedEventGroup.objects.filter(
+                event=event, status=CuratedEventGroup.STATUS_PROVISIONAL
+            ).exists()
+        )
+        innocent_payment_ids = [
+            payments[registration.pk].pk for registration in registrations[1:]
+        ]
+        self.assertEqual(
+            CrushCredit.objects.filter(
+                source_payment_id__in=innocent_payment_ids,
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).count(),
+            6,
+        )
+
+    def test_invite_action_tells_left_out_applicants_they_stay_in_the_pool(self):
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        event = self.make_event()
+        registrations = self.make_applicants(event, 7)
+        stored = generate_group_projection(event, deterministic_seed="reserve")
+        approve_current_generation(event)
+        group = CuratedEventGroup.objects.get(pk=stored.group_ids[0])
+        selected_ids = set(
+            group.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(len(selected_ids), 6)
+        (left_out,) = [
+            registration
+            for registration in registrations
+            if registration.pk not in selected_ids
+        ]
+        request = self.admin_request()
+
+        MeetupEventAdmin(MeetupEvent, AdminSite()).invite_approved_curated_groups(
+            request, MeetupEvent.objects.filter(pk=event.pk)
+        )
+
+        left_out.refresh_from_db()
+        self.assertEqual(left_out.status, "applied")
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                pk__in=selected_ids, status="pending"
+            ).count(),
+            6,
+        )
+        notice = CuratedGroupNotification.objects.get(
+            registration=left_out, kind=CuratedGroupNotification.Kind.RESERVE
+        )
+        self.assertEqual(notice.status, CuratedGroupNotification.Status.SENT)
+        reserve_mail = [
+            message for message in mail.outbox if message.to == [left_out.user.email]
+        ]
+        self.assertEqual(len(reserve_mail), 1)
+        self.assertEqual(
+            reserve_mail[0].subject,
+            "Your application for Elastic evening stays in the pool",
+        )
+        # The six invited members get the payment request, never the reserve
+        # notice.
+        self.assertFalse(
+            CuratedGroupNotification.objects.filter(
+                registration_id__in=selected_ids,
+                kind=CuratedGroupNotification.Kind.RESERVE,
+            ).exists()
+        )
+        rendered_messages = [str(message) for message in request._messages]
+        self.assertTrue(
+            any("stay in the pool" in message for message in rendered_messages),
+            rendered_messages,
+        )
+
     def test_gdpr_export_contains_only_members_own_schedule_coordinates(self):
         _event, registrations, group = self.certify_one_group()
         member = next(

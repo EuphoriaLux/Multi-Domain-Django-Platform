@@ -583,9 +583,11 @@
 Curated events admit nobody at signup: these registrations hold no seat, so
 they are counted apart from confirmed_registrations and never affect
 spots_remaining. This is the pool the group is composed from — the preference
-chips on each card are exactly what that choice is made on. Read-only for now:
-selection is a status change in Django admin (Confirmed for a free event,
-Pending Payment for a paid one).
+chips on each card are exactly what that choice is made on. Read-only here:
+on an event with a configured group size, seats are granted only by the admin
+lifecycle actions on the event (Generate → Approve → Invite); a direct status
+change on a registration is refused. Legacy curated events without a group
+size still select by moving rows to Confirmed / Pending Payment in admin.
 {% endcomment %}
 {% if status_filter == 'all' or status_filter == 'applied' %}
 {% if applied_registrations %}
