@@ -20,11 +20,21 @@ from .models import (
     PremiumMembership,
 )
 from .models.event_polls import EventPoll
-from .models.events import SEAT_HOLDING_STATUSES
+from .models.events import (
+    SEAT_HOLDING_STATUSES,
+    CuratedEventGroup,
+    CuratedEventGroupMembership,
+)
 from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
 from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.event_grouping import (
+    count_mutual_matches,
+    load_applicants,
+    match_bucket,
+    viewer_applicant,
+)
 from .services.credits import (
     available_credit_cents,
     is_late_cancellation,
@@ -770,7 +780,17 @@ def _registration_outlook(event, profile, gender=None):
     return pools, user_pool, total_full or pool_blocks, reason
 
 
-def _curated_member_outlook(event):
+# Coarse social proof thresholds for the member outlook card. Deliberately
+# blunt: below them a member could read a single neighbour's status off the
+# sentence ("most verified" over three applicants is one person's badge).
+FIRST_TIMERS_SIGNAL_MIN = 3
+VERIFIED_SIGNAL_MIN_APPLICATIONS = 5
+VERIFIED_SIGNAL_MIN_SHARE = 0.6
+
+MEMBER_SELECTED_STATUSES = ("pending", "confirmed", "attended")
+
+
+def _curated_member_outlook(event, *, user=None, profile=None, registration=None):
     """Return a privacy-safe group outlook for a curated event detail page.
 
     ``MeetupEvent.get_application_pool()`` intentionally contains both public
@@ -782,6 +802,26 @@ def _curated_member_outlook(event):
     ``groups_unlocked`` is headcount-only, not proof that mutual preferences
     can produce a viable round schedule. The public state therefore says only
     that combinations can be explored; it never promises a group or selection.
+
+    For a logged-in viewer with a profile three more whitelisted values are
+    filled in, all of them buckets, booleans or facts about the viewer's own
+    place -- never a count about other people and never another person's
+    name, gender, age or preferences:
+
+    * ``viewer_match`` -- before selection only (no application, or one still
+      ``applied``): the bucketed mutual-match count from
+      ``count_mutual_matches``/``match_bucket`` (``few``, ``half``,
+      ``evening``, ``multiple``), or ``profile_incomplete`` when the profile
+      lacks the gender or date of birth every comparison needs. The count
+      itself never leaves this function: an exact integer over Art.
+      9-adjacent preference rows is a derived disclosure.
+    * ``several_first_timers`` / ``mostly_verified`` -- social proof above the
+      module thresholds, as booleans.
+    * ``group`` -- after selection (``pending``/``confirmed``/``attended`` with
+      an active place in a provisional or locked group): size, planned rounds
+      and the guaranteed minimum, plus -- once locked -- the viewer's OWN
+      tables, built the way ``export_user_data`` builds
+      ``curated_group_history``.
     """
     if not event.uses_curated_registration:
         return None
@@ -791,7 +831,7 @@ def _curated_member_outlook(event):
     configured_group_size = event.group_size
     configured_max_groups = int(pool.get("max_groups") or 0)
 
-    return {
+    outlook = {
         "interest_state": "exploring" if groups_unlocked else "collecting",
         "group_size": configured_group_size,
         "planned_groups": event.planned_groups,
@@ -799,7 +839,100 @@ def _curated_member_outlook(event):
         "parallel_groups_possible": bool(
             configured_group_size and configured_max_groups > 1
         ),
+        "viewer_match": None,
+        "several_first_timers": False,
+        "mostly_verified": False,
+        "group": None,
     }
+    if user is None or not user.is_authenticated or profile is None:
+        return outlook
+
+    if registration is not None and registration.status in MEMBER_SELECTED_STATUSES:
+        outlook["group"] = _curated_member_group(registration)
+        return outlook
+    if registration is not None and registration.status != "applied":
+        return outlook
+
+    viewer = viewer_applicant(user, profile, event, registration=registration)
+    if not viewer.gender or viewer.age is None:
+        outlook["viewer_match"] = "profile_incomplete"
+    elif configured_group_size:
+        count = count_mutual_matches(viewer, load_applicants(event))
+        outlook["viewer_match"] = match_bucket(count, configured_group_size)
+
+    applications = int(pool.get("applications") or 0)
+    outlook["several_first_timers"] = (
+        int(pool.get("first_timers") or 0) >= FIRST_TIMERS_SIGNAL_MIN
+    )
+    outlook["mostly_verified"] = (
+        applications >= VERIFIED_SIGNAL_MIN_APPLICATIONS
+        and int(pool.get("certified") or 0) >= VERIFIED_SIGNAL_MIN_SHARE * applications
+    )
+    return outlook
+
+
+def _curated_member_group(registration):
+    """The viewer's own place in a provisional or locked group, or ``None``.
+
+    Only the member's own pairing participations are read, sorted the way the
+    GDPR export sorts them; the partner at each table is never loaded.
+    """
+    membership = (
+        CuratedEventGroupMembership.objects.filter(
+            registration=registration,
+            released_at__isnull=True,
+            group__status__in=(
+                CuratedEventGroup.STATUS_PROVISIONAL,
+                CuratedEventGroup.STATUS_LOCKED,
+            ),
+        )
+        .select_related("group")
+        .first()
+    )
+    if membership is None:
+        return None
+    group = membership.group
+    summary = group.viability_summary or {}
+    rounds = int(summary.get("rounds") or 0)
+    if not rounds:
+        rounds = group.pairings.values("round_number").distinct().count()
+    result = {
+        "status": group.status,
+        "size": group.memberships.filter(released_at__isnull=True).count(),
+        "rounds": rounds,
+        "min_dates": CuratedEventGroup.MIN_GUARANTEED_DATES,
+        "tables": None,
+    }
+    if group.status == CuratedEventGroup.STATUS_LOCKED:
+        own = sorted(
+            registration.curated_pairing_participations.filter(
+                group=group
+            ).select_related("pairing"),
+            key=lambda participant: (
+                participant.round_number,
+                participant.pairing.table_number,
+                participant.pk,
+            ),
+        )
+        seated = {participant.round_number: participant for participant in own}
+        last_round = max([rounds, *seated])
+        result["tables"] = [
+            {
+                "round": round_number,
+                "table": (
+                    seated[round_number].pairing.table_number
+                    if round_number in seated
+                    else None
+                ),
+                "seat": (
+                    seated[round_number].seat.upper()
+                    if round_number in seated
+                    else None
+                ),
+            }
+            for round_number in range(1, last_round + 1)
+        ]
+    return result
 
 
 def event_detail(request, event_id):
@@ -1045,7 +1178,12 @@ def event_detail(request, event_id):
     from .services.event_lobby import lobby_cta
 
     event_lobby_cta = lobby_cta(request.user, event, registration=registration)
-    curated_group_outlook = _curated_member_outlook(event)
+    curated_group_outlook = _curated_member_outlook(
+        event,
+        user=request.user,
+        profile=user_profile,
+        registration=registration,
+    )
 
     context = {
         "event": event,

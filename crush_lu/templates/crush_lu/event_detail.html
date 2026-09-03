@@ -397,6 +397,7 @@
                 {# Prominent action buttons for attended users #}
                 {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
                 <div class="space-y-3 mb-6">
+                    {% include "crush_lu/components/curated_member_group.html" with group=curated_group_outlook.group only %}
                     {% include "crush_lu/components/event_lobby_cta.html" with cta=event_lobby_cta event=event hero=True %}
                     {% if event.quiz_join_available %}
                     <a href="{% url 'crush_lu:quiz_live' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
@@ -443,6 +444,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% include "crush_lu/components/curated_member_group.html" with group=curated_group_outlook.group only %}
                         {% comment %}
                           The status test is load-bearing on a paid curated
                           event: an applicant has not been given a place, so

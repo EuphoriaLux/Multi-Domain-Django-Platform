@@ -27865,3 +27865,77 @@ msgid ""
 "This group degraded after round one had started. The repair action only "
 "records the audit; nothing is reprojected or compensated."
 msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Add your gender and date of birth to your profile to see how well the "
+"current applicants match your preferences."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Few of the current applicants match your preferences; widening them helps."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"About half an evening's worth of the current applicants match your "
+"preferences."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences to fill an evening."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences for more than one "
+"group."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Several first-timers have applied."
+msgstr ""
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Most applicants are verified."
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is final."
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is provisional."
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"You are in a group of %(size)s people; %(rounds)s rounds are planned; "
+"everyone gets at least %(minimum)s mini-dates."
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"Groups stay together for the whole evening; this one is locked and will not "
+"change."
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your tables"
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: table %(table)s, seat %(seat)s"
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: break"
+msgstr ""
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"The group can still change until it is locked before the first round. Your "
+"tables appear here once it is final."
+msgstr ""
