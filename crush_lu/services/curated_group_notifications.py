@@ -113,6 +113,16 @@ def enqueue_withdrawal_notification(registration, generation):
     return notice
 
 
+def _application_cycle(registered_at):
+    """Identify one application on a reused registration row."""
+
+    return registered_at.strftime("%Y%m%d%H%M%S%f") if registered_at else ""
+
+
+def _reserve_dedupe_key(event_id, registration_id, registered_at):
+    return f"reserve:{event_id}:{registration_id}:{_application_cycle(registered_at)}"
+
+
 def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_ids=()):
     """Persist one reserve notice per applicant left out of an invited generation.
 
@@ -122,6 +132,11 @@ def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_
     dedupe key deliberately carries no generation: a later regeneration that
     leaves the same person out again must not mail them a second time, while a
     later selection cancels an unsent notice as stale at delivery time.
+
+    The key does carry the application cycle. A withdrawn registration row is
+    reused when the member applies again and ``registered_at`` is reset at
+    that moment, so a fresh application is a fresh decision and earns a fresh
+    notice; an unsent notice from the previous cycle is cancelled as stale.
 
     Returns the IDs of notices that are still pending so the caller can drain
     exactly this batch once the transaction commits.
@@ -138,17 +153,18 @@ def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_
             CuratedEventGroup.STATUS_LOCKED,
         ),
     ).values_list("registration_id", flat=True)
-    left_out_ids = list(
+    left_out = list(
         EventRegistration.objects.filter(event_id=event_id, status="applied")
         .exclude(pk__in=selected_ids)
         .exclude(pk__in=[int(pk) for pk in exclude_registration_ids])
         .order_by("pk")
-        .values_list("pk", flat=True)
+        .values_list("pk", "registered_at")
     )
-    if not left_out_ids:
+    if not left_out:
         return []
     dedupe_keys = [
-        f"reserve:{event_id}:{registration_id}" for registration_id in left_out_ids
+        _reserve_dedupe_key(event_id, registration_id, registered_at)
+        for registration_id, registered_at in left_out
     ]
     CuratedGroupNotification.objects.bulk_create(
         [
@@ -159,10 +175,13 @@ def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_
                 registration_id_snapshot=registration_id,
                 kind=CuratedGroupNotification.Kind.RESERVE,
                 dedupe_key=dedupe_key,
-                payload={"generation": generation},
+                payload={
+                    "generation": generation,
+                    "application_cycle": _application_cycle(registered_at),
+                },
             )
-            for registration_id, dedupe_key in zip(
-                left_out_ids, dedupe_keys, strict=True
+            for (registration_id, registered_at), dedupe_key in zip(
+                left_out, dedupe_keys, strict=True
             )
         ],
         ignore_conflicts=True,
@@ -388,6 +407,22 @@ def _deliver_reserve_notice(notice):
         return "stale", "Registration no longer belongs to the notice event."
     if registration.status != "applied":
         return "stale", "Registration is no longer an open application."
+    # A retried notice must not promise a pool that no longer exists: the
+    # event was cancelled, or it has started and a post-start repair only
+    # draws on seat holders, so nobody in the pool can be placed any more.
+    event = registration.event
+    if event.is_cancelled:
+        return "stale", "The event was cancelled."
+    if event.date_time <= timezone.now():
+        return "stale", "The event has started; the pool can no longer be drawn on."
+    # The registration row is reused when a member withdraws and applies
+    # again; a notice queued for the earlier application must not describe
+    # the new one.
+    expected_cycle = notice.payload.get("application_cycle")
+    if expected_cycle is not None and expected_cycle != _application_cycle(
+        registration.registered_at
+    ):
+        return "stale", "The member applied again since this notice was queued."
     # A regeneration between enqueue and delivery may have given this person
     # a place after all. Any current provisional or locked group counts, not
     # only the generation that left them out.

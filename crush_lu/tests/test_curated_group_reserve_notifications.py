@@ -124,8 +124,11 @@ class CuratedGroupReserveNotificationTests(TestCase):
         )
         notice = notices.get()
         self.assertEqual(notice.kind, CuratedGroupNotification.Kind.RESERVE)
-        self.assertEqual(notice.dedupe_key, f"reserve:{self.event.pk}:{left_out.pk}")
-        self.assertEqual(notice.payload, {"generation": 1})
+        cycle = left_out.registered_at.strftime("%Y%m%d%H%M%S%f")
+        self.assertEqual(
+            notice.dedupe_key, f"reserve:{self.event.pk}:{left_out.pk}:{cycle}"
+        )
+        self.assertEqual(notice.payload, {"generation": 1, "application_cycle": cycle})
         self.assertFalse(
             CuratedGroupNotification.objects.filter(
                 registration_id__in=[selected.pk, invited_now.pk, withdrawn.pk]
@@ -219,6 +222,79 @@ class CuratedGroupReserveNotificationTests(TestCase):
         self.assertEqual(mail.outbox, [])
         notice = CuratedGroupNotification.objects.get(pk=notice_ids[0])
         self.assertEqual(notice.status, CuratedGroupNotification.Status.CANCELLED)
+
+    def test_reapplying_after_a_withdrawal_earns_a_fresh_notice(self):
+        """The registration row is reused on reapply; the decision is new."""
+        member = self.make_registration("again")
+        first = enqueue_reserve_notifications(self.event.pk, generation=1)
+        CuratedGroupNotification.objects.filter(pk__in=first).update(
+            status=CuratedGroupNotification.Status.SENT
+        )
+        # Withdraw, then apply again: event_register resets registered_at on
+        # the reused row.
+        EventRegistration.objects.filter(pk=member.pk).update(
+            status="cancelled",
+        )
+        EventRegistration.objects.filter(pk=member.pk).update(
+            status="applied",
+            registered_at=timezone.now() + timedelta(seconds=1),
+        )
+
+        second = enqueue_reserve_notifications(self.event.pk, generation=2)
+
+        self.assertEqual(len(second), 1)
+        self.assertNotEqual(second, first)
+        self.assertEqual(
+            CuratedGroupNotification.objects.filter(registration=member).count(), 2
+        )
+        result = deliver_curated_group_notifications(
+            notice_ids=second,
+            kinds=[CuratedGroupNotification.Kind.RESERVE],
+        )
+        self.assertEqual((result.sent, result.cancelled), (1, 0))
+
+    def test_unsent_notice_from_an_earlier_application_is_stale(self):
+        member = self.make_registration("earlier-cycle")
+        notice_ids = enqueue_reserve_notifications(self.event.pk, generation=1)
+        EventRegistration.objects.filter(pk=member.pk).update(
+            registered_at=timezone.now() + timedelta(seconds=1),
+        )
+
+        result = deliver_curated_group_notifications(
+            notice_ids=notice_ids,
+            kinds=[CuratedGroupNotification.Kind.RESERVE],
+        )
+
+        self.assertEqual((result.sent, result.cancelled), (0, 1))
+        self.assertEqual(mail.outbox, [])
+
+    def test_delivery_is_stale_once_the_event_is_cancelled(self):
+        self.make_registration("event-cancelled")
+        notice_ids = enqueue_reserve_notifications(self.event.pk, generation=1)
+        MeetupEvent.objects.filter(pk=self.event.pk).update(is_cancelled=True)
+
+        result = deliver_curated_group_notifications(
+            notice_ids=notice_ids,
+            kinds=[CuratedGroupNotification.Kind.RESERVE],
+        )
+
+        self.assertEqual((result.sent, result.cancelled), (0, 1))
+        self.assertEqual(mail.outbox, [])
+
+    def test_delivery_is_stale_once_the_event_has_started(self):
+        self.make_registration("event-started")
+        notice_ids = enqueue_reserve_notifications(self.event.pk, generation=1)
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=5)
+        )
+
+        result = deliver_curated_group_notifications(
+            notice_ids=notice_ids,
+            kinds=[CuratedGroupNotification.Kind.RESERVE],
+        )
+
+        self.assertEqual((result.sent, result.cancelled), (0, 1))
+        self.assertEqual(mail.outbox, [])
 
     def test_delivery_is_stale_once_the_application_is_withdrawn(self):
         withdrawn_later = self.make_registration("withdrawn-later")
