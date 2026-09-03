@@ -40894,3 +40894,333 @@ msgstr "Groupes sur sélection · candidatures ouvertes"
 #: templates/crush_lu/includes/event_card.html
 msgid "Curated groups · applications closed"
 msgstr "Groupes sur sélection · candidatures closes"
+
+#: templates/crush_lu/coach_event_detail.html
+msgid "Groups"
+msgstr "Groupes"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Curated groups"
+msgstr "Groupes sur sélection"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "generation %(generation)s"
+msgstr "génération %(generation)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is degraded and needs repair"
+msgstr "La génération %(generation)s est dégradée et doit être réparée"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round one has started"
+msgstr "La première ronde a commencé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is locked: final evening roster"
+msgstr ""
+"La génération %(generation)s est verrouillée : composition définitive de la "
+"soirée"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is provisional: selected and payable"
+msgstr "La génération %(generation)s est provisoire : sélectionnée et payable"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is a draft"
+msgstr "La génération %(generation)s est un brouillon"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "No groups generated yet"
+msgstr "Aucun groupe généré pour l’instant"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications closed %(deadline)s"
+msgstr "Candidatures closes depuis le %(deadline)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications close %(deadline)s"
+msgstr "Les candidatures ferment le %(deadline)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round one was already marked as started."
+msgstr "La première ronde a déjà été marquée comme commencée."
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Next step:"
+msgstr "Prochaine étape :"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Open the coach panel"
+msgstr "Ouvrir le panel coach"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "What the projector would do with the pool right now"
+msgstr "Ce que le projecteur ferait du pool en ce moment"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Draft is stale"
+msgstr "Brouillon obsolète"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "The projector refused this pool: %(error)s"
+msgstr "Le projecteur a refusé ce pool : %(error)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications"
+msgstr "Candidatures"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Viable groups"
+msgstr "Groupes viables"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Would be left out"
+msgstr "Resteraient sans place"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Group %(number)s"
+msgstr "Groupe %(number)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Provisional"
+msgstr "Provisoire"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Degraded"
+msgstr "Dégradé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "was locked"
+msgstr "était verrouillé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "was provisional"
+msgstr "était provisoire"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s round"
+msgid_plural "%(counter)s rounds"
+msgstr[0] "%(counter)s ronde"
+msgstr[1] "%(counter)s rondes"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "everyone meets the %(target)s-date target"
+msgstr "tout le monde atteint l’objectif de %(target)s rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(meeting)s of %(members)s meet the %(target)s-date target"
+msgstr ""
+"%(meeting)s sur %(members)s atteignent l’objectif de %(target)s rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "at least %(minimum)s dates each"
+msgstr "au moins %(minimum)s rencontres par personne"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "survives one drop-out"
+msgstr "résiste à un désistement"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "does not survive a drop-out"
+msgstr "ne résiste pas à un désistement"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s mini-date"
+msgid_plural "%(counter)s mini-dates"
+msgstr[0] "%(counter)s mini-rencontre"
+msgstr[1] "%(counter)s mini-rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Released"
+msgstr "Libéré·e"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Why this group"
+msgstr "Pourquoi ce groupe"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Show pairing schedule"
+msgstr "Afficher le plan des tables"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round"
+msgstr "Ronde"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Table %(table)s"
+msgstr "Table %(table)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Sitting out"
+msgstr "En pause"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Left out"
+msgstr "Sans place"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Nobody is left out."
+msgstr "Personne ne reste sans place."
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Cannot be placed"
+msgstr "Ne peut pas être placé·e"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Eligible but not placed"
+msgstr "Éligible mais sans place"
+
+#: services/curated_group_insights.py
+msgid ""
+"Wait for the application deadline, then run “Generate fair curated groups”."
+msgstr ""
+"Attendez la date limite de candidature, puis lancez « Generate fair curated "
+"groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Generate fair curated groups”."
+msgstr "Lancez « Generate fair curated groups »."
+
+#: services/curated_group_insights.py
+msgid ""
+"Run “Generate fair curated groups” again: the pool or the deadline changed "
+"since this draft, so approval would be refused."
+msgstr ""
+"Relancez « Generate fair curated groups » : le pool ou la date limite a "
+"changé depuis ce brouillon, l’approbation serait refusée."
+
+#: services/curated_group_insights.py
+msgid "Review the draft, then run “Approve all current fair groups”."
+msgstr ""
+"Vérifiez le brouillon, puis lancez « Approve all current fair groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Invite the approved generation to pay”."
+msgstr "Lancez « Invite the approved generation to pay »."
+
+#: services/curated_group_insights.py
+msgid ""
+"Check every member in at the door, then run “Lock checked-in curated "
+"groups”."
+msgstr ""
+"Enregistrez chaque membre à l’entrée, puis lancez « Lock checked-in curated "
+"groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Mark curated round one as started” as the first round begins."
+msgstr ""
+"Lancez « Mark curated round one as started » au début de la première ronde."
+
+#: services/curated_group_insights.py
+msgid "Round one has been marked as started. Nothing left to do here."
+msgstr ""
+"La première ronde a été marquée comme commencée. Plus rien à faire ici."
+
+#: services/curated_group_insights.py
+msgid "Run “Reproject or compensate degraded groups”."
+msgstr "Lancez « Reproject or compensate degraded groups »."
+
+#: services/curated_group_insights.py
+msgid "The event is cancelled; no group action applies."
+msgstr "L’événement est annulé ; aucune action de groupe ne s’applique."
+
+#: services/curated_group_insights.py
+msgid "no event preferences on the application"
+msgstr "aucune préférence d’événement dans la candidature"
+
+#: services/curated_group_insights.py
+msgid "no gender on the profile"
+msgstr "aucun genre dans le profil"
+
+#: services/curated_group_insights.py
+msgid "no date of birth on the profile"
+msgstr "aucune date de naissance dans le profil"
+
+#: services/curated_group_insights.py
+msgid "outside the event's age range"
+msgstr "hors de la tranche d’âge de l’événement"
+
+#: services/curated_group_insights.py
+msgid "incomplete application"
+msgstr "candidature incomplète"
+
+#: services/curated_group_insights.py
+msgid ""
+"Its members form a compatibility track of their own: no other applicant was "
+"mutually compatible with anyone in it."
+msgstr ""
+"Ses membres forment leur propre bloc de compatibilité : aucun autre candidat"
+" n’était mutuellement compatible avec l’un d’eux."
+
+#: services/curated_group_insights.py
+msgid ""
+"Drawn from a compatibility track of %(track)d mutually compatible "
+"applicants; group %(ordinal)d within that track."
+msgstr ""
+"Issu d’un bloc de compatibilité de %(track)d candidats mutuellement "
+"compatibles ; groupe %(ordinal)d de ce bloc."
+
+#: services/curated_group_insights.py
+msgid ""
+"Prioritised because its members had few alternative groups in the pool."
+msgstr ""
+"Priorisé parce que ses membres avaient peu d’autres groupes possibles dans "
+"le pool."
+
+#: services/curated_group_insights.py
+msgid "%(count)d member already held a seat when this projection ran."
+msgid_plural "%(count)d members already held a seat when this projection ran."
+msgstr[0] "%(count)d membre avait déjà une place lors de ce calcul."
+msgstr[1] "%(count)d membres avaient déjà une place lors de ce calcul."
+#: services/curated_group_insights.py
+msgid ""
+"The projector refused this pool, so groups can be neither generated nor "
+"approved; reduce the pool or review it offline first."
+msgstr ""
+"Le projecteur a refusé ce pool : les groupes ne peuvent être ni générés ni "
+"approuvés. Réduisez le pool ou examinez-le d’abord hors ligne."
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed without an approved generation; groups can no"
+" longer be generated or approved for this event."
+msgstr ""
+"Le début prévu est passé sans génération approuvée ; il n’est plus possible "
+"de générer ni d’approuver des groupes pour cet événement."
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed, so the remaining applicants can no longer be"
+" invited. Check in the members who are here, then run “Lock checked-in "
+"curated groups”."
+msgstr ""
+"Le début prévu est passé : les candidats restants ne peuvent plus être "
+"invités. Enregistrez les membres présents, puis lancez « Lock checked-in "
+"curated groups »."
+
+#: services/curated_group_insights.py
+msgid ""
+"The event has ended without round one being marked as started. Nothing left "
+"to do here."
+msgstr ""
+"L’événement est terminé sans que la première ronde ait été marquée comme "
+"commencée. Plus rien à faire ici."
+#: services/curated_group_insights.py
+msgid ""
+"The projector finds no viable group in this pool: nobody can be seated with "
+"at least five mutually compatible dates yet, so there is nothing to generate"
+" until more compatible applicants apply."
+msgstr ""
+"Le projecteur ne trouve aucun groupe viable dans ce pool : personne ne peut "
+"encore être placé avec au moins cinq rencontres mutuellement compatibles, il"
+" n’y a donc rien à générer tant que davantage de candidats compatibles ne se"
+" sont pas inscrits."
+
+#: services/curated_group_insights.py
+msgid ""
+"This group degraded after round one had started. The repair action only "
+"records the audit; nothing is reprojected or compensated."
+msgstr ""
+"Ce groupe s’est dégradé après le début de la première ronde. L’action de "
+"réparation ne fait qu’enregistrer l’audit ; rien n’est recomposé ni "
+"compensé."

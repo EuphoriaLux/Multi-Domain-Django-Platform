@@ -344,13 +344,29 @@
         {% trans "Applications" %}
         <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'applied' %}bg-white/20{% else %}bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300{% endif %}">{{ applied_count }}</span>
     </a>
-    {% endif %}
+    {% endif %}{% if curated_groups_panel %}
+    <a href="?status=groups" data-curated-groups-tab class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'groups' %}bg-indigo-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
+        {% trans "Groups" %}
+        <span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'groups' %}bg-white/20{% else %}bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300{% endif %}">{{ curated_groups_panel.groups|length }}</span>
+    </a>{% endif %}
     <a href="?status=other" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg transition-colors {% if status_filter == 'other' %}bg-gray-600 text-white{% else %}bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700{% endif %}">
         {% trans "Other" %}
         {% if other_count %}<span class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs rounded-full {% if status_filter == 'other' %}bg-white/20{% else %}bg-gray-100 dark:bg-gray-700{% endif %}">{{ other_count }}</span>{% endif %}
     </a>
 </div>
-
+{% comment %}
+Curated groups panel (curated speed dating with a group size). Read-only:
+stage banner, projector preflight, one card per group of the current
+generation, and who is left out and why. Rendered on the All view and on
+its own tab; absent (and the tab with it) on direct events and on legacy
+curated events without a group size, whose pages must stay byte-identical
+-- which is why even the section marker lives inside the if. Lifecycle
+actions stay in the coach panel (Django admin); this only says which one
+comes next.
+{% endcomment %}{% if curated_groups_panel %}{% if status_filter == 'all' or status_filter == 'groups' %}
+<!-- ── Curated groups panel ─────────────────────────────────────────── -->
+{% include "crush_lu/components/coach_curated_groups.html" with panel=curated_groups_panel event=event only %}
+{% endif %}{% endif %}
 <!-- ── Confirmed section ──────────────────────────────────────────────── -->
 {% if status_filter == 'all' or status_filter == 'confirmed' %}
 <div class="mb-8">
