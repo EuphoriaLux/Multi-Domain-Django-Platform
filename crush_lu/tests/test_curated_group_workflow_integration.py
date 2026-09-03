@@ -2238,6 +2238,74 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             6,
         )
 
+    def test_post_start_reprojection_never_recruits_an_applicant_from_the_pool(self):
+        """After the start only invited people may be reshuffled.
+
+        The pool is designed to outnumber the seats, so an open application
+        is almost always available to top a group back up. Recruiting one
+        after the start would seat somebody who is at home: they can no
+        longer be invited and the lock would refuse for everyone else.
+        """
+        event, registrations, group = self.certify_one_group(
+            applicant_count=8,
+            event_overrides={"group_size": 7},
+        )
+        selected_ids = set(
+            group.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(len(selected_ids), 7)
+        (left_out,) = [
+            registration
+            for registration in registrations
+            if registration.pk not in selected_ids
+        ]
+        self.assertEqual(left_out.status, "applied")
+        members = [
+            registration
+            for registration in registrations
+            if registration.pk in selected_ids
+        ]
+        payments = self.mark_group_paid(members)
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            date_time=timezone.now() - timedelta(minutes=10)
+        )
+        no_show = members[0]
+
+        with patch(
+            "crush_lu.services.curated_group_notifications."
+            "deliver_curated_group_notifications"
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                no_show.status = "no_show"
+                no_show.save(update_fields=["status"])
+
+        replacement = CuratedEventGroup.objects.get(
+            event=event,
+            status=CuratedEventGroup.STATUS_PROVISIONAL,
+        )
+        replacement_ids = set(
+            replacement.memberships.filter(released_at__isnull=True).values_list(
+                "registration_id", flat=True
+            )
+        )
+        self.assertEqual(replacement_ids, selected_ids - {no_show.pk})
+        self.assertNotIn(left_out.pk, replacement_ids)
+        left_out.refresh_from_db()
+        self.assertEqual(left_out.status, "applied")
+        self.assertFalse(
+            CuratedEventGroupMembership.objects.filter(
+                registration=left_out, released_at__isnull=True
+            ).exists()
+        )
+        self.assertFalse(
+            CrushCredit.objects.filter(
+                source_payment_id__in=[payment.pk for payment in payments.values()],
+                reason=CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+            ).exists()
+        )
+
     def test_post_start_repair_still_compensates_after_event_end(self):
         """Once the evening is over, an unlocked degraded group cannot reproject."""
         event, registrations, group = self.certify_one_group(

@@ -419,7 +419,15 @@ def _generate_group_projection(
             "dropped member checkout is retired before roster release."
         )
 
-    projection = project_event_groups(event, deterministic_seed=deterministic_seed)
+    # After the scheduled start a repair may only reshuffle the people who
+    # were invited. An open applicant recruited at that point is not in the
+    # room, cannot be invited any more, and would block the lock.
+    past_start = allow_degraded_replacement and timezone.now() >= event.date_time
+    projection = project_event_groups(
+        event,
+        deterministic_seed=deterministic_seed,
+        seat_holders_only=past_start,
+    )
     if not projection.viable_groups:
         capacity_suffix = (
             " within the event gender pool caps" if event.gender_limits_active else ""
@@ -1008,7 +1016,13 @@ def _repair_degraded_event_groups_locked(
     may_reproject = not had_locked_roster and timezone.now() < event.end_time
     replacement_projection = None
     if may_reproject:
-        projection = project_event_groups(event)
+        # Before the start the pool may still be drawn on (a re-run of Invite
+        # handles anyone newly placed). After it, only invited people count:
+        # see load_grouping_candidates(seat_holders_only=True).
+        projection = project_event_groups(
+            event,
+            seat_holders_only=timezone.now() >= event.date_time,
+        )
         if projection.viable_groups and projection.retains_all_pinned:
             replacement_projection = projection
 

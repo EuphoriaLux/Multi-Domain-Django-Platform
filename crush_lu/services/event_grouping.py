@@ -273,7 +273,7 @@ def load_applicants(event):
     return [_applicant(reg) for reg in registrations]
 
 
-def load_grouping_candidates(event):
+def load_grouping_candidates(event, *, seat_holders_only=False):
     """Load applications plus every already selected seat-holder.
 
     This is intentionally separate from :func:`load_applicants`, whose applied
@@ -282,10 +282,21 @@ def load_grouping_candidates(event):
     in registrations and mark them as pinned. The optimiser then maximises
     pinned retention before every other objective and reports any impossible
     retention explicitly.
+
+    ``seat_holders_only`` drops the open applications. A repair that runs
+    after the scheduled start must rebuild the roster from the people who
+    were actually invited: an applicant recruited at that point is sitting
+    at home, can no longer be invited (the Invite action refuses after the
+    start) and would block the lock for everyone else.
     """
 
+    statuses = (
+        tuple(sorted(PINNED_REGISTRATION_STATUSES))
+        if seat_holders_only
+        else GROUPING_CANDIDATE_STATUSES
+    )
     registrations = (
-        event.eventregistration_set.filter(status__in=GROUPING_CANDIDATE_STATUSES)
+        event.eventregistration_set.filter(status__in=statuses)
         .select_related("user__crushprofile", "preference")
         .order_by("pk")
     )
@@ -425,12 +436,13 @@ def project_event_groups(
     minimum_dates: int = DEFAULT_MIN_DATES,
     target_dates: int = DEFAULT_TARGET_DATES,
     deterministic_seed: str | int | None = None,
+    seat_holders_only: bool = False,
 ) -> GroupProjection:
     """Load lifecycle-aware candidates and project fixed groups for ``event``."""
 
     return project_groups(
         event,
-        load_grouping_candidates(event),
+        load_grouping_candidates(event, seat_holders_only=seat_holders_only),
         minimum_dates=minimum_dates,
         target_dates=target_dates,
         deterministic_seed=deterministic_seed,
