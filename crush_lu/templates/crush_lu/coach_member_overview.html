@@ -580,6 +580,8 @@
                             <span>{{ attempt.attempt_date|date:"M j, Y" }}</span>
                             {% if attempt.coach %}
                                 <span>&middot; {{ attempt.coach.user.get_full_name }}</span>
+                            {% elif attempt.logged_by %}
+                                <span>&middot; {{ attempt.logged_by.get_full_name|default:attempt.logged_by.username }}</span>
                             {% endif %}
                         </div>
                     </div>

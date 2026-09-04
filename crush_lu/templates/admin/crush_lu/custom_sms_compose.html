@@ -91,7 +91,7 @@
                 <div class="csms-field js-audience-panel" data-audience="manual">
                     <label for="id_manual">{% trans "Emails or phone numbers" %}</label>
                     <textarea name="manual_recipients" id="id_manual" placeholder="marie@example.lu&#10;+352 691 000 001">{{ form.manual_recipients }}</textarea>
-                    <div class="hint">{% trans "One per line. Numbers are matched against member profiles, so the recipient must have an account." %}</div>
+                    <div class="hint">{% trans "One per line. Each line must match a member with a phone number (numbers without a country code are read as +352). Only the matched members are stored, not the list." %}</div>
                 </div>
 
                 <div class="csms-field">

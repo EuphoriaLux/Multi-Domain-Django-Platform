@@ -968,7 +968,7 @@ class Command(BaseCommand):
             reviewed_count = ProfileSubmission.objects.filter(
                 reviewed_at__date__gte=month_start, reviewed_at__date__lt=month_end,
             ).count()
-            calls_count = CallAttempt.objects.filter(
+            calls_count = CallAttempt.objects.exclude(result="custom_sms").filter(
                 attempt_date__date__gte=month_start, attempt_date__date__lt=month_end,
             ).count()
 

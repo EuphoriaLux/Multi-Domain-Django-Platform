@@ -69,12 +69,12 @@ class RenderMessageTests(TestCase):
 
 class ParseManualRecipientsTests(TestCase):
     def test_splits_emails_phones_and_junk(self):
-        emails, phones, suffixes, junk = parse_manual_recipients(
+        emails, phones, junk = parse_manual_recipients(
             "Marie@Example.lu\n+352 691 000 001,\n00352691000002\n691 000 003\nfoo\n\n"
         )
         self.assertEqual(emails, ["marie@example.lu"])
-        self.assertEqual(phones, ["+352691000001", "+352691000002"])
-        self.assertEqual(suffixes, ["691000003"])
+        # A national number gets the Luxembourg code — exact match, no suffix.
+        self.assertEqual(phones, ["+352691000001", "+352691000002", "+352691000003"])
         self.assertEqual(junk, ["foo"])
 
 
@@ -348,22 +348,71 @@ class CustomSmsAdminTests(TestCase):
         self.assertContains(response, "unverified")
 
     def test_manual_audience_matches_email_and_phone(self):
-        self._post_compose(
+        # Unknown lines block creation and are echoed back so they can be fixed.
+        response = self._post_compose(
             audience_type="manual",
             event_id="",
             manual_recipients="FR@test.com\n691 000 002\nnobody@test.com\nzzz",
             message_en="Hi {first_name}",
             message_fr="",
         )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No member with a phone number matches")
+        self.assertContains(response, "nobody@test.com")
+        self.assertContains(response, "Not an email address or phone number")
+        self.assertContains(response, "zzz")
+        self.assertFalse(CustomSmsBatch.objects.exists())
+
+        self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="FR@test.com\n691 000 002",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
         batch = CustomSmsBatch.objects.get()
         self.assertEqual(batch.audience_type, "manual")
         self.assertIsNone(batch.event)
+        # Only member ids are stored — never the pasted contact data.
+        self.assertEqual(
+            sorted(batch.manual_user_ids), sorted([self.fr_user.pk, self.de_user.pk])
+        )
         response = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
         content = response.content.decode()
         self.assertIn("+352691000001", content)
         self.assertIn("+352691000002", content)
-        self.assertContains(response, "Ignored 1 line")
-        self.assertContains(response, "0 / 2 sent")
+        self.assertContains(response, 'data-total="2"')
+        # Duplicate prefills the list from the live accounts, not stored text.
+        page = self.client.get(f"{COMPOSE_URL}?from={batch.pk}")
+        self.assertContains(page, "fr@test.com")
+        self.assertContains(page, "de@test.com")
+
+    def test_manual_audience_rejects_banned_member_without_saying_why(self):
+        UserDataConsent.objects.filter(user=self.fr_user).update(crushlu_banned=True)
+        response = self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="fr@test.com",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
+        self.assertContains(response, "No member with a phone number matches")
+        self.assertNotContains(response, "banned")
+        self.assertFalse(CustomSmsBatch.objects.exists())
+
+    def test_national_number_does_not_match_other_country_suffix(self):
+        """691000001 must resolve to +352691000001 only — not a +33… number ending the same."""
+        fr_fr = self._user("paris@test.com", "Pierre")
+        self._profile(fr_fr, "+33691000001", "fr", "M")
+        self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="691000001",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
+        batch = CustomSmsBatch.objects.get()
+        self.assertEqual(batch.manual_user_ids, [self.fr_user.pk])
 
     def test_manual_audience_matches_formatted_stored_numbers(self):
         """A stored '+352 691 000 005' must match both the pasted E.164 and national forms."""
@@ -384,7 +433,7 @@ class CustomSmsAdminTests(TestCase):
         self._post_compose(
             audience_type="manual",
             event_id="",
-            manual_recipients="691000005",
+            manual_recipients="691 000 005",
             message_en="Hi {first_name}",
             message_fr="",
             title="national",
@@ -476,6 +525,7 @@ class CustomSmsAdminTests(TestCase):
         self.assertEqual(attempts.count(), 1)
         attempt = attempts.get()
         self.assertEqual(attempt.coach, self.coach)
+        self.assertEqual(attempt.logged_by, self.coach_user)
         self.assertEqual(attempt.event, self.event)
         self.assertTrue(
             attempt.notes.startswith(f"[custom-sms:{batch.pk}] Salut Marie")
@@ -486,6 +536,27 @@ class CustomSmsAdminTests(TestCase):
         page = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
         self.assertContains(page, "All done")
         self.assertContains(page, 'data-sent="1"')
+
+    def test_superuser_send_is_attributed_via_logged_by(self):
+        root = User.objects.create_superuser("root3@test.com", "root3@test.com", "pass")
+        root.first_name = "Root"
+        root.save(update_fields=["first_name"])
+        client = Client()
+        client.login(username="root3@test.com", password="pass")
+        client.post(
+            COMPOSE_URL,
+            {
+                "audience_type": "event",
+                "event_id": str(self.event.id),
+                "registration_statuses": ["confirmed"],
+                "message_en": "Hi {first_name}",
+            },
+        )
+        batch = CustomSmsBatch.objects.get()
+        client.post(f"{COMPOSE_URL}{batch.pk}/log/{self.fr_profile.pk}/")
+        attempt = CallAttempt.objects.get(result="custom_sms")
+        self.assertIsNone(attempt.coach)
+        self.assertEqual(attempt.logged_by, root)
 
     def test_log_refuses_profile_outside_audience(self):
         self._post_compose()

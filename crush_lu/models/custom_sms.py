@@ -12,6 +12,10 @@ batch created for an event picks up new registrations automatically. The
 audit rows are what make the page resumable: a recipient counts as "sent"
 when a ``custom_sms`` attempt tagged with this batch exists for their
 profile (see :func:`CustomSmsBatch.notes_prefix`).
+
+Batches are pruned by the GDPR retention sweep (``gdpr_retention_cleanup``,
+``custom_sms_batch_days``) on the same window as the ``CallAttempt`` audit
+rows they belong to.
 """
 
 from django.contrib.auth.models import User
@@ -73,9 +77,14 @@ class CustomSmsBatch(models.Model):
         help_text=_("EventRegistration statuses included (event audience only)."),
     )
     segment_key = models.CharField(max_length=64, blank=True)
-    manual_recipients = models.TextField(
+    # Manual audience: the pasted emails / phone numbers are resolved to
+    # members at compose time and only the user ids are kept, so the batch
+    # never holds a second copy of contact data — banning or deleting a
+    # member removes them from the list like everywhere else.
+    manual_user_ids = models.JSONField(
+        default=list,
         blank=True,
-        help_text=_("One email address or phone number per line (manual audience)."),
+        help_text=_("User ids resolved from the pasted list (manual audience)."),
     )
     include_unverified_phones = models.BooleanField(
         default=False,

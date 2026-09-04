@@ -1827,6 +1827,18 @@ class CallAttempt(models.Model):
         null=True,
         help_text=_("Coach who made the call attempt"),
     )
+    logged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="logged_call_attempts",
+        help_text=_(
+            "Account that recorded this attempt — kept alongside coach so a "
+            "superuser without a coach row (e.g. on the Custom SMS page) is "
+            "still attributed"
+        ),
+    )
     event = models.ForeignKey(
         "crush_lu.MeetupEvent",
         on_delete=models.SET_NULL,

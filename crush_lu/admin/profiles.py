@@ -2707,6 +2707,7 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "profile__user",
         "submission__profile__user",
         "coach__user",
+        "logged_by",
         "event",
     ]
     list_filter = ("result", "failure_reason", "attempt_date")
@@ -2728,6 +2729,7 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "failure_reason",
         "notes",
         "coach",
+        "logged_by",
         "event",
     )
     date_hierarchy = "attempt_date"

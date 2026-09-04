@@ -22,6 +22,7 @@ from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import F, Q, Value
@@ -68,6 +69,11 @@ _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
 _BRACE_RE = re.compile(r"\{([^{}]*)\}")
 
 SITE_HEADER = "💕 Crush.lu Coach Panel"
+# A pasted number without a country code is read as a Luxembourg number —
+# the same default the phone field's intl-tel-input uses (initialCountry
+# "lu"). Suffix matching was rejected: ``691123456`` would also select
+# ``+33691123456``.
+DEFAULT_COUNTRY_CALLING_CODE = "352"
 MESSAGE_MAX_LENGTH = 1000
 RECENT_BATCHES_LIMIT = 10
 SUPPORTED_LANGUAGES = ("en", "de", "fr")
@@ -193,24 +199,28 @@ def render_body_for(request, batch, profile, coach_name):
 
 
 def _normalise_phone(raw):
-    """Loose normalisation for pasted numbers.
+    """Canonical ``+<digits>`` for a pasted number.
 
-    Returns ``(value, is_international)``: spaces and punctuation are stripped
-    and a ``00`` prefix becomes ``+``. A number without any country prefix
-    (e.g. ``691 000 001`` typed the Luxembourg way) is returned as bare digits
-    and matched by suffix, so it still finds ``+352691000001``.
+    Spaces and punctuation are stripped, a ``00`` prefix becomes ``+``, and a
+    number without any country prefix (``691 000 001`` typed the Luxembourg
+    way) gets ``+352`` — an exact match, never a suffix match.
     """
     compact = re.sub(r"[^\d+]", "", raw)
     if compact.startswith("00"):
         compact = "+" + compact[2:]
     if compact.startswith("+"):
-        return "+" + re.sub(r"\D", "", compact[1:]), True
-    return re.sub(r"\D", "", compact), False
+        return "+" + re.sub(r"\D", "", compact[1:])
+    digits = re.sub(r"\D", "", compact)
+    return f"+{DEFAULT_COUNTRY_CALLING_CODE}{digits}" if digits else ""
 
 
 def parse_manual_recipients(text):
-    """Split a pasted list into (emails, international phones, national digit suffixes, junk)."""
-    emails, phones, suffixes, junk = [], [], [], []
+    """Split a pasted list into ``(emails, phones, junk)``.
+
+    ``phones`` are canonical ``+<digits>`` values (see ``_normalise_phone``);
+    ``junk`` keeps the original lines that are neither an email nor a number.
+    """
+    emails, phones, junk = [], [], []
     for raw_line in (text or "").splitlines():
         line = raw_line.strip().strip(",;")
         if not line:
@@ -218,14 +228,63 @@ def parse_manual_recipients(text):
         if "@" in line:
             emails.append(line.lower())
             continue
-        value, is_international = _normalise_phone(line)
-        if len(re.sub(r"\D", "", value)) < 6:
+        if len(re.sub(r"\D", "", line)) < 6:
             junk.append(line)
-        elif is_international:
-            phones.append(value)
         else:
-            suffixes.append(value)
-    return emails, phones, suffixes, junk
+            phones.append(_normalise_phone(line))
+    return emails, phones, junk
+
+
+def _eligible_profiles(include_unverified_phones):
+    """Profiles this page may text at all — the base every audience is filtered through.
+
+    Same exclusions as every other outreach channel (campaigns, newsletters):
+    a phone number is required (verified unless the batch opts in), members
+    who deleted their profile or were banned (``UserDataConsent.crushlu_banned``)
+    are out, and so are deactivated accounts and deactivated profiles
+    (``CrushProfile.is_active`` — the segments dashboard's own baseline).
+    """
+    phone_q = Q(phone_number__isnull=False) & ~Q(phone_number="")
+    if not include_unverified_phones:
+        phone_q &= Q(phone_verified=True)
+    return (
+        CrushProfile.objects.filter(phone_q)
+        .exclude(user__data_consent__crushlu_banned=True)
+        .filter(user__is_active=True, is_active=True)
+    )
+
+
+def resolve_manual_recipients(text, include_unverified_phones):
+    """Resolve a pasted list to ``(user_ids, unmatched_lines, junk_lines)``.
+
+    Runs at compose time so only member ids are stored on the batch. A line
+    that matches no eligible member is reported back verbatim — the sender
+    sees what to fix, and nothing about *why* a member is ineligible leaks.
+    Digits are compared on both sides: stored numbers may carry the
+    spaces/dashes the validator allows.
+    """
+    emails, phones, junk = parse_manual_recipients(text)
+    if not emails and not phones:
+        return [], [], junk
+
+    eligible = _eligible_profiles(include_unverified_phones).annotate(
+        _pn_digits=_phone_digits_expr()
+    )
+    match_q = Q()
+    for email in emails:
+        match_q |= Q(user__email__iexact=email)
+    if phones:
+        match_q |= Q(_pn_digits__in=[p.lstrip("+") for p in phones])
+    rows = list(
+        eligible.filter(match_q).values_list("user_id", "user__email", "_pn_digits")
+    )
+
+    found_emails = {email.lower() for _uid, email, _digits in rows if email}
+    found_digits = {digits for _uid, _email, digits in rows}
+    unmatched = [e for e in emails if e not in found_emails]
+    unmatched += [p for p in phones if p.lstrip("+") not in found_digits]
+    user_ids = sorted({uid for uid, _email, _digits in rows})
+    return user_ids, unmatched, junk
 
 
 def _profiles_from_segment(segment_queryset):
@@ -276,9 +335,6 @@ def recipient_queryset(batch, definitions=None):
     catalogue, when the caller already has it.
     """
     warnings = []
-    phone_q = Q(phone_number__isnull=False) & ~Q(phone_number="")
-    if not batch.include_unverified_phones:
-        phone_q &= Q(phone_verified=True)
 
     if batch.audience_type == CustomSmsBatch.Audience.EVENT:
         if not batch.event_id:
@@ -300,42 +356,16 @@ def recipient_queryset(batch, definitions=None):
             return CrushProfile.objects.none(), warnings
         qs = _profiles_from_segment(segment["queryset"])
 
-    else:  # manual
-        emails, phones, suffixes, junk = parse_manual_recipients(
-            batch.manual_recipients
-        )
-        if junk:
-            warnings.append(
-                _(
-                    "Ignored %(n)d line(s) that are neither an email nor a phone number: %(lines)s"
-                )
-                % {"n": len(junk), "lines": ", ".join(junk[:5])}
-            )
-        if not emails and not phones and not suffixes:
+    else:  # manual — ids were resolved at compose time
+        user_ids = [
+            uid for uid in (batch.manual_user_ids or []) if isinstance(uid, int)
+        ]
+        if not user_ids:
             return CrushProfile.objects.none(), warnings
-        # Compare digits on both sides: stored numbers may carry the
-        # spaces/dashes the validator allows, pasted ones are already
-        # normalised by parse_manual_recipients.
-        match_q = Q()
-        for email in emails:
-            match_q |= Q(user__email__iexact=email)
-        if phones:
-            match_q |= Q(_pn_digits__in=[p.lstrip("+") for p in phones])
-        for suffix in suffixes:
-            match_q |= Q(_pn_digits__endswith=suffix)
-        qs = CrushProfile.objects.annotate(_pn_digits=_phone_digits_expr()).filter(
-            match_q
-        )
+        qs = CrushProfile.objects.filter(user_id__in=user_ids)
 
     qs = (
-        qs.filter(phone_q)
-        # Same exclusions as every other outreach channel (campaigns,
-        # newsletters): members who deleted their profile or were banned
-        # (``UserDataConsent.crushlu_banned``), deactivated accounts, and
-        # deactivated profiles (``CrushProfile.is_active`` — the segments
-        # dashboard's own baseline).
-        .exclude(user__data_consent__crushlu_banned=True)
-        .filter(user__is_active=True, is_active=True)
+        qs.filter(pk__in=_eligible_profiles(batch.include_unverified_phones))
         .select_related("user")
         .order_by("user__first_name", "user__last_name", "pk")
     )
@@ -429,6 +459,7 @@ def _blank_form():
         "registration_statuses": ["confirmed"],
         "segment_key": "",
         "manual_recipients": "",
+        "manual_user_ids": [],
         "include_unverified_phones": False,
         "message_en": "",
         "message_de": "",
@@ -443,7 +474,14 @@ def _form_from_batch(batch):
         "event_id": str(batch.event_id or ""),
         "registration_statuses": list(batch.registration_statuses or []),
         "segment_key": batch.segment_key,
-        "manual_recipients": batch.manual_recipients,
+        # Re-derive the pasted list from the live accounts: a member deleted
+        # or banned since simply drops out.
+        "manual_recipients": "\n".join(
+            User.objects.filter(pk__in=batch.manual_user_ids or [])
+            .order_by("email")
+            .values_list("email", flat=True)
+        ),
+        "manual_user_ids": list(batch.manual_user_ids or []),
         "include_unverified_phones": batch.include_unverified_phones,
         "message_en": batch.message_en,
         "message_de": batch.message_de,
@@ -459,6 +497,7 @@ def _form_from_post(post):
         "registration_statuses": post.getlist("registration_statuses"),
         "segment_key": post.get("segment_key", "").strip()[:64],
         "manual_recipients": post.get("manual_recipients", ""),
+        "manual_user_ids": [],
         "include_unverified_phones": post.get("include_unverified_phones") == "on",
         "message_en": post.get("message_en", "").strip(),
         "message_de": post.get("message_de", "").strip(),
@@ -498,10 +537,27 @@ def _validate(form):
             if segment is None:
                 errors.append(_("Unknown user segment."))
     elif audience == CustomSmsBatch.Audience.MANUAL:
-        emails, phones, suffixes, _junk = parse_manual_recipients(
-            form["manual_recipients"]
+        user_ids, unmatched, junk = resolve_manual_recipients(
+            form["manual_recipients"], form["include_unverified_phones"]
         )
-        if not emails and not phones and not suffixes:
+        form["manual_user_ids"] = user_ids
+        if junk:
+            errors.append(
+                _("Not an email address or phone number: %(lines)s")
+                % {"lines": ", ".join(junk[:10])}
+            )
+        if unmatched:
+            errors.append(
+                _(
+                    "No member with a phone number matches: %(lines)s. "
+                    "Numbers without a country code are read as +%(cc)s."
+                )
+                % {
+                    "lines": ", ".join(unmatched[:10]),
+                    "cc": DEFAULT_COUNTRY_CALLING_CODE,
+                }
+            )
+        if not user_ids and not junk and not unmatched:
             errors.append(_("Paste at least one email address or phone number."))
 
     if not form["message_en"]:
@@ -574,10 +630,10 @@ def custom_sms_compose(request):
                     if form["audience_type"] == CustomSmsBatch.Audience.SEGMENT
                     else ""
                 ),
-                manual_recipients=(
-                    form["manual_recipients"]
+                manual_user_ids=(
+                    form["manual_user_ids"]
                     if form["audience_type"] == CustomSmsBatch.Audience.MANUAL
-                    else ""
+                    else []
                 ),
                 include_unverified_phones=form["include_unverified_phones"],
                 message_en=form["message_en"],
@@ -774,6 +830,9 @@ def custom_sms_log(request, batch_id, profile_id):
                 profile=profile,
                 result=RESULT_CUSTOM_SMS,
                 coach=_coach_for(request.user),
+                # Always attribute the acting account: a superuser without a
+                # coach row would otherwise leave an anonymous audit row.
+                logged_by=request.user,
                 event=batch.event,
                 notes=f"{batch.notes_prefix} {body}",
             )

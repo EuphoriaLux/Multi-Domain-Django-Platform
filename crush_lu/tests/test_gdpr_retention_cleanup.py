@@ -149,6 +149,24 @@ class GdprRetentionCommandTests(TestCase):
         self.assertFalse(CallAttempt.objects.filter(pk=mid_call.pk).exists())
         self.assertFalse(CallAttempt.objects.filter(pk=self.old_call.pk).exists())
 
+    def test_custom_sms_batches_are_pruned_on_their_window(self):
+        from crush_lu.models.custom_sms import CustomSmsBatch
+
+        old = CustomSmsBatch.objects.create(message_en="old", manual_user_ids=[1])
+        CustomSmsBatch.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(days=400)
+        )
+        fresh = CustomSmsBatch.objects.create(message_en="fresh")
+
+        out = StringIO()
+        call_command("gdpr_retention_cleanup", stdout=out)
+        self.assertIn("CustomSmsBatch older than 365d: 1 row(s)", out.getvalue())
+        self.assertTrue(CustomSmsBatch.objects.filter(pk=old.pk).exists())
+
+        call_command("gdpr_retention_cleanup", apply=True, stdout=StringIO())
+        self.assertFalse(CustomSmsBatch.objects.filter(pk=old.pk).exists())
+        self.assertTrue(CustomSmsBatch.objects.filter(pk=fresh.pk).exists())
+
     def test_negative_window_is_rejected(self):
         """A negative window makes a future cutoff that would delete every
         row in the category; the command must refuse, not purge (Codex P2)."""
