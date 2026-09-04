@@ -312,14 +312,19 @@ class CustomSmsAdminTests(TestCase):
         UserDataConsent.objects.filter(user=self.fr_user).update(crushlu_banned=True)
         self.de_user.is_active = False
         self.de_user.save(update_fields=["is_active"])
+        self.unverified_profile.is_active = False
+        self.unverified_profile.save(update_fields=["is_active"])
         self._post_compose(
-            registration_statuses=["confirmed", "waitlist"], message_fr=""
+            registration_statuses=["confirmed", "waitlist"],
+            message_fr="",
+            include_unverified_phones="on",
         )
         batch = CustomSmsBatch.objects.get()
         response = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
         content = response.content.decode()
         self.assertNotIn("+352691000001", content)  # banned Marie
-        self.assertNotIn("+352691000002", content)  # deactivated Hans
+        self.assertNotIn("+352691000002", content)  # deactivated account Hans
+        self.assertNotIn("+352691000003", content)  # deactivated profile Noa
         self.assertContains(response, 'data-total="0"')
         # The log endpoint refuses them too.
         response = self.client.post(
@@ -367,6 +372,27 @@ class CustomSmsAdminTests(TestCase):
         self.assertIn("+352691000001", content)  # Marie, F, verified phone
         self.assertNotIn("+352691000002", content)  # Hans, M
         self.assertNotIn("+352691000003", content)  # Noa, F but unverified phone
+
+    def test_segment_batch_does_not_count_every_segment(self):
+        """Resolving one segment must not pay the dashboard's 64 COUNT queries."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self._post_compose(
+            audience_type="segment",
+            event_id="",
+            segment_key="gender_female",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
+        batch = CustomSmsBatch.objects.get()
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
+        self.assertEqual(response.status_code, 200)
+        count_queries = [
+            q for q in ctx.captured_queries if "COUNT(" in q["sql"].upper()
+        ]
+        self.assertLess(len(count_queries), 10, len(count_queries))
 
     def test_segment_options_endpoint_lists_segments(self):
         response = self.client.get(f"{COMPOSE_URL}segments/?selected=gender_female")

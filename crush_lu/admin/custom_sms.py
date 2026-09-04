@@ -224,11 +224,15 @@ def _profiles_from_segment(segment_queryset):
     return CrushProfile.objects.none()
 
 
-def load_segment_definitions():
-    """The User Segments catalogue. Expensive (one COUNT per segment) — load once per request."""
+def load_segment_definitions(include_counts=False):
+    """The User Segments catalogue, loaded once per request.
+
+    Without counts this is just queryset construction (no database hits);
+      the 64 per-segment COUNTs are only paid by the dropdown that shows them.
+    """
     from crush_lu.admin.user_segments import get_segment_definitions
 
-    return get_segment_definitions()
+    return get_segment_definitions(include_counts=include_counts)
 
 
 def find_segment(segment_key, definitions=None):
@@ -302,9 +306,11 @@ def recipient_queryset(batch, definitions=None):
         qs.filter(phone_q)
         # Same exclusions as every other outreach channel (campaigns,
         # newsletters): members who deleted their profile or were banned
-        # (``UserDataConsent.crushlu_banned``) and deactivated accounts.
+        # (``UserDataConsent.crushlu_banned``), deactivated accounts, and
+        # deactivated profiles (``CrushProfile.is_active`` — the segments
+        # dashboard's own baseline).
         .exclude(user__data_consent__crushlu_banned=True)
-        .filter(user__is_active=True)
+        .filter(user__is_active=True, is_active=True)
         .select_related("user")
         .order_by("user__first_name", "user__last_name", "pk")
     )
@@ -609,7 +615,7 @@ def custom_sms_segment_options(request):
         return denied
     selected = request.GET.get("selected", "")
     groups = []
-    for category in load_segment_definitions().values():
+    for category in load_segment_definitions(include_counts=True).values():
         groups.append(
             {
                 "title": category["title"],
