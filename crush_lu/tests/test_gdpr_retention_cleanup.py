@@ -5,6 +5,7 @@ their retention window are deleted; newer rows survive).
 
 Run with: pytest crush_lu/tests/test_gdpr_retention_cleanup.py -v
 """
+
 from datetime import timedelta
 from io import StringIO
 
@@ -22,7 +23,10 @@ User = get_user_model()
 
 def make_user(email):
     user = User.objects.create_user(
-        username=email, email=email, password="x", first_name="Member",
+        username=email,
+        email=email,
+        password="x",
+        first_name="Member",
     )
     CrushProfile.objects.create(
         user=user,
@@ -59,22 +63,26 @@ class GdprRetentionCommandTests(TestCase):
 
         # CallAttempt: one old (400d), one fresh.
         self.old_call = CallAttempt.objects.create(
-            profile=self.profile, result="failed",
+            profile=self.profile,
+            result="failed",
         )
         CallAttempt.objects.filter(pk=self.old_call.pk).update(
             attempt_date=now - timedelta(days=400)
         )
         self.new_call = CallAttempt.objects.create(
-            profile=self.profile, result="success",
+            profile=self.profile,
+            result="success",
         )
 
         # DailyUserActivity: one old (120d), one fresh.
         today = timezone.localdate()
         self.old_activity = DailyUserActivity.objects.create(
-            user=self.user, activity_date=today - timedelta(days=120),
+            user=self.user,
+            activity_date=today - timedelta(days=120),
         )
         self.new_activity = DailyUserActivity.objects.create(
-            user=self.user, activity_date=today,
+            user=self.user,
+            activity_date=today,
         )
 
     def test_dry_run_deletes_nothing(self):
@@ -134,7 +142,8 @@ class GdprRetentionCommandTests(TestCase):
         """
         now = timezone.now()
         mid_call = CallAttempt.objects.create(
-            profile=self.profile, result="failed",
+            profile=self.profile,
+            result="failed",
         )
         CallAttempt.objects.filter(pk=mid_call.pk).update(
             attempt_date=now - timedelta(days=5)
@@ -152,19 +161,28 @@ class GdprRetentionCommandTests(TestCase):
     def test_custom_sms_batches_are_pruned_on_their_window(self):
         from crush_lu.models.custom_sms import CustomSmsBatch
 
+        now = timezone.now()
         old = CustomSmsBatch.objects.create(message_en="old", manual_user_ids=[1])
         CustomSmsBatch.objects.filter(pk=old.pk).update(
-            created_at=timezone.now() - timedelta(days=400)
+            created_at=now - timedelta(days=400),
+            last_activity_at=now - timedelta(days=400),
+        )
+        # Created long ago but worked on recently: expiry follows activity.
+        resumed = CustomSmsBatch.objects.create(message_en="resumed")
+        CustomSmsBatch.objects.filter(pk=resumed.pk).update(
+            created_at=now - timedelta(days=400),
+            last_activity_at=now - timedelta(days=10),
         )
         fresh = CustomSmsBatch.objects.create(message_en="fresh")
 
         out = StringIO()
         call_command("gdpr_retention_cleanup", stdout=out)
-        self.assertIn("CustomSmsBatch older than 365d: 1 row(s)", out.getvalue())
+        self.assertIn("CustomSmsBatch inactive for 365d: 1 row(s)", out.getvalue())
         self.assertTrue(CustomSmsBatch.objects.filter(pk=old.pk).exists())
 
         call_command("gdpr_retention_cleanup", apply=True, stdout=StringIO())
         self.assertFalse(CustomSmsBatch.objects.filter(pk=old.pk).exists())
+        self.assertTrue(CustomSmsBatch.objects.filter(pk=resumed.pk).exists())
         self.assertTrue(CustomSmsBatch.objects.filter(pk=fresh.pk).exists())
 
     def test_negative_window_is_rejected(self):
@@ -200,9 +218,7 @@ class GdprRetentionCommandTests(TestCase):
         from crush_lu.management.commands.gdpr_retention_cleanup import Command
 
         self._make_old_otps(5)  # + self.old_otp from setUp = 6 expired rows
-        qs = PhoneOTP.objects.filter(
-            created_at__lt=timezone.now() - timedelta(days=30)
-        )
+        qs = PhoneOTP.objects.filter(created_at__lt=timezone.now() - timedelta(days=30))
         expected = qs.count()
 
         deleted, budget_hit = Command()._delete_in_chunks(
@@ -222,9 +238,7 @@ class GdprRetentionCommandTests(TestCase):
         from crush_lu.management.commands.gdpr_retention_cleanup import Command
 
         self._make_old_otps(3)
-        qs = PhoneOTP.objects.filter(
-            created_at__lt=timezone.now() - timedelta(days=30)
-        )
+        qs = PhoneOTP.objects.filter(created_at__lt=timezone.now() - timedelta(days=30))
         remaining_before = qs.count()
 
         deleted, budget_hit = Command()._delete_in_chunks(
@@ -243,19 +257,21 @@ class GdprRetentionCommandTests(TestCase):
 
         now = timezone.now()
         older = PhoneOTP.objects.create(
-            user=self.user, phone_number="+352100000100",
-            code_hash="older", expires_at=now - timedelta(days=100),
+            user=self.user,
+            phone_number="+352100000100",
+            code_hash="older",
+            expires_at=now - timedelta(days=100),
         )
         PhoneOTP.objects.filter(pk=older.pk).update(
             created_at=now - timedelta(days=100)
         )
         newer = PhoneOTP.objects.create(
-            user=self.user, phone_number="+352100000200",
-            code_hash="newer", expires_at=now - timedelta(days=35),
+            user=self.user,
+            phone_number="+352100000200",
+            code_hash="newer",
+            expires_at=now - timedelta(days=35),
         )
-        PhoneOTP.objects.filter(pk=newer.pk).update(
-            created_at=now - timedelta(days=35)
-        )
+        PhoneOTP.objects.filter(pk=newer.pk).update(created_at=now - timedelta(days=35))
 
         qs = PhoneOTP.objects.filter(created_at__lt=now - timedelta(days=30))
         # Deadline already passed -> only the first (oldest) chunk of 1 deletes.

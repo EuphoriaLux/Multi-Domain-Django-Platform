@@ -69,11 +69,23 @@
     </div>
 
     {% if rows %}
-    <div class="csms-rows" id="csms-rows" data-next="{{ next_row_id }}">
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="csms-muted" style="margin-bottom:8px;">
+        {% blocktrans with start=page_obj.start_index end=page_obj.end_index count=total %}Recipients {{ start }}–{{ end }} of {{ count }}{% endblocktrans %}
+    </div>
+    {% endif %}
+    <div class="csms-rows" id="csms-rows" data-next="{{ next_row_id }}" hx-vals='{"page": "{{ page_obj.number }}"}'>
         {% for row in rows %}
             {% include "admin/crush_lu/partials/_custom_sms_row.html" %}
         {% endfor %}
     </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="csms-pager">
+        {% if page_obj.has_previous %}<a class="btn btn-secondary btn-sm" role="button" href="?page={{ page_obj.previous_page_number }}">&larr; {% trans "Previous" %}</a>{% endif %}
+        <span class="csms-muted">{% trans "Page" %} {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="btn btn-secondary btn-sm" role="button" href="?page={{ page_obj.next_page_number }}">{% trans "Next page" %} &rarr;</a>{% endif %}
+    </div>
+    {% endif %}
     {% else %}
     <div class="csms-card csms-empty">
         {% trans "No recipients match this audience (members need a phone number on their profile)." %}

@@ -662,6 +662,80 @@ class CustomSmsAdminTests(TestCase):
         response = self.client.get(f"{COMPOSE_URL}?from=abc")
         self.assertEqual(response.status_code, 200)
 
+    def test_log_and_undo_bump_last_activity(self):
+        self._post_compose(message_fr="")
+        batch = CustomSmsBatch.objects.get()
+        stale = timezone.now() - timedelta(days=400)
+        CustomSmsBatch.objects.filter(pk=batch.pk).update(last_activity_at=stale)
+        self.client.post(f"{COMPOSE_URL}{batch.pk}/log/{self.fr_profile.pk}/")
+        batch.refresh_from_db()
+        self.assertGreater(batch.last_activity_at, stale)
+        CustomSmsBatch.objects.filter(pk=batch.pk).update(last_activity_at=stale)
+        self.client.post(f"{COMPOSE_URL}{batch.pk}/unlog/{self.fr_profile.pk}/")
+        batch.refresh_from_db()
+        self.assertGreater(batch.last_activity_at, stale)
+
+    def test_duplicate_keeps_an_old_event_selectable(self):
+        self.event.date_time = timezone.now() - timedelta(days=200)
+        self.event.registration_deadline = timezone.now() - timedelta(days=201)
+        self.event.save(update_fields=["date_time", "registration_deadline"])
+        self._post_compose(message_fr="", message_en="Hi {first_name}")
+        batch = CustomSmsBatch.objects.get()
+        # Not in the 90-day window on a blank form…
+        self.assertNotContains(self.client.get(COMPOSE_URL), f'value="{self.event.id}"')
+        # …but offered and selected when duplicating a batch that used it.
+        page = self.client.get(f"{COMPOSE_URL}?from={batch.pk}")
+        self.assertContains(page, f'value="{self.event.id}" selected')
+
+    def test_send_list_is_paginated_with_whole_list_progress(self):
+        from unittest import mock
+
+        for i in range(3):
+            user = self._user(f"p{i}@test.com", f"P{i}")
+            self._profile(user, f"+35269100010{i}", "en", "F")
+            EventRegistration.objects.create(
+                event=self.event, user=user, status="confirmed"
+            )
+        self._post_compose(message_fr="", message_en="Hi {first_name}")
+        batch = CustomSmsBatch.objects.get()
+        with mock.patch("crush_lu.admin.custom_sms.PAGE_SIZE", 2):
+            page1 = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
+            self.assertEqual(page1.status_code, 200)
+            self.assertEqual(len(page1.context["rows"]), 2)
+            self.assertContains(page1, 'data-total="4" data-sent="0"')
+            self.assertContains(page1, "Page 1 / 2")
+            self.assertContains(page1, "js-jump-next")  # next unsent is on this page
+
+            page2 = self.client.get(f"{COMPOSE_URL}{batch.pk}/?page=2")
+            self.assertEqual(len(page2.context["rows"]), 2)
+            # Viewing page 2 while the first unsent row is on page 1 → link there.
+            self.assertContains(page2, 'href="?page=1"')
+            self.assertNotContains(page2, "js-jump-next")
+
+            # Log both rows of page 1: the OOB progress now points at page 2.
+            for row in page1.context["rows"]:
+                response = self.client.post(
+                    f"{COMPOSE_URL}{batch.pk}/log/{row['profile'].pk}/", {"page": "1"}
+                )
+                self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'data-total="4" data-sent="2"')
+            self.assertContains(response, 'href="?page=2"')
+            self.assertNotContains(response, "js-jump-next")
+
+            # An out-of-range page falls back to the last one; junk to page 1.
+            self.assertEqual(
+                self.client.get(f"{COMPOSE_URL}{batch.pk}/?page=99")
+                .context["page_obj"]
+                .number,
+                2,
+            )
+            self.assertEqual(
+                self.client.get(f"{COMPOSE_URL}{batch.pk}/?page=abc")
+                .context["page_obj"]
+                .number,
+                1,
+            )
+
     def test_recent_batches_show_progress_on_compose_page(self):
         self._post_compose(title="Progress check")
         batch = CustomSmsBatch.objects.get()

@@ -15,11 +15,12 @@ profile (see :func:`CustomSmsBatch.notes_prefix`).
 
 Batches are pruned by the GDPR retention sweep (``gdpr_retention_cleanup``,
 ``custom_sms_batch_days``) on the same window as the ``CallAttempt`` audit
-rows they belong to.
+rows they belong to, measured from ``last_activity_at``.
 """
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -56,6 +57,10 @@ class CustomSmsBatch(models.Model):
         related_name="custom_sms_batches",
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Bumped by every log / undo on the send list. The GDPR sweep expires a
+    # batch from this, not from created_at, so a list resumed a year later
+    # is not pulled from under its own fresh audit rows.
+    last_activity_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     audience_type = models.CharField(
         max_length=16, choices=Audience.choices, default=Audience.EVENT

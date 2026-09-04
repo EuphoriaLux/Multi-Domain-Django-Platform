@@ -165,22 +165,24 @@ class Command(BaseCommand):
 
         # 2b. CustomSmsBatch — the message and (for manual audiences) the
         # member ids behind a Custom SMS run; nothing to resume once its
-        # CallAttempt audit rows have aged out.
+        # CallAttempt audit rows have aged out. Measured from the batch's
+        # last log/undo (last_activity_at), not its creation, so a list
+        # resumed late is not deleted from under its own fresh audit rows.
         if not budget_hit:
             batch_qs = CustomSmsBatch.objects.filter(
-                created_at__lt=now - timedelta(days=batch_days)
+                last_activity_at__lt=now - timedelta(days=batch_days)
             )
             if apply_changes:
                 deleted, budget_hit = self._delete_in_chunks(
-                    batch_qs, deadline, order_by="created_at"
+                    batch_qs, deadline, order_by="last_activity_at"
                 )
                 total_deleted += deleted
                 self.stdout.write(
-                    f"  CustomSmsBatch older than {batch_days}d: deleted {deleted}"
+                    f"  CustomSmsBatch inactive for {batch_days}d: deleted {deleted}"
                 )
             else:
                 self.stdout.write(
-                    f"  CustomSmsBatch older than {batch_days}d: "
+                    f"  CustomSmsBatch inactive for {batch_days}d: "
                     f"{batch_qs.count()} row(s)"
                 )
 

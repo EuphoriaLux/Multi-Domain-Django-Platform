@@ -4,11 +4,15 @@
     <div class="progress-bar-container progress-bar-sm">
         <div class="progress-bar" style="width: {% if total %}{% widthratio sent_count total 100 %}{% else %}0{% endif %}%"></div>
     </div>
-    {% if remaining %}
+    {% if not remaining %}
+    <span class="badge badge-success">✓ {% trans "All done" %}</span>
+    {% elif next_on_page %}
     <button type="button" class="btn btn-primary btn-sm js-jump-next">
         {% trans "Next" %}: <span class="js-next-name"></span> &darr;
     </button>
-    {% else %}
-    <span class="badge badge-success">✓ {% trans "All done" %}</span>
+    {% elif next_unsent_page %}
+    <a class="btn btn-primary btn-sm" role="button" href="?page={{ next_unsent_page }}">
+        {% trans "Next unsent" %} &rarr; {% trans "page" %} {{ next_unsent_page }}
+    </a>
     {% endif %}
 </div>

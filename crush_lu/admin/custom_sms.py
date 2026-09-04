@@ -23,6 +23,7 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q, Value
 from django.db.models.functions import Replace
@@ -75,6 +76,10 @@ SITE_HEADER = "💕 Crush.lu Coach Panel"
 DEFAULT_COUNTRY_CALLING_CODE = "352"
 MESSAGE_MAX_LENGTH = 1000
 RECENT_BATCHES_LIMIT = 10
+# Send list rows per page. Every row carries the personalised body twice (the
+# percent-encoded sms: link and the preview), so a thousand-recipient audience
+# is rendered in windows; progress is always computed over the whole list.
+PAGE_SIZE = 50
 SUPPORTED_LANGUAGES = ("en", "de", "fr")
 
 
@@ -408,12 +413,42 @@ def _build_row(request, batch, profile, coach_name, sent_at):
     }
 
 
-def _progress(batch, definitions=None):
-    qs, _warnings = recipient_queryset(batch, definitions)
-    ids = list(qs.values_list("pk", flat=True))
+def _progress(batch, definitions=None, ids=None, sent=None, current_page=None):
+    """Whole-list progress plus where the next unsent recipient lives.
+
+    ``ids`` (ordered recipient pks) and ``sent`` (pk → attempt_date) can be
+    passed by a caller that already has them; ``current_page`` lets the
+    progress header say whether the next unsent row is on the page being
+    viewed or on another one.
+    """
+    if ids is None:
+        qs, _warnings = recipient_queryset(batch, definitions)
+        ids = list(qs.values_list("pk", flat=True))
+    if sent is None:
+        sent = _sent_map(batch, ids) if ids else {}
     total = len(ids)
-    sent = len(_sent_map(batch, ids)) if ids else 0
-    return {"total": total, "sent": sent, "remaining": total - sent}
+    sent_count = len(sent)
+    next_index = next((i for i, pk in enumerate(ids) if pk not in sent), None)
+    next_unsent_page = (next_index // PAGE_SIZE + 1) if next_index is not None else None
+    return {
+        "total": total,
+        "sent": sent_count,
+        "remaining": total - sent_count,
+        "next_unsent_pk": ids[next_index] if next_index is not None else None,
+        "next_unsent_page": next_unsent_page,
+        "next_on_page": (
+            next_unsent_page is not None
+            and current_page is not None
+            and next_unsent_page == current_page
+        ),
+    }
+
+
+def _page_number(raw):
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
 
 
 def _qr_data_uri(url):
@@ -437,17 +472,21 @@ def _qr_data_uri(url):
 # ---------------------------------------------------------------------------
 
 
-def _event_choices():
-    """Published events from the last 90 days onwards.
+def _event_choices(selected_id=""):
+    """Published events from the last 90 days onwards, plus ``selected_id``.
 
     Recent past events are included so post-event follow-ups work. Drafts
     are excluded: ``event_detail`` 404s on ``is_published=False``, so an
     ``{event_url}`` pointing at one would be a dead link in every SMS.
+    ``selected_id`` (the event of a batch being duplicated, or a failed
+    submission's choice) is always offered, however old — batches are kept
+    for a year, the dropdown window is 90 days.
     """
     cutoff = timezone.now() - timedelta(days=90)
-    return MeetupEvent.objects.filter(
-        date_time__gte=cutoff, is_published=True
-    ).order_by("-date_time")
+    window_q = Q(date_time__gte=cutoff, is_published=True)
+    if str(selected_id).isdigit():
+        window_q |= Q(pk=int(selected_id))
+    return MeetupEvent.objects.filter(window_q).order_by("-date_time")
 
 
 def _blank_form():
@@ -702,7 +741,7 @@ def custom_sms_compose(request):
         "site_title": SITE_HEADER,
         "form": form,
         "errors": errors,
-        "events": _event_choices(),
+        "events": _event_choices(form["event_id"]),
         "registration_status_options": CustomSmsBatch.REGISTRATION_STATUS_OPTIONS,
         "audience_choices": CustomSmsBatch.Audience.choices,
         "base_placeholders": BASE_PLACEHOLDERS,
@@ -761,15 +800,30 @@ def custom_sms_send(request, batch_id):
         else None
     )
     qs, warnings = recipient_queryset(batch, definitions)
-    profiles = list(qs)
-    sent = _sent_map(batch, [p.pk for p in profiles])
+    # Only pks for the whole audience — progress needs all of them, the
+    # rendered rows are one page.
+    ids = list(qs.values_list("pk", flat=True))
+    sent = _sent_map(batch, ids) if ids else {}
+    page_obj = Paginator(ids, PAGE_SIZE).get_page(_page_number(request.GET.get("page")))
+    page_ids = list(page_obj.object_list)
+    order = {pk: i for i, pk in enumerate(page_ids)}
+    profiles = sorted(qs.filter(pk__in=page_ids), key=lambda p: order[p.pk])
+    progress = _progress(
+        batch, definitions, ids=ids, sent=sent, current_page=page_obj.number
+    )
 
     rows = [
         _build_row(request, batch, profile, coach_name, sent.get(profile.pk))
         for profile in profiles
     ]
-    next_row = next((r for r in rows if not r["sent_at"]), None)
-    unverified_count = sum(1 for r in rows if not r["phone_verified"])
+    next_row = next(
+        (r for r in rows if r["profile"].pk == progress["next_unsent_pk"]), None
+    )
+    unverified_count = (
+        qs.filter(phone_verified=False).count()
+        if batch.include_unverified_phones and ids
+        else 0
+    )
 
     segment_name = ""
     if definitions is not None:
@@ -783,9 +837,12 @@ def custom_sms_send(request, batch_id):
         "site_title": SITE_HEADER,
         "batch": batch,
         "rows": rows,
-        "total": len(rows),
-        "sent_count": len(sent),
-        "remaining": len(rows) - len(sent),
+        "page_obj": page_obj,
+        "total": progress["total"],
+        "sent_count": progress["sent"],
+        "remaining": progress["remaining"],
+        "next_on_page": progress["next_on_page"],
+        "next_unsent_page": progress["next_unsent_page"],
         "next_row_id": next_row["row_id"] if next_row else "",
         "warnings": warnings,
         "unverified_count": unverified_count,
@@ -806,10 +863,13 @@ def _row_response(request, batch, profile, definitions):
     coach_name = _sender_first_name(request.user)
     sent = _sent_map(batch, [profile.pk])
     row = _build_row(request, batch, profile, coach_name, sent.get(profile.pk))
+    progress = _progress(
+        batch, definitions, current_page=_page_number(request.POST.get("page"))
+    )
     return render(
         request,
         "admin/crush_lu/partials/_custom_sms_row.html",
-        {"batch": batch, "row": row, "oob_progress": _progress(batch, definitions)},
+        {"batch": batch, "row": row, "oob_progress": progress},
     )
 
 
@@ -862,7 +922,13 @@ def custom_sms_log(request, batch_id, profile_id):
                 event=batch.event,
                 notes=f"{batch.notes_prefix} {body}",
             )
+            _touch(batch)
     return _row_response(request, batch, profile, definitions)
+
+
+def _touch(batch):
+    """Record activity on the batch — the GDPR sweep expires from this stamp."""
+    CustomSmsBatch.objects.filter(pk=batch.pk).update(last_activity_at=timezone.now())
 
 
 @login_required
@@ -873,7 +939,15 @@ def custom_sms_unlog(request, batch_id, profile_id):
     if denied:
         return denied
     batch, profile, definitions = _batch_and_recipient(batch_id, profile_id)
-    CallAttempt.objects.filter(
-        profile=profile, result=RESULT_CUSTOM_SMS, notes__startswith=batch.notes_prefix
-    ).delete()
+    with transaction.atomic():
+        # Same batch-row lock as custom_sms_log, so an undo racing a log from
+        # another device is ordered after it (and removes the row) rather
+        # than slipping between its existence check and its insert.
+        CustomSmsBatch.objects.select_for_update().get(pk=batch.pk)
+        CallAttempt.objects.filter(
+            profile=profile,
+            result=RESULT_CUSTOM_SMS,
+            notes__startswith=batch.notes_prefix,
+        ).delete()
+        _touch(batch)
     return _row_response(request, batch, profile, definitions)
