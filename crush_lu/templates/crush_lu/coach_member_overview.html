@@ -566,6 +566,8 @@
                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">{% trans "WhatsApp Sent" %}</span>
                             {% elif attempt.result == 'event_invite_sms' %}
                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{% trans "Event Invite SMS" %}</span>
+                            {% elif attempt.result == 'custom_sms' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">{% trans "Custom SMS" %}</span>
                             {% endif %}
                             {% if attempt.failure_reason %}
                                 <span class="text-xs text-red-500 dark:text-red-400">({{ attempt.get_failure_reason_display }})</span>

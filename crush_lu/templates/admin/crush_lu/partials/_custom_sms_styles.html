@@ -1,0 +1,72 @@
+<style>
+    .csms-container { padding: 20px; max-width: 1100px; margin: 0 auto; }
+    .csms-back { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); text-decoration: none; font-size: 14px; margin-bottom: 16px; }
+    .csms-back:hover { color: var(--text-primary); }
+    .csms-header { margin-bottom: 20px; }
+    .csms-header h1 { margin: 0 0 6px 0; color: var(--text-primary); }
+    .csms-header p { margin: 0; color: var(--text-muted); }
+    .csms-card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px var(--card-shadow); }
+    .csms-card h2 { margin: 0 0 12px 0; font-size: 16px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .csms-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 960px) { .csms-grid { grid-template-columns: 3fr 2fr; align-items: start; } }
+    .csms-field { margin-bottom: 14px; }
+    .csms-field label { display: block; font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
+    .csms-field .hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .csms-field input[type="text"], .csms-field select, .csms-field textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--card-border); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-primary); font-size: 14px; }
+    /* Django admin pins select/input height to 30px; that clips our padding. */
+    .csms-field select, .csms-field input[type="text"] { height: 38px; }
+    .csms-field textarea { min-height: 110px; resize: vertical; font-family: inherit; }
+    .csms-radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .csms-radio { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius-md); cursor: pointer; font-size: 13px; color: var(--text-primary); background: var(--card-bg); }
+    .csms-radio:has(input:checked) { border-color: var(--crush-purple); background: rgba(155, 89, 182, 0.12); }
+    .csms-check-list { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .csms-check-list label { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; font-size: 13px; }
+    .csms-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0 0; }
+    .csms-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 3px 8px; border-radius: var(--radius-pill); background: rgba(155, 89, 182, 0.12); color: var(--crush-purple); border: 1px dashed rgba(155, 89, 182, 0.5); cursor: pointer; }
+    .csms-chip[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .csms-counter { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 4px; }
+    .csms-counter strong { color: var(--text-secondary); }
+    .csms-preview { white-space: pre-wrap; font-size: 14px; line-height: 1.45; padding: 12px 14px; border-radius: 18px 18px 18px 4px; background: rgba(155, 89, 182, 0.12); color: var(--text-primary); max-width: 420px; }
+    .csms-errors { background: rgba(220, 53, 69, 0.1); border: 1px solid rgba(220, 53, 69, 0.4); color: var(--status-danger); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px; }
+    .csms-errors ul { margin: 0; padding-left: 18px; }
+    .csms-warning { background: rgba(255, 193, 7, 0.12); border: 1px solid rgba(255, 193, 7, 0.5); color: #8a6d00; border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px; font-size: 13px; }
+    .csms-muted { color: var(--text-muted); font-size: 12px; }
+    .csms-batches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .csms-batches li.csms-batch { list-style: none; border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 10px 12px; }
+    /* Django admin underlines every content link except a[role="button"] — the
+       button-styled anchors carry role="button" for that reason. */
+    .csms-container a.btn, .csms-container a.btn:link, .csms-container a.btn:visited { text-decoration: none; }
+    .csms-container .csms-batch-top a { text-decoration: none; }
+    .csms-batch-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .csms-batch-top a { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+    .csms-batch-top a:hover { color: var(--crush-purple); }
+    .csms-batch-count { white-space: nowrap; font-size: 13px; color: var(--text-secondary); }
+    .csms-batch-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .csms-hidden { display: none !important; }
+
+    /* Send page */
+    .csms-sticky { position: sticky; top: 0; z-index: 5; background: var(--card-bg); border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 2px 8px var(--card-shadow); display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+    .csms-sticky .csms-progress-text { font-weight: 600; color: var(--text-primary); }
+    .csms-sticky .progress-bar-container { flex: 1 1 160px; min-width: 120px; }
+    .csms-rows { display: flex; flex-direction: column; gap: 10px; }
+    .sms-row { background: var(--card-bg); border-radius: var(--radius-lg); padding: 12px 14px; box-shadow: 0 1px 3px var(--card-shadow); border: 2px solid transparent; display: flex; flex-direction: column; gap: 8px; }
+    .sms-row.is-next { border-color: var(--crush-purple); box-shadow: 0 0 0 4px rgba(155, 89, 182, 0.15); }
+    .sms-row.is-sent { opacity: 0.75; }
+    .sms-row-main { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    .sms-row-who { min-width: 0; flex: 1 1 200px; }
+    .sms-row-name { font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .sms-row-meta { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
+    .sms-row-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sms-row details { font-size: 13px; }
+    .sms-row summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+    .sms-row .csms-preview { margin-top: 6px; }
+    .badge-lang { background: rgba(23, 162, 184, 0.15); color: var(--status-info); text-transform: uppercase; }
+    .badge-next { background: var(--crush-gradient); color: #fff; }
+    .btn-sms { background: #2563eb; color: #fff; }
+    .btn-sms:hover { background: #1d4ed8; color: #fff; }
+    .btn-link { background: transparent; border: none; color: var(--text-secondary); text-decoration: underline; cursor: pointer; font-size: 12px; padding: 4px 6px; }
+    .btn-link:hover { color: var(--text-primary); }
+    .csms-qr img { width: 160px; height: 160px; image-rendering: pixelated; border-radius: var(--radius-md); background: #fff; padding: 6px; }
+    .csms-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; color: var(--text-secondary); }
+    .csms-empty { text-align: center; padding: 32px; color: var(--text-muted); }
+</style>

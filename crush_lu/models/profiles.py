@@ -1776,6 +1776,7 @@ class CallAttempt(models.Model):
         ("sms_sent", _("SMS Sent")),
         ("whatsapp_sent", _("WhatsApp Sent")),
         ("event_invite_sms", _("Event Invite SMS")),
+        ("custom_sms", _("Custom SMS")),
     ]
 
     FAILURE_REASON_CHOICES = [

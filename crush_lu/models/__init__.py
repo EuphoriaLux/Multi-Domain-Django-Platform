@@ -29,4 +29,4 @@ from .payments import *
 from .credits import *
 from .echo_lu import *
 from .crush_connect_cycle import *
-
+from .custom_sms import *

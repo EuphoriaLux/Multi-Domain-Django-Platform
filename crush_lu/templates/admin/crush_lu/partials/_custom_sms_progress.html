@@ -1,0 +1,14 @@
+{% load i18n %}
+<div id="csms-progress" class="csms-sticky" {% if oob %}hx-swap-oob="true"{% endif %} data-total="{{ total }}" data-sent="{{ sent_count }}">
+    <span class="csms-progress-text">{{ sent_count }} / {{ total }} {% trans "sent" %}</span>
+    <div class="progress-bar-container progress-bar-sm">
+        <div class="progress-bar" style="width: {% if total %}{% widthratio sent_count total 100 %}{% else %}0{% endif %}%"></div>
+    </div>
+    {% if remaining %}
+    <button type="button" class="btn btn-primary btn-sm js-jump-next">
+        {% trans "Next" %}: <span class="js-next-name"></span> &darr;
+    </button>
+    {% else %}
+    <span class="badge badge-success">✓ {% trans "All done" %}</span>
+    {% endif %}
+</div>
