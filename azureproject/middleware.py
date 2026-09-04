@@ -13,7 +13,7 @@ import logging
 import threading
 
 from django.core.cache import cache
-from django.db import IntegrityError
+from django.db import IntegrityError, router
 from django.utils import translation
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.contrib.sites.models import Site
@@ -65,6 +65,50 @@ def _safe_cache_set(key, value, timeout=300):
         else:
             # Re-raise unexpected exceptions
             raise
+
+
+# Site lookups are cached as a dict of scalars, never as the model instance.
+# A pickled model instance records the Django version that wrote it, and
+# reading it back under any other version emits
+# "RuntimeWarning: Pickled model instance's Django version X does not match
+# the current version Y" on every request until the key expires — seen on the
+# staging slot right after the 6.0.8 -> 6.1 deploy, and due again on prod at
+# every future swap that carries a Django bump. Primitives are version-neutral.
+#
+# The key carries a format version so that the code which cached whole
+# instances under the un-suffixed keys never reads this shape, and this code
+# never reads its pickles — both directions matter, because a deploy or a slot
+# reswap briefly runs old and new code against the same Redis DB.
+SITE_CACHE_FORMAT = 2
+SITE_CACHE_TIMEOUT = 300  # 5 minutes, so Site edits are picked up
+
+
+def _site_cache_key(name):
+    return f"{name}:v{SITE_CACHE_FORMAT}"
+
+
+def _cache_site(cache_key, site):
+    _safe_cache_set(
+        cache_key,
+        {"id": site.pk, "domain": site.domain, "name": site.name},
+        SITE_CACHE_TIMEOUT,
+    )
+
+
+def _site_from_cache(cache_key):
+    """Rebuild a Site from its cached scalars; anything else is a miss."""
+    cached = cache.get(cache_key)
+    if not isinstance(cached, dict):
+        return None
+    try:
+        site = Site(id=cached["id"], domain=cached["domain"], name=cached["name"])
+    except KeyError:
+        return None
+    # Mirror Model.from_db() so the instance behaves like a fetched row
+    # (no INSERT on save, refresh_from_db knows its alias).
+    site._state.adding = False
+    site._state.db = router.db_for_read(Site)
+    return site
 
 
 class LoginPostDebugMiddleware:
@@ -363,8 +407,8 @@ class SafeCurrentSiteMiddleware:
         canonical_host = host[4:] if host.startswith('www.') else host
 
         # Check cache first (using canonical host)
-        cache_key = f'site_by_domain:{canonical_host}'
-        site = cache.get(cache_key)
+        cache_key = _site_cache_key(f'site_by_domain:{canonical_host}')
+        site = _site_from_cache(cache_key)
         if site is not None:
             return site
 
@@ -386,7 +430,7 @@ class SafeCurrentSiteMiddleware:
                     f"SafeCurrentSiteMiddleware: Repaired empty Site.name "
                     f"for {canonical_host} -> {expected_name!r}"
                 )
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            _cache_site(cache_key, site)
             return site
         except Site.DoesNotExist:
             pass
@@ -400,7 +444,7 @@ class SafeCurrentSiteMiddleware:
             )
             if created:
                 logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}")
-            _safe_cache_set(cache_key, site, 300)  # Cache for 5 minutes
+            _cache_site(cache_key, site)
             return site
 
         # For Azure hostnames, dev hosts, and unknown hosts - use default
@@ -417,15 +461,15 @@ class SafeCurrentSiteMiddleware:
         2. Try any existing Site (first by pk)
         3. Create a new Site with a unique domain as last resort
         """
-        cache_key = 'site_default'
-        site = cache.get(cache_key)
+        cache_key = _site_cache_key('site_default')
+        site = _site_from_cache(cache_key)
         if site is not None:
             return site
 
         # Try pk=1 first (Django's default SITE_ID)
         try:
             site = Site.objects.get(pk=1)
-            _safe_cache_set(cache_key, site, 300)
+            _cache_site(cache_key, site)
             return site
         except Site.DoesNotExist:
             pass
@@ -434,7 +478,7 @@ class SafeCurrentSiteMiddleware:
         site = Site.objects.order_by('pk').first()
         if site:
             logger.info(f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default")
-            _safe_cache_set(cache_key, site, 300)
+            _cache_site(cache_key, site)
             return site
 
         # Last resort: create a site with a guaranteed-unique domain
@@ -444,13 +488,13 @@ class SafeCurrentSiteMiddleware:
         try:
             site = Site.objects.create(domain=fallback_domain, name='Default Site')
             logger.warning(f"SafeCurrentSiteMiddleware: Created fallback Site with domain {fallback_domain}")
-            _safe_cache_set(cache_key, site, 300)
+            _cache_site(cache_key, site)
             return site
         except IntegrityError:
             # Even this failed - return whatever exists
             site = Site.objects.first()
             if site:
-                _safe_cache_set(cache_key, site, 300)
+                _cache_site(cache_key, site)
                 return site
             raise RuntimeError("Cannot create or find any Site object")
 
