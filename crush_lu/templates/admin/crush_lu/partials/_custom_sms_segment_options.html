@@ -1,0 +1,11 @@
+{% load i18n %}
+<select name="segment_key" id="id_segment">
+    <option value="">{% trans "— pick a segment —" %}</option>
+    {% for group in groups %}
+    <optgroup label="{{ group.icon }} {{ group.title }}">
+        {% for segment in group.segments %}
+        <option value="{{ segment.key }}" {% if segment.key == selected %}selected{% endif %}>{{ segment.name }} ({{ segment.count }})</option>
+        {% endfor %}
+    </optgroup>
+    {% endfor %}
+</select>

@@ -12,6 +12,7 @@ Categories and default windows (override via ``settings.GDPR_RETENTION``)::
         "phone_otp_days": 30,        # PhoneOTP: phone number + code hash
         "daily_activity_days": 90,   # DailyUserActivity WAU rows
         "call_attempt_days": 365,    # CallAttempt screening-call audit trail
+        "custom_sms_batch_days": 365, # Custom SMS batches (message + member ids)
         "event_preference_days": 30, # preferences + named group schedule
     }
 
@@ -37,6 +38,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
+from crush_lu.models.custom_sms import CustomSmsBatch
 from crush_lu.models.events import CuratedEventGroup, EventRegistrationPreference
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt, DailyUserActivity
@@ -53,6 +55,9 @@ DEFAULT_RETENTION = {
     "phone_otp_days": 30,
     "daily_activity_days": 90,
     "call_attempt_days": 365,
+    # Custom SMS batches: the composed message plus the member ids of a
+    # manual audience. Same window as the CallAttempt rows they explain.
+    "custom_sms_batch_days": 365,
     # Speed-dating preference rows (gender preference is Art. 9-adjacent):
     # organiser-only input for composing the group, worthless once the event
     # is a month behind us. Window measured from the event's start time.
@@ -75,6 +80,7 @@ class Command(BaseCommand):
         parser.add_argument("--phone-otp-days", type=int, default=None)
         parser.add_argument("--daily-activity-days", type=int, default=None)
         parser.add_argument("--call-attempt-days", type=int, default=None)
+        parser.add_argument("--custom-sms-batch-days", type=int, default=None)
         parser.add_argument("--event-preference-days", type=int, default=None)
 
     def handle(self, *args, **options):
@@ -92,6 +98,7 @@ class Command(BaseCommand):
         phone_days = _window(options["phone_otp_days"], "phone_otp_days")
         activity_days = _window(options["daily_activity_days"], "daily_activity_days")
         call_days = _window(options["call_attempt_days"], "call_attempt_days")
+        batch_days = _window(options["custom_sms_batch_days"], "custom_sms_batch_days")
         pref_days = _window(options["event_preference_days"], "event_preference_days")
 
         # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
@@ -104,6 +111,7 @@ class Command(BaseCommand):
             ("phone_otp_days", phone_days),
             ("daily_activity_days", activity_days),
             ("call_attempt_days", call_days),
+            ("custom_sms_batch_days", batch_days),
             ("event_preference_days", pref_days),
         ):
             if value < 0:
@@ -153,6 +161,29 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"  CallAttempt older than {call_days}d: "
                     f"{call_qs.count()} row(s)"
+                )
+
+        # 2b. CustomSmsBatch — the message and (for manual audiences) the
+        # member ids behind a Custom SMS run; nothing to resume once its
+        # CallAttempt audit rows have aged out. Measured from the batch's
+        # last log/undo (last_activity_at), not its creation, so a list
+        # resumed late is not deleted from under its own fresh audit rows.
+        if not budget_hit:
+            batch_qs = CustomSmsBatch.objects.filter(
+                last_activity_at__lt=now - timedelta(days=batch_days)
+            )
+            if apply_changes:
+                deleted, budget_hit = self._delete_in_chunks(
+                    batch_qs, deadline, order_by="last_activity_at"
+                )
+                total_deleted += deleted
+                self.stdout.write(
+                    f"  CustomSmsBatch inactive for {batch_days}d: deleted {deleted}"
+                )
+            else:
+                self.stdout.write(
+                    f"  CustomSmsBatch inactive for {batch_days}d: "
+                    f"{batch_qs.count()} row(s)"
                 )
 
         # 3. DailyUserActivity — WAU snapshot rows. Prune through the same

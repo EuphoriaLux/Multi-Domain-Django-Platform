@@ -395,7 +395,15 @@ def crush_admin_dashboard(request):
                 filter=Q(profilesubmission__status="pending"),
                 distinct=True,
             ),
-            wl_calls=Count("callattempt", distinct=True),
+            # Custom SMS batches (Crush-Admin "Custom SMS" page) log a
+            # CallAttempt per recipient against the sending coach; they are
+            # outreach, not screening calls, so keep them out of the Calls
+            # figure and the Call % denominator.
+            wl_calls=Count(
+                "callattempt",
+                filter=~Q(callattempt__result="custom_sms"),
+                distinct=True,
+            ),
             wl_calls_success=Count(
                 "callattempt", filter=Q(callattempt__result="success"), distinct=True
             ),
@@ -419,8 +427,8 @@ def crush_admin_dashboard(request):
             }
         )
 
-    # Platform-wide call summary
-    call_summary = CallAttempt.objects.aggregate(
+    # Platform-wide call summary (custom SMS outreach rows excluded — see above)
+    call_summary = CallAttempt.objects.exclude(result="custom_sms").aggregate(
         total=Count("id"),
         successful=Count("id", filter=Q(result="success")),
         failed=Count("id", filter=Q(result="failed")),
