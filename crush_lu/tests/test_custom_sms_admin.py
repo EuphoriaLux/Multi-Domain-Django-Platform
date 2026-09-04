@@ -224,6 +224,25 @@ class CustomSmsAdminTests(TestCase):
         self.assertContains(response, "{frist_name}")
         self.assertFalse(CustomSmsBatch.objects.exists())
 
+    def test_compose_rejects_malformed_placeholders(self):
+        for bad in ("{first-name}", "{first_name.foo}", "{ first_name }", "{}"):
+            with self.subTest(bad=bad):
+                response = self._post_compose(message_en=f"Hi {bad}", message_fr="")
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Unknown placeholder")
+        self.assertFalse(CustomSmsBatch.objects.exists())
+
+    def test_compose_rejects_event_url_for_unpublished_event(self):
+        self.event.is_published = False
+        self.event.save(update_fields=["is_published"])
+        response = self._post_compose(message_fr="")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "not published yet")
+        self.assertFalse(CustomSmsBatch.objects.exists())
+        # The dropdown no longer offers the draft either.
+        page = self.client.get(COMPOSE_URL)
+        self.assertNotContains(page, f'value="{self.event.id}"')
+
     def test_compose_rejects_event_placeholders_without_event(self):
         response = self._post_compose(
             audience_type="manual",
@@ -286,6 +305,27 @@ class CustomSmsAdminTests(TestCase):
         de_uri = self._sms_uri_for(content, "+352691000002")
         self.assertIn("Hi Hans, Sophie here: Test Speed Dating DE", de_uri)
         self.assertIn("/de/", de_uri)
+
+    def test_banned_and_deactivated_members_are_excluded(self):
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.filter(user=self.fr_user).update(crushlu_banned=True)
+        self.de_user.is_active = False
+        self.de_user.save(update_fields=["is_active"])
+        self._post_compose(
+            registration_statuses=["confirmed", "waitlist"], message_fr=""
+        )
+        batch = CustomSmsBatch.objects.get()
+        response = self.client.get(f"{COMPOSE_URL}{batch.pk}/")
+        content = response.content.decode()
+        self.assertNotIn("+352691000001", content)  # banned Marie
+        self.assertNotIn("+352691000002", content)  # deactivated Hans
+        self.assertContains(response, 'data-total="0"')
+        # The log endpoint refuses them too.
+        response = self.client.post(
+            f"{COMPOSE_URL}{batch.pk}/log/{self.fr_profile.pk}/"
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_include_unverified_phones_opt_in(self):
         self._post_compose(include_unverified_phones="on")

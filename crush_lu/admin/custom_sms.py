@@ -23,6 +23,7 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -60,6 +61,10 @@ EVENT_PLACEHOLDERS = (
     ("event_url", _l("Link to the event page, in the recipient's language")),
 )
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
+# Validation scans every brace-delimited candidate, so typos such as
+# ``{first-name}`` or ``{first_name.foo}`` are rejected at compose time instead
+# of being delivered literally.
+_BRACE_RE = re.compile(r"\{([^{}]*)\}")
 
 SITE_HEADER = "💕 Crush.lu Coach Panel"
 MESSAGE_MAX_LENGTH = 1000
@@ -295,6 +300,11 @@ def recipient_queryset(batch, definitions=None):
 
     qs = (
         qs.filter(phone_q)
+        # Same exclusions as every other outreach channel (campaigns,
+        # newsletters): members who deleted their profile or were banned
+        # (``UserDataConsent.crushlu_banned``) and deactivated accounts.
+        .exclude(user__data_consent__crushlu_banned=True)
+        .filter(user__is_active=True)
         .select_related("user")
         .order_by("user__first_name", "user__last_name", "pk")
     )
@@ -351,7 +361,9 @@ def _qr_data_uri(url):
     try:
         from crush_lu.qr_utils import generate_qr_code_image
 
-        png = generate_qr_code_image(url, box_size=6, border=2)
+        # Keep the helper's default 4-module quiet zone — a thinner border
+        # can fail to scan when page content sits next to the code.
+        png = generate_qr_code_image(url, box_size=6)
     except Exception:  # qrcode missing or payload too large — the link is still shown
         logger.debug("Custom SMS: QR generation skipped", exc_info=True)
         return ""
@@ -366,9 +378,16 @@ def _qr_data_uri(url):
 
 
 def _event_choices():
-    """Events from the last 90 days onwards — recent past included so post-event follow-ups work."""
+    """Published events from the last 90 days onwards.
+
+    Recent past events are included so post-event follow-ups work. Drafts
+    are excluded: ``event_detail`` 404s on ``is_published=False``, so an
+    ``{event_url}`` pointing at one would be a dead link in every SMS.
+    """
     cutoff = timezone.now() - timedelta(days=90)
-    return MeetupEvent.objects.filter(date_time__gte=cutoff).order_by("-date_time")
+    return MeetupEvent.objects.filter(
+        date_time__gte=cutoff, is_published=True
+    ).order_by("-date_time")
 
 
 def _blank_form():
@@ -466,11 +485,10 @@ def _validate(form):
     allowed = {key for key, _d in BASE_PLACEHOLDERS}
     if event is not None:
         allowed |= {key for key, _d in EVENT_PLACEHOLDERS}
-    unknown = set()
+    used = set()
     for field in ("message_en", "message_de", "message_fr"):
-        unknown |= {
-            key for key in _PLACEHOLDER_RE.findall(form[field]) if key not in allowed
-        }
+        used |= set(_BRACE_RE.findall(form[field]))
+    unknown = {key for key in used if key not in allowed}
     if unknown:
         if event is None and unknown & {key for key, _d in EVENT_PLACEHOLDERS}:
             errors.append(
@@ -482,6 +500,14 @@ def _validate(form):
                 _("Unknown placeholder(s): %(names)s. They would be sent literally.")
                 % {"names": ", ".join("{%s}" % k for k in sorted(unknown))}
             )
+    if event is not None and not event.is_published and "event_url" in used:
+        errors.append(
+            _(
+                "%(event)s is not published yet, so {event_url} would be a dead "
+                "link. Publish the event or drop the placeholder."
+            )
+            % {"event": event.title}
+        )
     return errors, event
 
 
@@ -697,20 +723,29 @@ def custom_sms_log(request, batch_id, profile_id):
     if denied:
         return denied
     batch, profile, definitions = _batch_and_recipient(batch_id, profile_id)
-    already = CallAttempt.objects.filter(
-        profile=profile, result=RESULT_CUSTOM_SMS, notes__startswith=batch.notes_prefix
-    ).exists()
-    if not already:
-        _lang, body = render_body_for(
-            request, batch, profile, _sender_first_name(request.user)
-        )
-        CallAttempt.objects.create(
+    with transaction.atomic():
+        # Serialise check-and-create per batch: a double tap, or two devices
+        # working the same list, must not produce two audit rows. Locking the
+        # batch row is the simplest fence — CallAttempt has no batch column
+        # to put a unique constraint on. (SQLite ignores the lock; Postgres,
+        # where prod runs, honours it.)
+        CustomSmsBatch.objects.select_for_update().get(pk=batch.pk)
+        already = CallAttempt.objects.filter(
             profile=profile,
             result=RESULT_CUSTOM_SMS,
-            coach=_coach_for(request.user),
-            event=batch.event,
-            notes=f"{batch.notes_prefix} {body}",
-        )
+            notes__startswith=batch.notes_prefix,
+        ).exists()
+        if not already:
+            _lang, body = render_body_for(
+                request, batch, profile, _sender_first_name(request.user)
+            )
+            CallAttempt.objects.create(
+                profile=profile,
+                result=RESULT_CUSTOM_SMS,
+                coach=_coach_for(request.user),
+                event=batch.event,
+                notes=f"{batch.notes_prefix} {body}",
+            )
     return _row_response(request, batch, profile, definitions)
 
 
