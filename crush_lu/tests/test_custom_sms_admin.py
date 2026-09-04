@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from crush_lu.admin.custom_sms import (
     build_sms_uri,
+    canonical_phone,
     parse_manual_recipients,
     render_message,
 )
@@ -58,6 +59,12 @@ class RenderMessageTests(TestCase):
         self.assertTrue(uri.startswith("sms:+352691000001?body="))
         self.assertEqual(unquote(uri.split("body=", 1)[1]), "Hé & bonjour")
         self.assertNotIn("&", uri.split("body=", 1)[1])
+
+    def test_sms_uri_uses_canonical_number(self):
+        self.assertEqual(canonical_phone("+352 691-000.001"), "+352691000001")
+        self.assertTrue(
+            build_sms_uri("+352 691 000 001", "x").startswith("sms:+352691000001?")
+        )
 
 
 class ParseManualRecipientsTests(TestCase):
@@ -357,6 +364,54 @@ class CustomSmsAdminTests(TestCase):
         self.assertIn("+352691000002", content)
         self.assertContains(response, "Ignored 1 line")
         self.assertContains(response, "0 / 2 sent")
+
+    def test_manual_audience_matches_formatted_stored_numbers(self):
+        """A stored '+352 691 000 005' must match both the pasted E.164 and national forms."""
+        lea = self._user("lea@test.com", "Léa")
+        self._profile(lea, "+352 691 000 005", "fr", "F")
+        self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="+352 691 000 005",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
+        batch = CustomSmsBatch.objects.get()
+        content = self.client.get(f"{COMPOSE_URL}{batch.pk}/").content.decode()
+        self.assertIn("lea@test.com", content)
+        self.assertIn('href="sms:+352691000005?', content)
+
+        self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="691000005",
+            message_en="Hi {first_name}",
+            message_fr="",
+            title="national",
+        )
+        national = CustomSmsBatch.objects.get(title="national")
+        self.assertContains(
+            self.client.get(f"{COMPOSE_URL}{national.pk}/"), "lea@test.com"
+        )
+
+    def test_custom_sms_rows_do_not_count_as_coach_calls(self):
+        """The Analytics coach-workload 'Calls' figure must ignore outreach rows."""
+        self._post_compose(message_fr="")
+        batch = CustomSmsBatch.objects.get()
+        self.client.post(f"{COMPOSE_URL}{batch.pk}/log/{self.fr_profile.pk}/")
+        CallAttempt.objects.create(
+            profile=self.fr_profile, result="success", coach=self.coach
+        )
+        User.objects.create_superuser("root2@test.com", "root2@test.com", "pass")
+        client = Client()
+        client.login(username="root2@test.com", password="pass")
+        response = client.get("/crush-admin/dashboard/")
+        self.assertEqual(response.status_code, 200)
+        workload = {c["name"]: c for c in response.context["coach_workload"]}
+        sophie = workload[self.coach_user.get_full_name() or self.coach_user.username]
+        self.assertEqual(sophie["calls"], 1)
+        self.assertEqual(sophie["call_success_pct"], 100)
+        self.assertEqual(response.context["call_summary"]["total"], 1)
 
     def test_segment_audience_resolves_profiles(self):
         self._post_compose(

@@ -24,7 +24,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q, Value
+from django.db.models.functions import Replace
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -128,9 +129,28 @@ def render_message(template, values):
     return _PLACEHOLDER_RE.sub(_sub, template)
 
 
+def canonical_phone(phone_number):
+    """``+<digits>`` form of a stored number.
+
+    The model validator allows spaces, dashes, dots and parentheses after the
+    ``+`` and form-entered numbers keep them, so matching and the ``sms:``
+    link both work on the digits only.
+    """
+    digits = "".join(ch for ch in (phone_number or "") if ch.isdigit())
+    return f"+{digits}" if digits else ""
+
+
+def _phone_digits_expr():
+    """DB expression: ``phone_number`` reduced to bare digits (same idiom as services/whatsapp.py)."""
+    expr = F("phone_number")
+    for ch in (" ", "-", "(", ")", ".", "+"):
+        expr = Replace(expr, Value(ch), Value(""))
+    return expr
+
+
 def build_sms_uri(phone_number, body):
     """``sms:`` deep link with the body prefilled — same encoding as the coach invite page."""
-    return f"sms:{phone_number}?body={quote(body, safe='')}"
+    return f"sms:{canonical_phone(phone_number)}?body={quote(body, safe='')}"
 
 
 def _event_values(request, event, lang):
@@ -293,14 +313,19 @@ def recipient_queryset(batch, definitions=None):
             )
         if not emails and not phones and not suffixes:
             return CrushProfile.objects.none(), warnings
+        # Compare digits on both sides: stored numbers may carry the
+        # spaces/dashes the validator allows, pasted ones are already
+        # normalised by parse_manual_recipients.
         match_q = Q()
         for email in emails:
             match_q |= Q(user__email__iexact=email)
         if phones:
-            match_q |= Q(phone_number__in=phones)
+            match_q |= Q(_pn_digits__in=[p.lstrip("+") for p in phones])
         for suffix in suffixes:
-            match_q |= Q(phone_number__endswith=suffix)
-        qs = CrushProfile.objects.filter(match_q)
+            match_q |= Q(_pn_digits__endswith=suffix)
+        qs = CrushProfile.objects.annotate(_pn_digits=_phone_digits_expr()).filter(
+            match_q
+        )
 
     qs = (
         qs.filter(phone_q)

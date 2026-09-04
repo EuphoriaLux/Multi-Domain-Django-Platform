@@ -729,7 +729,10 @@ class Command(BaseCommand):
 
         calls_with_review = coach_sub_qs.filter(review_call_completed=True).count()
 
-        call_qs = CallAttempt.objects.all()
+        # Custom SMS outreach (Crush-Admin "Custom SMS" page) is logged as
+        # CallAttempt rows too; it is not a screening call, so it must not
+        # inflate total attempts or depress the success rate.
+        call_qs = CallAttempt.objects.exclude(result="custom_sms")
         if since:
             call_qs = call_qs.filter(attempt_date__date__gte=since)
         if until:
