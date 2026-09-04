@@ -22,7 +22,6 @@ from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import F, Q, Value
@@ -474,12 +473,16 @@ def _form_from_batch(batch):
         "event_id": str(batch.event_id or ""),
         "registration_statuses": list(batch.registration_statuses or []),
         "segment_key": batch.segment_key,
-        # Re-derive the pasted list from the live accounts: a member deleted
-        # or banned since simply drops out.
+        # Re-derive the pasted list from members who are still eligible: a
+        # member deleted or banned since simply drops out. Profile deletion
+        # keeps the Django user (and its email) with crushlu_banned=True, so
+        # this must go through the same eligibility filter as the send list,
+        # never through User directly.
         "manual_recipients": "\n".join(
-            User.objects.filter(pk__in=batch.manual_user_ids or [])
-            .order_by("email")
-            .values_list("email", flat=True)
+            _eligible_profiles(batch.include_unverified_phones)
+            .filter(user_id__in=batch.manual_user_ids or [])
+            .order_by("user__email")
+            .values_list("user__email", flat=True)
         ),
         "manual_user_ids": list(batch.manual_user_ids or []),
         "include_unverified_phones": batch.include_unverified_phones,
@@ -595,6 +598,29 @@ def _validate(form):
             )
             % {"event": event.title}
         )
+    # event_detail lets a private-invitation event be opened only by someone
+    # with a non-cancelled registration, an invited_users entry or an approved
+    # invitation. A segment or pasted list carries no such guarantee, and a
+    # cancelled registrant has lost theirs — so the link would bounce.
+    if event is not None and event.is_private_invitation and "event_url" in used:
+        if audience != CustomSmsBatch.Audience.EVENT:
+            errors.append(
+                _(
+                    "%(event)s is invitation-only: {event_url} only opens for its "
+                    "registrants, so it cannot be used with this audience. Pick "
+                    "the event-registrations audience or drop the placeholder."
+                )
+                % {"event": event.title}
+            )
+        elif "cancelled" in form["registration_statuses"]:
+            errors.append(
+                _(
+                    "%(event)s is invitation-only: cancelled registrants can no "
+                    "longer open {event_url}. Untick “Cancelled” or drop the "
+                    "placeholder."
+                )
+                % {"event": event.title}
+            )
     return errors, event
 
 

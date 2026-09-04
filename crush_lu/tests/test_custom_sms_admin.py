@@ -250,6 +250,42 @@ class CustomSmsAdminTests(TestCase):
         page = self.client.get(COMPOSE_URL)
         self.assertNotContains(page, f'value="{self.event.id}"')
 
+    def test_compose_rejects_event_url_for_private_event_with_open_audiences(self):
+        self.event.is_private_invitation = True
+        self.event.save(update_fields=["is_private_invitation"])
+        # Manual / segment audiences: no guarantee the member can open the link.
+        response = self._post_compose(
+            audience_type="manual",
+            manual_recipients="fr@test.com",
+            message_en="See {event_url}",
+            message_fr="",
+        )
+        self.assertContains(response, "invitation-only")
+        response = self._post_compose(
+            audience_type="segment",
+            segment_key="gender_female",
+            message_en="See {event_url}",
+            message_fr="",
+        )
+        self.assertContains(response, "invitation-only")
+        # Event audience including cancelled registrants: they lost access too.
+        response = self._post_compose(
+            registration_statuses=["confirmed", "cancelled"], message_fr=""
+        )
+        self.assertContains(response, "Cancelled")
+        self.assertFalse(CustomSmsBatch.objects.exists())
+        # Event audience of live registrants is fine; so is a private event
+        # without the placeholder.
+        self._post_compose(registration_statuses=["confirmed"], message_fr="")
+        self.assertEqual(CustomSmsBatch.objects.count(), 1)
+        self._post_compose(
+            audience_type="manual",
+            manual_recipients="fr@test.com",
+            message_en="Hi {first_name}, see you at {event_title}",
+            message_fr="",
+        )
+        self.assertEqual(CustomSmsBatch.objects.count(), 2)
+
     def test_compose_rejects_event_placeholders_without_event(self):
         response = self._post_compose(
             audience_type="manual",
@@ -386,6 +422,25 @@ class CustomSmsAdminTests(TestCase):
         page = self.client.get(f"{COMPOSE_URL}?from={batch.pk}")
         self.assertContains(page, "fr@test.com")
         self.assertContains(page, "de@test.com")
+
+    def test_duplicate_omits_members_banned_since(self):
+        """Profile deletion keeps the User + email with crushlu_banned=True; the
+        ?from= prefill must not surface that retained email."""
+        self._post_compose(
+            audience_type="manual",
+            event_id="",
+            manual_recipients="fr@test.com\nde@test.com",
+            message_en="Hi {first_name}",
+            message_fr="",
+        )
+        batch = CustomSmsBatch.objects.get()
+        UserDataConsent.objects.filter(user=self.fr_user).update(crushlu_banned=True)
+        self.de_profile.is_active = False
+        self.de_profile.save(update_fields=["is_active"])
+        page = self.client.get(f"{COMPOSE_URL}?from={batch.pk}")
+        self.assertEqual(page.status_code, 200)
+        self.assertNotContains(page, "fr@test.com")
+        self.assertNotContains(page, "de@test.com")
 
     def test_manual_audience_rejects_banned_member_without_saying_why(self):
         UserDataConsent.objects.filter(user=self.fr_user).update(crushlu_banned=True)
