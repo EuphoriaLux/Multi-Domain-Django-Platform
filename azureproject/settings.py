@@ -77,12 +77,10 @@ CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
     "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED", False
 )
-CRUSH_NEWSLETTER_FROM_EMAIL = os.getenv(
-    "CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu"
+CRUSH_NEWSLETTER_FROM_EMAIL = os.getenv("CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu")
+CRUSH_EMAIL_BOUNCE_FOLDER = (
+    os.getenv("CRUSH_EMAIL_BOUNCE_FOLDER", "inbox").strip() or "inbox"
 )
-CRUSH_EMAIL_BOUNCE_FOLDER = os.getenv(
-    "CRUSH_EMAIL_BOUNCE_FOLDER", "inbox"
-).strip() or "inbox"
 CRUSH_EMAIL_BOUNCE_MAILBOXES = [
     address.strip()
     for address in os.getenv(
@@ -95,6 +93,18 @@ CRUSH_EMAIL_BOUNCE_MAILBOXES = [
         ),
     ).split(",")
     if address.strip()
+]
+CRUSH_EMAIL_BOUNCE_FOLDERS = {
+    mailbox.strip().lower(): folder.strip()
+    for entry in os.getenv("CRUSH_EMAIL_BOUNCE_FOLDERS", "").split(",")
+    if "=" in entry
+    for mailbox, folder in [entry.split("=", 1)]
+    if mailbox.strip() and folder.strip()
+}
+CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS = [
+    domain.strip().lower()
+    for domain in os.getenv("CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS", "").split(",")
+    if domain.strip()
 ]
 
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,

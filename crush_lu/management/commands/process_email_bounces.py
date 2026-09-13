@@ -34,6 +34,22 @@ def _message_identity(message):
     return str(identity)[:512] if identity else ""
 
 
+def _mailbox_folder(mailbox, mailbox_count):
+    """Resolve mailbox-specific custom folders without reusing Graph IDs."""
+    folder_map = getattr(settings, "CRUSH_EMAIL_BOUNCE_FOLDERS", {}) or {}
+    folder = folder_map.get(mailbox.lower())
+    if folder:
+        return folder
+
+    default = getattr(settings, "CRUSH_EMAIL_BOUNCE_FOLDER", "inbox")
+    if mailbox_count > 1 and default.lower() != "inbox":
+        raise CommandError(
+            "Custom Graph folder IDs are mailbox-specific; configure every "
+            "CRUSH_EMAIL_BOUNCE_FOLDERS mailbox mapping."
+        )
+    return default
+
+
 def _get_mailbox_messages(
     *, mailbox, folder, token, since, limit, excluded_message_ids=None
 ):
@@ -104,10 +120,19 @@ class Command(BaseCommand):
             raise CommandError(
                 "Set CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=true before using --apply."
             )
+        if not getattr(settings, "CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS", None):
+            raise CommandError(
+                "Set CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS to the exact Microsoft "
+                "365 tenant NDR sender domain."
+            )
         if options["days"] < 1 or not 1 <= options["limit"] <= 500:
             raise CommandError("--days must be positive and --limit must be 1..500")
 
         config = get_domain_email_config(domain="crush.lu")
+        mailboxes = _mailbox_addresses(config)
+        folders = {
+            mailbox: _mailbox_folder(mailbox, len(mailboxes)) for mailbox in mailboxes
+        }
         backend = GraphEmailBackend(
             tenant_id=config["GRAPH_TENANT_ID"],
             client_id=config["GRAPH_CLIENT_ID"],
@@ -116,16 +141,15 @@ class Command(BaseCommand):
         )
         token = backend.get_access_token()
         since = (timezone.now() - timedelta(days=options["days"])).isoformat()
-        folder = getattr(settings, "CRUSH_EMAIL_BOUNCE_FOLDER", "inbox")
         processed_ids = set(
             EmailBounceEvent.objects.values_list("source_message_id", flat=True)
         )
         candidates = []
         ignored = 0
-        for mailbox in _mailbox_addresses(config):
+        for mailbox in mailboxes:
             mailbox_messages, mailbox_ignored = _get_mailbox_messages(
                 mailbox=mailbox,
-                folder=folder,
+                folder=folders[mailbox],
                 token=token,
                 since=since,
                 limit=options["limit"],

@@ -43,7 +43,15 @@ def delivery_report_message(**overrides):
             {
                 "name": "Content-Type",
                 "value": "multipart/report; report-type=delivery-status",
-            }
+            },
+            {
+                "name": "X-MS-Exchange-Organization-AuthAs",
+                "value": "Internal",
+            },
+            {
+                "name": "X-MS-Exchange-Organization-MessageDirectionality",
+                "value": "Originating",
+            },
         ],
         "body": {"content": "person@example.net wasn't found. Status 5.1.10."},
     }
@@ -231,6 +239,7 @@ class GraphMimeBackendTests(TestCase):
         )
 
 
+@override_settings(CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS=["tenant.onmicrosoft.com"])
 class BounceClassificationTests(TestCase):
     def test_unambiguous_permanent_failure_is_suppressed_once(self):
         message = delivery_report_message()
@@ -268,6 +277,50 @@ class BounceClassificationTests(TestCase):
         with self.assertRaisesMessage(ValueError, "verified delivery report"):
             process_graph_bounce(message, apply=True)
         self.assertEqual(EmailBounceEvent.objects.count(), 0)
+
+    def test_spoofed_microsoft_local_part_from_untrusted_domain_is_rejected(self):
+        message = delivery_report_message(
+            **{
+                "from": {
+                    "emailAddress": {"address": "MicrosoftExchange123@attacker.example"}
+                }
+            }
+        )
+
+        self.assertFalse(is_delivery_report(message))
+        with self.assertRaisesMessage(ValueError, "verified delivery report"):
+            process_graph_bounce(message, apply=True)
+
+    def test_trusted_sender_without_internal_exchange_auth_is_rejected(self):
+        message = delivery_report_message(
+            internetMessageHeaders=[
+                {
+                    "name": "Content-Type",
+                    "value": "multipart/report; report-type=delivery-status",
+                }
+            ]
+        )
+
+        self.assertFalse(is_delivery_report(message))
+
+    @override_settings(
+        CRUSH_EMAIL_BOUNCE_MAILBOXES=[],
+        CRUSH_NEWSLETTER_FROM_EMAIL="news@example.org",
+    )
+    @patch("crush_lu.services.email_bounces.get_domain_email_config")
+    def test_configured_sender_addresses_are_excluded_from_candidates(self, config):
+        config.return_value = {
+            "DEFAULT_FROM_EMAIL": "Campaign <campaign@example.org>",
+            "REPLY_TO_EMAIL": "Help <help@example.org>",
+        }
+        result = classify_bounce(
+            "Undeliverable",
+            "campaign@example.org via help@example.org and news@example.org could not "
+            "deliver to person@example.net; 5.1.10",
+        )
+
+        self.assertEqual(result.classification, "hard")
+        self.assertEqual(result.recipient, "person@example.net")
 
     def test_existing_hard_event_repairs_its_missing_suppression(self):
         message = delivery_report_message()
@@ -349,6 +402,10 @@ class BounceClassificationTests(TestCase):
         CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=True,
         CRUSH_EMAIL_BOUNCE_FOLDER="inbox",
         CRUSH_EMAIL_BOUNCE_MAILBOXES=["noreply@crush.lu", "love@crush.lu"],
+        CRUSH_EMAIL_BOUNCE_FOLDERS={
+            "noreply@crush.lu": "noreply-folder-id",
+            "love@crush.lu": "love-folder-id",
+        },
     )
     @patch("crush_lu.management.commands.process_email_bounces.requests.get")
     @patch("crush_lu.management.commands.process_email_bounces.get_domain_email_config")
@@ -390,7 +447,12 @@ class BounceClassificationTests(TestCase):
         requested_urls = [call.args[0] for call in get.call_args_list]
         self.assertTrue(any("noreply%40crush.lu" in url for url in requested_urls))
         self.assertTrue(any("love%40crush.lu" in url for url in requested_urls))
-        self.assertTrue(all("/mailFolders/inbox/" in url for url in requested_urls))
+        self.assertTrue(
+            any("/mailFolders/noreply-folder-id/" in url for url in requested_urls)
+        )
+        self.assertTrue(
+            any("/mailFolders/love-folder-id/" in url for url in requested_urls)
+        )
         self.assertIn("hard=1", output.getvalue())
         self.assertIn("ignored=1", output.getvalue())
         self.assertEqual(EmailBounceEvent.objects.count(), 1)
@@ -398,10 +460,40 @@ class BounceClassificationTests(TestCase):
             EmailSuppression.objects.filter(email="person@example.net").exists()
         )
 
+    @override_settings(
+        CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=True,
+        CRUSH_EMAIL_BOUNCE_FOLDER="shared-custom-folder-id",
+        CRUSH_EMAIL_BOUNCE_MAILBOXES=["noreply@crush.lu", "love@crush.lu"],
+        CRUSH_EMAIL_BOUNCE_FOLDERS={},
+    )
+    @patch("crush_lu.management.commands.process_email_bounces.get_domain_email_config")
+    def test_shared_custom_folder_id_is_rejected_for_multiple_mailboxes(
+        self, get_config
+    ):
+        get_config.return_value = {
+            "GRAPH_TENANT_ID": "tenant",
+            "GRAPH_CLIENT_ID": "client",
+            "GRAPH_CLIENT_SECRET": "secret",
+            "DEFAULT_FROM_EMAIL": "noreply@crush.lu",
+        }
+
+        with self.assertRaisesMessage(CommandError, "mailbox-specific"):
+            call_command("process_email_bounces", apply=True, stdout=StringIO())
+
     @override_settings(CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=False)
     def test_apply_command_is_feature_gated_before_graph_access(self):
         with self.assertRaisesMessage(
             CommandError, "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED"
+        ):
+            call_command("process_email_bounces", apply=True, stdout=StringIO())
+
+    @override_settings(
+        CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=True,
+        CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS=[],
+    )
+    def test_command_requires_an_exact_trusted_tenant_domain(self):
+        with self.assertRaisesMessage(
+            CommandError, "CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS"
         ):
             call_command("process_email_bounces", apply=True, stdout=StringIO())
 
