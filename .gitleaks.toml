@@ -42,4 +42,9 @@ regexes = [
 
   # Claude Code session URLs appended to commit messages are not credentials.
   '''claude\.ai/code/session_[0-9a-zA-Z]+''',
+
+  # crush_lu/android_push.py passes `credentials_info, scopes=FCM_SCOPES` to the
+  # Google auth helper; generic-api-key captures the keyword argument as a
+  # "secret". Anchored so only that exact capture is allowed.
+  '''^scopes=FCM_SCOPES$''',
 ]
