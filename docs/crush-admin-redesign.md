@@ -69,10 +69,16 @@ filter + `has_add_permission = False` (`crush_lu/admin/profiles.py`):
 | ApprovedProfile | `verification_status="verified"` | `crushprofile?verification_status__exact=verified` |
 | AwaitingReviewProfile | `verification_status="pending"` | `…=pending` |
 | IncompleteProfile | `verification_status="incomplete"` | `…=incomplete` |
-| PendingReviewProfile | `profilesubmission__status="pending"` | via submission status |
-| RevisionNeededProfile | `profilesubmission__status="revision"` | via submission status |
-| RecontactCoachProfile | `profilesubmission__status="recontact_coach"` | via submission status |
-| RejectedProfile | `profilesubmission__status="rejected"` | via submission status |
+| PendingReviewProfile | latest submission `pending`, profile not verified | via latest submission |
+| RevisionNeededProfile | latest submission `revision`, profile not verified | via latest submission |
+| RecontactCoachProfile | latest submission `recontact_coach`, profile not verified | via latest submission |
+| RejectedProfile | `verification_status="rejected"` | `…=rejected` |
+
+The four rows above were re-keyed in September 2026. They used to match *any*
+submission row with the status, which went stale after the July 2026
+verification pivot: LuxID and event-door verification create no submission.
+"Latest submission" is the member's newest row by `submitted_at`, the one
+`ProfileSubmission.latest_for_profile` reads (`crush_lu/admin/verification_queues.py`).
 | CompletedSubmission | `status in [approved, rejected]` | `profilesubmission?status…` |
 | InProcessSubmission | `status in [pending, revision, recontact_coach]` | `profilesubmission?status…` |
 

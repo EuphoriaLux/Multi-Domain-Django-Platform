@@ -12,6 +12,8 @@ from django.db.models import Exists, OuterRef, Q, Count
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 
+from .verification_queues import holds_door_seat
+
 
 class ReviewTimeFilter(admin.SimpleListFilter):
     """Filter submissions by how long they've been pending"""
@@ -459,6 +461,31 @@ class EventParticipationFilter(admin.SimpleListFilter):
             return annotated.filter(event_count__gte=2)
         elif self.value() == 'active':
             return annotated.filter(event_count__gte=5)
+        return queryset
+
+
+class DoorBookingFilter(admin.SimpleListFilter):
+    """Filter profiles by whether an event door can still verify them.
+
+    "Booked" means a seat or waitlist spot on a current or upcoming,
+    non-cancelled event: the coach "Unverified profiles" page's "Booked on an
+    event" signal. The Action Center splits pending members on it and links
+    here, so each tile opens a list of exactly its own count.
+    """
+    title = 'Event Booking'
+    parameter_name = 'door_booking'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('booked', '🎟️ Booked on a current/upcoming event'),
+            ('unbooked', '🚫 Not booked on any current/upcoming event'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'booked':
+            return queryset.filter(holds_door_seat(timezone.now()))
+        elif self.value() == 'unbooked':
+            return queryset.filter(~holds_door_seat(timezone.now()))
         return queryset
 
 

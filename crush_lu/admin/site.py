@@ -71,11 +71,11 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         from django.db.models import Count
         from django.utils import timezone
-        from datetime import timedelta
         from ..models import (
             CrushProfile, ProfileSubmission, MeetupEvent,
             EventConnection
         )
+        from .verification_queues import pending_action_counts
 
         extra_context = extra_context or {}
         extra_context['show_dashboard_link'] = True
@@ -92,7 +92,10 @@ class CrushLuAdminSite(admin.AdminSite):
         # Quick stats for index page
         extra_context['total_profiles'] = CrushProfile.objects.count()
         extra_context['approved_profiles'] = CrushProfile.objects.filter(verification_status="verified").count()
-        extra_context['mutual_connections'] = EventConnection.objects.filter(status='mutual').count()
+        # Completed introductions ("shared" = contact details exchanged), the
+        # analytics dashboard's own Connections card. This used to count a
+        # 'mutual' status that EventConnection does not have: always zero.
+        extra_context['shared_connections'] = EventConnection.objects.filter(status='shared').count()
 
         # Upcoming events count
         now = timezone.now()
@@ -109,35 +112,11 @@ class CrushLuAdminSite(admin.AdminSite):
         ]
         extra_context['upcoming_events'] = len(current_events)
 
-        # Pending actions for Action Center
-        cutoff_24h = now - timedelta(hours=24)
-        pending_reviews = ProfileSubmission.objects.filter(status='pending').count()
-        urgent_reviews = ProfileSubmission.objects.filter(
-            status='pending',
-            submitted_at__lt=cutoff_24h
-        ).count()
-        awaiting_call = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=False,
-            review_call_completed=False
-        ).count()
-        ready_to_approve = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=False,
-            review_call_completed=True
-        ).count()
-        unassigned = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=True
-        ).count()
-
-        extra_context['pending_actions'] = {
-            'total_pending': pending_reviews,
-            'urgent_reviews': urgent_reviews,
-            'awaiting_call': awaiting_call,
-            'ready_to_approve': ready_to_approve,
-            'unassigned': unassigned,
-        }
+        # Action Center: members awaiting verification, keyed on the profile.
+        # It used to count ProfileSubmission(status='pending'), a queue nobody
+        # enters since the July 2026 verification pivot, so every tile read
+        # zero. Shared with the analytics dashboard's Pending Actions.
+        extra_context['pending_actions'] = pending_action_counts(now)
 
         # Recent submissions for Today's Focus
         extra_context['recent_submissions'] = ProfileSubmission.objects.filter(
