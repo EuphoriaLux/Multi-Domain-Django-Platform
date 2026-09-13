@@ -74,6 +74,7 @@ from .notification_service import (
 from .referrals import check_and_apply_profile_approved_reward
 from .services.profile_verification import (
     claim_profile_verification,
+    coach_visible_unverified_profiles,
     release_booked_screening_slots,
     transition_unverified_profile,
 )
@@ -102,7 +103,7 @@ def coach_dashboard(request):
     # coach's pending ProfileSubmissions: nobody new enters that queue since
     # the July 2026 verification pivot, so it read zero while members waited.
     awaiting_verification_count = (
-        _coach_visible_unverified_profiles()
+        coach_visible_unverified_profiles()
         .filter(verification_status="pending")
         .count()
     )
@@ -1086,36 +1087,6 @@ UNVERIFIED_SORT_CHOICES = {
 }
 
 
-def _coach_visible_unverified_profiles():
-    """Every member `coach_unverified_profiles` can list, before its search,
-    filters and annotations.
-
-    Shared with the coach dashboard's "Awaiting Verification" card, which
-    opens this page's pending chip, so the card's count and the list it opens
-    come from one definition.
-    """
-    # Banned members are excluded from every other coach-facing surface
-    # (campaign segments, Connect invites). Resurfacing them here would hand
-    # the team review work on people who are not coming back.
-    banned_user_ids = UserDataConsent.objects.filter(crushlu_banned=True).values_list(
-        "user_id", flat=True
-    )
-    return (
-        CrushProfile.objects.filter(
-            is_active=True,
-            user__is_active=True,
-            # `create_crush_profile_on_login` gives every crush.lu login an
-            # incomplete profile before the consent screen is answered. Without
-            # this, somebody who abandoned that screen — who never agreed to
-            # the Crush.lu profile layer at all — would be listed by name and
-            # email on a team-wide coach page.
-            user__data_consent__crushlu_consent_given=True,
-        )
-        .exclude(verification_status="verified")
-        .exclude(user_id__in=banned_user_ids)
-    )
-
-
 def _unverified_signal_annotations(now, live_or_future_event_ids):
     """``Exists`` annotations shared by the filter chips and the row badges.
 
@@ -1266,7 +1237,7 @@ def coach_unverified_profiles(request):
     live_or_future_event_ids = _live_or_future_event_ids(now)
 
     profiles = (
-        _coach_visible_unverified_profiles()
+        coach_visible_unverified_profiles()
         .select_related("user", "assigned_coach__user")
         .annotate(**_unverified_signal_annotations(now, live_or_future_event_ids))
     )

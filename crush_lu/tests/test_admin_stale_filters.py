@@ -32,6 +32,7 @@ from crush_lu.models import (
     ProfileSubmission,
 )
 from crush_lu.models.profiles import UserDataConsent
+from crush_lu.services.profile_verification import transition_unverified_profile
 
 User = get_user_model()
 
@@ -86,12 +87,18 @@ class AdminFixturesMixin:
         # admin's own would then land in every "incomplete" expectation.
         CrushProfile.objects.filter(user=self.superuser).delete()
 
-    def _profile(self, username, *, status="pending", is_active=True, **fields):
+    def _profile(
+        self, username, *, status="pending", is_active=True, consent=True, **fields
+    ):
         user = User.objects.create_user(
             username=username,
             email=f"{username}@example.com",
             password="pw12345678",
         )
+        # The consent row comes from a signal. The coach page, and so the
+        # recent pending lists, show only members who accepted the Crush.lu
+        # profile layer.
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=consent)
         return CrushProfile.objects.create(
             user=user,
             date_of_birth=date(1992, 3, 4),
@@ -123,7 +130,7 @@ class AdminFixturesMixin:
 
 
 class MutualConnectionFilterTests(AdminFixturesMixin, TestCase):
-    """"Mutual" is a reciprocal row at the same event: the definition of the
+    """ "Mutual" is a reciprocal row at the same event: the definition of the
     changelist's own "Mutual" column. It filtered a 'mutual' status that
     EventConnection never had."""
 
@@ -300,9 +307,7 @@ class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
         coach review does, so the members they send back are under
         "Resubmitted After Revision" once they resubmit."""
         bulk = self._submission(self._profile("bulk_revised"), "pending", days_ago=4)
-        by_hand = self._submission(
-            self._profile("hand_revised"), "pending", days_ago=3
-        )
+        by_hand = self._submission(self._profile("hand_revised"), "pending", days_ago=3)
 
         action = self.client.post(
             SUBMISSIONS,
@@ -352,7 +357,9 @@ class CoachAssignmentFilterTests(AdminFixturesMixin, TestCase):
             user=coach_user, is_active=True, max_active_reviews=10
         )
         # Joined after the pivot: a permanent coach and no submission row.
-        self.assigned = self._profile("assigned", status="verified", assigned_coach=coach)
+        self.assigned = self._profile(
+            "assigned", status="verified", assigned_coach=coach
+        )
         # Reviewed before the pivot, never given a permanent coach.
         self.reviewed = self._profile("reviewed_only", status="incomplete")
         self._submission(self.reviewed, "revision", days_ago=40, coach=coach)
@@ -378,8 +385,9 @@ class CoachAssignmentFilterTests(AdminFixturesMixin, TestCase):
 
 class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
     """The index's Today's Focus tab and the analytics dashboard's table list
-    the members most recently updated while awaiting verification. They
-    listed pending ProfileSubmissions, which nobody creates any more."""
+    the members most recently updated while awaiting verification: the top of
+    the coach page's pending list. They listed pending ProfileSubmissions,
+    which nobody creates any more."""
 
     def setUp(self):
         super().setUp()
@@ -399,7 +407,8 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
             user=CrushProfile.objects.get(pk=self.newest_first[0]).user,
             status="confirmed",
         )
-        # Updated just now, but not awaiting verification.
+        # Updated just now, so any of these would top the lists if listed.
+        # Not awaiting verification:
         self._profile("verified", status="verified")
         self._profile("incomplete", status="incomplete")
         self._profile("deactivated", is_active=False)
@@ -408,6 +417,12 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
         self.open_row = self._submission(
             self._profile("verified_open_row", status="verified"), "pending", days_ago=0
         )
+        # Pending, but the coach page leaves them out: nobody can act on them.
+        banned = self._profile("banned_pending")
+        UserDataConsent.objects.filter(user=banned.user).update(crushlu_banned=True)
+        self._profile("no_consent_pending", consent=False)
+        closed = self._profile("closed_account_pending")
+        User.objects.filter(pk=closed.user_id).update(is_active=False)
 
     def _assert_no_submission_link(self, response):
         # Not a bare "/profilesubmission/": the nav sidebar links that list.
@@ -450,14 +465,17 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
 
     def test_coaches_open_the_coach_pending_list(self):
         """The profile admin shows a coach only members whose submissions they
-        hold, so a coach's rows open the coach page's pending list."""
+        hold, so a coach's rows open the coach page's pending list. That list
+        starts with the same members, in the same order."""
         coach_user = User.objects.create_user(
             username="coach_dee", email="coach-dee@example.com", password="pw12345678"
         )
         UserDataConsent.objects.filter(user=coach_user).update(
             crushlu_consent_given=True
         )
-        CrushCoach.objects.create(user=coach_user, is_active=True, max_active_reviews=10)
+        CrushCoach.objects.create(
+            user=coach_user, is_active=True, max_active_reviews=10
+        )
         self.client.force_login(coach_user)
 
         for page, rows in ((ADMIN, 5), (ADMIN_DASHBOARD, 10)):
@@ -467,6 +485,32 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
                 self.assertContains(response, f'href="{COACH_PENDING}"', count=rows)
                 for pk in self.newest_first[:rows]:
                     self.assertNotContains(response, f'href="{profile_change(pk)}"')
+
+        coach_page = self.client.get(COACH_PENDING)
+
+        self.assertEqual(
+            [profile.pk for profile in coach_page.context["profiles"]],
+            self.newest_first,
+        )
+
+    def test_a_member_sent_back_to_pending_rises_to_the_top(self):
+        """Undoing the check-in that verified a member sends them back to
+        pending through `transition_unverified_profile`. Its queryset update
+        skips `auto_now`, so it stamps ``updated_at`` itself."""
+        member = self._profile("undone_at_the_door", status="verified")
+        CrushProfile.objects.filter(pk=member.pk).update(
+            updated_at=timezone.now() - timedelta(days=30)
+        )
+
+        # The arguments `coach_undo_checkin` passes.
+        demoted = transition_unverified_profile(
+            member, target_status="pending", transition_from=("verified",)
+        )
+
+        self.assertTrue(demoted)
+        response = self.client.get(ADMIN)
+        listed = [profile.pk for profile in response.context["recent_pending_profiles"]]
+        self.assertEqual(listed[0], member.pk)
 
 
 class CoachDashboardAwaitingVerificationTests(TestCase):
@@ -535,11 +579,15 @@ class CoachDashboardAwaitingVerificationTests(TestCase):
             user=self._user("coach2@example.com"), is_active=True, max_active_reviews=10
         )
         mine = self._profile("mine@example.com")
-        ProfileSubmission.objects.create(profile=mine, coach=self.coach, status="pending")
+        ProfileSubmission.objects.create(
+            profile=mine, coach=self.coach, status="pending"
+        )
         theirs = self._profile("theirs@example.com")
         ProfileSubmission.objects.create(profile=theirs, coach=other, status="pending")
         done = self._profile("done@example.com", status="verified")
-        ProfileSubmission.objects.create(profile=done, coach=self.coach, status="approved")
+        ProfileSubmission.objects.create(
+            profile=done, coach=self.coach, status="approved"
+        )
 
         dashboard = self.client.get(COACH_DASHBOARD)
         profiles_page = self.client.get(COACH_PROFILES)

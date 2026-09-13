@@ -20,6 +20,7 @@ from crush_lu.services.event_doors import (
     DOOR_VISIBLE_REGISTRATION_STATUSES,
     live_or_future_event_ids,
 )
+from crush_lu.services.profile_verification import coach_visible_unverified_profiles
 
 
 def holds_door_seat(now):
@@ -121,8 +122,8 @@ def resubmitted_after_revision(profiles):
 
 def pending_profiles():
     """Active members awaiting verification: the Action Center's "Pending
-    Verification" cohort. Its counts and `recent_pending_profiles` both read
-    this, so a recent-activity list is always the top of that tile's list."""
+    Verification" cohort, behind its counts and the profile changelist its
+    tiles open."""
     return CrushProfile.objects.filter(is_active=True, verification_status="pending")
 
 
@@ -157,15 +158,22 @@ def recent_pending_profiles(limit, now=None):
     verification, newest first: the index's Today's Focus tab and the
     analytics dashboard's table.
 
+    The top of the coach "Unverified profiles" page's pending list, in its
+    default "Recently updated" order: a coach's row opens that list, so the
+    member is on it. Like that page, it leaves out closed accounts, banned
+    members and members without Crush.lu consent, whom `pending_profiles`
+    counts: nobody can act on them, and they would crowd out those who can.
+
     Each carries ``has_door_seat`` (`holds_door_seat`), the Action Center's
-    booked / not-booked split. Ordered by ``updated_at``, like the coach
-    page's "Recently updated": the profile keeps no "became pending"
-    timestamp, and `complete_profile_submission` saves the profile as it
-    moves it to ``pending``.
+    booked / not-booked split. The profile keeps no "became pending"
+    timestamp. `complete_profile_submission` saves the profile as it moves it
+    to ``pending``, and `transition_unverified_profile` stamps ``updated_at``
+    when a check-in undo sends a member back.
     """
     now = now or timezone.now()
     return (
-        pending_profiles()
+        coach_visible_unverified_profiles()
+        .filter(verification_status="pending")
         .select_related("user")
         .annotate(has_door_seat=holds_door_seat(now))
         .order_by("-updated_at", "-pk")[:limit]
