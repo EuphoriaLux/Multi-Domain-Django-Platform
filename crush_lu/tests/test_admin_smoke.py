@@ -66,9 +66,17 @@ class SiteTestMixin:
 class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
     """Every registered changelist must render without errors.
 
-    An invalid relation name in list_select_related (or a broken
-    list_display callable) only fails at render time, not in
-    `manage.py check` — this test catches those regressions.
+    An invalid relation name in list_select_related only fails at render
+    time, not in `manage.py check` — this test catches those regressions.
+
+    ⚠️ It does **not** catch a broken `list_display` callable, despite what
+    this docstring used to claim. Every table is empty here, so Django never
+    builds a result row and never calls one. That false confidence is how
+    `EventFeedbackAdmin.get_nps_segment` reached production calling
+    `format_html()` with no interpolation arguments — a TypeError on Django
+    6.0 — and 500ed the changelist the moment the first survey response
+    arrived. Row-backed coverage lives in the class below; add to it rather
+    than assuming this test covers a new callable.
     """
 
     @classmethod
@@ -515,3 +523,60 @@ class ImageUploadSizeTests(TestCase):
 
         with self.assertRaises(ValidationError):
             process_uploaded_image(truncated_file)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class EventFeedbackChangelistWithRowsTests(SiteTestMixin, TestCase):
+    """The feedback changelist with rows in it — the case that actually broke.
+
+    `AdminChangelistSmokeTests` renders every changelist against empty tables,
+    so `list_display` callables are never executed there. This one creates a
+    response in each NPS band, which is what forces Django to call
+    `get_nps_segment` for every branch.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser(
+            username="nps_admin", email="nps@test.lu", password="x"
+        )
+        start = timezone.now() - timedelta(days=2)
+        cls.event = MeetupEvent.objects.create(
+            title="NPS Segment Render",
+            description="x",
+            event_type="mixer",
+            date_time=start,
+            location="Luxembourg",
+            address="1 Test Street",
+            max_participants=20,
+            registration_deadline=start - timedelta(hours=1),
+            is_published=True,
+        )
+        # 10 and 9 are promoters, 7-8 passive, 0-6 detractors: one of each, so
+        # all three branches of get_nps_segment have to render.
+        for score in (10, 8, 3):
+            member = User.objects.create_user(
+                username=f"nps{score}", email=f"nps{score}@test.lu", password="x"
+            )
+            EventFeedback.objects.create(
+                event=cls.event,
+                user=member,
+                nps_score=score,
+                would_recommend=score >= 7,
+            )
+
+    def test_changelist_renders_every_nps_band(self):
+        self.client.force_login(self.superuser)
+        url = reverse(
+            f"{crush_admin_site.name}:crush_lu_eventfeedback_changelist"
+        )
+        response = self.client.get(url)
+        self.assertEqual(
+            response.status_code,
+            200,
+            "EventFeedback changelist must render once survey responses exist",
+        )
+        body = response.content.decode()
+        for label in ("Promoter", "Passive", "Detractor"):
+            self.assertIn(label, body, f"{label} row missing from the changelist")
+
