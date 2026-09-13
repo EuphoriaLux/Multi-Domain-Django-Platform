@@ -881,9 +881,7 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         mail.outbox = []
         send_premium_membership_payment_receipt(tx)
 
-        # send_domain_email puts the HTML straight in .body and flips the
-        # content type; there is no alternatives list to read.
-        html = mail.outbox[0].body
+        html = mail.outbox[0].alternatives[0].content
         self.assertIn("/fr/about/", html)
         self.assertIn("/fr/events/", html)
         for unprefixed in ("https://crush.lu/about/", "https://crush.lu/events/"):

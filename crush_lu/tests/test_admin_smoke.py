@@ -33,6 +33,7 @@ from crush_lu.models import (
     CallAttempt,
     CrushCoach,
     CuratedEventGroup,
+    EmailBounceEvent,
     EventFeedback,
     EventRegistration,
     MeetupEvent,
@@ -174,7 +175,13 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
     def test_log_style_admins_disallow_add_and_delete(self):
         """App-written records must not be creatable or deletable by hand."""
         request = type("Req", (), {"user": self.superuser})()
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            EmailBounceEvent,
+        ):
             model_admin = crush_admin_site._registry[model]
             self.assertFalse(
                 model_admin.has_add_permission(request),
@@ -192,7 +199,13 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
         surfaces (e.g. CallAttemptInline on ProfileSubmission), never on
         these audit/log changelists.
         """
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            EmailBounceEvent,
+        ):
             model_admin = crush_admin_site._registry[model]
             editable_fields = [
                 f.name for f in model._meta.fields if f.editable and f.name != "id"
@@ -579,4 +592,3 @@ class EventFeedbackChangelistWithRowsTests(SiteTestMixin, TestCase):
         body = response.content.decode()
         for label in ("Promoter", "Passive", "Detractor"):
             self.assertIn(label, body, f"{label} row missing from the changelist")
-

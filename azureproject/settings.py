@@ -72,6 +72,41 @@ CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 # environment explicitly opts in.
 CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 
+# Microsoft 365 NDR processing. Default OFF: enabling writes suppressions and
+# requires the app registration to have Mail.Read application permission.
+CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
+    "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED", False
+)
+CRUSH_NEWSLETTER_FROM_EMAIL = os.getenv("CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu")
+CRUSH_EMAIL_BOUNCE_FOLDER = (
+    os.getenv("CRUSH_EMAIL_BOUNCE_FOLDER", "inbox").strip() or "inbox"
+)
+CRUSH_EMAIL_BOUNCE_MAILBOXES = [
+    address.strip()
+    for address in os.getenv(
+        "CRUSH_EMAIL_BOUNCE_MAILBOXES",
+        ",".join(
+            [
+                os.getenv("CRUSH_DEFAULT_FROM_EMAIL", "noreply@crush.lu"),
+                CRUSH_NEWSLETTER_FROM_EMAIL,
+            ]
+        ),
+    ).split(",")
+    if address.strip()
+]
+CRUSH_EMAIL_BOUNCE_FOLDERS = {
+    mailbox.strip().lower(): folder.strip()
+    for entry in os.getenv("CRUSH_EMAIL_BOUNCE_FOLDERS", "").split(",")
+    if "=" in entry
+    for mailbox, folder in [entry.split("=", 1)]
+    if mailbox.strip() and folder.strip()
+}
+CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS = [
+    domain.strip().lower()
+    for domain in os.getenv("CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS", "").split(",")
+    if domain.strip()
+]
+
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
 # driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
 # env var; empty means "compute + persist the snapshot but email no one".

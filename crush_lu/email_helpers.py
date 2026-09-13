@@ -6,16 +6,23 @@ Handles profile submissions, coach notifications, event registrations, etc.
 
 import logging
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import gettext_noop, override
 from django.core.cache import cache
-from azureproject.email_utils import send_domain_email
+from azureproject.email_utils import html_to_plain_text, send_domain_email
 from .utils.i18n import get_user_preferred_language
 from .utils.formatting import format_cents
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_greeting_name(value):
+    """Clean obvious all-upper/all-lower casing without damaging mixed-case names."""
+    value = (value or "").strip()
+    if value and (value.islower() or value.isupper()):
+        return value.title()
+    return value
 
 
 def get_user_language_url(user, url_name, request, **kwargs):
@@ -222,7 +229,7 @@ def send_welcome_email(user, request):
     with translation.override(lang):
         subject = _("Welcome to Crush.lu! Complete Your Profile")
         html_message = render_to_string("crush_lu/emails/welcome.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -286,7 +293,7 @@ def send_profile_submission_confirmation(user, request):
         html_message = render_to_string(
             "crush_lu/emails/profile_submission_confirmation.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -344,7 +351,7 @@ def send_coach_assignment_notification(coach, profile_submission, request):
         html_message = render_to_string(
             "crush_lu/emails/coach_assignment.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -398,7 +405,7 @@ def send_profile_approved_notification(profile, request, coach_notes=None):
         html_message = render_to_string(
             "crush_lu/emails/profile_approved.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -452,7 +459,7 @@ def send_profile_revision_request(profile, request, feedback):
         html_message = render_to_string(
             "crush_lu/emails/profile_revision_request.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -500,7 +507,7 @@ def send_profile_rejected_notification(profile, request, reason):
         html_message = render_to_string(
             "crush_lu/emails/profile_rejected.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -567,7 +574,7 @@ def send_profile_recontact_notification(profile, coach, request):
         html_message = render_to_string(
             "crush_lu/emails/profile_recontact.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -676,7 +683,7 @@ def send_event_registration_confirmation(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/event_registration_confirmation.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -750,7 +757,7 @@ def _send_payment_receipt(payment, *, subject_message, template_name, request=No
     with translation.override(lang):
         subject = _(subject_message)
         html_message = render_to_string(template_name, context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -848,7 +855,7 @@ def send_event_waitlist_notification(registration, request):
             title=registration.event.title
         )
         html_message = render_to_string("crush_lu/emails/event_waitlist.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -919,7 +926,7 @@ def send_event_payment_pending_notification(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/event_payment_pending.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -977,7 +984,7 @@ def send_event_cancellation_confirmation(
         html_message = render_to_string(
             "crush_lu/emails/event_cancellation.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1039,7 +1046,7 @@ def send_event_cancelled_by_organiser(
         html_message = render_to_string(
             "crush_lu/emails/event_cancelled_by_organiser.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     sent = send_domain_email(
         subject=subject,
@@ -1106,7 +1113,7 @@ def send_curated_group_payment_remedy(registration, credits, request=None):
         html_message = render_to_string(
             "crush_lu/emails/curated_group_payment_remedy.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1148,7 +1155,7 @@ def send_curated_group_withdrawal_notice(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/curated_group_withdrawal.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1195,7 +1202,7 @@ def send_curated_group_reserve_notice(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/curated_group_reserve.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1269,7 +1276,7 @@ def send_event_reminder(registration, request=None, days_until_event=1):
             title=registration.event.title, days=days_text
         )
         html_message = render_to_string("crush_lu/emails/event_reminder.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1440,7 +1447,7 @@ def send_event_recap(registration, request=None):
     with translation.override(lang):
         subject = _("Recap of {title}").format(title=event.title)
         html_message = render_to_string("crush_lu/emails/event_recap.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1501,7 +1508,7 @@ def send_event_feedback_request(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/event_feedback_request.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1634,7 +1641,7 @@ def send_new_connection_request_notification(recipient, connection, requester, r
         html_message = render_to_string(
             "crush_lu/emails/new_connection_request.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1705,7 +1712,7 @@ def send_connection_accepted_notification(recipient, connection, accepter, reque
         html_message = render_to_string(
             "crush_lu/emails/connection_accepted.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1776,7 +1783,7 @@ def send_mutual_match_email(recipient, connection, other_user, request):
     with translation.override(lang):
         subject = _("It's a match! 🎉")
         html_message = render_to_string("crush_lu/emails/mutual_match.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1846,7 +1853,7 @@ def send_new_message_notification(recipient, message, request):
     with translation.override(lang):
         subject = _("New message from {name}").format(name=sender_name)
         html_message = render_to_string("crush_lu/emails/new_message.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -2060,7 +2067,7 @@ def send_journey_gift_notification(gift, request):
         html_message = render_to_string(
             "crush_lu/emails/journey_gift_notification.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     try:
         return send_domain_email(
@@ -2201,6 +2208,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             "social_links": get_social_links(),
         }
 
+    context["greeting_name"] = normalize_greeting_name(user.first_name)
+
     # Render email and send in user's preferred language
     # Use translation.override() for thread-safety
     with translation.override(lang):
@@ -2214,7 +2223,7 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
 
         # Render email template in user's language
         html_message = render_to_string(template, context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     # Send email
     try:
@@ -2310,7 +2319,7 @@ def send_crush_connect_catalogue_welcome(user, request):
             html_message = render_to_string(
                 "crush_lu/emails/crush_connect_catalogue_welcome.html", context
             )
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
         return send_domain_email(
             subject=subject,
@@ -2394,7 +2403,7 @@ def send_crush_credit_expiry_reminder(user, credits, request=None):
         html_message = render_to_string(
             "crush_lu/emails/crush_credit_expiry_reminder.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -2572,7 +2581,7 @@ def send_connect_beta_invite(user, wave, request=None):
         html_message = render_to_string(
             "crush_lu/emails/connect_beta_invite.html", context
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,

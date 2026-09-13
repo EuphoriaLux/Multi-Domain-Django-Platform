@@ -388,10 +388,9 @@ def test_invite_is_sent_in_the_members_language():
 
     assert len(mail.outbox) == 1
     assert mail.outbox[0].subject == "Crush Connect ist für Dich offen"
-    # `body` is the HTML: send_domain_email sends HTML-only platform-wide
-    # (body = html_message, content_subtype = "html").
-    assert "Du gehörst zur ersten Gruppe" in mail.outbox[0].body
-    assert "You're in the first group" not in mail.outbox[0].body
+    html_body = mail.outbox[0].alternatives[0].content
+    assert "Du gehörst zur ersten Gruppe" in html_body
+    assert "You're in the first group" not in html_body
 
 
 @pytest.mark.django_db

@@ -190,9 +190,8 @@ class TestRecapEmailBranching:
         assert sent
         assert len(mail.outbox) == 1
         message = mail.outbox[0]
-        # send_domain_email packs the html straight into body (subtype html).
-        assert message.content_subtype == "html"
-        return message.body
+        assert message.alternatives[0].mimetype == "text/html"
+        return message.alternatives[0].content
 
     def test_participant_gets_recap_cta(self):
         from crush_lu.models import EventRegistration
