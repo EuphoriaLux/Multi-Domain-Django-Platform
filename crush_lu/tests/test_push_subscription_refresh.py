@@ -16,7 +16,7 @@ class TestRefreshSubscription:
         # Create old subscription
         old_sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://old.endpoint.com/123',
+            endpoint='https://fcm.googleapis.com/fcm/send/old-123',
             p256dh_key='old_p256dh',
             auth_key='old_auth',
             failure_count=3
@@ -25,9 +25,9 @@ class TestRefreshSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/refresh-subscription/', {
-            'oldEndpoint': 'https://old.endpoint.com/123',
+            'oldEndpoint': 'https://fcm.googleapis.com/fcm/send/old-123',
             'subscription': {
-                'endpoint': 'https://new.endpoint.com/456',
+                'endpoint': 'https://fcm.googleapis.com/fcm/send/new-456',
                 'keys': {
                     'p256dh': 'new_p256dh',
                     'auth': 'new_auth'
@@ -41,7 +41,7 @@ class TestRefreshSubscription:
 
         # Verify subscription was updated
         old_sub.refresh_from_db()
-        assert old_sub.endpoint == 'https://new.endpoint.com/456'
+        assert old_sub.endpoint == 'https://fcm.googleapis.com/fcm/send/new-456'
         assert old_sub.p256dh_key == 'new_p256dh'
         assert old_sub.auth_key == 'new_auth'
         assert old_sub.failure_count == 0  # Reset on refresh
@@ -51,7 +51,7 @@ class TestRefreshSubscription:
         # Create subscription with new endpoint already
         existing_sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://new.endpoint.com/456',
+            endpoint='https://fcm.googleapis.com/fcm/send/new-456',
             p256dh_key='old_p256dh',
             auth_key='old_auth'
         )
@@ -60,7 +60,7 @@ class TestRefreshSubscription:
 
         response = client.post('/api/push/refresh-subscription/', {
             'subscription': {
-                'endpoint': 'https://new.endpoint.com/456',
+                'endpoint': 'https://fcm.googleapis.com/fcm/send/new-456',
                 'keys': {
                     'p256dh': 'updated_p256dh',
                     'auth': 'updated_auth'
@@ -85,7 +85,7 @@ class TestRefreshSubscription:
         response = client.post('/api/push/refresh-subscription/', {
             'oldEndpoint': 'https://nonexistent.endpoint.com/999',
             'subscription': {
-                'endpoint': 'https://new.endpoint.com/456',
+                'endpoint': 'https://fcm.googleapis.com/fcm/send/new-456',
                 'keys': {
                     'p256dh': 'new_p256dh',
                     'auth': 'new_auth'
@@ -103,9 +103,9 @@ class TestRefreshSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/refresh-subscription/', {
-            'oldEndpoint': 'https://old.endpoint.com/123',
+            'oldEndpoint': 'https://fcm.googleapis.com/fcm/send/old-123',
             'subscription': {
-                'endpoint': 'https://new.endpoint.com/456',
+                'endpoint': 'https://fcm.googleapis.com/fcm/send/new-456',
                 'keys': {
                     'p256dh': 'new_p256dh'
                     # Missing 'auth'
@@ -122,7 +122,7 @@ class TestRefreshSubscription:
         """Test that endpoint requires authentication"""
         response = client.post('/api/push/refresh-subscription/', {
             'subscription': {
-                'endpoint': 'https://new.endpoint.com/456',
+                'endpoint': 'https://fcm.googleapis.com/fcm/send/new-456',
                 'keys': {
                     'p256dh': 'new_p256dh',
                     'auth': 'new_auth'
@@ -142,7 +142,7 @@ class TestValidateSubscription:
         """Test validation of healthy subscription"""
         sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://test.endpoint.com/123',
+            endpoint='https://fcm.googleapis.com/fcm/send/test-123',
             p256dh_key='test_p256dh',
             auth_key='test_auth',
             enabled=True,
@@ -152,7 +152,7 @@ class TestValidateSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/validate-subscription/', {
-            'endpoint': 'https://test.endpoint.com/123'
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/test-123'
         }, content_type='application/json')
 
         assert response.status_code == 200
@@ -165,7 +165,7 @@ class TestValidateSubscription:
         """Test validation of old subscription (>90 days)"""
         sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://test.endpoint.com/123',
+            endpoint='https://fcm.googleapis.com/fcm/send/test-123',
             p256dh_key='test_p256dh',
             auth_key='test_auth',
             enabled=True,
@@ -178,7 +178,7 @@ class TestValidateSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/validate-subscription/', {
-            'endpoint': 'https://test.endpoint.com/123'
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/test-123'
         }, content_type='application/json')
 
         assert response.status_code == 200
@@ -192,7 +192,7 @@ class TestValidateSubscription:
         """Test validation of subscription with high failure count"""
         sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://test.endpoint.com/123',
+            endpoint='https://fcm.googleapis.com/fcm/send/test-123',
             p256dh_key='test_p256dh',
             auth_key='test_auth',
             enabled=True,
@@ -202,7 +202,7 @@ class TestValidateSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/validate-subscription/', {
-            'endpoint': 'https://test.endpoint.com/123'
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/test-123'
         }, content_type='application/json')
 
         assert response.status_code == 200
@@ -229,7 +229,7 @@ class TestValidateSubscription:
         """Test validation of disabled subscription"""
         sub = PushSubscription.objects.create(
             user=test_user,
-            endpoint='https://test.endpoint.com/123',
+            endpoint='https://fcm.googleapis.com/fcm/send/test-123',
             p256dh_key='test_p256dh',
             auth_key='test_auth',
             enabled=False
@@ -238,7 +238,7 @@ class TestValidateSubscription:
         client.force_login(test_user)
 
         response = client.post('/api/push/validate-subscription/', {
-            'endpoint': 'https://test.endpoint.com/123'
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/test-123'
         }, content_type='application/json')
 
         assert response.status_code == 200
@@ -262,7 +262,7 @@ class TestValidateSubscription:
     def test_validate_subscription_requires_auth(self, client):
         """Test that endpoint requires authentication"""
         response = client.post('/api/push/validate-subscription/', {
-            'endpoint': 'https://test.endpoint.com/123'
+            'endpoint': 'https://fcm.googleapis.com/fcm/send/test-123'
         }, content_type='application/json')
 
         # Should redirect to login (302) or return 403

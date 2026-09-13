@@ -11,6 +11,11 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import override, gettext as _
 from pywebpush import webpush, WebPushException
+from .services.push_endpoints import (
+    InvalidPushEndpoint,
+    push_transport,
+    retire_invalid_subscription,
+)
 from .models import PushSubscription
 from .utils.i18n import get_user_preferred_language
 
@@ -179,20 +184,27 @@ def send_push_notification(
             }
 
             # Send the push notification
-            webpush(
-                subscription_info=subscription_info,
-                data=json.dumps(payload),
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-                },
-                timeout=call_timeout,
-            )
+            with push_transport(subscription.endpoint) as session:
+                webpush(
+                    requests_session=session,
+                    subscription_info=subscription_info,
+                    data=json.dumps(payload),
+                    vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                    vapid_claims={
+                        "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+                    },
+                    timeout=call_timeout,
+                )
 
             # Mark success
             subscription.mark_success()
             success_count += 1
             logger.info(f"Push notification sent to {user.username} ({subscription.device_name})")
+
+        except InvalidPushEndpoint:
+            logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
+            retire_invalid_subscription(subscription)
+            failed_count += 1
 
         except WebPushException as e:
             # Handle push errors (expired subscription, etc.)
@@ -290,20 +302,27 @@ def send_push_to_subscription(subscription, title, body, url='/', tag='crush-not
         # Send the push notification. One device, so there is no fan-out to
         # bound — but pywebpush still defaults to timeout=None, and this runs
         # in a request like everything else.
-        webpush(
-            subscription_info=subscription_info,
-            data=json.dumps(payload),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
-            },
-            timeout=getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0),
-        )
+        with push_transport(subscription.endpoint) as session:
+            webpush(
+                requests_session=session,
+                subscription_info=subscription_info,
+                data=json.dumps(payload),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"
+                },
+                timeout=getattr(settings, 'CRUSH_PUSH_SEND_TIMEOUT_SECONDS', 10.0),
+            )
 
         # Mark success
         subscription.mark_success()
         logger.info(f"Push notification sent to {subscription.user.username} ({subscription.device_name})")
         return {'success': True, 'error': None}
+
+    except InvalidPushEndpoint as e:
+        logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
+        retire_invalid_subscription(subscription)
+        return {'success': False, 'error': str(e)}
 
     except WebPushException as e:
         # Handle push errors (expired subscription, etc.)

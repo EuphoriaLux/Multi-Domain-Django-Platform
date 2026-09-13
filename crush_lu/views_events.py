@@ -4,11 +4,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
-from django.db import transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
 import json
 import logging
+import sqlite3
 
 from .models import (
     CrushProfile,
@@ -50,6 +51,41 @@ from .email_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_duplicate_event_registration(error):
+    """Only recover the event/member unique constraint, never another failure.
+
+    Called after a savepoint rollback. PostgreSQL reports the constraint name;
+    introspection checks its columns without pinning a generated migration name.
+    SQLite reports the columns in its unique-constraint error instead.
+    """
+    cause = error.__cause__
+    table = EventRegistration._meta.db_table
+    columns = [
+        EventRegistration._meta.get_field(name).column for name in ("event", "user")
+    ]
+    if connection.vendor == "postgresql":
+        code = getattr(cause, "sqlstate", None) or getattr(cause, "pgcode", None)
+        diagnostic = getattr(cause, "diag", None)
+        if code != "23505" or getattr(diagnostic, "table_name", None) != table:
+            return False
+        with connection.cursor() as cursor:
+            constraints = connection.introspection.get_constraints(cursor, table)
+        constraint = constraints.get(diagnostic.constraint_name, {})
+        return (
+            constraint.get("unique", False)
+            and constraint.get("columns") == columns
+        )
+    if connection.vendor == "sqlite":
+        expected = "UNIQUE constraint failed: " + ", ".join(
+            f"{table}.{column}" for column in columns
+        )
+        return (
+            getattr(cause, "sqlite_errorcode", None) == sqlite3.SQLITE_CONSTRAINT_UNIQUE
+            and str(cause) == expected
+        )
+    return False
 
 
 def _admitted_status(event, registration=None):
@@ -1606,6 +1642,21 @@ def event_register(request, event_id):
                 # Lock the event row to get accurate capacity count
                 locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
 
+                # Another request can register this member while we wait for
+                # the event lock. Re-read before changing their profile, seat,
+                # preferences or queue position; only a cancelled row is reusable.
+                existing_registration = EventRegistration.objects.filter(
+                    event=locked_event, user=request.user
+                ).first()
+                if (
+                    existing_registration
+                    and existing_registration.status != "cancelled"
+                ):
+                    messages.warning(
+                        request, _("You are already registered for this event.")
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+
                 # Re-check registration deadline under lock to prevent race condition
                 if not locked_event.is_registration_accepting:
                     # Detail page shows the "closed" banner; skip the redundant flash.
@@ -1642,20 +1693,16 @@ def event_register(request, event_id):
                         )
                         return redirect("crush_lu:event_detail", event_id=event_id)
 
-                # If the user submitted a gender, persist it to their profile
+                # Use the submitted gender for capacity, but persist it only
+                # after winning the registration insert. A duplicate loser
+                # must not update (or create) the member's profile.
                 submitted_gender = form.cleaned_data.get("gender")
                 if requires_gender_selection and submitted_gender:
                     if profile is None:
-                        profile = CrushProfile.objects.create(
-                            user=request.user, gender=submitted_gender
-                        )
-                    else:
-                        profile.gender = submitted_gender
-                        profile.save(update_fields=["gender"])
+                        profile = CrushProfile(user=request.user)
+                    profile.gender = submitted_gender
 
-                cancelled_registration = EventRegistration.objects.filter(
-                    event=locked_event, user=request.user, status="cancelled"
-                ).first()
+                cancelled_registration = existing_registration
 
                 if cancelled_registration:
                     registration = cancelled_registration
@@ -1702,8 +1749,8 @@ def event_register(request, event_id):
                 # same success response as every other path.
                 if locked_event.uses_curated_registration:
                     registration.status = "applied"
-                    messages.success(
-                        request,
+                    registration_message = (
+                        messages.SUCCESS,
                         _(
                             "Your application has been received. The organiser "
                             "team composes the group before the event and will "
@@ -1727,16 +1774,16 @@ def event_register(request, event_id):
                     if total_full or gender_pool_full:
                         registration.status = "waitlist"
                         if gender_pool_full and not total_full:
-                            messages.info(
-                                request,
+                            registration_message = (
+                                messages.INFO,
                                 _(
                                     "All spots for your gender group are taken. "
                                     "You have been added to the waitlist."
                                 ),
                             )
                         else:
-                            messages.info(
-                                request,
+                            registration_message = (
+                                messages.INFO,
                                 _(
                                     "Event is full. You have been added to the waitlist."
                                 ),
@@ -1751,19 +1798,51 @@ def event_register(request, event_id):
                             locked_event, registration
                         )
                         if registration.status == "pending":
-                            messages.success(
-                                request,
+                            registration_message = (
+                                messages.SUCCESS,
                                 _(
                                     "Your spot is reserved! Please complete payment "
                                     "to confirm your registration."
                                 ),
                             )
                         else:
-                            messages.success(
-                                request, _("Successfully registered for the event!")
+                            registration_message = (
+                                messages.SUCCESS,
+                                _("Successfully registered for the event!"),
                             )
 
-                registration.save()
+                try:
+                    # Some writers (for example admin additions) do not take
+                    # the event lock. Keep their unique event/member conflict
+                    # inside a savepoint, so the outer transaction can still
+                    # read the winning registration. Other integrity errors,
+                    # including errors updating a reused row, must propagate.
+                    with transaction.atomic():
+                        registration.save()
+                except IntegrityError as error:
+                    if (
+                        cancelled_registration is not None
+                        or not _is_duplicate_event_registration(error)
+                    ):
+                        raise
+                    winner = (
+                        EventRegistration.objects.filter(
+                            event=locked_event, user=request.user
+                        )
+                        .exclude(status="cancelled")
+                        .first()
+                    )
+                    if winner is None:
+                        raise
+                    messages.warning(
+                        request, _("You are already registered for this event.")
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+                if requires_gender_selection and submitted_gender:
+                    if profile.pk is None:
+                        profile.save()
+                    else:
+                        profile.save(update_fields=["gender"])
                 if pref_form is not None:
                     # update_or_create, not save(): the registration row is
                     # reused on re-registration, and a stale preference row
@@ -1776,6 +1855,7 @@ def event_register(request, event_id):
                 if registration.status in SEAT_HOLDING_STATUSES:
                     _attach_unclaimed_resale_claim(registration, locked_event)
 
+            messages.add_message(request, *registration_message)
             try:
                 if registration.status == "confirmed":
                     send_event_registration_confirmation(registration, request)

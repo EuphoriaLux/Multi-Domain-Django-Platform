@@ -101,7 +101,7 @@ def get_domain_config(host):
     Returns:
         Domain config dict if found, None otherwise
     """
-    host = host.split(':')[0].lower()
+    host = host.split(':')[0].lower().rstrip('.')
 
     # Direct match
     if host in DOMAINS:

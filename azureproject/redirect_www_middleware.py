@@ -14,21 +14,19 @@ from .domains import DOMAINS, PRODUCTION_DEFAULT
 
 
 def is_staging_subdomain(host):
-    """Check if the host is a staging test subdomain (test.*)."""
-    return host.startswith('test.')
+    """Check staging naming conventions (test.* and test-*)."""
+    return host.startswith(('test.', 'test-'))
 
 
 class StagingNoIndexMiddleware:
     """
-    Add X-Robots-Tag: noindex header for staging subdomains (test.*).
+    Add X-Robots-Tag: noindex header for staging subdomains (test.* and test-*).
 
     This prevents search engines from indexing staging/test environments.
     The test.* subdomains point to the Azure staging slot for pre-production testing.
 
-    For unconfigured test.* domains (external scanners), the validate_host()
-    monkey-patch in production.py allows them through to prevent OpenTelemetry
-    crashes, but Django's CommonMiddleware will return 400 for hosts not in
-    ALLOWED_HOSTS.
+    Production's first application middleware rejects unconfigured hosts
+    before this middleware can return or modify a response.
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -36,8 +34,7 @@ class StagingNoIndexMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
 
-        # Get host directly from META
-        host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+        host = request.get_host().split(':')[0].lower().rstrip('.')
 
         # Add noindex header for staging subdomains
         if is_staging_subdomain(host):
@@ -83,8 +80,8 @@ class RedirectWWWToRootDomainMiddleware:
         if request.path in ['/healthz/', '/healthz', '/readyz/', '/readyz']:
             return self.get_response(request)
 
-        # Get host directly from META to avoid ALLOWED_HOSTS validation
-        host = request.META.get('HTTP_HOST', '').split(':')[0].lower()
+        # Use the same validated effective host as routing and CSRF checks.
+        host = request.get_host().split(':')[0].lower().rstrip('.')
 
         if not host:
             return self.get_response(request)

@@ -303,6 +303,35 @@ class TestReminderSweep:
         assert second["sent"] == 0
         assert calls == [lead.pk]
 
+    def test_rejected_coach_endpoint_does_not_retry_forever(self, settings):
+        from crush_lu.models import CoachPushSubscription
+
+        settings.VAPID_PRIVATE_KEY = "test-private"
+        settings.VAPID_PUBLIC_KEY = "test-public"
+        settings.VAPID_ADMIN_EMAIL = "push-test@example.com"
+        coach, lead = self._overdue_lead()
+        subscription = CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://127.0.0.1/private",
+            # Invalid destination retirement must precede key inspection too.
+            p256dh_key="%%%",
+            auth_key="%%%",
+            notify_screening_reminders=True,
+        )
+        with mock.patch("crush_lu.coach_notifications.webpush") as transport:
+            first = sweep_lead_reminders()
+            assert first["failed"] == 1
+            lead.refresh_from_db()
+            assert lead.reminder_sent_at is None
+            assert not CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
+            second = sweep_lead_reminders()
+            third = sweep_lead_reminders()
+        assert second["failed"] == 0
+        assert third["sent"] == 0
+        lead.refresh_from_db()
+        assert lead.reminder_sent_at is not None
+        transport.assert_not_called()
+
     def test_a_scheduled_or_completed_call_is_never_swept(self):
         _, scheduled = self._overdue_lead(
             coach_call_scheduled_at=timezone.now()
@@ -811,7 +840,7 @@ class TestCodexRound1Fixes:
         coach = lead.assigned_coach
         opted_in = CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/opted-in",
+            endpoint="https://fcm.googleapis.com/fcm/send/opted-in",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,
@@ -819,7 +848,7 @@ class TestCodexRound1Fixes:
         )
         CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/muted",
+            endpoint="https://fcm.googleapis.com/fcm/send/muted",
             p256dh_key="k2",
             auth_key="a2",
             enabled=True,
@@ -851,7 +880,7 @@ class TestCodexRound1Fixes:
         coach = _make_coach("sa_pref@example.com")
         opted_in = CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/alerts-on",
+            endpoint="https://fcm.googleapis.com/fcm/send/alerts-on",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,
@@ -859,7 +888,7 @@ class TestCodexRound1Fixes:
         )
         CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/alerts-muted",
+            endpoint="https://fcm.googleapis.com/fcm/send/alerts-muted",
             p256dh_key="k2",
             auth_key="a2",
             enabled=True,
@@ -1689,7 +1718,7 @@ class TestCodexRound4Fixes:
         for i in range(3):
             CoachPushSubscription.objects.create(
                 coach=coach,
-                endpoint=f"https://push.example/r4-{i}",
+                endpoint=f"https://fcm.googleapis.com/fcm/send/r4-{i}",
                 p256dh_key=f"k{i}",
                 auth_key=f"a{i}",
                 enabled=True,
@@ -1765,7 +1794,7 @@ class TestCodexRound6Fixes:
         routed, cocoach, lead = self._cocoach_lead()
         CoachPushSubscription.objects.create(
             coach=routed,
-            endpoint="https://push.example/r6-consent",
+            endpoint="https://fcm.googleapis.com/fcm/send/r6-consent",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,

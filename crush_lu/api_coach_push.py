@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from .decorators import crush_login_required, ratelimit
 from .models import CrushCoach, CoachPushSubscription, PushSubscription
+from .services.push_endpoints import InvalidPushEndpoint, validate_push_endpoint
 from .coach_notifications import (
     send_coach_test_notification,
     subscription_key_fault,
@@ -94,11 +95,18 @@ def subscribe_push(request):
         }, status=400)
 
     # Validate required fields
-    if 'endpoint' not in data or 'keys' not in data:
+    if not isinstance(data, dict) or 'endpoint' not in data or 'keys' not in data:
         return JsonResponse({
             'success': False,
             'error': 'Missing endpoint or keys'
         }, status=400)
+
+    try:
+        validate_push_endpoint(data['endpoint'])
+    except InvalidPushEndpoint:
+        return JsonResponse(
+            {'success': False, 'error': 'Unsupported push endpoint'}, status=400
+        )
 
     keys = data['keys']
     if 'p256dh' not in keys or 'auth' not in keys:
