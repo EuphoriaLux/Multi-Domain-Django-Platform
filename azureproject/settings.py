@@ -91,6 +91,18 @@ GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")
 GOOGLE_INDEXING_DOMAIN = os.getenv("GOOGLE_INDEXING_DOMAIN", "")
 GOOGLE_INDEXING_TIMEOUT_SECONDS = int(os.getenv("GOOGLE_INDEXING_TIMEOUT_SECONDS", "3"))
 
+# Public "write a review" deep link for the Crush.lu Google Business Profile
+# listing, shown to attendees after an event. This is the listing's own
+# `newReviewUri` (read from the Business Profile API on 2026-09-13), not a
+# hand-built URL — it opens the review composer directly.
+#
+# Empty by default, and empty means *render nothing*: only the production slot
+# may point members at the live listing. A staging slot runs an isolated
+# database, so its event IDs and attendee rows are unrelated to production —
+# asking those people for a public review would be soliciting reviews of an
+# event they never attended.
+CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 

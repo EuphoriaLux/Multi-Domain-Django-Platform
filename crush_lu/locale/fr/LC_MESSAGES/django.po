@@ -41504,3 +41504,18 @@ msgstr ""
 msgid "This member's photo changed. Reload and check the new one."
 msgstr ""
 "La photo de ce membre a changé. Rechargez et vérifiez la nouvelle photo."
+
+#: templates/crush_lu/emails/event_feedback_request.html:24
+#: templates/crush_lu/emails/event_recap.html:69
+msgid ""
+"You can also review us publicly on Google. Honest reviews — good or bad — "
+"help other singles in Luxembourg decide whether a Crush.lu event is for them."
+msgstr ""
+"Vous pouvez aussi nous laisser un avis public sur Google. Les avis sincères "
+"— bons comme mauvais — aident les autres célibataires du Luxembourg à "
+"savoir si un événement Crush.lu est fait pour eux."
+
+#: templates/crush_lu/emails/event_feedback_request.html:25
+#: templates/crush_lu/emails/event_recap.html:70
+msgid "Leave a Google review"
+msgstr "Laisser un avis Google"
