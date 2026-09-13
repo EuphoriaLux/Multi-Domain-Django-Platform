@@ -4270,11 +4270,14 @@ class EventFeedbackAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("NPS Segment"))
     def get_nps_segment(self, obj):
+        # format_html() needs interpolation arguments: calling it with a lone
+        # literal was deprecated in Django 5.0 and *raises* TypeError on 6.0,
+        # which 500s this changelist the moment it has a single row to render.
         if obj.is_promoter:
-            return format_html('<span style="color: #28a745;">😍 Promoter</span>')
+            return format_html('<span style="color: #28a745;">{}</span>', "😍 Promoter")
         if obj.is_detractor:
-            return format_html('<span style="color: #dc3545;">😞 Detractor</span>')
-        return format_html('<span style="color: #6c757d;">😐 Passive</span>')
+            return format_html('<span style="color: #dc3545;">{}</span>', "😞 Detractor")
+        return format_html('<span style="color: #6c757d;">{}</span>', "😐 Passive")
 
     def has_add_permission(self, request):
         # Feedback comes from attendees via the post-event survey.
