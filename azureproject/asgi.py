@@ -34,8 +34,11 @@ from channels.routing import URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
 from django.conf import settings  # noqa: E402
 from django.core.asgi import get_asgi_application  # noqa: E402
+from django.core.exceptions import DisallowedHost  # noqa: E402
+from django.core.handlers.asgi import ASGIRequest  # noqa: E402
 from whitenoise import WhiteNoise  # noqa: E402
 
+from azureproject.host_validation import validate_production_request_host  # noqa: E402
 from crush_lu.routing import websocket_urlpatterns  # noqa: E402
 
 logger = logging.getLogger("azureproject.asgi")
@@ -101,6 +104,23 @@ class StaticFilesASGI:
         if scope["type"] == "http":
             path = scope.get("path", "")
             if path.startswith(self.static_prefix):
+                # Static responses bypass Django's first middleware, so enforce
+                # the same host boundary here before WhiteNoise can serve them.
+                if getattr(settings, "PRODUCTION_HOST_VALIDATION", False):
+                    try:
+                        validate_production_request_host(ASGIRequest(scope, None))
+                    except DisallowedHost:
+                        await send(
+                            {
+                                "type": "http.response.start",
+                                "status": 400,
+                                "headers": [(b"content-type", b"text/plain")],
+                            }
+                        )
+                        await send(
+                            {"type": "http.response.body", "body": b"Bad Request"}
+                        )
+                        return
                 static_file = (
                     whitenoise_app.find_file(path)
                     if whitenoise_app.autorefresh
