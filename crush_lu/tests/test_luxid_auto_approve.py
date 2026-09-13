@@ -557,6 +557,20 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.verification_status, "pending")
 
+    def test_luxid_through_an_oidc_app_bound_to_another_site_counts(self):
+        """The fix-up keys on `has_luxid_connected`, like the Connect gate and
+        the coach page, so a LuxID token from the generic OIDC provider counts
+        even when that app is not bound to the request's Site."""
+        _link_luxid_through_oidc_app(self.user)
+
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            response = self._get_profile_submitted()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("dashboard", response["Location"])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_method, "luxid")
+
     def test_approved_submission_no_cta(self):
         """CTA is only shown for pending submissions."""
         self.submission.status = "approved"
@@ -587,6 +601,121 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         current_steps = [s for s in stepper if s.get("is_current")]
         if current_steps:
             self.assertEqual(current_steps[0].get("step"), 5)
+
+
+def _link_luxid_through_oidc_app(user):
+    """LuxID through the generic openid_connect provider, on an app bound to
+    no Site: only the token's app identifies the account as LuxID."""
+    from allauth.socialaccount.models import SocialApp, SocialToken
+
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="luxid",
+        name="LuxID (OIDC)",
+        client_id="test",
+        secret="test",
+    )
+    account = SocialAccount.objects.create(
+        user=user, provider="openid_connect", uid="oidc-lux-1"
+    )
+    SocialToken.objects.create(app=app, account=account, token="token")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class TestDashboardLuxidLazyFixup(_SiteMixin, TestCase):
+    """The dashboard runs the same lazy fix-up as /profile-submitted/.
+
+    It is the page a pending member lands on after logging in, so a member
+    whose LuxID link never verified them used to stay pending until they
+    happened to open the status page.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"crushlu_consent_given": True},
+        )
+        self.client.force_login(self.user)
+
+    def _get_dashboard(self):
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+
+    def _link_luxid(self):
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
+
+    @patch("crush_lu.referrals.check_and_apply_profile_approved_reward")
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_pending_member_with_luxid_is_verified(self, mock_notify, mock_reward):
+        self._link_luxid()
+
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("dashboard", response["Location"])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "luxid")
+        self.assertTrue(self.profile.is_approved)
+        self.assertIsNotNone(self.profile.approved_at)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, "approved")
+        mock_notify.assert_called_once()
+        mock_reward.assert_called_once()
+
+        # The redirect lands on the verified dashboard, with no second pass.
+        self.assertEqual(self._get_dashboard().status_code, 200)
+        mock_notify.assert_called_once()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_luxid_through_an_oidc_app_bound_to_another_site_counts(self, mock_notify):
+        _link_luxid_through_oidc_app(self.user)
+
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_only_pending_members_qualify(self, mock_notify):
+        """An incomplete member submits first; a rejected one must not
+        self-clear by reloading the dashboard."""
+        self._link_luxid()
+        for status in ("incomplete", "rejected"):
+            with self.subTest(status=status):
+                CrushProfile.objects.filter(pk=self.profile.pk).update(
+                    verification_status=status
+                )
+                self._get_dashboard()
+                self.profile.refresh_from_db()
+                self.assertEqual(self.profile.verification_status, status)
+                self.assertFalse(self.profile.is_approved)
+        mock_notify.assert_not_called()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_pending_member_without_luxid_stays_pending(self, mock_notify):
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+        mock_notify.assert_not_called()
+
+    def test_fixup_failure_is_logged_and_the_dashboard_still_renders(self):
+        self._link_luxid()
+
+        with patch(
+            "crush_lu.signals._execute_luxid_direct_verify",
+            side_effect=Exception("verify service down"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
 
 
 # ---------------------------------------------------------------------------

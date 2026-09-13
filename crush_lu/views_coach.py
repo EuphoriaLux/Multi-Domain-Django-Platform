@@ -1056,7 +1056,7 @@ UNVERIFIED_SIGNAL_FILTERS = (
     "attended",  # stood at a door and left unverified — the actual leak
     "upcoming",  # booked on a future event: verifiable at that door
     "no_photo",  # `_auto_verify_on_attendance` skips them; needs a photo first
-    "luxid",  # LuxID linked yet unverified — should not be possible
+    "luxid",  # LuxID on file: not submitted yet, or pending and not back since
     "premium",  # only their own assigned coach may verify them
     "unowned",  # no open submission: no coach is carrying this one
 )
