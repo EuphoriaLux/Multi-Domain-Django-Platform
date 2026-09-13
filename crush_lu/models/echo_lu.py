@@ -341,8 +341,8 @@ class EchoExperienceSync(models.Model):
     def mark_unverified(self, note):
         """Record a take-down whose listing's fate is not known yet.
 
-        echo.lu answered that it holds nothing published under this id, so
-        nothing is public — but whether the listing is a draft (keep its id) or was
+        echo.lu answered "no published experience found", so nothing is
+        public — but whether the listing is a draft (keep its id) or was
         deleted in the back office (forget it) could not be checked this
         time. Settling it as withdrawn would keep a possibly dead id for good,
         and a later republish would PUT to it for ever.

@@ -340,8 +340,8 @@ nothing is skipped. Override per-run with `--max-seconds`.
 The budget reserves one call's worth of headroom rather than just checking
 whether it has run out: an event started a second before the deadline still
 gets a full timeout to finish, and that overshoot is exactly what the budget
-exists to prevent. A take-down that gets echo.lu's "nothing published" answer
-(see *Take-downs*) follows it with one `GET` to tell a draft from a deleted
+exists to prevent. A take-down that gets echo.lu's "no published experience
+found" answer follows it with one `GET` to tell a draft from a deleted
 listing, but that `GET` is cut to whatever is left of the budget and skipped
 if nothing is (the row then stays Pending for the next sweep), so it needs no
 reservation of its own. The sweep client also runs with retries off — the
@@ -358,7 +358,7 @@ the sweep.
 
 **Sweep-wide failures reach the timer.** If echo.lu refuses the key (401/403),
 times the request out (408), rate-limits the account (429), answers 404 or
-405 (other than the one recognised take-down answer under *Take-downs* — a
+405 (other than the two listing-level answers under *Take-downs* — a
 gone route or base URL answers every call that way), rejects the request's
 shape (406, 415) or answers any other 4xx that is not a verdict on one
 event's payload — only 400, 409, 413 and 422 count as that, so a status
@@ -375,7 +375,8 @@ shared slug in `ECHO_LU_DEFAULT_*` is therefore a per-event warning carrying
 echo.lu's rejection text; `echo_taxonomy --check` is the gate that validates
 those settings. `--event-id` and `--withdraw` runs fail on any failure. A 400/422 rejection of one event's
 payload, an event
-whose venue is not linked, and a listing blocked on an untracked create are
+whose venue is not linked, a listing echo.lu no longer finds in the key's
+folder (see *Take-downs*), and a listing blocked on an untracked create are
 recorded on that event's sync row (the admin shows them) and named in one
 `WARNING` per sweep, while the endpoint still answers 202:
 
@@ -413,14 +414,9 @@ python manage.py sync_events_to_echo --audit
   updates the same listing instead of creating a second one.
 
 An unpublish that echo.lu answers with **404 `no published experience
-found`** or **404 `no experience found in your folder`** is recorded as
-**Withdrawn**, not as a failure. Only those two count: a 404 with any other
-body (a stale `ECHO_LU_API_BASE_URL`, a moved route) says nothing about the
-listing, so it stays a failure and fails the sweep. The second wording first
-came back on prod on 2026-09-13, for two finished listings. Before it was
-recognised it fell into that route-level bucket and put the hourly sweep back
-to a 500. Which case each wording means is not documented, and the code does
-not rely on knowing: both go to the same `GET` below. A recognised answer means the listing was never
+found`** is recorded as **Withdrawn**, not as a failure. Only that answer — a
+404 with any other body (a stale `ECHO_LU_API_BASE_URL`, a moved route) says
+nothing about the listing and stays a failure. The recognised answer means the listing was never
 public — a draft nobody submitted, which is every listing created
 with `ECHO_LU_CREATE_STATUS=draft` — or was deleted in the back office. Either
 way the take-down's goal already holds. Recorded as Failed, the row stayed in
@@ -442,6 +438,28 @@ route is known to work at that point — the unpublish answer proved it.)
 A check that is made and fails — the key refused, echo.lu erroring or not
 answering — is an echo.lu error like any other: the row is Failed with its id
 kept, the sweep retries it, and a shared cause still fails the sweep.
+
+**`404 no experience found in your folder` is different: it stays a
+failure.** echo.lu first sent it on 2026-09-13, for two finished listings,
+while the same key updated the others fine. It only says the key cannot find
+the listing in its own folder. A listing deleted in the back office answers
+that, but so would one that still exists under another organisation's folder.
+Every read the API offers is scoped to the same key (an anonymous `GET`
+answers `API TOKEN NOT VALID`), so the sync cannot tell the two apart. Taken
+as a finished take-down, it would clear the id of a listing that may still be
+public, and a republish would then create a duplicate beside it.
+
+So the row stays **Failed** with its id kept and the sweep retries it each
+hour. It is named in the `[ECHO] sweep left …` warning rather than failing the
+sweep; a 404 with any other body still fails it. Once somebody has checked the
+back office and the listing really is gone, settle it by hand:
+
+```bash
+python manage.py sync_events_to_echo --event-id N --forget
+```
+
+`--forget` otherwise only accepts a blocked (orphaned) row. It takes this one
+because the error recorded on the row is that exact answer.
 
 A `cancel` that gets the same answer is recorded as **Withdrawn**, not
 Cancelled: no notice is showing, and Cancelled would tell the sweep one is and

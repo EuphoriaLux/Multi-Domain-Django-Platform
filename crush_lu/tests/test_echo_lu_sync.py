@@ -1641,41 +1641,33 @@ class SyncEventTests(TestCase):
             EchoExperienceSync.objects.get(event=event).experience_id, "exp-new"
         )
 
-    def test_the_folder_wording_is_recognised_too(self):
+    def test_the_folder_wording_is_a_failure_that_keeps_the_id(self):
         # From 2026-09-13 echo.lu answered two finished listings' unpublish
-        # with "no experience found in your folder" instead. Unrecognised, it
-        # read as a route-level 404, failed the sweep and put the timer back
-        # to a 500 every hour. It takes the first wording's path: the GET
-        # decides whether the id is kept (a draft) or forgotten (deleted).
-        for client_class, keeps_id in (
-            (DraftListingClient, True),
-            (DeletedListingClient, False),
-        ):
-            with self.subTest(client=client_class.__name__):
-                experience_id = f"exp-{client_class.__name__}"
-                event = make_event()
-                echo_lu.sync_event(
-                    event,
-                    client=FakeClient(
-                        create_response=echo_response({"id": experience_id})
-                    ),
-                )
+        # with "no experience found in your folder". That only says the key
+        # cannot see the listing: one still public under another
+        # organisation's folder would answer it too, and every read is scoped
+        # to the same key, so no GET can settle it. Clearing the id would let
+        # a republish put a duplicate beside a listing that may still be up.
+        # So it stays a failure with the id kept — but a per-event one, which
+        # the sweep reports instead of answering 500.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
 
-                MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
-                event.refresh_from_db()
-                client = client_class()
-                client.unpublish_body = NOT_IN_FOLDER
-                self.assertEqual(echo_lu.sync_event(event, client=client), "withdrawn")
+        MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+        event.refresh_from_db()
+        client = DeletedListingClient()
+        client.unpublish_body = NOT_IN_FOLDER
+        with self.assertRaises(echo_lu.EchoLuError) as caught:
+            echo_lu.sync_event(event, client=client)
 
-                self.assertEqual(
-                    client.calls,
-                    [("unpublish", experience_id), ("get", experience_id)],
-                )
-                sync = EchoExperienceSync.objects.get(event=event)
-                self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
-                self.assertEqual(sync.experience_id, experience_id if keeps_id else "")
-                self.assertEqual(sync.last_error, "")
-                self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+        self.assertTrue(echo_lu.is_isolated_failure(caught.exception))
+        # No GET: it is scoped to the same folder and could not settle it.
+        self.assertEqual(client.calls, [("unpublish", "exp-123")])
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertEqual(sync.experience_id, "exp-123")
+        self.assertIn(NOT_IN_FOLDER, sync.last_error)
+        self.assertIn(event, list(echo_lu.events_needing_sync()))
 
     def test_a_check_that_fails_is_surfaced_not_swallowed(self):
         # A lookup that was made and failed is an echo.lu error like any
@@ -2331,6 +2323,10 @@ class IsolatedFailureTests(TestCase):
             echo_lu.EchoLuError("listing state conflict", status_code=409),
             echo_lu.EchoLuError("description too large", status_code=413),
             echo_lu.EchoLuError("invalid field", status_code=422),
+            # Names one listing the key cannot see, not a route.
+            echo_lu.EchoLuError(
+                "unpublish rejected", status_code=404, body=NOT_IN_FOLDER
+            ),
         ):
             with self.subTest(error=str(error)):
                 self.assertTrue(echo_lu.is_isolated_failure(error))
@@ -2351,6 +2347,8 @@ class IsolatedFailureTests(TestCase):
             echo_lu.EchoLuMisconfigured("requires categories"),
             echo_lu.EchoLuError("slow down", status_code=429),
             echo_lu.EchoLuError("echo.lu is down", status_code=500),
+            # The folder wording counts only on a 404.
+            echo_lu.EchoLuError("echo.lu erred", status_code=500, body=NOT_IN_FOLDER),
             echo_lu.EchoLuError("echo.lu PUT failed: Read timed out"),
             echo_lu.EchoLuNotConfigured("no key"),
             echo_lu.EchoLuOrphanedCreate("accepted without an id"),
@@ -2696,7 +2694,7 @@ class SyncCommandTests(TestCase):
             MeetupEvent.objects.filter(pk=event.pk).update(
                 date_time=timezone.now() - timedelta(days=18)
             )
-            finished.append(event)
+            finished.append((event, f"exp-{name}"))
         orphan = make_event(title="Orphan")
         EchoExperienceSync.objects.create(
             event=orphan, status=EchoExperienceSync.Status.ORPHANED
@@ -2713,13 +2711,29 @@ class SyncCommandTests(TestCase):
         logged = "\n".join(logs.output)
         self.assertIn(f"[{unlinked.pk}] no echo.lu venue is linked", logged)
         self.assertIn(f"[{orphan.pk}] blocked", logged)
-        for event in finished:
-            self.assertNotIn(f"[{event.pk}]", logged)
+        # No GET: it is scoped to the same folder and could not settle it.
+        self.assertNotIn("get", [call[0] for call in client.calls])
+        for event, experience_id in finished:
+            # Named with its way out, and settled neither way: the key not
+            # seeing the listing does not prove it is gone.
+            self.assertIn(f"run --event-id {event.pk} --forget", logged)
             sync = EchoExperienceSync.objects.get(event=event)
-            self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
-            # Gone from echo.lu, so the id is forgotten and the row leaves
-            # the sweep instead of retrying the unpublish every hour.
-            self.assertEqual(sync.experience_id, "")
+            self.assertEqual(sync.status, EchoExperienceSync.Status.FAILED)
+            self.assertEqual(sync.experience_id, experience_id)
+
+        # Somebody checks the back office, finds both gone, and settles them.
+        # Only then does the row leave the sweep.
+        for event, _experience_id in finished:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--forget",
+                stdout=StringIO(),
+            )
+            self.assertEqual(
+                EchoExperienceSync.objects.get(event=event).experience_id, ""
+            )
             self.assertNotIn(event, list(echo_lu.events_needing_sync()))
 
     @override_settings(**ENABLED)
@@ -3193,6 +3207,60 @@ class CategoryMapSafetyTests(TestCase):
 @override_settings(**ENABLED)
 class OrphanRecoveryGuardTests(TestCase):
     """--adopt/--forget are sharp: pointed at a healthy row they strand it."""
+
+    def test_forget_settles_a_listing_gone_from_the_folder(self):
+        # echo.lu's "no experience found in your folder" leaves the row
+        # FAILED with its id, because the sync cannot tell a deleted listing
+        # from one the key can no longer see. A person who has checked the
+        # back office is the one who can, and --forget is their tool.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+        event.refresh_from_db()
+        client = DeletedListingClient()
+        client.unpublish_body = NOT_IN_FOLDER
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--forget",
+            stdout=StringIO(),
+        )
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.experience_id, "")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.PENDING)
+
+    def test_forget_refuses_a_row_failed_for_any_other_reason(self):
+        # Gated on the recorded answer, not on FAILED: a 503 or a timeout
+        # leaves a perfectly good id behind, and clearing it would strand a
+        # live listing and let the next sync post a second one.
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        EchoExperienceSync.objects.create(
+            event=event,
+            experience_id="exp-live",
+            status=EchoExperienceSync.Status.FAILED,
+            last_error="echo.lu PUT /experiences/exp-live rejected (HTTP 503)",
+        )
+
+        with self.assertRaises(CommandError) as caught:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--forget",
+                stdout=StringIO(),
+            )
+
+        self.assertIn("not blocked", str(caught.exception))
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).experience_id, "exp-live"
+        )
 
     def test_forget_refuses_a_healthy_row(self):
         # A mistyped event id is all it takes: clearing a valid experience_id

@@ -210,7 +210,7 @@ class Command(BaseCommand):
         # whole timeout more, which is how a bounded sweep still overruns the
         # Function. With retries off that worst case is one timeout. The one
         # possible second call — the draft-or-deleted GET after a take-down
-        # answered that nothing is published — needs no reservation of
+        # answered "no published experience found" — needs no reservation of
         # its own: it is cut to what is left of the budget (client.deadline,
         # below) and skipped when nothing is, leaving the row PENDING for the
         # next sweep. Reserving for it too made any budget of two timeouts or
@@ -318,7 +318,17 @@ class Command(BaseCommand):
             # failing the sweep over one is how a single orphan kept the
             # EchoLuSync timer red for 18 days without the exception ever
             # saying which event it was.
-            attention = [f"[{e.pk}] {str(exc)[:300]}" for e, exc in isolated] + [
+            attention = [
+                f"[{e.pk}] {str(exc)[:300]}"
+                # The one isolated failure with a manual way out: once the
+                # back office shows the listing is gone, --forget settles it.
+                + (
+                    f" — if it is gone from echo.lu, run --event-id {e.pk} --forget"
+                    if echo_lu.listing_not_in_folder(exc)
+                    else ""
+                )
+                for e, exc in isolated
+            ] + [
                 f"[{e.pk}] blocked on an untracked listing — run --audit"
                 for e in blocked
             ]
@@ -368,6 +378,12 @@ class Command(BaseCommand):
         id should be reattached, `--forget` when it was deleted in the back
         office and a fresh one should be created next sync.
 
+        It also takes a Failed row whose last error is echo.lu's 404 "no
+        experience found in your folder". That answer cannot tell a deleted
+        listing from one the key can no longer see, so the sync keeps the id
+        and keeps retrying (see ``echo_lu.listing_not_in_folder``); this is how
+        a person who has checked the back office settles it.
+
         Writes nothing to echo.lu, so it needs neither the key nor the switch.
         """
         from crush_lu.models.echo_lu import EchoExperienceSync
@@ -387,15 +403,22 @@ class Command(BaseCommand):
                 f"nothing blocked to resolve."
             )
 
-        if sync.status != EchoExperienceSync.Status.ORPHANED:
+        # Gated on the recorded answer, not on Failed alone: a row failed by
+        # a 503 or a timeout still holds a perfectly good id.
+        not_in_folder = (
+            sync.status == EchoExperienceSync.Status.FAILED
+            and echo_lu.NOT_IN_FOLDER_PHRASE in sync.last_error.lower()
+        )
+        if sync.status != EchoExperienceSync.Status.ORPHANED and not not_in_folder:
             # Pointed at a healthy row, --forget would clear a perfectly good
             # experience id and the next sync would POST a second listing
             # beside the live one — the exact duplicate this command exists to
             # clean up. A mistyped event id is all it would take.
             raise CommandError(
                 f"Event {event_id} is {sync.get_status_display()}, not "
-                f"blocked. --adopt and --forget only apply to a blocked row; "
-                f"on a healthy one they would strand its listing. Use "
+                f"blocked. --adopt and --forget only apply to a blocked row, "
+                f"or to one echo.lu no longer finds in the key's folder; on a "
+                f"healthy one they would strand its listing. Use "
                 f"--event-id {event_id} --force to resync it instead."
             )
 
