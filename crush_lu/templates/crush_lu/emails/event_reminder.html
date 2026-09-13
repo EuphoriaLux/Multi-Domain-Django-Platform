@@ -17,7 +17,13 @@
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
         <li><strong>{% trans "Location:" %}</strong><br>
             {{ event.location }}<br>
-            {{ event.full_address }}
+            {% if event.full_address %}
+                {{ event.full_address }}
+            {% elif event.canton %}
+                {{ event.canton }}
+            {% else %}
+                {% trans "Luxembourg" %}
+            {% endif %}
         </li>
     </ul>
 </div>
