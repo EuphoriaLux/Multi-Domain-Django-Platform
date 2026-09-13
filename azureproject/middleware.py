@@ -12,6 +12,7 @@ This module contains middleware for:
 import logging
 import threading
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import IntegrityError, router
 from django.utils import translation
@@ -198,6 +199,11 @@ class HealthCheckMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if getattr(settings, 'PRODUCTION_HOST_VALIDATION', False):
+            from .host_validation import validate_production_request_host
+
+            validate_production_request_host(request)
+
         # Immediately return OK for health checks, bypassing all other middleware
         if request.path in ['/healthz/', '/healthz']:
             return HttpResponse("OK", status=200, content_type="text/plain")
