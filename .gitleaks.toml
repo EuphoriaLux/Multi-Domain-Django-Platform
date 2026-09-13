@@ -4,7 +4,14 @@
 [extend]
 useDefault = true
 
-# Allowlist for false positives - Azure RBAC role IDs are public GUIDs
+# Global allowlist for false positives.
+#
+# No `paths` on purpose: a global path match skips the whole file for every
+# rule, so a real credential committed there would never be reported. Allow
+# the false positive itself instead:
+#   - `regexes` are matched against the captured secret, not the line, so
+#     anchor each one to the exact capture;
+#   - one-off historical findings go in .gitleaksignore as fingerprints.
 [allowlist]
 description = "Allow Azure RBAC role definitions, documentation examples, test fixtures, and development defaults"
 regexes = [
@@ -20,10 +27,26 @@ regexes = [
   '''YOUR_ADMIN_API_KEY''',
   '''your-admin-api-key''',
   '''your_secret_token_here''',
+  # Sync-token placeholder in the curl example of the old
+  # finops_hub/views_webhook.py docstring (curl-auth-header).
+  '''^your-secret-token$''',
 
-  # Test fixture placeholders (Web Push p256dh keys)
-  '''blank=True.*help_text=.*token''',
-  '''p256dh_key=.*test.*''',
+  # Test fixture placeholders: fake Web Push subscription keys
+  # (crush_lu/tests/test_campaigns.py, test_notification_service.py,
+  # test_push_notifications.py) and a fake APNs device token
+  # (crush_lu/tests/test_ios_app_readiness.py).
+  '''^(?:p256dh-test-key|test_p256dh_key|test_p256dh_key_disabled)$''',
+  '''^abcdef123456$''',
+
+  # Django migrations put `help_text="...token...", max_length=64` on one
+  # line; generic-api-key takes the comma after the help text as an
+  # assignment and captures the next keyword argument.
+  '''^max_length=\d+$''',
+
+  # crush_lu/tests/test_echo_lu_sync.py: the "test-key" API key setting is too
+  # short to report, so generic-api-key takes the comma after it as an
+  # assignment and captures the next setting's name across the line break.
+  '''^ECHO_LU_DEFAULT_CATEGORIES=$''',
 
   # Crush.lu admin user-segment keys (e.g. gender_m_age_35_plus) trigger
   # the generic-api-key rule because of length/charset. They're UI labels,
