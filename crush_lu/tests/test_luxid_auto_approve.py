@@ -717,6 +717,33 @@ class TestDashboardLuxidLazyFixup(_SiteMixin, TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.verification_status, "pending")
 
+    def test_link_lookup_failure_is_logged_not_raised(self):
+        """The link lookup reads the allauth tables; a failure there must cost
+        the fix-up, not the page."""
+        from unittest.mock import PropertyMock
+
+        from django.db import DatabaseError
+
+        from crush_lu.views import _verify_pending_luxid_member
+
+        request = _make_request()
+        request.user = self.user
+
+        with patch.object(
+            CrushProfile,
+            "has_luxid_connected",
+            new_callable=PropertyMock,
+            side_effect=DatabaseError("socialaccount unavailable"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                verified = _verify_pending_luxid_member(
+                    request, self.profile, self.submission
+                )
+
+        self.assertFalse(verified)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+
 
 # ---------------------------------------------------------------------------
 # DOB / gender authoritative overwrite tests

@@ -359,12 +359,16 @@ def _verify_pending_luxid_member(request, profile, submission):
     "pending" qualifies: an incomplete member has to submit first, and a
     rejected one must not self-clear by reloading a page.
     """
-    if profile.verification_status != "pending" or not profile.has_luxid_connected:
+    if profile.verification_status != "pending":
         return False
 
     from .signals import _execute_luxid_direct_verify
 
     try:
+        # The link lookup reads the allauth tables, so it sits inside the
+        # guard too: a failure there costs the fix-up, not the page.
+        if not profile.has_luxid_connected:
+            return False
         _execute_luxid_direct_verify(request.user, profile, submission, request)
     except Exception:
         # A failure leaves the member stuck on "pending" — never swallow it
