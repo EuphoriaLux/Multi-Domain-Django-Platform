@@ -72,8 +72,8 @@ class _AttendeeFixture(TestCase):
             checked_in_at=timezone.now() - timedelta(hours=20),
         )
 
-    def _render(self, sender_name):
-        """Send one email through a mocked transport and return its HTML body."""
+    def _send(self, sender_name):
+        """Send one email through a mocked transport and return the call kwargs."""
         from crush_lu import email_helpers
 
         sender = getattr(email_helpers, sender_name)
@@ -82,7 +82,15 @@ class _AttendeeFixture(TestCase):
         ) as send:
             sender(self.reg, request=None)
         self.assertTrue(send.called, f"{sender_name} sent nothing")
-        return send.call_args.kwargs["html_message"]
+        return send.call_args.kwargs
+
+    def _render(self, sender_name):
+        """The HTML body of one sent email."""
+        return self._send(sender_name)["html_message"]
+
+    def _plain(self, sender_name):
+        """The text/plain alternative of one sent email."""
+        return self._send(sender_name)["message"]
 
 
 class ReviewAskIsOffByDefaultTests(_AttendeeFixture):
@@ -124,6 +132,39 @@ class ReviewAskReachesAttendeesTests(_AttendeeFixture):
         html = self._render("send_event_feedback_request")
         self.assertIn(REVIEW_URL, html)
         self.assertIn("Leave a Google review", html)
+
+    def test_plain_text_alternative_keeps_the_destination(self):
+        """A recipient reading text/plain must be able to reach the composer.
+
+        The senders used to derive this part with ``strip_tags``, which drops
+        every href — the link arrived as the bare words "Leave a Google review"
+        with nowhere to go. Found in review of this PR; see
+        ``test_email_plain_text.py``.
+        """
+        for sender in ("send_event_recap", "send_event_feedback_request"):
+            with self.subTest(sender=sender):
+                plain = self._plain(sender)
+                self.assertIn(REVIEW_URL, plain)
+                self.assertIn("Leave a Google review", plain)
+
+    def test_plain_text_alternative_is_not_a_stylesheet(self):
+        """The same ``strip_tags`` call kept <style> *content*, so every one of
+        these emails opened with ~2,500 characters of CSS."""
+        for sender in ("send_event_recap", "send_event_feedback_request"):
+            with self.subTest(sender=sender):
+                plain = self._plain(sender)
+                self.assertNotIn("font-family", plain)
+                self.assertNotIn("background-color", plain)
+                # CSS is the only thing here that carries braces; asserting on
+                # them survives any future rewording of the copy.
+                self.assertNotIn("{", plain)
+                self.assertNotIn("}", plain)
+                html = self._render(sender)
+                self.assertLess(
+                    len(plain),
+                    len(html) / 2,
+                    "plain text longer than half the HTML means markup leaked",
+                )
 
     def test_copy_does_not_steer_towards_positive_reviews(self):
         """Selectively soliciting positive reviews violates Google policy.

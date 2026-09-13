@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.utils.translation import gettext_noop, override
 from django.core.cache import cache
-from azureproject.email_utils import send_domain_email
+from azureproject.email_utils import html_to_plain_text, send_domain_email
 from .utils.i18n import get_user_preferred_language
 from .utils.formatting import format_cents
 
@@ -1440,7 +1440,9 @@ def send_event_recap(registration, request=None):
     with translation.override(lang):
         subject = _("Recap of {title}").format(title=event.title)
         html_message = render_to_string("crush_lu/emails/event_recap.html", context)
-        plain_message = strip_tags(html_message)
+        # Not strip_tags: it keeps <style> content and drops every href, so the
+        # text/plain alternative opened with the stylesheet and carried no links.
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
@@ -1501,7 +1503,9 @@ def send_event_feedback_request(registration, request=None):
         html_message = render_to_string(
             "crush_lu/emails/event_feedback_request.html", context
         )
-        plain_message = strip_tags(html_message)
+        # See send_event_recap: strip_tags would emit the stylesheet and lose
+        # the review link's destination.
+        plain_message = html_to_plain_text(html_message)
 
     return send_domain_email(
         subject=subject,
