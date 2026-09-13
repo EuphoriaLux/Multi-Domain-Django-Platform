@@ -3,81 +3,8 @@
 Domain-specific email configuration utilities.
 Supports sending emails from different domains (powerup.lu, crush.lu, vinsdelux.com)
 """
-import html as _html
 import os
-import re
 from django.core.mail import EmailMessage
-from django.utils.html import strip_tags
-
-# <style> and <script> are the expensive ones: strip_tags removes the *tags*
-# but keeps the text between them, so a templated email's whole stylesheet is
-# emitted as plain text. <head> as a whole has nothing a reader wants.
-_DROPPED_ELEMENTS_RE = re.compile(
-    r"<(?P<tag>style|script|head)\b[^>]*>.*?</(?P=tag)\s*>",
-    re.IGNORECASE | re.DOTALL,
-)
-_ANCHOR_RE = re.compile(
-    r"""<a\b[^>]*?href=(?P<q>["'])(?P<href>.*?)(?P=q)[^>]*>(?P<text>.*?)</a\s*>""",
-    re.IGNORECASE | re.DOTALL,
-)
-_LINE_BREAK_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
-# List items and table rows are lines within a block; everything else ends one,
-# so it earns a blank line after it. Runs are collapsed at the end either way.
-_ROW_END_RE = re.compile(r"</(?:li|tr)\s*>", re.IGNORECASE)
-_BLOCK_END_RE = re.compile(
-    r"</(?:p|div|h[1-6]|ul|ol|table|blockquote|section)\s*>",
-    re.IGNORECASE,
-)
-
-
-def _anchor_to_text(match):
-    """Render one anchor as ``label (url)`` so the destination survives."""
-    href = (match.group("href") or "").strip()
-    label = strip_tags(match.group("text") or "").strip()
-    if not href:
-        return label
-    if not label:
-        return href
-    # Already self-describing ("Visit https://crush.lu") — don't say it twice.
-    if href in label:
-        return label
-    return f"{label} ({href})"
-
-
-def html_to_plain_text(html_message):
-    """Build the ``text/plain`` alternative of an HTML email.
-
-    ``strip_tags(html_message)`` on its own — the pattern used throughout this
-    codebase — produces something no recipient should receive, and the damage
-    is invisible to anyone whose client prefers ``text/html``:
-
-    1. It keeps the *content* of ``<style>``, so every email built on
-       ``base_email.html`` opens with roughly 2,500 characters of raw CSS
-       before the first readable word.
-    2. It drops every ``href``, so a call-to-action arrives as bare words with
-       nowhere to go ("Leave a Google review", and no link).
-    3. It concatenates block elements without whitespace, running separate
-       paragraphs together into one line.
-
-    This helper drops head/style/script wholesale, renders anchors as
-    ``label (url)``, turns block ends and ``<br>`` into newlines, unescapes
-    entities, and collapses the resulting blank-line runs.
-    """
-    if not html_message:
-        return ""
-
-    text = _DROPPED_ELEMENTS_RE.sub("", html_message)
-    text = _ANCHOR_RE.sub(_anchor_to_text, text)
-    text = _LINE_BREAK_RE.sub("\n", text)
-    text = _ROW_END_RE.sub("\n", text)
-    text = _BLOCK_END_RE.sub("\n\n", text)
-    text = strip_tags(text)
-    text = _html.unescape(text)
-
-    text = re.sub(r"[ \t]*\n[ \t]*", "\n", text)
-    text = re.sub(r"[ \t]{2,}", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
 
 
 def _normalize_domain(domain):
