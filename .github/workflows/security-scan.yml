@@ -6,9 +6,8 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+      - develop
+    # Security Summary must report on every PR, including documentation/config.
   workflow_dispatch:
   schedule:
     # Run weekly on Sundays at midnight UTC for baseline security checks
@@ -125,20 +124,17 @@ jobs:
     if: always()
     steps:
       - name: Check Results
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        shell: python
         run: |
-          echo "📊 Security Scan Summary"
-          echo "========================"
-          echo "Dependency Scan: ${{ needs.dependency-scan.result }}"
-          echo "SAST (Bandit):   ${{ needs.sast-scan.result }}"
-          echo "Secrets Scan:    ${{ needs.secrets-scan.result }}"
+          import json
+          import os
 
-          if [ "${{ needs.dependency-scan.result }}" != "success" ] || \
-             [ "${{ needs.sast-scan.result }}" != "success" ] || \
-             [ "${{ needs.secrets-scan.result }}" != "success" ]; then
-            echo ""
-            echo "⚠️ Some security checks failed. Review the results above."
-            exit 1
-          fi
-
-          echo ""
-          echo "✅ All security checks passed!"
+          needs = json.loads(os.environ['CI_NEEDS'])
+          failed = [job for job, state in needs.items() if state['result'] != 'success']
+          for job, state in needs.items():
+              print(f"{job}: {state['result']}")
+          if failed:
+              raise SystemExit('::error::Security checks failed: ' + ', '.join(failed))
+          print('All security checks passed.')
