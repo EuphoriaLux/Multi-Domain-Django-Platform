@@ -12,30 +12,38 @@ the member's *latest* submission for the legacy coach-review states that
 still have a live writer.
 """
 
-from django.db.models import Count, OuterRef, Subquery
+from django.db.models import Count, Exists, OuterRef, Subquery
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, ProfileSubmission
+from crush_lu.models import CrushProfile, EventRegistration, ProfileSubmission
 
 
 def holds_door_seat(now):
     """``Exists``: the member has a seat or waitlist spot on an event whose
     door can still verify them — not cancelled, not yet ended.
 
-    Deliberately the coach "Unverified profiles" page's own ``sig_upcoming``
-    rather than a copy, so the Action Center's "booked" count and that page's
-    "Booked on an event" chip cannot drift apart. Unlike the index's
-    upcoming-events count it does not require ``is_published``: an
-    unpublished event with bookings still has a door. Correlates on
-    ``user_id``, so it filters CrushProfile querysets only.
+    The coach "Unverified profiles" page's ``sig_upcoming`` signal, built from
+    that page's own event list and door statuses rather than copies, so the
+    Action Center's "booked" count and the page's "Booked on an event" chip
+    cannot drift apart. Unlike the index's upcoming-events count it does not
+    require ``is_published``: an unpublished event with bookings still has a
+    door. Correlates on ``user_id``, so it filters CrushProfile querysets
+    only.
     """
+    # Imported here so that loading the admin package does not import the
+    # coach views.
     from crush_lu.views_coach import (
+        DOOR_VISIBLE_REGISTRATION_STATUSES,
         _live_or_future_event_ids,
-        _unverified_signal_annotations,
     )
 
-    signals = _unverified_signal_annotations(now, _live_or_future_event_ids(now))
-    return signals["sig_upcoming"]
+    return Exists(
+        EventRegistration.objects.filter(
+            user_id=OuterRef("user_id"),
+            event_id__in=_live_or_future_event_ids(now),
+            status__in=DOOR_VISIBLE_REGISTRATION_STATUSES,
+        )
+    )
 
 
 def latest_submission_status():
