@@ -23,13 +23,15 @@ from django.contrib import messages
 from django.http import HttpResponse
 from datetime import timedelta, date
 
-from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.services.event_doors import (
+    DOOR_VISIBLE_REGISTRATION_STATUSES,
+    live_or_future_event_ids,
+)
 import csv
 
 from crush_lu.models import (
     CrushProfile,
     EventRegistration,
-    MeetupEvent,
     ProfileSubmission,
     UserActivity,
     EmailPreference,
@@ -242,16 +244,10 @@ def get_segment_definitions(include_counts=True):
 
     # Events a member can still be verified at (not ended, not cancelled) and
     # the registrations their door roster shows — the pair behind the coach
-    # "Unverified profiles" page's "booked on an event" signal.
-    current_event_ids = [
-        event.pk
-        for event in MeetupEvent.objects.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            is_cancelled=False,
-        ).only("pk", "date_time", "duration_minutes")
-        if event.end_time >= now
-    ]
-    door_roster_statuses = [*SEAT_HOLDING_STATUSES, "waitlist"]
+    # "Unverified profiles" page's "booked on an event" signal, read from
+    # `services.event_doors` so the two cannot drift apart.
+    current_event_ids = live_or_future_event_ids(now)
+    door_roster_statuses = DOOR_VISIBLE_REGISTRATION_STATUSES
 
     # Profile completion segments (simplified — wizard step now derived from field presence)
     incomplete_not_started = active.filter(verification_status="incomplete")

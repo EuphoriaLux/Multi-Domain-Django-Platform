@@ -65,7 +65,7 @@ from .filters import (
     ProfileSubmissionDetailFilter,
     ConnectionActivityFilter,
 )
-from .verification_queues import in_legacy_review_state
+from .verification_queues import in_legacy_review_state, never_submitted_profiles
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +330,19 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
                 )
             )
         return status
+
+    def save(self, commit=True):
+        # Setting "revision" by hand counts a round, like the coach review
+        # and the bulk action: "Resubmitted After Revision" reads it. This
+        # form backs the change form, the list's status column and the
+        # profile page's inline.
+        if (
+            self.instance.pk
+            and "status" in self.changed_data
+            and self.instance.status == "revision"
+        ):
+            self.instance.revision_round = (self.instance.revision_round or 0) + 1
+        return super().save(commit=commit)
 
 
 class ProfileSubmissionProfileInline(admin.TabularInline):
@@ -850,10 +863,9 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
 
         name_privacy = CrushProfile.objects.filter(show_full_name=False).count()
 
-        # NEW: Never submitted profiles (Priority 3)
-        never_submitted = CrushProfile.objects.filter(
-            ~Exists(ProfileSubmission.objects.filter(profile_id=OuterRef("id")))
-        ).count()
+        # Never finished the profile (Priority 3): the "Submission History"
+        # filter's own definition, which this count's quick filter opens.
+        never_submitted = never_submitted_profiles(CrushProfile.objects.all()).count()
 
         # NEW: No connections (Priority 4)
         from crush_lu.models import EventConnection
@@ -2159,6 +2171,10 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             if submission.status == "expired":
                 skipped_expired += 1
                 continue
+            # Count a new revision cycle only. Retrying the action while the
+            # member is still revising must preserve the current round.
+            if submission.status != "revision":
+                submission.revision_round = (submission.revision_round or 0) + 1
             submission.status = "revision"
             submission.reviewed_at = now
             submission.save()

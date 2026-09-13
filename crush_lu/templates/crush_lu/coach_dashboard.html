@@ -19,9 +19,9 @@
     </div>
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center">
         <div class="p-5">
-            <h3 class="text-3xl font-bold text-amber-500">{{ pending_reviews }}</h3>
+            <h3 class="text-3xl font-bold text-amber-500">{{ awaiting_verification_count }}</h3>
             <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">
-                <a href="{% url 'crush_lu:coach_profiles' %}" class="hover:text-crush-purple transition-colors">{% trans "Pending Reviews" %}</a>
+                <a href="{% url 'crush_lu:coach_unverified_profiles' %}?status=pending" class="hover:text-crush-purple transition-colors">{% trans "Awaiting Verification" %}</a>
             </p>
         </div>
     </div>
@@ -57,7 +57,7 @@
                     {% include "shared/icons/clipboard.html" with class="w-4 h-4" %}
                 </span>
                 <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Profiles" %}</span>
-                {% if pending_reviews %}<span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-amber-500 text-white rounded-full">{{ pending_reviews }}</span>{% endif %}
+                {% if pending_submissions_count %}<span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-amber-500 text-white rounded-full">{{ pending_submissions_count }}</span>{% endif %}
             </a>
             <a href="{% url 'crush_lu:coach_unverified_profiles' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform">
