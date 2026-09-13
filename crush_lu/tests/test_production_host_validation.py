@@ -147,6 +147,81 @@ _PROBE = textwrap.dedent("""
             "internal": asyncio.run(static_request("169.254.1.2")),
             "internal-transport": asyncio.run(static_request("169.254.1.2", "crush.lu")),
         }
+
+    # Run the actual ASGI protocol router with real OriginValidator, session/auth
+    # middleware and URLRouter; replace only the final consumer with a sentinel.
+    import azureproject.asgi as asgi
+    from channels.auth import AuthMiddlewareStack, get_user
+    from channels.routing import URLRouter
+    from channels.security.websocket import AllowedHostsOriginValidator
+    from django.urls import re_path
+
+    reached = []
+    async def consumer(scope, receive, send):
+        reached.append({
+            "anonymous": scope["user"].is_anonymous,
+            "session": "session" in scope,
+        })
+        await send({"type": "websocket.accept"})
+
+    socket_app = AllowedHostsOriginValidator(AuthMiddlewareStack(URLRouter([
+        re_path(r"^.*$", consumer),
+    ])))
+    async def websocket_request(host, forwarded=None, origin="https://crush.lu",
+                                path="/ws/host-test/", extra_headers=()):
+        headers = [(b"host", host.encode())]
+        if origin is not None:
+            headers.append((b"origin", origin.encode()))
+        if forwarded is not None:
+            headers.append((b"x-forwarded-host", forwarded.encode()))
+        headers.extend(extra_headers)
+        scope = {
+            "type": "websocket", "path": path, "query_string": b"",
+            "headers": headers, "scheme": "wss",
+            "server": ("a2-app.azurewebsites.net", 443),
+        }
+        messages = []
+        events = iter([{"type": "websocket.connect"},
+                       {"type": "websocket.disconnect", "code": 1000}])
+        async def receive():
+            return next(events)
+        async def send(message):
+            messages.append(message)
+        before = len(reached)
+        auth_before = auth.call_count
+        await asgi.application(scope, receive, send)
+        assert scope["type"] == "websocket" and scope["scheme"] == "wss"
+        assert "method" not in scope  # the handshake view must not mutate ASGI scope
+        return {"messages": messages, "reached": reached[before:],
+                "auth_calls": auth.call_count - auth_before}
+
+    with override_settings(CHANNEL_LAYERS={
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }), patch.object(asgi, "_websocket_app", socket_app), patch(
+        "channels.auth.get_user", wraps=get_user,
+    ) as auth, patch(
+        "django.db.backends.base.base.BaseDatabaseWrapper.connect",
+        side_effect=AssertionError("anonymous handshake must not connect to database"),
+    ):
+        results["websocket"] = {}
+        for host in ("attacker.invalid", "test.attacker.invalid", "test-attacker.invalid",
+                     "169.254.attacker.invalid", "other-tenant.azurewebsites.net"):
+            results["websocket"]["host:" + host] = asyncio.run(websocket_request(host))
+            results["websocket"]["hidden:" + host] = asyncio.run(websocket_request(host, "crush.lu"))
+            results["websocket"]["forwarded:" + host] = asyncio.run(websocket_request("crush.lu", host))
+        for host in ("crush.lu", "test.crush.lu", "a2-app.azurewebsites.net", "CRUSH.LU.:443"):
+            results["websocket"]["valid:" + host] = asyncio.run(websocket_request(host))
+        results["websocket"]["valid:internal-transport"] = asyncio.run(websocket_request("169.254.1.2", "crush.lu"))
+        results["websocket"]["valid:forwarded-staging"] = asyncio.run(websocket_request("a2-app.azurewebsites.net", "test.crush.lu"))
+        results["websocket"]["empty-forwarded"] = asyncio.run(websocket_request("crush.lu", ""))
+        results["websocket"]["duplicate-host"] = asyncio.run(websocket_request("crush.lu", extra_headers=[(b"host", b"attacker.invalid")]))
+        results["websocket"]["duplicate-forwarded"] = asyncio.run(websocket_request("crush.lu", "crush.lu", extra_headers=[(b"x-forwarded-host", b"attacker.invalid")]))
+        results["websocket"]["internal"] = asyncio.run(websocket_request("169.254.1.2"))
+        results["websocket"]["internal-forwarded"] = asyncio.run(websocket_request("crush.lu", "169.254.1.2"))
+        for path in ("/healthz", "/healthz/", "/readyz", "/readyz/"):
+            results["websocket"]["internal-probe:" + path] = asyncio.run(websocket_request("169.254.1.2", path=path))
+        results["websocket"]["bad-origin"] = asyncio.run(websocket_request("crush.lu", origin="https://attacker.invalid"))
+        results["websocket"]["missing-origin"] = asyncio.run(websocket_request("crush.lu", origin=None))
     print("@@HOST_RESULTS@@" + json.dumps(results))
 """)
 
@@ -180,7 +255,7 @@ def production_hosts():
         text=True,
         timeout=90,
     )
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, result.stderr[-6000:]
     assert "@@HOST_RESULTS@@" in result.stdout, result.stderr
     return json.loads(result.stdout.split("@@HOST_RESULTS@@", 1)[1])
 
@@ -271,3 +346,28 @@ def test_asgi_static_shortcut_enforces_the_same_host_boundary(production_hosts):
         "internal": 400,
         "internal-transport": 200,
     }
+
+
+def test_websocket_host_boundary_rejects_before_auth_and_consumer(production_hosts):
+    for name, result in production_hosts["websocket"].items():
+        if name.startswith("valid:") or name in {"bad-origin", "missing-origin"}:
+            continue
+        assert result == {
+            "messages": [{"type": "websocket.close", "code": 1008}],
+            "reached": [],
+            "auth_calls": 0,
+        }, (name, result)
+
+
+def test_valid_websocket_handshakes_keep_origin_and_auth_validation(production_hosts):
+    for name, result in production_hosts["websocket"].items():
+        if name.startswith("valid:"):
+            assert result == {
+                "messages": [{"type": "websocket.accept"}],
+                "reached": [{"anonymous": True, "session": True}],
+                "auth_calls": 1,
+            }, (name, result)
+        elif name in {"bad-origin", "missing-origin"}:
+            assert result["messages"][0]["type"] == "websocket.close"
+            assert result["reached"] == []
+            assert result["auth_calls"] == 0

@@ -18,7 +18,7 @@ def is_azure_internal_host(host):
         return False
 
 
-def validate_production_request_host(request):
+def validate_production_request_host(request, *, allow_probes=True):
     """Check both host headers before a redirect, probe or domain fallback.
 
     Azure forwards the original host in X-Forwarded-Host. Validate both it and
@@ -41,5 +41,7 @@ def validate_production_request_host(request):
             raise DisallowedHost("Invalid production Host or X-Forwarded-Host header.")
 
     effective_host, _port = django_request.split_domain_port(request.get_host())
-    if is_azure_internal_host(effective_host) and request.path not in PROBE_PATHS:
+    if is_azure_internal_host(effective_host) and (
+        not allow_probes or request.path not in PROBE_PATHS
+    ):
         raise DisallowedHost("Azure internal host is only valid for health probes.")

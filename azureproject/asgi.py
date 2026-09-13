@@ -240,6 +240,26 @@ async def application(scope, receive, send):
 
             raise
     elif scope["type"] == "websocket":
+        if getattr(settings, "PRODUCTION_HOST_VALIDATION", False):
+            # WebSocket scopes preserve the upgrade's headers/server but omit
+            # its HTTP method and use ws/wss schemes. Let Django parse the actual
+            # headers (including duplicates) as a read-only view of that GET
+            # handshake; never dispatch it through the HTTP application.
+            handshake_scope = {
+                **scope,
+                "method": "GET",
+                "scheme": {"ws": "http", "wss": "https"}.get(
+                    scope.get("scheme"), "http"
+                ),
+            }
+            try:
+                validate_production_request_host(
+                    ASGIRequest(handshake_scope, None), allow_probes=False
+                )
+            except DisallowedHost:
+                # Closing before acceptance rejects the upgrade (HTTP 403).
+                await send({"type": "websocket.close", "code": 1008})
+                return
         await _websocket_app(scope, receive, send)
     elif scope["type"] == "lifespan":
         while True:
