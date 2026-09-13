@@ -343,6 +343,58 @@ class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
 
         self.assertEqual(listed, {bulk.profile_id, by_hand.profile_id})
 
+    def test_bulk_revision_counts_only_new_cycles(self):
+        first = self._submission(self._profile("first_revision"), "pending", days_ago=4)
+        returned = self._submission(
+            self._profile("returned_for_review"),
+            "pending",
+            days_ago=3,
+            revision_round=3,
+        )
+        waiting = self._submission(
+            self._profile("already_revising", status="incomplete"),
+            "revision",
+            days_ago=2,
+            revision_round=2,
+        )
+        expired = self._submission(
+            self._profile("expired_revision", status="incomplete"),
+            "expired",
+            days_ago=5,
+            revision_round=4,
+        )
+        submissions = (first, returned, waiting, expired)
+
+        # Mixed selections and retrying the action must not invent a cycle
+        # for someone still working on the same requested revision.
+        for attempt in range(2):
+            response = self.client.post(
+                SUBMISSIONS,
+                {
+                    "action": "bulk_request_revision",
+                    "_selected_action": [row.pk for row in submissions],
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            for row, expected_round in zip(submissions, (1, 4, 2, 4)):
+                row.refresh_from_db()
+                with self.subTest(attempt=attempt, submission=row.pk):
+                    self.assertEqual(row.revision_round, expected_round)
+                    self.assertEqual(
+                        row.status, "expired" if row.pk == expired.pk else "revision"
+                    )
+
+        # Once the member resubmits, a new request starts the next cycle.
+        ProfileSubmission.objects.filter(pk=first.pk).update(status="pending")
+        response = self.client.post(
+            SUBMISSIONS,
+            {"action": "bulk_request_revision", "_selected_action": [first.pk]},
+        )
+        self.assertEqual(response.status_code, 302)
+        first.refresh_from_db()
+        self.assertEqual(first.status, "revision")
+        self.assertEqual(first.revision_round, 2)
+
 
 class CoachAssignmentFilterTests(AdminFixturesMixin, TestCase):
     """`CoachAssignmentFilter` reads ``assigned_coach``, the "Assigned Coach"

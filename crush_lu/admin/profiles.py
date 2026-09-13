@@ -2171,11 +2171,12 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             if submission.status == "expired":
                 skipped_expired += 1
                 continue
+            # Count a new revision cycle only. Retrying the action while the
+            # member is still revising must preserve the current round.
+            if submission.status != "revision":
+                submission.revision_round = (submission.revision_round or 0) + 1
             submission.status = "revision"
             submission.reviewed_at = now
-            # Count the round, as the coach review does: the coach's
-            # resubmission banner and "Resubmitted After Revision" read it.
-            submission.revision_round = (submission.revision_round or 0) + 1
             submission.save()
             submission.profile.verification_status = "incomplete"
             submission.profile.completion_status = (
