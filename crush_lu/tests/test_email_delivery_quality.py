@@ -664,6 +664,34 @@ class EventEmailMarkupTests(TestCase):
         self.assertIn("Venue", html)
         self.assertIn("Capellen", html)
 
+    def test_event_reminder_without_address_retains_canton_location(self):
+        event = SimpleNamespace(
+            title="Mixer",
+            date_time=timezone.now(),
+            location="Venue",
+            full_address="",
+            canton="Capellen",
+            description="Details",
+        )
+        registration = SimpleNamespace(
+            user=SimpleNamespace(first_name="Alex"),
+            dietary_restrictions="",
+            bringing_guest=False,
+        )
+
+        html = render_to_string(
+            "crush_lu/emails/event_reminder.html",
+            {
+                "event": event,
+                "registration": registration,
+                "days_until_event": 1,
+                "event_url": "https://crush.lu/en/events/1/",
+            },
+        )
+
+        self.assertIn("Venue", html)
+        self.assertIn("Capellen", html)
+
 
 class EmailTranslationTests(TestCase):
     def test_reviewed_french_and_german_copy(self):
