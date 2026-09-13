@@ -182,15 +182,18 @@ class DraftListingClient(FakeClient):
 
 class DeletedListingClient(DraftListingClient):
     """The same answers for a listing deleted in the back office — except that
-    its detail 404s too. Set ``get_status`` for an inconclusive answer."""
+    its detail 404s too. Set ``get_status`` for an inconclusive answer, and
+    ``get_body`` for what the 404 says."""
 
     get_status = 404
+    get_body = None
 
     def get_experience(self, experience_id, timeout=None):
         self._record("get", experience_id)
         raise echo_lu.EchoLuError(
             f"echo.lu GET /experiences/{experience_id} rejected",
             status_code=self.get_status,
+            body=self.get_body,
         )
 
 
@@ -1668,6 +1671,28 @@ class SyncEventTests(TestCase):
         self.assertEqual(sync.experience_id, "exp-123")
         self.assertIn(NOT_IN_FOLDER, sync.last_error)
         self.assertIn(event, list(echo_lu.events_needing_sync()))
+
+    def test_a_folder_404_on_the_check_is_not_taken_as_deleted(self):
+        # The draft-or-deleted GET is scoped to the key's folder too, so its
+        # "no experience found in your folder" proves no more than the
+        # unpublish's would: a listing public under another folder answers
+        # it. Clearing the id on it would strand that listing. It is a failed
+        # check instead — raised, per event, id kept, settled by --forget.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+        event.refresh_from_db()
+        client = DeletedListingClient()
+        client.get_body = NOT_IN_FOLDER
+        with self.assertRaises(echo_lu.EchoLuError) as caught:
+            echo_lu.sync_event(event, client=client)
+
+        self.assertTrue(echo_lu.is_isolated_failure(caught.exception))
+        self.assertEqual([call[0] for call in client.calls], ["unpublish", "get"])
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.FAILED)
+        self.assertEqual(sync.experience_id, "exp-123")
+        self.assertTrue(echo_lu.recorded_not_in_folder(sync.last_error))
 
     def test_a_take_down_whose_id_was_cleared_while_it_waited_sends_nothing(self):
         # --forget can settle a folder-failed row between withdraw_event's
@@ -3409,6 +3434,36 @@ class OrphanRecoveryGuardTests(TestCase):
                     EchoExperienceSync.objects.get(event=event).experience_id,
                     "exp-live",
                 )
+
+    def test_adopt_refuses_a_folder_failed_row(self):
+        # Unlike an orphan's, this row's id was kept on purpose: it may still
+        # name a public listing, and it is the only handle on it. Adopting a
+        # different id would lose it for good, so only --forget is admitted.
+        from django.core.management.base import CommandError
+
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+        event.refresh_from_db()
+        client = DeletedListingClient()
+        client.unpublish_body = NOT_IN_FOLDER
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=client)
+
+        with self.assertRaises(CommandError) as caught:
+            call_command(
+                "sync_events_to_echo",
+                "--event-id",
+                str(event.pk),
+                "--adopt",
+                "exp-other",
+                stdout=StringIO(),
+            )
+
+        self.assertIn("not blocked", str(caught.exception))
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).experience_id, "exp-123"
+        )
 
     def test_forget_locks_the_row_it_resolves(self):
         # Unlike an orphan, a folder-failed row is retried by the hourly

@@ -435,6 +435,9 @@ kept, so re-publishing updates it. If the `GET` 404s too, the listing was
 deleted in the back office: the id is cleared, so re-publishing creates a
 fresh listing instead of updating one that no longer exists forever. (The
 route is known to work at that point — the unpublish answer proved it.)
+A `GET` that 404s with the folder answer described below is not taken as
+deleted. It proves no more there than on the unpublish, so it counts as a
+failed check.
 A check that is made and fails — the key refused, echo.lu erroring or not
 answering — is an echo.lu error like any other: the row is Failed with its id
 kept, the sweep retries it, and a shared cause still fails the sweep.

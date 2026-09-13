@@ -1519,7 +1519,11 @@ def _listing_is_gone(client, experience_id):
     experience found", which a draft and a listing deleted in the back office
     both answer. The detail endpoint tells them apart: it returned prod's
     draft listings when they were checked by hand (2026-08-15). By then the
-    route is known to work, so a 404 here is about the listing.
+    route is known to work, so a 404 here is about the listing — except
+    echo.lu's folder 404 (:func:`listing_not_in_folder`). The GET is scoped to
+    the key's folder like every other read, so that answer proves no more
+    here than on the unpublish: a listing public under another folder gives
+    it too. It is raised as a failed check rather than taken as deleted.
 
     True means deleted, so forget the id; False means it is there (a draft),
     so keep it. None means the check was not made — no deadline, or none
@@ -1554,7 +1558,7 @@ def _listing_is_gone(client, experience_id):
     try:
         client.get_experience(experience_id, timeout=(budget / 2, budget / 2))
     except EchoLuError as exc:
-        if exc.status_code == 404:
+        if exc.status_code == 404 and not listing_not_in_folder(exc):
             return True
         raise
     return False

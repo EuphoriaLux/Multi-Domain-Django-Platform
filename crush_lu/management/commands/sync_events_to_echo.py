@@ -413,9 +413,14 @@ class Command(BaseCommand):
 
         # Gated on the recorded answer, not on Failed alone: a row failed by
         # a 503 or a timeout still holds a perfectly good id, and so does one
-        # whose 500 happened to carry the same words.
-        not_in_folder = sync.status == EchoExperienceSync.Status.FAILED and (
-            echo_lu.recorded_not_in_folder(sync.last_error)
+        # whose 500 happened to carry the same words. And --forget only:
+        # --adopt would overwrite an id kept on purpose, which unlike an
+        # orphan's may still name a public listing and is the only handle on
+        # it.
+        not_in_folder = (
+            forget
+            and sync.status == EchoExperienceSync.Status.FAILED
+            and echo_lu.recorded_not_in_folder(sync.last_error)
         )
         if sync.status != EchoExperienceSync.Status.ORPHANED and not not_in_folder:
             # Pointed at a healthy row, --forget would clear a perfectly good
@@ -424,9 +429,9 @@ class Command(BaseCommand):
             # clean up. A mistyped event id is all it would take.
             raise CommandError(
                 f"Event {event_id} is {sync.get_status_display()}, not "
-                f"blocked. --adopt and --forget only apply to a blocked row, "
-                f"or to one echo.lu no longer finds in the key's folder; on a "
-                f"healthy one they would strand its listing. Use "
+                f"blocked. --adopt and --forget only apply to a blocked row "
+                f"(--forget also to one echo.lu no longer finds in the key's "
+                f"folder); on a healthy one they would strand its listing. Use "
                 f"--event-id {event_id} --force to resync it instead."
             )
 
