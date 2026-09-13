@@ -1438,10 +1438,19 @@ def is_isolated_failure(error):
     identical exceptions over 18 days, which buried everything else and never
     said which event to fix.
 
+    Also isolated: echo.lu's 404 "no experience found in your folder"
+    (:func:`listing_not_in_folder`). It names one listing, not a route — it
+    came back for two finished listings on 2026-09-13 while the same key
+    updated the others fine. It stays a failure rather than a take-down that
+    worked, because it proves nothing about whether the listing is still
+    public: the row keeps its id and stays owed until a person has checked
+    the back office and runs ``--forget``.
+
     Everything else is loud, every other 4xx included. Those are about the
-    key (401, 403), the route or base URL (404 and 405 — the one 404 known to
-    be about a listing, "no published experience found", is handled before it
-    gets here), the client's own request shape (406, 415) or the service
+    key (401, 403), the route or base URL (404 and 405 — the two 404s known
+    to be about a listing are handled apart: "no published experience found"
+    before it gets here, "in your folder" above), the client's own request
+    shape (406, 415) or the service
     (408, 429), and every event shares all of them. An allowlist rather than
     a list of exceptions, so a status nobody thought of fails loud. Also
     loud: a 5xx or a request that got no answer, a missing key, a shared
@@ -1453,6 +1462,8 @@ def is_isolated_failure(error):
         return False
     if isinstance(error, EchoLuNotSent):
         return True
+    if listing_not_in_folder(error):
+        return True
     return getattr(error, "status_code", None) in _PAYLOAD_VERDICT_4XX
 
 
@@ -1460,6 +1471,45 @@ def is_isolated_failure(error):
 # invalid content (400, 422), a conflict with that listing's state (409), a
 # payload too large (413). Every other status is shared by every event.
 _PAYLOAD_VERDICT_4XX = frozenset({400, 409, 413, 422})
+
+# echo.lu's 404 body when the key's folder holds no listing under the id,
+# lower-cased and matched as a substring. First seen on prod on 2026-09-13.
+NOT_IN_FOLDER_PHRASE = "no experience found in your folder"
+
+
+def listing_not_in_folder(error):
+    """True for echo.lu's 404 "no experience found in your folder".
+
+    What it proves is narrow: this key cannot find the listing in its own
+    folder. A listing deleted in the back office answers that, but so would
+    one that still exists under another organisation's folder — after a key
+    swap, say — and every read the API offers is scoped to the same key (an
+    anonymous GET answers "API TOKEN NOT VALID"), so nothing in code can tell
+    the two apart. Taken as a finished take-down, it would clear the id of a
+    listing that may still be public and let a republish create a duplicate
+    beside it. See :func:`is_isolated_failure` for what happens instead.
+
+    Matched on the body, like :func:`_no_published_listing`: a bare 404 from
+    a stale base URL or a moved route stays a sweep-wide failure.
+    """
+    if getattr(error, "status_code", None) != 404:
+        return False
+    body = str(getattr(error, "body", "") or "").lower()
+    return NOT_IN_FOLDER_PHRASE in body
+
+
+def recorded_not_in_folder(last_error):
+    """True when a sync row's ``last_error`` is echo.lu's folder 404.
+
+    The row keeps only the text :meth:`EchoLuError.__str__` wrote —
+    "… (HTTP 404): <body>" — so both halves are required. The phrase alone
+    could sit in a 500's body, which says nothing about the listing; see
+    :func:`listing_not_in_folder`, which counts it on a 404 only.
+    """
+    text = (last_error or "").lower()
+    marker = "(http 404): "
+    at = text.find(marker)
+    return at != -1 and NOT_IN_FOLDER_PHRASE in text[at + len(marker) :]
 
 
 def _listing_is_gone(client, experience_id):
@@ -1469,7 +1519,11 @@ def _listing_is_gone(client, experience_id):
     experience found", which a draft and a listing deleted in the back office
     both answer. The detail endpoint tells them apart: it returned prod's
     draft listings when they were checked by hand (2026-08-15). By then the
-    route is known to work, so a 404 here is about the listing.
+    route is known to work, so a 404 here is about the listing — except
+    echo.lu's folder 404 (:func:`listing_not_in_folder`). The GET is scoped to
+    the key's folder like every other read, so that answer proves no more
+    here than on the unpublish: a listing public under another folder gives
+    it too. It is raised as a failed check rather than taken as deleted.
 
     True means deleted, so forget the id; False means it is there (a draft),
     so keep it. None means the check was not made — no deadline, or none
@@ -1504,7 +1558,7 @@ def _listing_is_gone(client, experience_id):
     try:
         client.get_experience(experience_id, timeout=(budget / 2, budget / 2))
     except EchoLuError as exc:
-        if exc.status_code == 404:
+        if exc.status_code == 404 and not listing_not_in_folder(exc):
             return True
         raise
     return False
@@ -1647,13 +1701,21 @@ def sync_event(event, client=None, force=False, dry_run=False):
         answered "would update" for every already-synced event would be
         describing a sweep nobody runs — the real one makes no call at all.
         """
-        if row is None or not row.experience_id or force:
+        if row is None or force:
             return None
         if row.status == EchoExperienceSync.Status.SUPPRESSED:
             # Taken down by hand while still eligible. The event's own fields
             # say "publish me", so without this the next pass would put it
             # straight back and the removal would look like it never happened.
+            #
+            # Checked before the id: a removal can settle with the id cleared,
+            # when the listing turned out to be deleted from echo.lu — found
+            # by the draft-or-deleted GET, or by a person running --forget.
+            # Letting the empty id fall through would create a fresh listing
+            # on the event's next save, undoing the removal.
             return "suppressed"
+        if not row.experience_id:
+            return None
         if (
             row.status == EchoExperienceSync.Status.SYNCED
             and row.payload_hash == fingerprint
@@ -1868,6 +1930,21 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # whatever the next writer had already decided.
     with transaction.atomic():
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        if not sync.experience_id:
+            # Cleared while this caller waited for the lock — by `--forget`
+            # settling a listing a person found gone from echo.lu's folder.
+            # The check before the wait read the old id; going on would send
+            # a take-down for an empty id and write FAILED over the person's
+            # resolution.
+            if explicit or sync.removal_requested:
+                # An explicit removal saves its request before the wait, so
+                # that save can land after --forget's and set the flag again.
+                # Nothing is left to take down, so the request is satisfied
+                # here: SUPPRESSED, which blocks a republish even without an
+                # id. Left set, the flag would keep the row in every sweep.
+                sync.mark_withdrawn(explicit=True)
+                return "withdrawn"
+            return "skipped"
         # And the event is re-read, exactly as on the publish path. Which
         # action this sends is decided from the event's own fields, so
         # deciding it before the wait means deciding it from state somebody
@@ -1930,6 +2007,12 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
                 # or a moved route 404s too, while the listing stays public —
                 # taking that as success would stop the sweep retrying a
                 # take-down that never happened.
+                #
+                # echo.lu's "no experience found in your folder" is not taken
+                # here either, on purpose: it only says the key cannot see the
+                # listing, not that nothing is public. It is raised, recorded
+                # on the row with its id kept, and reported per event — see
+                # listing_not_in_folder.
                 if not _no_published_listing(exc):
                     raise
                 nothing_public = True

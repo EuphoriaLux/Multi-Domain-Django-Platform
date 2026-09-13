@@ -358,7 +358,7 @@ the sweep.
 
 **Sweep-wide failures reach the timer.** If echo.lu refuses the key (401/403),
 times the request out (408), rate-limits the account (429), answers 404 or
-405 (other than the one recognised take-down answer under *Take-downs* — a
+405 (other than the two listing-level answers under *Take-downs* — a
 gone route or base URL answers every call that way), rejects the request's
 shape (406, 415) or answers any other 4xx that is not a verdict on one
 event's payload — only 400, 409, 413 and 422 count as that, so a status
@@ -375,7 +375,8 @@ shared slug in `ECHO_LU_DEFAULT_*` is therefore a per-event warning carrying
 echo.lu's rejection text; `echo_taxonomy --check` is the gate that validates
 those settings. `--event-id` and `--withdraw` runs fail on any failure. A 400/422 rejection of one event's
 payload, an event
-whose venue is not linked, and a listing blocked on an untracked create are
+whose venue is not linked, a listing echo.lu no longer finds in the key's
+folder (see *Take-downs*), and a listing blocked on an untracked create are
 recorded on that event's sync row (the admin shows them) and named in one
 `WARNING` per sweep, while the endpoint still answers 202:
 
@@ -434,9 +435,40 @@ kept, so re-publishing updates it. If the `GET` 404s too, the listing was
 deleted in the back office: the id is cleared, so re-publishing creates a
 fresh listing instead of updating one that no longer exists forever. (The
 route is known to work at that point — the unpublish answer proved it.)
+A `GET` that 404s with the folder answer described below is not taken as
+deleted. It proves no more there than on the unpublish, so it counts as a
+failed check.
 A check that is made and fails — the key refused, echo.lu erroring or not
 answering — is an echo.lu error like any other: the row is Failed with its id
 kept, the sweep retries it, and a shared cause still fails the sweep.
+
+**`404 no experience found in your folder` is different: it stays a
+failure.** echo.lu first sent it on 2026-09-13, for two finished listings,
+while the same key updated the others fine. It only says the key cannot find
+the listing in its own folder. A listing deleted in the back office answers
+that, but so would one that still exists under another organisation's folder.
+Every read the API offers is scoped to the same key (an anonymous `GET`
+answers `API TOKEN NOT VALID`), so the sync cannot tell the two apart. Taken
+as a finished take-down, it would clear the id of a listing that may still be
+public, and a republish would then create a duplicate beside it.
+
+So the row stays **Failed** with its id kept and the sweep retries it each
+hour. It is named in the `[ECHO] sweep left …` warning rather than failing the
+sweep; a 404 with any other body still fails it. Once somebody has checked the
+back office and the listing really is gone, settle it by hand:
+
+```bash
+python manage.py sync_events_to_echo --event-id N --forget
+```
+
+`--forget` otherwise only accepts a blocked (orphaned) row. It takes this one
+only when the error recorded on the row is that exact answer *on a 404* — the
+same words in a 500's body prove nothing. It settles the row by what was being
+attempted. A take-down is recorded as done: **Suppressed** if somebody asked
+for the removal by hand, **Withdrawn** otherwise. A live event whose update
+got the answer goes back to **Pending**, and the next sync creates a fresh
+listing. It takes the same row lock as the sweep's retry, so neither can
+overwrite the other.
 
 A `cancel` that gets the same answer is recorded as **Withdrawn**, not
 Cancelled: no notice is showing, and Cancelled would tell the sweep one is and
