@@ -344,6 +344,43 @@ def _verification_path_context(profile, user):
     }
 
 
+def _verify_pending_luxid_member(request, profile, submission):
+    """Verify a pending member whose LuxID is already linked; True once verified.
+
+    The social_account_added signal only verifies a profile that is pending at
+    the moment LuxID is connected. A member who links LuxID mid-wizard (still
+    incomplete, so the signal skips them) and submits afterwards, or whose
+    callback missed the signal's crush-host guard, is left pending with LuxID
+    on file. Both pages a pending member lands on — the dashboard and
+    /profile-submitted/ — call this, so they heal on their next visit.
+
+    "Linked" means `has_luxid_connected`, the definition the Connect gate and
+    the coach page use, not a lookup scoped to the request's Site. Only
+    "pending" qualifies: an incomplete member has to submit first, and a
+    rejected one must not self-clear by reloading a page.
+    """
+    if profile.verification_status != "pending":
+        return False
+
+    from .signals import _execute_luxid_direct_verify
+
+    try:
+        # The link lookup reads the allauth tables, so it sits inside the
+        # guard too: a failure there costs the fix-up, not the page.
+        if not profile.has_luxid_connected:
+            return False
+        _execute_luxid_direct_verify(request.user, profile, submission, request)
+    except Exception:
+        # A failure leaves the member stuck on "pending" — never swallow it
+        # silently, but never 500 the page over it either.
+        logger.exception(
+            "[LUXID-VERIFY] Lazy fix-up failed for profile pk=%s", profile.pk
+        )
+        return False
+    profile.refresh_from_db()
+    return profile.verification_status == "verified"
+
+
 @crush_login_required
 def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
@@ -359,6 +396,10 @@ def dashboard(request):
         # like a user with no submission at all (even when older non-expired
         # rows exist — no falling back to legacy messaging).
         latest_submission = ProfileSubmission.latest_for_profile(profile)
+
+        # Start over once verified, so nothing below renders the stale state.
+        if _verify_pending_luxid_member(request, profile, latest_submission):
+            return redirect("crush_lu:dashboard")
 
         # Every registration, oldest first. The dashboard renders only the NEXT
         # one plus counts — the full history lives on my_events, which already
@@ -2185,27 +2226,9 @@ def profile_submitted(request):
         # the status page, but it should be visible in the logs.
         logger.exception("LuxID CTA lookup failed for user pk=%s", request.user.pk)
 
-    if has_luxid_account and profile.verification_status == "pending":
-        # Lazy fix-up: user already has LuxId but their submitted profile
-        # is still awaiting verification. This can happen if LuxId was
-        # connected before the submission existed (old flow) or via an edge
-        # case, so the social_account_added signal never fired. Verify
-        # directly now. Only "pending" profiles qualify — "rejected" users
-        # must not be able to self-clear by reloading this page.
-        from .signals import _execute_luxid_direct_verify
-
-        try:
-            _execute_luxid_direct_verify(request.user, profile, submission, request)
-        except Exception:
-            # Unlike the CTA above, a failure here leaves the user stuck on
-            # "pending" — never swallow it silently.
-            logger.exception(
-                "[LUXID-VERIFY] Lazy fix-up failed for profile pk=%s", profile.pk
-            )
-        else:
-            profile.refresh_from_db()
-            if profile.verification_status == "verified":
-                return redirect("crush_lu:dashboard")
+    # Lazy fix-up for a member whose LuxID link never verified them.
+    if _verify_pending_luxid_member(request, profile, submission):
+        return redirect("crush_lu:dashboard")
 
     # --- Submission-dependent context (paid coach / revision path only) ---
     coach_contact_phone = ""
