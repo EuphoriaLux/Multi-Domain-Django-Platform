@@ -58,12 +58,14 @@ from .filters import (
     DaysPendingApprovalFilter,
     ProfileCompletenessFilter,
     EventParticipationFilter,
+    DoorBookingFilter,
     # New production-informed filters
     EmailVerificationStatusFilter,
     PrivacySettingsFilter,
     ProfileSubmissionDetailFilter,
     ConnectionActivityFilter,
 )
+from .verification_queues import in_legacy_review_state
 
 logger = logging.getLogger(__name__)
 
@@ -511,6 +513,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "verification_method",
         "is_approved",
         "is_active",
+        DoorBookingFilter,  # Action Center: pending, booked vs not booked
         # NEW: Email & Privacy Filters (Production-Informed Priorities)
         EmailVerificationStatusFilter,  # Priority 1: 58% unverified
         PrivacySettingsFilter,  # Priority 2: 95% name privacy
@@ -2599,9 +2602,23 @@ class RejectedProfile(CrushProfile):
         verbose_name_plural = "Rejected Profiles"
 
 
+# The three legacy coach-review segments read the member's *latest*
+# submission, as `ProfileSubmission.latest_for_profile` does. Matching any row
+# with the status listed a member once per matching row, kept listing members
+# whose newer row had moved on, and kept listing members that LuxID or an
+# event door has since verified (neither path creates a submission).
+
+
 class PendingReviewProfileAdmin(CrushProfileAdmin):
+    """Legacy coach-review queue: the latest submission awaits a coach.
+
+    Not ``AwaitingReviewProfile`` (every profile pending verification): since
+    the July 2026 pivot a pending submission exists only once a member
+    resubmits a pre-pivot revision or recontact request.
+    """
+
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(profilesubmission__status="pending")
+        return in_legacy_review_state(super().get_queryset(request), "pending")
 
     def has_add_permission(self, request):
         return False
@@ -2609,9 +2626,7 @@ class PendingReviewProfileAdmin(CrushProfileAdmin):
 
 class RevisionNeededProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super().get_queryset(request).filter(profilesubmission__status="revision")
-        )
+        return in_legacy_review_state(super().get_queryset(request), "revision")
 
     def has_add_permission(self, request):
         return False
@@ -2619,10 +2634,8 @@ class RevisionNeededProfileAdmin(CrushProfileAdmin):
 
 class RecontactCoachProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .filter(profilesubmission__status="recontact_coach")
+        return in_legacy_review_state(
+            super().get_queryset(request), "recontact_coach"
         )
 
     def has_add_permission(self, request):
@@ -2631,9 +2644,10 @@ class RecontactCoachProfileAdmin(CrushProfileAdmin):
 
 class RejectedProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super().get_queryset(request).filter(profilesubmission__status="rejected")
-        )
+        # The profile's own decision. A submission row only ever recorded a
+        # coach-review verdict, and members who joined after the July 2026
+        # pivot never have one.
+        return super().get_queryset(request).filter(verification_status="rejected")
 
     def has_add_permission(self, request):
         return False

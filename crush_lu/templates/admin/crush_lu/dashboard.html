@@ -10,7 +10,7 @@
         <p>{% trans "Real-time insights and metrics for the Crush.lu platform" %}</p>
     </div>
 
-        {% if pending_actions.total_pending > 0 %}
+        {% if pending_actions.total_pending > 0 or pending_actions.legacy_reviews > 0 %}
     <div class="action-center" style="margin-bottom: var(--spacing-lg);">
         <div class="action-center-header">
             <h2 class="action-center-title">
@@ -18,28 +18,22 @@
             </h2>
         </div>
         <div class="action-center-grid">
-            {% if pending_actions.urgent_reviews > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?pending_time=24h" class="action-item urgent">
-                <span class="action-item-count">{{ pending_actions.urgent_reviews }}</span>
-                <span class="action-item-label">{% trans "Urgent" %} (&gt;24h)</span>
+            {% if pending_actions.unbooked > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=pending&is_active__exact=1&door_booking=unbooked" class="action-item urgent" title="{% trans "Awaiting verification, not booked on any current or upcoming event: only LuxID or a booking can verify them" %}">
+                <span class="action-item-count">{{ pending_actions.unbooked }}</span>
+                <span class="action-item-label">{% trans "Not Booked on an Event" %}</span>
             </a>
             {% endif %}
-            {% if pending_actions.awaiting_call > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=awaiting_call" class="action-item warning">
-                <span class="action-item-count">{{ pending_actions.awaiting_call }}</span>
-                <span class="action-item-label">{% trans "Awaiting Call" %}</span>
+            {% if pending_actions.legacy_reviews > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_pendingreviewprofile_changelist' %}?is_active__exact=1" class="action-item warning" title="{% trans "Resubmitted after a coach's revision or recontact request: a coach must review the submission" %}">
+                <span class="action-item-count">{{ pending_actions.legacy_reviews }}</span>
+                <span class="action-item-label">{% trans "Legacy Reviews" %}</span>
             </a>
             {% endif %}
-            {% if pending_actions.ready_to_approve > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?workflow=ready_approve" class="action-item success">
-                <span class="action-item-count">{{ pending_actions.ready_to_approve }}</span>
-                <span class="action-item-label">{% trans "Ready to Approve" %}</span>
-            </a>
-            {% endif %}
-            {% if pending_actions.unassigned > 0 %}
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?coach__isnull=True&status__exact=pending" class="action-item">
-                <span class="action-item-count">{{ pending_actions.unassigned }}</span>
-                <span class="action-item-label">{% trans "Unassigned" %}</span>
+            {% if pending_actions.booked > 0 %}
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=pending&is_active__exact=1&door_booking=booked" class="action-item success" title="{% trans "Awaiting verification, booked or waitlisted on a current or upcoming event: verifiable at that door" %}">
+                <span class="action-item-count">{{ pending_actions.booked }}</span>
+                <span class="action-item-label">{% trans "Booked on an Event" %}</span>
             </a>
             {% endif %}
         </div>
@@ -162,7 +156,7 @@
         {# Quick Actions #}
         <div style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
             <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}" class="btn btn-primary">&#x1F464; {% trans "All Profiles" %}</a>
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="btn btn-primary">&#x1F4DD; {% blocktrans with count=pending_reviews %}Pending Reviews ({{ count }}){% endblocktrans %}</a>
+            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=pending&is_active__exact=1" class="btn btn-primary">&#x1F4DD; {% blocktrans with count=pending_actions.total_pending %}Pending Verification ({{ count }}){% endblocktrans %}</a>
             <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="btn btn-primary">&#x1F389; {% trans "Events" %}</a>
             <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">&#x1F3AF; {% trans "User Segments" %}</a>
             <a href="{% url 'email_template_manager' %}" class="btn btn-secondary">&#x1F4E7; {% trans "Email Templates" %}</a>
@@ -573,9 +567,9 @@
             </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4CB;</span>
-                <div class="metric-label">{% trans "Pending Reviews" %}</div>
-                <div class="metric-value">{{ pending_reviews }}</div>
-                <div class="metric-subtitle">{% trans "Across all coaches" %}</div>
+                <div class="metric-label">{% trans "Pending Verification" %}</div>
+                <div class="metric-value">{{ pending_actions.total_pending }}</div>
+                <div class="metric-subtitle">{% trans "Awaiting LuxID or an event door" %}</div>
             </div>
         </div>
 
