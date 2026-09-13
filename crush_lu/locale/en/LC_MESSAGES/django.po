@@ -5149,7 +5149,7 @@ msgid "Instagram URL"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:33
-msgid "e.g. https://www.instagram.com/crush.lu"
+msgid "e.g. https://www.instagram.com/crushluofficial/"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:37
@@ -5157,7 +5157,7 @@ msgid "Facebook URL"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:38
-msgid "e.g. https://www.facebook.com/crush.lu"
+msgid "e.g. https://www.facebook.com/crushluxembourg"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:42
@@ -5165,7 +5165,7 @@ msgid "LinkedIn URL"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:43
-msgid "e.g. https://www.linkedin.com/company/crush-lu"
+msgid "e.g. https://www.linkedin.com/showcase/crushluapp/"
 msgstr ""
 
 #: .\crush_lu\models\site_config.py:47

@@ -7822,24 +7822,24 @@ msgid "Instagram URL"
 msgstr "Instagram-URL"
 
 #: models/site_config.py:33
-msgid "e.g. https://www.instagram.com/crush.lu"
-msgstr "z.B. https://www.instagram.com/crush.lu"
+msgid "e.g. https://www.instagram.com/crushluofficial/"
+msgstr "z.B. https://www.instagram.com/crushluofficial/"
 
 #: models/site_config.py:37
 msgid "Facebook URL"
 msgstr "Facebook-URL"
 
 #: models/site_config.py:38
-msgid "e.g. https://www.facebook.com/crush.lu"
-msgstr "z.B. https://www.facebook.com/crush.lu"
+msgid "e.g. https://www.facebook.com/crushluxembourg"
+msgstr "z.B. https://www.facebook.com/crushluxembourg"
 
 #: models/site_config.py:42
 msgid "LinkedIn URL"
 msgstr "LinkedIn-URL"
 
 #: models/site_config.py:43
-msgid "e.g. https://www.linkedin.com/company/crush-lu"
-msgstr "z.B. https://www.linkedin.com/company/crush-lu"
+msgid "e.g. https://www.linkedin.com/showcase/crushluapp/"
+msgstr "z.B. https://www.linkedin.com/showcase/crushluapp/"
 
 #: models/site_config.py:47
 msgid "Google Business URL"
