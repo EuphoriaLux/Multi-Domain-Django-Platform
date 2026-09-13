@@ -49,7 +49,7 @@ In `settings.py`, `MIDDLEWARE` ordering is commented per-line because it matters
 ### Settings split
 
 - `azureproject/settings.py` — used by local dev **and pytest** (plain HTTP, SQLite fallback, console email).
-- `azureproject/production.py` — `from .settings import *` plus SSL redirect, HSTS, Azure Blob storage, and a `validate_host` monkey-patch for Azure internal IPs (`169.254.*`) and `test.*`/`test-*` staging slots.
+- `azureproject/production.py` — `from .settings import *` plus SSL redirect, HSTS, Azure Blob storage, and explicit configured production/staging hosts. A `validate_host` exception permits parsed Azure link-local IPv4 addresses for early instrumentation; `HealthCheckMiddleware` limits internal effective hosts to `/healthz/` and `/readyz/` and validates both Host and X-Forwarded-Host before application responses. An internal transport Host is accepted with an explicitly allowed public X-Forwarded-Host.
 - `manage.py` picks production automatically when `WEBSITE_HOSTNAME` is set (i.e. on Azure), else settings; it also loads `.env` locally.
 
 ### ASGI / WebSockets

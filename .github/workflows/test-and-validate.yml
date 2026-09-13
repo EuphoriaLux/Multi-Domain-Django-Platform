@@ -3,45 +3,8 @@ name: Test and Validate
 on:
   pull_request:
     branches: [ main, develop ]
-    paths:
-      - '**.py'
-      - '**.js'
-      - '**.html'
-      - '**.po'
-      - '**.mo'
-      - 'requirements.txt'
-      - 'package.json'
-      # Every workflow, not just this one. A PR touching only
-      # deploy-azure-app-service-optimized.yml matched nothing here and so
-      # reported neither required check — unmergeable for the same reason as
-      # mobile/, CSS and docs below. The rule this file keeps restating: a
-      # required check has to be reachable from EVERY path a PR can contain.
-      - '.github/workflows/**'
-      # `validate` and `test` are REQUIRED status checks on main. When a path
-      # filter excludes a change these checks never report at all, which branch
-      # protection reads as "missing" rather than "skipped" — so the PR can
-      # never be merged. Native-shell PRs (Swift/Kotlin/project.yml only) hit
-      # exactly that, so mobile/ is listed here even though the Django suite
-      # does not exercise it. Anything added to the required-checks list must
-      # likewise be reachable from every path that can appear in a PR.
-      - 'mobile/**'
-      # Same reason, two more paths that hit it in practice: a CSS-only PR
-      # (design tokens + the tracked tailwind.css build artifact) and a
-      # docs-only PR both reported neither check and were unmergeable. The
-      # Django suite does not exercise either, but a required check has to be
-      # reachable from every path — see the note above.
-      - '**.css'
-      - '**.md'
-      # The Function App provisioning sources. test_function_app_env_drift.py
-      # asserts the timers, both provisioning scripts and
-      # local.settings.json.example declare the same DJANGO_*_URL set — but a
-      # PR touching only a .sh / .ps1 / .json.example matched none of the paths
-      # above, so the guard could not fire on exactly the changes it exists to
-      # guard. Same required-checks reachability argument as mobile/ and CSS.
-      - 'azure-functions/**'
-      - '**.sh'
-      - '**.ps1'
-      - '**.json.example'
+    # Always create the aggregate statuses, including config-only PRs.
+    # Scope expensive jobs below; workflow-level filters leave checks missing.
   workflow_dispatch:
 
 # Cancel any in-progress or queued run for the same branch when a new one starts.
@@ -51,10 +14,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Determine validation scope
+    runs-on: ubuntu-latest
+    outputs:
+      run-platform: ${{ steps.scope.outputs.run-platform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # pull_request checks out the merge commit; its first parent is base.
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Test CI gates
+        run: |
+          python -m pip install PyYAML==6.0.3
+          python -m unittest discover -s .github/tests -v
+
+      - name: Determine platform changes
+        id: scope
+        shell: python
+        run: |
+          import os
+          import subprocess
+
+          run_platform = True
+          if os.environ['GITHUB_EVENT_NAME'] == 'pull_request':
+              # No rename detection: moving app code into docs must still run tests.
+              raw = subprocess.check_output([
+                  'git', 'diff', '--name-only', '--no-renames', '-z', 'HEAD^', 'HEAD'
+              ])
+              paths = [os.fsdecode(path) for path in raw.split(b'\0') if path]
+              # Unknown/config paths fail closed. Only Markdown/native-shell-only
+              # changes skip Django and frontend installs; lint/security still run.
+              run_platform = not paths or any(
+                  not (path.endswith('.md') or path.startswith('mobile/'))
+                  for path in paths
+              )
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'run-platform={str(run_platform).lower()}\n')
+
   # Run actual tests (single Python version for speed)
   run-tests:
     name: Run Tests (Python 3.12)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run-platform == 'true'
 
     steps:
       - name: Checkout code
@@ -136,7 +146,7 @@ jobs:
           # flake8 removed — ruff --select=E9,F63,F7,F82 covers the same space.
           pip install black==26.5.1 ruff==0.15.20
 
-      - name: Check code formatting with Black
+      - name: Check code formatting with Black (advisory)
         run: |
           black --check --diff .
         continue-on-error: true
@@ -159,6 +169,8 @@ jobs:
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run-platform == 'true'
 
     steps:
       - name: Checkout code
@@ -173,7 +185,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check JavaScript/CSS formatting
+      - name: Check JavaScript/CSS formatting (advisory)
         run: npm run format:check
         continue-on-error: true
 
@@ -196,13 +208,16 @@ jobs:
           pip install pip-audit
 
       - name: Run pip-audit
+        # Preserve the existing exception in security-scan.yml. Audit failures,
+        # including scanner errors, must reach validate instead of turning green.
         run: |
-          pip-audit --requirement requirements.txt
-        continue-on-error: true
+          pip-audit --requirement requirements.txt --ignore-vuln PYSEC-2025-183
 
   django-deploy-check:
     name: Django Deploy Check
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.run-platform == 'true'
 
     steps:
       - name: Checkout code
@@ -237,41 +252,66 @@ jobs:
         run: |
           python manage.py check --deploy --fail-level WARNING
 
-  # Required check: "test" (for branch protection)
+  # Stable aggregate check name for branch rules. Rule enforcement is configured
+  # in GitHub, not by these workflow names.
   test:
     name: test
     runs-on: ubuntu-latest
-    needs: [run-tests]
+    needs: [changes, run-tests]
     if: always()
     steps:
       - name: Check test results
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        shell: python
         run: |
-          echo "Test results: ${{ needs.run-tests.result }}"
-          if [ "${{ needs.run-tests.result }}" != "success" ]; then
-            echo "::error::Tests failed"
-            exit 1
-          fi
-          echo "✅ Tests passed!"
+          import json
+          import os
 
-  # Required check: "validate" (for branch protection)
+          needs = json.loads(os.environ['CI_NEEDS'])
+          scope = needs['changes'].get('outputs', {}).get('run-platform')
+          expected = {
+              'changes': 'success',
+              'run-tests': {'true': 'success', 'false': 'skipped'}.get(scope),
+          }
+          failed = [job for job, result in expected.items()
+                    if needs[job]['result'] != result]
+          for job in expected:
+              print(f"{job}: {needs[job]['result']}")
+          if failed:
+              raise SystemExit('::error::Test gate failed: ' + ', '.join(failed))
+          print('Tests passed or explicitly out of scope.')
+
+  # Critical Ruff, dependency auditing, deploy checks and dependency installation
+  # block validate. Only the explicitly marked formatting/full-lint steps advise.
   validate:
     name: validate
     runs-on: ubuntu-latest
-    needs: [lint, javascript-lint, security-check, django-deploy-check]
+    needs: [changes, lint, javascript-lint, security-check, django-deploy-check]
     if: always()
     steps:
       - name: Check validation results
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        shell: python
         run: |
-          echo "Lint: ${{ needs.lint.result }}"
-          echo "JavaScript lint: ${{ needs.javascript-lint.result }}"
-          echo "Security check: ${{ needs.security-check.result }}"
-          echo "Django deploy check: ${{ needs.django-deploy-check.result }}"
+          import json
+          import os
 
-          # django-deploy-check is the only one here that blocks merge.
-          # The other three use continue-on-error so they surface issues
-          # without failing CI; keep the same posture for them.
-          if [ "${{ needs.django-deploy-check.result }}" != "success" ]; then
-            echo "::error::Django deploy check failed — a security setting regressed"
-            exit 1
-          fi
-          echo "✅ Validation passed!"
+          needs = json.loads(os.environ['CI_NEEDS'])
+          scope = needs['changes'].get('outputs', {}).get('run-platform')
+          platform_result = {'true': 'success', 'false': 'skipped'}.get(scope)
+          expected = {
+              'changes': 'success',
+              'lint': 'success',
+              'security-check': 'success',
+              'javascript-lint': platform_result,
+              'django-deploy-check': platform_result,
+          }
+          failed = [job for job, result in expected.items()
+                    if needs[job]['result'] != result]
+          for job in expected:
+              print(f"{job}: {needs[job]['result']}")
+          if failed:
+              raise SystemExit('::error::Validation gate failed: ' + ', '.join(failed))
+          print('All blocking validation checks passed.')
