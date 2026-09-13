@@ -69,6 +69,7 @@ from .notification_service import (
 from .referrals import check_and_apply_profile_approved_reward
 from .services.profile_verification import (
     claim_profile_verification,
+    release_booked_screening_slots,
     transition_unverified_profile,
 )
 
@@ -3933,32 +3934,20 @@ def _record_panel_verification(profile, coach, now, reason):
 
 
 def _release_booked_screening_slots(submission, coach):
-    """Cancel future booked screening calls for a submission being closed.
+    """The panel's release of a closed submission's future screening calls.
 
-    `coach_action_queue` lists every future `booked` slot for a coach without
-    looking at its submission's status, so a slot left booked keeps showing
-    the original coach a screening call for somebody who is already verified —
-    and holds an appointment nobody will attend. Mirrors
-    `views_booking.cancel_booking`, which is the only other place a slot is
-    released, down to stamping `cancelled_reason` and the audit entry.
-
-    Does not save the submission: the caller batches `system_actions` into its
-    own `update_fields`.
+    Shared with LuxID verification — see
+    `services.profile_verification.release_booked_screening_slots`. Does not
+    save the submission: the caller batches `system_actions` into its own
+    `update_fields`.
     """
-    slots = list(
-        submission.booked_slots.filter(status="booked", start_at__gte=timezone.now())
+    return release_booked_screening_slots(
+        submission,
+        now=timezone.now(),
+        actor=f"coach:{coach.pk}",
+        reason="verified_from_coach_panel",
+        cancelled_reason="verified_by_coach",
     )
-    for slot in slots:
-        slot.status = "cancelled"
-        slot.cancelled_reason = "verified_by_coach"
-        slot.save(update_fields=["status", "cancelled_reason", "updated_at"])
-        submission.log_system_action(
-            "booking_cancelled",
-            actor=f"coach:{coach.pk}",
-            slot_id=slot.id,
-            reason="verified_from_coach_panel",
-        )
-    return slots
 
 
 def _panel_verification_note(coach, reason):

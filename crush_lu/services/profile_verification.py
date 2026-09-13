@@ -63,6 +63,40 @@ def claim_profile_verification(
     return True
 
 
+def release_booked_screening_slots(
+    submission,
+    *,
+    now: datetime,
+    actor: str,
+    reason: str,
+    cancelled_reason: str,
+) -> list:
+    """Cancel future booked screening calls for a submission being closed.
+
+    `coach_dashboard` and `coach_action_queue` list every future `booked` slot
+    for a coach without looking at its submission's status, so a slot left
+    booked keeps showing the coach a screening call for somebody who is
+    already verified — and holds an appointment nobody will attend. Mirrors
+    `views_booking.cancel_booking`, down to stamping `cancelled_reason` and the
+    audit entry.
+
+    Call it holding the submission row lock, after the profile claim: the lock
+    order is CrushProfile → ProfileSubmission → ScreeningSlot, the one
+    `ScreeningSlot.claim_for_submission` relies on. Does not save the
+    submission: the caller batches `system_actions` into its own
+    `update_fields`.
+    """
+    slots = list(submission.booked_slots.filter(status="booked", start_at__gte=now))
+    for slot in slots:
+        slot.status = "cancelled"
+        slot.cancelled_reason = cancelled_reason
+        slot.save(update_fields=["status", "cancelled_reason", "updated_at"])
+        submission.log_system_action(
+            "booking_cancelled", actor=actor, slot_id=slot.id, reason=reason
+        )
+    return slots
+
+
 def transition_unverified_profile(
     profile: CrushProfile,
     *,

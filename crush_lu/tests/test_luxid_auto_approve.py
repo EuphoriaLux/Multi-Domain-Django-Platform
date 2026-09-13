@@ -1088,3 +1088,91 @@ class TestLuxidClaimRespectsAConcurrentReview(TestCase):
         self.assertEqual(self.profile.verification_status, "verified")
         self.assertEqual(self.submission.status, "expired")
         self.assertEqual(self.submission.coach_notes, "")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+@patch("crush_lu.notification_service.notify_profile_approved")
+class TestLuxidVerifySideEffects(TestCase):
+    """What a LuxID verification leaves behind besides the profile row.
+
+    The claim is a QuerySet.update(), so nothing hangs off post_save; each
+    follow-up the coach panel makes has to be made explicitly here too.
+    """
+
+    def setUp(self):
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+
+    def test_outlook_contact_is_resynced_after_the_claim(self, mock_notify):
+        """The shared-mailbox contact reads `is_approved`; without the re-run
+        it keeps showing the member as pending."""
+        with patch("crush_lu.signals.sync_profile_to_outlook") as sync:
+            crush_signals._execute_luxid_direct_verify(
+                self.user, self.profile, self.submission, None
+            )
+
+        sync.assert_called_once()
+        synced = sync.call_args.kwargs["instance"]
+        self.assertEqual(synced.pk, self.profile.pk)
+        self.assertTrue(synced.is_approved)
+
+    def test_no_resync_when_the_claim_is_lost(self, mock_notify):
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            verification_status="incomplete"
+        )
+
+        with patch("crush_lu.signals.sync_profile_to_outlook") as sync:
+            crush_signals._execute_luxid_direct_verify(
+                self.user, self.profile, self.submission, None
+            )
+
+        sync.assert_not_called()
+
+    def test_future_booked_screening_call_is_released(self, mock_notify):
+        """`coach_dashboard` and `coach_action_queue` list future booked slots
+        whatever the submission's status, so one left booked keeps the coach
+        chasing a member LuxID has just verified."""
+        from crush_lu.models import CrushCoach, ScreeningSlot
+
+        coach_user = User.objects.create_user(
+            username="slotcoach@example.com",
+            email="slotcoach@example.com",
+            password="pass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user)
+        start_at = timezone.now() + timedelta(days=1)
+        slot = ScreeningSlot.objects.create(
+            coach=coach,
+            submission=self.submission,
+            status="booked",
+            start_at=start_at,
+            end_at=start_at + timedelta(minutes=30),
+        )
+        past_start = timezone.now() - timedelta(days=1)
+        past_slot = ScreeningSlot.objects.create(
+            coach=coach,
+            submission=self.submission,
+            status="booked",
+            start_at=past_start,
+            end_at=past_start + timedelta(minutes=30),
+        )
+
+        crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        slot.refresh_from_db()
+        self.assertEqual(slot.status, "cancelled")
+        self.assertEqual(slot.cancelled_reason, "verified_by_luxid")
+        # A slot in the past is history, not an appointment to release.
+        past_slot.refresh_from_db()
+        self.assertEqual(past_slot.status, "booked")
+
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, "approved")
+        self.assertIn(
+            {"type": "booking_cancelled", "actor": f"user:{self.user.pk}"},
+            [
+                {"type": a["type"], "actor": a["actor"]}
+                for a in self.submission.system_actions or []
+            ],
+        )
