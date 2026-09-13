@@ -274,9 +274,6 @@ def fetch_ga4(start_date: date, end_date: date) -> dict:
 
 
 def _application_insights_app_id() -> str:
-    explicit = getattr(settings, "HUB_ANALYTICS_APP_INSIGHTS_APP_ID", "")
-    if explicit:
-        return explicit
     connection_string = getattr(settings, "APPLICATIONINSIGHTS_CONNECTION_STRING", "")
     parts = dict(
         item.split("=", 1) for item in connection_string.split(";") if "=" in item

@@ -289,7 +289,9 @@ class GA4Tests(TestCase):
 
 
 @override_settings(
-    HUB_ANALYTICS_APP_INSIGHTS_APP_ID="app-id",
+    APPLICATIONINSIGHTS_CONNECTION_STRING=(
+        "InstrumentationKey=test-key;ApplicationId=app-id"
+    ),
     HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS=5,
 )
 class ApplicationInsightsTests(TestCase):
