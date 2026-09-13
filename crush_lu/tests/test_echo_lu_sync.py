@@ -1693,6 +1693,58 @@ class SyncEventTests(TestCase):
             EchoExperienceSync.Status.WITHDRAWN,
         )
 
+    def test_an_explicit_removal_that_lost_the_race_is_still_settled(self):
+        # An explicit removal saves removal_requested before taking the row
+        # lock. If --forget clears the id in between, that save lands after
+        # it and sets the flag again. The locked read then finds nothing to
+        # take down — and must settle the request rather than leave the flag
+        # set on a row every sweep would select for good.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        stale = EchoExperienceSync.objects.get(event=event)
+        # --forget has already settled it: id cleared, removal not requested.
+        EchoExperienceSync.objects.filter(pk=stale.pk).update(
+            experience_id="", status=EchoExperienceSync.Status.WITHDRAWN
+        )
+        event.echo_sync = stale
+
+        client = FakeClient()
+        self.assertEqual(
+            echo_lu.withdraw_event(event, client=client, explicit=True), "withdrawn"
+        )
+
+        self.assertEqual(client.calls, [])
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.status, EchoExperienceSync.Status.SUPPRESSED)
+        self.assertFalse(sync.removal_requested)
+        # A fresh read, as the next save's sync would make: the instance
+        # above still caches the row it held before the lock.
+        event = MeetupEvent.objects.get(pk=event.pk)
+        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+        # And the removal holds: the event's next save creates nothing.
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+        self.assertEqual(client.calls, [])
+
+    def test_a_suppressed_row_without_an_id_is_not_republished(self):
+        # A removal can settle with the id cleared: the listing turned out to
+        # be deleted from echo.lu (the GET, or --forget). SUPPRESSED has to
+        # hold on its own then — before this, an empty id skipped the check
+        # and the event's next save created a fresh listing. Only a forced
+        # sync, the deliberate override, puts it back.
+        event = make_event()
+        EchoExperienceSync.objects.create(
+            event=event, status=EchoExperienceSync.Status.SUPPRESSED
+        )
+        event.refresh_from_db()
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+        self.assertEqual(client.calls, [])
+
+        self.assertEqual(
+            echo_lu.sync_event(event, client=client, force=True), "created"
+        )
+
     def test_a_check_that_fails_is_surfaced_not_swallowed(self):
         # A lookup that was made and failed is an echo.lu error like any
         # other, not "unknown". Swallowed into PENDING, a revoked key or an

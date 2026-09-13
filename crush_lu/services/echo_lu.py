@@ -1697,13 +1697,21 @@ def sync_event(event, client=None, force=False, dry_run=False):
         answered "would update" for every already-synced event would be
         describing a sweep nobody runs — the real one makes no call at all.
         """
-        if row is None or not row.experience_id or force:
+        if row is None or force:
             return None
         if row.status == EchoExperienceSync.Status.SUPPRESSED:
             # Taken down by hand while still eligible. The event's own fields
             # say "publish me", so without this the next pass would put it
             # straight back and the removal would look like it never happened.
+            #
+            # Checked before the id: a removal can settle with the id cleared,
+            # when the listing turned out to be deleted from echo.lu — found
+            # by the draft-or-deleted GET, or by a person running --forget.
+            # Letting the empty id fall through would create a fresh listing
+            # on the event's next save, undoing the removal.
             return "suppressed"
+        if not row.experience_id:
+            return None
         if (
             row.status == EchoExperienceSync.Status.SYNCED
             and row.payload_hash == fingerprint
@@ -1924,6 +1932,14 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
             # The check before the wait read the old id; going on would send
             # a take-down for an empty id and write FAILED over the person's
             # resolution.
+            if explicit or sync.removal_requested:
+                # An explicit removal saves its request before the wait, so
+                # that save can land after --forget's and set the flag again.
+                # Nothing is left to take down, so the request is satisfied
+                # here: SUPPRESSED, which blocks a republish even without an
+                # id. Left set, the flag would keep the row in every sweep.
+                sync.mark_withdrawn(explicit=True)
+                return "withdrawn"
             return "skipped"
         # And the event is re-read, exactly as on the publish path. Which
         # action this sends is decided from the event's own fields, so
