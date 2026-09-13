@@ -340,8 +340,8 @@ nothing is skipped. Override per-run with `--max-seconds`.
 The budget reserves one call's worth of headroom rather than just checking
 whether it has run out: an event started a second before the deadline still
 gets a full timeout to finish, and that overshoot is exactly what the budget
-exists to prevent. A take-down that gets echo.lu's "no published experience
-found" answer follows it with one `GET` to tell a draft from a deleted
+exists to prevent. A take-down that gets echo.lu's "nothing published" answer
+(see *Take-downs*) follows it with one `GET` to tell a draft from a deleted
 listing, but that `GET` is cut to whatever is left of the budget and skipped
 if nothing is (the row then stays Pending for the next sweep), so it needs no
 reservation of its own. The sweep client also runs with retries off — the
@@ -413,9 +413,14 @@ python manage.py sync_events_to_echo --audit
   updates the same listing instead of creating a second one.
 
 An unpublish that echo.lu answers with **404 `no published experience
-found`** is recorded as **Withdrawn**, not as a failure. Only that answer — a
-404 with any other body (a stale `ECHO_LU_API_BASE_URL`, a moved route) says
-nothing about the listing and stays a failure. The recognised answer means the listing was never
+found`** or **404 `no experience found in your folder`** is recorded as
+**Withdrawn**, not as a failure. Only those two count: a 404 with any other
+body (a stale `ECHO_LU_API_BASE_URL`, a moved route) says nothing about the
+listing, so it stays a failure and fails the sweep. The second wording first
+came back on prod on 2026-09-13, for two finished listings. Before it was
+recognised it fell into that route-level bucket and put the hourly sweep back
+to a 500. Which case each wording means is not documented, and the code does
+not rely on knowing: both go to the same `GET` below. A recognised answer means the listing was never
 public — a draft nobody submitted, which is every listing created
 with `ECHO_LU_CREATE_STATUS=draft` — or was deleted in the back office. Either
 way the take-down's goal already holds. Recorded as Failed, the row stayed in

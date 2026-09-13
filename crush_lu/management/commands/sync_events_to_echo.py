@@ -210,7 +210,7 @@ class Command(BaseCommand):
         # whole timeout more, which is how a bounded sweep still overruns the
         # Function. With retries off that worst case is one timeout. The one
         # possible second call — the draft-or-deleted GET after a take-down
-        # answered "no published experience found" — needs no reservation of
+        # answered that nothing is published — needs no reservation of
         # its own: it is cut to what is left of the budget (client.deadline,
         # below) and skipped when nothing is, leaving the row PENDING for the
         # next sweep. Reserving for it too made any budget of two timeouts or

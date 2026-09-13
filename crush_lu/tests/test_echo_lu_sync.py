@@ -163,12 +163,14 @@ class DraftListingClient(FakeClient):
     2026-08-26.
     """
 
+    unpublish_body = "REQUEST FAILED - no published experience found"
+
     def _not_published(self, action, experience_id):
         self._record(action, experience_id)
         raise echo_lu.EchoLuError(
             f"echo.lu PATCH /experiences/{experience_id}/{action} rejected",
             status_code=404,
-            body="REQUEST FAILED - no published experience found",
+            body=self.unpublish_body,
         )
 
     def unpublish_experience(self, experience_id):
@@ -190,6 +192,11 @@ class DeletedListingClient(DraftListingClient):
             f"echo.lu GET /experiences/{experience_id} rejected",
             status_code=self.get_status,
         )
+
+
+# echo.lu's second wording for "nothing published under this id", verbatim
+# from prod's 2026-09-13 22:05Z sweep. Set it as a client's `unpublish_body`.
+NOT_IN_FOLDER = "REQUEST FAILED - no experience found in your folder"
 
 
 class ShouldPublishTests(TestCase):
@@ -1634,6 +1641,42 @@ class SyncEventTests(TestCase):
             EchoExperienceSync.objects.get(event=event).experience_id, "exp-new"
         )
 
+    def test_the_folder_wording_is_recognised_too(self):
+        # From 2026-09-13 echo.lu answered two finished listings' unpublish
+        # with "no experience found in your folder" instead. Unrecognised, it
+        # read as a route-level 404, failed the sweep and put the timer back
+        # to a 500 every hour. It takes the first wording's path: the GET
+        # decides whether the id is kept (a draft) or forgotten (deleted).
+        for client_class, keeps_id in (
+            (DraftListingClient, True),
+            (DeletedListingClient, False),
+        ):
+            with self.subTest(client=client_class.__name__):
+                experience_id = f"exp-{client_class.__name__}"
+                event = make_event()
+                echo_lu.sync_event(
+                    event,
+                    client=FakeClient(
+                        create_response=echo_response({"id": experience_id})
+                    ),
+                )
+
+                MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+                event.refresh_from_db()
+                client = client_class()
+                client.unpublish_body = NOT_IN_FOLDER
+                self.assertEqual(echo_lu.sync_event(event, client=client), "withdrawn")
+
+                self.assertEqual(
+                    client.calls,
+                    [("unpublish", experience_id), ("get", experience_id)],
+                )
+                sync = EchoExperienceSync.objects.get(event=event)
+                self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
+                self.assertEqual(sync.experience_id, experience_id if keeps_id else "")
+                self.assertEqual(sync.last_error, "")
+                self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+
     def test_a_check_that_fails_is_surfaced_not_swallowed(self):
         # A lookup that was made and failed is an echo.lu error like any
         # other, not "unknown". Swallowed into PENDING, a revoked key or an
@@ -2631,6 +2674,53 @@ class SyncCommandTests(TestCase):
             [call for call in client.calls if call[0] == "unpublish"],
             [("unpublish", "exp-draft")],
         )
+
+    @override_settings(**ENABLED)
+    def test_the_2026_09_13_mix_does_not_fail_the_sweep(self):
+        # Prod's 22:05Z sweep on c8505962, the first after #961 shipped: two
+        # finished listings, already FAILED, whose unpublish now answered
+        # "no experience found in your folder"; a venue nobody linked; and an
+        # orphan. The last two were already a warning. The first two alone
+        # made the endpoint answer 500.
+        unlinked = make_event(
+            title="Karaoke", location="Caribou Karaoké", link_venue=False
+        )
+        finished = []
+        for name in ("quiz", "speed"):
+            event = make_event(title=f"Finished {name}")
+            EchoExperienceSync.objects.create(
+                event=event,
+                experience_id=f"exp-{name}",
+                status=EchoExperienceSync.Status.FAILED,
+            )
+            MeetupEvent.objects.filter(pk=event.pk).update(
+                date_time=timezone.now() - timedelta(days=18)
+            )
+            finished.append(event)
+        orphan = make_event(title="Orphan")
+        EchoExperienceSync.objects.create(
+            event=orphan, status=EchoExperienceSync.Status.ORPHANED
+        )
+
+        client = DeletedListingClient()
+        client.unpublish_body = NOT_IN_FOLDER
+        with mock.patch.object(
+            echo_lu, "EchoLuClient", return_value=client
+        ), self.assertLogs(COMMAND_LOGGER, level="WARNING") as logs:
+            # Raises CommandError, the endpoint's 500, if either is still loud.
+            call_command("sync_events_to_echo", stdout=StringIO(), stderr=StringIO())
+
+        logged = "\n".join(logs.output)
+        self.assertIn(f"[{unlinked.pk}] no echo.lu venue is linked", logged)
+        self.assertIn(f"[{orphan.pk}] blocked", logged)
+        for event in finished:
+            self.assertNotIn(f"[{event.pk}]", logged)
+            sync = EchoExperienceSync.objects.get(event=event)
+            self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
+            # Gone from echo.lu, so the id is forgotten and the row leaves
+            # the sweep instead of retrying the unpublish every hour.
+            self.assertEqual(sync.experience_id, "")
+            self.assertNotIn(event, list(echo_lu.events_needing_sync()))
 
     @override_settings(**ENABLED)
     def test_the_sweep_stops_on_its_time_budget(self):

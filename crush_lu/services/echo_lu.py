@@ -1439,9 +1439,9 @@ def is_isolated_failure(error):
     said which event to fix.
 
     Everything else is loud, every other 4xx included. Those are about the
-    key (401, 403), the route or base URL (404 and 405 — the one 404 known to
-    be about a listing, "no published experience found", is handled before it
-    gets here), the client's own request shape (406, 415) or the service
+    key (401, 403), the route or base URL (404 and 405 — the 404s known to be
+    about a listing, see ``_no_published_listing``, are handled before they
+    get here), the client's own request shape (406, 415) or the service
     (408, 429), and every event shares all of them. An allowlist rather than
     a list of exceptions, so a status nobody thought of fails loud. Also
     loud: a 5xx or a request that got no answer, a missing key, a shared
@@ -1465,11 +1465,12 @@ _PAYLOAD_VERDICT_4XX = frozenset({400, 409, 413, 422})
 def _listing_is_gone(client, experience_id):
     """Whether echo.lu no longer holds the listing: True, False or None.
 
-    Asked only after an unpublish or cancel came back "no published
-    experience found", which a draft and a listing deleted in the back office
-    both answer. The detail endpoint tells them apart: it returned prod's
-    draft listings when they were checked by hand (2026-08-15). By then the
-    route is known to work, so a 404 here is about the listing.
+    Asked only after an unpublish or cancel came back with one of echo.lu's
+    "nothing published" 404s (``_no_published_listing``), which a draft and a
+    listing deleted in the back office both answer. The detail endpoint tells
+    them apart: it returned prod's draft listings when they were checked by
+    hand (2026-08-15). By then the route is known to work, so a 404 here is
+    about the listing.
 
     True means deleted, so forget the id; False means it is there (a draft),
     so keep it. None means the check was not made — no deadline, or none
@@ -1511,16 +1512,33 @@ def _listing_is_gone(client, experience_id):
 
 
 def _no_published_listing(error):
-    """True for echo.lu's own 404 "no published experience found".
+    """True for echo.lu's own 404 saying it holds nothing under this id.
 
     Matched on the body, not on the status alone: a 404 from a stale base URL
     or a moved route has the same status and proves nothing about whether the
     listing is still public.
+
+    echo.lu has two wordings for it, see ``_NOTHING_PUBLISHED_BODIES``. Which
+    case each one means is not documented, and it does not need to be: both
+    lead to the same ``_listing_is_gone`` GET, and that settles draft
+    (kept) against deleted (forgotten) on its own.
     """
     if getattr(error, "status_code", None) != 404:
         return False
     body = str(getattr(error, "body", "") or "").lower()
-    return "no published experience" in body
+    return any(phrase in body for phrase in _NOTHING_PUBLISHED_BODIES)
+
+
+# echo.lu's 404 bodies for "nothing published under this id in your folder".
+# The first is what an unpublish of a draft answered when #961 was written.
+# The second came back on prod from 2026-09-13 for two finished listings;
+# unrecognised, it fell through to "every other 404 is a route", failed the
+# sweep and put the EchoLuSync timer back to a 500 every hour. Exact phrases
+# rather than a loose pattern, so a route-level 404 still fails loud.
+_NOTHING_PUBLISHED_BODIES = (
+    "no published experience",
+    "no experience found in your folder",
+)
 
 
 def _write_experience(sync, payload, fingerprint, client):
@@ -1929,7 +1947,10 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
                 # The body is checked, not just the status. A stale base URL
                 # or a moved route 404s too, while the listing stays public —
                 # taking that as success would stop the sweep retrying a
-                # take-down that never happened.
+                # take-down that never happened. echo.lu has since answered
+                # the same take-down "no experience found in your folder"
+                # too; both wordings are recognised, and the GET below
+                # settles either one.
                 if not _no_published_listing(exc):
                     raise
                 nothing_public = True
