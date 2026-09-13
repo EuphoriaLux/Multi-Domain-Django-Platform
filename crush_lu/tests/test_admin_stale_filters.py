@@ -471,8 +471,8 @@ class CoachDashboardAwaitingVerificationTests(TestCase):
 
 
 class EventDoorsTests(TestCase):
-    """The door helpers live in `services.event_doors`, and the coach page
-    and the Action Center both read them from there."""
+    """The door helpers live in `services.event_doors`, and the coach page,
+    the Action Center and the user segments all read them from there."""
 
     def test_live_or_future_events_are_the_open_doors(self):
         from crush_lu.services.event_doors import live_or_future_event_ids
@@ -494,18 +494,22 @@ class EventDoorsTests(TestCase):
 
     def test_one_definition(self):
         from crush_lu import views_coach
-        from crush_lu.admin import verification_queues
+        from crush_lu.admin import user_segments, verification_queues
         from crush_lu.services import event_doors
 
         self.assertIs(
             views_coach._live_or_future_event_ids,
             event_doors.live_or_future_event_ids,
         )
-        self.assertIs(
-            verification_queues.live_or_future_event_ids,
-            event_doors.live_or_future_event_ids,
-        )
-        self.assertIs(
-            views_coach.DOOR_VISIBLE_REGISTRATION_STATUSES,
-            event_doors.DOOR_VISIBLE_REGISTRATION_STATUSES,
-        )
+        for module in (verification_queues, user_segments):
+            with self.subTest(module=module.__name__):
+                self.assertIs(
+                    module.live_or_future_event_ids,
+                    event_doors.live_or_future_event_ids,
+                )
+        for module in (views_coach, verification_queues, user_segments):
+            with self.subTest(module=module.__name__):
+                self.assertIs(
+                    module.DOOR_VISIBLE_REGISTRATION_STATUSES,
+                    event_doors.DOOR_VISIBLE_REGISTRATION_STATUSES,
+                )
