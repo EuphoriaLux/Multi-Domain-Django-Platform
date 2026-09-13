@@ -311,12 +311,12 @@ let ex = exceptions
     | where timestamp >= start
     | summarize exceptions=count() by day=startofday(timestamp);
 pv | join kind=fullouter ex on day
-   | project date=format_datetime(coalesce(day, day1), 'yyyy-MM-dd'),
+   | project day_label=format_datetime(coalesce(day, day1), 'yyyy-MM-dd'),
              page_views=coalesce(page_views, 0),
              sessions=coalesce(sessions, 0),
              users=coalesce(users, 0),
              exceptions=coalesce(exceptions, 0)
-   | order by date asc
+   | order by day_label asc
 """.strip()
     event_query = f"""
 customEvents
@@ -326,6 +326,7 @@ customEvents
 """.strip()
     summary_rows = _app_insights_query(app_id, token, summary_query)
     summary = summary_rows[0] if summary_rows else {}
+    daily_rows = _app_insights_query(app_id, token, daily_query)
     return {
         "summary": {
             "pageViews": int(summary.get("page_views", 0)),
@@ -333,7 +334,16 @@ customEvents
             "users": int(summary.get("users", 0)),
             "exceptions": int(summary.get("exceptions", 0)),
         },
-        "daily": _app_insights_query(app_id, token, daily_query),
+        "daily": [
+            {
+                "date": row.get("day_label", ""),
+                "page_views": int(row.get("page_views", 0)),
+                "sessions": int(row.get("sessions", 0)),
+                "users": int(row.get("users", 0)),
+                "exceptions": int(row.get("exceptions", 0)),
+            }
+            for row in daily_rows
+        ],
         "events": [
             {"name": row.get("name", ""), "count": int(row.get("event_count", 0))}
             for row in _app_insights_query(app_id, token, event_query)

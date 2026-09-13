@@ -197,7 +197,7 @@ class ApplicationInsightsTests(TestCase):
                 "tables": [
                     {
                         "columns": [
-                            {"name": "date"},
+                            {"name": "day_label"},
                             {"name": "page_views"},
                             {"name": "sessions"},
                             {"name": "users"},
@@ -221,9 +221,22 @@ class ApplicationInsightsTests(TestCase):
         result = fetch_application_insights(7)
 
         self.assertEqual(result["summary"]["users"], 25)
+        self.assertEqual(
+            result["daily"][0],
+            {
+                "date": "2026-09-12",
+                "page_views": 10,
+                "sessions": 5,
+                "users": 4,
+                "exceptions": 1,
+            },
+        )
         self.assertEqual(result["events"][0], {"name": "dashboard_viewed", "count": 8})
         self.assertEqual(get.call_count, 3)
         for call in get.call_args_list:
             self.assertEqual(call.kwargs["timeout"], 5)
             self.assertNotIn("token", call.kwargs["params"]["query"])
             self.assertIn("ago(6d)", call.kwargs["params"]["query"])
+        daily_query = get.call_args_list[1].kwargs["params"]["query"]
+        self.assertIn("project day_label=", daily_query)
+        self.assertNotIn("project date=", daily_query)

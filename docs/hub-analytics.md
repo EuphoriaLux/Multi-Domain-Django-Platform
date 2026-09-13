@@ -29,7 +29,7 @@ other aggregates. Results are cached server-side for 15 minutes by default.
 | `GOOGLE_INDEXING_KEY_JSON` | empty | Existing server-side Google service-account JSON. |
 | `HUB_ANALYTICS_GSC_SITE_URL` | `sc-domain:crush.lu` | Search Console property. |
 | `HUB_ANALYTICS_GA4_PROPERTY_ID` | `516337382` | GA4 property ID. |
-| `HUB_ANALYTICS_APP_INSIGHTS_APP_ID` | empty | Application Insights application ID used by the query API. |
+| `HUB_ANALYTICS_APP_INSIGHTS_APP_ID` | empty | Optional Application Insights application ID override used by the query API. |
 | `HUB_ANALYTICS_CACHE_SECONDS` | `900` | Aggregate response cache duration. |
 | `HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS` | `15` | Application Insights HTTP timeout. |
 
@@ -40,8 +40,10 @@ external sources:
    Search Console property and Viewer access to GA4 property `516337382`.
 2. Enable the Django App Service managed identity and grant it a read-only
    Azure Monitor role on the Application Insights resource.
-3. Set `HUB_ANALYTICS_APP_INSIGHTS_APP_ID` to the Application Insights
-   application ID. This is not the instrumentation key or Azure resource ID.
+3. Ensure `APPLICATIONINSIGHTS_CONNECTION_STRING` contains `ApplicationId`.
+   Otherwise, set `HUB_ANALYTICS_APP_INSIGHTS_APP_ID` to the Application
+   Insights application ID as an explicit override. This is not the
+   instrumentation key or Azure resource ID.
 
 After deploying, sign in to `hub.crush.lu` as staff, open **Analytics**, and
 verify the source-status panel before using the figures operationally.
