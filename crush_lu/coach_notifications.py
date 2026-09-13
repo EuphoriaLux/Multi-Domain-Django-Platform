@@ -15,6 +15,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from pywebpush import webpush, WebPushException
+from .services.push_endpoints import push_transport
 from .models import CoachPushSubscription
 from .push_notifications import user_language_context
 
@@ -204,17 +205,19 @@ def send_coach_push_notification(
             }
 
             # Send the push notification
-            webpush(
-                subscription_info=subscription_info,
-                data=json.dumps(payload),
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
-                # pywebpush defaults to no timeout. A stalled push endpoint
-                # would then hang the caller indefinitely — for the crush
-                # lead sweep that means holding a row lock until the Azure
-                # Function's own 60s timeout kills the request.
-                timeout=device_timeout,
-            )
+            with push_transport(subscription.endpoint) as session:
+                webpush(
+                    requests_session=session,
+                    subscription_info=subscription_info,
+                    data=json.dumps(payload),
+                    vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                    # pywebpush defaults to no timeout. A stalled push endpoint
+                    # would then hang the caller indefinitely — for the crush
+                    # lead sweep that means holding a row lock until the Azure
+                    # Function's own 60s timeout kills the request.
+                    timeout=device_timeout,
+                )
 
             # Mark success
             subscription.mark_success()
@@ -346,12 +349,15 @@ def send_coach_push_to_subscription(
         }
 
         # Send the push notification
-        webpush(
-            subscription_info=subscription_info,
-            data=json.dumps(payload),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
-        )
+        with push_transport(subscription.endpoint) as session:
+            webpush(
+                requests_session=session,
+                subscription_info=subscription_info,
+                data=json.dumps(payload),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                timeout=PUSH_TIMEOUT_SECONDS,
+            )
 
         # Mark success
         subscription.mark_success()

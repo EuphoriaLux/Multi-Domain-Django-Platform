@@ -18,6 +18,7 @@ from django.utils import timezone
 from .models import PushSubscription, CoachPushSubscription, CrushCoach
 from .push_notifications import send_test_notification
 from .decorators import ratelimit
+from .services.push_endpoints import InvalidPushEndpoint, validate_push_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +96,18 @@ def subscribe_push(request):
         }, status=400)
 
     # Validate required fields
-    if 'endpoint' not in data or 'keys' not in data:
+    if not isinstance(data, dict) or 'endpoint' not in data or 'keys' not in data:
         return JsonResponse({
             'success': False,
             'error': 'Missing endpoint or keys'
         }, status=400)
+
+    try:
+        validate_push_endpoint(data['endpoint'])
+    except InvalidPushEndpoint:
+        return JsonResponse(
+            {'success': False, 'error': 'Unsupported push endpoint'}, status=400
+        )
 
     keys = data['keys']
     if 'p256dh' not in keys or 'auth' not in keys:
@@ -190,16 +198,29 @@ def refresh_subscription(request):
     """
     try:
         data = json.loads(request.body)
+        if not isinstance(data, dict):
+            return JsonResponse(
+                {'success': False, 'message': 'Invalid JSON object'}, status=400
+            )
         old_endpoint = data.get('oldEndpoint')
         new_subscription_data = data.get('subscription', {})
 
-        if not new_subscription_data.get('endpoint'):
+        if (
+            not isinstance(new_subscription_data, dict)
+            or not new_subscription_data.get('endpoint')
+        ):
             return JsonResponse({
                 'success': False,
                 'message': 'New subscription endpoint required'
             }, status=400)
 
         new_endpoint = new_subscription_data['endpoint']
+        try:
+            validate_push_endpoint(new_endpoint)
+        except InvalidPushEndpoint:
+            return JsonResponse(
+                {'success': False, 'message': 'Unsupported push endpoint'}, status=400
+            )
         new_keys = new_subscription_data.get('keys', {})
         p256dh = new_keys.get('p256dh')
         auth = new_keys.get('auth')
@@ -220,9 +241,9 @@ def refresh_subscription(request):
             ).first()
 
             # Try coach subscriptions if user is a coach
-            if not subscription and hasattr(request.user, 'crush_coach'):
+            if not subscription and hasattr(request.user, 'crushcoach'):
                 subscription = CoachPushSubscription.objects.filter(
-                    coach=request.user.crush_coach,
+                    coach=request.user.crushcoach,
                     endpoint=old_endpoint
                 ).first()
 
@@ -235,9 +256,9 @@ def refresh_subscription(request):
                 endpoint=new_endpoint
             ).first()
 
-            if not subscription and hasattr(request.user, 'crush_coach'):
+            if not subscription and hasattr(request.user, 'crushcoach'):
                 subscription = CoachPushSubscription.objects.filter(
-                    coach=request.user.crush_coach,
+                    coach=request.user.crushcoach,
                     endpoint=new_endpoint
                 ).first()
 
@@ -316,9 +337,9 @@ def validate_subscription(request):
             enabled=True
         ).first()
 
-        if not subscription and hasattr(request.user, 'crush_coach'):
+        if not subscription and hasattr(request.user, 'crushcoach'):
             subscription = CoachPushSubscription.objects.filter(
-                coach=request.user.crush_coach,
+                coach=request.user.crushcoach,
                 endpoint=endpoint,
                 enabled=True
             ).first()

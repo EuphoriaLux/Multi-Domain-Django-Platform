@@ -42,7 +42,7 @@ def user_with_push_subscription(user_with_profile):
     """Create a user with an active push subscription."""
     PushSubscription.objects.create(
         user=user_with_profile,
-        endpoint='https://push.example.com/test',
+        endpoint='https://fcm.googleapis.com/fcm/send/test',
         p256dh_key='test_p256dh_key',
         auth_key='test_auth_key',
         device_name='Test Device',

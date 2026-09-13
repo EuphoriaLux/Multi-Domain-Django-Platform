@@ -811,7 +811,7 @@ class TestCodexRound1Fixes:
         coach = lead.assigned_coach
         opted_in = CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/opted-in",
+            endpoint="https://fcm.googleapis.com/fcm/send/opted-in",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,
@@ -819,7 +819,7 @@ class TestCodexRound1Fixes:
         )
         CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/muted",
+            endpoint="https://fcm.googleapis.com/fcm/send/muted",
             p256dh_key="k2",
             auth_key="a2",
             enabled=True,
@@ -851,7 +851,7 @@ class TestCodexRound1Fixes:
         coach = _make_coach("sa_pref@example.com")
         opted_in = CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/alerts-on",
+            endpoint="https://fcm.googleapis.com/fcm/send/alerts-on",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,
@@ -859,7 +859,7 @@ class TestCodexRound1Fixes:
         )
         CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example/alerts-muted",
+            endpoint="https://fcm.googleapis.com/fcm/send/alerts-muted",
             p256dh_key="k2",
             auth_key="a2",
             enabled=True,
@@ -1689,7 +1689,7 @@ class TestCodexRound4Fixes:
         for i in range(3):
             CoachPushSubscription.objects.create(
                 coach=coach,
-                endpoint=f"https://push.example/r4-{i}",
+                endpoint=f"https://fcm.googleapis.com/fcm/send/r4-{i}",
                 p256dh_key=f"k{i}",
                 auth_key=f"a{i}",
                 enabled=True,
@@ -1765,7 +1765,7 @@ class TestCodexRound6Fixes:
         routed, cocoach, lead = self._cocoach_lead()
         CoachPushSubscription.objects.create(
             coach=routed,
-            endpoint="https://push.example/r6-consent",
+            endpoint="https://fcm.googleapis.com/fcm/send/r6-consent",
             p256dh_key="k1",
             auth_key="a1",
             enabled=True,

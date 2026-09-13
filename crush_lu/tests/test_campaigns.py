@@ -76,7 +76,7 @@ def opt_in_whatsapp(user):
 def add_push_subscription(user, enabled=True, endpoint_suffix='1'):
     return PushSubscription.objects.create(
         user=user,
-        endpoint=f'https://push.example.com/{user.pk}/{endpoint_suffix}',
+        endpoint=f'https://fcm.googleapis.com/fcm/send/{user.pk}/{endpoint_suffix}',
         p256dh_key='p256dh-test-key',
         auth_key='auth-test-key',
         enabled=enabled,
