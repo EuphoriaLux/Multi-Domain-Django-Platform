@@ -85,7 +85,7 @@ class CrushLuAdminSite(admin.AdminSite):
 
         # Add coach information to context
         try:
-            coach = request.user.crushcoach
+            request.user.crushcoach
             extra_context['is_coach'] = True
             extra_context['coach_name'] = request.user.get_full_name() or request.user.username
         except (AttributeError, ObjectDoesNotExist):
@@ -284,8 +284,10 @@ class CrushLuAdminSite(admin.AdminSite):
             'campaign': {'order': 7, 'icon': '📢', 'group': 'Notifications'},
             'campaignrecipient': {'order': 8, 'icon': '📮', 'group': 'Notifications'},
             'emailpreference': {'order': 9, 'icon': '📧', 'group': 'Notifications'},
-            'useractivity': {'order': 10, 'icon': '📊', 'group': 'Notifications'},
-            'profilereminder': {'order': 11, 'icon': '📬', 'group': 'Notifications'},
+            'emailsuppression': {'order': 10, 'icon': '🚫', 'group': 'Notifications'},
+            'emailbounceevent': {'order': 11, 'icon': '⚠️', 'group': 'Notifications'},
+            'useractivity': {'order': 12, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 13, 'icon': '📬', 'group': 'Notifications'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)

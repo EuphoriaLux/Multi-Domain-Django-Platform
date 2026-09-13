@@ -33,7 +33,7 @@ class HTMLToPlainTextTests(TestCase):
         self.assertNotIn("color: red", plain)
         self.assertIn("Hello", plain)
         self.assertIn("First\nSecond", plain)
-        self.assertIn("Open (https://crush.lu/x)", plain)
+        self.assertIn("Open\nhttps://crush.lu/x", plain)
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")

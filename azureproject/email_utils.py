@@ -65,7 +65,7 @@ def html_to_plain_text(html_content):
     )
     text = re.sub(
         r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',
-        r"\2 (\1)",
+        r"\2\n\1",
         text,
         flags=re.DOTALL | re.IGNORECASE,
     )
