@@ -5,9 +5,6 @@
 # commit; a new commit that re-adds the same line (a squash merge included)
 # is reported again. Only whole-line `#` comments work in this file.
 
-# Real-shaped Web Push subscription fixture: test data, not a credential.
-b8515915683969b2daad84b7e7f156e565f0eec9:crush_lu/tests/test_crush_phase_e_open_points.py:generic-api-key:51
-
 # A PEM header string literal with no key body, asserted by the Apple Wallet
 # test and quoted in the plan that drafted it. A content regex for the
 # private-key rule would also cover any real key that follows it in the same

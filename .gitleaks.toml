@@ -38,6 +38,11 @@ regexes = [
   '''^(?:p256dh-test-key|test_p256dh_key|test_p256dh_key_disabled)$''',
   '''^abcdef123456$''',
 
+  # Web Push subscription `auth` test fixture: base64url of the bytes
+  # 0x00..0x0f (crush_lu/tests/test_crush_phase_e_open_points.py; PR #967
+  # copies it into test_push_destination_security.py). Not a credential.
+  '''^AAECAwQFBgcICQoLDA0ODw$''',
+
   # Django migrations put `help_text="...token...", max_length=64` on one
   # line; generic-api-key takes the comma after the help text as an
   # assignment and captures the next keyword argument.
