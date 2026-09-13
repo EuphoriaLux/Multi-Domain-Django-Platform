@@ -144,6 +144,8 @@ from .preferences import (
     UserActivityAdmin,
     EmailPreferenceAdmin,
     ProfileReminderAdmin,
+    EmailSuppressionAdmin,
+    EmailBounceEventAdmin,
 )
 
 from .newsletter import (
@@ -311,6 +313,8 @@ from crush_lu.models import (
     UserActivity,
     EmailPreference,
     ProfileReminder,
+    EmailSuppression,
+    EmailBounceEvent,
     ReferralCode,
     ReferralAttribution,
     PWADeviceInstallation,
@@ -462,6 +466,8 @@ crush_admin_site.register(AndroidAppDevice, AndroidAppDeviceAdmin)
 crush_admin_site.register(UserActivity, UserActivityAdmin)
 crush_admin_site.register(EmailPreference, EmailPreferenceAdmin)
 crush_admin_site.register(ProfileReminder, ProfileReminderAdmin)
+crush_admin_site.register(EmailSuppression, EmailSuppressionAdmin)
+crush_admin_site.register(EmailBounceEvent, EmailBounceEventAdmin)
 
 # Referral System
 crush_admin_site.register(ReferralCode, ReferralCodeAdmin)
@@ -657,6 +663,8 @@ __all__ = [
     "UserActivityAdmin",
     "EmailPreferenceAdmin",
     "ProfileReminderAdmin",
+    "EmailSuppressionAdmin",
+    "EmailBounceEventAdmin",
     # Referrals
     "ReferralCodeAdmin",
     "ReferralAttributionAdmin",

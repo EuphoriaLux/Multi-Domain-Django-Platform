@@ -19,6 +19,7 @@ import traceback
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.models.payments import PaymentTransaction
+from azureproject.email_utils import html_to_plain_text
 
 from .models import (
     CrushProfile,
@@ -1603,7 +1604,7 @@ def email_template_preview(request):
     # Render the email template
     try:
         html_content = render_to_string(template_meta["template"], context)
-        plain_content = _html_to_plain_text(html_content)
+        plain_content = html_to_plain_text(html_content)
     except Exception as e:
         logger.error(f"Error rendering email template preview: {e}")
         logger.error(traceback.format_exc())
@@ -1650,7 +1651,6 @@ def email_template_send(request):
     """
     from django.http import JsonResponse
     from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
     from azureproject.email_utils import send_domain_email
     from .admin.email_templates_config import get_template_by_key
 
@@ -1686,7 +1686,7 @@ def email_template_send(request):
     # Render email
     try:
         html_content = render_to_string(template_meta["template"], context)
-        plain_content = strip_tags(html_content)
+        plain_content = html_to_plain_text(html_content)
     except Exception as e:
         logger.error(f"Error rendering email template: {e}")
         logger.error(traceback.format_exc())
@@ -2302,105 +2302,6 @@ def _create_mock_message():
             self.sent_at = timezone.now()
 
     return MockMessage()
-
-
-def _html_to_plain_text(html_content):
-    """
-    Convert HTML email to clean plain text.
-
-    Removes style/script tags, converts common HTML elements to text equivalents,
-    and cleans up whitespace.
-    """
-    import re
-    from html.parser import HTMLParser
-    from django.utils.html import strip_tags
-
-    # Use a proper HTML parser to remove style/script tags with content
-    class _TagStripper(HTMLParser):
-        SKIP_TAGS = {"style", "script"}
-
-        def __init__(self):
-            super().__init__()
-            self._result = []
-            self._skip_depth = 0
-
-        def handle_starttag(self, tag, attrs):
-            if tag.lower() in self.SKIP_TAGS:
-                self._skip_depth += 1
-            elif not self._skip_depth:
-                self._result.append(self.get_starttag_text())
-
-        def handle_endtag(self, tag):
-            if tag.lower() in self.SKIP_TAGS:
-                self._skip_depth = max(0, self._skip_depth - 1)
-            elif not self._skip_depth:
-                self._result.append(f"</{tag}>")
-
-        def handle_data(self, data):
-            if not self._skip_depth:
-                self._result.append(data)
-
-        def get_output(self):
-            return "".join(self._result)
-
-    stripper = _TagStripper()
-    stripper.feed(html_content)
-    text = stripper.get_output()
-
-    # Remove HTML comments
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-
-    # Convert <br> and <br/> to newlines
-    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-
-    # Convert </p>, </div>, </tr>, </li> to double newlines
-    text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</tr>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
-
-    # Convert <li> to bullet points
-    text = re.sub(r"<li[^>]*>", "  • ", text, flags=re.IGNORECASE)
-
-    # Convert headings to uppercase with newlines
-    text = re.sub(
-        r"<h[1-6][^>]*>(.*?)</h[1-6]>",
-        r"\n\n\1\n",
-        text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    # Extract href from links and show as [text](url)
-    text = re.sub(
-        r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',
-        r"\2 (\1)",
-        text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    # Now strip remaining HTML tags
-    text = strip_tags(text)
-
-    # Decode HTML entities
-    import html
-
-    text = html.unescape(text)
-
-    # Clean up whitespace
-    # Replace multiple spaces with single space
-    text = re.sub(r"[ \t]+", " ", text)
-
-    # Replace 3+ newlines with 2 newlines
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    # Strip leading/trailing whitespace from each line
-    lines = [line.strip() for line in text.split("\n")]
-    text = "\n".join(lines)
-
-    # Remove leading/trailing whitespace from entire text
-    text = text.strip()
-
-    return text
 
 
 @staff_member_required

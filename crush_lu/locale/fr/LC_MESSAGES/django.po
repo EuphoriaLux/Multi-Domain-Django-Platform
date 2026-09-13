@@ -8788,7 +8788,7 @@ msgstr ""
 #: templates/account/email/password_reset_key_message.html:15
 msgid "To choose a new password, click the button below:"
 msgstr ""
-"Pour choisir un nouveau mot de passe, clique sur le bouton ci-dessous :"
+"Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :"
 
 #: templates/account/email/password_reset_key_message.html:19
 msgid "Reset my password"
@@ -13275,7 +13275,7 @@ msgstr "Vérification de résidence"
 #: templates/crush_lu/emails/event_reminder.html:18
 #: templates/crush_lu/emails/event_waitlist.html:21
 msgid "Location:"
-msgstr "Localisation"
+msgstr "Lieu :"
 
 #: templates/crush_lu/_screening_call_section.html:336
 msgid "Residence in Luxembourg or neighbor country confirmed"

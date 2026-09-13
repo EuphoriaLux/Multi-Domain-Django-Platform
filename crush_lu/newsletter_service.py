@@ -7,13 +7,13 @@ and per-recipient tracking for resumability.
 import logging
 import time
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
-from django.utils.html import strip_tags
 
-from azureproject.email_utils import send_domain_email
+from azureproject.email_utils import html_to_plain_text, send_domain_email
 from .email_helpers import can_send_email, get_social_links
 from .models.newsletter import NewsletterRecipient
 from .utils.i18n import build_absolute_url, get_user_preferred_language
@@ -314,7 +314,22 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         )
 
         try:
-            _send_newsletter_to_user(newsletter, user, link_rewriter)
+            delivery_count = _send_newsletter_to_user(
+                newsletter, user, link_rewriter
+            )
+            if delivery_count == 0:
+                NewsletterRecipient.objects.update_or_create(
+                    newsletter=newsletter,
+                    user=user,
+                    defaults={
+                        'email': user.email,
+                        'status': 'skipped',
+                        'sent_at': None,
+                        'error_message': 'Active hard-bounce suppression',
+                    },
+                )
+                skipped += 1
+                continue
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
@@ -524,7 +539,7 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         subject, html_message = render_event_announcement(
             newsletter.event, user, lang
         )
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
     else:
         email_prefs = EmailPreference.get_or_create_for_user(user)
         unsubscribe_url = build_absolute_url(
@@ -567,18 +582,18 @@ def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
         if body_text:
             plain_message = body_text
         else:
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
     if link_rewriter is not None:
         # After plain_message is derived, so the text part keeps direct URLs.
         html_message = link_rewriter(html_message, user)
 
-    send_domain_email(
+    return send_domain_email(
         subject=subject,
         message=plain_message,
         html_message=html_message,
         recipient_list=[user.email],
-        from_email='love@crush.lu',
+        from_email=settings.CRUSH_NEWSLETTER_FROM_EMAIL,
         domain='crush.lu',
         fail_silently=False,
     )

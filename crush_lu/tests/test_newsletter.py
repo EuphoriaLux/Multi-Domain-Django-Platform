@@ -186,6 +186,25 @@ class NewsletterSendTests(TestCase):
         self.assertEqual(self.newsletter.total_sent, 2)
         self.assertIsNotNone(self.newsletter.sent_at)
 
+    @patch('crush_lu.newsletter_service.BATCH_PAUSE_SECONDS', 0)
+    @patch('crush_lu.newsletter_service.send_domain_email', return_value=0)
+    def test_suppressed_deliveries_are_recorded_as_skipped(self, mock_send):
+        results = send_newsletter(self.newsletter)
+
+        self.assertEqual(results['sent'], 0)
+        self.assertEqual(results['skipped'], 2)
+        self.assertEqual(
+            NewsletterRecipient.objects.filter(
+                newsletter=self.newsletter, status='skipped'
+            ).count(),
+            2,
+        )
+        self.assertFalse(
+            NewsletterRecipient.objects.filter(
+                newsletter=self.newsletter, status='sent'
+            ).exists()
+        )
+
     def test_dry_run_creates_no_records(self):
         results = send_newsletter(self.newsletter, dry_run=True)
 

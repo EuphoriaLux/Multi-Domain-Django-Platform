@@ -199,6 +199,15 @@ class GetUsersNeedingReminderTests(TestCase):
 
 
 class SendProfileIncompleteReminderTests(TestCase):
+    def test_normalizes_obvious_name_casing_in_greeting(self):
+        user = make_incomplete_user("upper", created_hours_ago=30)
+        user.first_name = "EXPOSIKA"
+        user.save(update_fields=["first_name"])
+
+        self.assertTrue(send_profile_incomplete_reminder(user, "24h", request=None))
+
+        self.assertIn("Hey Exposika!", mail.outbox[0].body)
+
     def test_batch_send_uses_crush_sender_and_records_reminder(self):
         user = make_incomplete_user("batch", created_hours_ago=30)
 

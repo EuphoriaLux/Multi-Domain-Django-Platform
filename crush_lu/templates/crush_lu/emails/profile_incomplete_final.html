@@ -8,7 +8,7 @@
 {% block content %}
 <h2>{% trans "One week later - your profile is still incomplete" %}</h2>
 
-<p>{% trans "Hey" %} {{ user.first_name|default:user.username }},</p>
+<p>{% trans "Hey" %}{% if greeting_name %} {{ greeting_name }}{% endif %},</p>
 
 <p>{% trans "This is our final reminder - your Crush.lu profile is still waiting for you!" %}</p>
 
