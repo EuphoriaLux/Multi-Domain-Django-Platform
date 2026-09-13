@@ -15,6 +15,11 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from pywebpush import webpush, WebPushException
+from .services.push_endpoints import (
+    InvalidPushEndpoint,
+    push_transport,
+    retire_invalid_subscription,
+)
 from .models import CoachPushSubscription
 from .push_notifications import user_language_context
 
@@ -175,24 +180,6 @@ def send_coach_push_notification(
             device_timeout = min(PUSH_TIMEOUT_SECONDS, remaining)
         else:
             device_timeout = PUSH_TIMEOUT_SECONDS
-        # A device whose stored keys cannot encrypt anything is broken in a way
-        # only re-subscribing fixes, so it counts against device health and
-        # reaches the five-failure cleanup. Detected here rather than in the
-        # handlers below: the exceptions this produces are indistinguishable
-        # from a *global* VAPID fault by type, and blaming every device for
-        # that would delete them all.
-        key_fault = subscription_key_fault(
-            subscription.p256dh_key, subscription.auth_key
-        )
-        if key_fault:
-            logger.warning(
-                f"Unusable coach push keys for {coach.user.username} "
-                f"({subscription.device_name}): {key_fault}"
-            )
-            subscription.mark_failure()
-            failed_count += 1
-            continue
-
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -204,17 +191,36 @@ def send_coach_push_notification(
             }
 
             # Send the push notification
-            webpush(
-                subscription_info=subscription_info,
-                data=json.dumps(payload),
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
-                # pywebpush defaults to no timeout. A stalled push endpoint
-                # would then hang the caller indefinitely — for the crush
-                # lead sweep that means holding a row lock until the Azure
-                # Function's own 60s timeout kills the request.
-                timeout=device_timeout,
-            )
+            with push_transport(subscription.endpoint) as session:
+                # Validate the destination before the key-fault early exit so
+                # a permanently rejected endpoint retires on its first attempt.
+                # Inspect device keys separately: encryption exceptions can
+                # also indicate a global VAPID fault, which must not retire
+                # otherwise valid devices.
+                key_fault = subscription_key_fault(
+                    subscription.p256dh_key, subscription.auth_key
+                )
+                if key_fault:
+                    logger.warning(
+                        f"Unusable coach push keys for {coach.user.username} "
+                        f"({subscription.device_name}): {key_fault}"
+                    )
+                    subscription.mark_failure()
+                    failed_count += 1
+                    continue
+
+                webpush(
+                    requests_session=session,
+                    subscription_info=subscription_info,
+                    data=json.dumps(payload),
+                    vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                    # pywebpush defaults to no timeout. A stalled push endpoint
+                    # would then hang the caller indefinitely — for the crush
+                    # lead sweep that means holding a row lock until the Azure
+                    # Function's own 60s timeout kills the request.
+                    timeout=device_timeout,
+                )
 
             # Mark success
             subscription.mark_success()
@@ -222,6 +228,13 @@ def send_coach_push_notification(
             logger.info(
                 f"Coach push notification sent to {coach.user.username} ({subscription.device_name})"
             )
+
+        except InvalidPushEndpoint:
+            logger.warning(
+                "Rejected endpoint for coach push subscription %s", subscription.pk
+            )
+            retire_invalid_subscription(subscription)
+            failed_count += 1
 
         except WebPushException as e:
             # Handle push errors (expired subscription, etc.)
@@ -346,12 +359,15 @@ def send_coach_push_to_subscription(
         }
 
         # Send the push notification
-        webpush(
-            subscription_info=subscription_info,
-            data=json.dumps(payload),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
-        )
+        with push_transport(subscription.endpoint) as session:
+            webpush(
+                requests_session=session,
+                subscription_info=subscription_info,
+                data=json.dumps(payload),
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                timeout=PUSH_TIMEOUT_SECONDS,
+            )
 
         # Mark success
         subscription.mark_success()
@@ -359,6 +375,13 @@ def send_coach_push_to_subscription(
             f"Coach push notification sent to {subscription.coach.user.username} ({subscription.device_name})"
         )
         return {"success": True, "error": None}
+
+    except InvalidPushEndpoint as e:
+        logger.warning(
+            "Rejected endpoint for coach push subscription %s", subscription.pk
+        )
+        retire_invalid_subscription(subscription)
+        return {"success": False, "error": str(e)}
 
     except WebPushException as e:
         # Handle push errors (expired subscription, etc.)

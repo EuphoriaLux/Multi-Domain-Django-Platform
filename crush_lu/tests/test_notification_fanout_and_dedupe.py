@@ -61,7 +61,7 @@ def _subscription(user, index, **flags):
     defaults.update(flags)
     return PushSubscription.objects.create(
         user=user,
-        endpoint=f"https://push.example.com/device-{index}",
+        endpoint=f"https://fcm.googleapis.com/fcm/send/device-{index}",
         p256dh_key=f"p256dh-{index}",
         auth_key=f"auth-{index}",
         device_name=f"Device {index}",
