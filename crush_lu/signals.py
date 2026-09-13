@@ -3021,20 +3021,32 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         # door scan had already committed — and both would then emit the
         # approval notification and referral work. Whoever claims the
         # transition owns it; the loser leaves the record alone.
+        #
+        # Pending only, re-checked in that same UPDATE: every caller decides
+        # on a `pending` it read earlier, and a coach revision committed in
+        # between (profile back to `incomplete`) must win over LuxID.
         claimed = claim_profile_verification(
             profile,
             method="luxid",
             approved_at=now,
-            claim_from=("incomplete", "pending"),
+            claim_from=("pending",),
         )
         if not claimed:
             logger.info(
-                "[LUXID-VERIFY] Profile pk=%s was already verified by another "
-                "path; leaving it untouched",
+                "[LUXID-VERIFY] Profile pk=%s is no longer pending; leaving it "
+                "untouched",
                 profile.pk,
             )
             return False
-        if submission and submission.status == "pending":
+        # Approve the submission only while the database still has it pending,
+        # not the caller's copy: it may have been sent back or expired since.
+        if submission is not None:
+            submission = (
+                ProfileSubmission.objects.select_for_update()
+                .filter(pk=submission.pk, status="pending")
+                .first()
+            )
+        if submission is not None:
             submission.status = "approved"
             submission.reviewed_at = now
             submission.review_call_completed = True

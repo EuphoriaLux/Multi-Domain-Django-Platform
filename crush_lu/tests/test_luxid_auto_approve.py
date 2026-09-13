@@ -1010,3 +1010,54 @@ class TestAutoApproveExpiredLatestInvariant(TestCase):
         self.assertEqual(self.older_pending.status, "pending")
         self.assertIsNone(self.older_pending.reviewed_at)
         self.assertEqual(self.expired.status, "expired")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class TestLuxidClaimRespectsAConcurrentReview(TestCase):
+    """The LuxID claim re-checks `pending` in the database, not the caller's copy.
+
+    Every caller decides on a `pending` it read earlier. A coach revision that
+    commits in between moves the profile back to `incomplete` and the
+    submission to `revision`; LuxID must not verify over it, nor save the
+    submission it loaded back to `approved`.
+    """
+
+    def setUp(self):
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_revision_after_the_pending_check_wins(self, mock_notify):
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            verification_status="incomplete"
+        )
+        ProfileSubmission.objects.filter(pk=self.submission.pk).update(
+            status="revision"
+        )
+
+        claimed = crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        self.assertFalse(claimed)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "incomplete")
+        self.assertFalse(self.profile.is_approved)
+        self.assertEqual(self.submission.status, "revision")
+        mock_notify.assert_not_called()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_submission_that_left_pending_is_not_approved(self, mock_notify):
+        """The profile is still pending, so LuxID verifies it — but the
+        submission the caller loaded has been closed out since, and stays so."""
+        ProfileSubmission.objects.filter(pk=self.submission.pk).update(status="expired")
+
+        crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.submission.status, "expired")
+        self.assertEqual(self.submission.coach_notes, "")
