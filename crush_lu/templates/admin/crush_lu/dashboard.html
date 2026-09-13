@@ -168,25 +168,26 @@
         {# Recent Activity (Combined) #}
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
             <div class="table-container">
-                <h3>{% trans "Recent Profile Submissions" %}</h3>
+                <h3>{% trans "Recently Updated Pending Profiles" %}</h3>
                 <table class="stats-table">
                     <thead>
                         <tr>
                             <th>{% trans "User" %}</th>
-                            <th>{% trans "Status" %}</th>
-                            <th>{% trans "Submitted" %}</th>
+                            <th>{% trans "Event Booking" %}</th>
+                            <th>{% trans "Updated" %}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for submission in recent_submissions %}
+                        {# A coach's profile admin lists only members whose submissions they hold. #}
+                        {% for profile in recent_pending_profiles %}
                         <tr>
-                            <td><a href="{% url 'crush_admin:crush_lu_profilesubmission_change' submission.id %}">{{ submission.profile.user.get_full_name|default:submission.profile.user.username }}</a></td>
-                            <td><span class="badge badge-warning">{{ submission.get_status_display }}</span></td>
-                            <td>{% blocktrans with time=submission.submitted_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
+                            <td><a href="{% if request.user.is_superuser %}{% url 'crush_admin:crush_lu_crushprofile_change' profile.id %}{% else %}{% url 'crush_lu:coach_unverified_profiles' %}?status=pending{% endif %}">{{ profile.user.get_full_name|default:profile.user.username }}</a></td>
+                            <td>{% if profile.has_door_seat %}<span class="badge badge-success">{% trans "Booked" %}</span>{% else %}<span class="badge badge-warning">{% trans "Not booked" %}</span>{% endif %}</td>
+                            <td>{% blocktrans with time=profile.updated_at|timesince %}{{ time }} ago{% endblocktrans %}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="empty-state">{% trans "No recent submissions" %}</td>
+                            <td colspan="3" class="empty-state">{% trans "Nobody is awaiting verification" %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

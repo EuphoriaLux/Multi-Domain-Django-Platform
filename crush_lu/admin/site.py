@@ -72,10 +72,12 @@ class CrushLuAdminSite(admin.AdminSite):
         from django.db.models import Count
         from django.utils import timezone
         from ..models import (
-            CrushProfile, ProfileSubmission, MeetupEvent,
+            CrushProfile, MeetupEvent,
             EventConnection
         )
-        from .verification_queues import pending_action_counts
+        from .verification_queues import (
+            pending_action_counts, recent_pending_profiles,
+        )
 
         extra_context = extra_context or {}
         extra_context['show_dashboard_link'] = True
@@ -118,10 +120,10 @@ class CrushLuAdminSite(admin.AdminSite):
         # zero. Shared with the analytics dashboard's Pending Actions.
         extra_context['pending_actions'] = pending_action_counts(now)
 
-        # Recent submissions for Today's Focus
-        extra_context['recent_submissions'] = ProfileSubmission.objects.filter(
-            status='pending'
-        ).select_related('profile__user', 'coach__user').order_by('-submitted_at')[:5]
+        # Today's Focus: the members most recently updated while awaiting
+        # verification. This listed pending ProfileSubmissions, which nobody
+        # creates since the pivot, so the tab was always empty.
+        extra_context['recent_pending_profiles'] = recent_pending_profiles(5, now)
 
         # Upcoming events list for Today's Focus
         extra_context['upcoming_events_list'] = current_events[:5]
