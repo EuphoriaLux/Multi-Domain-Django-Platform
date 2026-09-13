@@ -137,6 +137,21 @@ class ReviewAskReachesAttendeesTests(_AttendeeFixture):
         for steering in ("if you enjoyed", "If you enjoyed", "if it was good"):
             self.assertNotIn(steering, html)
 
+    def test_the_policy_note_itself_never_reaches_the_reader(self):
+        """The note explaining *why* the copy is neutral sits next to the copy.
+
+        Django's ``{# ... #}`` is single-line only — a multi-line one is emitted
+        as visible text, which is how an internal beta note once leaked onto the
+        Connect catalogue. Both blocks therefore use ``{% comment %}``, and both
+        emails are checked here rather than trusting the repo-wide hygiene test
+        to keep covering this particular file.
+        """
+        for sender in ("send_event_recap", "send_event_feedback_request"):
+            with self.subTest(sender=sender):
+                html = self._render(sender)
+                self.assertNotIn("Business Profile policy", html)
+                self.assertNotIn("Neutral wording on purpose", html)
+
 
 @override_settings(CRUSH_GOOGLE_REVIEW_URL=REVIEW_URL)
 class ReviewAskSkipsNonAttendeesTests(_AttendeeFixture):
@@ -206,3 +221,51 @@ class ReviewAskIsTranslatedTests(_AttendeeFixture):
     def test_english_attendee_gets_english_cta(self):
         html = self._render_in("en")
         self.assertIn("Leave a Google review", html)
+
+
+class ReviewUrlSurvivesASlotSwapTests(TestCase):
+    """The production value must be derived, never configured per slot.
+
+    An App Service setting defined on **one slot only is exchanged on swap, not
+    kept** — `infra/resources.bicep` states this, and `CRUSH_GOOGLE_REVIEW_URL`
+    is not in `slotConfigNames`. So "set it on production only" would hand the
+    live URL to staging at the first swap after release and leave production on
+    the empty default, silently. `DJANGO_ENV` *is* slot-sticky, which is why
+    `production.py` keys off it — the same belt `GOOGLE_INDEXING_DOMAIN` wears.
+
+    Read as source rather than imported: `production.py` cannot be imported
+    under the test settings, and the realistic regression is someone
+    "simplifying" the expression back to a plain ``os.environ.get``.
+    """
+
+    def _production_block(self):
+        from pathlib import Path
+
+        import azureproject
+
+        source = (
+            Path(azureproject.__file__).resolve().parent / "production.py"
+        ).read_text(encoding="utf-8")
+        marker = "CRUSH_GOOGLE_REVIEW_URL = ("
+        self.assertIn(
+            marker,
+            source,
+            "production.py must assign CRUSH_GOOGLE_REVIEW_URL conditionally",
+        )
+        start = source.index(marker)
+        return source[start : start + 500]
+
+    def test_production_value_is_gated_on_the_slot_sticky_env(self):
+        self.assertIn('DJANGO_ENV == "production"', self._production_block())
+
+    def test_settings_default_stays_empty(self):
+        """The base settings default is the safety net for every other context —
+        local dev, CI, management commands run outside the App Service."""
+        from pathlib import Path
+
+        import azureproject
+
+        source = (
+            Path(azureproject.__file__).resolve().parent / "settings.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")', source)
