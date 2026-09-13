@@ -68,6 +68,18 @@ class PushSession(requests.Session):
         return super().request(method, url, **kwargs)
 
 
+def retire_invalid_subscription(subscription):
+    """Remove a terminally rejected device, preserving concurrent rotations.
+
+    Match the endpoint the sender inspected: a browser may already have
+    refreshed the same row to a valid provider destination. As with a terminal
+    410 response, the browser can create a fresh subscription afterward.
+    """
+    type(subscription).objects.filter(
+        pk=subscription.pk, endpoint=subscription.endpoint
+    ).delete()
+
+
 @contextmanager
 def push_transport(endpoint):
     """Check stored rows too, before pywebpush encrypts or sends anything.

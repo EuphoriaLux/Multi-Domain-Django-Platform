@@ -303,6 +303,35 @@ class TestReminderSweep:
         assert second["sent"] == 0
         assert calls == [lead.pk]
 
+    def test_rejected_coach_endpoint_does_not_retry_forever(self, settings):
+        from crush_lu.models import CoachPushSubscription
+
+        settings.VAPID_PRIVATE_KEY = "test-private"
+        settings.VAPID_PUBLIC_KEY = "test-public"
+        settings.VAPID_ADMIN_EMAIL = "push-test@example.com"
+        coach, lead = self._overdue_lead()
+        subscription = CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://127.0.0.1/private",
+            # Invalid destination retirement must precede key inspection too.
+            p256dh_key="%%%",
+            auth_key="%%%",
+            notify_screening_reminders=True,
+        )
+        with mock.patch("crush_lu.coach_notifications.webpush") as transport:
+            first = sweep_lead_reminders()
+            assert first["failed"] == 1
+            lead.refresh_from_db()
+            assert lead.reminder_sent_at is None
+            assert not CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
+            second = sweep_lead_reminders()
+            third = sweep_lead_reminders()
+        assert second["failed"] == 0
+        assert third["sent"] == 0
+        lead.refresh_from_db()
+        assert lead.reminder_sent_at is not None
+        transport.assert_not_called()
+
     def test_a_scheduled_or_completed_call_is_never_swept(self):
         _, scheduled = self._overdue_lead(
             coach_call_scheduled_at=timezone.now()

@@ -11,7 +11,11 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import override, gettext as _
 from pywebpush import webpush, WebPushException
-from .services.push_endpoints import push_transport
+from .services.push_endpoints import (
+    InvalidPushEndpoint,
+    push_transport,
+    retire_invalid_subscription,
+)
 from .models import PushSubscription
 from .utils.i18n import get_user_preferred_language
 
@@ -197,6 +201,11 @@ def send_push_notification(
             success_count += 1
             logger.info(f"Push notification sent to {user.username} ({subscription.device_name})")
 
+        except InvalidPushEndpoint:
+            logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
+            retire_invalid_subscription(subscription)
+            failed_count += 1
+
         except WebPushException as e:
             # Handle push errors (expired subscription, etc.)
             logger.warning(f"WebPush failed for {user.username}: {e}")
@@ -309,6 +318,11 @@ def send_push_to_subscription(subscription, title, body, url='/', tag='crush-not
         subscription.mark_success()
         logger.info(f"Push notification sent to {subscription.user.username} ({subscription.device_name})")
         return {'success': True, 'error': None}
+
+    except InvalidPushEndpoint as e:
+        logger.warning("Rejected endpoint for push subscription %s", subscription.pk)
+        retire_invalid_subscription(subscription)
+        return {'success': False, 'error': str(e)}
 
     except WebPushException as e:
         # Handle push errors (expired subscription, etc.)

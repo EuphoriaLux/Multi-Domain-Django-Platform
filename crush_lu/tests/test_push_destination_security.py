@@ -182,8 +182,10 @@ def test_rotation_cannot_replace_keys_or_destination_with_unsafe_input(
 
 @pytest.mark.parametrize("coach_api", [False, True])
 @pytest.mark.parametrize("bulk", [False, True])
-@pytest.mark.parametrize("valid", [False, True])
-def test_all_senders_validate_stored_rows(subscriber, settings, coach_api, bulk, valid):
+@pytest.mark.parametrize("scenario", ["valid", "invalid", "global_fault", "rotated"])
+def test_all_senders_validate_stored_rows(
+    subscriber, settings, coach_api, bulk, scenario
+):
     from crush_lu import coach_notifications, push_notifications
 
     settings.VAPID_PRIVATE_KEY = "test-private"
@@ -194,7 +196,11 @@ def test_all_senders_validate_stored_rows(subscriber, settings, coach_api, bulk,
     owner = {"coach": coach} if coach_api else {"user": user}
     sub = model.objects.create(
         **owner,
-        endpoint=VALID_ENDPOINT if valid else "https://127.0.0.1/private",
+        endpoint=(
+            VALID_ENDPOINT
+            if scenario in {"valid", "global_fault"}
+            else "https://127.0.0.1/private"
+        ),
         p256dh_key=KEYS["p256dh"],
         auth_key=KEYS["auth"],
         enabled=True,
@@ -211,13 +217,64 @@ def test_all_senders_validate_stored_rows(subscriber, settings, coach_api, bulk,
             module.send_push_notification if bulk else module.send_push_to_subscription
         )
     target = (coach if coach_api else user) if bulk else sub
-    with patch.object(module, "webpush") as transport:
+
+    def guarded_transport(endpoint):
+        if scenario == "rotated":
+            # A browser refresh wins after the sender read the rejected row.
+            model.objects.filter(pk=sub.pk).update(endpoint=VALID_ENDPOINT)
+        return push_transport(endpoint)
+
+    fault = ValueError("Could not deserialize VAPID key")
+    with patch.object(
+        module, "webpush", side_effect=fault if scenario == "global_fault" else None
+    ) as transport, patch.object(
+        module, "push_transport", side_effect=guarded_transport
+    ):
         result = sender(target, "Test", "Body")
-    assert bool(result["success"]) is valid
-    assert transport.call_count == int(valid)
-    if valid:
+    assert bool(result["success"]) is (scenario == "valid")
+    assert transport.call_count == int(scenario in {"valid", "global_fault"})
+    if scenario == "invalid":
+        assert not model.objects.filter(pk=sub.pk).exists()
+    else:
+        sub.refresh_from_db()
+        assert sub.enabled
+        assert sub.failure_count == 0
+        assert sub.endpoint == VALID_ENDPOINT
+    if scenario == "valid":
         assert isinstance(transport.call_args.kwargs["requests_session"], PushSession)
         assert transport.call_args.kwargs["requests_session"].trust_env is False
+
+
+def test_retirement_frees_member_fanout_on_the_next_notification(subscriber, settings):
+    from crush_lu.push_notifications import send_push_notification
+
+    settings.VAPID_PRIVATE_KEY = "test-private"
+    settings.VAPID_PUBLIC_KEY = "test-public"
+    settings.VAPID_ADMIN_EMAIL = "push-test@example.com"
+    settings.CRUSH_PUSH_FANOUT_LIMIT = 1
+    user, _coach = subscriber
+    PushSubscription.objects.create(
+        user=user,
+        endpoint=VALID_ENDPOINT,
+        p256dh_key=KEYS["p256dh"],
+        auth_key=KEYS["auth"],
+    )
+    # Newest first: the invalid row occupied the only slot on every call.
+    invalid = PushSubscription.objects.create(
+        user=user,
+        endpoint="https://127.0.0.1/private",
+        p256dh_key=KEYS["p256dh"],
+        auth_key=KEYS["auth"],
+    )
+    with patch("crush_lu.push_notifications.webpush") as transport:
+        first = send_push_notification(user, "Test", "Body")
+        assert first == {"success": 0, "failed": 1, "total": 2, "skipped": 1}
+        transport.assert_not_called()
+        assert not PushSubscription.objects.filter(pk=invalid.pk).exists()
+        second = send_push_notification(user, "Test", "Body")
+    assert second == {"success": 1, "failed": 0, "total": 1, "skipped": 0}
+    transport.assert_called_once()
+    assert transport.call_args.kwargs["subscription_info"]["endpoint"] == VALID_ENDPOINT
 
 
 @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
