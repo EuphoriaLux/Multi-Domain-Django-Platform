@@ -142,10 +142,14 @@ def _get_access_token(client=None, timeout=None):
             owned_client.close()
 
 
-def _build_generic_object_payload(profile, object_id, class_id):
+def _build_generic_object_payload(profile, object_id, class_id, social_links=None):
     """
     Build the generic object payload for updating a pass.
     Mirrors the Buffalo Grill-inspired structure in google_wallet.py.
+
+    ``social_links`` lets a batch caller pass the CrushSiteConfig-derived
+    entries it read once for the whole fan-out; left as None, the builder
+    reads them itself (the single-profile path).
     """
     pass_data = build_wallet_pass_data(profile)
 
@@ -269,7 +273,11 @@ def _build_generic_object_payload(profile, object_id, class_id):
             {"uri": "https://crush.lu/events/", "description": "📅 Browse Events"},
             {"uri": pass_data["referral_url"], "description": "📋 Share Referral Link"},
             {"uri": "https://crush.lu", "description": "💜 Visit Crush.lu"},
-            *build_wallet_social_links(),
+            *(
+                social_links
+                if social_links is not None
+                else build_wallet_social_links()
+            ),
         ]
     }
 
@@ -293,7 +301,9 @@ def _build_generic_object_payload(profile, object_id, class_id):
     return generic_object
 
 
-def _patch_generic_object(profile, class_id, access_token, client, timeout=None):
+def _patch_generic_object(
+    profile, class_id, access_token, client, timeout=None, social_links=None
+):
     """PATCH one member object with a caller-supplied token and HTTP client.
 
     Split out of update_google_wallet_pass so a batch can mint ONE token and
@@ -312,6 +322,7 @@ def _patch_generic_object(profile, class_id, access_token, client, timeout=None)
             profile,
             profile.google_wallet_object_id,
             class_id,
+            social_links=social_links,
         )
 
     # URL encode the object ID (it contains dots)
@@ -466,6 +477,13 @@ def refresh_google_wallet_objects(profiles, context=""):
         if not profiles:
             return
 
+        # The social links come from the CrushSiteConfig singleton and are the
+        # same for every holder, so they are read ONCE here rather than once
+        # per PATCH: the loop below runs inside a short wall-clock budget, and
+        # a database round trip per profile would eat into the number of
+        # passes it gets to refresh.
+        social_links = build_wallet_social_links()
+
         deadline = time.monotonic() + update_budget
         updated = 0
         failed = 0
@@ -501,6 +519,7 @@ def refresh_google_wallet_objects(profiles, context=""):
                                 access_token,
                                 client,
                                 timeout=remaining,
+                                social_links=social_links,
                             )
                         except Exception:
                             # One unreachable object must not strand the rest.
@@ -602,6 +621,9 @@ def update_all_google_wallet_passes():
         results["failed"] = len(profiles)
         return results
 
+    # Read once for the sweep, same reasoning as refresh_google_wallet_objects.
+    social_links = build_wallet_social_links()
+
     attempted = 0
     try:
         with httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT) as client:
@@ -625,7 +647,11 @@ def update_all_google_wallet_passes():
                 attempted += 1
                 try:
                     result = _patch_generic_object(
-                        profile, class_id, access_token, client
+                        profile,
+                        class_id,
+                        access_token,
+                        client,
+                        social_links=social_links,
                     )
                 except Exception:
                     # One unreachable object must not strand the rest.
