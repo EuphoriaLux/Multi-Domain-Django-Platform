@@ -1718,7 +1718,7 @@ class TestEventLevelGoogleRefresh:
 
         seen = {}
 
-        def _capture(_profile, object_id, _class_id):
+        def _capture(_profile, object_id, _class_id, **_kwargs):
             seen["language"] = translation.get_language()
             return {"id": object_id}
 
@@ -1759,7 +1759,7 @@ class TestEventLevelGoogleRefresh:
 
         seen = {}
 
-        def _capture(_profile, object_id, _class_id):
+        def _capture(_profile, object_id, _class_id, **_kwargs):
             seen["language"] = translation.get_language()
             return {"id": object_id}
 
