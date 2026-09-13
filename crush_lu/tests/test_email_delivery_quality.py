@@ -28,6 +28,31 @@ from crush_lu.services.email_bounces import (
 )
 
 
+def delivery_report_mime(*records):
+    records = records or (("person@example.net", "5.1.10", "failed"),)
+    recipient_blocks = "".join(
+        (
+            f"Final-Recipient: rfc822; {recipient}\r\n"
+            f"Action: {action}\r\n"
+            f"Status: {status}\r\n\r\n"
+        )
+        for recipient, status, action in records
+    )
+    return (
+        "MIME-Version: 1.0\r\n"
+        'Content-Type: multipart/report; report-type="delivery-status"; '
+        'boundary="dsn-boundary"\r\n\r\n'
+        "--dsn-boundary\r\n"
+        "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+        "Human-readable delivery report.\r\n"
+        "--dsn-boundary\r\n"
+        "Content-Type: message/delivery-status\r\n\r\n"
+        "Reporting-MTA: dns; tenant.example\r\n\r\n"
+        f"{recipient_blocks}"
+        "--dsn-boundary--\r\n"
+    ).encode()
+
+
 def delivery_report_message(**overrides):
     message = {
         "id": "graph-id",
@@ -54,6 +79,7 @@ def delivery_report_message(**overrides):
             },
         ],
         "body": {"content": "person@example.net wasn't found. Status 5.1.10."},
+        "_raw_mime": delivery_report_mime(),
     }
     message.update(overrides)
     return message
@@ -135,6 +161,20 @@ class MultipartAndSuppressionTests(TestCase):
             subject="Skipped",
             message="Body",
             recipient_list=["Bounced Member <bounce@example.com>"],
+            domain="crush.lu",
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(mail.outbox, [])
+
+    @patch.dict("os.environ", {"CRUSH_DEFAULT_FROM_EMAIL": "sender@example.org"})
+    def test_custom_crush_sender_still_applies_suppressions(self):
+        EmailSuppression.objects.create(email="bounce@example.com")
+
+        result = send_domain_email(
+            subject="Skipped",
+            message="Body",
+            recipient_list=["bounce@example.com"],
             domain="crush.lu",
         )
 
@@ -255,11 +295,19 @@ class BounceClassificationTests(TestCase):
 
     def test_temporary_or_ambiguous_failure_never_suppresses(self):
         soft = classify_bounce(
-            "Delivery delayed", "person@example.net mailbox full; status 5.2.2"
+            delivery_report_message(
+                _raw_mime=delivery_report_mime(
+                    ("person@example.net", "5.2.2", "failed")
+                )
+            )
         )
         ambiguous = classify_bounce(
-            "Undeliverable",
-            "one@example.net and two@example.net were not found; status 5.1.10",
+            delivery_report_message(
+                _raw_mime=delivery_report_mime(
+                    ("one@example.net", "5.1.10", "failed"),
+                    ("two@example.net", "5.1.10", "failed"),
+                )
+            )
         )
 
         self.assertEqual(soft.classification, "soft")
@@ -303,6 +351,15 @@ class BounceClassificationTests(TestCase):
 
         self.assertFalse(is_delivery_report(message))
 
+    def test_trusted_container_without_structured_dsn_mime_is_rejected(self):
+        message = delivery_report_message(
+            _raw_mime=b"Content-Type: text/plain\r\n\r\nNot a DSN"
+        )
+
+        self.assertFalse(is_delivery_report(message))
+        with self.assertRaisesMessage(ValueError, "verified delivery report"):
+            process_graph_bounce(message, apply=True)
+
     @override_settings(
         CRUSH_EMAIL_BOUNCE_MAILBOXES=[],
         CRUSH_NEWSLETTER_FROM_EMAIL="news@example.org",
@@ -314,13 +371,49 @@ class BounceClassificationTests(TestCase):
             "REPLY_TO_EMAIL": "Help <help@example.org>",
         }
         result = classify_bounce(
-            "Undeliverable",
-            "campaign@example.org via help@example.org and news@example.org could not "
-            "deliver to person@example.net; 5.1.10",
+            delivery_report_message(
+                _raw_mime=delivery_report_mime(
+                    ("campaign@example.org", "5.1.10", "failed"),
+                    ("help@example.org", "5.1.10", "failed"),
+                    ("news@example.org", "5.1.10", "failed"),
+                    ("person@example.net", "5.1.10", "failed"),
+                )
+            )
         )
 
         self.assertEqual(result.classification, "hard")
         self.assertEqual(result.recipient, "person@example.net")
+
+    def test_remote_diagnostic_cannot_substitute_an_unrelated_recipient(self):
+        message = delivery_report_message(
+            body={
+                "content": "Remote server said 550 5.1.1 victim@example.com not found"
+            },
+            _raw_mime=delivery_report_mime(
+                ("attacker!@evil.example", "5.1.1", "failed")
+            ),
+        )
+
+        result = process_graph_bounce(message, apply=True)
+
+        self.assertEqual(result.recipient, "attacker!@evil.example")
+        self.assertFalse(
+            EmailSuppression.objects.filter(email="victim@example.com").exists()
+        )
+        self.assertTrue(
+            EmailSuppression.objects.filter(email="attacker!@evil.example").exists()
+        )
+
+    def test_policy_rejection_is_not_a_hard_bounce(self):
+        message = delivery_report_message(
+            body={"content": "Recipient address rejected; 5.7.1"},
+            _raw_mime=delivery_report_mime(("person@example.net", "5.7.1", "failed")),
+        )
+
+        result = process_graph_bounce(message, apply=True)
+
+        self.assertEqual(result.classification, "unknown")
+        self.assertFalse(EmailSuppression.objects.exists())
 
     def test_existing_hard_event_repairs_its_missing_suppression(self):
         message = delivery_report_message()
@@ -362,8 +455,12 @@ class BounceClassificationTests(TestCase):
         self.assertIn("5.1.10", event.diagnostic)
         self.assertEqual(event.subject, "Delivery report")
 
+    @patch(
+        "crush_lu.management.commands.process_email_bounces._get_message_mime",
+        return_value=delivery_report_mime(),
+    )
     @patch("crush_lu.management.commands.process_email_bounces.requests.get")
-    def test_graph_message_fetch_follows_pagination_with_a_cap(self, get):
+    def test_graph_message_fetch_follows_pagination_with_a_cap(self, get, get_mime):
         first = Mock(status_code=200, text="")
         first.json.return_value = {
             "value": [
@@ -396,6 +493,7 @@ class BounceClassificationTests(TestCase):
         self.assertEqual([message["id"] for message in messages], ["two", "three"])
         self.assertEqual(ignored, 0)
         self.assertEqual(get.call_count, 2)
+        self.assertEqual(get_mime.call_count, 2)
         self.assertIsNone(get.call_args_list[1].kwargs["params"])
 
     @override_settings(
@@ -407,11 +505,15 @@ class BounceClassificationTests(TestCase):
             "love@crush.lu": "love-folder-id",
         },
     )
+    @patch(
+        "crush_lu.management.commands.process_email_bounces._get_message_mime",
+        return_value=delivery_report_mime(),
+    )
     @patch("crush_lu.management.commands.process_email_bounces.requests.get")
     @patch("crush_lu.management.commands.process_email_bounces.get_domain_email_config")
     @patch("crush_lu.management.commands.process_email_bounces.GraphEmailBackend")
     def test_command_scans_all_mailboxes_and_ignores_non_ndrs(
-        self, backend, get_config, get
+        self, backend, get_config, get, get_mime
     ):
         get_config.return_value = {
             "GRAPH_TENANT_ID": "tenant",
@@ -459,6 +561,7 @@ class BounceClassificationTests(TestCase):
         self.assertTrue(
             EmailSuppression.objects.filter(email="person@example.net").exists()
         )
+        get_mime.assert_called_once()
 
     @override_settings(
         CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=True,
@@ -530,6 +633,36 @@ class EventEmailMarkupTests(TestCase):
         self.assertNotIn("Luxembourg, Luxembourg", html)
         self.assertNotIn("<strong><p>", html)
         self.assertIn("<p>First paragraph</p>", html)
+
+    def test_event_without_address_retains_canton_location(self):
+        event = SimpleNamespace(
+            title="Mixer",
+            date_time=timezone.now(),
+            location="Venue",
+            full_address="",
+            canton="Capellen",
+            description="Details",
+            registration_fee=0,
+            registration_deadline=timezone.now(),
+        )
+        registration = SimpleNamespace(
+            user=SimpleNamespace(first_name="Alex"),
+            dietary_restrictions="",
+            bringing_guest=False,
+        )
+
+        html = render_to_string(
+            "crush_lu/emails/event_registration_confirmation.html",
+            {
+                "event": event,
+                "registration": registration,
+                "event_url": "https://crush.lu/en/events/1/",
+                "cancel_url": "https://crush.lu/en/events/1/cancel/",
+            },
+        )
+
+        self.assertIn("Venue", html)
+        self.assertIn("Capellen", html)
 
 
 class EmailTranslationTests(TestCase):

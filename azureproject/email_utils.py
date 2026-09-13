@@ -101,6 +101,7 @@ def _get_domain_email_configs():
     """
     return {
         'crush.lu': {
+            'DOMAIN': 'crush.lu',
             # Microsoft Graph API configuration (Graph API only - SMTP disabled by M365)
             'USE_GRAPH_API': True,
             'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
@@ -110,6 +111,7 @@ def _get_domain_email_configs():
             'REPLY_TO_EMAIL': os.getenv('CRUSH_REPLY_TO_EMAIL', 'support@crush.lu'),
         },
         'powerup.lu': {
+            'DOMAIN': 'powerup.lu',
             'USE_GRAPH_API': True,
             'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
             'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
@@ -117,6 +119,7 @@ def _get_domain_email_configs():
             'DEFAULT_FROM_EMAIL': os.getenv('POWERUP_DEFAULT_FROM_EMAIL', 'info@powerup.lu'),
         },
         'vinsdelux.com': {
+            'DOMAIN': 'vinsdelux.com',
             'USE_GRAPH_API': True,
             'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
             'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
@@ -124,6 +127,7 @@ def _get_domain_email_configs():
             'DEFAULT_FROM_EMAIL': os.getenv('VINSDELUX_DEFAULT_FROM_EMAIL', 'info@vinsdelux.com'),
         },
         'arborist.lu': {
+            'DOMAIN': 'arborist.lu',
             'USE_GRAPH_API': True,
             'GRAPH_TENANT_ID': os.getenv('GRAPH_TENANT_ID'),
             'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
@@ -184,11 +188,10 @@ def _is_test_environment():
     return False
 
 
-def _without_suppressed_crush_addresses(addresses, email_from):
+def _without_suppressed_crush_addresses(addresses, *, is_crush_email):
     """Filter active hard-bounce suppressions without coupling other domains."""
     addresses = list(addresses or [])
-    sender_address = (parseaddr(email_from)[1] or email_from).strip().lower()
-    if not sender_address.endswith("@crush.lu") or not addresses:
+    if not is_crush_email or not addresses:
         return addresses
 
     normalized = {
@@ -253,9 +256,12 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
 
     # Use configured from_email or domain default
     email_from = from_email or config['DEFAULT_FROM_EMAIL']
-    recipient_list = _without_suppressed_crush_addresses(recipient_list, email_from)
-    cc = _without_suppressed_crush_addresses(cc, email_from)
-    bcc = _without_suppressed_crush_addresses(bcc, email_from)
+    is_crush_email = config.get('DOMAIN') == 'crush.lu'
+    recipient_list = _without_suppressed_crush_addresses(
+        recipient_list, is_crush_email=is_crush_email
+    )
+    cc = _without_suppressed_crush_addresses(cc, is_crush_email=is_crush_email)
+    bcc = _without_suppressed_crush_addresses(bcc, is_crush_email=is_crush_email)
     if not recipient_list:
         return 0
 

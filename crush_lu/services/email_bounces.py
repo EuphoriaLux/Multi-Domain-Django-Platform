@@ -2,41 +2,22 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
+from email import policy
+from email.parser import BytesParser
 from email.utils import parseaddr
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
 
-from azureproject.email_utils import get_domain_email_config, html_to_plain_text
+from azureproject.email_utils import get_domain_email_config
 from crush_lu.models import EmailBounceEvent, EmailSuppression
 
-EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
-HARD_MARKERS = (
-    "5.1.1",
-    "5.1.10",
-    "address not found",
-    "recipient address rejected",
-    "unknown recipient",
-    "unknown to address",
-    "no such user",
-    "does not exist",
-    "wasn't found",
-    "was not found",
-)
-SOFT_MARKERS = (
-    "4.2.2",
-    "5.2.2",
-    "mailbox full",
-    "quota exceeded",
-    "temporarily unavailable",
-    "temporary failure",
-    "timed out",
-    "didn't respond",
-    "did not respond",
-)
+HARD_RECIPIENT_STATUSES = {"5.1.1", "5.1.10"}
+SOFT_STATUSES = {"4.2.2", "5.2.2"}
 
 
 @dataclass(frozen=True)
@@ -72,8 +53,8 @@ def _configured_owned_addresses() -> set[str]:
     }
 
 
-def is_delivery_report(message: dict) -> bool:
-    """Accept only tenant-authenticated Microsoft Exchange delivery reports."""
+def has_delivery_report_provenance(message: dict) -> bool:
+    """Validate the Exchange-authenticated container before fetching its MIME."""
     headers = _headers(message)
 
     sender = (
@@ -93,26 +74,66 @@ def is_delivery_report(message: dict) -> bool:
     )
     auth_as = headers.get("x-ms-exchange-organization-authas", ())
     directionality = headers.get("x-ms-exchange-organization-messagedirectionality", ())
-    content_types = headers.get("content-type", ())
     authenticated_internal = auth_as == ["internal"]
     generated_inside_tenant = directionality == ["originating"]
-    structured_report = len(content_types) == 1 and (
-        "report-type=delivery-status" in content_types[0]
-    )
-    return (
-        trusted_sender
-        and authenticated_internal
-        and generated_inside_tenant
-        and structured_report
+    return bool(trusted_sender and authenticated_internal and generated_inside_tenant)
+
+
+def _final_recipient(value: str) -> str:
+    """Extract and validate the mailbox from an RFC delivery-status field."""
+    _address_type, separator, raw_address = value.partition(";")
+    candidate = (raw_address if separator else value).strip().strip("<>")
+    address = (parseaddr(candidate)[1] or candidate).strip().lower()
+    try:
+        validate_email(address)
+    except ValidationError:
+        return ""
+    return address
+
+
+def _delivery_status_records(message: dict) -> list[dict[str, str]]:
+    """Parse recipient records from the MIME message/delivery-status part."""
+    raw_mime = message.get("_raw_mime") or b""
+    if isinstance(raw_mime, str):
+        raw_mime = raw_mime.encode("utf-8", errors="replace")
+    if not isinstance(raw_mime, bytes):
+        return []
+    try:
+        mime = BytesParser(policy=policy.default).parsebytes(raw_mime)
+    except (TypeError, ValueError):
+        return []
+    if mime.get_content_type() != "multipart/report":
+        return []
+    if mime.get_param("report-type", header="content-type") != "delivery-status":
+        return []
+
+    records = []
+    for part in mime.walk():
+        if part.get_content_type() != "message/delivery-status":
+            continue
+        payload = part.get_payload()
+        if not isinstance(payload, list):
+            continue
+        for block in payload:
+            recipient = _final_recipient(block.get("Final-Recipient", ""))
+            action = (block.get("Action", "") or "").strip().lower()
+            status = (block.get("Status", "") or "").strip().split(" ", 1)[0]
+            if recipient and action and status:
+                records.append(
+                    {"recipient": recipient, "action": action, "status": status}
+                )
+    return records
+
+
+def is_delivery_report(message: dict) -> bool:
+    """Accept only trusted NDR containers with structured recipient records."""
+    return has_delivery_report_provenance(message) and bool(
+        _delivery_status_records(message)
     )
 
 
-def classify_bounce(
-    subject: str, body: str, *, owned_addresses=None
-) -> BounceClassification:
-    """Classify only unambiguous hard/soft failures; ambiguity stays unknown."""
-    plain_body = html_to_plain_text(body)
-    searchable = f"{subject}\n{plain_body}".lower()
+def classify_bounce(message: dict, *, owned_addresses=None) -> BounceClassification:
+    """Classify only structured DSN recipient records; ignore display text."""
     owned_addresses = {
         address.lower()
         for address in (
@@ -121,26 +142,33 @@ def classify_bounce(
             else owned_addresses
         )
     }
-    candidates = {
-        match.lower()
-        for match in EMAIL_RE.findall(searchable)
-        if match.lower() not in owned_addresses
+    records = [
+        record
+        for record in _delivery_status_records(message)
+        if record["action"] == "failed" and record["recipient"] not in owned_addresses
+    ]
+    recipients = {record["recipient"] for record in records}
+    recipient = next(iter(recipients)) if len(recipients) == 1 else ""
+    statuses = {
+        record["status"] for record in records if record["recipient"] == recipient
     }
-    recipient = next(iter(candidates)) if len(candidates) == 1 else ""
 
-    if any(marker in searchable for marker in SOFT_MARKERS):
-        classification = "soft"
-    elif recipient and any(marker in searchable for marker in HARD_MARKERS):
+    if recipient and statuses and statuses <= HARD_RECIPIENT_STATUSES:
         classification = "hard"
+    elif (
+        recipient
+        and statuses
+        and all(
+            status.startswith("4.") or status in SOFT_STATUSES for status in statuses
+        )
+    ):
+        classification = "soft"
     else:
         classification = "unknown"
 
-    indicators = sorted(
-        {marker for marker in (*HARD_MARKERS, *SOFT_MARKERS) if marker in searchable}
-    )
     diagnostic = (
         f"classification={classification}; recipient={recipient or 'unresolved'}; "
-        f"indicators={','.join(indicators) or 'none'}"
+        f"statuses={','.join(sorted(statuses)) or 'none'}"
     )
     return BounceClassification(classification, recipient, diagnostic)
 
@@ -149,9 +177,7 @@ def process_graph_bounce(
     message: dict, *, apply: bool = False, owned_addresses=None
 ) -> BounceClassification:
     """Classify a Graph message and optionally persist its deduped result."""
-    subject = message.get("subject") or ""
-    body = (message.get("body") or {}).get("content") or ""
-    result = classify_bounce(subject, body, owned_addresses=owned_addresses)
+    result = classify_bounce(message, owned_addresses=owned_addresses)
     if not apply:
         return result
     if not is_delivery_report(message):

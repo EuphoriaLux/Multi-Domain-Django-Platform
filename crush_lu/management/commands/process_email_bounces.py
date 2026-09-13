@@ -12,7 +12,11 @@ from django.utils import timezone
 from azureproject.email_utils import get_domain_email_config
 from azureproject.graph_email_backend import GraphEmailBackend
 from crush_lu.models import EmailBounceEvent
-from crush_lu.services.email_bounces import is_delivery_report, process_graph_bounce
+from crush_lu.services.email_bounces import (
+    has_delivery_report_provenance,
+    is_delivery_report,
+    process_graph_bounce,
+)
 
 
 def _mailbox_addresses(config):
@@ -50,6 +54,25 @@ def _mailbox_folder(mailbox, mailbox_count):
     return default
 
 
+def _get_message_mime(*, mailbox, message_id, token):
+    """Download the original MIME so DSN fields, not display text, are parsed."""
+    endpoint = (
+        "https://graph.microsoft.com/v1.0/users/"
+        f"{quote(mailbox, safe='')}/messages/{quote(message_id, safe='')}/$value"
+    )
+    response = requests.get(
+        endpoint,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    if response.status_code != 200:
+        raise CommandError(
+            f"Graph MIME read failed for {mailbox} "
+            f"({response.status_code}): {response.text[:500]}"
+        )
+    return response.content
+
+
 def _get_mailbox_messages(
     *, mailbox, folder, token, since, limit, excluded_message_ids=None
 ):
@@ -66,7 +89,7 @@ def _get_mailbox_messages(
         "$filter": f"receivedDateTime ge {since}",
         "$orderby": "receivedDateTime desc",
         "$select": (
-            "id,internetMessageId,subject,body,receivedDateTime,from,"
+            "id,internetMessageId,subject,receivedDateTime,from,"
             "internetMessageHeaders"
         ),
         "$top": str(min(limit, 100)),
@@ -91,6 +114,14 @@ def _get_mailbox_messages(
             identity = _message_identity(message)
             if not identity or identity in excluded_message_ids:
                 continue
+            if not has_delivery_report_provenance(message):
+                ignored += 1
+                continue
+            message["_raw_mime"] = _get_message_mime(
+                mailbox=mailbox,
+                message_id=message["id"],
+                token=token,
+            )
             if not is_delivery_report(message):
                 ignored += 1
                 continue

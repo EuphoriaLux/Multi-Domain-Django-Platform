@@ -12,9 +12,24 @@ disabled.
    deployment.
 3. Send one test email and inspect its raw source. It must contain both
    `text/plain` and `text/html`, retain any attachment, and carry `Reply-To`.
-4. Grant the existing Microsoft Graph app registration **Mail.Read application
-   permission** and record the administrator-consent approval. `Mail.Send`
-   alone is not enough for reading delivery reports.
+4. Give the existing app **mailbox-scoped** read access through
+   [Exchange Online Application RBAC](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac).
+   Do not grant an unscoped `Mail.Read` application permission in Microsoft
+   Entra; Entra grants and Exchange RBAC assignments are additive. In Exchange
+   Online PowerShell:
+
+   - Put only the configured bounce mailboxes in a mail-enabled security group
+     and create a management scope whose `MemberOfGroup` filter targets that
+     group's distinguished name.
+   - Create the Exchange service-principal pointer with
+     `New-ServicePrincipal -AppId <client-id> -ObjectId <service-principal-object-id>`.
+   - Assign `Application Mail.Read` with `New-ManagementRoleAssignment -App
+     <service-principal-object-id> -Role "Application Mail.Read"
+     -CustomResourceScope <bounce-scope>`.
+   - Run `Test-ServicePrincipalAuthorization` for `noreply@crush.lu`,
+     `love@crush.lu`, and an unrelated mailbox. Both bounce mailboxes must show
+     `InScope=True`; the unrelated mailbox must show `InScope=False`. Save this
+     evidence before continuing.
 5. Confirm `CRUSH_EMAIL_BOUNCE_MAILBOXES` contains every Crush sender mailbox
    (currently `noreply@crush.lu` and `love@crush.lu`). NDRs normally arrive in
    Inbox, which is the `CRUSH_EMAIL_BOUNCE_FOLDER` default. If Exchange rules
@@ -33,19 +48,21 @@ disabled.
    python manage.py process_email_bounces --days 14 --limit 100
    ```
 
-   Review hard, soft, unknown, and ignored counts. Only messages with verified
-   delivery-report metadata are classified; the classifier suppresses only a
-   permanent failure with exactly one unambiguous external recipient. Stored
-   diagnostics contain classification indicators, not the original mail body.
+   Review hard, soft, unknown, and ignored counts. The classifier reads only
+   `Final-Recipient`, `Action`, and `Status` from the MIME
+   `message/delivery-status` part; human-readable body text and remote SMTP
+   diagnostics are never used to select an address. Suppression requires one
+   failed recipient with status `5.1.1` or `5.1.10`. Stored diagnostics contain
+   only classification and status indicators, not the original mail body.
 8. Set `CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=true`, then repeat with `--apply`.
    Verify the new `Email bounce events` and `Email suppressions` records in the
    Crush coach admin.
 9. Add a daily managed trigger that executes this command. The production task
    backend is inline and no database worker runs on Azure, so do not use
    `.enqueue()` as a scheduler. This repository change intentionally leaves the
-   trigger unconfigured until `Mail.Read`, the dry-run review, and the rollout
-   decision are complete. Alert on command failure and on a sudden rise in hard
-   or unknown results.
+   trigger unconfigured until scoped `Mail.Read`, the dry-run review, and the
+   rollout decision are complete. Alert on command failure and on a sudden rise
+   in hard or unknown results.
 
 ## Rollback
 
