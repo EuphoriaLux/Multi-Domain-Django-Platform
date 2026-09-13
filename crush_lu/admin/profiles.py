@@ -65,7 +65,7 @@ from .filters import (
     ProfileSubmissionDetailFilter,
     ConnectionActivityFilter,
 )
-from .verification_queues import in_legacy_review_state
+from .verification_queues import in_legacy_review_state, never_submitted_profiles
 
 logger = logging.getLogger(__name__)
 
@@ -850,10 +850,9 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
 
         name_privacy = CrushProfile.objects.filter(show_full_name=False).count()
 
-        # NEW: Never submitted profiles (Priority 3)
-        never_submitted = CrushProfile.objects.filter(
-            ~Exists(ProfileSubmission.objects.filter(profile_id=OuterRef("id")))
-        ).count()
+        # Never finished the profile (Priority 3): the "Submission History"
+        # filter's own definition, which this count's quick filter opens.
+        never_submitted = never_submitted_profiles(CrushProfile.objects.all()).count()
 
         # NEW: No connections (Priority 4)
         from crush_lu.models import EventConnection
