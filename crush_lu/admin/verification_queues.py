@@ -16,6 +16,11 @@ from django.db.models import Count, Exists, OuterRef, Subquery
 from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EventRegistration, ProfileSubmission
+from crush_lu.services.event_doors import (
+    DOOR_VISIBLE_REGISTRATION_STATUSES,
+    live_or_future_event_ids,
+)
+from crush_lu.services.profile_verification import coach_visible_unverified_profiles
 
 
 def holds_door_seat(now):
@@ -23,26 +28,30 @@ def holds_door_seat(now):
     door can still verify them — not cancelled, not yet ended.
 
     The coach "Unverified profiles" page's ``sig_upcoming`` signal, built from
-    that page's own event list and door statuses rather than copies, so the
-    Action Center's "booked" count and the page's "Booked on an event" chip
-    cannot drift apart. Unlike the index's upcoming-events count it does not
-    require ``is_published``: an unpublished event with bookings still has a
-    door. Correlates on ``user_id``, so it filters CrushProfile querysets
-    only.
+    the `services.event_doors` event list and door statuses that page uses
+    too, so the Action Center's "booked" count and the page's "Booked on an
+    event" chip cannot drift apart. Unlike the index's upcoming-events count
+    it does not require ``is_published``: an unpublished event with bookings
+    still has a door. Correlates on ``user_id``, so it filters CrushProfile
+    querysets only.
     """
-    # Imported here so that loading the admin package does not import the
-    # coach views.
-    from crush_lu.views_coach import (
-        DOOR_VISIBLE_REGISTRATION_STATUSES,
-        _live_or_future_event_ids,
-    )
-
     return Exists(
         EventRegistration.objects.filter(
             user_id=OuterRef("user_id"),
-            event_id__in=_live_or_future_event_ids(now),
+            event_id__in=live_or_future_event_ids(now),
             status__in=DOOR_VISIBLE_REGISTRATION_STATUSES,
         )
+    )
+
+
+def latest_submission_value(field):
+    """``field`` of the member's latest ProfileSubmission, as a ``Subquery``
+    correlated on the outer CrushProfile's primary key. See
+    `latest_submission_status` for why only the latest row counts."""
+    return Subquery(
+        ProfileSubmission.objects.filter(profile_id=OuterRef("pk"))
+        .order_by("-submitted_at")
+        .values(field)[:1]
     )
 
 
@@ -55,11 +64,7 @@ def latest_submission_status():
     resubmission, or anything behind the pivot cleanup's "expired" row, no
     longer says where the member stands.
     """
-    return Subquery(
-        ProfileSubmission.objects.filter(profile_id=OuterRef("pk"))
-        .order_by("-submitted_at")
-        .values("status")[:1]
-    )
+    return latest_submission_value("status")
 
 
 def in_legacy_review_state(profiles, status):
@@ -79,6 +84,49 @@ def in_legacy_review_state(profiles, status):
     )
 
 
+def never_submitted_profiles(profiles):
+    """Narrow ``profiles`` to members who never submitted their profile:
+    still ``incomplete``, with no submission row.
+
+    Submitting used to create a ProfileSubmission. Since the pivot it only
+    moves the profile to ``pending`` (`complete_profile_submission`), so "no
+    submission row" alone also matches every member who submitted after July
+    2026. The row check still matters: a coach's revision request sends a
+    member who did submit back to ``incomplete``.
+    """
+    return profiles.filter(verification_status="incomplete").filter(
+        ~Exists(ProfileSubmission.objects.filter(profile_id=OuterRef("pk")))
+    )
+
+
+def resubmitted_after_revision(profiles):
+    """Narrow ``profiles`` to members whose latest submission came back after
+    a coach's revision request.
+
+    Every revision verdict bumps ``revision_round`` on the row: the coach
+    review, the bulk action and a hand edit in the admin. Resubmitting
+    re-queues that same row (`complete_profile_submission`), so a
+    resubmission never adds a second row. A latest row still at ``revision``
+    is waiting on the member; an ``expired`` one was closed by the pivot
+    cleanup without recording whether they resubmitted.
+    """
+    return (
+        profiles.alias(
+            latest_submission_status=latest_submission_status(),
+            latest_revision_round=latest_submission_value("revision_round"),
+        )
+        .filter(latest_revision_round__gte=1)
+        .exclude(latest_submission_status__in=("revision", "expired"))
+    )
+
+
+def pending_profiles():
+    """Active members awaiting verification: the Action Center's "Pending
+    Verification" cohort, behind its counts and the profile changelist its
+    tiles open."""
+    return CrushProfile.objects.filter(is_active=True, verification_status="pending")
+
+
 def pending_action_counts(now=None):
     """Counts behind the Action Center on the admin index and the analytics
     dashboard — one function, so the two surfaces cannot disagree.
@@ -93,7 +141,7 @@ def pending_action_counts(now=None):
     """
     now = now or timezone.now()
     active = CrushProfile.objects.filter(is_active=True)
-    counts = active.filter(verification_status="pending").aggregate(
+    counts = pending_profiles().aggregate(
         total_pending=Count("pk"),
         booked=Count("pk", filter=holds_door_seat(now)),
     )
@@ -103,3 +151,30 @@ def pending_action_counts(now=None):
         "unbooked": counts["total_pending"] - counts["booked"],
         "legacy_reviews": in_legacy_review_state(active, "pending").count(),
     }
+
+
+def recent_pending_profiles(limit, now=None):
+    """The ``limit`` members most recently updated while awaiting
+    verification, newest first: the index's Today's Focus tab and the
+    analytics dashboard's table.
+
+    The top of the coach "Unverified profiles" page's pending list, in its
+    default "Recently updated" order: a coach's row opens that list, so the
+    member is on it. Like that page, it leaves out closed accounts, banned
+    members and members without Crush.lu consent, whom `pending_profiles`
+    counts: nobody can act on them, and they would crowd out those who can.
+
+    Each carries ``has_door_seat`` (`holds_door_seat`), the Action Center's
+    booked / not-booked split. The profile keeps no "became pending"
+    timestamp. `complete_profile_submission` saves the profile as it moves it
+    to ``pending``, and `transition_unverified_profile` stamps ``updated_at``
+    when a check-in undo sends a member back.
+    """
+    now = now or timezone.now()
+    return (
+        coach_visible_unverified_profiles()
+        .filter(verification_status="pending")
+        .select_related("user")
+        .annotate(has_door_seat=holds_door_seat(now))
+        .order_by("-updated_at", "-pk")[:limit]
+    )

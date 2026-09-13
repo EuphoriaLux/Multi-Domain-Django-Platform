@@ -924,7 +924,10 @@ def crush_admin_dashboard(request):
     # The same counts as the admin index's Action Center. Keyed on the
     # profile's verification state: the ProfileSubmission queue these tiles
     # used to count is empty since the July 2026 verification pivot.
-    from .admin.verification_queues import pending_action_counts
+    from .admin.verification_queues import (
+        pending_action_counts,
+        recent_pending_profiles,
+    )
 
     now = timezone.now()
     pending_actions = pending_action_counts(now)
@@ -933,12 +936,10 @@ def crush_admin_dashboard(request):
     # RECENT ACTIVITY
     # ============================================================================
 
-    # Recent profile submissions (last 10)
-    recent_submissions = (
-        ProfileSubmission.objects.filter(status="pending")
-        .select_related("profile__user", "coach__user")
-        .order_by("-submitted_at")[:10]
-    )
+    # The members most recently updated while awaiting verification: the
+    # index's Today's Focus list, longer. This listed pending
+    # ProfileSubmissions, which the July 2026 pivot stopped creating.
+    recent_pending = recent_pending_profiles(10, now)
 
     # Recent event registrations (last 10)
     recent_event_registrations = EventRegistration.objects.select_related(
@@ -1147,7 +1148,7 @@ def crush_admin_dashboard(request):
         # Ideal Crush Preference Metrics
         "preference_metrics": preference_metrics,
         # Recent activity
-        "recent_submissions": recent_submissions,
+        "recent_pending_profiles": recent_pending,
         "recent_event_registrations": recent_event_registrations,
         "recent_connections": recent_connections,
         # Pending actions (workflow quick links)

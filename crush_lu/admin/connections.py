@@ -42,9 +42,12 @@ class EventConnectionAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        """Optimize queries with select_related for user and event FKs"""
+        """Optimize queries with select_related for user and event FKs, and
+        annotate the "Mutual" column so it costs no query per row."""
         qs = super().get_queryset(request)
-        return qs.select_related('requester', 'recipient', 'event', 'assigned_coach__user')
+        return qs.select_related(
+            'requester', 'recipient', 'event', 'assigned_coach__user'
+        ).annotate_is_mutual()
 
     def get_requester_display(self, obj):
         full_name = obj.requester.get_full_name()
@@ -63,7 +66,9 @@ class EventConnectionAdmin(admin.ModelAdmin):
     get_recipient_display.admin_order_field = 'recipient__first_name'
 
     def is_mutual(self, obj):
-        return obj.is_mutual
+        # get_queryset annotates it; the property runs one query per row.
+        annotated = getattr(obj, 'is_mutual_annotated', None)
+        return obj.is_mutual if annotated is None else annotated
     is_mutual.boolean = True
     is_mutual.short_description = 'Mutual'
 

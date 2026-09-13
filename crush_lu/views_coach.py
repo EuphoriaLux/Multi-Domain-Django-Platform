@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -44,6 +42,13 @@ from .models import (
     CrushSpark,
 )
 from .models.events import SEAT_HOLDING_STATUSES
+
+# Aliased because `coach_unverified_profiles` keeps the ids in a local named
+# `live_or_future_event_ids`, which would shadow the function.
+from .services.event_doors import (
+    DOOR_VISIBLE_REGISTRATION_STATUSES,
+    live_or_future_event_ids as _live_or_future_event_ids,
+)
 from .matching import (
     get_western_zodiac,
     get_western_element,
@@ -69,6 +74,7 @@ from .notification_service import (
 from .referrals import check_and_apply_profile_approved_reward
 from .services.profile_verification import (
     claim_profile_verification,
+    coach_visible_unverified_profiles,
     release_booked_screening_slots,
     transition_unverified_profile,
 )
@@ -92,7 +98,18 @@ def coach_dashboard(request):
     approved_profiles = CrushProfile.objects.filter(verification_status="verified")
     total_approved = approved_profiles.count()
 
-    pending_reviews = ProfileSubmission.objects.filter(
+    # Members awaiting verification, counted exactly like the "Unverified
+    # profiles" pending chip the card opens. The card used to count this
+    # coach's pending ProfileSubmissions: nobody new enters that queue since
+    # the July 2026 verification pivot, so it read zero while members waited.
+    awaiting_verification_count = (
+        coach_visible_unverified_profiles()
+        .filter(verification_status="pending")
+        .count()
+    )
+    # The legacy queue `coach_profiles` still lists first: submissions this
+    # coach claimed and has not decided. Its nav badge counts that page.
+    pending_submissions_count = ProfileSubmission.objects.filter(
         coach=coach, status="pending"
     ).count()
 
@@ -352,7 +369,8 @@ def coach_dashboard(request):
     context = {
         "coach": coach,
         "total_approved": total_approved,
-        "pending_reviews": pending_reviews,
+        "awaiting_verification_count": awaiting_verification_count,
+        "pending_submissions_count": pending_submissions_count,
         "your_total_reviews": your_total_reviews,
         "pending_connections_count": pending_connections_count,
         "gender_bars": gender_bars,
@@ -1062,43 +1080,11 @@ UNVERIFIED_SIGNAL_FILTERS = (
     "unowned",  # no open submission: no coach is carrying this one
 )
 
-#: Registration statuses `coach_event_checkin` actually renders — its own
-#: roster is `SEAT_HOLDING_STATUSES` plus the waitlist. "applied" is an
-#: expression of interest and explicitly not a seat (models/events.py), and
-#: "no_show" is recorded after the fact. Accepting everything-but-cancelled
-#: sent a coach to a scanner where the member has no row at all.
-DOOR_VISIBLE_REGISTRATION_STATUSES = tuple(SEAT_HOLDING_STATUSES) + ("waitlist",)
-
 UNVERIFIED_SORT_CHOICES = {
     "recent": _("Recently updated"),
     "waiting": _("Waiting longest"),
     "name": _("Name (A-Z)"),
 }
-
-
-def _live_or_future_event_ids(now):
-    """Events a member can still be verified at: not started yet, or running.
-
-    ``end_time`` is a Python property — ``timedelta * F()`` is unsupported on
-    SQLite — so the precise check cannot live in the query. The bounded
-    `live_lookback_cutoff` pre-filter keeps this to events that started within
-    the duration ceiling plus everything still to come, and materialising
-    their ids is what lets the `upcoming` filter and the rendered badge agree.
-    They disagreed before: the filter admitted an event that had already ended
-    while `_annotate_unverified_page` correctly dropped it, so the row showed
-    up under "Booked on an event" with no event badge explaining why.
-    """
-    return [
-        event_id
-        for event_id, date_time, duration in MeetupEvent.objects.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            # Cancelling an event flips this flag and leaves its registrations
-            # alone, so filtering on time only kept sending coaches to a door
-            # that is not happening.
-            is_cancelled=False,
-        ).values_list("id", "date_time", "duration_minutes")
-        if date_time + timedelta(minutes=duration) >= now
-    ]
 
 
 def _unverified_signal_annotations(now, live_or_future_event_ids):
@@ -1248,28 +1234,10 @@ def coach_unverified_profiles(request):
 
     query = (request.GET.get("q") or "").strip()
 
-    # Banned members are excluded from every other coach-facing surface
-    # (campaign segments, Connect invites). Resurfacing them here would hand
-    # the team review work on people who are not coming back.
-    banned_user_ids = UserDataConsent.objects.filter(crushlu_banned=True).values_list(
-        "user_id", flat=True
-    )
-
     live_or_future_event_ids = _live_or_future_event_ids(now)
 
     profiles = (
-        CrushProfile.objects.filter(
-            is_active=True,
-            user__is_active=True,
-            # `create_crush_profile_on_login` gives every crush.lu login an
-            # incomplete profile before the consent screen is answered. Without
-            # this, somebody who abandoned that screen — who never agreed to
-            # the Crush.lu profile layer at all — would be listed by name and
-            # email on a team-wide coach page.
-            user__data_consent__crushlu_consent_given=True,
-        )
-        .exclude(verification_status="verified")
-        .exclude(user_id__in=banned_user_ids)
+        coach_visible_unverified_profiles()
         .select_related("user", "assigned_coach__user")
         .annotate(**_unverified_signal_annotations(now, live_or_future_event_ids))
     )
