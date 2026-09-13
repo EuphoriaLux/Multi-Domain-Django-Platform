@@ -29,6 +29,7 @@ other aggregates. Results are cached server-side for 15 minutes by default.
 | `GOOGLE_INDEXING_KEY_JSON` | empty | Existing server-side Google service-account JSON. |
 | `HUB_ANALYTICS_GSC_SITE_URL` | `sc-domain:crush.lu` | Search Console property. |
 | `HUB_ANALYTICS_GA4_PROPERTY_ID` | `516337382` | GA4 property ID. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | empty | Existing slot-sticky Azure setting; its `ApplicationId` enables read-only query access. |
 | `HUB_ANALYTICS_CACHE_SECONDS` | `900` | Aggregate response cache duration. |
 | `HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS` | `15` | External-provider HTTP timeout and Search Console total request budget. |
 
