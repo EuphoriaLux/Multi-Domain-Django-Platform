@@ -50,6 +50,7 @@ import time
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from crush_lu.models import MeetupEvent
 from crush_lu.services import echo_lu
@@ -368,6 +369,7 @@ class Command(BaseCommand):
                 f"each event; --audit resolves the blocked ones."
             )
 
+    @transaction.atomic
     def _resolve_orphan(self, event_id, adopt, forget):
         """Take an event out of the blocked state, the one way out of it.
 
@@ -382,7 +384,11 @@ class Command(BaseCommand):
         experience found in your folder". That answer cannot tell a deleted
         listing from one the key can no longer see, so the sync keeps the id
         and keeps retrying (see ``echo_lu.listing_not_in_folder``); this is how
-        a person who has checked the back office settles it.
+        a person who has checked the back office settles it. A take-down is
+        recorded as done (Withdrawn, or Suppressed when the removal was asked
+        for by hand); a live event goes back to Pending so the next sync
+        creates. Unlike an orphan, that row is retried by the sweep, so the
+        whole resolution runs under the row lock ``withdraw_event`` takes.
 
         Writes nothing to echo.lu, so it needs neither the key nor the switch.
         """
@@ -396,7 +402,9 @@ class Command(BaseCommand):
             )
 
         try:
-            sync = EchoExperienceSync.objects.get(event_id=event_id)
+            # Locked until the resolution is written: the sweep retries a
+            # folder-failed row, and its write would otherwise land on top.
+            sync = EchoExperienceSync.objects.select_for_update().get(event_id=event_id)
         except EchoExperienceSync.DoesNotExist:
             raise CommandError(
                 f"Event {event_id} has no echo.lu sync row, so there is "
@@ -404,10 +412,10 @@ class Command(BaseCommand):
             )
 
         # Gated on the recorded answer, not on Failed alone: a row failed by
-        # a 503 or a timeout still holds a perfectly good id.
-        not_in_folder = (
-            sync.status == EchoExperienceSync.Status.FAILED
-            and echo_lu.NOT_IN_FOLDER_PHRASE in sync.last_error.lower()
+        # a 503 or a timeout still holds a perfectly good id, and so does one
+        # whose 500 happened to carry the same words.
+        not_in_folder = sync.status == EchoExperienceSync.Status.FAILED and (
+            echo_lu.recorded_not_in_folder(sync.last_error)
         )
         if sync.status != EchoExperienceSync.Status.ORPHANED and not not_in_folder:
             # Pointed at a healthy row, --forget would clear a perfectly good
@@ -453,6 +461,26 @@ class Command(BaseCommand):
                     f"other every sweep. Check the id against --audit."
                 )
             sync.experience_id = adopt
+        elif not_in_folder and (
+            sync.removal_requested or not echo_lu.should_publish(sync.event)
+        ):
+            # A take-down, now confirmed by the person: the listing is gone,
+            # which is all a take-down is for. Settled as done so the row
+            # leaves the sweep — SUPPRESSED when a removal was asked for by
+            # hand, which also clears that request. PENDING would keep an
+            # explicit removal selected every hour for good, answering
+            # "suppressed" to the empty id without ever clearing the flag.
+            sync.experience_id = ""
+            sync.save(update_fields=["experience_id", "updated_at"])
+            sync.mark_withdrawn()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Event {event_id}: cleared the experience id and recorded "
+                    f"the take-down as done (was {previous}, now "
+                    f"{sync.get_status_display()})."
+                )
+            )
+            return
         else:
             sync.experience_id = ""
         # PENDING, not SYNCED: no payload has been confirmed against this

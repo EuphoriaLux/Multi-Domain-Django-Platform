@@ -1669,6 +1669,30 @@ class SyncEventTests(TestCase):
         self.assertIn(NOT_IN_FOLDER, sync.last_error)
         self.assertIn(event, list(echo_lu.events_needing_sync()))
 
+    def test_a_take_down_whose_id_was_cleared_while_it_waited_sends_nothing(self):
+        # --forget can settle a folder-failed row between withdraw_event's
+        # first look and its row lock. The first read still holds the id; the
+        # locked one does not, and going on would unpublish an empty id and
+        # write FAILED over the person's resolution.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        MeetupEvent.objects.filter(pk=event.pk).update(is_published=False)
+        event.refresh_from_db()
+        stale = EchoExperienceSync.objects.get(event=event)
+        EchoExperienceSync.objects.filter(pk=stale.pk).update(
+            experience_id="", status=EchoExperienceSync.Status.WITHDRAWN
+        )
+        event.echo_sync = stale
+
+        client = FakeClient()
+        self.assertEqual(echo_lu.withdraw_event(event, client=client), "skipped")
+
+        self.assertEqual(client.calls, [])
+        self.assertEqual(
+            EchoExperienceSync.objects.get(event=event).status,
+            EchoExperienceSync.Status.WITHDRAWN,
+        )
+
     def test_a_check_that_fails_is_surfaced_not_swallowed(self):
         # A lookup that was made and failed is an echo.lu error like any
         # other, not "unknown". Swallowed into PENDING, a revoked key or an
@@ -3230,25 +3254,123 @@ class OrphanRecoveryGuardTests(TestCase):
             stdout=StringIO(),
         )
 
+        # It was a take-down, and the person has confirmed it holds: settled
+        # as done, so the row leaves the sweep.
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.experience_id, "")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.WITHDRAWN)
+        event.refresh_from_db()
+        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+
+    def test_forget_settles_an_explicit_removal_as_suppressed(self):
+        # The folder answer can follow a removal somebody asked for by hand,
+        # which leaves removal_requested set. Clearing the id without
+        # settling that kept the row in every sweep, where an empty id
+        # answers "suppressed" and never clears the flag.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        client = DeletedListingClient()
+        client.unpublish_body = NOT_IN_FOLDER
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.withdraw_event(event, client=client, explicit=True)
+        self.assertTrue(EchoExperienceSync.objects.get(event=event).removal_requested)
+
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--forget",
+            stdout=StringIO(),
+        )
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertEqual(sync.experience_id, "")
+        self.assertEqual(sync.status, EchoExperienceSync.Status.SUPPRESSED)
+        self.assertFalse(sync.removal_requested)
+        event.refresh_from_db()
+        self.assertNotIn(event, list(echo_lu.events_needing_sync()))
+
+    def test_forget_puts_a_live_event_back_to_pending(self):
+        # The same answer on a PUT means the live event's listing is gone
+        # from the folder. Once a person confirms it, the next sync creates
+        # a fresh one, as it does for a forgotten orphan.
+        event = make_event()
+        echo_lu.sync_event(event, client=FakeClient())
+        failing = FakeClient(
+            error=echo_lu.EchoLuError(
+                "echo.lu PUT /experiences/exp-123 rejected",
+                status_code=404,
+                body=NOT_IN_FOLDER,
+            )
+        )
+        with self.assertRaises(echo_lu.EchoLuError):
+            echo_lu.sync_event(event, client=failing, force=True)
+
+        call_command(
+            "sync_events_to_echo",
+            "--event-id",
+            str(event.pk),
+            "--forget",
+            stdout=StringIO(),
+        )
+
         sync = EchoExperienceSync.objects.get(event=event)
         self.assertEqual(sync.experience_id, "")
         self.assertEqual(sync.status, EchoExperienceSync.Status.PENDING)
+        event.refresh_from_db()
+        client = FakeClient(create_response=echo_response({"id": "exp-fresh"}))
+        self.assertEqual(echo_lu.sync_event(event, client=client), "created")
 
     def test_forget_refuses_a_row_failed_for_any_other_reason(self):
         # Gated on the recorded answer, not on FAILED: a 503 or a timeout
         # leaves a perfectly good id behind, and clearing it would strand a
-        # live listing and let the next sync post a second one.
+        # live listing and let the next sync post a second one. The phrase
+        # counts on a recorded 404 only — in a 500's body it proves nothing.
         from django.core.management.base import CommandError
 
+        for status, body in ((503, None), (500, NOT_IN_FOLDER)):
+            with self.subTest(status=status):
+                event = make_event()
+                error = echo_lu.EchoLuError(
+                    "echo.lu PUT /experiences/exp-live failed",
+                    status_code=status,
+                    body=body,
+                )
+                EchoExperienceSync.objects.create(
+                    event=event,
+                    experience_id="exp-live",
+                    status=EchoExperienceSync.Status.FAILED,
+                    last_error=str(error),
+                )
+
+                with self.assertRaises(CommandError) as caught:
+                    call_command(
+                        "sync_events_to_echo",
+                        "--event-id",
+                        str(event.pk),
+                        "--forget",
+                        stdout=StringIO(),
+                    )
+
+                self.assertIn("not blocked", str(caught.exception))
+                self.assertEqual(
+                    EchoExperienceSync.objects.get(event=event).experience_id,
+                    "exp-live",
+                )
+
+    def test_forget_locks_the_row_it_resolves(self):
+        # Unlike an orphan, a folder-failed row is retried by the hourly
+        # sweep, so --forget must take the row lock withdraw_event takes
+        # rather than write around it. SQLite ignores FOR UPDATE, so this
+        # checks that the lock is asked for.
         event = make_event()
         EchoExperienceSync.objects.create(
-            event=event,
-            experience_id="exp-live",
-            status=EchoExperienceSync.Status.FAILED,
-            last_error="echo.lu PUT /experiences/exp-live rejected (HTTP 503)",
+            event=event, status=EchoExperienceSync.Status.ORPHANED
         )
-
-        with self.assertRaises(CommandError) as caught:
+        manager = EchoExperienceSync.objects
+        with mock.patch.object(
+            manager, "select_for_update", wraps=manager.select_for_update
+        ) as locked:
             call_command(
                 "sync_events_to_echo",
                 "--event-id",
@@ -3257,10 +3379,7 @@ class OrphanRecoveryGuardTests(TestCase):
                 stdout=StringIO(),
             )
 
-        self.assertIn("not blocked", str(caught.exception))
-        self.assertEqual(
-            EchoExperienceSync.objects.get(event=event).experience_id, "exp-live"
-        )
+        locked.assert_called_once_with()
 
     def test_forget_refuses_a_healthy_row(self):
         # A mistyped event id is all it takes: clearing a valid experience_id

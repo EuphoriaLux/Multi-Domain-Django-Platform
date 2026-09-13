@@ -459,7 +459,13 @@ python manage.py sync_events_to_echo --event-id N --forget
 ```
 
 `--forget` otherwise only accepts a blocked (orphaned) row. It takes this one
-because the error recorded on the row is that exact answer.
+only when the error recorded on the row is that exact answer *on a 404* — the
+same words in a 500's body prove nothing. It settles the row by what was being
+attempted. A take-down is recorded as done: **Suppressed** if somebody asked
+for the removal by hand, **Withdrawn** otherwise. A live event whose update
+got the answer goes back to **Pending**, and the next sync creates a fresh
+listing. It takes the same row lock as the sweep's retry, so neither can
+overwrite the other.
 
 A `cancel` that gets the same answer is recorded as **Withdrawn**, not
 Cancelled: no notice is showing, and Cancelled would tell the sweep one is and

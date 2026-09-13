@@ -1498,6 +1498,20 @@ def listing_not_in_folder(error):
     return NOT_IN_FOLDER_PHRASE in body
 
 
+def recorded_not_in_folder(last_error):
+    """True when a sync row's ``last_error`` is echo.lu's folder 404.
+
+    The row keeps only the text :meth:`EchoLuError.__str__` wrote —
+    "… (HTTP 404): <body>" — so both halves are required. The phrase alone
+    could sit in a 500's body, which says nothing about the listing; see
+    :func:`listing_not_in_folder`, which counts it on a 404 only.
+    """
+    text = (last_error or "").lower()
+    marker = "(http 404): "
+    at = text.find(marker)
+    return at != -1 and NOT_IN_FOLDER_PHRASE in text[at + len(marker) :]
+
+
 def _listing_is_gone(client, experience_id):
     """Whether echo.lu no longer holds the listing: True, False or None.
 
@@ -1904,6 +1918,13 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # whatever the next writer had already decided.
     with transaction.atomic():
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        if not sync.experience_id:
+            # Cleared while this caller waited for the lock — by `--forget`
+            # settling a listing a person found gone from echo.lu's folder.
+            # The check before the wait read the old id; going on would send
+            # a take-down for an empty id and write FAILED over the person's
+            # resolution.
+            return "skipped"
         # And the event is re-read, exactly as on the publish path. Which
         # action this sends is decided from the event's own fields, so
         # deciding it before the wait means deciding it from state somebody
