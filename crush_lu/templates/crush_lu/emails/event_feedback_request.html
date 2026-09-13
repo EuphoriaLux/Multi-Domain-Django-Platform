@@ -16,6 +16,17 @@
 
 <p style="margin-top: 24px;">{% trans "Free-text answers are visible to your coach so they can follow up if anything stood out." %}</p>
 
+{% if google_review_url %}
+<div class="info-box">
+    {% comment %}Neutral wording on purpose: Google's Business Profile policy
+       forbids selectively soliciting positive reviews, so this must not say "if
+       you enjoyed it" or otherwise steer. Every attendee is asked the same way.
+    {% endcomment %}
+    <p style="margin: 0 0 10px 0;">{% trans "You can also review us publicly on Google. Honest reviews — good or bad — help other singles in Luxembourg decide whether a Crush.lu event is for them." %}</p>
+    <a href="{{ google_review_url }}">{% trans "Leave a Google review" %}</a>
+</div>
+{% endif %}
+
 <p>
     {% trans "Thanks again," %}<br>
     <strong>{% trans "The Crush.lu Team" %}</strong>

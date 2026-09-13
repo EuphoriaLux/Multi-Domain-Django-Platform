@@ -659,3 +659,33 @@ GOOGLE_INDEXING_DOMAIN = os.environ.get(
     "GOOGLE_INDEXING_DOMAIN",
     "crush.lu" if DJANGO_ENV == "production" else "",
 )
+
+# =============================================================================
+# GOOGLE BUSINESS PROFILE — public review ask
+# =============================================================================
+# The Crush.lu listing's own `newReviewUri`, read from the Business Profile API
+# on 2026-09-13. Public by design — it is the link members are asked to follow —
+# so it lives here rather than in an App Service setting.
+#
+# Keyed off DJANGO_ENV for the same reason as GOOGLE_INDEXING_DOMAIN above, and
+# it is not optional here: **an App Service setting defined on one slot only is
+# exchanged on swap, not kept** (infra/resources.bicep says so explicitly, and
+# CRUSH_GOOGLE_REVIEW_URL is not in slotConfigNames). Had this been "set it on
+# production only", the first swap after release would have handed the live URL
+# to staging — whose attendee rows describe events those people never went to —
+# and left production silently back on the empty default. DJANGO_ENV *is*
+# slot-sticky, so deriving from it needs no new pinning and cannot drift.
+#
+# Staging is unconditional: an env override is honoured only in production, so
+# setting the variable on the staging slot buys nothing. On production the
+# override still works as a kill switch — set CRUSH_GOOGLE_REVIEW_URL="" to stop
+# asking. That switch is itself unpinned, so a later swap restores the default
+# below; it fails back to "asking", never to a broken link.
+CRUSH_GOOGLE_REVIEW_URL = (
+    os.environ.get(
+        "CRUSH_GOOGLE_REVIEW_URL",
+        "https://search.google.com/local/writereview?placeid=ChIJ6a9_t1dy_yQRe8D8qZVlbuY",
+    )
+    if DJANGO_ENV == "production"
+    else ""
+)

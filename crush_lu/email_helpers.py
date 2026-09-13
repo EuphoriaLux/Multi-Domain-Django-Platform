@@ -1287,6 +1287,28 @@ def send_event_reminder(registration, request=None, days_until_event=1):
     )
 
 
+def google_review_url_for(registration):
+    """The Google review deep link for an attendee, or "" for anyone else.
+
+    Gated on ``status == "attended"`` — the status ``views_checkin`` sets in the
+    same save as ``checked_in_at``, and the one the recap/feedback sweeps
+    already select on. A no-show, a waitlisted member or a cancelled
+    registration must never be asked to publicly review an event they did not
+    experience. Gating here rather than in the callers means a future
+    admin-triggered resend inherits the rule for free.
+
+    Deliberately **not** gated on sentiment. Crush.lu runs its own feedback
+    form, and showing the Google link only to people who rated the event highly
+    is review gating: it violates Google's Business Profile policy and can cost
+    the listing. Every attendee gets the same link, or nobody does.
+    """
+    from .services.google_business_profile import get_review_url
+
+    if getattr(registration, "status", "") != "attended":
+        return ""
+    return get_review_url()
+
+
 def send_event_recap(registration, request=None):
     """
     Send a 24h post-event recap email to an attendee.
@@ -1412,6 +1434,7 @@ def send_event_recap(registration, request=None):
         lobby_recap_url=lobby_recap_url,
         connect_nudge_url=connect_nudge_url,
         connect_nudge_opens_recap=connect_nudge_opens_recap,
+        google_review_url=google_review_url_for(registration),
     )
 
     with translation.override(lang):
@@ -1470,6 +1493,7 @@ def send_event_feedback_request(registration, request=None):
         registration=registration,
         event=registration.event,
         feedback_url=feedback_url,
+        google_review_url=google_review_url_for(registration),
     )
 
     with translation.override(lang):
