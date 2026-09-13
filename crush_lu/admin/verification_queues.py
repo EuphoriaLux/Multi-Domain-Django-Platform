@@ -102,7 +102,8 @@ def resubmitted_after_revision(profiles):
     """Narrow ``profiles`` to members whose latest submission came back after
     a coach's revision request.
 
-    A revision verdict bumps ``revision_round`` on the row, and resubmitting
+    Every revision verdict bumps ``revision_round`` on the row: the coach
+    review, the bulk action and a hand edit in the admin. Resubmitting
     re-queues that same row (`complete_profile_submission`), so a
     resubmission never adds a second row. A latest row still at ``revision``
     is waiting on the member; an ``expired`` one was closed by the pivot

@@ -286,12 +286,19 @@ class MutualConnectionFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'mutual':
-            return queryset.annotate_is_mutual().filter(is_mutual_annotated=True)
+            return self._annotated(queryset).filter(is_mutual_annotated=True)
         elif self.value() == 'pending':
             return queryset.filter(status='pending')
         elif self.value() == 'one_way':
-            return queryset.annotate_is_mutual().filter(is_mutual_annotated=False)
+            return self._annotated(queryset).filter(is_mutual_annotated=False)
         return queryset
+
+    @staticmethod
+    def _annotated(queryset):
+        # EventConnectionAdmin.get_queryset already annotates, for its column.
+        if 'is_mutual_annotated' in queryset.query.annotations:
+            return queryset
+        return queryset.annotate_is_mutual()
 
 
 class HasMessagesFilter(admin.SimpleListFilter):

@@ -331,6 +331,19 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
             )
         return status
 
+    def save(self, commit=True):
+        # Setting "revision" by hand counts a round, like the coach review
+        # and the bulk action: "Resubmitted After Revision" reads it. This
+        # form backs the change form, the list's status column and the
+        # profile page's inline.
+        if (
+            self.instance.pk
+            and "status" in self.changed_data
+            and self.instance.status == "revision"
+        ):
+            self.instance.revision_round = (self.instance.revision_round or 0) + 1
+        return super().save(commit=commit)
+
 
 class ProfileSubmissionProfileInline(admin.TabularInline):
     """Show profile submission/review history"""
@@ -2160,6 +2173,9 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 continue
             submission.status = "revision"
             submission.reviewed_at = now
+            # Count the round, as the coach review does: the coach's
+            # resubmission banner and "Resubmitted After Revision" read it.
+            submission.revision_round = (submission.revision_round or 0) + 1
             submission.save()
             submission.profile.verification_status = "incomplete"
             submission.profile.completion_status = (

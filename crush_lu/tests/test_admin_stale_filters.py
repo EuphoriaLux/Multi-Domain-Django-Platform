@@ -8,6 +8,10 @@ every member who joined since the pivot, or filtered a status value the model
 never had. Each test pins a surface to what it reads now: the profile's
 verification state, the member's latest submission, ``assigned_coach``, or a
 reciprocal EventConnection row.
+
+Requests use literal paths on the crush.lu host, so its middleware picks the
+urlconf as in production (AGENTS.md: `reverse()` resolves against the
+default urlconf, not the host's).
 """
 
 from datetime import date, timedelta
@@ -15,10 +19,10 @@ from datetime import date, timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
-from django.test import TestCase, override_settings
-from django.urls import reverse
+from django.test import Client, TestCase
 from django.utils import timezone
 
+from crush_lu.admin import crush_admin_site
 from crush_lu.models import (
     CrushCoach,
     CrushProfile,
@@ -31,10 +35,21 @@ from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
 
-CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
+HOST = "crush.lu"
+ADMIN = "/crush-admin/"
+ADMIN_DASHBOARD = "/crush-admin/dashboard/"
+PROFILES = "/crush-admin/crush_lu/crushprofile/"
+CONNECTIONS = "/crush-admin/crush_lu/eventconnection/"
+REVISION_NEEDED = "/crush-admin/crush_lu/revisionneededprofile/"
+SUBMISSIONS = "/crush-admin/crush_lu/profilesubmission/"
+COACH_DASHBOARD = "/en/coach/dashboard/"
+COACH_PROFILES = "/en/coach/profiles/"
+COACH_UNVERIFIED = "/en/coach/unverified/"
+COACH_PENDING = f"{COACH_UNVERIFIED}?status=pending"
 
-PROFILES = "crush_admin:crush_lu_crushprofile_changelist"
-CONNECTIONS = "crush_admin:crush_lu_eventconnection_changelist"
+
+def profile_change(pk):
+    return f"{PROFILES}{pk}/change/"
 
 
 def make_event(title, start, **fields):
@@ -65,6 +80,7 @@ class AdminFixturesMixin:
             email="stale-filters-admin@example.com",
             password="pw12345678",
         )
+        self.client = Client(HTTP_HOST=HOST)
         self.client.force_login(self.superuser)
         # A login can create an incomplete profile for the account. The
         # admin's own would then land in every "incomplete" expectation.
@@ -100,13 +116,12 @@ class AdminFixturesMixin:
 
     def _listed(self, changelist, query=""):
         """The primary keys a changelist lists for ``query``, and its count."""
-        response = self.client.get(f"{reverse(changelist)}?{query}")
+        response = self.client.get(f"{changelist}?{query}")
         self.assertEqual(response.status_code, 200)
         listed = response.context["cl"]
         return set(listed.queryset.values_list("pk", flat=True)), listed.result_count
 
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
 class MutualConnectionFilterTests(AdminFixturesMixin, TestCase):
     """"Mutual" is a reciprocal row at the same event: the definition of the
     changelist's own "Mutual" column. It filtered a 'mutual' status that
@@ -175,8 +190,19 @@ class MutualConnectionFilterTests(AdminFixturesMixin, TestCase):
 
         self.assertEqual(listed, self._rows("ana_ben", "ben_ana", "cam_dee", "dee_cam"))
 
+    def test_the_mutual_column_reads_the_annotation(self):
+        """The changelist's rows carry the reciprocal annotation, so the
+        column costs no query per row. The property runs one."""
+        response = self.client.get(CONNECTIONS)
+        column = crush_admin_site._registry[EventConnection].is_mutual
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
+        with self.assertNumQueries(0):
+            ticks = {row.pk: column(row) for row in response.context["cl"].result_list}
+
+        mutual = self._rows("ana_ben", "ben_ana", "cam_dee", "dee_cam")
+        self.assertEqual(ticks, {pk: pk in mutual for pk in self.rows.values()})
+
+
 class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
     """`ProfileSubmissionDetailFilter`: every option reads the member's
     latest submission, or the profile for members who never submitted."""
@@ -204,7 +230,7 @@ class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
         """The changelist's "Never Submitted" link carries this count."""
         self._never_submitted_cohort()
 
-        response = self.client.get(reverse(PROFILES))
+        response = self.client.get(PROFILES)
 
         self.assertEqual(response.context["filter_counts"]["never_submitted"], 1)
         self.assertContains(response, 'href="?submission_history=never_submitted"')
@@ -225,9 +251,7 @@ class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
         self._submission(expired, "expired", days_ago=30)
 
         listed, _ = self._listed(PROFILES, "submission_history=revision_pending")
-        segment, _ = self._listed(
-            "crush_admin:crush_lu_revisionneededprofile_changelist"
-        )
+        segment, _ = self._listed(REVISION_NEEDED)
 
         self.assertEqual(listed, {waiting.pk})
         # The filter and the Revision Needed segment are one definition.
@@ -271,8 +295,50 @@ class SubmissionHistoryFilterTests(AdminFixturesMixin, TestCase):
 
         self.assertEqual(listed, {back.pk, approved.pk})
 
+    def test_every_revision_path_counts_a_round(self):
+        """The bulk action and a hand edit count a revision round, as the
+        coach review does, so the members they send back are under
+        "Resubmitted After Revision" once they resubmit."""
+        bulk = self._submission(self._profile("bulk_revised"), "pending", days_ago=4)
+        by_hand = self._submission(
+            self._profile("hand_revised"), "pending", days_ago=3
+        )
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
+        action = self.client.post(
+            SUBMISSIONS,
+            {"action": "bulk_request_revision", "_selected_action": [bulk.pk]},
+        )
+        # The list's status column. The change form and the profile page's
+        # inline use the same form.
+        edit = self.client.post(
+            SUBMISSIONS,
+            {
+                "form-TOTAL_FORMS": "1",
+                "form-INITIAL_FORMS": "1",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(by_hand.pk),
+                "form-0-status": "revision",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual((action.status_code, edit.status_code), (302, 302))
+        for submission in (bulk, by_hand):
+            submission.refresh_from_db()
+            with self.subTest(submission=submission.pk):
+                self.assertEqual(submission.status, "revision")
+                self.assertEqual(submission.revision_round, 1)
+
+        # Resubmitting re-queues the same row (`complete_profile_submission`).
+        ProfileSubmission.objects.filter(pk__in=[bulk.pk, by_hand.pk]).update(
+            status="pending"
+        )
+        listed, _ = self._listed(PROFILES, "submission_history=resubmitted")
+
+        self.assertEqual(listed, {bulk.profile_id, by_hand.profile_id})
+
+
 class CoachAssignmentFilterTests(AdminFixturesMixin, TestCase):
     """`CoachAssignmentFilter` reads ``assigned_coach``, the "Assigned Coach"
     column beside it, not the coaches on submission rows."""
@@ -304,13 +370,12 @@ class CoachAssignmentFilterTests(AdminFixturesMixin, TestCase):
 
     def test_not_submitted_is_no_longer_offered(self):
         """Its members are under Submission History's "Never Submitted"."""
-        response = self.client.get(reverse(PROFILES))
+        response = self.client.get(PROFILES)
 
         self.assertContains(response, "coach_assignment=has_coach")
         self.assertNotContains(response, "coach_assignment=not_submitted")
 
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
 class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
     """The index's Today's Focus tab and the analytics dashboard's table list
     the members most recently updated while awaiting verification. They
@@ -346,24 +411,21 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
 
     def _assert_no_submission_link(self, response):
         # Not a bare "/profilesubmission/": the nav sidebar links that list.
-        review = reverse(
-            "crush_admin:crush_lu_profilesubmission_change", args=[self.open_row.pk]
-        )
+        review = f"{SUBMISSIONS}{self.open_row.pk}/change/"
         self.assertNotContains(response, f'href="{review}"')
 
     def test_index_lists_the_five_most_recently_updated_pending_members(self):
-        response = self.client.get(reverse("crush_admin:index"))
+        response = self.client.get(ADMIN)
 
         listed = [profile.pk for profile in response.context["recent_pending_profiles"]]
         self.assertEqual(listed, self.newest_first[:5])
         for pk in listed:
-            change = reverse("crush_admin:crush_lu_crushprofile_change", args=[pk])
-            self.assertContains(response, f'href="{change}"')
+            self.assertContains(response, f'href="{profile_change(pk)}"')
         self.assertNotIn("recent_submissions", response.context)
         self._assert_no_submission_link(response)
 
     def test_index_rows_carry_the_door_split(self):
-        response = self.client.get(reverse("crush_admin:index"))
+        response = self.client.get(ADMIN)
 
         flags = {
             profile.pk: profile.has_door_seat
@@ -376,7 +438,7 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
         self.assertContains(response, "&bull; not booked on an event", count=4)
 
     def test_dashboard_lists_the_ten_most_recently_updated_pending_members(self):
-        response = self.client.get(reverse("crush_admin_dashboard"))
+        response = self.client.get(ADMIN_DASHBOARD)
 
         listed = [profile.pk for profile in response.context["recent_pending_profiles"]]
         self.assertEqual(listed, self.newest_first[:10])
@@ -384,11 +446,29 @@ class RecentPendingProfilesTests(AdminFixturesMixin, TestCase):
         self._assert_no_submission_link(response)
         self.assertContains(response, "Recently Updated Pending Profiles")
         for pk in listed:
-            change = reverse("crush_admin:crush_lu_crushprofile_change", args=[pk])
-            self.assertContains(response, f'href="{change}"')
+            self.assertContains(response, f'href="{profile_change(pk)}"')
+
+    def test_coaches_open_the_coach_pending_list(self):
+        """The profile admin shows a coach only members whose submissions they
+        hold, so a coach's rows open the coach page's pending list."""
+        coach_user = User.objects.create_user(
+            username="coach_dee", email="coach-dee@example.com", password="pw12345678"
+        )
+        UserDataConsent.objects.filter(user=coach_user).update(
+            crushlu_consent_given=True
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True, max_active_reviews=10)
+        self.client.force_login(coach_user)
+
+        for page, rows in ((ADMIN, 5), (ADMIN_DASHBOARD, 10)):
+            with self.subTest(page=page):
+                response = self.client.get(page)
+
+                self.assertContains(response, f'href="{COACH_PENDING}"', count=rows)
+                for pk in self.newest_first[:rows]:
+                    self.assertNotContains(response, f'href="{profile_change(pk)}"')
 
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
 class CoachDashboardAwaitingVerificationTests(TestCase):
     """The coach dashboard's card counts the pending chip of the "Unverified
     profiles" page it opens. It counted the coach's pending submissions."""
@@ -401,6 +481,7 @@ class CoachDashboardAwaitingVerificationTests(TestCase):
         self.coach = CrushCoach.objects.create(
             user=self._user("coach@example.com"), is_active=True, max_active_reviews=10
         )
+        self.client = Client(HTTP_HOST=HOST)
         self.client.force_login(self.coach.user)
 
     def _user(self, email, *, consent=True, **fields):
@@ -439,16 +520,13 @@ class CoachDashboardAwaitingVerificationTests(TestCase):
         self._profile("incomplete@example.com", status="incomplete")
         self._profile("rejected@example.com", status="rejected")
 
-        dashboard = self.client.get(reverse("crush_lu:coach_dashboard"))
-        unverified = self.client.get(
-            reverse("crush_lu:coach_unverified_profiles"), {"status": "pending"}
-        )
+        dashboard = self.client.get(COACH_DASHBOARD)
+        unverified = self.client.get(COACH_UNVERIFIED, {"status": "pending"})
 
         self.assertEqual(dashboard.status_code, 200)
         self.assertEqual(dashboard.context["awaiting_verification_count"], 2)
         self.assertEqual(unverified.context["total_count"], 2)
-        chip = f'href="{reverse("crush_lu:coach_unverified_profiles")}?status=pending"'
-        self.assertContains(dashboard, chip)
+        self.assertContains(dashboard, f'href="{COACH_PENDING}"')
         self.assertContains(dashboard, "Awaiting Verification")
         self.assertNotIn("pending_reviews", dashboard.context)
 
@@ -463,8 +541,8 @@ class CoachDashboardAwaitingVerificationTests(TestCase):
         done = self._profile("done@example.com", status="verified")
         ProfileSubmission.objects.create(profile=done, coach=self.coach, status="approved")
 
-        dashboard = self.client.get(reverse("crush_lu:coach_dashboard"))
-        profiles_page = self.client.get(reverse("crush_lu:coach_profiles"))
+        dashboard = self.client.get(COACH_DASHBOARD)
+        profiles_page = self.client.get(COACH_PROFILES)
 
         self.assertEqual(dashboard.context["pending_submissions_count"], 1)
         self.assertEqual(len(profiles_page.context["pending_submissions"]), 1)

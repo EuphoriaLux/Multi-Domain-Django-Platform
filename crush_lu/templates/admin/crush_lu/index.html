@@ -184,6 +184,8 @@
            awaiting verification. Its Alpine state keeps the "submissions" name
            (todaysFocus in alpine-components.js) from when it listed pending
            ProfileSubmissions, which nobody creates since the July 2026 pivot.
+           A coach's rows open the coach page's pending list: the profile
+           admin shows a coach only members whose submissions they hold.
         {% endcomment %}
         <div class="tab-panel" :class="submissionsTabClass" x-show="isSubmissionsTab">
             {% if recent_pending_profiles %}
@@ -195,7 +197,11 @@
                         <div class="focus-item-title">{{ profile.user.get_full_name|default:profile.user.username }}</div>
                         <div class="focus-item-subtitle">Updated {{ profile.updated_at|timesince }} ago &bull; {% if profile.has_door_seat %}booked on an event{% else %}not booked on an event{% endif %}</div>
                     </div>
+                    {% if request.user.is_superuser %}
                     <a href="{% url 'crush_admin:crush_lu_crushprofile_change' profile.id %}" class="focus-item-action">View</a>
+                    {% else %}
+                    <a href="{% url 'crush_lu:coach_unverified_profiles' %}?status=pending" class="focus-item-action">View</a>
+                    {% endif %}
                 </li>
                 {% endfor %}
             </ul>
