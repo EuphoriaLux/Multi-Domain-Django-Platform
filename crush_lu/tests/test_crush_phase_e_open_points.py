@@ -494,7 +494,7 @@ class TestClaimThenSend:
     def _subscription(self, coach):
         return CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example.com/dead-endpoint",
+            endpoint="https://fcm.googleapis.com/fcm/send/dead-endpoint",
             p256dh_key=VALID_P256DH,
             auth_key=VALID_AUTH,
         )
@@ -1138,7 +1138,7 @@ class TestTransportFailuresCountAgainstDeviceHealth:
         coach = _make_coach(name)
         subscription = CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example.com/hung",
+            endpoint="https://fcm.googleapis.com/fcm/send/hung",
             p256dh_key=VALID_P256DH,
             auth_key=VALID_AUTH,
         )
@@ -1471,7 +1471,7 @@ class TestUnusableKeyMaterialCountsAgainstTheDevice:
         coach = _make_coach(name)
         return coach, CoachPushSubscription.objects.create(
             coach=coach,
-            endpoint="https://push.example.com/x",
+            endpoint="https://fcm.googleapis.com/fcm/send/x",
             p256dh_key=p256dh,
             auth_key=auth,
         )
@@ -1562,7 +1562,7 @@ class TestSubscribeRejectsUnusableKeys:
             reverse("api_coach_subscribe_push"),
             data=json.dumps(
                 {
-                    "endpoint": "https://push.example.com/new",
+                    "endpoint": "https://fcm.googleapis.com/fcm/send/new",
                     "keys": {"p256dh": p256dh, "auth": auth},
                 }
             ),
