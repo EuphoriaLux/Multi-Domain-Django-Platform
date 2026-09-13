@@ -65,7 +65,7 @@ class BuildTrackedUrlTests(TestCase):
         self.assertEqual(params['utm_campaign'], [self.campaign.slug])
 
     def test_existing_query_and_utm_params_are_preserved(self):
-        tracked_dest = build_tracked_url(
+        build_tracked_url(
             'https://crush.lu/events/?ref=abc&utm_source=partner',
             self.campaign, 'email',
         )
@@ -217,6 +217,7 @@ class EmailLegRewritingTests(TestCase):
             email_content={
                 'subject': 'Hi',
                 'body_html': '<a href="https://crush.lu/events/">Come!</a>',
+                'body_text': 'Come directly: https://crush.lu/events/',
             },
         )
         result = CHANNEL_ADAPTERS['email'].send_batch(campaign, limit=10)
@@ -229,6 +230,8 @@ class EmailLegRewritingTests(TestCase):
         html_body = mail.outbox[0].alternatives[0].content
         self.assertIn(f'/c/{link.token}/', html_body)
         self.assertNotIn('href="https://crush.lu/events/"', html_body)
+        self.assertIn('https://crush.lu/events/', mail.outbox[0].body)
+        self.assertNotIn('/c/', mail.outbox[0].body)
         # The unsubscribe link stays direct.
         self.assertIn('unsubscribe', html_body)
         self.assertFalse(

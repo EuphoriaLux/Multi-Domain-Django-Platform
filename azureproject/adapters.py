@@ -478,6 +478,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         """
         from allauth.core import context as allauth_context
         from azureproject.email_utils import send_domain_email
+        from django.contrib.sites.models import Site
         from django.contrib.sites.shortcuts import get_current_site
         from django.template.loader import render_to_string
 
@@ -494,13 +495,17 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         if request is None:
             request = context.get("request")
 
-        # Ensure request is in the template context for URL generation
-        ctx = {
-            "request": request,
-            "email": email,
-            "current_site": get_current_site(request),
-        }
+        # Ensure request is in the template context for URL generation. SITE_ID
+        # is intentionally unset on this multi-domain platform, so request-less
+        # callers need an explicit default matching send_domain_email's fallback.
+        ctx = {"request": request, "email": email}
         ctx.update(context)
+        if not ctx.get("current_site"):
+            ctx["current_site"] = (
+                get_current_site(request)
+                if request is not None
+                else Site(domain="powerup.lu", name="Power Up")
+            )
 
         # Render email subject and body from Allauth templates
         subject = render_to_string(f"{template_prefix}_subject.txt", ctx)

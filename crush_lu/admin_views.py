@@ -1651,7 +1651,6 @@ def email_template_send(request):
     """
     from django.http import JsonResponse
     from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
     from azureproject.email_utils import send_domain_email
     from .admin.email_templates_config import get_template_by_key
 
@@ -1687,7 +1686,7 @@ def email_template_send(request):
     # Render email
     try:
         html_content = render_to_string(template_meta["template"], context)
-        plain_content = strip_tags(html_content)
+        plain_content = html_to_plain_text(html_content)
     except Exception as e:
         logger.error(f"Error rendering email template: {e}")
         logger.error(traceback.format_exc())

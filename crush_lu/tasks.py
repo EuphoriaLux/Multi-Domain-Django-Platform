@@ -238,8 +238,9 @@ def send_sla_fallback_email_task(submission_id, host, is_secure=True):
     from django.template.loader import render_to_string
     from django.urls import reverse
     from django.utils import translation
-    from django.utils.html import strip_tags
     from django.utils.translation import gettext as _
+
+    from azureproject.email_utils import html_to_plain_text
 
     from .models import ProfileSubmission
     from .email_helpers import (
@@ -296,7 +297,7 @@ def send_sla_fallback_email_task(submission_id, host, is_secure=True):
         html_message = render_to_string(
             "crush_lu/emails/screening_fallback_offered.html", context
         )
-        plain_message = strip_tags(
+        plain_message = html_to_plain_text(
             render_to_string(
                 "crush_lu/emails/screening_fallback_offered.txt", context
             )

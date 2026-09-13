@@ -19,8 +19,36 @@ from django.utils.translation import gettext
 from azureproject.email_utils import html_to_plain_text, send_domain_email
 from azureproject.graph_email_backend import GraphEmailBackend
 from azureproject.adapters import MultiDomainAccountAdapter
+from crush_lu.management.commands.process_email_bounces import _get_mailbox_messages
 from crush_lu.models import EmailBounceEvent, EmailSuppression
-from crush_lu.services.email_bounces import classify_bounce, process_graph_bounce
+from crush_lu.services.email_bounces import (
+    classify_bounce,
+    is_delivery_report,
+    process_graph_bounce,
+)
+
+
+def delivery_report_message(**overrides):
+    message = {
+        "id": "graph-id",
+        "internetMessageId": "<ndr-1@example.com>",
+        "subject": "Undeliverable",
+        "receivedDateTime": "2026-09-13T14:00:00Z",
+        "from": {
+            "emailAddress": {
+                "address": "MicrosoftExchange000000@tenant.onmicrosoft.com"
+            }
+        },
+        "internetMessageHeaders": [
+            {
+                "name": "Content-Type",
+                "value": "multipart/report; report-type=delivery-status",
+            }
+        ],
+        "body": {"content": "person@example.net wasn't found. Status 5.1.10."},
+    }
+    message.update(overrides)
+    return message
 
 
 class HTMLToPlainTextTests(TestCase):
@@ -50,10 +78,22 @@ class MultipartAndSuppressionTests(TestCase):
 
         self.assertEqual(result, 1)
         message = mail.outbox[0]
-        self.assertEqual(message.body, "Hello\nworld")
+        self.assertEqual(message.body, "legacy plain")
         self.assertEqual(message.reply_to, ["support@crush.lu"])
         self.assertEqual(message.alternatives[0].mimetype, "text/html")
         self.assertEqual(message.attachments[0].filename, "invite.ics")
+
+    def test_html_conversion_is_used_only_when_plain_body_is_empty(self):
+        send_domain_email(
+            subject="Fallback",
+            message="",
+            html_message="<style>.x{color:red}</style><p>Hello<br>world</p>",
+            recipient_list=["member@example.com"],
+            domain="crush.lu",
+        )
+
+        self.assertEqual(mail.outbox[0].body, "Hello\nworld")
+        self.assertNotIn("color:red", mail.outbox[0].body)
 
     def test_active_suppression_skips_send_case_insensitively(self):
         EmailSuppression.objects.create(email="BOUNCE@example.com")
@@ -79,6 +119,19 @@ class MultipartAndSuppressionTests(TestCase):
         )
 
         self.assertEqual(result, 1)
+
+    def test_display_name_recipient_is_filtered_by_mailbox_address(self):
+        EmailSuppression.objects.create(email="bounce@example.com")
+
+        result = send_domain_email(
+            subject="Skipped",
+            message="Body",
+            recipient_list=["Bounced Member <bounce@example.com>"],
+            domain="crush.lu",
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(mail.outbox, [])
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
@@ -114,6 +167,23 @@ class AllauthBrandContextTests(TestCase):
                 self.assertIn(expected, message.subject)
                 self.assertIn("Crush.lu", message.body)
                 self.assertIn("Crush.lu", message.alternatives[0].content)
+
+    def test_requestless_mail_uses_the_platform_default_site(self):
+        user = get_user_model().objects.create_user(
+            username="requestless@example.com", email="requestless@example.com"
+        )
+
+        MultiDomainAccountAdapter().send_mail(
+            "account/email/email_confirmation_signup",
+            user.email,
+            {
+                "user": user,
+                "activate_url": "https://powerup.lu/confirm/test/",
+            },
+        )
+
+        self.assertIn("Power Up", mail.outbox[0].subject)
+        self.assertIn("Power Up", mail.outbox[0].body)
 
 
 class GraphMimeBackendTests(TestCase):
@@ -163,13 +233,7 @@ class GraphMimeBackendTests(TestCase):
 
 class BounceClassificationTests(TestCase):
     def test_unambiguous_permanent_failure_is_suppressed_once(self):
-        message = {
-            "id": "graph-id",
-            "internetMessageId": "<ndr-1@example.com>",
-            "subject": "Undeliverable",
-            "receivedDateTime": "2026-09-13T14:00:00Z",
-            "body": {"content": "person@example.net wasn't found. Status 5.1.10."},
-        }
+        message = delivery_report_message()
 
         first = process_graph_bounce(message, apply=True)
         process_graph_bounce(message, apply=True)
@@ -191,6 +255,148 @@ class BounceClassificationTests(TestCase):
 
         self.assertEqual(soft.classification, "soft")
         self.assertEqual(ambiguous.classification, "unknown")
+
+    def test_unverified_message_cannot_be_applied(self):
+        message = delivery_report_message(
+            **{
+                "from": {"emailAddress": {"address": "person@example.org"}},
+                "internetMessageHeaders": [],
+            }
+        )
+
+        self.assertFalse(is_delivery_report(message))
+        with self.assertRaisesMessage(ValueError, "verified delivery report"):
+            process_graph_bounce(message, apply=True)
+        self.assertEqual(EmailBounceEvent.objects.count(), 0)
+
+    def test_existing_hard_event_repairs_its_missing_suppression(self):
+        message = delivery_report_message()
+        EmailBounceEvent.objects.create(
+            source_message_id=message["internetMessageId"],
+            recipient="person@example.net",
+            classification="hard",
+        )
+
+        process_graph_bounce(message, apply=True)
+
+        self.assertTrue(
+            EmailSuppression.objects.filter(email="person@example.net").exists()
+        )
+
+    @patch(
+        "crush_lu.services.email_bounces.EmailSuppression.objects.update_or_create",
+        side_effect=RuntimeError("suppression write failed"),
+    )
+    def test_event_rolls_back_when_suppression_write_fails(self, update_suppression):
+        with self.assertRaisesMessage(RuntimeError, "suppression write failed"):
+            process_graph_bounce(delivery_report_message(), apply=True)
+
+        self.assertEqual(EmailBounceEvent.objects.count(), 0)
+
+    def test_persisted_diagnostic_does_not_retain_original_message_content(self):
+        secret = "private reset link https://crush.lu/reset/secret-token"
+        message = delivery_report_message(
+            subject="Undeliverable: Private event invitation",
+            body={
+                "content": ("person@example.net wasn't found. Status 5.1.10. " + secret)
+            },
+        )
+
+        process_graph_bounce(message, apply=True)
+
+        event = EmailBounceEvent.objects.get()
+        self.assertNotIn(secret, event.diagnostic)
+        self.assertIn("5.1.10", event.diagnostic)
+        self.assertEqual(event.subject, "Delivery report")
+
+    @patch("crush_lu.management.commands.process_email_bounces.requests.get")
+    def test_graph_message_fetch_follows_pagination_with_a_cap(self, get):
+        first = Mock(status_code=200, text="")
+        first.json.return_value = {
+            "value": [
+                delivery_report_message(id="one", internetMessageId="<one@example.com>")
+            ],
+            "@odata.nextLink": "https://graph.microsoft.com/next-page",
+        }
+        second = Mock(status_code=200, text="")
+        second.json.return_value = {
+            "value": [
+                delivery_report_message(
+                    id="two", internetMessageId="<two@example.com>"
+                ),
+                delivery_report_message(
+                    id="three", internetMessageId="<three@example.com>"
+                ),
+            ]
+        }
+        get.side_effect = [first, second]
+
+        messages, ignored = _get_mailbox_messages(
+            mailbox="noreply@crush.lu",
+            folder="inbox",
+            token="token",
+            since="2026-09-01T00:00:00Z",
+            limit=2,
+            excluded_message_ids={"<one@example.com>"},
+        )
+
+        self.assertEqual([message["id"] for message in messages], ["two", "three"])
+        self.assertEqual(ignored, 0)
+        self.assertEqual(get.call_count, 2)
+        self.assertIsNone(get.call_args_list[1].kwargs["params"])
+
+    @override_settings(
+        CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=True,
+        CRUSH_EMAIL_BOUNCE_FOLDER="inbox",
+        CRUSH_EMAIL_BOUNCE_MAILBOXES=["noreply@crush.lu", "love@crush.lu"],
+    )
+    @patch("crush_lu.management.commands.process_email_bounces.requests.get")
+    @patch("crush_lu.management.commands.process_email_bounces.get_domain_email_config")
+    @patch("crush_lu.management.commands.process_email_bounces.GraphEmailBackend")
+    def test_command_scans_all_mailboxes_and_ignores_non_ndrs(
+        self, backend, get_config, get
+    ):
+        get_config.return_value = {
+            "GRAPH_TENANT_ID": "tenant",
+            "GRAPH_CLIENT_ID": "client",
+            "GRAPH_CLIENT_SECRET": "secret",
+            "DEFAULT_FROM_EMAIL": "noreply@crush.lu",
+        }
+        backend.return_value.get_access_token.return_value = "token"
+        ordinary = delivery_report_message(
+            id="ordinary",
+            internetMessageId="<ordinary@example.com>",
+            receivedDateTime="2026-09-13T13:00:00Z",
+            **{
+                "from": {"emailAddress": {"address": "person@example.org"}},
+                "internetMessageHeaders": [],
+            },
+        )
+
+        def response_for(url, **kwargs):
+            response = Mock(status_code=200, text="")
+            response.json.return_value = {
+                "value": [
+                    ordinary if "love%40crush.lu" in url else delivery_report_message()
+                ]
+            }
+            return response
+
+        get.side_effect = response_for
+        output = StringIO()
+
+        call_command("process_email_bounces", apply=True, limit=100, stdout=output)
+
+        requested_urls = [call.args[0] for call in get.call_args_list]
+        self.assertTrue(any("noreply%40crush.lu" in url for url in requested_urls))
+        self.assertTrue(any("love%40crush.lu" in url for url in requested_urls))
+        self.assertTrue(all("/mailFolders/inbox/" in url for url in requested_urls))
+        self.assertIn("hard=1", output.getvalue())
+        self.assertIn("ignored=1", output.getvalue())
+        self.assertEqual(EmailBounceEvent.objects.count(), 1)
+        self.assertTrue(
+            EmailSuppression.objects.filter(email="person@example.net").exists()
+        )
 
     @override_settings(CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=False)
     def test_apply_command_is_feature_gated_before_graph_access(self):

@@ -15,18 +15,24 @@ disabled.
 4. Grant the existing Microsoft Graph app registration **Mail.Read application
    permission** and record the administrator-consent approval. `Mail.Send`
    alone is not enough for reading delivery reports.
-5. Run a dry run from an application shell:
+5. Confirm `CRUSH_EMAIL_BOUNCE_MAILBOXES` contains every Crush sender mailbox
+   (currently `noreply@crush.lu` and `love@crush.lu`). NDRs normally arrive in
+   Inbox, which is the `CRUSH_EMAIL_BOUNCE_FOLDER` default. If an Exchange rule
+   routes them to a dedicated folder, configure that folder's Graph ID instead.
+6. Run a dry run from an application shell:
 
    ```powershell
    python manage.py process_email_bounces --days 14 --limit 100
    ```
 
-   Review hard, soft, and unknown counts. The classifier suppresses only a
-   permanent failure with exactly one unambiguous external recipient.
-6. Set `CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=true`, then repeat with `--apply`.
+   Review hard, soft, unknown, and ignored counts. Only messages with verified
+   delivery-report metadata are classified; the classifier suppresses only a
+   permanent failure with exactly one unambiguous external recipient. Stored
+   diagnostics contain classification indicators, not the original mail body.
+7. Set `CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED=true`, then repeat with `--apply`.
    Verify the new `Email bounce events` and `Email suppressions` records in the
    Crush coach admin.
-7. Add a daily managed trigger that executes this command. The production task
+8. Add a daily managed trigger that executes this command. The production task
    backend is inline and no database worker runs on Azure, so do not use
    `.enqueue()` as a scheduler. This repository change intentionally leaves the
    trigger unconfigured until `Mail.Read`, the dry-run review, and the rollout

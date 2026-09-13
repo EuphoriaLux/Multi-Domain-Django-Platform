@@ -7,6 +7,7 @@ import html
 import logging
 import os
 import re
+from email.utils import parseaddr
 from html.parser import HTMLParser
 
 from django.apps import apps
@@ -186,14 +187,20 @@ def _is_test_environment():
 def _without_suppressed_crush_addresses(addresses, email_from):
     """Filter active hard-bounce suppressions without coupling other domains."""
     addresses = list(addresses or [])
-    if not email_from.lower().endswith("@crush.lu") or not addresses:
+    sender_address = (parseaddr(email_from)[1] or email_from).strip().lower()
+    if not sender_address.endswith("@crush.lu") or not addresses:
         return addresses
+
+    normalized = {
+        address: (parseaddr(address)[1] or address).strip().lower()
+        for address in addresses
+    }
 
     try:
         suppression_model = apps.get_model("crush_lu", "EmailSuppression")
         suppressed = set(
             suppression_model.objects.filter(
-                email__in=[address.strip().lower() for address in addresses],
+                email__in=normalized.values(),
                 is_active=True,
             ).values_list("email", flat=True)
         )
@@ -203,9 +210,7 @@ def _without_suppressed_crush_addresses(addresses, email_from):
         logger.warning("Email suppression table unavailable; sending without filtering")
         return addresses
 
-    filtered = [
-        address for address in addresses if address.strip().lower() not in suppressed
-    ]
+    filtered = [address for address in addresses if normalized[address] not in suppressed]
     if len(filtered) != len(addresses):
         logger.info(
             "Skipped %d actively suppressed email recipient(s)",
@@ -324,10 +329,9 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
                 fail_silently=fail_silently,
             )
 
-    # Always retain a readable plain-text body, with HTML as an alternative.
-    # Re-derive plain text centrally because older call sites used strip_tags(),
-    # which left CSS and collapsed important line breaks.
-    plain_message = html_to_plain_text(html_message) if html_message else message
+    # Caller-authored text is authoritative (notably newsletter body_text and
+    # allauth's translated .txt templates). HTML conversion is only a fallback.
+    plain_message = message or html_to_plain_text(html_message)
     email = EmailMultiAlternatives(
         subject=subject,
         body=plain_message,

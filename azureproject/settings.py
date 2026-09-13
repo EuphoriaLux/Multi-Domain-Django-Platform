@@ -77,6 +77,25 @@ CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
     "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED", False
 )
+CRUSH_NEWSLETTER_FROM_EMAIL = os.getenv(
+    "CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu"
+)
+CRUSH_EMAIL_BOUNCE_FOLDER = os.getenv(
+    "CRUSH_EMAIL_BOUNCE_FOLDER", "inbox"
+).strip() or "inbox"
+CRUSH_EMAIL_BOUNCE_MAILBOXES = [
+    address.strip()
+    for address in os.getenv(
+        "CRUSH_EMAIL_BOUNCE_MAILBOXES",
+        ",".join(
+            [
+                os.getenv("CRUSH_DEFAULT_FROM_EMAIL", "noreply@crush.lu"),
+                CRUSH_NEWSLETTER_FROM_EMAIL,
+            ]
+        ),
+    ).split(",")
+    if address.strip()
+]
 
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
 # driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated

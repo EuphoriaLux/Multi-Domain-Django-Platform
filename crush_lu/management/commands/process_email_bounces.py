@@ -11,7 +11,79 @@ from django.utils import timezone
 
 from azureproject.email_utils import get_domain_email_config
 from azureproject.graph_email_backend import GraphEmailBackend
-from crush_lu.services.email_bounces import process_graph_bounce
+from crush_lu.models import EmailBounceEvent
+from crush_lu.services.email_bounces import is_delivery_report, process_graph_bounce
+
+
+def _mailbox_addresses(config):
+    """Return configured sender mailboxes once, preserving configured order."""
+    configured = getattr(settings, "CRUSH_EMAIL_BOUNCE_MAILBOXES", None) or [
+        config["DEFAULT_FROM_EMAIL"],
+        getattr(settings, "CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu"),
+    ]
+    addresses = []
+    for value in configured:
+        address = (parseaddr(value)[1] or value).strip().lower()
+        if address and address not in addresses:
+            addresses.append(address)
+    return addresses
+
+
+def _message_identity(message):
+    identity = message.get("internetMessageId") or message.get("id")
+    return str(identity)[:512] if identity else ""
+
+
+def _get_mailbox_messages(
+    *, mailbox, folder, token, since, limit, excluded_message_ids=None
+):
+    """Return new verified NDRs, following pages until the cap is satisfied."""
+    endpoint = (
+        "https://graph.microsoft.com/v1.0/users/"
+        f"{quote(mailbox, safe='')}/mailFolders/{quote(folder, safe='')}/messages"
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Prefer": 'outlook.body-content-type="text"',
+    }
+    params = {
+        "$filter": f"receivedDateTime ge {since}",
+        "$orderby": "receivedDateTime desc",
+        "$select": (
+            "id,internetMessageId,subject,body,receivedDateTime,from,"
+            "internetMessageHeaders"
+        ),
+        "$top": str(min(limit, 100)),
+    }
+    messages = []
+    ignored = 0
+    excluded_message_ids = set(excluded_message_ids or ())
+    while endpoint and len(messages) < limit:
+        response = requests.get(
+            endpoint,
+            headers=headers,
+            params=params,
+            timeout=30,
+        )
+        if response.status_code != 200:
+            raise CommandError(
+                f"Graph mailbox read failed for {mailbox} "
+                f"({response.status_code}): {response.text[:500]}"
+            )
+        payload = response.json()
+        for message in payload.get("value") or []:
+            identity = _message_identity(message)
+            if not identity or identity in excluded_message_ids:
+                continue
+            if not is_delivery_report(message):
+                ignored += 1
+                continue
+            messages.append(message)
+            if len(messages) == limit:
+                break
+        endpoint = payload.get("@odata.nextLink")
+        params = None
+    return messages, ignored
 
 
 class Command(BaseCommand):
@@ -44,31 +116,40 @@ class Command(BaseCommand):
         )
         token = backend.get_access_token()
         since = (timezone.now() - timedelta(days=options["days"])).isoformat()
-        mailbox = parseaddr(config["DEFAULT_FROM_EMAIL"])[1] or config[
-            "DEFAULT_FROM_EMAIL"
-        ]
-        endpoint = (
-            "https://graph.microsoft.com/v1.0/users/"
-            f"{quote(mailbox, safe='')}/mailFolders/deleteditems/messages"
+        folder = getattr(settings, "CRUSH_EMAIL_BOUNCE_FOLDER", "inbox")
+        processed_ids = set(
+            EmailBounceEvent.objects.values_list("source_message_id", flat=True)
         )
-        response = requests.get(
-            endpoint,
-            headers={"Authorization": f"Bearer {token}"},
-            params={
-                "$filter": f"receivedDateTime ge {since}",
-                "$orderby": "receivedDateTime desc",
-                "$select": "id,internetMessageId,subject,body,receivedDateTime",
-                "$top": str(options["limit"]),
-            },
-            timeout=30,
-        )
-        if response.status_code != 200:
-            raise CommandError(
-                f"Graph mailbox read failed ({response.status_code}): {response.text[:500]}"
+        candidates = []
+        ignored = 0
+        for mailbox in _mailbox_addresses(config):
+            mailbox_messages, mailbox_ignored = _get_mailbox_messages(
+                mailbox=mailbox,
+                folder=folder,
+                token=token,
+                since=since,
+                limit=options["limit"],
+                excluded_message_ids=processed_ids,
             )
+            candidates.extend(mailbox_messages)
+            ignored += mailbox_ignored
 
-        counts = {"hard": 0, "soft": 0, "unknown": 0}
-        for message in response.json().get("value", []):
+        candidates.sort(
+            key=lambda message: message.get("receivedDateTime") or "", reverse=True
+        )
+        messages = []
+        seen = set()
+        for message in candidates:
+            identity = _message_identity(message)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            messages.append(message)
+            if len(messages) == options["limit"]:
+                break
+
+        counts = {"hard": 0, "soft": 0, "unknown": 0, "ignored": ignored}
+        for message in messages:
             result = process_graph_bounce(message, apply=apply_changes)
             counts[result.classification] += 1
 
@@ -76,6 +157,6 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"{mode}: hard={counts['hard']} soft={counts['soft']} "
-                f"unknown={counts['unknown']}"
+                f"unknown={counts['unknown']} ignored={counts['ignored']}"
             )
         )
