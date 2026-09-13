@@ -8,7 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from ..wallet_pass import build_wallet_pass_data
+from ..wallet_pass import build_wallet_pass_data, build_wallet_social_links
 
 
 def _require_setting(name):
@@ -224,7 +224,7 @@ def build_google_wallet_jwt(profile, request=None):
             {"uri": "https://crush.lu/events/", "description": "📅 Browse Events"},
             {"uri": pass_data["referral_url"], "description": "📋 Share Referral Link"},
             {"uri": "https://crush.lu", "description": "💜 Visit Crush.lu"},
-            {"uri": "https://instagram.com/crush.lu", "description": "📸 Instagram"},
+            *build_wallet_social_links(),
         ]
     }
 

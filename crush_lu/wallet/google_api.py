@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from .google_wallet import _load_private_key, _base64url_encode
-from ..wallet_pass import build_wallet_pass_data
+from ..wallet_pass import build_wallet_pass_data, build_wallet_social_links
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ def _build_generic_object_payload(profile, object_id, class_id):
             {"uri": "https://crush.lu/events/", "description": "📅 Browse Events"},
             {"uri": pass_data["referral_url"], "description": "📋 Share Referral Link"},
             {"uri": "https://crush.lu", "description": "💜 Visit Crush.lu"},
-            {"uri": "https://instagram.com/crush.lu", "description": "📸 Instagram"},
+            *build_wallet_social_links(),
         ]
     }
 

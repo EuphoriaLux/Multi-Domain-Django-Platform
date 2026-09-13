@@ -200,3 +200,42 @@ def build_wallet_pass_data(profile, request=None, base_url=None):
         "photo_url": photo_url,
         "member_since": profile.created_at.strftime("%Y-%m-%d") if profile.created_at else None,
     }
+
+
+# Where a member pass points when the singleton has no URL configured. These
+# are Crush.lu's real accounts: the Instagram handle "crush.lu" belongs to an
+# unrelated person, which is how the pass shipped with a wrong link for months.
+WALLET_SOCIAL_LINK_FALLBACKS = (
+    (
+        "social_instagram_url",
+        "https://www.instagram.com/crushluofficial/",
+        "📸 Instagram",
+    ),
+    ("social_facebook_url", "https://www.facebook.com/crushluxembourg", "👍 Facebook"),
+)
+
+
+def build_wallet_social_links():
+    """Social entries for a Google Wallet pass's ``linksModuleData``.
+
+    Reads the same ``CrushSiteConfig`` singleton the site footer and the email
+    templates render, so the pass can never disagree with them. Unlike
+    ``email_helpers.get_social_links`` this never returns an empty list: a
+    blank field falls back to the real account rather than dropping the link,
+    because the pass has a fixed layout and a missing entry looks like a bug.
+    A config read that fails (no table yet, DB down) also falls back.
+    """
+    from .models import CrushSiteConfig
+
+    try:
+        config = CrushSiteConfig.get_config()
+    except Exception:
+        config = None
+
+    return [
+        {
+            "uri": (getattr(config, field, "") or fallback) if config else fallback,
+            "description": description,
+        }
+        for field, fallback, description in WALLET_SOCIAL_LINK_FALLBACKS
+    ]
