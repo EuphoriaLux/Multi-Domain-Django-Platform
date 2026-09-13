@@ -4,7 +4,7 @@ User Segments View for Crush.lu Admin Panel.
 Provides admin dashboard for viewing and managing user segments:
 - Incomplete profiles by step
 - Inactive users (7d, 14d, 30d)
-- Pending reviews (urgent, normal)
+- Pending verification (not booked, booked on an event)
 - Unverified profiles (never submitted, pending, revision, rejected, recontact)
 - Approved but never registered for event
 - No push subscription
@@ -16,7 +16,7 @@ Access: Superadmins only (due to bulk email capability)
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
@@ -28,6 +28,7 @@ import csv
 
 from crush_lu.models import (
     CrushProfile,
+    EventRegistration,
     MeetupEvent,
     ProfileSubmission,
     UserActivity,
@@ -223,7 +224,7 @@ def get_segment_definitions(include_counts=True):
     segment's queryset, e.g. resolving one audience by key.
 
     Categories (17 total):
-    1-7: Operational (profile, reviews, activity, engagement, email, reminders, unverified)
+    1-7: Operational (profile, verification, activity, engagement, email, reminders, unverified)
     8-12: Demographics (gender, age, gender x age, looking-for, language)
     13-17: Behavioral (events, connections, membership, lifecycle, device)
     """
@@ -239,19 +240,39 @@ def get_segment_definitions(include_counts=True):
     active = CrushProfile.objects.filter(is_active=True)
     approved = active.filter(verification_status="verified")
 
+    # Events a member can still be verified at (not ended, not cancelled) and
+    # the registrations their door roster shows — the pair behind the coach
+    # "Unverified profiles" page's "booked on an event" signal.
+    current_event_ids = [
+        event.pk
+        for event in MeetupEvent.objects.filter(
+            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+            is_cancelled=False,
+        ).only("pk", "date_time", "duration_minutes")
+        if event.end_time >= now
+    ]
+    door_roster_statuses = [*SEAT_HOLDING_STATUSES, "waitlist"]
+
     # Profile completion segments (simplified — wizard step now derived from field presence)
     incomplete_not_started = active.filter(verification_status="incomplete")
     incomplete_step1 = incomplete_not_started  # alias for backward compat
     incomplete_step2 = incomplete_not_started  # alias for backward compat
     incomplete_step3 = incomplete_not_started  # alias for backward compat
 
-    # Pending review segments
-    pending_reviews_urgent = ProfileSubmission.objects.filter(
-        status="pending", submitted_at__lt=now - timedelta(hours=72)
+    # Pending verification segments. Since the July 2026 pivot nobody is
+    # queued for a coach review: a pending member is verified by LuxID or at
+    # an event door, and neither path creates a ProfileSubmission. So the
+    # split reads the profile — can an event door still verify this member?
+    pending_verification = active.filter(verification_status="pending")
+    holds_door_seat = Exists(
+        EventRegistration.objects.filter(
+            user_id=OuterRef("user_id"),
+            event_id__in=current_event_ids,
+            status__in=door_roster_statuses,
+        )
     )
-    pending_reviews_normal = ProfileSubmission.objects.filter(
-        status="pending", submitted_at__gte=now - timedelta(hours=72)
-    )
+    pending_booked = pending_verification.filter(holds_door_seat)
+    pending_unbooked = pending_verification.filter(~holds_door_seat)
 
     # Inactive user segments (based on UserActivity.last_seen)
     inactive_7d = UserActivity.objects.filter(
@@ -347,16 +368,8 @@ def get_segment_definitions(include_counts=True):
         )
         .distinct()
     )
-    current_event_ids = [
-        event.pk
-        for event in MeetupEvent.objects.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            is_cancelled=False,
-        ).only("pk", "date_time", "duration_minutes")
-        if event.end_time >= now
-    ]
     event_upcoming_registrants = approved.filter(
-        user__eventregistration__status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
+        user__eventregistration__status__in=door_roster_statuses,
         user__eventregistration__event_id__in=current_event_ids,
     ).distinct()
 
@@ -384,10 +397,10 @@ def get_segment_definitions(include_counts=True):
 
     # Lifecycle segments
     lifecycle_new = active.filter(created_at__gte=now - timedelta(days=7))
-    lifecycle_recently_approved = approved.filter(
-        profilesubmission__status="approved",
-        profilesubmission__reviewed_at__gte=now - timedelta(days=7),
-    ).distinct()
+    # Keyed on the profile's own approval stamp: LuxID and event-door
+    # verifications never create a ProfileSubmission, so the submission-keyed
+    # version missed every member verified since the pivot.
+    lifecycle_recently_approved = approved.filter(approved_at__gte=seven_days_ago)
     lifecycle_established = approved.filter(
         created_at__lt=now - timedelta(days=30),
     )
@@ -408,16 +421,30 @@ def get_segment_definitions(include_counts=True):
 
     # Unverified profile segments
     unverified_never_submitted = active.filter(verification_status="incomplete")
-    unverified_pending_review = active.filter(verification_status="pending").distinct()
-    unverified_revision = active.filter(
-        verification_status="incomplete",
-        profilesubmission__status="revision",
-    ).distinct()
+    unverified_pending_review = pending_verification
     unverified_rejected = active.filter(verification_status="rejected").distinct()
-    unverified_recontact = active.filter(
-        verification_status="incomplete",
-        profilesubmission__status="recontact_coach",
-    ).distinct()
+
+    # Legacy coach-review sub-states. Nothing creates a submission any more,
+    # but a coach can still send back a pre-pivot one that `submit_profile`
+    # re-queued, so both statuses keep a live writer. Keyed on the member's
+    # latest row, as `ProfileSubmission.latest_for_profile` reads it: an older
+    # row behind a newer one (the pivot cleanup's "expired" included) is
+    # history. Revision moves the profile back to `incomplete` but recontact
+    # leaves it `pending`, so neither pins a status beyond "not verified".
+    latest_submission_status = Subquery(
+        ProfileSubmission.objects.filter(profile_id=OuterRef("pk"))
+        .order_by("-submitted_at")
+        .values("status")[:1]
+    )
+    awaiting_legacy_review = active.exclude(verification_status="verified").alias(
+        latest_submission_status=latest_submission_status
+    )
+    unverified_revision = awaiting_legacy_review.filter(
+        latest_submission_status="revision"
+    )
+    unverified_recontact = awaiting_legacy_review.filter(
+        latest_submission_status="recontact_coach"
+    )
 
     # Device & platform segments
     device_pwa = approved.filter(
@@ -474,26 +501,35 @@ def get_segment_definitions(include_counts=True):
                 },
             ],
         },
-        "pending_reviews": {
-            "title": "Pending Reviews",
+        # New keys rather than repointed ones: a saved newsletter, campaign or
+        # SMS batch that named `pending_urgent` / `pending_normal` targeted a
+        # coach-review queue and must not silently pick up this cohort.
+        "pending_verification": {
+            "title": "Pending Verification",
             "icon": "📝",
             "group": "operational",
             "segments": [
                 {
-                    "name": "Urgent (>72h)",
-                    "key": "pending_urgent",
-                    "description": "Profiles waiting for review more than 72 hours",
-                    "queryset": pending_reviews_urgent,
-                    "count": _count(pending_reviews_urgent),
+                    "name": "Not Booked",
+                    "key": "pending_unbooked",
+                    "description": (
+                        "Awaiting verification, not booked on any current or "
+                        "upcoming event: only LuxID or a booking can verify them"
+                    ),
+                    "queryset": pending_unbooked,
+                    "count": _count(pending_unbooked),
                     "color": "red",
                     "is_urgent": True,
                 },
                 {
-                    "name": "Normal (<72h)",
-                    "key": "pending_normal",
-                    "description": "Profiles waiting for review less than 72 hours",
-                    "queryset": pending_reviews_normal,
-                    "count": _count(pending_reviews_normal),
+                    "name": "Booked on an Event",
+                    "key": "pending_booked",
+                    "description": (
+                        "Awaiting verification, booked or waitlisted on a current "
+                        "or upcoming event: verifiable at that door"
+                    ),
+                    "queryset": pending_booked,
+                    "count": _count(pending_booked),
                     "color": "green",
                 },
             ],
@@ -828,15 +864,21 @@ def get_segment_definitions(include_counts=True):
                 {
                     "name": "Never Submitted",
                     "key": "unverified_never_submitted",
-                    "description": "Has a profile but never submitted for coach review",
+                    "description": (
+                        "Has a profile but has not submitted it (includes "
+                        "members a coach sent back for revision)"
+                    ),
                     "queryset": unverified_never_submitted,
                     "count": _count(unverified_never_submitted),
                     "color": "red",
                 },
                 {
-                    "name": "Pending Coach Review",
+                    "name": "Pending Verification",
                     "key": "unverified_pending_review",
-                    "description": "Submitted profile, waiting for a crush coach to review",
+                    "description": (
+                        "Submitted profile, awaiting verification via LuxID "
+                        "or at an event door"
+                    ),
                     "queryset": unverified_pending_review,
                     "count": _count(unverified_pending_review),
                     "color": "orange",
@@ -844,7 +886,10 @@ def get_segment_definitions(include_counts=True):
                 {
                     "name": "Revision Requested",
                     "key": "unverified_revision",
-                    "description": "Coach requested changes, awaiting user resubmission",
+                    "description": (
+                        "Coach requested changes, awaiting user resubmission "
+                        "(legacy coach-review cohort)"
+                    ),
                     "queryset": unverified_revision,
                     "count": _count(unverified_revision),
                     "color": "yellow",
@@ -860,7 +905,10 @@ def get_segment_definitions(include_counts=True):
                 {
                     "name": "Recontact Coach",
                     "key": "unverified_recontact",
-                    "description": "User needs to recontact their crush coach",
+                    "description": (
+                        "User needs to recontact their crush coach "
+                        "(legacy coach-review cohort)"
+                    ),
                     "queryset": unverified_recontact,
                     "count": _count(unverified_recontact),
                     "color": "purple",
@@ -1180,13 +1228,24 @@ def user_segments_dashboard(request):
     total_incomplete = sum(
         seg["count"] for seg in segments["profile_completion"]["segments"]
     )
-    total_pending = sum(seg["count"] for seg in segments["pending_reviews"]["segments"])
+    total_pending = sum(
+        seg["count"] for seg in segments["pending_verification"]["segments"]
+    )
     total_inactive = sum(seg["count"] for seg in segments["user_activity"]["segments"])
     total_reminder_eligible = sum(
         seg["count"] for seg in segments["reminder_eligible"]["segments"]
     )
+    # "Revision Requested" and "Recontact Coach" are sub-states of the three
+    # status cards, so summing every card would count those members twice.
+    status_cards = (
+        "unverified_never_submitted",
+        "unverified_pending_review",
+        "unverified_rejected",
+    )
     total_unverified = sum(
-        seg["count"] for seg in segments["unverified_profiles"]["segments"]
+        seg["count"]
+        for seg in segments["unverified_profiles"]["segments"]
+        if seg["key"] in status_cards
     )
 
     context = {
