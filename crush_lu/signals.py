@@ -3013,7 +3013,10 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         # Keep this local: signals are registered during AppConfig.ready(), so
         # importing the service only when the handler runs avoids an app-load
         # dependency cycle through the models package.
-        from .services.profile_verification import claim_profile_verification
+        from .services.profile_verification import (
+            claim_profile_verification,
+            release_booked_screening_slots,
+        )
 
         # Conditional claim, matching the coach/check-in verification paths
         # through their shared service. An unconditional save here
@@ -3021,20 +3024,32 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         # door scan had already committed — and both would then emit the
         # approval notification and referral work. Whoever claims the
         # transition owns it; the loser leaves the record alone.
+        #
+        # Pending only, re-checked in that same UPDATE: every caller decides
+        # on a `pending` it read earlier, and a coach revision committed in
+        # between (profile back to `incomplete`) must win over LuxID.
         claimed = claim_profile_verification(
             profile,
             method="luxid",
             approved_at=now,
-            claim_from=("incomplete", "pending"),
+            claim_from=("pending",),
         )
         if not claimed:
             logger.info(
-                "[LUXID-VERIFY] Profile pk=%s was already verified by another "
-                "path; leaving it untouched",
+                "[LUXID-VERIFY] Profile pk=%s is no longer pending; leaving it "
+                "untouched",
                 profile.pk,
             )
             return False
-        if submission and submission.status == "pending":
+        # Approve the submission only while the database still has it pending,
+        # not the caller's copy: it may have been sent back or expired since.
+        if submission is not None:
+            submission = (
+                ProfileSubmission.objects.select_for_update()
+                .filter(pk=submission.pk, status="pending")
+                .first()
+            )
+        if submission is not None:
             submission.status = "approved"
             submission.reviewed_at = now
             submission.review_call_completed = True
@@ -3042,12 +3057,22 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
                 (submission.coach_notes + "\n" if submission.coach_notes else "")
                 + "Auto-approved via LuxID identity verification"
             ).strip()
+            # Its future screening calls go too, as on the coach panel: a slot
+            # left booked keeps the coach chasing a member who is now verified.
+            release_booked_screening_slots(
+                submission,
+                now=now,
+                actor=f"user:{user.pk}",
+                reason="verified_by_luxid",
+                cancelled_reason="verified_by_luxid",
+            )
             submission.save(
                 update_fields=[
                     "status",
                     "reviewed_at",
                     "coach_notes",
                     "review_call_completed",
+                    "system_actions",
                 ]
             )
 
@@ -3060,6 +3085,22 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
 
     if request is not None and hasattr(request, "session"):
         request.session["luxid_just_auto_approved"] = True
+
+    try:
+        # `claim_profile_verification` is a QuerySet.update() and so bypasses
+        # post_save. Same explicit re-run the coach-review approve, panel and
+        # door paths make, or the shared-mailbox contact keeps serving the old
+        # pending status until some unrelated save happens.
+        sync_profile_to_outlook(
+            sender=CrushProfile,
+            instance=profile,
+            created=False,
+            update_fields=None,
+        )
+    except Exception:
+        logger.exception(
+            "[LUXID-VERIFY] Outlook sync failed for profile pk=%s", profile.pk
+        )
 
     try:
         from .referrals import check_and_apply_profile_approved_reward

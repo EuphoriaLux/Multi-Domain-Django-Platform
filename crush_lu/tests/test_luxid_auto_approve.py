@@ -557,6 +557,20 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.verification_status, "pending")
 
+    def test_luxid_through_an_oidc_app_bound_to_another_site_counts(self):
+        """The fix-up keys on `has_luxid_connected`, like the Connect gate and
+        the coach page, so a LuxID token from the generic OIDC provider counts
+        even when that app is not bound to the request's Site."""
+        _link_luxid_through_oidc_app(self.user)
+
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            response = self._get_profile_submitted()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("dashboard", response["Location"])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_method, "luxid")
+
     def test_approved_submission_no_cta(self):
         """CTA is only shown for pending submissions."""
         self.submission.status = "approved"
@@ -587,6 +601,148 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         current_steps = [s for s in stepper if s.get("is_current")]
         if current_steps:
             self.assertEqual(current_steps[0].get("step"), 5)
+
+
+def _link_luxid_through_oidc_app(user):
+    """LuxID through the generic openid_connect provider, on an app bound to
+    no Site: only the token's app identifies the account as LuxID."""
+    from allauth.socialaccount.models import SocialApp, SocialToken
+
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="luxid",
+        name="LuxID (OIDC)",
+        client_id="test",
+        secret="test",
+    )
+    account = SocialAccount.objects.create(
+        user=user, provider="openid_connect", uid="oidc-lux-1"
+    )
+    SocialToken.objects.create(app=app, account=account, token="token")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class TestDashboardLuxidLazyFixup(_SiteMixin, TestCase):
+    """The dashboard runs the same lazy fix-up as /profile-submitted/.
+
+    It is the page a pending member lands on after logging in, so a member
+    whose LuxID link never verified them used to stay pending until they
+    happened to open the status page.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"crushlu_consent_given": True},
+        )
+        self.client.force_login(self.user)
+
+    def _get_dashboard(self):
+        return self.client.get("/en/dashboard/", HTTP_HOST="crush.lu")
+
+    def _link_luxid(self):
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
+
+    @patch("crush_lu.referrals.check_and_apply_profile_approved_reward")
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_pending_member_with_luxid_is_verified(self, mock_notify, mock_reward):
+        self._link_luxid()
+
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("dashboard", response["Location"])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "luxid")
+        self.assertTrue(self.profile.is_approved)
+        self.assertIsNotNone(self.profile.approved_at)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, "approved")
+        mock_notify.assert_called_once()
+        mock_reward.assert_called_once()
+
+        # The redirect lands on the verified dashboard, with no second pass.
+        self.assertEqual(self._get_dashboard().status_code, 200)
+        mock_notify.assert_called_once()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_luxid_through_an_oidc_app_bound_to_another_site_counts(self, mock_notify):
+        _link_luxid_through_oidc_app(self.user)
+
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_only_pending_members_qualify(self, mock_notify):
+        """An incomplete member submits first; a rejected one must not
+        self-clear by reloading the dashboard."""
+        self._link_luxid()
+        for status in ("incomplete", "rejected"):
+            with self.subTest(status=status):
+                CrushProfile.objects.filter(pk=self.profile.pk).update(
+                    verification_status=status
+                )
+                self._get_dashboard()
+                self.profile.refresh_from_db()
+                self.assertEqual(self.profile.verification_status, status)
+                self.assertFalse(self.profile.is_approved)
+        mock_notify.assert_not_called()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_pending_member_without_luxid_stays_pending(self, mock_notify):
+        response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+        mock_notify.assert_not_called()
+
+    def test_fixup_failure_is_logged_and_the_dashboard_still_renders(self):
+        self._link_luxid()
+
+        with patch(
+            "crush_lu.signals._execute_luxid_direct_verify",
+            side_effect=Exception("verify service down"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                response = self._get_dashboard()
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+
+    def test_link_lookup_failure_is_logged_not_raised(self):
+        """The link lookup reads the allauth tables; a failure there must cost
+        the fix-up, not the page."""
+        from unittest.mock import PropertyMock
+
+        from django.db import DatabaseError
+
+        from crush_lu.views import _verify_pending_luxid_member
+
+        request = _make_request()
+        request.user = self.user
+
+        with patch.object(
+            CrushProfile,
+            "has_luxid_connected",
+            new_callable=PropertyMock,
+            side_effect=DatabaseError("socialaccount unavailable"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                verified = _verify_pending_luxid_member(
+                    request, self.profile, self.submission
+                )
+
+        self.assertFalse(verified)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
 
 
 # ---------------------------------------------------------------------------
@@ -881,3 +1037,142 @@ class TestAutoApproveExpiredLatestInvariant(TestCase):
         self.assertEqual(self.older_pending.status, "pending")
         self.assertIsNone(self.older_pending.reviewed_at)
         self.assertEqual(self.expired.status, "expired")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class TestLuxidClaimRespectsAConcurrentReview(TestCase):
+    """The LuxID claim re-checks `pending` in the database, not the caller's copy.
+
+    Every caller decides on a `pending` it read earlier. A coach revision that
+    commits in between moves the profile back to `incomplete` and the
+    submission to `revision`; LuxID must not verify over it, nor save the
+    submission it loaded back to `approved`.
+    """
+
+    def setUp(self):
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_revision_after_the_pending_check_wins(self, mock_notify):
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            verification_status="incomplete"
+        )
+        ProfileSubmission.objects.filter(pk=self.submission.pk).update(
+            status="revision"
+        )
+
+        claimed = crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        self.assertFalse(claimed)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "incomplete")
+        self.assertFalse(self.profile.is_approved)
+        self.assertEqual(self.submission.status, "revision")
+        mock_notify.assert_not_called()
+
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_submission_that_left_pending_is_not_approved(self, mock_notify):
+        """The profile is still pending, so LuxID verifies it — but the
+        submission the caller loaded has been closed out since, and stays so."""
+        ProfileSubmission.objects.filter(pk=self.submission.pk).update(status="expired")
+
+        crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.submission.status, "expired")
+        self.assertEqual(self.submission.coach_notes, "")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+@patch("crush_lu.notification_service.notify_profile_approved")
+class TestLuxidVerifySideEffects(TestCase):
+    """What a LuxID verification leaves behind besides the profile row.
+
+    The claim is a QuerySet.update(), so nothing hangs off post_save; each
+    follow-up the coach panel makes has to be made explicitly here too.
+    """
+
+    def setUp(self):
+        self.user, self.profile, self.submission = _make_user_with_pending_profile()
+
+    def test_outlook_contact_is_resynced_after_the_claim(self, mock_notify):
+        """The shared-mailbox contact reads `is_approved`; without the re-run
+        it keeps showing the member as pending."""
+        with patch("crush_lu.signals.sync_profile_to_outlook") as sync:
+            crush_signals._execute_luxid_direct_verify(
+                self.user, self.profile, self.submission, None
+            )
+
+        sync.assert_called_once()
+        synced = sync.call_args.kwargs["instance"]
+        self.assertEqual(synced.pk, self.profile.pk)
+        self.assertTrue(synced.is_approved)
+
+    def test_no_resync_when_the_claim_is_lost(self, mock_notify):
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            verification_status="incomplete"
+        )
+
+        with patch("crush_lu.signals.sync_profile_to_outlook") as sync:
+            crush_signals._execute_luxid_direct_verify(
+                self.user, self.profile, self.submission, None
+            )
+
+        sync.assert_not_called()
+
+    def test_future_booked_screening_call_is_released(self, mock_notify):
+        """`coach_dashboard` and `coach_action_queue` list future booked slots
+        whatever the submission's status, so one left booked keeps the coach
+        chasing a member LuxID has just verified."""
+        from crush_lu.models import CrushCoach, ScreeningSlot
+
+        coach_user = User.objects.create_user(
+            username="slotcoach@example.com",
+            email="slotcoach@example.com",
+            password="pass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user)
+        start_at = timezone.now() + timedelta(days=1)
+        slot = ScreeningSlot.objects.create(
+            coach=coach,
+            submission=self.submission,
+            status="booked",
+            start_at=start_at,
+            end_at=start_at + timedelta(minutes=30),
+        )
+        past_start = timezone.now() - timedelta(days=1)
+        past_slot = ScreeningSlot.objects.create(
+            coach=coach,
+            submission=self.submission,
+            status="booked",
+            start_at=past_start,
+            end_at=past_start + timedelta(minutes=30),
+        )
+
+        crush_signals._execute_luxid_direct_verify(
+            self.user, self.profile, self.submission, None
+        )
+
+        slot.refresh_from_db()
+        self.assertEqual(slot.status, "cancelled")
+        self.assertEqual(slot.cancelled_reason, "verified_by_luxid")
+        # A slot in the past is history, not an appointment to release.
+        past_slot.refresh_from_db()
+        self.assertEqual(past_slot.status, "booked")
+
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, "approved")
+        self.assertIn(
+            {"type": "booking_cancelled", "actor": f"user:{self.user.pk}"},
+            [
+                {"type": a["type"], "actor": a["actor"]}
+                for a in self.submission.system_actions or []
+            ],
+        )
