@@ -119,6 +119,18 @@ WEEKLY_KPI_RECIPIENTS = [
 # Google Search Indexing API real-time notifications for Crush.lu events (disabled by default outside production)
 GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", False)
 GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")
+HUB_ANALYTICS_GSC_SITE_URL = os.getenv(
+    "HUB_ANALYTICS_GSC_SITE_URL", "sc-domain:crush.lu"
+)
+HUB_ANALYTICS_GA4_PROPERTY_ID = os.getenv("HUB_ANALYTICS_GA4_PROPERTY_ID", "516337382")
+# Existing App Service setting; slot-sticky in infra/resources.bicep.
+APPLICATIONINSIGHTS_CONNECTION_STRING = os.getenv(
+    "APPLICATIONINSIGHTS_CONNECTION_STRING", ""
+)
+HUB_ANALYTICS_CACHE_SECONDS = int(os.getenv("HUB_ANALYTICS_CACHE_SECONDS", "900"))
+HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS = int(
+    os.getenv("HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS", "15")
+)
 # Host whose URLs this deployment is allowed to submit. Empty disables the
 # integration outright — see production.py: staging runs an isolated database,
 # so staging event ID N is a *different* event from production event ID N, and
