@@ -1,0 +1,17 @@
+# Gitleaks fingerprints, one per line: <commit>:<file>:<rule-id>:<line>.
+#
+# One-off historical false positives that the global `paths` allowlist in
+# .gitleaks.toml used to hide. Each entry skips exactly one finding in one
+# commit; a new commit that re-adds the same line (a squash merge included)
+# is reported again. Only whole-line `#` comments work in this file.
+
+# A PEM header string literal with no key body, asserted by the Apple Wallet
+# test and quoted in the plan that drafted it. A content regex for the
+# private-key rule would also cover any real key that follows it in the same
+# hunk, because the rule's lazy match runs on to that key's header.
+33dc9e4e30bfd1cba97d502d4486c2599b2e4d98:crush_lu/tests/test_apple_wallet.py:private-key:54
+1e853261cb230f6a560d5c56312c7d15b2fc8482:docs/superpowers/plans/2026-04-07-apple-wallet-tickets.md:private-key:147
+
+# Redacted key fragment in an incident write-up (added 2025-10-19, deleted
+# 2025-10-21), not a usable key.
+9e804cc3f790f753d21a9bd852f6029568d35a2f:SECURITY_ALERT_API_KEYS.md:generic-api-key:8
