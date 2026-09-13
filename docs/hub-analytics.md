@@ -9,8 +9,8 @@ provider credentials.
 
 - Google Search Console: discovery totals, daily history, and landing pages.
 - Google Analytics 4: sessions, users, engagement, and landing pages.
-- Azure Application Insights: authenticated page activity, custom events, and
-  exception counts.
+- Azure Application Insights: authenticated Crush.lu page activity, custom
+  events, and exception counts, adjusted for telemetry sampling.
 - Crush.lu: current profile-verification counts and persisted weekly KPI
   snapshots.
 
@@ -31,7 +31,7 @@ other aggregates. Results are cached server-side for 15 minutes by default.
 | `HUB_ANALYTICS_GA4_PROPERTY_ID` | `516337382` | GA4 property ID. |
 | `HUB_ANALYTICS_APP_INSIGHTS_APP_ID` | empty | Optional Application Insights application ID override used by the query API. |
 | `HUB_ANALYTICS_CACHE_SECONDS` | `900` | Aggregate response cache duration. |
-| `HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS` | `15` | Application Insights HTTP timeout. |
+| `HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS` | `15` | External-provider HTTP timeout and Search Console total request budget. |
 
 No Google or Azure secret belongs in the frontend build. Before enabling the
 external sources:
@@ -47,3 +47,5 @@ external sources:
 
 After deploying, sign in to `hub.crush.lu` as staff, open **Analytics**, and
 verify the source-status panel before using the figures operationally.
+Application Insights uses the same delayed reporting window as Search Console
+and GA4, with calendar boundaries and daily buckets in `Europe/Luxembourg`.

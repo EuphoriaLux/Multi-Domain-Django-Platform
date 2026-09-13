@@ -14,6 +14,8 @@ from hub.analytics_service import (
     _merge_landing_pages,
     build_analytics_overview,
     fetch_application_insights,
+    fetch_ga4,
+    fetch_search_console,
 )
 
 User = get_user_model()
@@ -114,6 +116,13 @@ class AnalyticsOverviewServiceTests(TestCase):
         self.assertEqual(payload["overview"]["pendingProfiles"], 1)
         self.assertEqual(payload["search"]["landingPages"][0]["sessions"], 18)
         self.assertEqual(payload["activation"]["weekly"][0]["profilesVerified"], 5)
+        insights.assert_called_once_with(date(2026, 8, 14), date(2026, 9, 10))
+        app_insights_source = next(
+            source
+            for source in payload["sources"]
+            if source["id"] == "application-insights"
+        )
+        self.assertEqual(app_insights_source["observedThrough"], "2026-09-10")
 
     @patch("hub.analytics_service.timezone.localdate", return_value=date(2026, 9, 13))
     @patch(
@@ -164,6 +173,119 @@ class LandingPageMergeTests(TestCase):
         row = _merge_landing_pages(gsc, ga4)[0]
         self.assertEqual(row["clicks"], 5)
         self.assertIsNone(row["sessions"])
+
+    def test_colliding_search_console_paths_are_aggregated(self):
+        gsc = ProviderResult(
+            status="ready",
+            data={
+                "pages": [
+                    {
+                        "path": "/en/events",
+                        "clicks": 5,
+                        "impressions": 100,
+                        "ctr": 0.05,
+                        "position": 4.0,
+                    },
+                    {
+                        "path": "/en/events",
+                        "clicks": 3,
+                        "impressions": 50,
+                        "ctr": 0.06,
+                        "position": 10.0,
+                    },
+                ]
+            },
+        )
+        row = _merge_landing_pages(gsc, ProviderResult(status="unavailable", data={}))[
+            0
+        ]
+
+        self.assertEqual(row["clicks"], 8)
+        self.assertEqual(row["impressions"], 150)
+        self.assertAlmostEqual(row["ctr"], 8 / 150)
+        self.assertAlmostEqual(row["position"], 6.0)
+
+
+@override_settings(HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS=5)
+class SearchConsoleTests(TestCase):
+    @patch("hub.analytics_service.monotonic", side_effect=[100, 101, 102, 103])
+    @patch("hub.analytics_service.build")
+    @patch("hub.analytics_service.AuthorizedHttp")
+    @patch("hub.analytics_service.httplib2.Http")
+    @patch("hub.analytics_service._google_credentials")
+    def test_uses_one_bounded_http_budget(
+        self, credentials, http, authorized_http, build, _monotonic
+    ):
+        raw_http = Mock()
+        http.return_value = raw_http
+        transport = Mock()
+        transport.http = raw_http
+        authorized_http.return_value = transport
+        request = Mock()
+        request.execute.side_effect = [{"rows": []}, {"rows": []}, {"rows": []}]
+        service = Mock()
+        service.searchanalytics.return_value.query.return_value = request
+        build.return_value = service
+
+        fetch_search_console(date(2026, 9, 1), date(2026, 9, 7))
+
+        http.assert_called_once_with(timeout=5)
+        authorized_http.assert_called_once_with(credentials.return_value, http=raw_http)
+        build.assert_called_once_with(
+            "searchconsole", "v1", http=transport, cache_discovery=False
+        )
+        self.assertEqual(request.execute.call_count, 3)
+        self.assertEqual(raw_http.timeout, 2)
+
+
+@override_settings(HUB_ANALYTICS_GA4_PROPERTY_ID="516337382")
+class GA4Tests(TestCase):
+    @patch("hub.analytics_service._ga4_report")
+    @patch("hub.analytics_service.BetaAnalyticsDataClient")
+    @patch("hub.analytics_service._google_credentials")
+    def test_uses_path_only_dimension_without_adding_distinct_users(
+        self, _credentials, _client, report
+    ):
+        summary = Mock(
+            rows=[
+                Mock(
+                    metric_values=[
+                        Mock(value="8"),
+                        Mock(value="4"),
+                        Mock(value="0.6"),
+                    ]
+                )
+            ]
+        )
+        daily = Mock(rows=[])
+        pages = Mock(
+            rows=[
+                Mock(
+                    dimension_values=[Mock(value="/events")],
+                    metric_values=[
+                        Mock(value="5"),
+                        Mock(value="4"),
+                        Mock(value="0.6"),
+                    ],
+                ),
+                Mock(
+                    dimension_values=[Mock(value="/events/")],
+                    metric_values=[
+                        Mock(value="3"),
+                        Mock(value="3"),
+                        Mock(value="0.5"),
+                    ],
+                ),
+            ]
+        )
+        report.side_effect = [summary, daily, pages]
+
+        result = fetch_ga4(date(2026, 9, 1), date(2026, 9, 7))
+
+        self.assertEqual(report.call_args_list[2].kwargs["dimensions"], ["landingPage"])
+        self.assertEqual(result["pages"][0]["sessions"], 8)
+        self.assertEqual(result["pages"][0]["users"], 4)
+        self.assertAlmostEqual(result["pages"][0]["engagementRate"], 0.5625)
 
 
 @override_settings(
@@ -218,7 +340,10 @@ class ApplicationInsightsTests(TestCase):
         ]
         get.return_value = response
 
-        result = fetch_application_insights(7)
+        result = fetch_application_insights(
+            date(2026, 9, 6),
+            date(2026, 9, 12),
+        )
 
         self.assertEqual(result["summary"]["users"], 25)
         self.assertEqual(
@@ -236,7 +361,19 @@ class ApplicationInsightsTests(TestCase):
         for call in get.call_args_list:
             self.assertEqual(call.kwargs["timeout"], 5)
             self.assertNotIn("token", call.kwargs["params"]["query"])
-            self.assertIn("ago(6d)", call.kwargs["params"]["query"])
+            self.assertIn("datetime(2026-09-06)", call.kwargs["params"]["query"])
+            self.assertIn("datetime(2026-09-13)", call.kwargs["params"]["query"])
+            self.assertNotIn("ago(", call.kwargs["params"]["query"])
+            self.assertIn("user_AuthenticatedId", call.kwargs["params"]["query"])
+            self.assertIn("coalesce(itemCount, 1)", call.kwargs["params"]["query"])
+            self.assertIn(
+                "session_Id in (crush_sessions)", call.kwargs["params"]["query"]
+            )
+        summary_query = get.call_args_list[0].kwargs["params"]["query"]
+        self.assertIn("parse_url(url).Host", summary_query)
+        self.assertIn("dcount(user_AuthenticatedId)", summary_query)
+        self.assertNotIn("dcount(user_Id)", summary_query)
         daily_query = get.call_args_list[1].kwargs["params"]["query"]
         self.assertIn("project day_label=", daily_query)
         self.assertNotIn("project date=", daily_query)
+        self.assertIn("datetime_utc_to_local", daily_query)

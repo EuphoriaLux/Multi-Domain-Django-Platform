@@ -11,8 +11,10 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from time import monotonic
 from urllib.parse import urlsplit
 
+import httplib2
 import requests
 from azure.identity import DefaultAzureCredential
 from django.conf import settings
@@ -25,6 +27,7 @@ from google.analytics.data_v1beta.types import (
     Metric,
     RunReportRequest,
 )
+from google_auth_httplib2 import AuthorizedHttp
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -79,14 +82,26 @@ def _google_credentials():
 def fetch_search_console(start_date: date, end_date: date) -> dict:
     """Return Search Console totals, daily history and page aggregates."""
     site_url = getattr(settings, "HUB_ANALYTICS_GSC_SITE_URL", "sc-domain:crush.lu")
+    timeout = max(
+        float(getattr(settings, "HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS", 15)), 0.1
+    )
+    deadline = monotonic() + timeout
+    authorized_http = AuthorizedHttp(
+        _google_credentials(),
+        http=httplib2.Http(timeout=timeout),
+    )
     service = build(
         "searchconsole",
         "v1",
-        credentials=_google_credentials(),
+        http=authorized_http,
         cache_discovery=False,
     )
 
     def query(dimensions: list[str], row_limit: int) -> list[dict]:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Search Console provider budget exceeded.")
+        authorized_http.http.timeout = remaining
         response = (
             service.searchanalytics()
             .query(
@@ -99,7 +114,7 @@ def fetch_search_console(start_date: date, end_date: date) -> dict:
                     "dataState": "final",
                 },
             )
-            .execute()
+            .execute(http=authorized_http)
         )
         return response.get("rows", [])
 
@@ -147,6 +162,9 @@ def _ga4_report(
     metrics,
     limit=100_000,
 ):
+    timeout = max(
+        float(getattr(settings, "HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS", 15)), 0.1
+    )
     return client.run_report(
         RunReportRequest(
             property=f"properties/{property_id}",
@@ -158,7 +176,8 @@ def _ga4_report(
             dimensions=[Dimension(name=name) for name in dimensions],
             metrics=[Metric(name=name) for name in metrics],
             limit=limit,
-        )
+        ),
+        timeout=timeout,
     )
 
 
@@ -214,7 +233,7 @@ def fetch_ga4(start_date: date, end_date: date) -> dict:
         property_id,
         start_date,
         end_date,
-        dimensions=["landingPagePlusQueryString"],
+        dimensions=["landingPage"],
         metrics=["sessions", "totalUsers", "engagementRate"],
     )
     page_accumulator: dict[str, dict] = {}
@@ -230,7 +249,9 @@ def fetch_ga4(start_date: date, end_date: date) -> dict:
             {"path": path, "sessions": 0, "users": 0, "engagedSessions": 0.0},
         )
         aggregate["sessions"] += sessions
-        aggregate["users"] += users
+        # ``totalUsers`` is distinct within each GA4 row and cannot be summed
+        # if path normalization ever collapses multiple rows.
+        aggregate["users"] = max(aggregate["users"], users)
         aggregate["engagedSessions"] += engagement_rate * sessions
     pages = []
     for aggregate in page_accumulator.values():
@@ -281,7 +302,7 @@ def _app_insights_query(app_id: str, token: str, query: str) -> list[dict]:
     return [dict(zip(columns, row)) for row in table.get("rows", [])]
 
 
-def fetch_application_insights(days: int) -> dict:
+def fetch_application_insights(start_date: date, end_date: date) -> dict:
     """Return fixed, aggregate KQL results through managed identity."""
     app_id = _application_insights_app_id()
     if not app_id:
@@ -290,26 +311,54 @@ def fetch_application_insights(days: int) -> dict:
         )
     credential = DefaultAzureCredential(exclude_interactive_browser_credential=True)
     token = credential.get_token(APP_INSIGHTS_SCOPE).token
-    # Inclusive calendar window: today plus the preceding ``days - 1`` days.
-    lookback_days = days - 1
+    local_end_exclusive = end_date + timedelta(days=1)
+    window = f"""
+let utc_start = datetime_local_to_utc(datetime({start_date.isoformat()}), 'Europe/Luxembourg');
+let utc_end = datetime_local_to_utc(datetime({local_end_exclusive.isoformat()}), 'Europe/Luxembourg');
+""".strip()
+    crush_page_views = """
+let crush_page_views = pageViews
+    | where timestamp >= utc_start and timestamp < utc_end
+    | where tostring(parse_url(url).Host) in~ ('crush.lu', 'www.crush.lu')
+    | where isnotempty(user_AuthenticatedId);
+let crush_sessions = crush_page_views
+    | where isnotempty(session_Id)
+    | distinct session_Id;
+""".strip()
     summary_query = f"""
-let start = startofday(ago({lookback_days}d));
-let pv = pageViews | where timestamp >= start;
-let ex = exceptions | where timestamp >= start;
-print page_views=toscalar(pv | count),
-      sessions=toscalar(pv | summarize value=dcount(session_Id) | project value),
-      users=toscalar(pv | summarize value=dcount(user_Id) | project value),
-      exceptions=toscalar(ex | count)
+{window}
+{crush_page_views}
+let crush_exceptions = exceptions
+    | where timestamp >= utc_start and timestamp < utc_end
+    | where isnotempty(user_AuthenticatedId)
+    | where session_Id in (crush_sessions);
+print page_views=toscalar(crush_page_views
+                          | summarize value=sum(coalesce(itemCount, 1))
+                          | project value),
+      sessions=toscalar(crush_page_views
+                        | summarize value=dcount(session_Id)
+                        | project value),
+      users=toscalar(crush_page_views
+                     | summarize value=dcount(user_AuthenticatedId)
+                     | project value),
+      exceptions=toscalar(crush_exceptions
+                          | summarize value=sum(coalesce(itemCount, 1))
+                          | project value)
 """.strip()
     daily_query = f"""
-let start = startofday(ago({lookback_days}d));
-let pv = pageViews
-    | where timestamp >= start
-    | summarize page_views=count(), sessions=dcount(session_Id), users=dcount(user_Id)
-      by day=startofday(timestamp);
+{window}
+{crush_page_views}
+let pv = crush_page_views
+    | summarize page_views=sum(coalesce(itemCount, 1)),
+                sessions=dcount(session_Id),
+                users=dcount(user_AuthenticatedId)
+      by day=startofday(datetime_utc_to_local(timestamp, 'Europe/Luxembourg'));
 let ex = exceptions
-    | where timestamp >= start
-    | summarize exceptions=count() by day=startofday(timestamp);
+    | where timestamp >= utc_start and timestamp < utc_end
+    | where isnotempty(user_AuthenticatedId)
+    | where session_Id in (crush_sessions)
+    | summarize exceptions=sum(coalesce(itemCount, 1))
+      by day=startofday(datetime_utc_to_local(timestamp, 'Europe/Luxembourg'));
 pv | join kind=fullouter ex on day
    | project day_label=format_datetime(coalesce(day, day1), 'yyyy-MM-dd'),
              page_views=coalesce(page_views, 0),
@@ -319,9 +368,13 @@ pv | join kind=fullouter ex on day
    | order by day_label asc
 """.strip()
     event_query = f"""
+{window}
+{crush_page_views}
 customEvents
-| where timestamp >= startofday(ago({lookback_days}d))
-| summarize event_count=count() by name
+| where timestamp >= utc_start and timestamp < utc_end
+| where isnotempty(user_AuthenticatedId)
+| where session_Id in (crush_sessions)
+| summarize event_count=sum(coalesce(itemCount, 1)) by name
 | top 20 by event_count desc
 """.strip()
     summary_rows = _app_insights_query(app_id, token, summary_query)
@@ -408,13 +461,23 @@ def _merge_landing_pages(gsc: ProviderResult, ga4: ProviderResult) -> list[dict]
     if gsc.status != "ready" and ga4.status != "ready":
         return []
     rows: dict[str, dict] = {}
+    search_rows: dict[str, dict] = {}
     for page in gsc.data.get("pages", []):
-        rows[page["path"]] = {
-            "path": page["path"],
+        target = search_rows.setdefault(
+            page["path"],
+            {"clicks": 0, "impressions": 0, "positionWeight": 0.0},
+        )
+        target["clicks"] += page["clicks"]
+        target["impressions"] += page["impressions"]
+        target["positionWeight"] += page["position"] * page["impressions"]
+    for path, page in search_rows.items():
+        impressions = page["impressions"]
+        rows[path] = {
+            "path": path,
             "clicks": page["clicks"],
-            "impressions": page["impressions"],
-            "ctr": page["ctr"],
-            "position": page["position"],
+            "impressions": impressions,
+            "ctr": page["clicks"] / impressions if impressions else 0.0,
+            "position": page["positionWeight"] / impressions if impressions else 0.0,
             "sessions": None,
             "users": None,
             "engagementRate": None,
@@ -466,7 +529,7 @@ def build_analytics_overview(days: int) -> dict:
         app_insights_future = pool.submit(
             _provider,
             "Application Insights",
-            lambda: fetch_application_insights(days),
+            lambda: fetch_application_insights(external_start, external_end),
         )
         activation = fetch_activation(days, today)
         gsc = gsc_future.result()
@@ -497,7 +560,7 @@ def build_analytics_overview(days: int) -> dict:
             "label": "Application Insights",
             "status": app_insights.status,
             "observedThrough": (
-                today.isoformat() if app_insights.status == "ready" else None
+                external_end.isoformat() if app_insights.status == "ready" else None
             ),
             "message": app_insights.message,
         },
