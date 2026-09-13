@@ -279,3 +279,27 @@ class ProfileReminderAdmin(admin.ModelAdmin):
         """Add computed fields for filtering"""
         qs = super().get_queryset(request)
         return qs.select_related('user', 'user__crushprofile')
+
+
+class EmailSuppressionAdmin(admin.ModelAdmin):
+    list_display = ("email", "is_active", "reason", "source", "suppressed_at")
+    list_filter = ("is_active", "reason", "source", "suppressed_at")
+    search_fields = ("email", "diagnostic")
+    readonly_fields = ("suppressed_at", "updated_at")
+    date_hierarchy = "suppressed_at"
+
+
+class EmailBounceEventAdmin(admin.ModelAdmin):
+    list_display = ("recipient", "classification", "subject", "received_at")
+    list_filter = ("classification", "received_at")
+    search_fields = ("recipient", "subject", "diagnostic", "source_message_id")
+    readonly_fields = (
+        "source_message_id",
+        "recipient",
+        "classification",
+        "subject",
+        "diagnostic",
+        "received_at",
+        "processed_at",
+    )
+    date_hierarchy = "received_at"

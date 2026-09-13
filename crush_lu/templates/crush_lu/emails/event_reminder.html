@@ -17,13 +17,12 @@
         <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
         <li><strong>{% trans "Location:" %}</strong><br>
             {{ event.location }}<br>
-            {{ event.full_address }}<br>
-            {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}
+            {{ event.full_address }}
         </li>
     </ul>
 </div>
 
-<div><strong>{{ event.description|linebreaks }}</strong></div>
+<div>{{ event.description|linebreaks }}</div>
 
 {% if registration.dietary_restrictions or registration.bringing_guest %}
 <div class="info-box">

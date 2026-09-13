@@ -72,6 +72,12 @@ CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 # environment explicitly opts in.
 CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 
+# Microsoft 365 NDR processing. Default OFF: enabling writes suppressions and
+# requires the app registration to have Mail.Read application permission.
+CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
+    "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED", False
+)
+
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
 # driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
 # env var; empty means "compute + persist the snapshot but email no one".

@@ -3,7 +3,11 @@
 Microsoft Graph API email backend for Django.
 Sends emails using Microsoft Graph instead of SMTP.
 """
+import base64
 import logging
+from email.utils import parseaddr
+from urllib.parse import quote
+
 from django.core.mail.backends.base import BaseEmailBackend
 from django.conf import settings
 
@@ -87,81 +91,52 @@ class GraphEmailBackend(BaseEmailBackend):
         return sent_count
 
     def _send_message(self, message, token):
-        """Send a single EmailMessage using Graph API"""
+        """Send a complete RFC 5322 MIME message using Graph API."""
         try:
             import requests
         except ImportError:
-            raise ImportError("requests package is required for Graph API email backend. "
-                            "Install with: pip install requests")
+            raise ImportError(
+                "requests package is required for Graph API email backend. "
+                "Install with: pip install requests"
+            )
 
-        # Prepare recipients
-        to_recipients = [{"emailAddress": {"address": addr}} for addr in message.to]
-        cc_recipients = [{"emailAddress": {"address": addr}} for addr in message.cc] if message.cc else []
-        bcc_recipients = [{"emailAddress": {"address": addr}} for addr in message.bcc] if message.bcc else []
-
-        # Determine content type
-        content_type = "HTML" if message.content_subtype == "html" else "Text"
-
-        # Prepare email payload
-        email_payload = {
-            "message": {
-                "subject": message.subject,
-                "body": {
-                    "contentType": content_type,
-                    "content": message.body
-                },
-                "toRecipients": to_recipients,
-            },
-            "saveToSentItems": "true"
-        }
-
-        if cc_recipients:
-            email_payload["message"]["ccRecipients"] = cc_recipients
-        if bcc_recipients:
-            email_payload["message"]["bccRecipients"] = bcc_recipients
-
-        # Handle attachments if present
-        if message.attachments:
-            attachments = []
-            for attachment in message.attachments:
-                # attachment is tuple: (filename, content, mimetype)
-                if isinstance(attachment, tuple) and len(attachment) >= 2:
-                    filename, content, mimetype = attachment[0], attachment[1], attachment[2] if len(attachment) > 2 else 'application/octet-stream'
-
-                    # Encode content to base64
-                    import base64
-                    if isinstance(content, str):
-                        content = content.encode('utf-8')
-                    encoded_content = base64.b64encode(content).decode('utf-8')
-
-                    attachments.append({
-                        "@odata.type": "#microsoft.graph.fileAttachment",
-                        "name": filename,
-                        "contentType": mimetype,
-                        "contentBytes": encoded_content
-                    })
-
-            if attachments:
-                email_payload["message"]["attachments"] = attachments
-
-        # Determine sender (use from_email from message or default)
         from_email = message.from_email or self.from_email
+        mailbox = parseaddr(from_email)[1] or from_email
 
-        # Send email via Graph API
-        endpoint = f"https://graph.microsoft.com/v1.0/users/{from_email}/sendMail"
+        mime_message = message.message()
+        # Django intentionally omits Bcc from generated MIME because SMTP uses
+        # separate envelope recipients. Graph's MIME endpoint needs the header.
+        if message.bcc and "Bcc" not in mime_message:
+            mime_message["Bcc"] = ", ".join(message.bcc)
+        mime_content = base64.b64encode(mime_message.as_bytes()).decode("ascii")
+
+        endpoint = (
+            "https://graph.microsoft.com/v1.0/users/"
+            f"{quote(mailbox, safe='')}/sendMail"
+        )
         headers = {
             "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
+            "Content-Type": "text/plain",
         }
-
-        response = requests.post(endpoint, headers=headers, json=email_payload, timeout=30)
+        response = requests.post(
+            endpoint, headers=headers, data=mime_content, timeout=30
+        )
 
         if response.status_code not in [200, 202]:
             error_msg = response.text
-            logger.error(f"Graph API error (status {response.status_code}): {error_msg}")
-            raise Exception(f"Failed to send email via Graph API: HTTP {response.status_code} - {error_msg}")
+            logger.error(
+                f"Graph API error (status {response.status_code}): {error_msg}"
+            )
+            raise Exception(
+                f"Failed to send email via Graph API: HTTP "
+                f"{response.status_code} - {error_msg}"
+            )
 
-        logger.info(f"Email sent successfully via Graph API to {message.to} from {from_email}")
+        logger.info(
+            "Email accepted by Graph API for %s from %s; downstream delivery pending",
+            message.to,
+            from_email,
+        )
 
 
 def create_outlook_draft(subject, html_content, recipient_email, from_email=None):

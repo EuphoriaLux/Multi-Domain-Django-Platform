@@ -31,7 +31,6 @@ from .models import (
 )
 from .forms import CrushSignupForm
 from .decorators import crush_login_required, ratelimit
-from .email_helpers import send_welcome_email
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
@@ -1564,17 +1563,6 @@ def signup(request):
                 # Allauth's save() method handles EmailAddress creation automatically
                 # This will raise IntegrityError if email/username already exists
                 user = signup_form.save(request)
-
-                # Send welcome email immediately after account creation
-                try:
-                    result = send_welcome_email(user, request)
-                    logger.info(f"✅ Welcome email sent to {user.email}: {result}")
-                except Exception as e:
-                    logger.error(
-                        f"❌ Failed to send welcome email to {user.email}: {e}",
-                        exc_info=True,
-                    )
-                    # Don't block signup if email fails
 
                 messages.success(
                     request,

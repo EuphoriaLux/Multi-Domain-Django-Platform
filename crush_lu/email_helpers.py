@@ -18,6 +18,14 @@ from .utils.formatting import format_cents
 logger = logging.getLogger(__name__)
 
 
+def normalize_greeting_name(value):
+    """Clean obvious all-upper/all-lower casing without damaging mixed-case names."""
+    value = (value or "").strip()
+    if value and (value.islower() or value.isupper()):
+        return value.title()
+    return value
+
+
 def get_user_language_url(user, url_name, request, **kwargs):
     """
     Get a language-prefixed URL for a user's preferred language.
@@ -2200,6 +2208,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             "settings_url": build_absolute_url("crush_lu:account_settings", lang=lang),
             "social_links": get_social_links(),
         }
+
+    context["greeting_name"] = normalize_greeting_name(user.first_name)
 
     # Render email and send in user's preferred language
     # Use translation.override() for thread-safety

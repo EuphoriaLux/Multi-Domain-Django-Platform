@@ -478,6 +478,7 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         """
         from allauth.core import context as allauth_context
         from azureproject.email_utils import send_domain_email
+        from django.contrib.sites.shortcuts import get_current_site
         from django.template.loader import render_to_string
 
         # Get request from allauth's internal context (always available),
@@ -494,7 +495,11 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             request = context.get("request")
 
         # Ensure request is in the template context for URL generation
-        ctx = {"request": request, "email": email}
+        ctx = {
+            "request": request,
+            "email": email,
+            "current_site": get_current_site(request),
+        }
         ctx.update(context)
 
         # Render email subject and body from Allauth templates

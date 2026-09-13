@@ -3,8 +3,76 @@
 Domain-specific email configuration utilities.
 Supports sending emails from different domains (powerup.lu, crush.lu, vinsdelux.com)
 """
+import html
+import logging
 import os
-from django.core.mail import EmailMessage
+import re
+from html.parser import HTMLParser
+
+from django.apps import apps
+from django.core.mail import EmailMultiAlternatives
+from django.db import OperationalError, ProgrammingError
+from django.utils.html import strip_tags
+
+logger = logging.getLogger(__name__)
+
+
+class _EmailHTMLStripper(HTMLParser):
+    """Remove style/script content while retaining useful structural tags."""
+
+    SKIP_TAGS = {"style", "script"}
+
+    def __init__(self):
+        super().__init__()
+        self._result = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in self.SKIP_TAGS:
+            self._skip_depth += 1
+        elif not self._skip_depth:
+            self._result.append(self.get_starttag_text())
+
+    def handle_endtag(self, tag):
+        if tag.lower() in self.SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+        elif not self._skip_depth:
+            self._result.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if not self._skip_depth:
+            self._result.append(data)
+
+    def get_output(self):
+        return "".join(self._result)
+
+
+def html_to_plain_text(html_content):
+    """Convert an HTML email into a readable plain-text alternative."""
+    parser = _EmailHTMLStripper()
+    parser.feed(html_content or "")
+    text = parser.get_output()
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</(?:div|tr|li)>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<li[^>]*>", "  • ", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"<h[1-6][^>]*>(.*?)</h[1-6]>",
+        r"\n\n\1\n",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    text = re.sub(
+        r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',
+        r"\2 (\1)",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    text = html.unescape(strip_tags(text))
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return "\n".join(line.strip() for line in text.splitlines()).strip()
 
 
 def _normalize_domain(domain):
@@ -38,6 +106,7 @@ def _get_domain_email_configs():
             'GRAPH_CLIENT_ID': os.getenv('GRAPH_CLIENT_ID'),
             'GRAPH_CLIENT_SECRET': os.getenv('GRAPH_CLIENT_SECRET'),
             'DEFAULT_FROM_EMAIL': os.getenv('CRUSH_DEFAULT_FROM_EMAIL', 'noreply@crush.lu'),
+            'REPLY_TO_EMAIL': os.getenv('CRUSH_REPLY_TO_EMAIL', 'support@crush.lu'),
         },
         'powerup.lu': {
             'USE_GRAPH_API': True,
@@ -114,9 +183,40 @@ def _is_test_environment():
     return False
 
 
+def _without_suppressed_crush_addresses(addresses, email_from):
+    """Filter active hard-bounce suppressions without coupling other domains."""
+    addresses = list(addresses or [])
+    if not email_from.lower().endswith("@crush.lu") or not addresses:
+        return addresses
+
+    try:
+        suppression_model = apps.get_model("crush_lu", "EmailSuppression")
+        suppressed = set(
+            suppression_model.objects.filter(
+                email__in=[address.strip().lower() for address in addresses],
+                is_active=True,
+            ).values_list("email", flat=True)
+        )
+    except (LookupError, OperationalError, ProgrammingError):
+        # Deploys can briefly run before the new table exists. Failing open avoids
+        # turning a deliverability safeguard into a platform-wide email outage.
+        logger.warning("Email suppression table unavailable; sending without filtering")
+        return addresses
+
+    filtered = [
+        address for address in addresses if address.strip().lower() not in suppressed
+    ]
+    if len(filtered) != len(addresses):
+        logger.info(
+            "Skipped %d actively suppressed email recipient(s)",
+            len(addresses) - len(filtered),
+        )
+    return filtered
+
+
 def send_domain_email(subject, message, recipient_list, request=None, domain=None,
-                     html_message=None, from_email=None, cc=None, fail_silently=False,
-                     attachments=None):
+                     html_message=None, from_email=None, cc=None, bcc=None,
+                     reply_to=None, fail_silently=False, attachments=None):
     """
     Send email using domain-specific configuration (Graph API, SMTP, or Console in DEBUG).
 
@@ -131,6 +231,8 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
         html_message: HTML message body (optional)
         from_email: Override from email (optional)
         cc: List of CC email addresses (optional)
+        bcc: List of BCC email addresses (optional)
+        reply_to: Reply address or iterable of reply addresses (optional)
         fail_silently: Whether to suppress exceptions (default: False)
         attachments: Optional iterable of (filename, content, mimetype) tuples
             to attach to the message (e.g. a calendar .ics file).
@@ -140,14 +242,22 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
     """
     from django.core.mail import get_connection
     from django.conf import settings
-    import logging
-    logger = logging.getLogger(__name__)
 
     # Get domain-specific configuration
     config = get_domain_email_config(request=request, domain=domain)
 
     # Use configured from_email or domain default
     email_from = from_email or config['DEFAULT_FROM_EMAIL']
+    recipient_list = _without_suppressed_crush_addresses(recipient_list, email_from)
+    cc = _without_suppressed_crush_addresses(cc, email_from)
+    bcc = _without_suppressed_crush_addresses(bcc, email_from)
+    if not recipient_list:
+        return 0
+
+    configured_reply_to = reply_to or config.get('REPLY_TO_EMAIL')
+    if isinstance(configured_reply_to, str):
+        configured_reply_to = [configured_reply_to]
+    configured_reply_to = list(configured_reply_to or [])
 
     # In TEST mode, use in-memory backend (no real emails sent)
     if _is_test_environment():
@@ -214,22 +324,26 @@ def send_domain_email(subject, message, recipient_list, request=None, domain=Non
                 fail_silently=fail_silently,
             )
 
-    # Create email message with proper UTF-8 encoding
-    email = EmailMessage(
+    # Always retain a readable plain-text body, with HTML as an alternative.
+    # Re-derive plain text centrally because older call sites used strip_tags(),
+    # which left CSS and collapsed important line breaks.
+    plain_message = html_to_plain_text(html_message) if html_message else message
+    email = EmailMultiAlternatives(
         subject=subject,
-        body=html_message if html_message else message,
+        body=plain_message,
         from_email=email_from,
         to=recipient_list,
         cc=cc or [],
+        bcc=bcc or [],
+        reply_to=configured_reply_to,
         connection=connection,
     )
 
     # Ensure UTF-8 encoding for all content
     email.encoding = 'utf-8'
 
-    # Set content type to HTML if html_message provided
     if html_message:
-        email.content_subtype = 'html'
+        email.attach_alternative(html_message, 'text/html')
 
     # Attach any extra files (e.g. .ics calendar invites)
     if attachments:

@@ -226,8 +226,7 @@ class EmailLegRewritingTests(TestCase):
         link = CampaignLink.objects.get(
             campaign=campaign, original_url='https://crush.lu/events/',
         )
-        # send_domain_email sends an html-bodied EmailMessage
-        html_body = mail.outbox[0].body
+        html_body = mail.outbox[0].alternatives[0].content
         self.assertIn(f'/c/{link.token}/', html_body)
         self.assertNotIn('href="https://crush.lu/events/"', html_body)
         # The unsubscribe link stays direct.
@@ -246,6 +245,6 @@ class EmailLegRewritingTests(TestCase):
         )
         send_newsletter(newsletter)
         self.assertEqual(CampaignLink.objects.count(), 0)
-        html_body = mail.outbox[0].body
+        html_body = mail.outbox[0].alternatives[0].content
         self.assertIn('href="https://crush.lu/events/"', html_body)
         self.assertNotIn('/c/', html_body)

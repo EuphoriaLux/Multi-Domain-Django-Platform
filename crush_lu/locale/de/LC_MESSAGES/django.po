@@ -24821,7 +24821,7 @@ msgstr "Feedback deines Trainers:"
 
 #: templates/crush_lu/emails/profile_approved.html:20
 msgid "What you can do now:"
-msgstr "What you can do now:"
+msgstr "Was du jetzt tun kannst:"
 
 #: templates/crush_lu/emails/profile_approved.html:22
 msgid "Browse and register for upcoming events"
