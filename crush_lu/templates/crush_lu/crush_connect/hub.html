@@ -44,7 +44,7 @@
 
     <header class="mb-4">
         <h1 class="text-2xl mb-1">{% blocktrans with name=user.first_name|default:user.username %}Hello, {{ name }}{% endblocktrans %}</h1>
-        <p class="text-sm text-gray-600 dark:text-gray-300">{% if membership.is_onboarded %}{% trans "Your Connect profile is visible to eligible members." %}{% else %}{% trans "Complete your setup. You become visible only after final consent." %}{% endif %}</p>
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% if connect_summary.is_visible %}{% trans "Your Connect profile is visible to eligible members." %}{% elif membership.is_onboarded %}{% trans "Your Connect profile is currently hidden. Check your readiness details below." %}{% else %}{% trans "Complete your setup. You become visible only after final consent." %}{% endif %}</p>
         {% if has_premium %}<p class="text-sm">⭐ {% trans "Premium member" %}{% if premium_coach %} · {{ premium_coach.user.get_full_name|default:premium_coach.user.username }}{% endif %}</p>{% endif %}
     </header>
     {% if connect_summary.pending_requests %}
@@ -66,7 +66,7 @@
         <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
         {% endif %}
     </section>
-    {% elif membership.is_onboarded %}
+    {% elif connect_summary.is_visible %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4">
         <h2>{% trans "You can receive requests" %}</h2>
         <p>{% trans "Taking part in a Crush event unlocks daily discovery during the beta." %}</p>
