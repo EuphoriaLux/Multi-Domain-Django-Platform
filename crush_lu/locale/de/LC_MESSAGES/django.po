@@ -26493,7 +26493,7 @@ msgstr "Ihr habt euch schon getroffen"
 
 #: templates/crush_lu/event_lobby/lobby.html:196
 msgid "I'd like to meet"
-msgstr "Ich möchte mich treffen"
+msgstr "Ich möchte dich kennenlernen"
 
 #: templates/crush_lu/event_lobby/lobby.html:204
 msgid "You're the first one here — new arrivals appear automatically."
