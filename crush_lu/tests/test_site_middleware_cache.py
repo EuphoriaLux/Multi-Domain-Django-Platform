@@ -218,3 +218,44 @@ def test_a_real_name_is_never_overwritten(site, django_assert_num_queries):
 
     with django_assert_num_queries(0):
         assert _get_site().name == "Crush Luxembourg"
+
+
+def test_a_name_set_while_the_cache_was_stale_is_not_clobbered(site):
+    """The cached instance can be up to SITE_CACHE_TIMEOUT behind the row.
+
+    Repairing it blind would overwrite a name an operator (or another worker)
+    set during that window with the derived fallback.
+    """
+    cache.set(DOMAIN_KEY, {"id": site.pk, "domain": HOST, "name": ""}, 300)
+    Site.objects.filter(pk=site.pk).update(name="Crush Luxembourg")
+
+    assert _get_site().name == "Crush Luxembourg"
+    site.refresh_from_db()
+    assert site.name == "Crush Luxembourg"
+    # The stale entry is replaced, so the next request sees the real name.
+    assert cache.get(DOMAIN_KEY)["name"] == "Crush Luxembourg"
+
+
+def test_a_long_derived_name_is_trimmed_to_the_column_limit():
+    """Site.domain allows 100 chars, Site.name only 50.
+
+    PostgreSQL rejects the oversized value; SQLite accepts it silently, so
+    this asserts the length rather than relying on the backend to complain.
+    """
+    long_host = "django-app-ajfffwjb5ie3s-app-service-staging.azurewebsites.net"
+    assert len(long_host) > mw.SITE_NAME_MAX_LENGTH
+    row = _blank_named_site(domain=long_host, pk=1)
+
+    repaired = _get_default_site()
+
+    assert len(repaired.name) <= mw.SITE_NAME_MAX_LENGTH
+    row.refresh_from_db()
+    assert row.name == long_host.title()[: mw.SITE_NAME_MAX_LENGTH]
+
+
+def test_a_deleted_row_is_not_repaired(site):
+    """save(update_fields=...) against a missing row raises; skip instead."""
+    cache.set(DOMAIN_KEY, {"id": site.pk, "domain": HOST, "name": ""}, 300)
+    Site.objects.filter(pk=site.pk).delete()
+
+    assert _get_site().name == ""

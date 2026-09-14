@@ -112,9 +112,16 @@ def _site_from_cache(cache_key):
     return site
 
 
+# Site.name allows 50 characters while Site.domain allows 100, so a name
+# derived from a long host has to be trimmed. PostgreSQL rejects the oversized
+# value; SQLite silently accepts it, so tests alone would not catch this.
+SITE_NAME_MAX_LENGTH = Site._meta.get_field('name').max_length
+
+
 def _expected_site_name(config, fallback_host):
     """The display name a Site should carry, from config or its own domain."""
-    return (config or {}).get('name') or fallback_host.title()
+    name = (config or {}).get('name') or fallback_host.title()
+    return name[:SITE_NAME_MAX_LENGTH]
 
 
 def _ensure_site_name(site, expected_name):
@@ -122,11 +129,24 @@ def _ensure_site_name(site, expected_name):
 
     allauth builds its subjects from ``current_site.name``, so a blank one
     ships "Welcome to  — please confirm your email" and "Confirm your email
-    address on". Returns True when the row was repaired, so callers that hold
+    address on". Returns True when ``site.name`` changed, so callers that hold
     a cached copy know to refresh it.
     """
     if (site.name or '').strip():
         return False
+
+    # The instance may have been rebuilt from the cache, which can be up to
+    # SITE_CACHE_TIMEOUT stale. Re-read before writing, so a name an operator
+    # or another worker set in the meantime is adopted rather than clobbered
+    # by the derived fallback. Only reached when the name in hand is blank, so
+    # a healthy Site still costs no query.
+    stored = Site.objects.filter(pk=site.pk).only('name').first() if site.pk else None
+    if stored is None:
+        # The row is gone; nothing to repair, and save() would fail.
+        return False
+    if (stored.name or '').strip():
+        site.name = stored.name
+        return True
 
     site.name = expected_name
     # _site_from_cache() mirrors Model.from_db(), so a cache-built instance
