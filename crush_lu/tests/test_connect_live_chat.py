@@ -133,7 +133,7 @@ def test_stale_poll_does_not_close_chat_after_concurrent_expiry_extension():
         manager, "select_for_update", wraps=manager.select_for_update
     ) as lock:
         synced = sync_chat_state(chat)
-    lock.assert_called_once()
+    lock.assert_called_once_with(of=("self",))
     assert synced.status == ConnectTemporaryChat.Status.ACTIVE
     assert synced.expires_at == extended
     synced.refresh_from_db()
@@ -161,6 +161,36 @@ def test_unavailable_participants_cannot_expose_list_previews(
     response = client.get(CHATS_URL)
     assert b"Private preview must be hidden" not in response.content
     assert client.get(f"{CHATS_URL}{chat.pk}/messages/").status_code == 404
+
+
+def test_historical_chat_list_does_not_add_membership_queries_per_chat(client):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from crush_lu.models import ConnectWeekSession, ConnectWeeklyRequest
+
+    me, peer, chat = _make_open_chat()
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(status="closed")
+    _login_eligible(client, me)
+
+    def membership_queries():
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(CHATS_URL)
+            assert response.status_code == 200
+        return sum(
+            'FROM "crush_lu_crushconnectmembership"' in query["sql"]
+            for query in queries
+        )
+
+    baseline = membership_queries()
+    for _ in range(4):
+        session = ConnectWeekSession.objects.create(user=me, status="completed")
+        request = ConnectWeeklyRequest.objects.create(
+            session=session, requester=me, recipient=peer, status="accepted"
+        )
+        ConnectTemporaryChat.objects.create(
+            request=request, participant_1=me, participant_2=peer, status="closed"
+        )
+    assert membership_queries() == baseline
 
 
 def test_stranger_cannot_read_or_ack(client):

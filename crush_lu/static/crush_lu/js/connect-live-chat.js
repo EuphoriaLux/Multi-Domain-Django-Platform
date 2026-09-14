@@ -23,14 +23,21 @@
     if (form) form.querySelector('button').disabled = true;
   };
   async function request(url, options = {}) {
-    const response = await fetch(url, {
-      credentials: 'same-origin', cache: 'no-store', ...options,
-      headers: {Accept: 'application/json', 'X-CSRFToken': csrf || '', ...options.headers},
-      signal: AbortSignal.timeout(12000),
-    });
-    if ([401, 403, 404, 410].includes(response.status) || response.redirected) stop();
-    if (!response.ok || response.redirected) throw new Error('request_failed');
-    return response.json();
+    // AbortController also works in WebViews without AbortSignal.timeout.
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 12000) : null;
+    try {
+      const response = await fetch(url, {
+        credentials: 'same-origin', cache: 'no-store', ...options,
+        headers: {Accept: 'application/json', 'X-CSRFToken': csrf || '', ...options.headers},
+        signal: controller?.signal,
+      });
+      if ([401, 403, 404, 410].includes(response.status) || response.redirected) stop();
+      if (!response.ok || response.redirected) throw new Error('request_failed');
+      return await response.json();
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
+    }
   }
   function bubble(message) {
     if (ids.has(message.id)) return null;
