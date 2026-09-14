@@ -17,7 +17,8 @@ Context:
     sent_request    — the session's single ConnectWeeklyRequest, or None
 {% endcomment %}
 {% load i18n crush_media %}
-<article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col">
+<details class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col">
+    <summary class="px-4 font-semibold">{{ target.first_name }} · {{ target_profile.age_range }}{% if sent_request.recipient_id == target.pk %} · {% trans "Request sent" %}{% endif %}</summary>
     <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
         {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none"></div>
@@ -26,7 +27,7 @@ Context:
         <div class="absolute top-3 left-3 z-10">
             <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-crush-purple">
                 {% include "shared/icons/star.html" with class="w-3 h-3" %}
-                {% trans "Passt besonders gut zu dir" %}
+                {% trans "Suggested connection" %}
             </span>
         </div>
         {% endif %}
@@ -63,13 +64,19 @@ Context:
                     {% trans "Request sent" %}
                 </span>
             {% elif review_active and not sent_request %}
+                <details class="rounded-xl ring-1 ring-crush-purple px-3">
+                <summary class="font-semibold">{% blocktrans with name=target.first_name %}Choose {{ name }}{% endblocktrans %}</summary>
+                <p>{% blocktrans with name=target.first_name %}Send your one weekly request to {{ name }}? You cannot choose someone else this week after sending.{% endblocktrans %}</p>
+                <p class="text-sm">{% trans "To cancel, close this choice without sending." %}</p>
                 <form method="post" action="{% url 'crush_lu:connect_week_request_send' card.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="btn-crush-primary btn-block btn-sm">
-                        {% trans "Ich möchte dich kennenlernen" %}
+                        {% trans "Confirm and send request" %}
                     </button>
                 </form>
+                <a class="btn-crush-outline btn-block mt-2" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Cancel" %}</a>
+                </details>
             {% endif %}
         </div>
     </div>
-</article>
+</details>

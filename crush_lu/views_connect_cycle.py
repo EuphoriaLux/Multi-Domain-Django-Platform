@@ -10,6 +10,9 @@ See ``crush_lu.services.connect_cycle`` for the mechanics and its module
 docstring for this PR's documented scope simplifications.
 """
 
+from datetime import timedelta
+
+from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
@@ -112,6 +115,12 @@ def connect_week_home(request):
         "session": session,
         "cards": cards,
         "answered_ids": answered_ids,
+        "completed_count": sum(card.is_completed for card in cards),
+        "next_card_id": next(
+            (card.pk for card in cards if not card.is_completed), None
+        ),
+        "review_date": timezone.localtime(session.started_at).date()
+        + timedelta(days=CYCLE_LENGTH_DAYS),
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
         "has_non_closed_chat": user_has_non_closed_chat(user),
@@ -178,7 +187,9 @@ def connect_week_card_answer(request, card_id: int):
         guesses[gq.question_id] = raw == "yes"
 
     record_card_answer(card, guesses)
-    messages.success(request, _("Got it — see you tomorrow for three new faces."))
+    messages.success(
+        request, _("Answer saved. Continue with your next available card.")
+    )
     return redirect("crush_lu:connect_week_home")
 
 
@@ -285,7 +296,7 @@ def connect_week_request_send(request, card_id: int):
     else:
         messages.success(
             request,
-            _('Sent — "Ich möchte dich kennenlernen." They have 24 hours to respond.'),
+            _("Request sent. They have 24 hours to respond."),
         )
     return redirect("crush_lu:connect_week_review")
 
@@ -349,7 +360,10 @@ def connect_week_request_respond(request, request_id: int):
         pk=request_id,
         recipient=user,
     )
-    accept = request.POST.get("action") == "accept"
+    action = request.POST.get("action")
+    if action not in {"accept", "decline"}:
+        return redirect("crush_lu:connect_week_inbox")
+    accept = action == "accept"
     updated = respond_to_weekly_request(weekly_request, accept=accept, request=request)
     # respond_to_weekly_request can no-op either direction (already resolved
     # in another tab, or an accept left PENDING because the requester lost

@@ -31,8 +31,11 @@
             {% trans "Your Connect Week" %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300 max-w-sm">
-            {% trans "Three fresh faces today. Answer their questions — your guesses are private and shape Sunday's review." %}
+            {% trans "Discover today's available cards. Your guesses stay private." %}
         </p>
+        <p class="font-semibold" role="status">{% blocktrans with completed=completed_count total=cards|length %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>
+        <p class="text-sm">{% trans "Review available from" %}: <time datetime="{{ review_date|date:'Y-m-d' }}">{{ review_date|date:'DATE_FORMAT' }}</time></p>
+        {% if cards and not next_card_id %}<p class="font-semibold">{% trans "All available cards are complete. Come back tomorrow." %}</p>{% endif %}
         {# 7-day progress dots #}
         <div class="flex items-center gap-1.5 mt-4" aria-hidden="true">
             {% for d in "1234567" %}
@@ -44,12 +47,15 @@
     {% if cards %}
         <div class="grid grid-cols-1 gap-6">
             {% for card in cards %}
+                <details name="daily-cards" class="rounded-2xl bg-white dark:bg-slate-800" {% if card.pk == next_card_id %}open{% endif %}>
+                <summary class="px-4 font-semibold">{{ card.target_user.first_name }} · {% if card.is_completed %}{% trans "Completed" %}{% else %}{% trans "Answer questions" %}{% endif %}</summary>
                 {% include "crush_lu/crush_connect/_cycle_card.html" with card=card target=card.target_user target_profile=card.target_user.crushprofile target_membership=card.target_user.crush_connect_membership answered_ids=answered_ids %}
+                </details>
             {% endfor %}
         </div>
         <p class="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
             {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
-            <span>{% trans "Miss a day and its cards expire — they can't be caught up. Your answers stay private until Sunday's review." %}</span>
+            <span>{% trans "Unanswered cards expire at the end of each day. Your answers remain private." %}</span>
         </p>
     {% else %}
         <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">

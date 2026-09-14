@@ -728,7 +728,7 @@ def test_week_review_renders_highlight_after_day_seven(client, settings):
     resp = client.get(WEEK_REVIEW_URL)
 
     assert resp.status_code == 200
-    assert "Passt besonders gut zu dir" in resp.content.decode()
+    assert "Suggested connection" in resp.content.decode()
 
 
 @pytest.mark.django_db
@@ -900,3 +900,19 @@ def test_week_request_respond_gated_by_candidate_access_open(client, settings):
     assert CONNECT_TEASER_URL in resp.url
     req.refresh_from_db()
     assert req.status == ConnectWeeklyRequest.Status.PENDING
+
+
+@pytest.mark.django_db
+def test_daily_progress_and_read_only_completed_card(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_cycle_user("progress", preferred_genders=["F"])
+    _seed_cycle_pool(me, n=3)
+    _login_eligible(client, me)
+    response = client.get(WEEK_HOME_URL)
+    card = response.context["cards"][0]
+    _answer_all(card)
+    response = client.get(WEEK_HOME_URL)
+    assert response.context["completed_count"] == 1
+    assert response.context["next_card_id"] != card.pk
+    assert "1 of 3 completed" in response.content.decode()
+    assert "All available cards are complete" not in response.content.decode()

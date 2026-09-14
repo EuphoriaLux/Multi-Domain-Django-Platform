@@ -1,5 +1,5 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n crush_media %}
+{% load i18n crush_media moderation_tags %}
 
 {% block title %}{% trans "Connect Week requests" %}{% endblock %}
 
@@ -29,7 +29,7 @@
     {% if requests %}
         <div class="grid grid-cols-1 gap-4">
             {% for req in requests %}
-            <article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex gap-4 p-4">
+            <article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col gap-4 p-4">
                 <div class="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
                     {% profile_photo req.requester.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=req.requester.first_name %}
                 </div>
@@ -39,15 +39,26 @@
                         {% if req.requester.crushprofile.age %}<span class="font-normal text-gray-500 dark:text-gray-400">&middot; {{ req.requester.crushprofile.age_range }}</span>{% endif %}
                     </p>
                     <p class="text-sm text-gray-600 dark:text-gray-300 italic mb-3">&ldquo;{{ req.message }}&rdquo;</p>
+                    <p class="text-sm">{% trans "Response deadline" %}: <time datetime="{{ req.expires_at|date:'c' }}">{{ req.expires_at|date:'DATETIME_FORMAT' }}</time></p>
+                    <details><summary>{% trans "View profile details" %}</summary>
+                        {% include 'crush_lu/crush_connect/_permitted_profile.html' with target=req.requester target_profile=req.requester.crushprofile target_membership=req.requester.crush_connect_membership %}
+                    </details>
+                    {% block_report_menu req.requester source="connect_week" source_id=req.pk %}
                     <form method="post" action="{% url 'crush_lu:connect_week_request_respond' req.pk %}" class="flex items-center gap-2">
                         {% csrf_token %}
                         <button type="submit" name="action" value="accept" class="btn-crush-primary btn-sm flex-1">
                             {% trans "Yes, let's chat" %}
                         </button>
-                        <button type="submit" name="action" value="decline" class="btn-crush-outline btn-sm flex-1">
-                            {% trans "Not now" %}
-                        </button>
                     </form>
+                    <details class="mt-3 rounded-xl px-3 ring-1 ring-gray-200 dark:ring-slate-700">
+                        <summary>{% trans "Decline request" %}</summary>
+                        <p>{% trans "Declining permanently excludes this pair from future Connect Week discovery and requests. This cannot be undone. They will not be notified." %}</p>
+                        <p class="text-sm">{% trans "To cancel, close this choice. The request stays pending." %}</p>
+                        <form method="post" action="{% url 'crush_lu:connect_week_request_respond' req.pk %}">
+                            {% csrf_token %}<button type="submit" name="action" value="decline" class="btn-danger btn-block">{% trans "Confirm decline" %}</button>
+                        </form>
+                        <a class="btn-crush-outline btn-block mt-2" href="{% url 'crush_lu:connect_week_inbox' %}">{% trans "Cancel" %}</a>
+                    </details>
                 </div>
             </article>
             {% endfor %}
