@@ -14,6 +14,44 @@ The PRs are stacked: merge and validate them in order. They are drafts pending f
 
 ## Local evidence
 
+### PR review corrections
+
+All 19 Codex findings from PRs #984–#988 have corresponding fixes. Each earlier
+PR contains its own corrections; merge commits carry them forward without
+rewriting the published branch history. The completed DE/FR catalogue was moved
+into phase 1 so phases 1–4 no longer depend on phase 5 for translation coverage.
+
+- **#984:** staff Today preview, live visibility status, and existing-week lifecycle
+  synchronization. Overview requests still cannot create a week or daily cards.
+- **#985:** prefetched inbox interests, solid confirmation button, and translated
+  fallback names in daily/review/request summaries.
+- **#986:** unavailable participants filtered before previews; expiry synchronized
+  under the same row lock as sends; bounded read-only history remains available
+  after closure or blocking. Polling stops on the returned closed state; sending
+  and read acknowledgements remain blocked.
+- **#987:** public/private labels and preview now cover relationship intention,
+  lifestyle and question text; final consent emits one completion message; rejected
+  forms remain dirty until saved or deliberately discarded.
+- **#988:** latest active Coach's Pick survives later terminal proposals; acceptance
+  notification runs after commit; stored cards use bulk eligibility filtering.
+
+Review validation: 374 combined regression cases passed, followed by the remaining
+two passing after correcting their fixture to use a distinct later candidate
+(376 cases total). The full-week filtering test bounds 21 cards to at most six
+queries. The notification test forces a real database integrity failure and verifies
+that acceptance and its chat remain committed. The stale-expiry test verifies the
+row-lock path and preserves an already extended deadline; PostgreSQL concurrency
+validation remains a staging check.
+
+Six additional mobile browser checks passed: invalid wizard Exit cancellation,
+invalid profile Back cancellation, EN/DE/FR public profile previews, and loading
+all 65 messages in an ended conversation. Updated screenshots are available at
+<http://localhost:8016/review-fixes/>. Django checks, migration drift, focused Ruff,
+JavaScript syntax, 44-template design-token lint, Crush-only CSS build and diff
+whitespace checks passed.
+
+### Initial implementation evidence
+
 - Final combined regression: **346 passed**, covering Connect core, hub, onboarding, daily/weekly experience, chat, pause and Event Lobby/recap.
 - Final screenshot matrix: **120 states** across EN/DE/FR, 360/390/430 px, light/dark, plus the refreshed live lobby. No unexpected authentication/consent redirects or horizontal overflow remained.
 - Additional browser checks: one-card progression, seven-step completion, exit cancellation and resume, request/decline cancellation, searchable interests, keyboard focus, and reduced-height composer visibility.

@@ -97,6 +97,116 @@ def _answer_all(card):
     return record_card_answer(card, guesses)
 
 
+@pytest.mark.django_db(transaction=True)
+def test_acceptance_notification_database_failure_cannot_roll_back_chat(settings):
+    from unittest.mock import patch
+    from django.db import transaction
+    from crush_lu.models import Notification
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    sender = _make_cycle_user("notify_sender")
+    recipient = _make_cycle_user("notify_recipient", gender="F")
+    session, _ = _reviewable_session_with_card(sender, recipient)
+    pending = send_weekly_request(session, sender, recipient)
+    real_create = Notification.objects.create
+
+    def database_failure(**kwargs):
+        # A real NOT NULL violation, not a mock exception: this poisons an
+        # enclosing transaction if the callback runs before it commits.
+        kwargs["user"] = None
+        return real_create(**kwargs)
+
+    with patch.object(
+        Notification.objects, "create", side_effect=database_failure
+    ) as notify:
+        with transaction.atomic():
+            accepted = respond_to_weekly_request(pending, accept=True)
+            assert accepted.status == ConnectWeeklyRequest.Status.ACCEPTED
+            notify.assert_not_called()
+        notify.assert_called_once()
+    pending.refresh_from_db()
+    assert pending.status == ConnectWeeklyRequest.Status.ACCEPTED
+    assert ConnectTemporaryChat.objects.filter(request=pending).exists()
+
+
+@pytest.mark.django_db
+def test_full_week_card_filter_has_bounded_queries(
+    settings, django_assert_max_num_queries
+):
+    from crush_lu.services.connect_cycle import get_review_cards
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    viewer = _make_cycle_user("bulk_viewer")
+    targets = _seed_cycle_pool(viewer, n=21)
+    session = ConnectWeekSession.objects.create(user=viewer)
+    ConnectCycleCard.objects.bulk_create(
+        [
+            ConnectCycleCard(
+                session=session,
+                day_number=index // 3 + 1,
+                card_index=index % 3 + 1,
+                target_user=target,
+                generated_date=timezone.localdate(),
+                is_completed=True,
+            )
+            for index, target in enumerate(targets)
+        ]
+    )
+    targets[0].crush_connect_membership.photo_share_consent = False
+    targets[0].crush_connect_membership.save(update_fields=["photo_share_consent"])
+    with django_assert_max_num_queries(6):
+        cards = get_review_cards(session)
+        assert len(cards) == 20
+        assert all(card.target_user_id != targets[0].pk for card in cards)
+        for card in cards:
+            assert card.target_user.crushprofile.photo_1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "state",
+    [
+        "eligible",
+        "no_consent",
+        "paused",
+        "no_photo",
+        "inactive",
+        "excluded",
+        "unverified",
+        "old_login",
+    ],
+)
+def test_bulk_catalogue_filter_matches_member_eligibility(state):
+    from django.contrib.auth import get_user_model
+    from crush_lu.services.crush_connect import (
+        filter_catalogue_eligible,
+        is_catalogue_eligible,
+    )
+
+    user = _make_cycle_user("bulk_candidate")
+    membership, profile = user.crush_connect_membership, user.crushprofile
+    if state == "no_consent":
+        membership.photo_share_consent = False
+    elif state == "paused":
+        membership.paused_at = timezone.now()
+    elif state == "no_photo":
+        profile.photo_1 = ""
+    elif state == "inactive":
+        profile.is_active = False
+    elif state == "excluded":
+        membership.excluded_by_coach = True
+    elif state == "unverified":
+        profile.verification_status = "unverified"
+    elif state == "old_login":
+        user.last_login = timezone.now() - timedelta(days=400)
+    membership.save()
+    profile.save()
+    user.save()
+    assert filter_catalogue_eligible(
+        get_user_model().objects.filter(pk=user.pk)
+    ).exists() == is_catalogue_eligible(user)
+
+
 @pytest.mark.django_db
 def test_inbox_profile_interests_are_prefetched(settings, django_assert_num_queries):
     settings.CRUSH_CONNECT_LAUNCHED = True

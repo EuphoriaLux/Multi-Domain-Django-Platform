@@ -369,3 +369,26 @@ def test_accepted_coach_pick_persists_on_reload_and_hides_after_reassignment(
     member.crushprofile.assigned_coach = coach
     member.crushprofile.save(update_fields=["assigned_coach"])
     assert "Your interest is saved" not in client.get(COACH_PICK_URL).content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("terminal_status", ["declined", "withdrawn"])
+def test_terminal_proposal_does_not_hide_earlier_accepted_pick(terminal_status):
+    from crush_lu.models import ConnectCoachPick
+    from crush_lu.services.crush_connect import get_active_coach_pick
+
+    member = _make_user(username="current_pick_member", preferred_genders=["F"])
+    candidate = _make_user(username="current_pick_candidate", gender="F", premium=False)
+    pick = propose_coach_pick(_coach_for(member), member, candidate)
+    respond_to_coach_pick(pick, accept=True)
+    later_candidate = _make_user(
+        username="later_pick_candidate", gender="F", premium=False
+    )
+    ConnectCoachPick.objects.create(
+        member=member,
+        candidate=later_candidate,
+        coach=_coach_for(member),
+        status=terminal_status,
+    )
+    assert get_active_coach_pick(member, include_accepted=True).pk == pick.pk
+    assert get_active_coach_pick(member) is None

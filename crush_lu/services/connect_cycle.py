@@ -465,20 +465,35 @@ def record_card_answer(card, guesses: dict):
 
 def visible_cycle_cards(cards, viewer):
     """Recheck photo consent and safety before exposing stored card snapshots."""
+    from django.db.models import QuerySet
+    from crush_lu.models import ConnectCycleCard
     from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import (
-        is_assigned_coach_pair,
-        is_catalogue_eligible,
+        exclude_assigned_coach_pairs,
+        filter_catalogue_eligible,
     )
 
-    blocked = blocked_user_ids(viewer)
-    return [
-        card
-        for card in cards
-        if card.target_user_id not in blocked
-        and is_catalogue_eligible(card.target_user)
-        and not is_assigned_coach_pair(viewer, card.target_user)
-    ]
+    eligible = filter_catalogue_eligible(User.objects.all())
+    eligible = exclude_assigned_coach_pairs(eligible, viewer).exclude(
+        pk__in=blocked_user_ids(viewer)
+    )
+    # Reviews and summaries stay lazy until all eligibility predicates apply.
+    # Generation can return a list; reload its surviving rows in one query,
+    # preserving its original order and preloading the permitted profile fields.
+    if isinstance(cards, QuerySet):
+        return list(cards.filter(target_user_id__in=eligible.values("pk")))
+    card_ids = [card.pk for card in cards]
+    if not card_ids:
+        return []
+    visible = {
+        card.pk: card
+        for card in ConnectCycleCard.objects.filter(
+            pk__in=card_ids, target_user_id__in=eligible.values("pk")
+        ).select_related(
+            "target_user__crushprofile", "target_user__crush_connect_membership"
+        )
+    }
+    return [visible[pk] for pk in card_ids if pk in visible]
 
 
 def get_review_cards(session):
@@ -696,7 +711,9 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
                     "participant_2": weekly_request.recipient,
                 },
             )
-        _notify_weekly_request_accepted(weekly_request, request=request)
+        transaction.on_commit(
+            lambda: _notify_weekly_request_accepted(weekly_request, request=request)
+        )
     else:
         with transaction.atomic():
             weekly_request.status = ConnectWeeklyRequest.Status.DECLINED
