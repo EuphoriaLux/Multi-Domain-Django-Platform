@@ -1,11 +1,13 @@
 {% load i18n %}
+<details class="connect-selection" data-selection="{{ field_name }}"><summary>{% trans "Selected traits" %} <span data-selection-count></span></summary><ul data-selected-items></ul></details>
+
 {# Reusable trait chip picker (peer-checked checkboxes, server-validated cap). Params: field_name, choices_qs, selected_ids, heading, hint, field_errors, equal_mobile_grid. #}
 <div>
     <label class="connect-label">{{ heading }}{% if hint %} <span class="connect-label-hint">— {{ hint }}</span>{% endif %}</label>
     <div class="{% if equal_mobile_grid %}connect-trait-grid{% else %}flex flex-wrap gap-2{% endif %}">
         {% for trait in choices_qs %}
         <label class="cursor-pointer block">
-            <input type="checkbox" name="{{ field_name }}" value="{{ trait.pk }}" class="peer hidden"
+            <input type="checkbox" name="{{ field_name }}" value="{{ trait.pk }}" class="peer sr-only"
                    {% if trait.pk in selected_ids %}checked{% endif %}>
             <span class="connect-selectable connect-chip">
                 {{ trait.label }}

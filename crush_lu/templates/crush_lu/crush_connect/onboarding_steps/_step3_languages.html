@@ -13,7 +13,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             {% for value, label in form.languages.field.choices %}
             <label class="cursor-pointer block">
-                <input type="checkbox" name="languages" value="{{ value }}" class="peer hidden"
+                <input type="checkbox" name="languages" value="{{ value }}" class="peer sr-only"
                        {% if value in selected_languages %}checked{% endif %}>
                 <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-[14px] text-sm font-medium border-2 transition-all duration-200
                             border-gray-200 bg-[var(--color-surface-card)] dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
@@ -32,14 +32,17 @@
             <label class="connect-label mb-0">{% trans "Interests & hobbies" %}</label>
             <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="interestCount"></span>/8</span>
         </div>
+        <label class="connect-label" for="connect-interest-search">{% trans "Search interests" %}</label>
+        <input type="search" id="connect-interest-search" data-interest-search class="input-crush w-full mb-3" autocomplete="off">
+        <details class="connect-selection" data-selection="interests"><summary>{% trans "Selected interests" %} <span data-selection-count></span></summary><ul data-selected-items></ul></details>
         {% regroup form.interests.field.queryset by get_category_display as interest_groups %}
         {% for group in interest_groups %}
-        <div class="mb-3">
-            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</div>
+        <details data-interest-category class="mb-3">
+            <summary class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</summary>
             <div class="flex flex-wrap gap-2">
                 {% for interest in group.list %}
                 <label class="cursor-pointer block">
-                    <input type="checkbox" name="interests" value="{{ interest.pk }}" class="peer hidden"
+                    <input type="checkbox" name="interests" value="{{ interest.pk }}" class="peer sr-only"
                            @change="onInterestChange"
                            {% if interest.pk in selected_interest_ids %}checked{% endif %}>
                     <span class="connect-selectable connect-chip">
@@ -48,7 +51,7 @@
                 </label>
                 {% endfor %}
             </div>
-        </div>
+        </details>
         {% endfor %}
         {% if form.interests.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.interests.errors|join:" " }}</p>{% endif %}
         <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">{% trans "Pick 1–8." %}</p>

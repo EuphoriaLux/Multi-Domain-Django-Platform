@@ -1,5 +1,7 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n static %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/connect-mobile.css' %}">{% endblock %}
+{% block extra_js %}<script src="{% static 'crush_lu/js/connect-profile-forms.js' %}" defer></script>{% endblock %}
 
 {% block title %}{% trans "Welcome to Crush Connect" %}{% endblock %}
 
@@ -57,9 +59,11 @@
         {% endfor %}
     </div>
 
-    <form method="post" id="connectOnboardingForm" novalidate>
+    <a data-exit href="{% url 'crush_lu:crush_connect_hub' %}" class="inline-flex py-3 text-sm">{% trans "Exit for now" %}</a>
+    <form data-connect-form data-unsaved="{% trans 'Leave this step? Your completed steps are saved. Unsaved changes on this step will be discarded.' %}" method="post" id="connectOnboardingForm" novalidate>
         {% csrf_token %}
 
+        {% include 'crush_lu/crush_connect/_validation_summary.html' %}
         {% if form.non_field_errors %}
         <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
             {{ form.non_field_errors|join:" " }}
@@ -68,7 +72,7 @@
 
         {% include step_template %}
 
-        <div class="mt-[18px] flex items-center gap-3">
+        <div class="connect-wizard-footer flex items-center gap-3">
             {% if prev_step %}
             <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
                class="connect-btn-secondary">

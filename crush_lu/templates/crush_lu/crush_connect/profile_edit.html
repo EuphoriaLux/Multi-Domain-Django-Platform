@@ -1,7 +1,8 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n %}
+{% load i18n static %}
+{% block extra_js %}{{ block.super }}<script src="{% static 'crush_lu/js/connect-profile-forms.js' %}" defer></script>{% endblock %}
 
-{% block title %}{% trans "Edit your Crush Connect profile" %}{% endblock %}
+{% block title %}{% trans "Your Connect profile" %}{% endblock %}
 
 {% block connect_content %}
 <div class="max-w-2xl mx-auto {% if mode == 'detail' and cfg.key == 'lifestyle' %}px-0 sm:px-4{% else %}px-4{% endif %} py-8 pb-24 lg:pb-10">
@@ -15,12 +16,13 @@
         </a>
     </header>
 
-    <form method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
+    <form data-connect-form data-unsaved="{% trans 'Leave without saving your changes?' %}" method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
           {% if cfg.key == "lifestyle" %}class="connect-lifestyle-profile"{% endif %}
           novalidate>
         {% csrf_token %}
         <input type="hidden" name="section" value="{{ cfg.key }}">
 
+        {% include 'crush_lu/crush_connect/_validation_summary.html' %}
         {% if form.non_field_errors %}
         <div class="mb-3 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
             {{ form.non_field_errors|join:" " }}
@@ -44,13 +46,18 @@
             <span aria-hidden="true">←</span> {% trans "Back" %}
         </a>
         <h1 class="font-display text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mt-2 mb-1">
-            {% trans "What others see" %}
+            {% trans "Your Connect profile" %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-            {% trans "Tap a section to edit. This is exactly what your matches and coach see — nothing more." %}
+            {% trans "Your public card shows your photo, first name, age range, languages and selected interests. Your answers and matching preferences remain private." %}
         </p>
     </header>
 
+    <details class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4"><summary>{% trans "Preview your discovery card" %}</summary>
+        {% include 'crush_lu/crush_connect/_permitted_profile.html' with target=user target_profile=user.crushprofile target_membership=membership %}
+        <p class="text-sm">{% trans "Your three questions are visible; your answers are private." %}</p>
+        {% for question in membership.active_gate_questions %}<p>{{ question.question.text }}</p>{% endfor %}
+    </details>
     <div class="space-y-3">
         {% for sec in index_sections %}
         <a href="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ sec.cfg.key }}"
@@ -60,7 +67,7 @@
                     <span class="text-xl">{{ sec.emoji }}</span>
                 </div>
                 <div class="min-w-0">
-                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}</div>
+                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}<span class="block text-xs text-gray-500">{% if sec.cfg.key == 'languages' %}{% trans "Includes public card content" %}{% else %}{% trans "Private preferences and answers" %}{% endif %}</span></div>
                     <div class="text-sm text-gray-500 dark:text-gray-400 truncate">
                         {% if sec.summary %}{{ sec.summary }}{% else %}{% trans "Not set yet" %}{% endif %}
                     </div>
@@ -72,7 +79,7 @@
     </div>
 
     <p class="mt-6 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-        {% trans "Your full name and exact age are never shown until a date is confirmed." %}
+        {% trans "Your discovery card never shows your full name or exact age." %}
     </p>
 
     <div class="mt-6 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-4">

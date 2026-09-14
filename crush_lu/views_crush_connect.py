@@ -108,6 +108,7 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
         return False
     return profile.is_connect_identity_verified
 
+
 def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
 
@@ -497,6 +498,12 @@ def crush_connect_onboarding_step(request, step: int):
                         "onboarding_step",
                         "onboarding_started_at",
                     ]
+                )
+                messages.success(
+                    request,
+                    _(
+                        "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
+                    ),
                 )
                 _emit_onboarding_complete(request, done_url)
                 # Member is now in the pool — refresh compatibility highlights.
@@ -1000,6 +1007,8 @@ def crush_connect_coach_pick(request):
         "crush_lu/crush_connect/coach_pick.html",
         {"coach_pick": get_active_coach_pick(request.user)},
     )
+
+
 # ---------------------------------------------------------------------------
 # Coach Picks (M7) — coach curation interface + member response
 # ---------------------------------------------------------------------------

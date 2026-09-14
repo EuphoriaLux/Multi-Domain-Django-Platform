@@ -486,8 +486,8 @@ def _login_at_step_4(client, settings):
 
 @pytest.mark.django_db
 def test_life_step_renders_slider_and_tiles(client, settings):
-    """Step 4 renders the height slider (single named hidden input) and radio
-    tiles for all four choice fields — the native selects are gone."""
+    """Step 4 retains the height slider and smoking/drinking tiles, with
+    labelled selects for work and education."""
     _login_at_step_4(client, settings)
 
     resp = client.get(_step_url(4))
@@ -496,13 +496,13 @@ def test_life_step_renders_slider_and_tiles(client, settings):
     assert 'x-data="heightSlider"' in body
     # Only the hidden input carries the field name; the visible range is unnamed.
     assert body.count('name="height_cm"') == 1
-    assert body.count('name="work_field"') == 14
-    assert body.count('name="education_level"') == 6
+    assert body.count('<select name="work_field"') == 1
+    assert body.count('<select name="education_level"') == 1
     assert body.count('name="smoking"') == 4
     assert body.count('name="drinking"') == 4
-    assert "💻" in body  # emoji tiles present
-    assert '<select name="work_field"' not in body
-    assert '<select name="education_level"' not in body
+    assert 'value="prefer_not_say"' in body
+    assert '<select name="work_field"' in body
+    assert '<select name="education_level"' in body
 
 
 @pytest.mark.django_db
@@ -555,7 +555,7 @@ def test_life_step_height_out_of_bounds_rejected(client, settings):
     assert resp.status_code == 200  # re-render with errors
     assert CrushConnectMembership.objects.get(user=me).height_cm is None
     body = resp.content.decode()
-    assert re.search(r'name="work_field" value="it"[^>]*checked', body)
+    assert re.search(r'<option value="it"[^>]*selected', body)
 
 
 @pytest.mark.django_db
@@ -572,7 +572,7 @@ def test_profile_edit_life_section_renders_and_saves(client, settings):
     body = resp.content.decode()
     assert 'name="section" value="life"' in body
     assert 'x-data="heightSlider"' in body
-    assert body.count('name="work_field"') == 14
+    assert body.count('<select name="work_field"') == 1
 
     data = dict(_valid_step_data(4), section="life", height_cm="172")
     resp = client.post(PROFILE_EDIT_URL + "?section=life", data=data)

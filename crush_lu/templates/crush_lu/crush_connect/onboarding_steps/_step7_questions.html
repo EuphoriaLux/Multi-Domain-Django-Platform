@@ -10,7 +10,7 @@ photo; reading you well (>=2 of 3) is how they match with you.
     <div class="text-center">
         <h2 class="connect-card-title">{% trans "Your 3 questions" %}</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {% trans "Pick 3 questions for your card and answer each honestly about yourself. Others guess your answers from your photo — reading you well is how they match with you. Your answers stay private." %}
+            {% trans "Choose three questions for your card and answer honestly. Other members can guess; your own answers remain private." %}
         </p>
     </div>
 
@@ -24,9 +24,10 @@ photo; reading you well (>=2 of 3) is how they match with you.
     {% endif %}
 
     <p class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 mb-0">
-        {% trans "Choose exactly 3 questions. Tap Skip to remove one, then Save changes when the counter shows 3/3." %}
+        {% trans "Choose exactly 3 questions. Tap Skip to remove one. Continue when you have selected and answered all three." %}
     </p>
 
+    <details class="connect-selection" data-selection="questions"><summary>{% trans "Your selected three" %} <span data-selection-count></span></summary><ul data-selected-items></ul></details>
     <div class="space-y-2.5">
         {% for row in form.question_rows %}
             {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
