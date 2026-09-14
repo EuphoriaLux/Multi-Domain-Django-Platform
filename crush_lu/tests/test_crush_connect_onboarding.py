@@ -71,8 +71,9 @@ def test_profile_preview_and_section_labels_disclose_public_fields(client, setti
     response = client.get(PROFILE_EDIT_URL)
     body = response.content.decode()
     assert body.count("Includes public card content") == 3
-    assert body.count("Private preferences and answers") == 3
-    assert "Public questions; private answers" in body
+    assert body.count("Hidden from other members") == 3
+    assert "Public questions; answers hidden from members" in body
+    assert "Coaches can see your answers, life situation and family preferences" in body
     assert (
         "Also visible in Coach&#x27;s Pick" in body
         or "Also visible in Coach's Pick" in body
@@ -490,6 +491,24 @@ def test_fewer_than_three_questions_rejected(client, settings):
     m = CrushConnectMembership.objects.get(user=me)
     assert m.onboarded_at is None
     assert m.gate_questions.count() == 0
+    for error in resp.context["form"].non_field_errors():
+        assert resp.content.decode().count(str(error)) == 1
+
+
+@pytest.mark.django_db
+def test_question_editor_renders_validation_error_once(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="question_error", onboarded=True)
+    _login_eligible(client, me)
+    ids = _week_question_ids(2)
+    data = {f"q_{qid}": "yes" for qid in ids}
+    data["section"] = "questions"
+    response = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
+    assert response.status_code == 200
+    errors = response.context["form"].non_field_errors()
+    assert errors
+    for error in errors:
+        assert response.content.decode().count(str(error)) == 1
 
 
 @pytest.mark.django_db

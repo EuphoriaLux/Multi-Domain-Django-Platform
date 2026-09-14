@@ -15,6 +15,42 @@ pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("lost", ["consent", "photo", "active", "phase", "paused"])
+def test_summary_hides_pending_requests_when_inbox_becomes_unavailable(settings, lost):
+    from django.utils import timezone
+    from crush_lu.models import ConnectWeeklyRequest, ConnectWeekSession
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
+    recipient = _make_user(username="inbox_recipient", premium=False)
+    sender = _make_user(username="inbox_sender", premium=False)
+    invitation = ConnectWeeklyRequest.objects.create(
+        session=ConnectWeekSession.objects.create(user=sender),
+        requester=sender,
+        recipient=recipient,
+    )
+    assert get_connect_summary(recipient)["pending_requests"] == 1
+    if lost == "consent":
+        recipient.crush_connect_membership.photo_share_consent = False
+        recipient.crush_connect_membership.save(update_fields=["photo_share_consent"])
+    elif lost == "photo":
+        recipient.crushprofile.photo_1 = ""
+        recipient.crushprofile.save(update_fields=["photo_1"])
+    elif lost == "active":
+        recipient.is_active = False
+        recipient.save(update_fields=["is_active"])
+    elif lost == "paused":
+        recipient.crush_connect_membership.paused_at = timezone.now()
+        recipient.crush_connect_membership.save(update_fields=["paused_at"])
+    else:
+        settings.CRUSH_CONNECT_LAUNCHED = False
+    assert get_connect_summary(recipient)["pending_requests"] == 0
+    invitation.refresh_from_db()
+    assert invitation.status == ConnectWeeklyRequest.Status.PENDING
+
+
+@pytest.mark.django_db
 def test_flag_off_redirects_nonstaff_to_teaser(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = False

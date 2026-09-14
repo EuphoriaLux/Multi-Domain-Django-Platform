@@ -23,11 +23,6 @@
         <input type="hidden" name="section" value="{{ cfg.key }}">
 
         {% include 'crush_lu/crush_connect/_validation_summary.html' %}
-        {% if form.non_field_errors %}
-        <div class="mb-3 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-            {{ form.non_field_errors|join:" " }}
-        </div>
-        {% endif %}
 
         {% include cfg.template with form=form %}
 
@@ -49,13 +44,13 @@
             {% trans "Your Connect profile" %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-            {% trans "Your card can show your photo, first name, age range, languages, selected interests and question text. Coach's Pick also shows your relationship goal and lifestyle. Your answers and matching preferences remain private." %}
+            {% trans "Your card can show your photo, first name, age range, languages, selected interests and question text. Coach's Pick also shows your relationship goal and lifestyle. Your answers and matching preferences are hidden from other members. Coaches can see your answers, life situation and family preferences to curate introductions." %}
         </p>
     </header>
 
     <details class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4"><summary>{% trans "Preview your discovery card" %}</summary>
         {% include 'crush_lu/crush_connect/_permitted_profile.html' with target=user target_profile=user.crushprofile target_membership=membership %}
-        <p class="text-sm">{% trans "Your three questions are visible; your answers are private." %}</p>
+        <p class="text-sm">{% trans "Your three questions are visible to other members; your answers are not." %}</p>
         {% for question in membership.active_gate_questions %}<p>{{ question.question.text }}</p>{% endfor %}
         <h2 class="mt-4 text-lg">{% trans "Also visible in Coach's Pick" %}</h2>
         <p>{{ membership.get_relationship_goal_display }}</p>
@@ -74,7 +69,7 @@
                     <span class="text-xl">{{ sec.emoji }}</span>
                 </div>
                 <div class="min-w-0">
-                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}<span class="block text-xs text-gray-500">{% if sec.cfg.key == 'questions' %}{% trans "Public questions; private answers" %}{% elif sec.cfg.key == 'languages' or sec.cfg.key == 'intention' or sec.cfg.key == 'lifestyle' %}{% trans "Includes public card content" %}{% else %}{% trans "Private preferences and answers" %}{% endif %}</span></div>
+                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}<span class="block text-xs text-gray-500">{% if sec.cfg.key == 'questions' %}{% trans "Public questions; answers hidden from members" %}{% elif sec.cfg.key == 'languages' or sec.cfg.key == 'intention' or sec.cfg.key == 'lifestyle' %}{% trans "Includes public card content" %}{% else %}{% trans "Hidden from other members" %}{% endif %}</span></div>
                     <div class="text-sm text-gray-500 dark:text-gray-400 truncate">
                         {% if sec.summary %}{{ sec.summary }}{% else %}{% trans "Not set yet" %}{% endif %}
                     </div>

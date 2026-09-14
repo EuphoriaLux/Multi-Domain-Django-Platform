@@ -64,11 +64,6 @@
         {% csrf_token %}
 
         {% include 'crush_lu/crush_connect/_validation_summary.html' %}
-        {% if form.non_field_errors %}
-        <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-            {{ form.non_field_errors|join:" " }}
-        </div>
-        {% endif %}
 
         {% include step_template %}
 
