@@ -10,15 +10,18 @@ from crush_lu.models import (
     ConnectTemporaryChat,
     ConnectWeekSession,
 )
-from crush_lu.services.connect_cycle import get_pending_inbox
+from crush_lu.services.connect_cycle import get_pending_inbox, sync_session_state
 from crush_lu.services.blocking import blocked_user_ids
+from crush_lu.services.crush_connect import is_catalogue_eligible
 
 
 def get_connect_summary(user):
     membership = getattr(user, "crush_connect_membership", None)
     participating = bool(membership and membership.is_participating)
-    cycle_access = participating and (user.is_staff or cycle_access_open(user))
+    cycle_access = user.is_staff or (participating and cycle_access_open(user))
     session = ConnectWeekSession.objects.filter(user=user).first()
+    if session:
+        session = sync_session_state(session)
     cards = (
         ConnectCycleCard.objects.filter(
             session=session, generated_date=timezone.localdate(), is_expired=False
@@ -43,6 +46,7 @@ def get_connect_summary(user):
     )
     return {
         "cycle_access": cycle_access,
+        "is_visible": is_catalogue_eligible(user),
         "pending_requests": len(get_pending_inbox(user)) if participating else 0,
         "chat_count": chats.count(),
         "unread_chats": chats.filter(
