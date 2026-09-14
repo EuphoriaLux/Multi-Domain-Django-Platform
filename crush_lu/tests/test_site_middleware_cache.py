@@ -133,3 +133,88 @@ def test_the_default_site_path_caches_scalars_too(django_assert_num_queries):
 
     with django_assert_num_queries(0):
         assert _get_default_site() == first
+
+
+# --- Blank Site.name repair -------------------------------------------------
+#
+# allauth renders its subjects from ``current_site.name``. A blank one ships
+# "Welcome to  — please confirm your email" and "Confirm your email address
+# on", which real signups received on 2026-09-13. The repair existed but only
+# ran on a cache miss in the exact-domain branch, so a blank name still
+# reached allauth from the cache and from the default-site path (Azure health
+# checks, *.azurewebsites.net and any unknown host).
+
+
+def _blank_named_site(domain=HOST, pk=None):
+    defaults = {"name": ""}
+    if pk is None:
+        row, _ = Site.objects.update_or_create(domain=domain, defaults=defaults)
+        return row
+    row, _ = Site.objects.update_or_create(
+        pk=pk, defaults={"domain": domain, **defaults}
+    )
+    return row
+
+
+def test_a_blank_name_from_the_cache_is_repaired(site):
+    """The repair used to sit after the cache check, so a cached blank
+    name was served unrepaired for the whole 5-minute TTL."""
+    Site.objects.filter(pk=site.pk).update(name="")
+    cache.set(DOMAIN_KEY, {"id": site.pk, "domain": HOST, "name": ""}, 300)
+
+    assert _get_site().name == "Crush.lu"
+    site.refresh_from_db()
+    assert site.name == "Crush.lu"
+
+
+def test_the_repaired_name_is_written_back_to_the_cache(
+    site, django_assert_num_queries
+):
+    """Otherwise every request in the TTL re-runs the UPDATE."""
+    Site.objects.filter(pk=site.pk).update(name="")
+    cache.set(DOMAIN_KEY, {"id": site.pk, "domain": HOST, "name": ""}, 300)
+
+    _get_site()
+
+    assert cache.get(DOMAIN_KEY) == {
+        "id": site.pk,
+        "domain": HOST,
+        "name": "Crush.lu",
+    }
+    with django_assert_num_queries(0):
+        assert _get_site().name == "Crush.lu"
+
+
+def test_a_blank_name_on_the_default_site_is_repaired():
+    """_get_default_site() had no repair at all."""
+    row = _blank_named_site(domain=HOST, pk=1)
+
+    assert _get_default_site().name == "Crush.lu"
+    row.refresh_from_db()
+    assert row.name == "Crush.lu"
+
+
+def test_a_blank_name_on_a_cached_default_site_is_repaired():
+    row = _blank_named_site(domain=HOST, pk=1)
+    cache.set(DEFAULT_KEY, {"id": row.pk, "domain": HOST, "name": ""}, 300)
+
+    assert _get_default_site().name == "Crush.lu"
+    row.refresh_from_db()
+    assert row.name == "Crush.lu"
+
+
+def test_an_unconfigured_domain_falls_back_to_its_own_host():
+    row = _blank_named_site(domain="somewhere.example", pk=1)
+
+    assert _get_default_site().name == "Somewhere.Example"
+    row.refresh_from_db()
+    assert row.name == "Somewhere.Example"
+
+
+def test_a_real_name_is_never_overwritten(site, django_assert_num_queries):
+    """The repair must not touch a Site an operator named deliberately."""
+    Site.objects.filter(pk=site.pk).update(name="Crush Luxembourg")
+    _get_site()
+
+    with django_assert_num_queries(0):
+        assert _get_site().name == "Crush Luxembourg"
