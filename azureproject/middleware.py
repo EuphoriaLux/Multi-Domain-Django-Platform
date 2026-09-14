@@ -112,6 +112,53 @@ def _site_from_cache(cache_key):
     return site
 
 
+# Site.name allows 50 characters while Site.domain allows 100, so a name
+# derived from a long host has to be trimmed. PostgreSQL rejects the oversized
+# value; SQLite silently accepts it, so tests alone would not catch this.
+SITE_NAME_MAX_LENGTH = Site._meta.get_field('name').max_length
+
+
+def _expected_site_name(config, fallback_host):
+    """The display name a Site should carry, from config or its own domain."""
+    name = (config or {}).get('name') or fallback_host.title()
+    return name[:SITE_NAME_MAX_LENGTH]
+
+
+def _ensure_site_name(site, expected_name):
+    """Persist a display name onto a Site whose stored name is blank.
+
+    allauth builds its subjects from ``current_site.name``, so a blank one
+    ships "Welcome to  — please confirm your email" and "Confirm your email
+    address on". Returns True when ``site.name`` changed, so callers that hold
+    a cached copy know to refresh it.
+    """
+    if (site.name or '').strip():
+        return False
+
+    # The instance may have been rebuilt from the cache, which can be up to
+    # SITE_CACHE_TIMEOUT stale. Re-read before writing, so a name an operator
+    # or another worker set in the meantime is adopted rather than clobbered
+    # by the derived fallback. Only reached when the name in hand is blank, so
+    # a healthy Site still costs no query.
+    stored = Site.objects.filter(pk=site.pk).only('name').first() if site.pk else None
+    if stored is None:
+        # The row is gone; nothing to repair, and save() would fail.
+        return False
+    if (stored.name or '').strip():
+        site.name = stored.name
+        return True
+
+    site.name = expected_name
+    # _site_from_cache() mirrors Model.from_db(), so a cache-built instance
+    # UPDATEs here rather than INSERTing a duplicate.
+    site.save(update_fields=['name'])
+    logger.info(
+        f"SafeCurrentSiteMiddleware: Repaired empty Site.name "
+        f"for {site.domain} -> {expected_name!r}"
+    )
+    return True
+
+
 class LoginPostDebugMiddleware:
     """
     Debug middleware to log ALL POST requests to /login/ BEFORE CSRF processing.
@@ -412,30 +459,27 @@ class SafeCurrentSiteMiddleware:
         # This avoids creating duplicate Site objects for www variants
         canonical_host = host[4:] if host.startswith('www.') else host
 
+        # Look up the expected display name from the config. Every branch
+        # below repairs a blank Site.name with it, so allauth never renders
+        # subjects like "Welcome to  — please confirm your email", however
+        # the row was created and whether or not it came from the cache.
+        config = get_domain_config(host)  # Use original host for config lookup (aliases)
+        expected_name = _expected_site_name(config, canonical_host)
+
         # Check cache first (using canonical host)
         cache_key = _site_cache_key(f'site_by_domain:{canonical_host}')
         site = _site_from_cache(cache_key)
         if site is not None:
+            if _ensure_site_name(site, expected_name):
+                # Refresh the entry, or the blank name is served (and
+                # re-written) on every request for the rest of the TTL.
+                _cache_site(cache_key, site)
             return site
-
-        # Look up the expected display name from the config (used for both
-        # the exact-match branch and the auto-create branch so a blank
-        # Site.name gets repaired regardless of how the row was created).
-        config = get_domain_config(host)  # Use original host for config lookup (aliases)
-        expected_name = (config or {}).get('name') or canonical_host.title()
 
         try:
             # Try exact domain match first (canonical)
             site = Site.objects.get(domain__iexact=canonical_host)
-            # Repair empty/blank Site.name so allauth emails don't render
-            # subjects like "Welcome to  — please confirm your email".
-            if not (site.name or '').strip():
-                site.name = expected_name
-                site.save(update_fields=['name'])
-                logger.info(
-                    f"SafeCurrentSiteMiddleware: Repaired empty Site.name "
-                    f"for {canonical_host} -> {expected_name!r}"
-                )
+            _ensure_site_name(site, expected_name)
             _cache_site(cache_key, site)
             return site
         except Site.DoesNotExist:
@@ -450,11 +494,25 @@ class SafeCurrentSiteMiddleware:
             )
             if created:
                 logger.info(f"SafeCurrentSiteMiddleware: Auto-created Site for {canonical_host}")
+            else:
+                # get_or_create ignores defaults for a row that already
+                # exists, so a blank name on it still needs repairing.
+                _ensure_site_name(site, expected_name)
             _cache_site(cache_key, site)
             return site
 
         # For Azure hostnames, dev hosts, and unknown hosts - use default
         return self._get_default_site()
+
+    @staticmethod
+    def _default_site_name(site):
+        """Display name for a default Site, derived from its own domain.
+
+        This path serves Azure health checks, *.azurewebsites.net and any
+        unknown host, so there is no request domain to key the config on --
+        the row's own domain is the only thing available.
+        """
+        return _expected_site_name(get_domain_config(site.domain), site.domain)
 
     def _get_default_site(self):
         """Get a default Site, falling back gracefully if pk=1 doesn't exist.
@@ -470,11 +528,14 @@ class SafeCurrentSiteMiddleware:
         cache_key = _site_cache_key('site_default')
         site = _site_from_cache(cache_key)
         if site is not None:
+            if _ensure_site_name(site, self._default_site_name(site)):
+                _cache_site(cache_key, site)
             return site
 
         # Try pk=1 first (Django's default SITE_ID)
         try:
             site = Site.objects.get(pk=1)
+            _ensure_site_name(site, self._default_site_name(site))
             _cache_site(cache_key, site)
             return site
         except Site.DoesNotExist:
@@ -484,6 +545,7 @@ class SafeCurrentSiteMiddleware:
         site = Site.objects.order_by('pk').first()
         if site:
             logger.info(f"SafeCurrentSiteMiddleware: Using existing Site pk={site.pk} as default")
+            _ensure_site_name(site, self._default_site_name(site))
             _cache_site(cache_key, site)
             return site
 
