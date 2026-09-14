@@ -15,6 +15,67 @@ pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("incoming", [False, True])
+def test_summary_hides_chat_blocked_outside_chat_without_mutating_it(
+    settings, incoming
+):
+    from crush_lu.services.blocking import apply_block
+    from crush_lu.services.connect_summary import get_connect_summary
+    from crush_lu.tests.test_connect_chat_flows import _make_open_chat
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member, partner, chat = _make_open_chat()
+    assert get_connect_summary(member)["chat_count"] == 1
+    expiry = chat.expires_at
+    apply_block(partner, member) if incoming else apply_block(member, partner)
+    assert get_connect_summary(member)["chat_count"] == 0
+    chat.refresh_from_db()
+    assert chat.status == "active"
+    assert chat.expires_at == expiry
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("lost", ["paused", "excluded", "account", "profile"])
+def test_summary_counts_only_targets_available_on_today(settings, lost):
+    from django.utils import timezone
+    from crush_lu.models import ConnectCycleCard, ConnectWeekSession
+    from crush_lu.services.connect_cycle import get_or_create_todays_cards
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="progress_member", premium=False)
+    target = _make_user(username="progress_target", premium=False)
+    available = _make_user(username="progress_available", premium=False)
+    session = ConnectWeekSession.objects.create(user=member)
+    for index, user in enumerate([target, available], start=1):
+        ConnectCycleCard.objects.create(
+            session=session,
+            target_user=user,
+            day_number=1,
+            card_index=index,
+            generated_date=timezone.localdate(),
+            is_completed=index == 1,
+        )
+    before = get_connect_summary(member)
+    assert (before["daily_total"], before["daily_completed"]) == (2, 1)
+    if lost == "paused":
+        target.crush_connect_membership.paused_at = timezone.now()
+        target.crush_connect_membership.save(update_fields=["paused_at"])
+    elif lost == "excluded":
+        target.crush_connect_membership.excluded_by_coach = True
+        target.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    elif lost == "profile":
+        target.crushprofile.is_active = False
+        target.crushprofile.save(update_fields=["is_active"])
+    else:
+        target.is_active = False
+        target.save(update_fields=["is_active"])
+    summary = get_connect_summary(member)
+    assert (summary["daily_total"], summary["daily_completed"]) == (1, 0)
+    assert len(get_or_create_todays_cards(session)) == 1
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize("lost", ["consent", "photo", "active", "phase", "paused"])
 def test_summary_hides_pending_requests_when_inbox_becomes_unavailable(settings, lost):
     from django.utils import timezone

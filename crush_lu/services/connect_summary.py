@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from crush_lu.connect_phase import candidate_access_open, cycle_access_open
 from crush_lu.models import ConnectCycleCard, ConnectTemporaryChat, ConnectWeekSession
+from crush_lu.services.blocking import blocked_user_ids
 from crush_lu.services.connect_cycle import get_pending_inbox, sync_session_state
 from crush_lu.services.crush_connect import is_catalogue_eligible
 
@@ -27,10 +28,30 @@ def get_connect_summary(user):
         if session
         else ConnectCycleCard.objects.none()
     )
+    cards = cards.filter(
+        target_user__is_active=True,
+        target_user__crushprofile__is_active=True,
+        target_user__crush_connect_membership__onboarded_at__isnull=False,
+        target_user__crush_connect_membership__paused_at__isnull=True,
+        target_user__crush_connect_membership__excluded_by_coach=False,
+    )
+    blocked = blocked_user_ids(user)
     chats = ConnectTemporaryChat.objects.filter(
         Q(participant_1=user) | Q(participant_2=user),
         expires_at__gt=timezone.now(),
-    ).exclude(status__in=["closed", "blocked"])
+        participant_1__is_active=True,
+        participant_2__is_active=True,
+        participant_1__crushprofile__is_active=True,
+        participant_2__crushprofile__is_active=True,
+        participant_1__crush_connect_membership__onboarded_at__isnull=False,
+        participant_2__crush_connect_membership__onboarded_at__isnull=False,
+    ).exclude(
+        Q(status__in=["closed", "blocked"])
+        | Q(participant_1_id__in=blocked)
+        | Q(participant_2_id__in=blocked)
+        | Q(participant_1__crush_connect_membership__excluded_by_coach=True)
+        | Q(participant_2__crush_connect_membership__excluded_by_coach=True)
+    )
     return {
         "cycle_access": cycle_access,
         "is_visible": visible,
