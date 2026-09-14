@@ -108,7 +108,15 @@ class GraphEmailBackend(BaseEmailBackend):
         # separate envelope recipients. Graph's MIME endpoint needs the header.
         if message.bcc and "Bcc" not in mime_message:
             mime_message["Bcc"] = ", ".join(message.bcc)
-        mime_content = base64.b64encode(mime_message.as_bytes()).decode("ascii")
+        # Django serialises with bare LF because smtplib rewrites the line
+        # endings itself. Graph's MIME endpoint does no such rewriting, so the
+        # message must already be CRLF-terminated: RFC 2045 defines a
+        # quoted-printable soft line break as "=" followed by CRLF, and with a
+        # bare LF the "=" swallows the next character and splits multi-byte
+        # UTF-8 sequences (emoji arrive mangled, words lose a letter).
+        mime_content = base64.b64encode(
+            mime_message.as_bytes(policy=mime_message.policy.clone(linesep="\r\n"))
+        ).decode("ascii")
 
         endpoint = (
             "https://graph.microsoft.com/v1.0/users/"

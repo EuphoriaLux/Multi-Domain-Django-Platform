@@ -1,4 +1,5 @@
 import base64
+import re
 from email import message_from_bytes, policy
 from io import StringIO
 from types import SimpleNamespace
@@ -277,6 +278,77 @@ class GraphMimeBackendTests(TestCase):
         self.assertEqual(
             [part.get_filename() for part in mime.iter_attachments()], ["invite.ics"]
         )
+
+    @patch("requests.post")
+    def test_mime_payload_uses_crlf_line_endings(self, post):
+        """Graph does not rewrite line endings the way smtplib does.
+
+        RFC 2045 defines a quoted-printable soft line break as "=" followed by
+        CRLF. Serialising with bare LF leaves every soft break malformed, so
+        the "=" swallows the following character and multi-byte UTF-8
+        sequences split across a wrap arrive mangled.
+        """
+        post.return_value = Mock(status_code=202, text="")
+        # Long lines force quoted-printable soft line breaks, and the emoji put
+        # multi-byte sequences near the wrap column.
+        greeting = "\U0001f389 Welcome to Crush.lu!"
+        paragraph = (
+            "Congratulations on taking the first step toward meaningful "
+            "connections! \U0001f31f Your Crush.lu account has been created, "
+            "so now let's build your profile and meet people at our events."
+        )
+        message = EmailMultiAlternatives(
+            subject=greeting,
+            body=f"{greeting}\n{paragraph}",
+            from_email="Crush <noreply@crush.lu>",
+            to=["to@example.com"],
+        )
+        message.encoding = "utf-8"
+        message.attach_alternative(
+            f"<h1>{greeting}</h1><p>{paragraph}</p>", "text/html"
+        )
+        backend = GraphEmailBackend(
+            tenant_id="tenant",
+            client_id="client",
+            client_secret="secret",
+            from_email="noreply@crush.lu",
+        )
+
+        backend._send_message(message, "token")
+
+        raw = base64.b64decode(post.call_args.kwargs["data"])
+        self.assertGreater(raw.count(b"\r\n"), 0)
+        self.assertEqual(
+            raw.count(b"\n") - raw.count(b"\r\n"), 0, "bare LF in Graph MIME payload"
+        )
+
+        # Every soft line break inside a quoted-printable body part must be
+        # "=" immediately followed by CRLF.
+        quoted_printable_parts = 0
+        for part in message_from_bytes(raw, policy=policy.compat32).walk():
+            if part.get_content_maintype() == "multipart":
+                continue
+            encoding = (part.get("Content-Transfer-Encoding") or "").lower()
+            if encoding != "quoted-printable":
+                continue
+            quoted_printable_parts += 1
+            payload = part.get_payload(decode=False)
+            for match in re.finditer(r"=(?![0-9A-Fa-f]{2})", payload):
+                self.assertEqual(
+                    payload[match.start() : match.start() + 3],
+                    "=\r\n",
+                    "malformed quoted-printable soft line break",
+                )
+        self.assertGreater(quoted_printable_parts, 0)
+
+        mime = message_from_bytes(raw, policy=policy.default)
+        plain = mime.get_body(preferencelist=("plain",)).get_content()
+        self.assertEqual(
+            plain.replace("\r\n", "\n").rstrip(), f"{greeting}\n{paragraph}"
+        )
+        html_body = mime.get_body(preferencelist=("html",)).get_content()
+        self.assertIn(greeting, html_body)
+        self.assertIn("\U0001f31f", html_body)
 
 
 @override_settings(CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS=["tenant.onmicrosoft.com"])
