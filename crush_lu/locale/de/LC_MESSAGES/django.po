@@ -42057,3 +42057,43 @@ msgstr "Auch in Coach's Pick sichtbar"
 
 msgid "Public questions; private answers"
 msgstr "Öffentliche Fragen; private Antworten"
+
+msgid ""
+"Your card can show your photo, first name, age range, languages, selected "
+"interests and question text. Coach's Pick also shows your relationship goal "
+"and lifestyle. Your answers and matching preferences are hidden from other "
+"members. Coaches can see your answers, life situation and family preferences"
+" to curate introductions."
+msgstr ""
+"Deine Karte kann dein Foto, deinen Vornamen, deine Altersgruppe, Sprachen, "
+"ausgewählte Interessen und Fragetexte zeigen. Coach's Pick zeigt auch dein "
+"Beziehungsziel und deinen Lebensstil. Andere Mitglieder sehen deine "
+"Antworten und Matching-Präferenzen nicht. Coaches können deine Antworten, "
+"Lebenssituation und Familienwünsche einsehen, um persönliche Vorstellungen "
+"vorzubereiten."
+
+msgid ""
+"Your three questions are visible to other members; your answers are not."
+msgstr ""
+"Andere Mitglieder sehen deine drei Fragen, aber nicht deine Antworten."
+
+msgid "Public questions; answers hidden from members"
+msgstr "Öffentliche Fragen; Antworten für Mitglieder verborgen"
+
+msgid "Hidden from other members"
+msgstr "Für andere Mitglieder verborgen"
+
+msgid ""
+"Choose three questions for your card and answer honestly. Other members can "
+"guess but cannot see your answers. Coaches can see your answers to curate "
+"introductions."
+msgstr ""
+"Wähle drei Fragen für deine Karte und antworte ehrlich. Andere Mitglieder "
+"können raten, sehen deine Antworten aber nicht. Coaches können deine "
+"Antworten einsehen, um persönliche Vorstellungen vorzubereiten."
+
+msgid "You can change your questions anytime from your Connect profile."
+msgstr "Du kannst deine Fragen jederzeit in deinem Connect-Profil ändern."
+
+msgid "Answer hidden from other members"
+msgstr "Antwort für andere Mitglieder verborgen"

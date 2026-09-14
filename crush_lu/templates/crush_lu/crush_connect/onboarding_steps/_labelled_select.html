@@ -1,7 +1,7 @@
 {% load i18n %}
 <div>
 <label class="connect-label" for="id_{{ field.name }}">{{ heading }}{% if field.field.required %} · {% trans "Required" %}{% endif %}</label>
-<select name="{{ field.name }}" id="id_{{ field.name }}" class="input-crush w-full" {% if field.field.required %}required{% endif %}>
+<select name="{{ field.name }}" id="id_{{ field.name }}" class="form-select w-full" {% if field.field.required %}required{% endif %}>
 {% for value,label in field.field.choices %}<option value="{{ value }}" {% if field.value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
 </select>
 {% if field.errors %}<p class="text-sm text-red-600 dark:text-red-400">{{ field.errors|join:' ' }}</p>{% endif %}

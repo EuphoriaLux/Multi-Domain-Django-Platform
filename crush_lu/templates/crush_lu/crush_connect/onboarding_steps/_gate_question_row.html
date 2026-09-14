@@ -2,7 +2,7 @@
 <fieldset data-gate-row
      class="rounded-xl border border-gray-200 dark:border-slate-700 p-3.5 flex flex-col gap-3
             {% if row.selected %}border-crush-purple bg-crush-purple/5{% endif %}">
-    <legend data-question-label class="text-sm text-gray-800 dark:text-gray-100">{{ row.question.text }}</legend><p class="text-xs text-gray-500">{% trans "Your private answer" %}</p>
+    <legend data-question-label class="text-sm text-gray-800 dark:text-gray-100">{{ row.question.text }}</legend><p class="text-xs text-gray-500">{% trans "Answer hidden from other members" %}</p>
     <div class="grid grid-cols-3 overflow-hidden rounded-xl ring-1 ring-slate-500/70 text-sm font-semibold">
         {# Skip / Yes / No segmented control. Radios named q_<id>; value "" = skip. #}
         <label class="cursor-pointer">
