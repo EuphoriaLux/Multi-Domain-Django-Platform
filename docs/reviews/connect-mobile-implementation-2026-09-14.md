@@ -14,6 +14,21 @@ The PRs are stacked: merge and validate them in order. Final staging/device vali
 
 ## Local evidence
 
+### Browser compatibility and PostgreSQL follow-up
+
+- **#986:** browsers without `crypto.randomUUID` generate a version-4 submission
+  UUID with `crypto.getRandomValues`, retaining the same ID for retries. If Web
+  Crypto is unavailable entirely, the composer retains normal form submission.
+  Both paths passed real mobile browser checks with the APIs disabled.
+- **#988:** request-response queries explicitly lock only the request row, so
+  nullable joined profile/membership rows are not included in PostgreSQL's
+  `FOR UPDATE`. Accept and decline regression tests assert this lock scope;
+  the deployment PostgreSQL checks below remain required.
+
+The final targeted discovery, weekly-request and chat regression suite passed
+**126 tests**, including both new lock-scope cases. Focused Ruff, JavaScript
+syntax and whitespace checks passed.
+
 ### Final review corrections
 
 Five further findings were addressed on their owning branches and merged forward:

@@ -1223,6 +1223,23 @@ def test_stale_decline_cannot_overwrite_an_accepted_request():
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("accept", [True, False])
+def test_request_response_locks_only_request_row_with_nullable_relations(
+    mocker, accept
+):
+    sender = _make_cycle_user("response_lock_sender")
+    recipient = _make_cycle_user("response_lock_recipient")
+    session, _ = _reviewable_session_with_card(sender, recipient)
+    request = send_weekly_request(session, sender, recipient)
+    lock = mocker.spy(ConnectWeeklyRequest.objects, "select_for_update")
+    result = respond_to_weekly_request(request, accept=accept)
+    assert result.status == ("accepted" if accept else "declined")
+    assert lock.call_count >= 1
+    # SQLite ignores locking; guard PostgreSQL's nullable outer-join restriction.
+    assert all(call.kwargs == {"of": ("self",)} for call in lock.call_args_list)
+
+
+@pytest.mark.django_db
 def test_weekly_send_locks_session_before_checking_limit(mocker):
     from django.db import connection
     from crush_lu.services import connect_cycle

@@ -554,7 +554,11 @@ def sync_request_state(weekly_request):
         ConnectWeeklyRequest,
     )
 
-    fresh = type(weekly_request).objects.select_for_update().get(pk=weekly_request.pk)
+    fresh = (
+        type(weekly_request)
+        .objects.select_for_update(of=("self",))
+        .get(pk=weekly_request.pk)
+    )
     weekly_request.status = fresh.status
     weekly_request.expires_at = fresh.expires_at
     weekly_request.responded_at = fresh.responded_at
@@ -679,7 +683,7 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
     )
 
     weekly_request = (
-        ConnectWeeklyRequest.objects.select_for_update()
+        ConnectWeeklyRequest.objects.select_for_update(of=("self",))
         .select_related(
             "requester__crushprofile",
             "requester__crush_connect_membership",
