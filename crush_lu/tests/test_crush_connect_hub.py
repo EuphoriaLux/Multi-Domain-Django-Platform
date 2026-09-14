@@ -95,3 +95,18 @@ def test_open_coach_pick_is_linked_from_hub(client, settings):
 
     assert "Your coach picked a match" in body
     assert "/crush-connect/coach-pick/" in body
+
+
+@pytest.mark.django_db
+def test_loading_hub_does_not_start_discovery(client, settings):
+    from crush_lu.models import ConnectCycleCard, ConnectWeekSession
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="read_only_hub", premium=False)
+    _login_eligible(client, member)
+    for _ in range(2):
+        response = client.get(HUB_URL)
+        assert response.status_code == 200
+        assert "Connect navigation" in response.content.decode()
+    assert not ConnectWeekSession.objects.filter(user=member).exists()
+    assert not ConnectCycleCard.objects.exists()

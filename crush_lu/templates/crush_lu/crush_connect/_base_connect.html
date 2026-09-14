@@ -1,5 +1,6 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n static connect_navigation %}
+{% block extra_css %}{{ block.super }}<link rel="stylesheet" href="{% static 'crush_lu/css/connect-mobile.css' %}">{% endblock %}
 {% comment %}
 Shared Crush Connect shell. Children override the connect_content block;
 title / mobile_page_title / extra_js pass through to base.html.
@@ -11,5 +12,11 @@ the whole Connect area free of it.
 {% block whatsapp_button %}{% endblock %}
 
 {% block content %}
+<div class="connect-shell">
+{% if user.is_authenticated %}
+{% connect_navigation as connect_summary %}
+{% block connect_navigation %}{% include 'crush_lu/crush_connect/_connect_subnav.html' %}{% endblock %}
+{% endif %}
 {% block connect_content %}{% endblock %}
+</div>
 {% endblock %}
