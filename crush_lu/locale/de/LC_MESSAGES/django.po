@@ -26430,7 +26430,7 @@ msgstr "Du hast diese Person bereits getroffen."
 #: templates/crush_lu/event_lobby/lobby.html:34
 #: templates/crush_lu/event_lobby/lobby.html:223
 msgid "The live lobby has ended."
-msgstr "Der Live-Lobby ist beendet."
+msgstr "Die Live-Lobby ist beendet."
 
 #: templates/crush_lu/event_lobby/lobby.html:35
 #: templates/crush_lu/event_lobby/lobby.html:192
