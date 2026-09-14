@@ -14,6 +14,15 @@ The PRs are stacked: merge and validate them in order. Final staging/device vali
 
 ## Local evidence
 
+### Independent phase-1 validation
+
+The first PR now independently excludes chats blocked through other surfaces and
+counts only cards whose targets are active and participating. These protections
+already existed in later phases and were moved earlier without changing the
+final stack's runtime behavior. The German ended-lobby status uses "Die
+Live-Lobby ist beendet." All **22 hub tests** passed, including both block
+directions and paused, excluded, inactive-account and inactive-profile targets.
+
 ### Browser compatibility and PostgreSQL follow-up
 
 - **#986:** browsers without `crypto.randomUUID` generate a version-4 submission
