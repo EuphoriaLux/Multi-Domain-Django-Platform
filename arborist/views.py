@@ -329,6 +329,69 @@ def _remember_booking(request, reference):
     request.session[BOOKING_SESSION_KEY] = refs[-MAX_REMEMBERED_BOOKINGS:]
 
 
+def _client_confirmation_body(booking_obj, quote):
+    """
+    The customer's confirmation email in the active language: i18n_patterns has
+    activated the /en/, /de/ or /fr/ of the form they submitted, so every _()
+    below resolves in it.
+    """
+    ref = booking_obj.booking_reference
+    urgency = _("Rush Order (24-48h)") if booking_obj.is_rush else _("Standard")
+    lines = [
+        _("Hello %(name)s,") % {"name": booking_obj.name},
+        "",
+        str(_("Thank you for your appointment request with Arborist Tom Aakrann!")),
+        "",
+        "%s: %s" % (_("Booking reference"), ref),
+        "%s: %s" % (_("Service"), booking_obj.get_service_type_display()),
+        "%s: %s, %s %s"
+        % (
+            _("Address"),
+            booking_obj.street_address,
+            booking_obj.postal_code,
+            booking_obj.city_or_commune,
+        ),
+        "%s: Zone %s (~%s km)" % (_("Zone"), quote.zone, quote.distance_km),
+        "%s: %s" % (_("Urgency"), urgency),
+        "",
+        "%s: %.2f €" % (_("Prepayment"), quote.total_prepayment_eur),
+        str(
+            _(
+                "This amount is credited 100% against the final invoice once the work is carried out."
+            )
+        ),
+        "",
+    ]
+    bank = get_prepayment_bank_details()
+    if bank:
+        lines += [
+            str(_("Bank details for the prepayment:")),
+            "%s: %s" % (_("Recipient"), bank.account_holder),
+            "IBAN: %s" % bank.iban_display,
+        ]
+        if bank.bic:
+            lines.append("BIC: %s" % bank.bic)
+        lines.append("%s: %s" % (_("Payment reference"), ref))
+    else:
+        lines.append(
+            str(
+                _(
+                    "You will receive the bank details for the prepayment with the final appointment confirmation."
+                )
+            )
+        )
+    lines += [
+        "",
+        str(_("We will contact you shortly to confirm the exact appointment.")),
+        "",
+        str(_("Kind regards,")),
+        "Tom Aakrann",
+        "Arborist.lu",
+        "+352 621 981 363",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 @require_GET
 def api_calculate_zone(request):
     """
@@ -429,50 +492,9 @@ Admin Dashboard: https://arborist.lu/arborist-admin/arborist/arboristbooking/{bo
             except Exception as e:
                 logger.error("Failed to send booking notification to Tom: %s", e)
 
-            # Send client confirmation
-            bank = get_prepayment_bank_details()
-            if bank:
-                bank_lines = [
-                    "Bankverbindung für die Vorabpauschale / Virement bancaire:",
-                    f"Empfänger / Bénéficiaire: {bank.account_holder}",
-                    f"IBAN: {bank.iban_display}",
-                ]
-                if bank.bic:
-                    bank_lines.append(f"BIC: {bank.bic}")
-                bank_lines.append(f"Verwendungszweck / Communication: {ref}")
-            else:
-                bank_lines = [
-                    "Die Bankverbindung für die Vorabpauschale erhalten Sie mit der "
-                    "finalen Terminbestätigung.",
-                    "Les coordonnées bancaires vous seront communiquées avec la "
-                    "confirmation du rendez-vous.",
-                ]
-            bank_block = "\n".join(bank_lines)
-
+            # Send client confirmation, in the language the form was used in
             client_subject = f"Arborist.lu - {_('Booking Confirmation')} {ref}"
-            client_body = f"""Moien {booking_obj.name},
-
-Merci fir Är Buchung bei Arborist Tom Aakrann! / Vielen Dank für Ihre Terminanfrage!
-
-Buchungsreferenz / Référence: {ref}
-Service: {booking_obj.get_service_type_display()}
-Adresse: {booking_obj.street_address}, {booking_obj.postal_code} {booking_obj.city_or_commune}
-Zone: Zone {quote.zone} ({quote.zone_name})
-Dringlichkeit / Urgence: {'🚨 Rush Order (24-48h)' if booking_obj.is_rush else 'Standard'}
-
-Anfahrtspauschale / Acompte: {quote.total_prepayment_eur:.2f} €
-(Hinweis: Dieser Betrag wird bei Durchführung zu 100% mit der Gesamtrechnung verrechnet!)
-
-{bank_block}
-
-Mir kontaktéieren Iech kuerzfristeg fir den genauen Termin ze confirméieren.
-Wir melden uns in Kürze zur finalen Terminbestätigung.
-
-Mat frëndleche Gréiss / Best regards,
-Tom Aakrann
-Arborist.lu
-+352 621 981 363
-"""
+            client_body = _client_confirmation_body(booking_obj, quote)
             try:
                 send_domain_email(
                     subject=client_subject,

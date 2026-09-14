@@ -2516,3 +2516,100 @@ msgstr "Vormittags (08:00 - 12:00)"
 #: arborist/models.py:38
 msgid "Afternoon (12:00 - 17:00)"
 msgstr "Nachmittags (12:00 - 17:00)"
+
+#: arborist/templates/arborist/home.html:51
+msgid "100%% verrechenbar bei Auftrag"
+msgstr "100%% verrechenbar bei Auftrag"
+
+#: arborist/templates/arborist/home.html:54
+msgid "um Altrier & Junglinster"
+msgstr "um Altrier & Junglinster"
+
+#: arborist/templates/arborist/home.html:56
+msgid "Restl. Luxemburg"
+msgstr "Restl. Luxemburg"
+
+#: arborist/views.py:341
+msgid "Hello %(name)s,"
+msgstr "Guten Tag %(name)s,"
+
+#: arborist/views.py:343
+msgid "Thank you for your appointment request with Arborist Tom Aakrann!"
+msgstr "Vielen Dank für Ihre Terminanfrage bei Baumwart Tom Aakrann!"
+
+#: arborist/views.py:345
+msgid "Booking reference"
+msgstr "Buchungsreferenz"
+
+#: arborist/views.py:346
+msgid "Service"
+msgstr "Dienstleistung"
+
+#: arborist/views.py:349
+msgid "Address"
+msgstr "Adresse"
+
+#: arborist/views.py:354
+msgid "Zone"
+msgstr "Zone"
+
+#: arborist/views.py:355
+msgid "Urgency"
+msgstr "Dringlichkeit"
+
+#: arborist/views.py:339
+msgid "Rush Order (24-48h)"
+msgstr "Rush Order (24-48 Std.)"
+
+#: arborist/views.py:339
+msgid "Standard"
+msgstr "Standard"
+
+#: arborist/views.py:357
+msgid "Prepayment"
+msgstr "Vorabpauschale"
+
+#: arborist/views.py:359
+msgid ""
+"This amount is credited 100% against the final invoice once the work is "
+"carried out."
+msgstr ""
+"Dieser Betrag wird bei Durchführung der Arbeiten zu 100% mit der "
+"Gesamtrechnung verrechnet."
+
+#: arborist/views.py:368
+msgid "Bank details for the prepayment:"
+msgstr "Bankverbindung für die Vorabpauschale:"
+
+#: arborist/views.py:369
+msgid "Recipient"
+msgstr "Empfänger"
+
+#: arborist/views.py:374
+msgid "Payment reference"
+msgstr "Verwendungszweck"
+
+#: arborist/views.py:378
+msgid ""
+"You will receive the bank details for the prepayment with the final "
+"appointment confirmation."
+msgstr ""
+"Die Bankverbindung für die Vorabpauschale erhalten Sie mit der finalen "
+"Terminbestätigung."
+
+#: arborist/views.py:385
+msgid "We will contact you shortly to confirm the exact appointment."
+msgstr "Wir melden uns in Kürze, um den genauen Termin zu bestätigen."
+
+#: arborist/views.py:387
+msgid "Kind regards,"
+msgstr "Mit freundlichen Grüßen,"
+
+#: arborist/forms.py:229
+msgid ""
+"A Rush Order is scheduled within 24-48 hours: please choose a date within "
+"the next two days, or untick Rush Order."
+msgstr ""
+"Ein Rush Order wird innerhalb von 24-48 Stunden eingeplant: Bitte wählen Sie"
+" ein Datum innerhalb der nächsten zwei Tage oder deaktivieren Sie Rush "
+"Order."

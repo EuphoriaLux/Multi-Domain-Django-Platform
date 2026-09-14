@@ -2,13 +2,17 @@
 Forms for the Arborist application (arborist.lu).
 """
 
-from datetime import date
+from datetime import timedelta
 from django import forms
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .models import ArboristBooking
 from .services.zones import clean_postal_code as normalize_postal_code
 from .services.zones import is_valid_postal_code
+
+# A Rush Order's preferred date may be at most this many days after today.
+RUSH_WINDOW_DAYS = 2
 
 
 class LuxembourgPostalCodeMixin:
@@ -208,9 +212,25 @@ class BookingForm(LuxembourgPostalCodeMixin, forms.ModelForm):
 
     def clean_preferred_date(self):
         val = self.cleaned_data.get("preferred_date")
-        if val and val < date.today():
+        if val and val < timezone.localdate():
             raise forms.ValidationError(_("Preferred date cannot be in the past."))
         return val
+
+    def clean(self):
+        cleaned = super().clean()
+        preferred = cleaned.get("preferred_date")
+        # The rush surcharge buys a visit within 24-48 hours, so a rush booking
+        # may not ask for a later date (no date at all means "as soon as possible").
+        if cleaned.get("is_rush") and preferred:
+            latest = timezone.localdate() + timedelta(days=RUSH_WINDOW_DAYS)
+            if preferred > latest:
+                self.add_error(
+                    "preferred_date",
+                    _(
+                        "A Rush Order is scheduled within 24-48 hours: please choose a date within the next two days, or untick Rush Order."
+                    ),
+                )
+        return cleaned
 
 
 class ArboristBookingAdminForm(LuxembourgPostalCodeMixin, forms.ModelForm):

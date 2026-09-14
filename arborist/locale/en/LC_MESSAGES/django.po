@@ -2326,3 +2326,93 @@ msgstr ""
 #: arborist/models.py:38
 msgid "Afternoon (12:00 - 17:00)"
 msgstr ""
+
+#: arborist/templates/arborist/home.html:51
+msgid "100%% verrechenbar bei Auftrag"
+msgstr "100%% credited when you place the order"
+
+#: arborist/templates/arborist/home.html:54
+msgid "um Altrier & Junglinster"
+msgstr "around Altrier & Junglinster"
+
+#: arborist/templates/arborist/home.html:56
+msgid "Restl. Luxemburg"
+msgstr "rest of Luxembourg"
+
+#: arborist/views.py:341
+msgid "Hello %(name)s,"
+msgstr ""
+
+#: arborist/views.py:343
+msgid "Thank you for your appointment request with Arborist Tom Aakrann!"
+msgstr ""
+
+#: arborist/views.py:345
+msgid "Booking reference"
+msgstr ""
+
+#: arborist/views.py:346
+msgid "Service"
+msgstr ""
+
+#: arborist/views.py:349
+msgid "Address"
+msgstr ""
+
+#: arborist/views.py:354
+msgid "Zone"
+msgstr ""
+
+#: arborist/views.py:355
+msgid "Urgency"
+msgstr ""
+
+#: arborist/views.py:339
+msgid "Rush Order (24-48h)"
+msgstr ""
+
+#: arborist/views.py:339
+msgid "Standard"
+msgstr ""
+
+#: arborist/views.py:357
+msgid "Prepayment"
+msgstr ""
+
+#: arborist/views.py:359
+msgid ""
+"This amount is credited 100% against the final invoice once the work is "
+"carried out."
+msgstr ""
+
+#: arborist/views.py:368
+msgid "Bank details for the prepayment:"
+msgstr ""
+
+#: arborist/views.py:369
+msgid "Recipient"
+msgstr ""
+
+#: arborist/views.py:374
+msgid "Payment reference"
+msgstr ""
+
+#: arborist/views.py:378
+msgid ""
+"You will receive the bank details for the prepayment with the final "
+"appointment confirmation."
+msgstr ""
+
+#: arborist/views.py:385
+msgid "We will contact you shortly to confirm the exact appointment."
+msgstr ""
+
+#: arborist/views.py:387
+msgid "Kind regards,"
+msgstr ""
+
+#: arborist/forms.py:229
+msgid ""
+"A Rush Order is scheduled within 24-48 hours: please choose a date within "
+"the next two days, or untick Rush Order."
+msgstr ""

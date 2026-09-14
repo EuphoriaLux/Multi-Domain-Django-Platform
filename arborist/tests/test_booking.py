@@ -3,12 +3,14 @@ Tests for the arborist.lu booking flow: zone pricing, the booking form and
 views, the receipt page, bank details, WhatsApp links and admin re-pricing.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.test import Client, RequestFactory, TestCase, override_settings
+from django.utils import timezone
 
 from arborist.admin import ArboristBookingAdmin, arborist_admin_site
 from arborist.forms import BookingForm
@@ -51,7 +53,7 @@ class ArboristClientTestCase(TestCase):
 
     def book(self, **overrides):
         """Submit the public booking form; return the stored booking."""
-        response = self.client.post("/en/booking/", data={**BOOKING_POST, **overrides})
+        response = self.client.post("/en/termin/", data={**BOOKING_POST, **overrides})
         self.assertEqual(response.status_code, 302)
         return ArboristBooking.objects.latest("created_at")
 
@@ -150,28 +152,53 @@ class PostalCodeTests(TestCase):
         self.assertEqual(form.cleaned_data["postal_code"], "6211")
 
 
+class RushWindowTests(TestCase):
+    """The rush surcharge buys a visit within 24-48 hours, so a rush booking
+    may not ask for a later date."""
+
+    def form(self, **overrides):
+        return BookingForm(data={**BOOKING_POST, **overrides})
+
+    def in_days(self, days):
+        return (timezone.localdate() + timedelta(days=days)).isoformat()
+
+    def test_rush_date_must_be_within_two_days(self):
+        form = self.form(is_rush="on", preferred_date=self.in_days(5))
+        self.assertFalse(form.is_valid())
+        self.assertIn("preferred_date", form.errors)
+        for days in (0, 1, 2):
+            form = self.form(is_rush="on", preferred_date=self.in_days(days))
+            self.assertTrue(form.is_valid(), (days, form.errors))
+
+    def test_rush_without_a_date_means_as_soon_as_possible(self):
+        self.assertTrue(self.form(is_rush="on").is_valid())
+
+    def test_standard_booking_may_be_weeks_away(self):
+        self.assertTrue(self.form(preferred_date=self.in_days(30)).is_valid())
+
+
 class BookingFlowTests(ArboristClientTestCase):
     def test_booking_page_get(self):
-        response = self.client.get("/en/booking/")
+        response = self.client.get("/en/termin/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "arborist/booking.html")
 
     def test_booking_page_preselected_service(self):
-        response = self.client.get("/en/booking/?service=obstbaumpflege")
+        response = self.client.get("/en/termin/?service=obstbaumpflege")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'value="obstbaumpflege" selected')
 
     def test_unknown_service_param_is_ignored(self):
-        response = self.client.get("/en/booking/?service=bogus")
+        response = self.client.get("/en/termin/?service=bogus")
         self.assertNotIn("service_type", response.context["form"].initial)
 
     def test_rush_cta_preselects_the_rush_box(self):
-        response = self.client.get("/en/booking/?service=notdienst&rush=1")
+        response = self.client.get("/en/termin/?service=notdienst&rush=1")
         self.assertContains(response, 'value="notdienst" selected')
         self.assertTrue(response.context["form"]["is_rush"].value())
 
     def test_emergency_service_link_preselects_the_rush_box(self):
-        response = self.client.get("/en/booking/?service=notdienst")
+        response = self.client.get("/en/termin/?service=notdienst")
         self.assertTrue(response.context["form"]["is_rush"].value())
 
     def test_home_rush_cta_asks_for_rush(self):
@@ -199,7 +226,7 @@ class BookingFlowTests(ArboristClientTestCase):
             self.assertEqual(response.status_code, 400, code)
 
     def test_booking_submission_creates_model_and_redirects(self):
-        response = self.client.post("/en/booking/", data=BOOKING_POST)
+        response = self.client.post("/en/termin/", data=BOOKING_POST)
         self.assertEqual(response.status_code, 302)
 
         booking = ArboristBooking.objects.get(email="tom.test@example.lu")
@@ -229,20 +256,32 @@ class BookingFlowTests(ArboristClientTestCase):
 
     def test_no_flash_message_leaks_to_the_next_page(self):
         self.book()
-        response = self.client.get("/en/booking/")
+        response = self.client.get("/en/termin/")
         self.assertEqual(list(response.context["messages"]), [])
 
-    def test_multilingual_booking_routes(self):
-        for path in ["/en/booking/", "/de/termin/", "/fr/rendez-vous/"]:
-            response = self.client.get(path)
-            self.assertEqual(response.status_code, 200, path)
+    def test_booking_page_is_served_in_every_language(self):
+        for path, text in [
+            ("/en/termin/", "Postal code (4 digits)"),
+            ("/fr/termin/", "Code postal (4 chiffres)"),
+            ("/de/termin/", "Postleitzahl (4-stellig)"),
+        ]:
+            self.assertContains(self.client.get(path), text, msg_prefix=path)
 
-    def test_booking_page_is_translated(self):
-        self.assertContains(self.client.get("/en/booking/"), "Postal code (4 digits)")
-        self.assertContains(
-            self.client.get("/fr/rendez-vous/"), "Code postal (4 chiffres)"
-        )
-        self.assertContains(self.client.get("/de/termin/"), "Postleitzahl (4-stellig)")
+    def test_alias_slugs_redirect_with_the_query_string(self):
+        for alias, target in [
+            (
+                "/en/booking/?service=notdienst&rush=1",
+                "/en/termin/?service=notdienst&rush=1",
+            ),
+            ("/fr/rendez-vous/", "/fr/termin/"),
+        ]:
+            response = self.client.get(alias)
+            self.assertEqual(response.status_code, 301, alias)
+            self.assertEqual(response["Location"], target, alias)
+
+    def test_home_zone_teaser_is_translated(self):
+        self.assertContains(self.client.get("/en/"), "rest of Luxembourg")
+        self.assertContains(self.client.get("/fr/"), "reste du Luxembourg")
 
 
 class ReceiptPageTests(ArboristClientTestCase):
@@ -271,7 +310,7 @@ class ReceiptPageTests(ArboristClientTestCase):
         self.assertNotContains(response, "IBAN")
         body = self.client_mail(booking).body
         self.assertNotIn("IBAN", body)
-        self.assertIn("Bankverbindung für die Vorabpauschale erhalten Sie", body)
+        self.assertIn("You will receive the bank details for the prepayment", body)
 
     @override_settings(
         ARBORIST_PREPAYMENT_IBAN=VALID_TEST_IBAN, ARBORIST_PREPAYMENT_BIC="bceelull"
@@ -283,9 +322,21 @@ class ReceiptPageTests(ArboristClientTestCase):
         self.assertContains(response, "BCEELULL")
         body = self.client_mail(booking).body
         self.assertIn(f"IBAN: {VALID_TEST_IBAN}", body)
-        self.assertIn(
-            f"Verwendungszweck / Communication: {booking.booking_reference}", body
+        self.assertIn(f"Payment reference: {booking.booking_reference}", body)
+
+    def test_confirmation_email_follows_the_form_language(self):
+        booking = self.book()  # the /en/ form
+        self.assertIn("Hello Tom Test,", self.client_mail(booking).body)
+
+        response = self.client.post(
+            "/fr/termin/", data={**BOOKING_POST, "email": "fr@example.lu"}
         )
+        self.assertEqual(response.status_code, 302)
+        french = next(m for m in mail.outbox if "fr@example.lu" in m.to)
+        self.assertIn("Confirmation de réservation", french.subject)
+        self.assertIn("Bonjour Tom Test,", french.body)
+        self.assertIn("Référence de réservation", french.body)
+        self.assertNotIn("Moien", french.body)
 
     @override_settings(ARBORIST_PREPAYMENT_IBAN=PLACEHOLDER_IBAN)
     def test_invalid_iban_is_never_published(self):
