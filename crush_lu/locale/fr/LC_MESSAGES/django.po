@@ -42165,3 +42165,26 @@ msgstr "Nom du lieu"
 
 msgid "e.g. 18:30"
 msgstr "par ex. 18 h 30"
+
+msgid ""
+"Your Connect profile is currently hidden. Check your readiness details "
+"below."
+msgstr ""
+"Votre profil Connect est actuellement masqué. Vérifiez ci-dessous les "
+"conditions à remplir."
+
+msgid ""
+"Your card can show your photo, first name, age range, languages, selected "
+"interests and question text. Coach's Pick also shows your relationship goal "
+"and lifestyle. Your answers and matching preferences remain private."
+msgstr ""
+"Votre carte peut afficher votre photo, votre prénom, votre tranche d'âge, "
+"vos langues, certains centres d'intérêt et le texte de vos questions. "
+"Coach's Pick affiche aussi votre objectif relationnel et votre mode de vie. "
+"Vos réponses et vos préférences de compatibilité restent privées."
+
+msgid "Also visible in Coach's Pick"
+msgstr "Également visible dans Coach's Pick"
+
+msgid "Public questions; private answers"
+msgstr "Questions publiques ; réponses privées"

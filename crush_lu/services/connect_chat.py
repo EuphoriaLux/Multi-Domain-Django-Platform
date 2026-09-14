@@ -60,6 +60,7 @@ REPORT_DETAILS_MAX_LENGTH = 2000
 # ---------------------------------------------------------------------------
 
 
+@transaction.atomic
 def sync_chat_state(chat):
     """Advance a chat's lifecycle to "now" — sync-on-read, mirrors
     ``connect_cycle.sync_session_state`` / ``sync_request_state``.
@@ -77,6 +78,9 @@ def sync_chat_state(chat):
     from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
     from crush_lu.services.blocking import is_blocked_pair
 
+    # Polling may hold an object read before a concurrent send extended expiry.
+    # Use the same row lock as sends before deciding any terminal transition.
+    chat.refresh_from_db(from_queryset=ConnectTemporaryChat.objects.select_for_update())
     Status = ConnectTemporaryChat.Status
     if chat.status in (Status.CLOSED, Status.BLOCKED):
         return chat

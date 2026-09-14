@@ -43,6 +43,43 @@ ONBOARDING_URL = "/en/crush-connect/onboarding/"
 PROFILE_EDIT_URL = "/en/crush-connect/profile/"
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize("onboarded", [False, True])
+def test_invalid_connect_forms_retain_unsaved_state(client, settings, onboarded):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="invalid_form", onboarded=onboarded)
+    _login_eligible(client, me)
+    url = PROFILE_EDIT_URL + "?section=intention" if onboarded else _step_url(1)
+    clean = client.get(url)
+    assert b'data-initial-dirty="false"' in clean.content
+    rejected = client.post(
+        url, {"relationship_goal": "invalid", "section": "intention"}
+    )
+    assert rejected.status_code == 200
+    assert b'data-initial-dirty="true"' in rejected.content
+    assert me.crush_connect_membership.relationship_goal != "invalid"
+
+
+@pytest.mark.django_db
+def test_profile_preview_and_section_labels_disclose_public_fields(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="privacy_labels")
+    membership = me.crush_connect_membership
+    membership.relationship_goal = "serious"
+    membership.save(update_fields=["relationship_goal"])
+    _login_eligible(client, me)
+    response = client.get(PROFILE_EDIT_URL)
+    body = response.content.decode()
+    assert body.count("Includes public card content") == 3
+    assert body.count("Private preferences and answers") == 3
+    assert "Public questions; private answers" in body
+    assert (
+        "Also visible in Coach&#x27;s Pick" in body
+        or "Also visible in Coach's Pick" in body
+    )
+    assert membership.get_relationship_goal_display() in body
+
+
 def _step_url(step):
     return f"/en/crush-connect/onboarding/{step}/"
 
@@ -603,6 +640,11 @@ def test_attended_member_completion_redirects_to_connect_week(
     assert resp.status_code in (301, 302)
     assert "/crush-connect/week/" in resp.url
     assert len(mailoutbox) == 0
+    from django.contrib.messages import get_messages
+
+    completion_messages = list(get_messages(resp.wsgi_request))
+    assert len(completion_messages) == 1
+    assert "You are now visible" in str(completion_messages[0])
 
 
 @pytest.mark.django_db

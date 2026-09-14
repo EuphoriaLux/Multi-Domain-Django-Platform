@@ -309,10 +309,8 @@ def _message_json(message, user):
 @require_GET
 def connect_chat_messages(request, chat_id):
     chat = sync_chat_state(_get_participant_chat(request.user, chat_id))
-    if not chat_is_open(chat):
-        return JsonResponse(
-            {"error": str(_("This conversation has ended."))}, status=410
-        )
+    # Preserve participants' read-only history after closure. Sending and read
+    # acknowledgements keep their separate open-chat gates.
     try:
         after = int(request.GET.get("after", 0))
         before = int(request.GET.get("before", 0))
@@ -329,6 +327,7 @@ def connect_chat_messages(request, chat_id):
         rows = list(reversed(list(queryset.order_by("-pk")[:50])))
     return JsonResponse(
         {
+            "is_open": chat_is_open(chat),
             "messages": [_message_json(row, request.user) for row in rows],
             "has_older": bool(
                 rows and chat.messages.filter(pk__lt=rows[0].pk).exists()

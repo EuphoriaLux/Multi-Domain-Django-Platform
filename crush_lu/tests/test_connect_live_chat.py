@@ -5,7 +5,11 @@ import pytest
 from django.utils import timezone
 
 from crush_lu.models import ConnectChatMessage, ConnectTemporaryChat
-from crush_lu.services.connect_chat import block_chat_partner, send_message
+from crush_lu.services.connect_chat import (
+    block_chat_partner,
+    send_message,
+    sync_chat_state,
+)
 from crush_lu.services.connect_summary import get_connect_summary
 from crush_lu.tests.test_connect_chat_flows import CHATS_URL, _make_open_chat
 from crush_lu.tests.test_crush_connect import _login_eligible, _make_user
@@ -68,7 +72,7 @@ def test_history_is_bounded_and_cursor_retrieves_older_messages(client):
 
 
 @pytest.mark.parametrize("blocked", [True, False])
-def test_open_tab_cannot_poll_ack_or_send_after_block_or_expiry(client, blocked):
+def test_terminal_chat_preserves_history_but_rejects_ack_and_send(client, blocked):
     me, peer, chat = _make_open_chat()
     message = send_message(chat, peer, "Before")
     _login_eligible(client, me)
@@ -79,7 +83,10 @@ def test_open_tab_cannot_poll_ack_or_send_after_block_or_expiry(client, blocked)
             expires_at=timezone.now() - timedelta(seconds=1)
         )
     url = f"{CHATS_URL}{chat.pk}/"
-    assert client.get(url + "messages/").status_code == 410
+    history = client.get(url + "messages/")
+    assert history.status_code == 200
+    assert history.json()["is_open"] is False
+    assert [row["id"] for row in history.json()["messages"]] == [message.pk]
     assert client.post(url + "read/", {"message_ids": [message.pk]}).status_code == 410
     assert (
         client.post(
@@ -88,6 +95,72 @@ def test_open_tab_cannot_poll_ack_or_send_after_block_or_expiry(client, blocked)
         == 409
     )
     assert chat.messages.count() == 1
+
+
+@pytest.mark.parametrize("blocked", [True, False])
+def test_terminal_chat_can_load_more_than_fifty_messages(client, blocked):
+    me, peer, chat = _make_open_chat()
+    ConnectChatMessage.objects.bulk_create(
+        [ConnectChatMessage(chat=chat, sender=peer, message=str(i)) for i in range(65)]
+    )
+    if blocked:
+        block_chat_partner(chat, peer)
+    else:
+        ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+    _login_eligible(client, me)
+    url = f"{CHATS_URL}{chat.pk}/messages/"
+    recent = client.get(url).json()
+    older = client.get(url, {"before": recent["messages"][0]["id"]}).json()
+    assert len(recent["messages"]) == 50
+    assert len(older["messages"]) == 15
+    assert recent["is_open"] is older["is_open"] is False
+    assert not older["has_older"]
+
+
+def test_stale_poll_does_not_close_chat_after_concurrent_expiry_extension():
+    from unittest.mock import patch
+
+    _, _, chat = _make_open_chat()
+    stale_expiry = timezone.now() - timedelta(seconds=1)
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(expires_at=stale_expiry)
+    chat.refresh_from_db()
+    extended = timezone.now() + timedelta(days=7)
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(expires_at=extended)
+    manager = ConnectTemporaryChat.objects
+    with patch.object(
+        manager, "select_for_update", wraps=manager.select_for_update
+    ) as lock:
+        synced = sync_chat_state(chat)
+    lock.assert_called_once()
+    assert synced.status == ConnectTemporaryChat.Status.ACTIVE
+    assert synced.expires_at == extended
+    synced.refresh_from_db()
+    assert synced.status == ConnectTemporaryChat.Status.ACTIVE
+
+
+@pytest.mark.parametrize("participant", ["viewer", "peer"])
+@pytest.mark.parametrize("unavailable", ["excluded", "inactive", "membership_removed"])
+def test_unavailable_participants_cannot_expose_list_previews(
+    client, participant, unavailable
+):
+    me, peer, chat = _make_open_chat()
+    send_message(chat, peer, "Private preview must be hidden")
+    member = me if participant == "viewer" else peer
+    if unavailable == "excluded":
+        membership = member.crush_connect_membership
+        membership.excluded_by_coach = True
+        membership.save(update_fields=["excluded_by_coach"])
+    elif unavailable == "inactive":
+        member.crushprofile.is_active = False
+        member.crushprofile.save(update_fields=["is_active"])
+    else:
+        member.crush_connect_membership.delete()
+    _login_eligible(client, me)
+    response = client.get(CHATS_URL)
+    assert b"Private preview must be hidden" not in response.content
+    assert client.get(f"{CHATS_URL}{chat.pk}/messages/").status_code == 404
 
 
 def test_stranger_cannot_read_or_ack(client):

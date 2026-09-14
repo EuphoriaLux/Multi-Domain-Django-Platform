@@ -60,7 +60,7 @@
     </div>
 
     <a data-exit href="{% url 'crush_lu:crush_connect_hub' %}" class="inline-flex py-3 text-sm">{% trans "Exit for now" %}</a>
-    <form data-connect-form data-unsaved="{% trans 'Leave this step? Your completed steps are saved. Unsaved changes on this step will be discarded.' %}" method="post" id="connectOnboardingForm" novalidate>
+    <form data-connect-form data-initial-dirty="{{ form.is_bound|yesno:'true,false' }}" data-unsaved="{% trans 'Leave this step? Your completed steps are saved. Unsaved changes on this step will be discarded.' %}" method="post" id="connectOnboardingForm" novalidate>
         {% csrf_token %}
 
         {% include 'crush_lu/crush_connect/_validation_summary.html' %}

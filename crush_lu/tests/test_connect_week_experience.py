@@ -97,6 +97,35 @@ def _answer_all(card):
     return record_card_answer(card, guesses)
 
 
+@pytest.mark.django_db
+def test_inbox_profile_interests_are_prefetched(settings, django_assert_num_queries):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    recipient = _make_cycle_user("inbox_recipient", gender="F")
+    for index in range(3):
+        sender = _make_cycle_user(f"inbox_sender_{index}")
+        session, card = _reviewable_session_with_card(sender, recipient)
+        send_weekly_request(session, sender, recipient)
+    requests = get_pending_inbox(recipient)
+    assert len(requests) == 3
+    with django_assert_num_queries(0):
+        for pending in requests:
+            list(pending.requester.crush_connect_membership.interests.all())
+
+
+@pytest.mark.django_db
+def test_review_confirmation_uses_member_name_fallback(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_cycle_user("review_viewer")
+    target = _make_cycle_user("unnamed", gender="F")
+    target.first_name = ""
+    target.save(update_fields=["first_name"])
+    _reviewable_session_with_card(member, target)
+    _login_eligible(client, member)
+    body = client.get(WEEK_REVIEW_URL).content.decode()
+    assert "Choose A member" in body
+    assert "Send your one weekly request to A member?" in body
+
+
 # ---------------------------------------------------------------------------
 # Eligible pool
 # ---------------------------------------------------------------------------

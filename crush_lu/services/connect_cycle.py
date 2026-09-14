@@ -737,6 +737,7 @@ def get_pending_inbox(user):
             "requester__crush_connect_membership",
             "target_card",
         )
+        .prefetch_related("requester__crush_connect_membership__interests")
         .order_by("-sent_at")
     )
     fresh = [sync_request_state(r) for r in candidates]

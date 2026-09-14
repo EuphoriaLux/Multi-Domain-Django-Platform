@@ -16,7 +16,7 @@
         </a>
     </header>
 
-    <form data-connect-form data-unsaved="{% trans 'Leave without saving your changes?' %}" method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
+    <form data-connect-form data-initial-dirty="{{ form.is_bound|yesno:'true,false' }}" data-unsaved="{% trans 'Leave without saving your changes?' %}" method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
           {% if cfg.key == "lifestyle" %}class="connect-lifestyle-profile"{% endif %}
           novalidate>
         {% csrf_token %}
@@ -49,7 +49,7 @@
             {% trans "Your Connect profile" %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-            {% trans "Your public card shows your photo, first name, age range, languages and selected interests. Your answers and matching preferences remain private." %}
+            {% trans "Your card can show your photo, first name, age range, languages, selected interests and question text. Coach's Pick also shows your relationship goal and lifestyle. Your answers and matching preferences remain private." %}
         </p>
     </header>
 
@@ -57,6 +57,13 @@
         {% include 'crush_lu/crush_connect/_permitted_profile.html' with target=user target_profile=user.crushprofile target_membership=membership %}
         <p class="text-sm">{% trans "Your three questions are visible; your answers are private." %}</p>
         {% for question in membership.active_gate_questions %}<p>{{ question.question.text }}</p>{% endfor %}
+        <h2 class="mt-4 text-lg">{% trans "Also visible in Coach's Pick" %}</h2>
+        <p>{{ membership.get_relationship_goal_display }}</p>
+        <ul>
+            {% if membership.lifestyle_energy %}<li>{{ membership.get_lifestyle_energy_display }}</li>{% endif %}
+            {% if membership.lifestyle_social %}<li>{{ membership.get_lifestyle_social_display }}</li>{% endif %}
+            {% if membership.lifestyle_pace %}<li>{{ membership.get_lifestyle_pace_display }}</li>{% endif %}
+        </ul>
     </details>
     <div class="space-y-3">
         {% for sec in index_sections %}
@@ -67,7 +74,7 @@
                     <span class="text-xl">{{ sec.emoji }}</span>
                 </div>
                 <div class="min-w-0">
-                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}<span class="block text-xs text-gray-500">{% if sec.cfg.key == 'languages' %}{% trans "Includes public card content" %}{% else %}{% trans "Private preferences and answers" %}{% endif %}</span></div>
+                    <div class="font-medium text-gray-900 dark:text-white">{{ sec.cfg.title }}<span class="block text-xs text-gray-500">{% if sec.cfg.key == 'questions' %}{% trans "Public questions; private answers" %}{% elif sec.cfg.key == 'languages' or sec.cfg.key == 'intention' or sec.cfg.key == 'lifestyle' %}{% trans "Includes public card content" %}{% else %}{% trans "Private preferences and answers" %}{% endif %}</span></div>
                     <div class="text-sm text-gray-500 dark:text-gray-400 truncate">
                         {% if sec.summary %}{{ sec.summary }}{% else %}{% trans "Not set yet" %}{% endif %}
                     </div>
