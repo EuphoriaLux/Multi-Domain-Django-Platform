@@ -147,7 +147,7 @@ def list_messages(chat):
     return list(chat.messages.select_related("sender").order_by("sent_at"))
 
 
-def send_message(chat, sender, text):
+def send_message(chat, sender, text, client_submission_id=None):
     """Post a message and roll the 7-day inactivity window forward.
 
     Raises ``ValueError``: ``not_participant`` if ``sender`` isn't in the
@@ -181,9 +181,25 @@ def send_message(chat, sender, text):
         raise ValueError("empty_message")
 
     with transaction.atomic():
-        message = ConnectChatMessage.objects.create(
-            chat=chat, sender=sender, message=body
+        # Serialize this chat's sends, including duplicate retries, on PostgreSQL.
+        chat = sync_chat_state(
+            ConnectTemporaryChat.objects.select_for_update().get(pk=chat.pk)
         )
+        if not chat_is_open(chat):
+            raise ValueError("chat_closed")
+        if client_submission_id:
+            message, created = ConnectChatMessage.objects.get_or_create(
+                chat=chat,
+                sender=sender,
+                client_submission_id=client_submission_id,
+                defaults={"message": body},
+            )
+            if not created:
+                return message
+        else:
+            message = ConnectChatMessage.objects.create(
+                chat=chat, sender=sender, message=body
+            )
         if chat.status in (
             ConnectTemporaryChat.Status.ACTIVE,
             ConnectTemporaryChat.Status.MEETING_SCHEDULED,

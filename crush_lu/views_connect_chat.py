@@ -10,6 +10,10 @@ docstring for the scope notes (rolling inactivity timer, block choke point,
 ``ConnectReport`` reuse).
 """
 
+from uuid import UUID
+
+from django.http import JsonResponse, Http404
+from django.views.decorators.http import require_GET, require_POST
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -26,7 +30,6 @@ from crush_lu.services.connect_chat import (
     chat_is_open,
     confirm_meeting,
     get_partner_venues,
-    list_messages,
     propose_venue,
     send_message,
     sync_chat_state,
@@ -36,7 +39,7 @@ from crush_lu.services.connect_chat import (
 def _get_participant_chat(user, chat_id):
     """A chat the user is actually a participant of, or 404 — a stranger
     guessing another pair's chat id must never see or act on it."""
-    return get_object_or_404(
+    chat = get_object_or_404(
         ConnectTemporaryChat.objects.select_related(
             "participant_1__crushprofile",
             "participant_2__crushprofile",
@@ -45,6 +48,17 @@ def _get_participant_chat(user, chat_id):
         Q(participant_1=user) | Q(participant_2=user),
         pk=chat_id,
     )
+    for member in (chat.participant_1, chat.participant_2):
+        membership = getattr(member, "crush_connect_membership", None)
+        profile = getattr(member, "crushprofile", None)
+        if (
+            not member.is_active
+            or not profile
+            or not profile.is_active
+            or (membership and membership.excluded_by_coach)
+        ):
+            raise Http404
+    return chat
 
 
 @crush_login_required
@@ -67,6 +81,14 @@ def connect_week_chats(request):
     ):
         chat = sync_chat_state(chat)
         chat.partner = chat.get_other_participant(user)
+        chat.latest_message = (
+            chat.messages.order_by("-pk").first() if chat_is_open(chat) else None
+        )
+        chat.unread_count = (
+            chat.messages.filter(read_at__isnull=True).exclude(sender=user).count()
+            if chat_is_open(chat)
+            else 0
+        )
         chats.append(chat)
     return render(request, "crush_lu/crush_connect/week_chats.html", {"chats": chats})
 
@@ -100,7 +122,9 @@ def connect_week_chat_detail(request, chat_id: int):
     context = {
         "chat": chat,
         "partner": partner,
-        "chat_messages": list_messages(chat),
+        "chat_messages": list(
+            reversed(list(chat.messages.select_related("sender").order_by("-pk")[:50]))
+        ),
         "coffee_date": coffee_date,
         "is_proposer": is_proposer,
         "my_confirmed_at": my_confirmed_at,
@@ -122,13 +146,25 @@ def connect_week_chat_send(request, chat_id: int):
     user = request.user
     chat = _get_participant_chat(user, chat_id)
     try:
-        send_message(chat, user, request.POST.get("message", ""))
+        raw_id = request.POST.get("client_submission_id")
+        try:
+            submission_id = UUID(raw_id) if raw_id else None
+        except (ValueError, TypeError):
+            raise ValueError("invalid_submission_id") from None
+        message = send_message(
+            chat, user, request.POST.get("message", ""), submission_id
+        )
+        if request.headers.get("Accept") == "application/json":
+            return JsonResponse({"message": _message_json(message, user)})
     except ValueError as exc:
         reasons = {
             "chat_closed": _("This conversation has ended."),
             "empty_message": _("Write something first."),
         }
-        messages.info(request, reasons.get(str(exc), _("Couldn't send that message.")))
+        error = reasons.get(str(exc), _("Couldn't send that message."))
+        if request.headers.get("Accept") == "application/json":
+            return JsonResponse({"error": str(error)}, status=409)
+        messages.info(request, error)
     return redirect("crush_lu:connect_week_chat_detail", chat_id=chat_id)
 
 
@@ -247,3 +283,88 @@ def connect_week_chat_block(request, chat_id: int):
             ),
         )
     return redirect("crush_lu:connect_week_chats")
+
+
+def _message_json(message, user):
+    # Deliberate allowlist: no read receipts, private answers, or model dumps.
+    return {
+        "id": message.pk,
+        "text": message.message,
+        "mine": message.sender_id == user.pk,
+        "sent_at": message.sent_at.isoformat(),
+    }
+
+
+@crush_login_required
+@require_GET
+def connect_chat_messages(request, chat_id):
+    chat = sync_chat_state(_get_participant_chat(request.user, chat_id))
+    if not chat_is_open(chat):
+        return JsonResponse(
+            {"error": str(_("This conversation has ended."))}, status=410
+        )
+    try:
+        after = int(request.GET.get("after", 0))
+        before = int(request.GET.get("before", 0))
+        if min(after, before) < 0 or (after and before):
+            raise ValueError
+    except ValueError:
+        return JsonResponse({"error": "invalid_cursor"}, status=400)
+    queryset = chat.messages.all()
+    if after:
+        rows = list(queryset.filter(pk__gt=after).order_by("pk")[:50])
+    else:
+        if before:
+            queryset = queryset.filter(pk__lt=before)
+        rows = list(reversed(list(queryset.order_by("-pk")[:50])))
+    return JsonResponse(
+        {
+            "messages": [_message_json(row, request.user) for row in rows],
+            "has_older": bool(
+                rows and chat.messages.filter(pk__lt=rows[0].pk).exists()
+            ),
+            "has_more": bool(
+                rows and chat.messages.filter(pk__gt=rows[-1].pk).exists()
+            ),
+        }
+    )
+
+
+@crush_login_required
+@require_POST
+def connect_chat_read(request, chat_id):
+    chat = sync_chat_state(_get_participant_chat(request.user, chat_id))
+    if not chat_is_open(chat):
+        return JsonResponse(
+            {"error": str(_("This conversation has ended."))}, status=410
+        )
+    try:
+        ids = [int(value) for value in request.POST.getlist("message_ids")]
+        if len(ids) > 100 or any(value < 1 for value in ids):
+            raise ValueError
+    except ValueError:
+        return JsonResponse({"error": "invalid_message_ids"}, status=400)
+    chat.messages.filter(pk__in=ids, read_at__isnull=True).exclude(
+        sender=request.user
+    ).update(read_at=timezone.now())
+    return JsonResponse({"ok": True})
+
+
+@crush_login_required
+@require_GET
+def connect_summary_json(request):
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    summary = get_connect_summary(request.user)
+    return JsonResponse(
+        {
+            key: summary[key]
+            for key in (
+                "pending_requests",
+                "unread_chats",
+                "chat_count",
+                "daily_total",
+                "daily_completed",
+            )
+        }
+    )

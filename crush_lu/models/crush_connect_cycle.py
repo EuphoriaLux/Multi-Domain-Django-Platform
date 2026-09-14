@@ -312,9 +312,14 @@ class ConnectChatMessage(models.Model):
     message = models.TextField(max_length=1000)
     sent_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    client_submission_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
         ordering = ["sent_at"]
+        constraints = [models.UniqueConstraint(
+            fields=["chat", "sender", "client_submission_id"],
+            name="connect_message_submission_unique",
+        )]
         verbose_name = _("Connect Chat Message")
         verbose_name_plural = _("Connect Chat Messages")
 
