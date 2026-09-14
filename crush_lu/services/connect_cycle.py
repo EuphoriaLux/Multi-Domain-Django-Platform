@@ -278,7 +278,7 @@ def _expire_incomplete_cards(session, up_to_day: int) -> None:
     ).update(is_expired=True)
 
 
-def _compute_compatibility_highlight(session):
+def _compute_compatibility_highlight(session, completed=None):
     """Pick the session's one "Passt besonders gut zu dir" profile among its
     completed cards: highest cached Ideal-Crush ``MatchScore`` (neutral 0.5
     fallback, mirroring ``services.crush_connect._weight_for``), tie-broken
@@ -288,15 +288,8 @@ def _compute_compatibility_highlight(session):
     from crush_lu.models import MatchScore
     from crush_lu.services.crush_connect import MATCHSCORE_NEUTRAL
 
-    completed = list(
-        session.cards.filter(
-            is_completed=True,
-            target_user__is_active=True,
-            target_user__crushprofile__is_active=True,
-            target_user__crush_connect_membership__paused_at__isnull=True,
-            target_user__crush_connect_membership__excluded_by_coach=False,
-        ).select_related("target_user")
-    )
+    if completed is None:
+        completed = get_review_cards(session)
     if not completed:
         return None
 
@@ -325,6 +318,19 @@ def _compute_compatibility_highlight(session):
 
     ranked = sorted(completed, key=sort_key)
     return ranked[0].target_user
+
+
+def refresh_compatibility_highlight(session, visible_cards):
+    """Keep the weekly highlight stable while visible, replacing stale targets."""
+    if session.compatibility_highlight_user_id in {
+        card.target_user_id for card in visible_cards
+    }:
+        return
+    highlight = _compute_compatibility_highlight(session, completed=visible_cards)
+    highlight_id = highlight.pk if highlight else None
+    if session.compatibility_highlight_user_id != highlight_id:
+        session.compatibility_highlight_user_id = highlight_id
+        session.save(update_fields=["compatibility_highlight_user"])
 
 
 def sync_session_state(session):

@@ -41,6 +41,7 @@ from crush_lu.services.connect_cycle import (
     sync_request_state,
     sync_session_state,
     visible_cycle_cards,
+    refresh_compatibility_highlight,
 )
 
 User = get_user_model()
@@ -232,6 +233,7 @@ def connect_week_review(request):
         return redirect("crush_lu:connect_week_home")
 
     cards = get_review_cards(session)
+    refresh_compatibility_highlight(session, cards)
 
     # Resolve display text from the STORED guesses (answers_json), never from
     # the target's current CrushConnectMembership.active_gate_questions —
