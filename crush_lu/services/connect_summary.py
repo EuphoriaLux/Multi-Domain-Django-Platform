@@ -37,6 +37,8 @@ def get_connect_summary(user):
         participant_2__is_active=True,
         participant_1__crushprofile__is_active=True,
         participant_2__crushprofile__is_active=True,
+        participant_1__crush_connect_membership__onboarded_at__isnull=False,
+        participant_2__crush_connect_membership__onboarded_at__isnull=False,
     ).exclude(
         Q(status__in=["closed", "blocked"])
         | Q(participant_1_id__in=blocked)
