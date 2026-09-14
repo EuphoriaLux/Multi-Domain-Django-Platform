@@ -14,6 +14,27 @@ The PRs are stacked: merge and validate them in order. Final staging/device vali
 
 ## Local evidence
 
+### Final review corrections
+
+Five further findings were addressed on their owning branches and merged forward:
+
+- **#984:** pending-request counts now use the inbox's live phase, eligibility
+  and pause gates. Hidden counts do not cancel pending requests. The German lobby
+  action now reads "Ich möchte dich kennenlernen".
+- **#987:** privacy explanations distinguish other members from coaches, who can
+  inspect answers, life situation and family preferences for curation. The same
+  explanation appears in the public experience page in phase 5. Non-field errors
+  render once in the shared validation summary. Work and education use the
+  canonical select component with its light/dark chevron treatment.
+
+The latest combined suite passed **395 tests**. The owning hub branch passed 16
+tests; the onboarding and hub suite passed 73. Six additional mobile checks passed:
+EN/DE/FR coach-visibility disclosures, light/dark selects, and a single question
+validation error. Updated screenshots are in the review corrections gallery.
+Django checks, migration drift, focused Ruff, affected-template design-token lint,
+Crush-only CSS build and whitespace checks passed. Merged catalogues parsed and
+compiled with both changes retained and no new duplicate translation entries.
+
 ### Second review corrections
 
 Six subsequent findings have corresponding fixes, propagated through the stack:
