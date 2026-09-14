@@ -1,6 +1,6 @@
 # Crush Connect mobile implementation — validation handoff
 
-Implemented on the latest verified base `68810bb8`, in five sequential draft PRs.
+Implemented on the verified base `68810bb8`, in five sequential PRs.
 
 | Phase | Branch | Result |
 | --- | --- | --- |
@@ -10,9 +10,35 @@ Implemented on the latest verified base `68810bb8`, in five sequential draft PRs
 | 4 | `codex/connect-mobile-4-onboarding` | Seven-step resume flow, compact controls, search and selection summaries, profile preview |
 | 5 | `codex/connect-mobile-5-polish` | Consistent localized explanations, accepted Coach's Pick persistence, lobby feedback, final eligibility and concurrency fixes |
 
-The PRs are stacked: merge and validate them in order. They are drafts pending final staging/device validation. No merge or deployment was performed.
+The PRs are stacked: merge and validate them in order. Final staging/device validation remains pending. No merge or deployment was performed.
 
 ## Local evidence
+
+### Second review corrections
+
+Six subsequent findings have corresponding fixes, propagated through the stack:
+
+- **#985:** daily progression and counts exclude unavailable cards; the collapsed
+  review summary shows the suggested connection. Eligibility filtering is now
+  included in phase 2 so its own review flow is complete.
+- **#986:** chat availability checks reuse prefetched participant memberships,
+  including after state refresh. The refresh locks only the chat row, avoiding
+  PostgreSQL nullable-join locking errors. HTTP requests use an AbortController
+  timer instead of requiring `AbortSignal.timeout`.
+- **#988:** review highlights are recomputed from the currently visible cards when
+  the previous suggestion becomes unavailable. An unavailable sender receives
+  localized recovery guidance and returns to Connect home without spending the
+  weekly request or changing its deadline.
+
+The final combined regression suite passed **389 tests**. Four additional mobile
+browser checks passed against a fresh server using the current code: asynchronous
+chat sending with `AbortSignal.timeout` unavailable, and the collapsed suggestion
+visible in EN/DE/FR at 360 x 800 without horizontal overflow. Screenshots are in
+the [review corrections gallery](http://localhost:8016/review-fixes/).
+
+Django checks, migration drift, focused Ruff, JavaScript syntax, design-token
+lint, the Crush-only CSS build and diff whitespace checks passed. Physical-device
+and staging PostgreSQL validation below remain outstanding.
 
 ### PR review corrections
 

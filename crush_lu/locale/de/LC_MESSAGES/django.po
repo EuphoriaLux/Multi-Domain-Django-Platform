@@ -42057,3 +42057,11 @@ msgstr "Auch in Coach's Pick sichtbar"
 
 msgid "Public questions; private answers"
 msgstr "Öffentliche Fragen; private Antworten"
+
+msgid ""
+"Your Connect profile is unavailable. Check your photo, sharing consent and "
+"verification in Connect home before trying again."
+msgstr ""
+"Dein Connect-Profil ist nicht verfügbar. Prüfe auf der Connect-Startseite "
+"dein Foto, deine Zustimmung zum Teilen und deine Verifizierung, bevor du es "
+"erneut versuchst."

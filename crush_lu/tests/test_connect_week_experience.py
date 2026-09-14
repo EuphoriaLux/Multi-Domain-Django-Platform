@@ -197,6 +197,7 @@ def test_bulk_catalogue_filter_matches_member_eligibility(state):
         membership.excluded_by_coach = True
     elif state == "unverified":
         profile.verification_status = "unverified"
+        profile.is_approved = False
     elif state == "old_login":
         user.last_login = timezone.now() - timedelta(days=400)
     membership.save()
@@ -205,6 +206,35 @@ def test_bulk_catalogue_filter_matches_member_eligibility(state):
     assert filter_catalogue_eligible(
         get_user_model().objects.filter(pk=user.pk)
     ).exists() == is_catalogue_eligible(user)
+    assert is_catalogue_eligible(user) is (state == "eligible")
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("lost", ["photo", "consent"])
+def test_unavailable_requester_gets_recovery_guidance_without_spending_request(
+    client, settings, lost
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_cycle_user("recover_sender")
+    target = _make_cycle_user("recover_target", gender="F")
+    session, card = _reviewable_session_with_card(me, target)
+    deadline = session.review_expires_at
+    _login_eligible(client, me)
+    assert client.get(WEEK_REVIEW_URL).status_code == 200
+    if lost == "consent":
+        me.crush_connect_membership.photo_share_consent = False
+        me.crush_connect_membership.save(update_fields=["photo_share_consent"])
+    else:
+        me.crushprofile.photo_1 = ""
+        me.crushprofile.save(update_fields=["photo_1"])
+    response = client.post(f"/en/crush-connect/week/review/{card.pk}/request/")
+    assert response.status_code == 302
+    assert response.url == "/en/crush-connect/home/"
+    feedback = " ".join(str(message) for message in get_messages(response.wsgi_request))
+    assert "Check your photo, sharing consent and verification" in feedback
+    assert not session.weekly_requests.exists()
+    session.refresh_from_db()
+    assert session.review_expires_at == deadline
 
 
 @pytest.mark.django_db

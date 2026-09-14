@@ -42188,3 +42188,11 @@ msgstr "Également visible dans Coach's Pick"
 
 msgid "Public questions; private answers"
 msgstr "Questions publiques ; réponses privées"
+
+msgid ""
+"Your Connect profile is unavailable. Check your photo, sharing consent and "
+"verification in Connect home before trying again."
+msgstr ""
+"Votre profil Connect est indisponible. Vérifiez votre photo, votre "
+"consentement au partage et votre vérification sur l'accueil Connect avant de"
+" réessayer."

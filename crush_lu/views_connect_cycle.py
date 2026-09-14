@@ -306,6 +306,9 @@ def connect_week_request_send(request, card_id: int):
             "not_in_review": _("This profile isn't part of this week's review."),
             "already_sent": _("You've already sent your one request for this week."),
             "recipient_unavailable": _("This member isn't available right now."),
+            "requester_unavailable": _(
+                "Your Connect profile is unavailable. Check your photo, sharing consent and verification in Connect home before trying again."
+            ),
             "blocked": _("This member isn't available right now."),
             "excluded": _("This member isn't available right now."),
         }
@@ -313,6 +316,8 @@ def connect_week_request_send(request, card_id: int):
             request,
             reasons.get(str(exc), _("That request isn't possible right now.")),
         )
+        if str(exc) == "requester_unavailable":
+            return redirect("crush_lu:crush_connect_hub")
     else:
         messages.success(
             request,
