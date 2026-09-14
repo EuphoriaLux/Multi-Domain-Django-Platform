@@ -7,7 +7,22 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from .models import ArboristBooking
-from .services.zones import clean_postal_code
+from .services.zones import clean_postal_code as normalize_postal_code
+from .services.zones import is_valid_postal_code
+
+
+class LuxembourgPostalCodeMixin:
+    """Normalize ``postal_code`` and reject anything but exactly four digits."""
+
+    def clean_postal_code(self):
+        code = normalize_postal_code(self.cleaned_data.get("postal_code", ""))
+        if not is_valid_postal_code(code):
+            raise forms.ValidationError(
+                _(
+                    "Please enter a valid 4-digit Luxembourg postal code (e.g. 6211, 6110)."
+                )
+            )
+        return code
 
 
 class ContactForm(forms.Form):
@@ -78,7 +93,7 @@ class ContactForm(forms.Form):
     )
 
 
-class BookingForm(forms.ModelForm):
+class BookingForm(LuxembourgPostalCodeMixin, forms.ModelForm):
     """
     Form for booking on-site consultations and tree care services.
     Includes distance-based prepayment calculation and rush scheduling.
@@ -178,19 +193,12 @@ class BookingForm(forms.ModelForm):
                 attrs={
                     "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent resize-y",
                     "rows": 4,
-                    "placeholder": _("Describe the situation: tree health, height, obstacles (fence, power line), accessibility..."),
+                    "placeholder": _(
+                        "Describe the situation: tree health, height, obstacles (fence, power line), accessibility..."
+                    ),
                 }
             ),
         }
-
-    def clean_postal_code(self):
-        val = self.cleaned_data.get("postal_code", "")
-        code = clean_postal_code(val)
-        if not code or len(code) != 4:
-            raise forms.ValidationError(
-                _("Please enter a valid 4-digit Luxembourg postal code (e.g. 6211, 6110).")
-            )
-        return code
 
     def clean_phone(self):
         val = self.cleaned_data.get("phone", "").strip()
@@ -203,3 +211,12 @@ class BookingForm(forms.ModelForm):
         if val and val < date.today():
             raise forms.ValidationError(_("Preferred date cannot be in the past."))
         return val
+
+
+class ArboristBookingAdminForm(LuxembourgPostalCodeMixin, forms.ModelForm):
+    """Admin form with the public form's postal-code rule, so staff-entered
+    bookings are priced from a real postcode."""
+
+    class Meta:
+        model = ArboristBooking
+        fields = "__all__"

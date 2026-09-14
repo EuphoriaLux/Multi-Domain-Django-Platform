@@ -11,11 +11,13 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from .services.zones import calculate_zone
+
 
 class ArboristBooking(models.Model):
     """
     On-site consultation and tree service booking request.
-    
+
     Includes distance-based prepayment calculation (Zone 1: 50€, Zone 2: 100€)
     and emergency Rush Order scheduling.
     """
@@ -85,7 +87,9 @@ class ArboristBooking(models.Model):
     notes = models.TextField(
         _("Project Description / Details"),
         blank=True,
-        help_text=_("Details regarding tree species, height, condition, or access situation."),
+        help_text=_(
+            "Details regarding tree species, height, condition, or access situation."
+        ),
     )
 
     # Scheduling & Urgency
@@ -105,7 +109,10 @@ class ArboristBooking(models.Model):
     # Zone & Prepayment
     zone = models.PositiveSmallIntegerField(
         _("Distance Zone"),
-        choices=[(1, _("Zone 1 - Local (50 €)")), (2, _("Zone 2 - Wider Luxembourg (100 €)"))],
+        choices=[
+            (1, _("Zone 1 - Local (50 €)")),
+            (2, _("Zone 2 - Wider Luxembourg (100 €)")),
+        ],
         default=1,
     )
     distance_km = models.DecimalField(
@@ -139,7 +146,9 @@ class ArboristBooking(models.Model):
     admin_notes = models.TextField(_("Internal Admin Notes"), blank=True)
 
     # Timestamps
-    created_at = models.DateTimeField(_("Created At"), default=timezone.now, db_index=True)
+    created_at = models.DateTimeField(
+        _("Created At"), default=timezone.now, db_index=True
+    )
     updated_at = models.DateTimeField(_("Updated At"), auto_now=True)
 
     class Meta:
@@ -161,3 +170,15 @@ class ArboristBooking(models.Model):
     @property
     def is_urgent(self) -> bool:
         return self.is_rush or self.service_type == "notdienst"
+
+    def apply_quote(self):
+        """Price this booking from its postal code and rush flag; returns the quote."""
+        quote = calculate_zone(
+            postal_code=self.postal_code,
+            city_or_commune=self.city_or_commune,
+            is_rush=self.is_rush,
+        )
+        self.zone = quote.zone
+        self.distance_km = Decimal(str(quote.distance_km))
+        self.prepayment_amount = quote.total_prepayment_eur
+        return quote

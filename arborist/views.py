@@ -8,18 +8,20 @@ with distance-based prepayment zones around Altrier (Junglinster) and emergency 
 
 import logging
 import urllib.parse
-from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.http import JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
 from azureproject.email_utils import send_domain_email
 from .forms import ContactForm, BookingForm
 from .models import ArboristBooking
-from .services.zones import calculate_zone, clean_postal_code
+from .services.payment import get_prepayment_bank_details
+from .services.phone import to_whatsapp_number
+from .services.zones import calculate_zone, clean_postal_code, is_valid_postal_code
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +285,9 @@ Arborist.lu
 
                 messages.success(
                     request,
-                    _("Thank you for your message! I will get back to you as soon as possible."),
+                    _(
+                        "Thank you for your message! I will get back to you as soon as possible."
+                    ),
                 )
                 logger.info("Contact form submitted by %s for %s", email, service)
                 return redirect("arborist:contact")
@@ -291,7 +295,9 @@ Arborist.lu
                 logger.error("Failed to send contact email: %s", e)
                 messages.error(
                     request,
-                    _("Sorry, there was an error sending your message. Please try calling or WhatsApp instead."),
+                    _(
+                        "Sorry, there was an error sending your message. Please try calling or WhatsApp instead."
+                    ),
                 )
     else:
         form = ContactForm()
@@ -311,6 +317,17 @@ Arborist.lu
 # Booking System & Zone Calculator Views
 # =============================================================================
 
+# Booking references this browser session submitted; only these receipts open.
+BOOKING_SESSION_KEY = "arborist_booking_refs"
+MAX_REMEMBERED_BOOKINGS = 10
+
+
+def _remember_booking(request, reference):
+    """Let this browser session, and only it, reopen the booking's receipt page."""
+    refs = [r for r in request.session.get(BOOKING_SESSION_KEY, []) if r != reference]
+    refs.append(reference)
+    request.session[BOOKING_SESSION_KEY] = refs[-MAX_REMEMBERED_BOOKINGS:]
+
 
 @require_GET
 def api_calculate_zone(request):
@@ -318,11 +335,18 @@ def api_calculate_zone(request):
     JSON API for real-time frontend zone and prepayment calculation.
     Query params: postal_code, is_rush (true/false), city (optional).
     """
-    postal_code = request.GET.get("postal_code", "")
+    postal_code = clean_postal_code(request.GET.get("postal_code", ""))
+    if not is_valid_postal_code(postal_code):
+        return JsonResponse(
+            {"error": "postal_code must be a 4-digit Luxembourg postal code"},
+            status=400,
+        )
     is_rush = request.GET.get("is_rush", "").lower() in ("true", "1", "yes", "on")
     city = request.GET.get("city", "")
 
-    quote = calculate_zone(postal_code=postal_code, city_or_commune=city, is_rush=is_rush)
+    quote = calculate_zone(
+        postal_code=postal_code, city_or_commune=city, is_rush=is_rush
+    )
     return JsonResponse(quote.to_dict())
 
 
@@ -333,40 +357,44 @@ def booking(request):
     """
     initial = {}
     service_param = request.GET.get("service")
-    if service_param:
+    if service_param in dict(ArboristBooking.SERVICE_CHOICES):
         initial["service_type"] = service_param
+    # The emergency CTAs link here with ?service=notdienst&rush=1: tick the rush
+    # box for them, so the quote the customer sees already has the surcharge.
+    if service_param == "notdienst" or request.GET.get("rush") == "1":
+        initial["is_rush"] = True
 
     if request.method == "POST":
         form = BookingForm(request.POST)
         if form.is_valid():
             booking_obj = form.save(commit=False)
-
-            # Calculate zone & prepayment
-            quote = calculate_zone(
-                postal_code=booking_obj.postal_code,
-                city_or_commune=booking_obj.city_or_commune,
-                is_rush=booking_obj.is_rush,
-            )
-
-            booking_obj.zone = quote.zone
-            booking_obj.distance_km = Decimal(str(quote.distance_km))
-            booking_obj.prepayment_amount = quote.total_prepayment_eur
+            quote = booking_obj.apply_quote()
             booking_obj.save()
+            ref = booking_obj.booking_reference
+            _remember_booking(request, ref)
 
             # Prepare notification emails
-            ref = booking_obj.booking_reference
-            clean_phone_digits = "".join(filter(str.isdigit, booking_obj.phone))
-            whatsapp_msg = urllib.parse.quote(
-                f"Moien {booking_obj.name}, hei ass den Tom Aakrann vun Arborist.lu wéinst Ärer Buchung {ref}."
-            )
-            whatsapp_url = f"https://wa.me/{clean_phone_digits}?text={whatsapp_msg}"
+            whatsapp_number = to_whatsapp_number(booking_obj.phone)
+            if whatsapp_number:
+                whatsapp_msg = urllib.parse.quote(
+                    f"Moien {booking_obj.name}, hei ass den Tom Aakrann vun Arborist.lu wéinst Ärer Buchung {ref}."
+                )
+                whatsapp_url = f"https://wa.me/{whatsapp_number}?text={whatsapp_msg}"
+            else:
+                whatsapp_url = "n/a (phone number has no country code - call instead)"
 
-            urgency_tag = "🚨 RUSH ORDER" if booking_obj.is_rush else "New Booking"
+            if booking_obj.is_rush:
+                urgency_tag, urgency = "🚨 RUSH ORDER", "🚨 RUSH ORDER (24-48h)"
+            elif booking_obj.is_urgent:
+                urgency_tag = "🚨 EMERGENCY"
+                urgency = "🚨 Emergency service (rush surcharge not selected)"
+            else:
+                urgency_tag, urgency = "New Booking", "Standard"
             admin_subject = f"[{urgency_tag}] Arborist.lu: {ref} - {booking_obj.name} ({quote.zone_name})"
             admin_body = f"""Arborist.lu Booking Request:
 
 Reference: {ref}
-Urgency: {'🚨 RUSH ORDER (24-48h)' if booking_obj.is_rush else 'Standard'}
+Urgency: {urgency}
 Client: {booking_obj.name}
 Email: {booking_obj.email}
 Phone: {booking_obj.phone}
@@ -402,6 +430,25 @@ Admin Dashboard: https://arborist.lu/arborist-admin/arborist/arboristbooking/{bo
                 logger.error("Failed to send booking notification to Tom: %s", e)
 
             # Send client confirmation
+            bank = get_prepayment_bank_details()
+            if bank:
+                bank_lines = [
+                    "Bankverbindung für die Vorabpauschale / Virement bancaire:",
+                    f"Empfänger / Bénéficiaire: {bank.account_holder}",
+                    f"IBAN: {bank.iban_display}",
+                ]
+                if bank.bic:
+                    bank_lines.append(f"BIC: {bank.bic}")
+                bank_lines.append(f"Verwendungszweck / Communication: {ref}")
+            else:
+                bank_lines = [
+                    "Die Bankverbindung für die Vorabpauschale erhalten Sie mit der "
+                    "finalen Terminbestätigung.",
+                    "Les coordonnées bancaires vous seront communiquées avec la "
+                    "confirmation du rendez-vous.",
+                ]
+            bank_block = "\n".join(bank_lines)
+
             client_subject = f"Arborist.lu - {_('Booking Confirmation')} {ref}"
             client_body = f"""Moien {booking_obj.name},
 
@@ -416,11 +463,7 @@ Dringlichkeit / Urgence: {'🚨 Rush Order (24-48h)' if booking_obj.is_rush else
 Anfahrtspauschale / Acompte: {quote.total_prepayment_eur:.2f} €
 (Hinweis: Dieser Betrag wird bei Durchführung zu 100% mit der Gesamtrechnung verrechnet!)
 
-Bankverbindung für die Vorabpauschale / Virement bancaire:
-Empfänger: Tom Aakrann / Arborist.lu
-IBAN: LU86 0030 8123 4567 8901 (BGL BNP Paribas)
-BIC: BGLULULL
-Verwendungszweck: {ref}
+{bank_block}
 
 Mir kontaktéieren Iech kuerzfristeg fir den genauen Termin ze confirméieren.
 Wir melden uns in Kürze zur finalen Terminbestätigung.
@@ -441,10 +484,8 @@ Arborist.lu
             except Exception as e:
                 logger.warning("Failed to send booking confirmation to client: %s", e)
 
-            messages.success(
-                request,
-                _("Your booking request has been successfully submitted!"),
-            )
+            # No flash message: the success page is the confirmation and renders
+            # no messages, so one queued here would surface on the next page.
             return redirect("arborist:booking_success", reference=ref)
     else:
         form = BookingForm(initial=initial)
@@ -460,12 +501,23 @@ Arborist.lu
     return render(request, "arborist/booking.html", context)
 
 
+@never_cache
 @require_GET
 def booking_success(request, reference):
-    """Booking confirmation screen with summary and payment details."""
+    """
+    Booking confirmation screen with summary and payment details.
+
+    The page shows the customer's home address, and the reference is short and
+    partly predictable, so it is not a credential: only the browser session
+    that submitted the booking can open it. Anyone else gets the same 404 as
+    for an unknown reference.
+    """
+    if reference not in request.session.get(BOOKING_SESSION_KEY, []):
+        raise Http404
     booking_obj = get_object_or_404(ArboristBooking, booking_reference=reference)
     context = {
         "page_title": _("Booking Received - Arborist Tom Aakrann"),
         "booking": booking_obj,
+        "bank": get_prepayment_bank_details(),
     }
     return render(request, "arborist/booking_success.html", context)

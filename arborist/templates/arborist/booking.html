@@ -5,6 +5,7 @@
 {% block title %}{% trans "Book an Appointment" %} - Arborist Tom Aakrann{% endblock %}
 
 {% block content %}
+{% trans "Basis" as base_label %}
 <!-- Header Hero -->
 <section class="bg-gradient-to-b from-green-900 to-green-800 text-white py-14" style="background: linear-gradient(180deg, #2d5016 0%, #45622a 100%);">
     <div class="container mx-auto px-4 max-w-4xl text-center">
@@ -273,7 +274,7 @@
                         </span>
                         <div class="flex items-baseline gap-2 mt-1">
                             <span id="summary-total" class="text-3xl md:text-4xl font-extrabold text-green-400">50.00 €</span>
-                            <span id="summary-breakdown" class="text-xs text-gray-400">({% trans "Zone 1 Basis" %})</span>
+                            <span id="summary-breakdown" class="text-xs text-gray-400">(Zone 1 {{ base_label }})</span>
                         </div>
                     </div>
                     <button type="submit" class="w-full sm:w-auto px-8 py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition-all text-center">
@@ -281,7 +282,7 @@
                     </button>
                 </div>
                 <p class="text-xs text-gray-400 mt-4 border-t border-gray-800 pt-3">
-                    ℹ️ {% trans "Mit dem Absenden erhalten Sie eine Bestätigung mit allen Details und Bankverbindung per E-Mail. Die Vorabpauschale wird bei Auftragsvergabe voll angerechnet." %}
+                    ℹ️ {% trans "Mit dem Absenden erhalten Sie eine Bestätigung mit allen Details per E-Mail. Die Vorabpauschale wird bei Auftragsvergabe voll angerechnet." %}
                 </p>
             </div>
 
@@ -295,6 +296,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const postalInput = document.getElementById('id_postal_code');
     const cityInput = document.getElementById('id_city_or_commune');
     const rushCheckbox = document.getElementById('id_is_rush');
+    const serviceSelect = document.getElementById('id_service_type');
+    const BASE_LABEL = "{{ base_label|escapejs }}";
 
     const zoneBadge = document.getElementById('zone-badge');
     const zoneCommuneName = document.getElementById('zone-commune-name');
@@ -306,16 +309,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let debounceTimer = null;
 
+    // Mirrors arborist.services.zones.clean_postal_code + is_valid_postal_code.
+    function normalizedPostal() {
+        const raw = (postalInput ? postalInput.value : '').trim().toUpperCase();
+        const code = raw.replace(/^L[-\s]?/, '').trim();
+        return /^\d{4}$/.test(code) ? code : null;
+    }
+
     function fetchZoneQuote() {
-        const postal = (postalInput ? postalInput.value : '').trim();
+        const postal = normalizedPostal();
         const isRush = rushCheckbox ? rushCheckbox.checked : false;
         const city = (cityInput ? cityInput.value : '').trim();
 
-        if (postal.length < 2) return;
+        if (!postal) return;
 
         fetch(`{% url 'arborist:api_calculate_zone' %}?postal_code=${encodeURIComponent(postal)}&is_rush=${isRush}&city=${encodeURIComponent(city)}`)
-            .then(res => res.json())
+            .then(res => (res.ok ? res.json() : null))
             .then(data => {
+                if (!data) return;
+
                 if (zoneBadge) {
                     zoneBadge.textContent = `Zone ${data.zone}`;
                     zoneBadge.className = data.zone === 1 
@@ -346,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.is_rush) {
                         summaryBreakdown.textContent = `(Zone ${data.zone}: ${data.base_prepayment_eur.toFixed(0)}€ + Rush: ${data.rush_fee_eur.toFixed(0)}€)`;
                     } else {
-                        summaryBreakdown.textContent = `(Zone ${data.zone} Basis)`;
+                        summaryBreakdown.textContent = `(Zone ${data.zone} ${BASE_LABEL})`;
                     }
                 }
 
@@ -375,6 +387,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (cityInput) {
         cityInput.addEventListener('blur', fetchZoneQuote);
     }
+
+    if (serviceSelect) {
+        // The rush surcharge exists for the emergency service: selecting it
+        // ticks the box (the customer can still untick it).
+        serviceSelect.addEventListener('change', function() {
+            if (serviceSelect.value === 'notdienst' && rushCheckbox && !rushCheckbox.checked) {
+                rushCheckbox.checked = true;
+                fetchZoneQuote();
+            }
+        });
+    }
+
+    // A re-rendered form (validation error elsewhere) keeps the postcode and
+    // rush choice but fires no input events, so quote it once on load.
+    fetchZoneQuote();
 });
 </script>
 {% endblock %}

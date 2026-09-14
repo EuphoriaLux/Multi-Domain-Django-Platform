@@ -2,8 +2,8 @@
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from .forms import ArboristBookingAdminForm
 from .models import ArboristBooking
-
 
 # ============================================================================
 # CUSTOM ADMIN SITE - Arborist Administration
@@ -126,6 +126,18 @@ class ArboristBookingAdmin(admin.ModelAdmin):
 
     actions = ["mark_as_confirmed", "mark_prepayment_paid", "mark_as_completed"]
 
+    form = ArboristBookingAdminForm
+
+    # What the quote is computed from. zone, distance_km and prepayment_amount
+    # are read-only above, so staff never type a price: adding a booking, or an
+    # edit that touches one of these, re-prices it instead.
+    PRICING_INPUT_FIELDS = {"postal_code", "is_rush"}
+
+    def save_model(self, request, obj, form, change):
+        if not change or self.PRICING_INPUT_FIELDS & set(form.changed_data):
+            obj.apply_quote()
+        super().save_model(request, obj, form, change)
+
     @admin.display(description=_("Zone"))
     def zone_badge(self, obj):
         color = "#15803d" if obj.zone == 1 else "#b45309"
@@ -138,11 +150,13 @@ class ArboristBookingAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Urgency"))
     def rush_badge(self, obj):
-        if obj.is_rush or obj.service_type == "notdienst":
+        if obj.is_urgent:
             return format_html(
                 '<span style="background:#dc2626; color:white; padding:3px 8px; border-radius:12px; font-weight:700; font-size:11px;">🚨 RUSH</span>'
             )
-        return format_html('<span style="color:#6b7280; font-size:11px;">Standard</span>')
+        return format_html(
+            '<span style="color:#6b7280; font-size:11px;">Standard</span>'
+        )
 
     @admin.display(description=_("Prepayment"))
     def prepayment_display(self, obj):

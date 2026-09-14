@@ -1,18 +1,25 @@
-﻿"""
+"""
 Distance and zone calculation engine for Arborist Tom Aakrann (arborist.lu).
 
 Calculates prepayment tiers based on location relative to Altrier (Junglinster region):
-- Zone 1: ~18 km radius around Altrier (Junglinster, Bech, Consdorf, Echternach, etc.) -> 50 €
+- Zone 1: up to 18 km from Altrier (Junglinster, Bech, Consdorf, Echternach, etc.) -> 50 €
 - Zone 2: Wider Luxembourg (> 18 km, e.g. Luxembourg-City, South, West, North) -> 100 €
 - Rush Order: Emergency / expedited appointment within 24-48h -> +50 € surcharge
 
 The prepayment (Anfahrtspauschale / Vorabzahlung) guarantees the appointment slot
 and is 100% credited against the final service invoice upon execution of work.
+
+The zone is decided by distance alone, so the published "up to 18 km" rule is
+exactly the rule that is charged. The distance comes from the commune the
+postcode resolves to in the CACLR table, else from a postcode-prefix estimate.
+The customer's free-text town is only echoed back for display: pricing it would
+let anyone type a cheaper commune next to an unknown postcode.
 """
 
-from decimal import Decimal
-from typing import Optional, Dict, Any, NamedTuple
 import logging
+import re
+from decimal import Decimal
+from typing import Any, Dict, NamedTuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,37 +33,10 @@ ZONE_1_FEE = Decimal("50.00")
 ZONE_2_FEE = Decimal("100.00")
 RUSH_ORDER_FEE = Decimal("50.00")
 
-# Communes located within Zone 1 (~18 km around Altrier)
-# Altrier is in Bech/Consdorf canton Echternach, right next to Junglinster.
-ZONE_1_COMMUNES = {
-    "bech",
-    "junglinster",
-    "consdorf",
-    "berdorf",
-    "echternach",
-    "beaufort",
-    "waldbillig",
-    "larochette",
-    "heffingen",
-    "fischbach",
-    "betzdorf",
-    "biwer",
-    "flaxweiler",
-    "rosport-mompach",
-    "grevenmacher",
-    "mertert",
-    "manternach",
-    "niederanven",
-    "schuttrange",
-    "vallée de l'ernz",
-    "vallee de l'ernz",
-    "reisdorf",
-    "lorentzweiler",
-    "steinsel",
-    "diekirch",
-    "bettendorf",
-    "medernach",
-}
+# Zone 1 is everything up to this distance from Altrier; beyond it is Zone 2.
+ZONE_1_MAX_DISTANCE_KM = 18.0
+
+POSTAL_CODE_RE = re.compile(r"\d{4}")
 
 # Approximate centroid distances from Altrier for common Luxembourg communes (in km)
 COMMUNE_DISTANCES = {
@@ -134,7 +114,13 @@ class ZoneQuote(NamedTuple):
 
 
 def clean_postal_code(postal_code: Optional[str]) -> str:
-    """Normalize Luxembourg postal code (strip 'L-', whitespace, keep 4 digits)."""
+    """
+    Normalize a Luxembourg postal code: strip whitespace and an optional
+    'L-' / 'L ' / 'L' prefix.
+
+    Nothing else is dropped or truncated, so '62111' stays '62111' and fails
+    :func:`is_valid_postal_code` instead of being priced as 6211.
+    """
     if not postal_code:
         return ""
     code = str(postal_code).strip().upper()
@@ -142,7 +128,12 @@ def clean_postal_code(postal_code: Optional[str]) -> str:
         code = code[2:].strip()
     elif code.startswith("L"):
         code = code[1:].strip()
-    return "".join(filter(str.isdigit, code))[:4]
+    return code
+
+
+def is_valid_postal_code(code: Optional[str]) -> bool:
+    """True for exactly four digits (a normalized Luxembourg postal code)."""
+    return bool(code) and POSTAL_CODE_RE.fullmatch(code) is not None
 
 
 def lookup_commune_from_postcode(postal_code: str) -> Optional[str]:
@@ -152,6 +143,7 @@ def lookup_commune_from_postcode(postal_code: str) -> Optional[str]:
         return None
     try:
         from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
+
         return POSTCODE_TO_COMMUNE.get(cleaned)
     except Exception as exc:
         logger.warning("Could not import POSTCODE_TO_COMMUNE: %s", exc)
@@ -165,25 +157,31 @@ def calculate_zone(
 ) -> ZoneQuote:
     """
     Calculate the appointment prepayment quote based on location relative to Altrier.
+
+    Raises ValueError for anything but a 4-digit Luxembourg postal code, so a
+    malformed code can never be priced as a neighbouring one.
     """
     cleaned_code = clean_postal_code(postal_code)
-    commune = lookup_commune_from_postcode(cleaned_code) or (city_or_commune or "").strip()
-    commune_key = commune.lower().strip() if commune else ""
+    if not is_valid_postal_code(cleaned_code):
+        raise ValueError(f"Not a 4-digit Luxembourg postal code: {postal_code!r}")
+
+    commune = lookup_commune_from_postcode(cleaned_code) or ""
+    commune_key = commune.lower()
 
     # Estimate distance
     if commune_key in COMMUNE_DISTANCES:
         distance = COMMUNE_DISTANCES[commune_key]
-    elif cleaned_code.startswith("61") or cleaned_code.startswith("62") or cleaned_code.startswith("63"):
+    elif cleaned_code.startswith(("61", "62", "63")):
         distance = 7.0
-    elif cleaned_code.startswith("64") or cleaned_code.startswith("65") or cleaned_code.startswith("66"):
+    elif cleaned_code.startswith(("64", "65", "66")):
         distance = 13.0
-    elif cleaned_code.startswith("67") or cleaned_code.startswith("68") or cleaned_code.startswith("69"):
+    elif cleaned_code.startswith(("67", "68", "69")):
         distance = 16.0
-    elif cleaned_code.startswith("1") or cleaned_code.startswith("2"):
+    elif cleaned_code.startswith(("1", "2")):
         distance = 24.0
-    elif cleaned_code.startswith("3") or cleaned_code.startswith("4"):
+    elif cleaned_code.startswith(("3", "4")):
         distance = 42.0
-    elif cleaned_code.startswith("7") or cleaned_code.startswith("8"):
+    elif cleaned_code.startswith(("7", "8")):
         distance = 25.0
     elif cleaned_code.startswith("9"):
         distance = 45.0
@@ -191,7 +189,7 @@ def calculate_zone(
         distance = 25.0
 
     # Determine Zone
-    if commune_key in ZONE_1_COMMUNES or distance <= 18.0:
+    if distance <= ZONE_1_MAX_DISTANCE_KM:
         zone = 1
         zone_name = "Zone 1 (Altrier / Junglinster & Umgebung)"
         base_fee = ZONE_1_FEE
@@ -208,7 +206,7 @@ def calculate_zone(
         "Gesamtrechnung der Baumpflege- oder Kontrollarbeiten verrechnet."
     )
 
-    display_commune = commune if commune else (city_or_commune or "Luxembourg")
+    display_commune = commune or (city_or_commune or "").strip() or "Luxembourg"
 
     return ZoneQuote(
         zone=zone,

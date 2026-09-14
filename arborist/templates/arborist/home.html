@@ -36,7 +36,7 @@
                 <a href="{% url 'arborist:booking' %}" class="px-7 py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg hover:shadow-green-600/30 transition-all flex items-center gap-2 text-base">
                     <span>📅</span> {% trans "Vor-Ort-Termin buchen" %}
                 </a>
-                <a href="{% url 'arborist:booking' %}?service=notdienst" class="px-6 py-3.5 bg-red-600/90 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 text-base border border-red-500/50">
+                <a href="{% url 'arborist:booking' %}?service=notdienst&amp;rush=1" class="px-6 py-3.5 bg-red-600/90 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 text-base border border-red-500/50">
                     <span>🚨</span> {% trans "Notdienst / Rush Order" %}
                 </a>
                 <a href="{% url 'arborist:contact' %}" class="px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl backdrop-blur-sm transition-all border border-white/20 text-base">

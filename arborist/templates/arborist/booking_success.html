@@ -56,28 +56,36 @@
                 <h3 class="font-bold text-green-900 mb-2 flex items-center gap-2">
                     <span>💳</span> {% trans "Überweisung der Vorabpauschale" %}
                 </h3>
+                {% if bank %}
                 <p class="text-xs text-green-800 mb-4 leading-relaxed">
                     {% trans "Bitte überweisen Sie die Pauschale unter Angabe Ihrer Buchungsreferenz. Der Betrag wird bei Durchführung der Baumarbeiten zu 100% mit der Gesamtrechnung verrechnet." %}
                 </p>
 
                 <div class="bg-white p-4 rounded-lg border border-green-200 space-y-2 text-xs font-mono">
                     <div class="flex justify-between">
-                        <span class="text-gray-500 font-sans">Empfänger:</span>
-                        <span class="font-bold text-gray-900">Tom Aakrann / Arborist.lu</span>
+                        <span class="text-gray-500 font-sans">{% trans "Empfänger" %}:</span>
+                        <span class="font-bold text-gray-900">{{ bank.account_holder }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500 font-sans">IBAN:</span>
-                        <span class="font-bold text-gray-900">LU86 0030 8123 4567 8901</span>
+                        <span class="font-bold text-gray-900">{{ bank.iban_display }}</span>
                     </div>
+                    {% if bank.bic %}
                     <div class="flex justify-between">
-                        <span class="text-gray-500 font-sans">BIC / Bank:</span>
-                        <span class="font-bold text-gray-900">BGLULULL (BGL BNP Paribas)</span>
+                        <span class="text-gray-500 font-sans">BIC:</span>
+                        <span class="font-bold text-gray-900">{{ bank.bic }}</span>
                     </div>
+                    {% endif %}
                     <div class="flex justify-between border-t border-gray-100 pt-2 text-green-900">
-                        <span class="text-gray-500 font-sans">Verwendungszweck:</span>
+                        <span class="text-gray-500 font-sans">{% trans "Verwendungszweck" %}:</span>
                         <span class="font-bold bg-green-100 px-2 py-0.5 rounded">{{ booking.booking_reference }}</span>
                     </div>
                 </div>
+                {% else %}
+                <p class="text-xs text-green-800 leading-relaxed">
+                    {% trans "Die Bankverbindung für die Überweisung erhalten Sie zusammen mit der finalen Terminbestätigung. Der Betrag wird bei Durchführung der Baumarbeiten zu 100% mit der Gesamtrechnung verrechnet." %}
+                </p>
+                {% endif %}
             </div>
 
             <!-- Direct Contact Links -->
