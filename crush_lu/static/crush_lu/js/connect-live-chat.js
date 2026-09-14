@@ -14,6 +14,14 @@
   let cursor = Math.max(0, ...ids), oldest = Math.min(Infinity, ...ids);
   let timer, polling = false, stopped = !form, sending = false, historyLoading = false;
   let pending = null;
+  const submissionId = () => {
+    if (typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  };
   const nearBottom = () => thread.scrollHeight - thread.clientHeight - thread.scrollTop < 70;
   const bottom = () => { thread.scrollTop = thread.scrollHeight; newButton.hidden = true; acknowledge(); };
   const stop = () => {
@@ -125,11 +133,13 @@
     finally { historyLoading = false; older.disabled = false; }
   });
   form?.addEventListener('submit', async event => {
+    // Keep the normal POST fallback when Web Crypto itself is unavailable.
+    if (!sending && !stopped && typeof window.crypto?.randomUUID !== 'function' && typeof window.crypto?.getRandomValues !== 'function') return;
     event.preventDefault();
     if (sending || stopped || !form.reportValidity()) return;
     const input = form.elements.message;
     const text = input.value;
-    if (!pending || pending.text !== text) pending = {text, id: crypto.randomUUID()};
+    if (!pending || pending.text !== text) pending = {text, id: submissionId()};
     sending = true;
     form.querySelector('button').disabled = true;
     sendStatus.textContent = root.dataset.sending;
