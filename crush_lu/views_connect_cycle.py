@@ -40,6 +40,7 @@ from crush_lu.services.connect_cycle import (
     send_weekly_request,
     sync_request_state,
     sync_session_state,
+    visible_cycle_cards,
 )
 
 User = get_user_model()
@@ -103,7 +104,7 @@ def connect_week_home(request):
     if session.status == ConnectWeekSession.Status.REVIEW_OPEN:
         return redirect("crush_lu:connect_week_review")
 
-    cards = get_or_create_todays_cards(session)
+    cards = visible_cycle_cards(get_or_create_todays_cards(session), user)
     answered_ids = {c.target_user_id for c in cards if c.is_completed}
 
     # "Your chats" entry point: the review page it's also linked from stops
@@ -187,8 +188,25 @@ def connect_week_card_answer(request, card_id: int):
         guesses[gq.question_id] = raw == "yes"
 
     record_card_answer(card, guesses)
+    remaining = bool(
+        visible_cycle_cards(
+            session.cards.filter(
+                day_number=session.current_day_number,
+                is_completed=False,
+                is_expired=False,
+            ).select_related(
+                "target_user__crushprofile", "target_user__crush_connect_membership"
+            ),
+            request.user,
+        )
+    )
     messages.success(
-        request, _("Answer saved. Continue with your next available card.")
+        request,
+        (
+            _("Answer saved. Continue with your next available card.")
+            if remaining
+            else _("All available cards are complete. Come back tomorrow.")
+        ),
     )
     return redirect("crush_lu:connect_week_home")
 

@@ -343,3 +343,29 @@ def test_nonpremium_member_is_redirected_from_coach_pick(client, settings):
 
     assert response.status_code == 302
     assert CATALOGUE_STATUS_URL in response.url
+
+
+@pytest.mark.django_db
+def test_accepted_coach_pick_persists_on_reload_and_hides_after_reassignment(
+    client, settings
+):
+    from django.contrib.auth import get_user_model
+    from crush_lu.models import CrushCoach
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="accepted_member", preferred_genders=["F"])
+    candidate = _make_user(username="accepted_candidate", gender="F", premium=False)
+    pick = propose_coach_pick(_coach_for(member), member, candidate)
+    respond_to_coach_pick(pick, accept=True)
+    _login_eligible(client, member)
+    for _ in range(2):
+        response = client.get(COACH_PICK_URL)
+        assert response.status_code == 200
+        assert "Your interest is saved" in response.content.decode()
+        assert 'name="action" value="accept"' not in response.content.decode()
+    coach = CrushCoach.objects.create(
+        user=get_user_model().objects.create_user("replacement_coach"), is_active=True
+    )
+    member.crushprofile.assigned_coach = coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+    assert "Your interest is saved" not in client.get(COACH_PICK_URL).content.decode()

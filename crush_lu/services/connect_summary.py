@@ -10,8 +10,9 @@ from crush_lu.models import (
     ConnectTemporaryChat,
     ConnectWeekSession,
 )
-from crush_lu.services.connect_cycle import get_pending_inbox
+from crush_lu.services.connect_cycle import get_pending_inbox, visible_cycle_cards
 from crush_lu.services.blocking import blocked_user_ids
+from crush_lu.services.crush_connect import get_active_coach_pick
 
 
 def get_connect_summary(user):
@@ -26,6 +27,12 @@ def get_connect_summary(user):
         if session
         else ConnectCycleCard.objects.none()
     )
+    cards = visible_cycle_cards(
+        cards.select_related(
+            "target_user__crushprofile", "target_user__crush_connect_membership"
+        ),
+        user,
+    )
     blocked = blocked_user_ids(user)
     chats = ConnectTemporaryChat.objects.filter(
         Q(participant_1=user) | Q(participant_2=user),
@@ -34,6 +41,8 @@ def get_connect_summary(user):
         participant_2__is_active=True,
         participant_1__crushprofile__is_active=True,
         participant_2__crushprofile__is_active=True,
+        participant_1__crush_connect_membership__onboarded_at__isnull=False,
+        participant_2__crush_connect_membership__onboarded_at__isnull=False,
     ).exclude(
         Q(status__in=["closed", "blocked"])
         | Q(participant_1_id__in=blocked)
@@ -41,8 +50,12 @@ def get_connect_summary(user):
         | Q(participant_1__crush_connect_membership__excluded_by_coach=True)
         | Q(participant_2__crush_connect_membership__excluded_by_coach=True)
     )
+    coach_pick = (
+        get_active_coach_pick(user, include_accepted=True) if participating else None
+    )
     return {
         "cycle_access": cycle_access,
+        "coach_pick_status": coach_pick.status if coach_pick else "",
         "pending_requests": len(get_pending_inbox(user)) if participating else 0,
         "chat_count": chats.count(),
         "unread_chats": chats.filter(
@@ -52,6 +65,6 @@ def get_connect_summary(user):
         ).count(),
         "session": session,
         "review_open": bool(cycle_access and session and session.is_review_active),
-        "daily_total": cards.count(),
-        "daily_completed": cards.filter(is_completed=True).count(),
+        "daily_total": len(cards),
+        "daily_completed": sum(card.is_completed for card in cards),
     }

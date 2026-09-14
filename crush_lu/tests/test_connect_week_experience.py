@@ -667,7 +667,9 @@ def test_week_card_answer_view_records_and_redirects(client, settings):
     client.get(WEEK_HOME_URL)  # triggers session + card generation
     card = ConnectCycleCard.objects.filter(session__user=me).first()
     membership = card.target_user.crush_connect_membership
-    data = {f"answer_{gq.question_id}": "yes" for gq in membership.active_gate_questions}
+    data = {
+        f"answer_{gq.question_id}": "yes" for gq in membership.active_gate_questions
+    }
 
     resp = client.post(f"/en/crush-connect/week/card/{card.pk}/answer/", data)
 
@@ -749,8 +751,9 @@ def test_week_review_shows_stored_guess_not_targets_current_questions(client, se
     from crush_lu.models import ConnectQuestion, MemberGateQuestion
 
     replacement_questions = list(
-        ConnectQuestion.objects.filter(is_active=True)
-        .exclude(pk__in=[q.pk for q in original_questions])[:3]
+        ConnectQuestion.objects.filter(is_active=True).exclude(
+            pk__in=[q.pk for q in original_questions]
+        )[:3]
     )
     assert len(replacement_questions) == 3, "fixture needs >=6 active questions"
     membership = target.crush_connect_membership
@@ -806,7 +809,9 @@ def test_week_request_send_view_creates_request(client, settings):
     resp = client.post(f"/en/crush-connect/week/review/{card.pk}/request/")
 
     assert resp.status_code in (302, 301)
-    assert ConnectWeeklyRequest.objects.filter(session=session, recipient=target).exists()
+    assert ConnectWeeklyRequest.objects.filter(
+        session=session, recipient=target
+    ).exists()
 
 
 @pytest.mark.django_db
@@ -916,3 +921,65 @@ def test_daily_progress_and_read_only_completed_card(client, settings):
     assert response.context["next_card_id"] != card.pk
     assert "1 of 3 completed" in response.content.decode()
     assert "All available cards are complete" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_weekly_send_rechecks_requester_consent_from_database():
+    me = _make_cycle_user("stale_sender")
+    target = _make_cycle_user("recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    type(me.crush_connect_membership).objects.filter(user=me).update(
+        photo_share_consent=False
+    )
+    with pytest.raises(ValueError, match="requester_unavailable"):
+        send_weekly_request(session, me, target)
+    assert not session.weekly_requests.exists()
+
+
+@pytest.mark.django_db
+def test_stale_decline_cannot_overwrite_an_accepted_request():
+    me = _make_cycle_user("request_sender")
+    target = _make_cycle_user("request_recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    request = send_weekly_request(session, me, target)
+    stale = ConnectWeeklyRequest.objects.get(pk=request.pk)
+    respond_to_weekly_request(request, accept=True)
+    result = respond_to_weekly_request(stale, accept=False)
+    assert result.status == ConnectWeeklyRequest.Status.ACCEPTED
+    assert not ConnectPairExclusion.are_excluded(me, target)
+    assert ConnectTemporaryChat.objects.filter(request=request).count() == 1
+
+
+@pytest.mark.django_db
+def test_weekly_send_locks_session_before_checking_limit(mocker):
+    from django.db import connection
+    from crush_lu.services import connect_cycle
+
+    me = _make_cycle_user("locked_sender")
+    target = _make_cycle_user("locked_recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    lock = mocker.spy(ConnectWeekSession.objects, "select_for_update")
+    original = connect_cycle.can_send_weekly_request
+
+    def check(*args):
+        assert connection.in_atomic_block
+        assert lock.call_count == 1
+        return original(*args)
+
+    mocker.patch.object(connect_cycle, "can_send_weekly_request", side_effect=check)
+    send_weekly_request(session, me, target)
+
+
+@pytest.mark.django_db
+def test_stored_cards_hide_revoked_photo_consent_in_review_and_summary():
+    from crush_lu.services.connect_cycle import get_review_cards
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    me = _make_cycle_user("private_viewer")
+    target = _make_cycle_user("private_target")
+    session, _ = _reviewable_session_with_card(me, target)
+    membership = target.crush_connect_membership
+    membership.photo_share_consent = False
+    membership.save(update_fields=["photo_share_consent"])
+    assert get_review_cards(session) == []
+    assert get_connect_summary(me)["daily_total"] == 0

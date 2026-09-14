@@ -110,3 +110,19 @@ def test_async_send_is_idempotent_and_normal_form_still_redirects(client):
     assert first.json() == retry.json()
     assert chat.messages.count() == 1
     assert client.post(url, {"message": "Normal form"}).status_code == 302
+
+
+@pytest.mark.parametrize("state", ["paused", "excluded", "not_onboarded"])
+def test_changed_participation_rechecked_without_breaking_paused_chats(client, state):
+    me, peer, chat = _make_open_chat()
+    membership = peer.crush_connect_membership
+    if state == "paused":
+        membership.paused_at = timezone.now()
+    elif state == "excluded":
+        membership.excluded_by_coach = True
+    else:
+        membership.onboarded_at = None
+    membership.save()
+    _login_eligible(client, me)
+    response = client.get(f"{CHATS_URL}{chat.pk}/messages/")
+    assert response.status_code == (200 if state == "paused" else 404)

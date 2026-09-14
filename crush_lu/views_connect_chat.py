@@ -48,6 +48,12 @@ def _get_participant_chat(user, chat_id):
         Q(participant_1=user) | Q(participant_2=user),
         pk=chat_id,
     )
+    if not _participants_available(chat):
+        raise Http404
+    return chat
+
+
+def _participants_available(chat):
     for member in (chat.participant_1, chat.participant_2):
         membership = getattr(member, "crush_connect_membership", None)
         profile = getattr(member, "crushprofile", None)
@@ -55,10 +61,12 @@ def _get_participant_chat(user, chat_id):
             not member.is_active
             or not profile
             or not profile.is_active
-            or (membership and membership.excluded_by_coach)
+            or not membership
+            or not membership.is_onboarded
+            or membership.excluded_by_coach
         ):
-            raise Http404
-    return chat
+            return False
+    return True
 
 
 @crush_login_required
@@ -79,6 +87,8 @@ def connect_week_chats(request):
         .select_related("participant_1__crushprofile", "participant_2__crushprofile")
         .order_by("-created_at")
     ):
+        if not _participants_available(chat):
+            continue
         chat = sync_chat_state(chat)
         chat.partner = chat.get_other_participant(user)
         chat.latest_message = (
@@ -361,6 +371,7 @@ def connect_summary_json(request):
             key: summary[key]
             for key in (
                 "pending_requests",
+                "coach_pick_status",
                 "unread_chats",
                 "chat_count",
                 "daily_total",

@@ -34,7 +34,7 @@
          data-msg-already-met="{% trans 'You have already met this person.' %}"
          data-msg-ended="{% trans 'The live lobby has ended.' %}"
          data-msg-tile-label="{% trans 'Select participant photo' %}"
-         data-msg-sent-badge="{% trans 'Signal sent' %}"
+         data-msg-sent-badge="{% trans 'Sent · waiting for mutual interest' %}"
          data-msg-met-badge="{% trans 'You have already met' %}"
          data-msg-signals-remaining="{% trans 'Signals remaining' %}">
 
@@ -195,6 +195,7 @@
                         class="lobby-tile lobby-tile--signalled">
                     <img src="{{ entry.photo_url }}" alt="" loading="lazy">
                     <span class="lobby-tile-mark">{% include "shared/icons/spark.html" with class="w-3 h-3" %}</span>
+                    <span class="lobby-tile-label">{% trans "Sent · waiting for mutual interest" %}</span>
                 </button>
                 {% else %}
                 {# Coach preview: inert tile, and no "I'd like to meet" promise. #}

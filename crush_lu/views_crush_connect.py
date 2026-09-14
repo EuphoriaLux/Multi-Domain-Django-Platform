@@ -387,18 +387,13 @@ def crush_connect_onboarding(request):
 def _emit_onboarding_complete(request, done_url):
     """Show the appropriate Connect Week/Mix welcome and send the welcome mail."""
     user = request.user
-    if cycle_access_open(user):
-        messages.success(
-            request, _("Welcome to Crush Connect — your Connect Week is ready.")
-        )
-    else:
-        messages.success(
-            request,
-            _(
-                "Welcome to Crush Connect — you're in the mix and can "
-                "be matched by a Crush Coach."
-            ),
-        )
+    messages.success(
+        request,
+        _(
+            "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
+        ),
+    )
+    if not cycle_access_open(user):
         send_crush_connect_catalogue_welcome(user, request)
 
 
@@ -498,12 +493,6 @@ def crush_connect_onboarding_step(request, step: int):
                         "onboarding_step",
                         "onboarding_started_at",
                     ]
-                )
-                messages.success(
-                    request,
-                    _(
-                        "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
-                    ),
                 )
                 _emit_onboarding_complete(request, done_url)
                 # Member is now in the pool — refresh compatibility highlights.
@@ -861,7 +850,10 @@ def crush_connect_hub(request):
     The dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
     from crush_lu.services.connect_chat import user_has_non_closed_chat
-    from crush_lu.services.crush_connect import get_active_coach_pick
+    from crush_lu.services.crush_connect import (
+        get_active_coach_pick,
+        is_catalogue_eligible,
+    )
 
     user = request.user
     profile = getattr(user, "crushprofile", None)
@@ -881,7 +873,7 @@ def crush_connect_hub(request):
     # The week access blocker fully bypasses onboarding for staff, so keep an
     # explicit preview link for an unonboarded staff account.
     cycle_staff_preview = bool(user.is_staff and not cycle_access)
-    coach_pick = get_active_coach_pick(user)
+    coach_pick = get_active_coach_pick(user, include_accepted=True)
 
     # Event Lobby hub card (spec §2 Navigation): shown only while the member
     # is an eligible participant of a currently-live event lobby. People I've
@@ -897,6 +889,7 @@ def crush_connect_hub(request):
 
     context = {
         "membership": membership,
+        "is_visible": is_catalogue_eligible(user),
         "cycle_access": cycle_access,
         "cycle_staff_preview": cycle_staff_preview,
         "is_coach": bool(coach and coach.is_active),
@@ -1005,7 +998,7 @@ def crush_connect_coach_pick(request):
     return render(
         request,
         "crush_lu/crush_connect/coach_pick.html",
-        {"coach_pick": get_active_coach_pick(request.user)},
+        {"coach_pick": get_active_coach_pick(request.user, include_accepted=True)},
     )
 
 

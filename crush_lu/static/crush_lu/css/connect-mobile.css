@@ -2,7 +2,7 @@
 .connect-shell > div { padding-inline: 0; }
 .connect-shell a, .connect-shell button, .connect-shell summary { min-height: 44px; }
 .connect-local-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
-.connect-local-nav a { display: flex; align-items: center; justify-content: center; border-radius: .75rem; text-decoration: none; }
+.connect-local-nav a { gap: .25rem; display: flex; align-items: center; justify-content: center; border-radius: .75rem; text-decoration: none; }
 .connect-local-nav a[aria-current="page"] { background: var(--crush-purple); color: white; font-weight: 700; }
 .connect-shell summary { cursor: pointer; padding-block: .75rem; }
 .connect-shell :focus-visible { outline: 3px solid var(--crush-purple); outline-offset: 3px; }
