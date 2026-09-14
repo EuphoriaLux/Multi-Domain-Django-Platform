@@ -43,6 +43,8 @@ def _get_participant_chat(user, chat_id):
         ConnectTemporaryChat.objects.select_related(
             "participant_1__crushprofile",
             "participant_2__crushprofile",
+            "participant_1__crush_connect_membership",
+            "participant_2__crush_connect_membership",
             "coffee_date__venue_location",
         ),
         Q(participant_1=user) | Q(participant_2=user),
@@ -84,7 +86,12 @@ def connect_week_chats(request):
         ConnectTemporaryChat.objects.filter(
             Q(participant_1=user) | Q(participant_2=user)
         )
-        .select_related("participant_1__crushprofile", "participant_2__crushprofile")
+        .select_related(
+            "participant_1__crushprofile",
+            "participant_2__crushprofile",
+            "participant_1__crush_connect_membership",
+            "participant_2__crush_connect_membership",
+        )
         .order_by("-created_at")
     ):
         if not _participants_available(chat):

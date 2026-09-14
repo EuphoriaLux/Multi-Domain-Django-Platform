@@ -80,7 +80,16 @@ def sync_chat_state(chat):
 
     # Polling may hold an object read before a concurrent send extended expiry.
     # Use the same row lock as sends before deciding any terminal transition.
-    chat.refresh_from_db(from_queryset=ConnectTemporaryChat.objects.select_for_update())
+    chat.refresh_from_db(
+        from_queryset=ConnectTemporaryChat.objects.select_for_update(
+            of=("self",)
+        ).select_related(
+            "participant_1__crushprofile",
+            "participant_2__crushprofile",
+            "participant_1__crush_connect_membership",
+            "participant_2__crush_connect_membership",
+        )
+    )
     Status = ConnectTemporaryChat.Status
     if chat.status in (Status.CLOSED, Status.BLOCKED):
         return chat

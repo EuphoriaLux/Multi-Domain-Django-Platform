@@ -10,8 +10,12 @@ from crush_lu.models import (
     ConnectTemporaryChat,
     ConnectWeekSession,
 )
-from crush_lu.services.connect_cycle import get_pending_inbox, sync_session_state
 from crush_lu.services.blocking import blocked_user_ids
+from crush_lu.services.connect_cycle import (
+    get_pending_inbox,
+    sync_session_state,
+    visible_cycle_cards,
+)
 from crush_lu.services.crush_connect import is_catalogue_eligible
 
 
@@ -30,6 +34,12 @@ def get_connect_summary(user):
         else ConnectCycleCard.objects.none()
     )
     blocked = blocked_user_ids(user)
+    cards = visible_cycle_cards(
+        cards.select_related(
+            "target_user__crushprofile", "target_user__crush_connect_membership"
+        ),
+        user,
+    )
     chats = ConnectTemporaryChat.objects.filter(
         Q(participant_1=user) | Q(participant_2=user),
         expires_at__gt=timezone.now(),
@@ -58,6 +68,6 @@ def get_connect_summary(user):
         ).count(),
         "session": session,
         "review_open": bool(cycle_access and session and session.is_review_active),
-        "daily_total": cards.count(),
-        "daily_completed": cards.filter(is_completed=True).count(),
+        "daily_total": len(cards),
+        "daily_completed": sum(card.is_completed for card in cards),
     }
