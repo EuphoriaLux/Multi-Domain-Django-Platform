@@ -98,6 +98,109 @@ def _answer_all(card):
 
 
 @pytest.mark.django_db
+def test_daily_progress_and_next_card_exclude_revoked_photo_consent(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_cycle_user("daily_visibility")
+    targets = _seed_cycle_pool(me, n=3)
+    session = ConnectWeekSession.objects.create(user=me)
+    cards = [
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=index + 1,
+            target_user=target,
+            generated_date=timezone.localdate(),
+            is_completed=(index == 1),
+        )
+        for index, target in enumerate(targets)
+    ]
+    targets[0].crush_connect_membership.photo_share_consent = False
+    targets[0].crush_connect_membership.save(update_fields=["photo_share_consent"])
+    _login_eligible(client, me)
+    response = client.get(WEEK_HOME_URL)
+    assert response.status_code == 200
+    assert [card.pk for card in response.context["cards"]] == [cards[1].pk, cards[2].pk]
+    assert response.context["next_card_id"] == cards[2].pk
+    assert response.context["completed_count"] == 1
+    ConnectCycleCard.objects.filter(pk=cards[2].pk).update(is_completed=True)
+    complete = client.get(WEEK_HOME_URL)
+    assert complete.context["next_card_id"] is None
+    assert complete.context["completed_count"] == 2
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    summary = get_connect_summary(me)
+    assert summary["daily_total"] == summary["daily_completed"] == 2
+
+
+@pytest.mark.django_db
+def test_review_highlight_is_visible_in_collapsed_summary(client, settings):
+    import re
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_cycle_user("highlight_viewer")
+    target = _make_cycle_user("highlight_target", gender="F")
+    session, _ = _reviewable_session_with_card(me, target)
+    session.compatibility_highlight_user = target
+    session.save(update_fields=["compatibility_highlight_user"])
+    _login_eligible(client, me)
+    response = client.get(WEEK_REVIEW_URL)
+    summaries = re.findall(
+        r"<summary\b[^>]*>(.*?)</summary>", response.content.decode(), re.S
+    )
+    assert any("Suggested connection" in summary for summary in summaries)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("when", ["before_open", "after_open"])
+@pytest.mark.parametrize("loss", ["consent", "identity", "block", "coach"])
+def test_highlight_tracks_visible_completed_cards(client, settings, when, loss):
+    from crush_lu.models import CrushCoach
+    from crush_lu.services.blocking import apply_block
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    viewer = _make_cycle_user("rerank_viewer")
+    targets = _seed_cycle_pool(viewer, n=2)
+    session = ConnectWeekSession.objects.create(user=viewer)
+    ConnectWeekSession.objects.filter(pk=session.pk).update(
+        started_at=timezone.now() - timedelta(days=7)
+    )
+    for index, target in enumerate(targets):
+        ConnectCycleCard.objects.create(
+            session=session,
+            day_number=1,
+            card_index=index + 1,
+            target_user=target,
+            generated_date=timezone.localdate(),
+            is_completed=True,
+            answers_json={"gate_align": 3 if index == 0 else 0},
+        )
+    _login_eligible(client, viewer)
+    if when == "after_open":
+        first = client.get(WEEK_REVIEW_URL)
+        assert first.context["highlight_user_id"] == targets[0].pk
+    target = targets[0]
+    if loss == "consent":
+        target.crush_connect_membership.photo_share_consent = False
+        target.crush_connect_membership.save(update_fields=["photo_share_consent"])
+    elif loss == "identity":
+        type(target.crushprofile).objects.filter(user=target).update(
+            verification_status="unverified", is_approved=False
+        )
+    elif loss == "block":
+        apply_block(target, viewer)
+    else:
+        coach = CrushCoach.objects.create(user=target, is_active=True)
+        viewer.crushprofile.assigned_coach = coach
+        viewer.crushprofile.save(update_fields=["assigned_coach"])
+    response = client.get(WEEK_REVIEW_URL)
+    assert response.status_code == 200
+    assert response.context["highlight_user_id"] == targets[1].pk
+    session.refresh_from_db()
+    assert session.compatibility_highlight_user_id == targets[1].pk
+    assert len(response.context["review_items"]) == 1
+
+
+@pytest.mark.django_db
 def test_inbox_profile_interests_are_prefetched(settings, django_assert_num_queries):
     settings.CRUSH_CONNECT_LAUNCHED = True
     recipient = _make_cycle_user("inbox_recipient", gender="F")
