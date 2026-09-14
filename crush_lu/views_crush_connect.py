@@ -387,18 +387,13 @@ def crush_connect_onboarding(request):
 def _emit_onboarding_complete(request, done_url):
     """Show the appropriate Connect Week/Mix welcome and send the welcome mail."""
     user = request.user
-    if cycle_access_open(user):
-        messages.success(
-            request, _("Welcome to Crush Connect — your Connect Week is ready.")
-        )
-    else:
-        messages.success(
-            request,
-            _(
-                "Welcome to Crush Connect — you're in the mix and can "
-                "be matched by a Crush Coach."
-            ),
-        )
+    messages.success(
+        request,
+        _(
+            "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
+        ),
+    )
+    if not cycle_access_open(user):
         send_crush_connect_catalogue_welcome(user, request)
 
 
@@ -498,12 +493,6 @@ def crush_connect_onboarding_step(request, step: int):
                         "onboarding_step",
                         "onboarding_started_at",
                     ]
-                )
-                messages.success(
-                    request,
-                    _(
-                        "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
-                    ),
                 )
                 _emit_onboarding_complete(request, done_url)
                 # Member is now in the pool — refresh compatibility highlights.

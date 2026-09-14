@@ -4,13 +4,15 @@
   if (!form) return;
   const snapshot = () => JSON.stringify([...new FormData(form).entries()].filter(([key]) => key !== 'csrfmiddlewaretoken'));
   const original = snapshot();
+  // A rejected POST displays submitted values which have never been saved.
+  const isDirty = () => form.dataset.initialDirty === 'true' || snapshot() !== original;
   let leaving = false;
   window.addEventListener('beforeunload', event => {
-    if (!leaving && snapshot() !== original) { event.preventDefault(); event.returnValue = ''; }
+    if (!leaving && isDirty()) { event.preventDefault(); event.returnValue = ''; }
   });
   form.addEventListener('submit', () => { leaving = true; });
   document.querySelector('[data-exit]')?.addEventListener('click', event => {
-    if (snapshot() !== original && !window.confirm(form.dataset.unsaved)) event.preventDefault();
+    if (isDirty() && !window.confirm(form.dataset.unsaved)) event.preventDefault();
     else leaving = true;
   });
   const focusField = name => {
