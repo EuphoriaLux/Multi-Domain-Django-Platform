@@ -282,6 +282,9 @@ def _admin_form_data(audience):
         "max_age": "99",
         "registration_deadline": (now + timedelta(days=2)).isoformat(),
         "registration_fee": "0",
+        # Required on the admin form: the model default only applies to
+        # instance creation, so a bound form has to carry it.
+        "registration_mode": "direct",
         "languages": "[]",
         "max_invited_guests": "1",
         "max_sparks_per_event": "3",

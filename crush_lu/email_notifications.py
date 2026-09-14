@@ -8,10 +8,9 @@ Handles sending emails for:
 """
 import logging
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
-from azureproject.email_utils import send_domain_email
+from azureproject.email_utils import html_to_plain_text, send_domain_email
 from .email_helpers import get_user_language_url, get_email_base_urls, get_social_links
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
@@ -73,7 +72,7 @@ def send_existing_user_invitation_email(event, user, request=None):
                 'crush_lu/emails/existing_user_invitation.html',
                 context
             )
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -148,7 +147,7 @@ def send_external_guest_invitation_email(event_invitation, request=None):
                 'crush_lu/emails/external_guest_invitation.html',
                 context
             )
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -230,7 +229,7 @@ def send_invitation_approval_email(event_invitation, request=None):
                 'crush_lu/emails/invitation_approved.html',
                 context
             )
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
         result = send_domain_email(
             subject=subject,
@@ -305,7 +304,7 @@ def send_invitation_rejection_email(event_invitation, request=None):
                 'crush_lu/emails/invitation_rejected.html',
                 context
             )
-            plain_message = strip_tags(html_message)
+            plain_message = html_to_plain_text(html_message)
 
         result = send_domain_email(
             subject=subject,

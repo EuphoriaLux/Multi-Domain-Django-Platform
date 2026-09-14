@@ -12,7 +12,17 @@
       All venues
     </a>
   </div>
-  <span class="chip chip-live"><span class="dot"></span> Refreshing every 4s</span>
+  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+    {% comment %}Ticket printing rides crush_lu's RawBT pattern: this device
+    (the staff tablet behind the bar) is the print bridge the cloud can't
+    be. The toggle only governs AUTO-printing of newly arrived orders; the
+    per-card "Print ticket" button always works.{% endcomment %}
+    <button id="printer-toggle" class="chip" type="button"
+            title="Auto-print new orders on this device's thermal printer (RawBT)">
+      Printer: off
+    </button>
+    <span class="chip chip-live"><span class="dot"></span> Refreshing every 4s</span>
+  </div>
 </div>
 
 <div class="board">
@@ -52,4 +62,277 @@
     {% endfor %}
   </div>
 </div>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  "use strict";
+
+  // Same delivery mechanism as crush_lu's check-in printing
+  // (triggerRawBtPrint in crush_lu/static/crush_lu/js/alpine-components.js):
+  // primary path is RawBT's local WebSocket, fallback is the Android intent.
+  // Ported rather than shared because that copy lives inside a crush_lu
+  // Alpine component and this page loads neither Alpine nor crush_lu assets.
+  var PRINTER_KEY = "atmos_kds_printer";  // localStorage — survives service
+  var SEEN_KEY = "atmos_kds_printed";     // sessionStorage — one tab, one night
+  var PENDING_KEY = "atmos_kds_pending";  // sessionStorage — jobs not yet handed off
+  var CLAIM_PREFIX = "atmos_kds_claim_";  // localStorage — cross-TAB print claims
+  var CLAIM_TTL_MS = 5 * 60 * 1000;
+
+  // Storage access can throw (private mode, cleared site data) and this
+  // page must keep working as a plain order board when it does.
+  function storeGet(store, key) {
+    try { return store.getItem(key); } catch (e) { return null; }
+  }
+  function storeSet(store, key, value) {
+    try { store.setItem(key, value); } catch (e) { /* board still works */ }
+  }
+  function storeRemove(store, key) {
+    try { store.removeItem(key); } catch (e) { /* board still works */ }
+  }
+
+  function printerEnabled() {
+    return storeGet(localStorage, PRINTER_KEY) === "on";
+  }
+
+  function loadSeen() {
+    var raw = storeGet(sessionStorage, SEEN_KEY);
+    if (raw === null) return null;  // null = very first load, seed silently
+    try {
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+  function saveSeen(ids) {
+    // The board only ever shows live + last-30-min orders, so a night's
+    // worth of ids stays small; the slice is just a hard ceiling.
+    storeSet(sessionStorage, SEEN_KEY, JSON.stringify(ids.slice(-300)));
+  }
+
+  function loadPending() {
+    try {
+      var parsed = JSON.parse(storeGet(sessionStorage, PENDING_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+  function savePending(ids) {
+    storeSet(sessionStorage, PENDING_KEY, JSON.stringify(ids.slice(-100)));
+  }
+
+  // Two KDS tabs on the same tablet share localStorage (and so the printer
+  // toggle) but not sessionStorage, so without coordination both would send
+  // every new order to RawBT. A per-order claim in localStorage lets the
+  // first tab to reach an order own it; the tab token keeps a tab's own
+  // RETRY (vignette still pending, fetch failed) from tripping over its own
+  // claim. Claims expire so a tab closed mid-job doesn't strand the order
+  // forever. Two separate DEVICES each print on purpose — a device with
+  // "Printer: on" is declaring it has a printer attached.
+  var TAB_TOKEN = (function () {
+    var token = storeGet(sessionStorage, "atmos_kds_tab");
+    if (!token) {
+      token = String(Date.now()) + String(Math.random()).slice(2, 10);
+      storeSet(sessionStorage, "atmos_kds_tab", token);
+    }
+    return token;
+  })();
+
+  function claimOrder(orderId) {
+    var key = CLAIM_PREFIX + orderId;
+    var raw = storeGet(localStorage, key);
+    if (raw) {
+      var sep = raw.indexOf(":");
+      var stamp = parseInt(raw.slice(0, sep), 10);
+      var owner = raw.slice(sep + 1);
+      if (owner !== TAB_TOKEN && Date.now() - stamp < CLAIM_TTL_MS) {
+        return false;  // another live tab owns this print
+      }
+    }
+    storeSet(localStorage, key, Date.now() + ":" + TAB_TOKEN);
+    return true;
+  }
+
+  function pruneStaleClaims() {
+    var stale = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf(CLAIM_PREFIX) === 0) {
+          var stamp = parseInt(localStorage.getItem(key), 10);
+          if (!stamp || Date.now() - stamp >= CLAIM_TTL_MS) stale.push(key);
+        }
+      }
+    } catch (e) { return; }
+    stale.forEach(function (key) { storeRemove(localStorage, key); });
+  }
+
+  function triggerRawBtPrint(base64Payload) {
+    if (!base64Payload || typeof base64Payload !== "string") return;
+    var trimmed = base64Payload.trim();
+    if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+
+    var fireIntentFallback = function () {
+      // Re-validated at the sink (this runs from async ws callbacks). The
+      // base64 charset excludes ":" and "#", so `trimmed` cannot alter the
+      // fixed intent: scheme or inject a second #Intent extras block.
+      if (!/^[A-Za-z0-9+/=]+$/.test(trimmed)) return;
+      window.location.href =
+        "intent:base64," + trimmed +
+        "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+    };
+
+    try {
+      var binaryString = atob(trimmed);
+      var bytes = new Uint8Array(binaryString.length);
+      for (var i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      var ws = new WebSocket("ws://127.0.0.1:40213/");
+      ws.binaryType = "arraybuffer";
+      var wsHandled = false;
+
+      var fallbackTimer = setTimeout(function () {
+        if (!wsHandled && ws.readyState !== 1) {
+          wsHandled = true;
+          try { ws.close(); } catch (e) {}
+          fireIntentFallback();
+        }
+      }, 400);
+
+      ws.onopen = function () {
+        wsHandled = true;
+        clearTimeout(fallbackTimer);
+        // send() can still throw if the socket drops in the instant after
+        // onopen — without this guard the job would be silently lost with
+        // wsHandled already true and no fallback fired.
+        try {
+          ws.send(bytes.buffer);
+          setTimeout(function () { try { ws.close(); } catch (e) {} }, 250);
+        } catch (e) {
+          fireIntentFallback();
+        }
+      };
+      ws.onerror = function () {
+        if (!wsHandled) {
+          wsHandled = true;
+          clearTimeout(fallbackTimer);
+          fireIntentFallback();
+        }
+      };
+    } catch (e) {
+      fireIntentFallback();
+    }
+  }
+
+  // opts.auto: an auto-print pass, which defers vignette_pending orders to
+  // the next 4s cycle (the story lands ~1.2s after placement; printing
+  // before it does would put a ticket on paper that never matches the
+  // guest's finalized one). Manual taps print whatever exists right now —
+  // staff asked. opts.onHandled fires only after a successful handoff, so
+  // callers can mark the job done then and only then.
+  function printOrder(url, opts) {
+    opts = opts || {};
+    fetch(url, { credentials: "same-origin", headers: { "Accept": "application/json" } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data || !data.success || !data.print_payload_base64) return;
+        if (opts.auto && data.vignette_pending) return;  // stays pending, retried
+        triggerRawBtPrint(data.print_payload_base64);
+        if (opts.onHandled) opts.onHandled();
+      })
+      .catch(function () { /* stays pending; the next pass or tap retries */ });
+  }
+
+  // Manual reprint — delegated so it needs no per-card wiring, and works
+  // regardless of the auto-print toggle.
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-print-url]");
+    if (button) printOrder(button.getAttribute("data-print-url"));
+  });
+
+  // Auto-print toggle.
+  var toggle = document.getElementById("printer-toggle");
+  function paintToggle() {
+    if (!toggle) return;
+    var on = printerEnabled();
+    toggle.textContent = on ? "Printer: on" : "Printer: off";
+    toggle.classList.toggle("chip-lamp", on);
+  }
+  if (toggle) {
+    toggle.addEventListener("click", function () {
+      storeSet(localStorage, PRINTER_KEY, printerEnabled() ? "off" : "on");
+      paintToggle();
+    });
+    paintToggle();
+  }
+
+  // Auto-print newly arrived orders. The page fully reloads every 4s (meta
+  // refresh), so state persists in sessionStorage across those reloads in
+  // two tiers: `seen` (handed off, or moot) and `pending` (discovered but
+  // not yet successfully dispatched). An order moves to `seen` only AFTER a
+  // successful fetch+handoff — a failed fetch, a vignette still being
+  // written, or a reload cancelling the staggered timers all leave it
+  // pending, and the next 4s cycle retries it. On the very first load the
+  // whole board is seeded as seen without printing — opening the KDS
+  // mid-service must not replay every open order to paper.
+  pruneStaleClaims();
+  var cards = Array.prototype.slice.call(
+    document.querySelectorAll(".ticketcard[data-order-id]")
+  );
+  var cardById = {};
+  cards.forEach(function (card) {
+    cardById[card.getAttribute("data-order-id")] = card;
+  });
+
+  function markHandled(orderId) {
+    var seenNow = loadSeen() || [];
+    if (seenNow.indexOf(orderId) === -1) seenNow.push(orderId);
+    saveSeen(seenNow);
+    savePending(loadPending().filter(function (id) { return id !== orderId; }));
+  }
+
+  var seen = loadSeen();
+  if (seen === null) {
+    saveSeen(cards.map(function (card) {
+      return card.getAttribute("data-order-id");
+    }));
+    savePending([]);
+  } else {
+    // A pending order that left the board (served >30 min ago, cancelled)
+    // is moot — nobody wants that ticket any more; don't retry it.
+    var pending = loadPending().filter(function (id) { return cardById[id]; });
+    cards.forEach(function (card) {
+      var id = card.getAttribute("data-order-id");
+      if (seen.indexOf(id) !== -1 || pending.indexOf(id) !== -1) return;
+      // Anything not yet delivered gets a ticket, whatever column it first
+      // shows up in: a second staff device tapping Accept inside this tab's
+      // 4s window must not cost the order its paper. First appearing as
+      // `served` means it was handled before this tab ever saw it.
+      if (card.getAttribute("data-order-status") !== "served") {
+        pending.push(id);
+      } else {
+        seen.push(id);
+      }
+    });
+    saveSeen(seen);
+    savePending(pending);
+
+    if (printerEnabled()) {
+      pending.forEach(function (id, index) {
+        setTimeout(function () {
+          var card = cardById[id];
+          var button = card && card.querySelector("[data-print-url]");
+          if (!button) return;
+          if (!claimOrder(id)) {
+            markHandled(id);  // another tab on this device owns the print
+            return;
+          }
+          printOrder(button.getAttribute("data-print-url"), {
+            auto: true,
+            onHandled: function () { markHandled(id); },
+          });
+        }, index * 800);
+      });
+    }
+  }
+})();
+</script>
 {% endblock %}

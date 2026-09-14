@@ -7857,24 +7857,24 @@ msgid "Instagram URL"
 msgstr "URL Instagram"
 
 #: models/site_config.py:33
-msgid "e.g. https://www.instagram.com/crush.lu"
-msgstr "ex. https://www.instagram.com/crush.lu"
+msgid "e.g. https://www.instagram.com/crushluofficial/"
+msgstr "ex. https://www.instagram.com/crushluofficial/"
 
 #: models/site_config.py:37
 msgid "Facebook URL"
 msgstr "URL Facebook"
 
 #: models/site_config.py:38
-msgid "e.g. https://www.facebook.com/crush.lu"
-msgstr "ex. https://www.facebook.com/crush.lu"
+msgid "e.g. https://www.facebook.com/crushluxembourg"
+msgstr "ex. https://www.facebook.com/crushluxembourg"
 
 #: models/site_config.py:42
 msgid "LinkedIn URL"
 msgstr "URL LinkedIn"
 
 #: models/site_config.py:43
-msgid "e.g. https://www.linkedin.com/company/crush-lu"
-msgstr "ex. https://www.linkedin.com/company/crush-lu"
+msgid "e.g. https://www.linkedin.com/showcase/crushluapp/"
+msgstr "ex. https://www.linkedin.com/showcase/crushluapp/"
 
 #: models/site_config.py:47
 msgid "Google Business URL"
@@ -8788,7 +8788,7 @@ msgstr ""
 #: templates/account/email/password_reset_key_message.html:15
 msgid "To choose a new password, click the button below:"
 msgstr ""
-"Pour choisir un nouveau mot de passe, clique sur le bouton ci-dessous :"
+"Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :"
 
 #: templates/account/email/password_reset_key_message.html:19
 msgid "Reset my password"
@@ -13275,7 +13275,7 @@ msgstr "Vérification de résidence"
 #: templates/crush_lu/emails/event_reminder.html:18
 #: templates/crush_lu/emails/event_waitlist.html:21
 msgid "Location:"
-msgstr "Localisation"
+msgstr "Lieu :"
 
 #: templates/crush_lu/_screening_call_section.html:336
 msgid "Residence in Luxembourg or neighbor country confirmed"
@@ -40657,3 +40657,865 @@ msgstr "Merci de soutenir des rencontres authentiques au Luxembourg."
 #: templates/crush_lu/emails/donation_payment_receipt.html
 msgid "Thank you!"
 msgstr "Merci !"
+
+#: crush_lu/models/events.py
+msgid "Gender codes the applicant wants to meet; empty = open to all"
+msgstr "Codes de genre que la personne souhaite rencontrer ; vide = ouvert à tous"
+
+#: crush_lu/models/events.py
+msgid "Event-language codes (en/de/fr/lu) the applicant wants at the table; empty = any"
+msgstr "Codes de langue (en/de/fr/lu) souhaités à table ; vide = indifférent"
+
+#: crush_lu/forms.py
+msgid "Who would you like to meet?"
+msgstr "Qui souhaitez-vous rencontrer ?"
+
+#: crush_lu/forms.py
+msgid "Preferred language at the table"
+msgstr "Langue préférée à table"
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Your speed-dating preferences"
+msgstr "Vos préférences de speed dating"
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Used only by the organiser team to compose the tables — never shown to other members."
+msgstr "Utilisé uniquement par l'équipe d'organisation pour composer les tables — jamais visible par les autres membres."
+
+#: templates/crush_lu/components/event_preference_fields.html
+msgid "Leave empty if any language works for you."
+msgstr "Laissez vide si toutes les langues vous conviennent."
+
+#: templates/crush_lu/privacy_policy.html
+msgid "Speed-dating preferences you optionally state per event (preferred age range, languages, gender preference): used only by the organiser team to compose balanced tables, never shown to other members, and deleted shortly after the event"
+msgstr "Préférences de speed dating que vous indiquez facultativement pour chaque événement (tranche d'âge préférée, langues, préférence de genre) : utilisées uniquement par l'équipe d'organisation pour composer des tables équilibrées, jamais montrées aux autres membres et supprimées peu après l'événement"
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The overall application pool is large enough to explore group combinations."
+msgstr "Le nombre total de candidatures est suffisant pour étudier différentes compositions de groupes."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applications are open and the overall pool is still building."
+msgstr "Les candidatures sont ouvertes et le vivier global est encore en train de se constituer."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "Groups are designed for around %(size)s people."
+msgstr "Les groupes sont conçus pour environ %(size)s personnes."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The organiser currently plans one group, subject to compatible applications and a viable round schedule."
+msgid_plural "The organiser currently plans %(count)s groups, subject to compatible applications and a viable round schedule."
+msgstr[0] "L'équipe organisatrice prévoit actuellement un groupe, sous réserve de candidatures compatibles et d'un planning de rencontres viable."
+msgstr[1] "L'équipe organisatrice prévoit actuellement %(count)s groupes, sous réserve de candidatures compatibles et d'un planning de rencontres viable."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+#, python-format
+msgid "The venue can host up to one group."
+msgid_plural "The venue can host up to %(count)s parallel groups."
+msgstr[0] "Le lieu peut accueillir jusqu'à un groupe."
+msgstr[1] "Le lieu peut accueillir jusqu'à %(count)s groupes en parallèle."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "One flexible group can run at the venue."
+msgstr "Un groupe flexible peut être organisé sur place."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "The group size and number of groups will be set after applications are reviewed."
+msgstr "La taille et le nombre des groupes seront définis après examen des candidatures."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Applying does not reserve a place. Selection depends on mutual preferences producing a viable round schedule, and a place is not guaranteed."
+msgstr "Votre candidature ne réserve pas de place. La sélection dépend de préférences mutuelles permettant d'établir un planning de rencontres viable, et aucune place n'est garantie."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will be invited to pay. You are not charged when you apply."
+msgstr "Si vous êtes sélectionné(e) pour un groupe provisoire viable, vous serez invité(e) à payer. Aucun montant ne vous est facturé lors de votre candidature."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "If selected for a viable provisional group, you will receive a separate confirmation."
+msgstr "Si vous êtes sélectionné(e) pour un groupe provisoire viable, vous recevrez une confirmation distincte."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Groups are finalized before the first round and stay together for the whole evening."
+msgstr "Les groupes sont finalisés avant le premier tour et restent ensemble pendant toute la soirée."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Every finalized group is scheduled to give each participant at least five mutually compatible mini-dates, with seven as the goal."
+msgstr "Chaque groupe finalisé est planifié pour offrir à chaque personne au moins cinq mini-rencontres mutuellement compatibles, avec un objectif de sept."
+
+#: templates/crush_lu/components/event_registration_cta_label.html
+msgid "Apply for This Event"
+msgstr "Postuler à cet événement"
+
+#: templates/crush_lu/event_detail.html
+msgid "Flexible groups"
+msgstr "Groupes flexibles"
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will invite you to pay only if you are selected for a viable provisional group. Selection is not guaranteed."
+msgstr "L'équipe organisatrice examine les préférences mutuelles et ne vous invitera à payer que si vous êtes sélectionné(e) pour un groupe provisoire viable. La sélection n'est pas garantie."
+
+#: templates/crush_lu/event_detail.html
+msgid "The organiser reviews mutual preferences and will confirm your place only if a viable provisional group can be formed. Selection is not guaranteed."
+msgstr "L'équipe organisatrice examine les préférences mutuelles et ne confirmera votre place que si un groupe provisoire viable peut être constitué. La sélection n'est pas garantie."
+
+#: templates/crush_lu/event_detail.html
+msgid "Withdraw Application"
+msgstr "Retirer ma candidature"
+
+#: templates/crush_lu/event_detail.html
+msgid "to apply for this event."
+msgstr "pour postuler à cet événement."
+
+#: email_helpers.py templates/crush_lu/emails/curated_group_payment_remedy.html
+#, python-brace-format
+msgid "Your payment for {title} was returned"
+msgstr "Votre paiement pour {title} a été restitué"
+
+msgid "Your payment was returned"
+msgstr "Votre paiement a été restitué"
+
+#, python-format
+msgid "When your payment for <strong>%(title)s</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place."
+msgstr "Lorsque votre paiement pour <strong>%(title)s</strong> a été finalisé, nous ne pouvions plus honorer la place sélectionnée selon ses conditions certifiées. Nous n’avons donc pas confirmé de place."
+
+#, python-format
+msgid "We've immediately returned %(amount)s EUR in Crush Credit to your account."
+msgstr "Nous avons immédiatement restitué %(amount)s EUR sous forme de Crush Credit sur votre compte."
+
+msgid "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes."
+msgstr "Comme nous n’avons pas pu fournir la place sélectionnée que vous avez payée, vous pouvez demander un remboursement à la place. Répondez à cet e-mail afin que nous l’organisions. Si vous utilisez une partie du crédit, l’option de remboursement prend fin."
+
+msgid "The cash-refund option has closed because some or all of this credit has already been used."
+msgstr "L’option de remboursement est fermée, car une partie ou la totalité de ce crédit a déjà été utilisée."
+
+msgid "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates."
+msgstr "Cette réservation a été payée avec du Crush Credit ; sa valeur d’origine a donc été rétablie avec ses dates d’expiration d’origine."
+
+msgid "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method."
+msgstr "La valeur totale a été restituée sous forme de Crush Credit. Répondez à cet e-mail si vous souhaitez que nous vérifiions le mode de paiement d’origine."
+
+msgid "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically."
+msgstr "Votre candidature reste dans le pool. Nous vous contacterons si un nouveau groupe viable est sélectionné ; aucun nouveau montant ne vous sera facturé automatiquement."
+
+msgid "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically."
+msgstr "Cette soirée ne peut plus être recomposée. Aucune place n’a été confirmée et aucun nouveau montant ne vous sera facturé automatiquement."
+
+#: views_payments.py
+msgid "A payment checkout is already being prepared. Please wait and try again."
+msgstr "Un paiement est déjà en cours de préparation. Veuillez patienter et réessayer."
+
+msgid "The registration changed while payment was being prepared. Please try again."
+msgstr "L’inscription a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "The event price changed while payment was being prepared. Please try again."
+msgstr "Le prix de l’événement a changé pendant la préparation du paiement. Veuillez réessayer."
+
+msgid "This registration is no longer available."
+msgstr "Cette inscription n’est plus disponible."
+
+msgid "Payment state changed. Please try again."
+msgstr "L’état du paiement a changé. Veuillez réessayer."
+
+#: models/credits.py
+msgid "Curated group became unavailable"
+msgstr "Le groupe organisé n’est plus disponible"
+
+#: models/events.py
+msgid "Unpaid-group withdrawal"
+msgstr "Retrait d’un membre sans paiement"
+
+#: email_helpers.py
+#, python-brace-format
+msgid "Your application for {title} is being reconsidered"
+msgstr "Votre candidature pour {title} est de nouveau à l’étude"
+
+#: templates/crush_lu/emails/curated_group_withdrawal.html
+msgid "Your application is being reconsidered"
+msgstr "Votre candidature est de nouveau à l’étude"
+
+#, python-format
+msgid "Hello %(first_name)s,"
+msgstr "Bonjour %(first_name)s,"
+
+#, python-format
+msgid "The selected group for <strong>%(title)s</strong> can no longer go ahead as planned, so we have returned your application to the selection pool."
+msgstr "Le groupe sélectionné pour <strong>%(title)s</strong> ne peut plus avoir lieu comme prévu. Nous avons donc replacé votre candidature dans le pool de sélection."
+
+msgid "No payment was taken for this place."
+msgstr "Aucun paiement n’a été prélevé pour cette place."
+
+msgid "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required."
+msgstr "Nous réexaminerons votre candidature si un autre groupe viable peut être constitué. Nous vous contacterons avant qu’un paiement ne soit nécessaire."
+
+msgid "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page."
+msgstr "Vous n’avez rien à faire pour rester dans le pool. Si vos projets ont changé, vous pouvez retirer votre candidature depuis la page de l’événement."
+#: email_helpers.py
+msgid "Your application for {title} stays in the pool"
+msgstr "Votre candidature pour {title} reste dans le pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "Your application stays in the pool"
+msgstr "Votre candidature reste dans le pool"
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Thank you for applying to <strong>%(title)s</strong>. The first groups for "
+"this evening have now been formed, and we could not place you in one of them"
+" this time."
+msgstr ""
+"Merci d’avoir postulé pour <strong>%(title)s</strong>. Les premiers groupes "
+"de cette soirée sont maintenant formés et nous n’avons pas pu vous y "
+"attribuer une place cette fois-ci."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid "No payment was taken. Your application stays in the pool."
+msgstr "Aucun paiement n’a été prélevé. Votre candidature reste dans le pool."
+
+#: templates/crush_lu/emails/curated_group_reserve.html
+msgid ""
+"Groups can still change before the evening. If a place opens in a group that"
+" works for you, we will contact you before any payment is required."
+msgstr ""
+"Les groupes peuvent encore évoluer avant la soirée. Si une place se libère "
+"dans un groupe qui vous correspond, nous vous contacterons avant tout "
+"paiement."
+
+#: models/events.py
+msgid "Not selected — application stays in the pool"
+msgstr "Non sélectionné — la candidature reste dans le pool"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications open"
+msgstr "Groupes sur sélection · candidatures ouvertes"
+
+#: templates/crush_lu/includes/event_card.html
+msgid "Curated groups · applications closed"
+msgstr "Groupes sur sélection · candidatures closes"
+
+#: templates/crush_lu/coach_event_detail.html
+msgid "Groups"
+msgstr "Groupes"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Curated groups"
+msgstr "Groupes sur sélection"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "generation %(generation)s"
+msgstr "génération %(generation)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is degraded and needs repair"
+msgstr "La génération %(generation)s est dégradée et doit être réparée"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round one has started"
+msgstr "La première ronde a commencé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is locked: final evening roster"
+msgstr ""
+"La génération %(generation)s est verrouillée : composition définitive de la "
+"soirée"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is provisional: selected and payable"
+msgstr "La génération %(generation)s est provisoire : sélectionnée et payable"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Generation %(generation)s is a draft"
+msgstr "La génération %(generation)s est un brouillon"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "No groups generated yet"
+msgstr "Aucun groupe généré pour l’instant"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications closed %(deadline)s"
+msgstr "Candidatures closes depuis le %(deadline)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications close %(deadline)s"
+msgstr "Les candidatures ferment le %(deadline)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round one was already marked as started."
+msgstr "La première ronde a déjà été marquée comme commencée."
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Next step:"
+msgstr "Prochaine étape :"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Open the coach panel"
+msgstr "Ouvrir le panel coach"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "What the projector would do with the pool right now"
+msgstr "Ce que le projecteur ferait du pool en ce moment"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Draft is stale"
+msgstr "Brouillon obsolète"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "The projector refused this pool: %(error)s"
+msgstr "Le projecteur a refusé ce pool : %(error)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Applications"
+msgstr "Candidatures"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Viable groups"
+msgstr "Groupes viables"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Would be left out"
+msgstr "Resteraient sans place"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Group %(number)s"
+msgstr "Groupe %(number)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Provisional"
+msgstr "Provisoire"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Degraded"
+msgstr "Dégradé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "was locked"
+msgstr "était verrouillé"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "was provisional"
+msgstr "était provisoire"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s round"
+msgid_plural "%(counter)s rounds"
+msgstr[0] "%(counter)s ronde"
+msgstr[1] "%(counter)s rondes"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "everyone meets the %(target)s-date target"
+msgstr "tout le monde atteint l’objectif de %(target)s rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(meeting)s of %(members)s meet the %(target)s-date target"
+msgstr ""
+"%(meeting)s sur %(members)s atteignent l’objectif de %(target)s rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "at least %(minimum)s dates each"
+msgstr "au moins %(minimum)s rencontres par personne"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "survives one drop-out"
+msgstr "résiste à un désistement"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "does not survive a drop-out"
+msgstr "ne résiste pas à un désistement"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "%(counter)s mini-date"
+msgid_plural "%(counter)s mini-dates"
+msgstr[0] "%(counter)s mini-rencontre"
+msgstr[1] "%(counter)s mini-rencontres"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Released"
+msgstr "Libéré·e"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Why this group"
+msgstr "Pourquoi ce groupe"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Show pairing schedule"
+msgstr "Afficher le plan des tables"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Round"
+msgstr "Ronde"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Table %(table)s"
+msgstr "Table %(table)s"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Sitting out"
+msgstr "En pause"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Left out"
+msgstr "Sans place"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Nobody is left out."
+msgstr "Personne ne reste sans place."
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Cannot be placed"
+msgstr "Ne peut pas être placé·e"
+
+#: templates/crush_lu/components/coach_curated_groups.html
+msgid "Eligible but not placed"
+msgstr "Éligible mais sans place"
+
+#: services/curated_group_insights.py
+msgid ""
+"Wait for the application deadline, then run “Generate fair curated groups”."
+msgstr ""
+"Attendez la date limite de candidature, puis lancez « Generate fair curated "
+"groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Generate fair curated groups”."
+msgstr "Lancez « Generate fair curated groups »."
+
+#: services/curated_group_insights.py
+msgid ""
+"Run “Generate fair curated groups” again: the pool or the deadline changed "
+"since this draft, so approval would be refused."
+msgstr ""
+"Relancez « Generate fair curated groups » : le pool ou la date limite a "
+"changé depuis ce brouillon, l’approbation serait refusée."
+
+#: services/curated_group_insights.py
+msgid "Review the draft, then run “Approve all current fair groups”."
+msgstr ""
+"Vérifiez le brouillon, puis lancez « Approve all current fair groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Invite the approved generation to pay”."
+msgstr "Lancez « Invite the approved generation to pay »."
+
+#: services/curated_group_insights.py
+msgid ""
+"Check every member in at the door, then run “Lock checked-in curated "
+"groups”."
+msgstr ""
+"Enregistrez chaque membre à l’entrée, puis lancez « Lock checked-in curated "
+"groups »."
+
+#: services/curated_group_insights.py
+msgid "Run “Mark curated round one as started” as the first round begins."
+msgstr ""
+"Lancez « Mark curated round one as started » au début de la première ronde."
+
+#: services/curated_group_insights.py
+msgid "Round one has been marked as started. Nothing left to do here."
+msgstr ""
+"La première ronde a été marquée comme commencée. Plus rien à faire ici."
+
+#: services/curated_group_insights.py
+msgid "Run “Reproject or compensate degraded groups”."
+msgstr "Lancez « Reproject or compensate degraded groups »."
+
+#: services/curated_group_insights.py
+msgid "The event is cancelled; no group action applies."
+msgstr "L’événement est annulé ; aucune action de groupe ne s’applique."
+
+#: services/curated_group_insights.py
+msgid "no event preferences on the application"
+msgstr "aucune préférence d’événement dans la candidature"
+
+#: services/curated_group_insights.py
+msgid "no gender on the profile"
+msgstr "aucun genre dans le profil"
+
+#: services/curated_group_insights.py
+msgid "no date of birth on the profile"
+msgstr "aucune date de naissance dans le profil"
+
+#: services/curated_group_insights.py
+msgid "outside the event's age range"
+msgstr "hors de la tranche d’âge de l’événement"
+
+#: services/curated_group_insights.py
+msgid "incomplete application"
+msgstr "candidature incomplète"
+
+#: services/curated_group_insights.py
+msgid ""
+"Its members form a compatibility track of their own: no other applicant was "
+"mutually compatible with anyone in it."
+msgstr ""
+"Ses membres forment leur propre bloc de compatibilité : aucun autre candidat"
+" n’était mutuellement compatible avec l’un d’eux."
+
+#: services/curated_group_insights.py
+msgid ""
+"Drawn from a compatibility track of %(track)d mutually compatible "
+"applicants; group %(ordinal)d within that track."
+msgstr ""
+"Issu d’un bloc de compatibilité de %(track)d candidats mutuellement "
+"compatibles ; groupe %(ordinal)d de ce bloc."
+
+#: services/curated_group_insights.py
+msgid ""
+"Prioritised because its members had few alternative groups in the pool."
+msgstr ""
+"Priorisé parce que ses membres avaient peu d’autres groupes possibles dans "
+"le pool."
+
+#: services/curated_group_insights.py
+msgid "%(count)d member already held a seat when this projection ran."
+msgid_plural "%(count)d members already held a seat when this projection ran."
+msgstr[0] "%(count)d membre avait déjà une place lors de ce calcul."
+msgstr[1] "%(count)d membres avaient déjà une place lors de ce calcul."
+#: services/curated_group_insights.py
+msgid ""
+"The projector refused this pool, so groups can be neither generated nor "
+"approved; reduce the pool or review it offline first."
+msgstr ""
+"Le projecteur a refusé ce pool : les groupes ne peuvent être ni générés ni "
+"approuvés. Réduisez le pool ou examinez-le d’abord hors ligne."
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed without an approved generation; groups can no"
+" longer be generated or approved for this event."
+msgstr ""
+"Le début prévu est passé sans génération approuvée ; il n’est plus possible "
+"de générer ni d’approuver des groupes pour cet événement."
+
+#: services/curated_group_insights.py
+msgid ""
+"The scheduled start has passed, so the remaining applicants can no longer be"
+" invited. Check in the members who are here, then run “Lock checked-in "
+"curated groups”."
+msgstr ""
+"Le début prévu est passé : les candidats restants ne peuvent plus être "
+"invités. Enregistrez les membres présents, puis lancez « Lock checked-in "
+"curated groups »."
+
+#: services/curated_group_insights.py
+msgid ""
+"The event has ended without round one being marked as started. Nothing left "
+"to do here."
+msgstr ""
+"L’événement est terminé sans que la première ronde ait été marquée comme "
+"commencée. Plus rien à faire ici."
+#: services/curated_group_insights.py
+msgid ""
+"The projector finds no viable group in this pool: nobody can be seated with "
+"at least five mutually compatible dates yet, so there is nothing to generate"
+" until more compatible applicants apply."
+msgstr ""
+"Le projecteur ne trouve aucun groupe viable dans ce pool : personne ne peut "
+"encore être placé avec au moins cinq rencontres mutuellement compatibles, il"
+" n’y a donc rien à générer tant que davantage de candidats compatibles ne se"
+" sont pas inscrits."
+
+#: services/curated_group_insights.py
+msgid ""
+"This group degraded after round one had started. The repair action only "
+"records the audit; nothing is reprojected or compensated."
+msgstr ""
+"Ce groupe s’est dégradé après le début de la première ronde. L’action de "
+"réparation ne fait qu’enregistrer l’audit ; rien n’est recomposé ni "
+"compensé."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Add your gender and date of birth to your profile to see how well the "
+"current applicants match your preferences."
+msgstr ""
+"Ajoutez votre genre et votre date de naissance à votre profil pour voir dans"
+" quelle mesure les candidats actuels correspondent à vos préférences."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Few of the current applicants match your preferences; widening them helps."
+msgstr ""
+"Peu de candidats actuels correspondent à vos préférences ; les élargir aide."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"About half an evening's worth of the current applicants match your "
+"preferences."
+msgstr ""
+"Les candidats actuels qui correspondent à vos préférences suffisent pour "
+"environ une demi-soirée."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences to fill an evening."
+msgstr ""
+"Assez de candidats actuels correspondent à vos préférences pour remplir une "
+"soirée."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid ""
+"Enough of the current applicants match your preferences for more than one "
+"group."
+msgstr ""
+"Assez de candidats actuels correspondent à vos préférences pour plus d’un "
+"groupe."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Several first-timers have applied."
+msgstr "Plusieurs personnes participent pour la première fois."
+
+#: templates/crush_lu/components/curated_group_outlook.html
+msgid "Most applicants are verified."
+msgstr "La plupart des candidats sont vérifiés."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is final."
+msgstr "Votre groupe est définitif."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your group is provisional."
+msgstr "Votre groupe est provisoire."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"You are in a group of %(size)s people; %(rounds)s rounds are planned; "
+"everyone gets at least %(minimum)s mini-dates."
+msgstr ""
+"Vous faites partie d’un groupe de %(size)s personnes ; %(rounds)s rondes "
+"sont prévues ; chacun a au moins %(minimum)s mini-rencontres."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"Groups stay together for the whole evening; this one is locked and will not "
+"change."
+msgstr ""
+"Les groupes restent ensemble toute la soirée ; celui-ci est verrouillé et ne"
+" changera plus."
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Your tables"
+msgstr "Vos tables"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: table %(table)s, seat %(seat)s"
+msgstr "Ronde %(round)s : table %(table)s, place %(seat)s"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid "Round %(round)s: break"
+msgstr "Ronde %(round)s : pause"
+
+#: templates/crush_lu/components/curated_member_group.html
+msgid ""
+"The group can still change until it is locked before the first round. Your "
+"tables appear here once it is final."
+msgstr ""
+"Le groupe peut encore changer jusqu’à son verrouillage avant la première "
+"ronde. Vos tables apparaîtront ici une fois qu’il sera définitif."
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Signal"
+msgstr "Signal"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "LuxID linked"
+msgstr "LuxID lié"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "No coach owns it"
+msgstr "Aucun coach ne s'en occupe"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Open profile"
+msgstr "Ouvrir le profil"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Nothing waiting here"
+msgstr "Rien en attente ici"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "No unverified profile matches these filters."
+msgstr "Aucun profil non vérifié ne correspond à ces filtres."
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Every active profile is verified."
+msgstr "Tous les profils actifs sont vérifiés."
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Name or email"
+msgstr "Nom ou e-mail"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "No photo — the door scan cannot verify this profile"
+msgstr "Pas de photo — le scan à l'entrée ne peut pas vérifier ce profil"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Was at an event and still is not verified"
+msgstr "A participé à un événement et n'est toujours pas vérifié"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "A door scan skips profiles without a photo"
+msgstr "Un scan à l'entrée ignore les profils sans photo"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "LuxID is linked but the profile is still not verified"
+msgstr "LuxID est lié mais le profil n'est toujours pas vérifié"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "Only their own assigned coach may verify a premium member"
+msgstr "Seul le coach attribué peut vérifier un membre premium"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid "No open submission — no coach is carrying this one"
+msgstr "Aucune soumission ouverte — aucun coach ne s'en charge"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+msgid ""
+"Everyone still waiting for verification — including the members who never "
+"entered a review queue. Open a profile to check it and verify."
+msgstr ""
+"Toutes les personnes en attente de vérification — y compris les membres qui "
+"ne sont jamais entrés dans une file de contrôle. Ouvrez un profil pour le "
+"contrôler et le vérifier."
+
+#: templates/crush_lu/coach_unverified_profiles.html
+#, python-format
+msgid "Latest submission: %(status)s"
+msgstr "Dernière soumission : %(status)s"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+#, python-format
+msgid "Updated %(age)s ago"
+msgstr "Mis à jour il y a %(age)s"
+
+#: views_coach.py
+msgid "Recently updated"
+msgstr "Récemment mis à jour"
+
+#: views_coach.py
+msgid "Waiting longest"
+msgstr "En attente depuis le plus longtemps"
+
+#: views_coach.py
+msgid "Name (A-Z)"
+msgstr "Nom (A-Z)"
+
+#: views_coach.py
+msgid "Attended but unverified"
+msgstr "A participé mais non vérifié"
+
+#: views_coach.py
+msgid "Booked on an event"
+msgstr "Inscrit à un événement"
+
+#: views_coach.py
+msgid "Confirm you have checked this member's identity before verifying."
+msgstr ""
+"Confirmez que vous avez contrôlé l'identité de ce membre avant de le "
+"vérifier."
+
+#: views_coach.py
+msgid "This member has no profile to verify."
+msgstr "Ce membre n'a pas de profil à vérifier."
+
+#: views_coach.py
+msgid "This member is already verified."
+msgstr "Ce membre est déjà vérifié."
+
+#: views_coach.py
+msgid "Could not verify this profile. Please try again."
+msgstr "Ce profil n'a pas pu être vérifié. Veuillez réessayer."
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "Verify this member"
+msgstr "Vérifier ce membre"
+
+#: templates/crush_lu/coach_member_overview.html
+msgid ""
+"Records a manual verification by Crush.lu. It does not count as in-person "
+"attendance."
+msgstr ""
+"Enregistre une vérification manuelle par Crush.lu. Elle ne compte pas comme "
+"une présence en personne."
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "Verify…"
+msgstr "Vérifier…"
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "I have checked this member's identity and their photo matches."
+msgstr "J'ai contrôlé l'identité de ce membre et sa photo correspond."
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "Note (optional)"
+msgstr "Note (facultatif)"
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "e.g. checked ID at the September meetup"
+msgstr "p. ex. pièce d'identité contrôlée au meetup de septembre"
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "Saved to the review record and visible in Verification History."
+msgstr ""
+"Enregistré dans le dossier de contrôle et visible dans l'historique des "
+"vérifications."
+
+#: templates/crush_lu/coach_member_overview.html
+msgid "Verify member"
+msgstr "Vérifier le membre"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+#, python-format
+msgid "%(counter)s profile waiting"
+msgid_plural "%(counter)s profiles waiting"
+msgstr[0] "%(counter)s profil en attente"
+msgstr[1] "%(counter)s profils en attente"
+
+#: templates/crush_lu/coach_unverified_profiles.html
+#, python-format
+msgid "%(counter)s event attended"
+msgid_plural "%(counter)s events attended"
+msgstr[0] "%(counter)s événement suivi"
+msgstr[1] "%(counter)s événements suivis"
+
+#: views_coach.py
+msgid "This member's account is not active."
+msgstr "Le compte de ce membre n'est pas actif."
+
+#: views_coach.py
+msgid "This member is banned from Crush.lu."
+msgstr "Ce membre est banni de Crush.lu."
+
+#: views_coach.py
+msgid "This member has not consented to Crush.lu."
+msgstr "Ce membre n'a pas donné son consentement à Crush.lu."
+
+#: views_coach.py
+msgid "You cannot verify your own profile."
+msgstr "Vous ne pouvez pas vérifier votre propre profil."
+
+#: views_coach.py
+msgid "This member has no photo yet, so it cannot be checked here."
+msgstr ""
+"Ce membre n'a pas encore de photo, elle ne peut donc pas être vérifiée ici."
+
+#: views_coach.py
+msgid "This member's photo changed. Reload and check the new one."
+msgstr ""
+"La photo de ce membre a changé. Rechargez et vérifiez la nouvelle photo."
+
+#: templates/crush_lu/emails/event_feedback_request.html:24
+#: templates/crush_lu/emails/event_recap.html:69
+msgid ""
+"You can also review us publicly on Google. Honest reviews — good or bad — "
+"help other singles in Luxembourg decide whether a Crush.lu event is for them."
+msgstr ""
+"Vous pouvez aussi nous laisser un avis public sur Google. Les avis sincères "
+"— bons comme mauvais — aident les autres célibataires du Luxembourg à "
+"savoir si un événement Crush.lu est fait pour eux."
+
+#: templates/crush_lu/emails/event_feedback_request.html:25
+#: templates/crush_lu/emails/event_recap.html:70
+msgid "Leave a Google review"
+msgstr "Laisser un avis Google"

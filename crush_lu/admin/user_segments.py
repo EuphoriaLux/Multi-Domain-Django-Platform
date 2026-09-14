@@ -4,7 +4,7 @@ User Segments View for Crush.lu Admin Panel.
 Provides admin dashboard for viewing and managing user segments:
 - Incomplete profiles by step
 - Inactive users (7d, 14d, 30d)
-- Pending reviews (urgent, normal)
+- Pending verification (not booked, booked on an event)
 - Unverified profiles (never submitted, pending, revision, rejected, recontact)
 - Approved but never registered for event
 - No push subscription
@@ -16,19 +16,22 @@ Access: Superadmins only (due to bulk email capability)
 
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.http import HttpResponse
 from datetime import timedelta, date
 
-from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.services.event_doors import (
+    DOOR_VISIBLE_REGISTRATION_STATUSES,
+    live_or_future_event_ids,
+)
 import csv
 
 from crush_lu.models import (
     CrushProfile,
-    MeetupEvent,
+    EventRegistration,
     ProfileSubmission,
     UserActivity,
     EmailPreference,
@@ -213,24 +216,38 @@ def get_demographic_stats():
 # ============================================================================
 
 
-def get_segment_definitions():
+def get_segment_definitions(include_counts=True):
     """
     Return all segment definitions with their queries and metadata.
     Each segment has: name, description, query, count, action_url
 
+    ``include_counts=False`` skips the one-COUNT-per-segment evaluation (64
+    queries) and leaves ``count`` as ``None`` — for callers that only need a
+    segment's queryset, e.g. resolving one audience by key.
+
     Categories (17 total):
-    1-7: Operational (profile, reviews, activity, engagement, email, reminders, unverified)
+    1-7: Operational (profile, verification, activity, engagement, email, reminders, unverified)
     8-12: Demographics (gender, age, gender x age, looking-for, language)
     13-17: Behavioral (events, connections, membership, lifecycle, device)
     """
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
     fourteen_days_ago = now - timedelta(days=14)
+
+    def _count(queryset):
+        return queryset.count() if include_counts else None
     thirty_days_ago = now - timedelta(days=30)
 
     # Base querysets
     active = CrushProfile.objects.filter(is_active=True)
     approved = active.filter(verification_status="verified")
+
+    # Events a member can still be verified at (not ended, not cancelled) and
+    # the registrations their door roster shows — the pair behind the coach
+    # "Unverified profiles" page's "booked on an event" signal, read from
+    # `services.event_doors` so the two cannot drift apart.
+    current_event_ids = live_or_future_event_ids(now)
+    door_roster_statuses = DOOR_VISIBLE_REGISTRATION_STATUSES
 
     # Profile completion segments (simplified — wizard step now derived from field presence)
     incomplete_not_started = active.filter(verification_status="incomplete")
@@ -238,13 +255,20 @@ def get_segment_definitions():
     incomplete_step2 = incomplete_not_started  # alias for backward compat
     incomplete_step3 = incomplete_not_started  # alias for backward compat
 
-    # Pending review segments
-    pending_reviews_urgent = ProfileSubmission.objects.filter(
-        status="pending", submitted_at__lt=now - timedelta(hours=72)
+    # Pending verification segments. Since the July 2026 pivot nobody is
+    # queued for a coach review: a pending member is verified by LuxID or at
+    # an event door, and neither path creates a ProfileSubmission. So the
+    # split reads the profile — can an event door still verify this member?
+    pending_verification = active.filter(verification_status="pending")
+    holds_door_seat = Exists(
+        EventRegistration.objects.filter(
+            user_id=OuterRef("user_id"),
+            event_id__in=current_event_ids,
+            status__in=door_roster_statuses,
+        )
     )
-    pending_reviews_normal = ProfileSubmission.objects.filter(
-        status="pending", submitted_at__gte=now - timedelta(hours=72)
-    )
+    pending_booked = pending_verification.filter(holds_door_seat)
+    pending_unbooked = pending_verification.filter(~holds_door_seat)
 
     # Inactive user segments (based on UserActivity.last_seen)
     inactive_7d = UserActivity.objects.filter(
@@ -340,16 +364,8 @@ def get_segment_definitions():
         )
         .distinct()
     )
-    current_event_ids = [
-        event.pk
-        for event in MeetupEvent.objects.filter(
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            is_cancelled=False,
-        ).only("pk", "date_time", "duration_minutes")
-        if event.end_time >= now
-    ]
     event_upcoming_registrants = approved.filter(
-        user__eventregistration__status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
+        user__eventregistration__status__in=door_roster_statuses,
         user__eventregistration__event_id__in=current_event_ids,
     ).distinct()
 
@@ -377,10 +393,10 @@ def get_segment_definitions():
 
     # Lifecycle segments
     lifecycle_new = active.filter(created_at__gte=now - timedelta(days=7))
-    lifecycle_recently_approved = approved.filter(
-        profilesubmission__status="approved",
-        profilesubmission__reviewed_at__gte=now - timedelta(days=7),
-    ).distinct()
+    # Keyed on the profile's own approval stamp: LuxID and event-door
+    # verifications never create a ProfileSubmission, so the submission-keyed
+    # version missed every member verified since the pivot.
+    lifecycle_recently_approved = approved.filter(approved_at__gte=seven_days_ago)
     lifecycle_established = approved.filter(
         created_at__lt=now - timedelta(days=30),
     )
@@ -401,16 +417,30 @@ def get_segment_definitions():
 
     # Unverified profile segments
     unverified_never_submitted = active.filter(verification_status="incomplete")
-    unverified_pending_review = active.filter(verification_status="pending").distinct()
-    unverified_revision = active.filter(
-        verification_status="incomplete",
-        profilesubmission__status="revision",
-    ).distinct()
+    unverified_pending_review = pending_verification
     unverified_rejected = active.filter(verification_status="rejected").distinct()
-    unverified_recontact = active.filter(
-        verification_status="incomplete",
-        profilesubmission__status="recontact_coach",
-    ).distinct()
+
+    # Legacy coach-review sub-states. Nothing creates a submission any more,
+    # but a coach can still send back a pre-pivot one that `submit_profile`
+    # re-queued, so both statuses keep a live writer. Keyed on the member's
+    # latest row, as `ProfileSubmission.latest_for_profile` reads it: an older
+    # row behind a newer one (the pivot cleanup's "expired" included) is
+    # history. Revision moves the profile back to `incomplete` but recontact
+    # leaves it `pending`, so neither pins a status beyond "not verified".
+    latest_submission_status = Subquery(
+        ProfileSubmission.objects.filter(profile_id=OuterRef("pk"))
+        .order_by("-submitted_at")
+        .values("status")[:1]
+    )
+    awaiting_legacy_review = active.exclude(verification_status="verified").alias(
+        latest_submission_status=latest_submission_status
+    )
+    unverified_revision = awaiting_legacy_review.filter(
+        latest_submission_status="revision"
+    )
+    unverified_recontact = awaiting_legacy_review.filter(
+        latest_submission_status="recontact_coach"
+    )
 
     # Device & platform segments
     device_pwa = approved.filter(
@@ -438,7 +468,7 @@ def get_segment_definitions():
                     "key": "not_started",
                     "description": "Users who created account but never started profile",
                     "queryset": incomplete_not_started,
-                    "count": incomplete_not_started.count(),
+                    "count": _count(incomplete_not_started),
                     "color": "red",
                 },
                 {
@@ -446,7 +476,7 @@ def get_segment_definitions():
                     "key": "step1",
                     "description": "Started profile basics, stopped before personal info",
                     "queryset": incomplete_step1,
-                    "count": incomplete_step1.count(),
+                    "count": _count(incomplete_step1),
                     "color": "orange",
                 },
                 {
@@ -454,7 +484,7 @@ def get_segment_definitions():
                     "key": "step2",
                     "description": "Completed personal info, stopped before photos",
                     "queryset": incomplete_step2,
-                    "count": incomplete_step2.count(),
+                    "count": _count(incomplete_step2),
                     "color": "yellow",
                 },
                 {
@@ -462,31 +492,40 @@ def get_segment_definitions():
                     "key": "step3",
                     "description": "Added photos, never submitted for review",
                     "queryset": incomplete_step3,
-                    "count": incomplete_step3.count(),
+                    "count": _count(incomplete_step3),
                     "color": "blue",
                 },
             ],
         },
-        "pending_reviews": {
-            "title": "Pending Reviews",
+        # New keys rather than repointed ones: a saved newsletter, campaign or
+        # SMS batch that named `pending_urgent` / `pending_normal` targeted a
+        # coach-review queue and must not silently pick up this cohort.
+        "pending_verification": {
+            "title": "Pending Verification",
             "icon": "📝",
             "group": "operational",
             "segments": [
                 {
-                    "name": "Urgent (>72h)",
-                    "key": "pending_urgent",
-                    "description": "Profiles waiting for review more than 72 hours",
-                    "queryset": pending_reviews_urgent,
-                    "count": pending_reviews_urgent.count(),
+                    "name": "Not Booked",
+                    "key": "pending_unbooked",
+                    "description": (
+                        "Awaiting verification, not booked on any current or "
+                        "upcoming event: only LuxID or a booking can verify them"
+                    ),
+                    "queryset": pending_unbooked,
+                    "count": _count(pending_unbooked),
                     "color": "red",
                     "is_urgent": True,
                 },
                 {
-                    "name": "Normal (<72h)",
-                    "key": "pending_normal",
-                    "description": "Profiles waiting for review less than 72 hours",
-                    "queryset": pending_reviews_normal,
-                    "count": pending_reviews_normal.count(),
+                    "name": "Booked on an Event",
+                    "key": "pending_booked",
+                    "description": (
+                        "Awaiting verification, booked or waitlisted on a current "
+                        "or upcoming event: verifiable at that door"
+                    ),
+                    "queryset": pending_booked,
+                    "count": _count(pending_booked),
                     "color": "green",
                 },
             ],
@@ -501,7 +540,7 @@ def get_segment_definitions():
                     "key": "inactive_7d",
                     "description": "Users not seen for 7-14 days",
                     "queryset": inactive_7d,
-                    "count": inactive_7d.count(),
+                    "count": _count(inactive_7d),
                     "color": "yellow",
                 },
                 {
@@ -509,7 +548,7 @@ def get_segment_definitions():
                     "key": "inactive_14d",
                     "description": "Users not seen for 14-30 days",
                     "queryset": inactive_14d,
-                    "count": inactive_14d.count(),
+                    "count": _count(inactive_14d),
                     "color": "orange",
                 },
                 {
@@ -517,7 +556,7 @@ def get_segment_definitions():
                     "key": "inactive_30d",
                     "description": "Users not seen for over 30 days",
                     "queryset": inactive_30d,
-                    "count": inactive_30d.count(),
+                    "count": _count(inactive_30d),
                     "color": "red",
                 },
             ],
@@ -532,7 +571,7 @@ def get_segment_definitions():
                     "key": "approved_no_events",
                     "description": "Approved profiles who never registered for an event",
                     "queryset": approved_no_events,
-                    "count": approved_no_events.count(),
+                    "count": _count(approved_no_events),
                     "color": "orange",
                 },
                 {
@@ -540,7 +579,7 @@ def get_segment_definitions():
                     "key": "no_push",
                     "description": "Approved users without push notifications",
                     "queryset": no_push_subscription,
-                    "count": no_push_subscription.count(),
+                    "count": _count(no_push_subscription),
                     "color": "blue",
                 },
             ],
@@ -555,7 +594,7 @@ def get_segment_definitions():
                     "key": "unsubscribed_all",
                     "description": "Users who unsubscribed from all emails",
                     "queryset": unsubscribed_all,
-                    "count": unsubscribed_all.count(),
+                    "count": _count(unsubscribed_all),
                     "color": "gray",
                 },
             ],
@@ -570,7 +609,7 @@ def get_segment_definitions():
                     "key": "reminder_24h",
                     "description": "Incomplete profiles signed up 24-48h ago, no reminder sent",
                     "queryset": eligible_24h_reminder,
-                    "count": eligible_24h_reminder.count(),
+                    "count": _count(eligible_24h_reminder),
                     "color": "green",
                 },
                 {
@@ -578,7 +617,7 @@ def get_segment_definitions():
                     "key": "reminder_72h",
                     "description": "Incomplete profiles, 72-96h ago, received 24h reminder",
                     "queryset": eligible_72h_reminder,
-                    "count": eligible_72h_reminder.count(),
+                    "count": _count(eligible_72h_reminder),
                     "color": "yellow",
                 },
                 {
@@ -586,7 +625,7 @@ def get_segment_definitions():
                     "key": "reminder_7d",
                     "description": "Incomplete profiles, 7-8 days ago, received 72h reminder",
                     "queryset": eligible_7d_reminder,
-                    "count": eligible_7d_reminder.count(),
+                    "count": _count(eligible_7d_reminder),
                     "color": "orange",
                 },
             ],
@@ -602,7 +641,7 @@ def get_segment_definitions():
                     "key": "gender_male",
                     "description": "Active profiles identifying as male",
                     "queryset": gender_male,
-                    "count": gender_male.count(),
+                    "count": _count(gender_male),
                     "color": "blue",
                 },
                 {
@@ -610,7 +649,7 @@ def get_segment_definitions():
                     "key": "gender_female",
                     "description": "Active profiles identifying as female",
                     "queryset": gender_female,
-                    "count": gender_female.count(),
+                    "count": _count(gender_female),
                     "color": "pink",
                 },
                 {
@@ -618,7 +657,7 @@ def get_segment_definitions():
                     "key": "gender_nonbinary",
                     "description": "Active profiles identifying as non-binary",
                     "queryset": gender_nonbinary,
-                    "count": gender_nonbinary.count(),
+                    "count": _count(gender_nonbinary),
                     "color": "purple",
                 },
                 {
@@ -626,7 +665,7 @@ def get_segment_definitions():
                     "key": "gender_other",
                     "description": "Active profiles with gender set to other",
                     "queryset": gender_other,
-                    "count": gender_other.count(),
+                    "count": _count(gender_other),
                     "color": "green",
                 },
                 {
@@ -634,7 +673,7 @@ def get_segment_definitions():
                     "key": "gender_prefer_not",
                     "description": "Active profiles who prefer not to disclose gender",
                     "queryset": gender_prefer_not,
-                    "count": gender_prefer_not.count(),
+                    "count": _count(gender_prefer_not),
                     "color": "gray",
                 },
             ],
@@ -649,7 +688,7 @@ def get_segment_definitions():
                     "key": "age_18_24",
                     "description": "Active profiles aged 18-24",
                     "queryset": age_18_24,
-                    "count": age_18_24.count(),
+                    "count": _count(age_18_24),
                     "color": "green",
                 },
                 {
@@ -657,7 +696,7 @@ def get_segment_definitions():
                     "key": "age_25_29",
                     "description": "Active profiles aged 25-29",
                     "queryset": age_25_29,
-                    "count": age_25_29.count(),
+                    "count": _count(age_25_29),
                     "color": "blue",
                 },
                 {
@@ -665,7 +704,7 @@ def get_segment_definitions():
                     "key": "age_30_34",
                     "description": "Active profiles aged 30-34",
                     "queryset": age_30_34,
-                    "count": age_30_34.count(),
+                    "count": _count(age_30_34),
                     "color": "purple",
                 },
                 {
@@ -673,7 +712,7 @@ def get_segment_definitions():
                     "key": "age_35_39",
                     "description": "Active profiles aged 35-39",
                     "queryset": age_35_39,
-                    "count": age_35_39.count(),
+                    "count": _count(age_35_39),
                     "color": "orange",
                 },
                 {
@@ -681,7 +720,7 @@ def get_segment_definitions():
                     "key": "age_40_44",
                     "description": "Active profiles aged 40-44",
                     "queryset": age_40_44,
-                    "count": age_40_44.count(),
+                    "count": _count(age_40_44),
                     "color": "orange",
                 },
                 {
@@ -689,7 +728,7 @@ def get_segment_definitions():
                     "key": "age_45_49",
                     "description": "Active profiles aged 45-49",
                     "queryset": age_45_49,
-                    "count": age_45_49.count(),
+                    "count": _count(age_45_49),
                     "color": "red",
                 },
                 {
@@ -697,7 +736,7 @@ def get_segment_definitions():
                     "key": "age_50_54",
                     "description": "Active profiles aged 50-54",
                     "queryset": age_50_54,
-                    "count": age_50_54.count(),
+                    "count": _count(age_50_54),
                     "color": "red",
                 },
                 {
@@ -705,7 +744,7 @@ def get_segment_definitions():
                     "key": "age_55_59",
                     "description": "Active profiles aged 55-59",
                     "queryset": age_55_59,
-                    "count": age_55_59.count(),
+                    "count": _count(age_55_59),
                     "color": "red",
                 },
                 {
@@ -713,7 +752,7 @@ def get_segment_definitions():
                     "key": "age_60_plus",
                     "description": "Active profiles aged 60 and over",
                     "queryset": age_60_plus,
-                    "count": age_60_plus.count(),
+                    "count": _count(age_60_plus),
                     "color": "red",
                 },
             ],
@@ -728,7 +767,7 @@ def get_segment_definitions():
                     "key": "gender_m_age_18_24",
                     "description": "Approved males aged 18-24",
                     "queryset": gender_m_age_18_24,
-                    "count": gender_m_age_18_24.count(),
+                    "count": _count(gender_m_age_18_24),
                     "color": "blue",
                 },
                 {
@@ -736,7 +775,7 @@ def get_segment_definitions():
                     "key": "gender_m_age_25_34",
                     "description": "Approved males aged 25-34",
                     "queryset": gender_m_age_25_34,
-                    "count": gender_m_age_25_34.count(),
+                    "count": _count(gender_m_age_25_34),
                     "color": "blue",
                 },
                 {
@@ -744,7 +783,7 @@ def get_segment_definitions():
                     "key": "gender_m_age_35_plus",
                     "description": "Approved males aged 35 and over",
                     "queryset": gender_m_age_35_plus,
-                    "count": gender_m_age_35_plus.count(),
+                    "count": _count(gender_m_age_35_plus),
                     "color": "blue",
                 },
                 {
@@ -752,7 +791,7 @@ def get_segment_definitions():
                     "key": "gender_f_age_18_24",
                     "description": "Approved females aged 18-24",
                     "queryset": gender_f_age_18_24,
-                    "count": gender_f_age_18_24.count(),
+                    "count": _count(gender_f_age_18_24),
                     "color": "pink",
                 },
                 {
@@ -760,7 +799,7 @@ def get_segment_definitions():
                     "key": "gender_f_age_25_34",
                     "description": "Approved females aged 25-34",
                     "queryset": gender_f_age_25_34,
-                    "count": gender_f_age_25_34.count(),
+                    "count": _count(gender_f_age_25_34),
                     "color": "pink",
                 },
                 {
@@ -768,7 +807,7 @@ def get_segment_definitions():
                     "key": "gender_f_age_35_plus",
                     "description": "Approved females aged 35 and over",
                     "queryset": gender_f_age_35_plus,
-                    "count": gender_f_age_35_plus.count(),
+                    "count": _count(gender_f_age_35_plus),
                     "color": "pink",
                 },
                 {
@@ -776,7 +815,7 @@ def get_segment_definitions():
                     "key": "gender_nb_all",
                     "description": "Approved non-binary profiles (all ages)",
                     "queryset": gender_nb_all,
-                    "count": gender_nb_all.count(),
+                    "count": _count(gender_nb_all),
                     "color": "purple",
                 },
             ],
@@ -791,7 +830,7 @@ def get_segment_definitions():
                     "key": "lang_en",
                     "description": "Active profiles with preferred language English",
                     "queryset": lang_en,
-                    "count": lang_en.count(),
+                    "count": _count(lang_en),
                     "color": "blue",
                 },
                 {
@@ -799,7 +838,7 @@ def get_segment_definitions():
                     "key": "lang_de",
                     "description": "Active profiles with preferred language German",
                     "queryset": lang_de,
-                    "count": lang_de.count(),
+                    "count": _count(lang_de),
                     "color": "orange",
                 },
                 {
@@ -807,7 +846,7 @@ def get_segment_definitions():
                     "key": "lang_fr",
                     "description": "Active profiles with preferred language French",
                     "queryset": lang_fr,
-                    "count": lang_fr.count(),
+                    "count": _count(lang_fr),
                     "color": "red",
                 },
             ],
@@ -821,25 +860,34 @@ def get_segment_definitions():
                 {
                     "name": "Never Submitted",
                     "key": "unverified_never_submitted",
-                    "description": "Has a profile but never submitted for coach review",
+                    "description": (
+                        "Has a profile but has not submitted it (includes "
+                        "members a coach sent back for revision)"
+                    ),
                     "queryset": unverified_never_submitted,
-                    "count": unverified_never_submitted.count(),
+                    "count": _count(unverified_never_submitted),
                     "color": "red",
                 },
                 {
-                    "name": "Pending Coach Review",
+                    "name": "Pending Verification",
                     "key": "unverified_pending_review",
-                    "description": "Submitted profile, waiting for a crush coach to review",
+                    "description": (
+                        "Submitted profile, awaiting verification via LuxID "
+                        "or at an event door"
+                    ),
                     "queryset": unverified_pending_review,
-                    "count": unverified_pending_review.count(),
+                    "count": _count(unverified_pending_review),
                     "color": "orange",
                 },
                 {
                     "name": "Revision Requested",
                     "key": "unverified_revision",
-                    "description": "Coach requested changes, awaiting user resubmission",
+                    "description": (
+                        "Coach requested changes, awaiting user resubmission "
+                        "(legacy coach-review cohort)"
+                    ),
                     "queryset": unverified_revision,
-                    "count": unverified_revision.count(),
+                    "count": _count(unverified_revision),
                     "color": "yellow",
                 },
                 {
@@ -847,15 +895,18 @@ def get_segment_definitions():
                     "key": "unverified_rejected",
                     "description": "Profile was rejected by a crush coach",
                     "queryset": unverified_rejected,
-                    "count": unverified_rejected.count(),
+                    "count": _count(unverified_rejected),
                     "color": "gray",
                 },
                 {
                     "name": "Recontact Coach",
                     "key": "unverified_recontact",
-                    "description": "User needs to recontact their crush coach",
+                    "description": (
+                        "User needs to recontact their crush coach "
+                        "(legacy coach-review cohort)"
+                    ),
                     "queryset": unverified_recontact,
-                    "count": unverified_recontact.count(),
+                    "count": _count(unverified_recontact),
                     "color": "purple",
                 },
             ],
@@ -871,7 +922,7 @@ def get_segment_definitions():
                     "key": "event_super_attendee",
                     "description": "Approved profiles who attended 3 or more events",
                     "queryset": event_super_attendee,
-                    "count": event_super_attendee.count(),
+                    "count": _count(event_super_attendee),
                     "color": "green",
                 },
                 {
@@ -879,7 +930,7 @@ def get_segment_definitions():
                     "key": "event_single_attendee",
                     "description": "Approved profiles who attended exactly 1 event",
                     "queryset": event_single_attendee,
-                    "count": event_single_attendee.count(),
+                    "count": _count(event_single_attendee),
                     "color": "blue",
                 },
                 {
@@ -887,7 +938,7 @@ def get_segment_definitions():
                     "key": "event_registered_never_attended",
                     "description": "Registered for events but never marked as attended",
                     "queryset": event_registered_never_attended,
-                    "count": event_registered_never_attended.count(),
+                    "count": _count(event_registered_never_attended),
                     "color": "orange",
                 },
                 {
@@ -895,7 +946,7 @@ def get_segment_definitions():
                     "key": "event_upcoming_registrants",
                     "description": "Currently registered for a future event",
                     "queryset": event_upcoming_registrants,
-                    "count": event_upcoming_registrants.count(),
+                    "count": _count(event_upcoming_registrants),
                     "color": "purple",
                 },
             ],
@@ -910,7 +961,7 @@ def get_segment_definitions():
                     "key": "conn_has_accepted",
                     "description": "Has at least one accepted connection",
                     "queryset": conn_has_accepted,
-                    "count": conn_has_accepted.count(),
+                    "count": _count(conn_has_accepted),
                     "color": "green",
                 },
                 {
@@ -918,7 +969,7 @@ def get_segment_definitions():
                     "key": "conn_none",
                     "description": "Approved but zero connection requests (sent or received)",
                     "queryset": conn_none,
-                    "count": conn_none.count(),
+                    "count": _count(conn_none),
                     "color": "red",
                 },
                 {
@@ -926,7 +977,7 @@ def get_segment_definitions():
                     "key": "conn_has_messaged",
                     "description": "Sent at least one connection message",
                     "queryset": conn_has_messaged,
-                    "count": conn_has_messaged.count(),
+                    "count": _count(conn_has_messaged),
                     "color": "blue",
                 },
                 {
@@ -934,7 +985,7 @@ def get_segment_definitions():
                     "key": "conn_active_3plus",
                     "description": "Sent 3 or more connection requests",
                     "queryset": conn_active_3plus,
-                    "count": conn_active_3plus.count(),
+                    "count": _count(conn_active_3plus),
                     "color": "purple",
                 },
             ],
@@ -949,7 +1000,7 @@ def get_segment_definitions():
                     "key": "tier_basic",
                     "description": "Approved profiles on Basic tier",
                     "queryset": tier_basic,
-                    "count": tier_basic.count(),
+                    "count": _count(tier_basic),
                     "color": "gray",
                 },
                 {
@@ -957,7 +1008,7 @@ def get_segment_definitions():
                     "key": "tier_bronze",
                     "description": "Approved profiles on Bronze tier",
                     "queryset": tier_bronze,
-                    "count": tier_bronze.count(),
+                    "count": _count(tier_bronze),
                     "color": "orange",
                 },
                 {
@@ -965,7 +1016,7 @@ def get_segment_definitions():
                     "key": "tier_silver",
                     "description": "Approved profiles on Silver tier",
                     "queryset": tier_silver,
-                    "count": tier_silver.count(),
+                    "count": _count(tier_silver),
                     "color": "blue",
                 },
                 {
@@ -973,7 +1024,7 @@ def get_segment_definitions():
                     "key": "tier_gold",
                     "description": "Approved profiles on Gold tier",
                     "queryset": tier_gold,
-                    "count": tier_gold.count(),
+                    "count": _count(tier_gold),
                     "color": "yellow",
                 },
             ],
@@ -988,7 +1039,7 @@ def get_segment_definitions():
                     "key": "lifecycle_new",
                     "description": "Created account within last 7 days",
                     "queryset": lifecycle_new,
-                    "count": lifecycle_new.count(),
+                    "count": _count(lifecycle_new),
                     "color": "green",
                 },
                 {
@@ -996,7 +1047,7 @@ def get_segment_definitions():
                     "key": "lifecycle_recently_approved",
                     "description": "Approved in the last 7 days",
                     "queryset": lifecycle_recently_approved,
-                    "count": lifecycle_recently_approved.count(),
+                    "count": _count(lifecycle_recently_approved),
                     "color": "blue",
                 },
                 {
@@ -1004,7 +1055,7 @@ def get_segment_definitions():
                     "key": "lifecycle_established",
                     "description": "Approved more than 30 days ago",
                     "queryset": lifecycle_established,
-                    "count": lifecycle_established.count(),
+                    "count": _count(lifecycle_established),
                     "color": "purple",
                 },
                 {
@@ -1012,7 +1063,7 @@ def get_segment_definitions():
                     "key": "lifecycle_vip",
                     "description": "Gold tier or attended 5+ events",
                     "queryset": lifecycle_vip,
-                    "count": lifecycle_vip.count(),
+                    "count": _count(lifecycle_vip),
                     "color": "yellow",
                 },
             ],
@@ -1027,7 +1078,7 @@ def get_segment_definitions():
                     "key": "device_pwa",
                     "description": "Users who have installed the PWA",
                     "queryset": device_pwa,
-                    "count": device_pwa.count(),
+                    "count": _count(device_pwa),
                     "color": "blue",
                 },
                 {
@@ -1035,7 +1086,7 @@ def get_segment_definitions():
                     "key": "device_ios",
                     "description": "PWA installed on iOS",
                     "queryset": device_ios,
-                    "count": device_ios.count(),
+                    "count": _count(device_ios),
                     "color": "gray",
                 },
                 {
@@ -1043,7 +1094,7 @@ def get_segment_definitions():
                     "key": "device_android",
                     "description": "PWA installed on Android",
                     "queryset": device_android,
-                    "count": device_android.count(),
+                    "count": _count(device_android),
                     "color": "green",
                 },
                 {
@@ -1051,7 +1102,7 @@ def get_segment_definitions():
                     "key": "device_desktop",
                     "description": "PWA installed on desktop",
                     "queryset": device_desktop,
-                    "count": device_desktop.count(),
+                    "count": _count(device_desktop),
                     "color": "purple",
                 },
             ],
@@ -1173,13 +1224,24 @@ def user_segments_dashboard(request):
     total_incomplete = sum(
         seg["count"] for seg in segments["profile_completion"]["segments"]
     )
-    total_pending = sum(seg["count"] for seg in segments["pending_reviews"]["segments"])
+    total_pending = sum(
+        seg["count"] for seg in segments["pending_verification"]["segments"]
+    )
     total_inactive = sum(seg["count"] for seg in segments["user_activity"]["segments"])
     total_reminder_eligible = sum(
         seg["count"] for seg in segments["reminder_eligible"]["segments"]
     )
+    # "Revision Requested" and "Recontact Coach" are sub-states of the three
+    # status cards, so summing every card would count those members twice.
+    status_cards = (
+        "unverified_never_submitted",
+        "unverified_pending_review",
+        "unverified_rejected",
+    )
     total_unverified = sum(
-        seg["count"] for seg in segments["unverified_profiles"]["segments"]
+        seg["count"]
+        for seg in segments["unverified_profiles"]["segments"]
+        if seg["key"] in status_cards
     )
 
     context = {

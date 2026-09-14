@@ -22,6 +22,7 @@ Deliberately trimmed for a fast, reliable demo rather than the full spec:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 from dataclasses import dataclass, field
@@ -36,7 +37,7 @@ from django.core import signing
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -49,7 +50,7 @@ from .lore.providers import GeminiProvider, OpenAIProvider
 from .lore.safety import PersonaRejected, sanitize_persona
 from .models import Guest, MenuItem, Order, OrderItem, Tab, Table, Venue
 from .printing.art import select_ascii_art, select_mission
-from .printing.escpos import render_plain_text
+from .printing.escpos import encode_ticket, render_plain_text
 from .printing.layout import Paper, TicketData, TicketLine, render_ticket
 
 GUEST_COOKIE = "atmos_guest"
@@ -979,19 +980,19 @@ def order_place(request):
     return redirect("atmos:order_status", pk=order.pk)
 
 
-def order_status(request, pk):
-    guest = _get_guest_for_viewing(request)
-    if not guest:
-        return render(request, "atmos/no_session.html")
-    # Scoped through the guest, per spec §8.1 — a guest cannot address a
-    # table-mate's order by editing the URL.
-    order = get_object_or_404(guest.orders.prefetch_related("items__menu_item"), pk=pk)
+def _ticket_data(order: Order, guest: Guest, request) -> TicketData:
+    """The one ticket for this order, whoever is asking for it.
 
+    Shared by the guest's own on-screen preview (`order_status`) and the
+    staff KDS print path (`order_print_payload`): both must render the same
+    ticket byte-for-byte, or the paper the barkeeper carries stops matching
+    what the guest saw placed. `guest` is passed rather than read off
+    `order.guest` so each caller hands in the instance whose `tab__table`
+    it already select_related — the fields used are identical either way.
+    Requires `order.items` to be prefetched.
+    """
     item_names = [i.name_snapshot for i in order.items.all()]
-    ascii_art = select_ascii_art(item_names)
-    mission = select_mission(f"{order.id}-{order.short_code}")
-
-    ticket = TicketData(
+    return TicketData(
         venue_name=guest.venue.name,
         table_label=guest.tab.table.label,
         ticket_code=order.short_code,
@@ -1002,8 +1003,8 @@ def order_status(request, pk):
             for i in order.items.all()
         ),
         vignette=order.vignette,
-        ascii_art=ascii_art,
-        mission=mission,
+        ascii_art=select_ascii_art(item_names),
+        mission=select_mission(f"{order.id}-{order.short_code}"),
         # The placement-time snapshot, not guest.venue.currency: staff
         # changing a venue's currency after the fact must not silently turn
         # a historical €12.00 order into a $12.00 receipt.
@@ -1029,6 +1030,17 @@ def order_status(request, pk):
         contains_alcohol=order.contains_alcohol,
         footer="pay at the table",
     )
+
+
+def order_status(request, pk):
+    guest = _get_guest_for_viewing(request)
+    if not guest:
+        return render(request, "atmos/no_session.html")
+    # Scoped through the guest, per spec §8.1 — a guest cannot address a
+    # table-mate's order by editing the URL.
+    order = get_object_or_404(guest.orders.prefetch_related("items__menu_item"), pk=pk)
+
+    ticket = _ticket_data(order, guest, request)
     ticket_preview = render_plain_text(render_ticket(ticket, Paper.MM80), Paper.MM80)
     return render(
         request,
@@ -1037,8 +1049,8 @@ def order_status(request, pk):
             "guest": guest,
             "order": order,
             "ticket_preview": ticket_preview,
-            "mission": mission,
-            "ascii_art": ascii_art,
+            "mission": ticket.mission,
+            "ascii_art": ticket.ascii_art,
         },
     )
 
@@ -1100,3 +1112,47 @@ def order_set_status(request, pk):
     else:
         order = get_object_or_404(Order, pk=pk)
     return redirect("atmos:kds", venue_slug=order.venue.slug)
+
+
+@staff_member_required
+@permission_required("atmos.view_order", raise_exception=True)
+def order_print_payload(request, pk):
+    """The order's thermal ticket as base64 ESC/POS, for the KDS to hand to
+    the RawBT app on the staff tablet (crush_lu's check-in printer pattern:
+    the server can't reach a printer behind the bar's router, but the
+    Android device standing next to it can — see
+    crush_lu/services/ticket_printer.py and triggerRawBtPrint in
+    crush_lu/static/crush_lu/js/alpine-components.js).
+
+    GET and read-only on purpose: it mutates nothing, so staff can reprint a
+    served order's ticket as often as paper jams demand. Fetched via
+    `Order.objects` rather than any guest scoping — this sits behind the
+    staff gate, same as the KDS that links to it.
+    """
+    order = get_object_or_404(
+        Order.objects.select_related(
+            "guest__venue", "guest__tab__table", "venue"
+        ).prefetch_related("items__menu_item"),
+        pk=pk,
+    )
+    ticket = _ticket_data(order, order.guest, request)
+    payload = encode_ticket(render_ticket(ticket, Paper.MM80), Paper.MM80)
+    # order_place() commits the order first and writes the vignette in a
+    # second UPDATE after generate_vignette() (up to ~1.2s later), so a KDS
+    # refresh landing in that window sees the order story-less. Flag it so
+    # the AUTO-print path defers to the next 4s cycle instead of putting a
+    # ticket on paper that never matches the guest's finalized one; a manual
+    # reprint tap ignores the flag. The age cutoff keeps an order whose
+    # vignette write died (it legitimately has none) from pending forever.
+    vignette_pending = not order.vignette_source and (
+        timezone.now() - order.placed_at < timedelta(seconds=15)
+    )
+    return JsonResponse(
+        {
+            "success": True,
+            "order_id": str(order.pk),
+            "short_code": order.short_code,
+            "vignette_pending": vignette_pending,
+            "print_payload_base64": base64.b64encode(payload).decode("ascii"),
+        }
+    )

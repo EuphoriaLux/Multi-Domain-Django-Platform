@@ -62,6 +62,24 @@ logger = logging.getLogger(__name__)
 _thread_local = threading.local()
 
 
+@receiver(pre_delete, sender=MeetupEvent)
+def protect_event_with_live_checkout(sender, instance, using, **kwargs):
+    from crush_lu.services.event_checkout_retirement import (
+        protect_live_event_checkout_deletion,
+    )
+
+    registration_ids = list(
+        EventRegistration.objects.using(using)
+        .filter(event_id=instance.pk)
+        .values_list("pk", flat=True)
+    )
+    protect_live_event_checkout_deletion(
+        event_ids=[instance.pk],
+        registration_ids=registration_ids,
+        using=using,
+    )
+
+
 # =============================================================================
 # WALLET PASS UPDATE TRIGGERS
 # =============================================================================
@@ -2995,7 +3013,10 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         # Keep this local: signals are registered during AppConfig.ready(), so
         # importing the service only when the handler runs avoids an app-load
         # dependency cycle through the models package.
-        from .services.profile_verification import claim_profile_verification
+        from .services.profile_verification import (
+            claim_profile_verification,
+            release_booked_screening_slots,
+        )
 
         # Conditional claim, matching the coach/check-in verification paths
         # through their shared service. An unconditional save here
@@ -3003,20 +3024,32 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         # door scan had already committed — and both would then emit the
         # approval notification and referral work. Whoever claims the
         # transition owns it; the loser leaves the record alone.
+        #
+        # Pending only, re-checked in that same UPDATE: every caller decides
+        # on a `pending` it read earlier, and a coach revision committed in
+        # between (profile back to `incomplete`) must win over LuxID.
         claimed = claim_profile_verification(
             profile,
             method="luxid",
             approved_at=now,
-            claim_from=("incomplete", "pending"),
+            claim_from=("pending",),
         )
         if not claimed:
             logger.info(
-                "[LUXID-VERIFY] Profile pk=%s was already verified by another "
-                "path; leaving it untouched",
+                "[LUXID-VERIFY] Profile pk=%s is no longer pending; leaving it "
+                "untouched",
                 profile.pk,
             )
             return False
-        if submission and submission.status == "pending":
+        # Approve the submission only while the database still has it pending,
+        # not the caller's copy: it may have been sent back or expired since.
+        if submission is not None:
+            submission = (
+                ProfileSubmission.objects.select_for_update()
+                .filter(pk=submission.pk, status="pending")
+                .first()
+            )
+        if submission is not None:
             submission.status = "approved"
             submission.reviewed_at = now
             submission.review_call_completed = True
@@ -3024,12 +3057,22 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
                 (submission.coach_notes + "\n" if submission.coach_notes else "")
                 + "Auto-approved via LuxID identity verification"
             ).strip()
+            # Its future screening calls go too, as on the coach panel: a slot
+            # left booked keeps the coach chasing a member who is now verified.
+            release_booked_screening_slots(
+                submission,
+                now=now,
+                actor=f"user:{user.pk}",
+                reason="verified_by_luxid",
+                cancelled_reason="verified_by_luxid",
+            )
             submission.save(
                 update_fields=[
                     "status",
                     "reviewed_at",
                     "coach_notes",
                     "review_call_completed",
+                    "system_actions",
                 ]
             )
 
@@ -3042,6 +3085,22 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
 
     if request is not None and hasattr(request, "session"):
         request.session["luxid_just_auto_approved"] = True
+
+    try:
+        # `claim_profile_verification` is a QuerySet.update() and so bypasses
+        # post_save. Same explicit re-run the coach-review approve, panel and
+        # door paths make, or the shared-mailbox contact keeps serving the old
+        # pending status until some unrelated save happens.
+        sync_profile_to_outlook(
+            sender=CrushProfile,
+            instance=profile,
+            created=False,
+            update_fields=None,
+        )
+    except Exception:
+        logger.exception(
+            "[LUXID-VERIFY] Outlook sync failed for profile pk=%s", profile.pk
+        )
 
     try:
         from .referrals import check_and_apply_profile_approved_reward
@@ -3818,6 +3877,46 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
             )
 
     transaction.on_commit(_promote_after_commit)
+
+
+def _repair_degraded_curated_event_safely(event_id):
+    """Run the durable reproject-or-compensate phase after a roster exit."""
+
+    from crush_lu.services.curated_group_workflow import (
+        repair_degraded_event_groups,
+    )
+
+    try:
+        repair_degraded_event_groups(event_id)
+    except Exception:
+        # DEGRADED is deliberately non-payable and visible in admin, so a
+        # failed callback leaves a safe, retryable state rather than reopening
+        # checkout on a stale guarantee.
+        logger.exception(
+            "Automatic curated-group remedy failed for event %s; group remains "
+            "DEGRADED and non-payable.",
+            event_id,
+        )
+
+
+def _schedule_degraded_curated_event_remedy(instance):
+    for event_id in getattr(instance, "_curated_group_degraded_event_ids", ()):
+        transaction.on_commit(
+            lambda event_id=event_id: _repair_degraded_curated_event_safely(event_id)
+        )
+
+
+@receiver(post_save, sender=EventRegistration)
+def repair_curated_group_after_registration_exit(
+    sender, instance, created, raw=False, **kwargs
+):
+    if not raw and not created:
+        _schedule_degraded_curated_event_remedy(instance)
+
+
+@receiver(post_delete, sender=EventRegistration)
+def repair_curated_group_after_registration_erasure(sender, instance, **kwargs):
+    _schedule_degraded_curated_event_remedy(instance)
 
 
 @receiver(post_save, sender=EventRegistration)

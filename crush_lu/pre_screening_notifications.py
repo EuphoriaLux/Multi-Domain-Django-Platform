@@ -17,7 +17,6 @@ from datetime import timedelta
 from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.utils import timezone
-from django.utils.html import strip_tags
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 
@@ -26,6 +25,7 @@ from .email_helpers import (
     get_email_context_with_unsubscribe,
     send_domain_email,
 )
+from azureproject.email_utils import html_to_plain_text
 from .models import ProfileSubmission
 from .utils.i18n import get_user_preferred_language
 
@@ -162,7 +162,7 @@ def send_pre_screening_invite_email(submission: ProfileSubmission,
         )
         plain_message = render_to_string(
             "crush_lu/emails/pre_screening_invite.txt", context
-        ) or strip_tags(html_message)
+        ) or html_to_plain_text(html_message)
 
     sent = send_domain_email(
         subject=subject,

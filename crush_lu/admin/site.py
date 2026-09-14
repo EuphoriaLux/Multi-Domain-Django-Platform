@@ -71,10 +71,12 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         from django.db.models import Count
         from django.utils import timezone
-        from datetime import timedelta
         from ..models import (
-            CrushProfile, ProfileSubmission, MeetupEvent,
+            CrushProfile, MeetupEvent,
             EventConnection
+        )
+        from .verification_queues import (
+            pending_action_counts, recent_pending_profiles,
         )
 
         extra_context = extra_context or {}
@@ -83,7 +85,7 @@ class CrushLuAdminSite(admin.AdminSite):
 
         # Add coach information to context
         try:
-            coach = request.user.crushcoach
+            request.user.crushcoach
             extra_context['is_coach'] = True
             extra_context['coach_name'] = request.user.get_full_name() or request.user.username
         except (AttributeError, ObjectDoesNotExist):
@@ -92,7 +94,10 @@ class CrushLuAdminSite(admin.AdminSite):
         # Quick stats for index page
         extra_context['total_profiles'] = CrushProfile.objects.count()
         extra_context['approved_profiles'] = CrushProfile.objects.filter(verification_status="verified").count()
-        extra_context['mutual_connections'] = EventConnection.objects.filter(status='mutual').count()
+        # Completed introductions ("shared" = contact details exchanged), the
+        # analytics dashboard's own Connections card. This used to count a
+        # 'mutual' status that EventConnection does not have: always zero.
+        extra_context['shared_connections'] = EventConnection.objects.filter(status='shared').count()
 
         # Upcoming events count
         now = timezone.now()
@@ -109,40 +114,16 @@ class CrushLuAdminSite(admin.AdminSite):
         ]
         extra_context['upcoming_events'] = len(current_events)
 
-        # Pending actions for Action Center
-        cutoff_24h = now - timedelta(hours=24)
-        pending_reviews = ProfileSubmission.objects.filter(status='pending').count()
-        urgent_reviews = ProfileSubmission.objects.filter(
-            status='pending',
-            submitted_at__lt=cutoff_24h
-        ).count()
-        awaiting_call = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=False,
-            review_call_completed=False
-        ).count()
-        ready_to_approve = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=False,
-            review_call_completed=True
-        ).count()
-        unassigned = ProfileSubmission.objects.filter(
-            status='pending',
-            coach__isnull=True
-        ).count()
+        # Action Center: members awaiting verification, keyed on the profile.
+        # It used to count ProfileSubmission(status='pending'), a queue nobody
+        # enters since the July 2026 verification pivot, so every tile read
+        # zero. Shared with the analytics dashboard's Pending Actions.
+        extra_context['pending_actions'] = pending_action_counts(now)
 
-        extra_context['pending_actions'] = {
-            'total_pending': pending_reviews,
-            'urgent_reviews': urgent_reviews,
-            'awaiting_call': awaiting_call,
-            'ready_to_approve': ready_to_approve,
-            'unassigned': unassigned,
-        }
-
-        # Recent submissions for Today's Focus
-        extra_context['recent_submissions'] = ProfileSubmission.objects.filter(
-            status='pending'
-        ).select_related('profile__user', 'coach__user').order_by('-submitted_at')[:5]
+        # Today's Focus: the members most recently updated while awaiting
+        # verification. This listed pending ProfileSubmissions, which nobody
+        # creates since the pivot, so the tab was always empty.
+        extra_context['recent_pending_profiles'] = recent_pending_profiles(5, now)
 
         # Upcoming events list for Today's Focus
         extra_context['upcoming_events_list'] = current_events[:5]
@@ -228,17 +209,18 @@ class CrushLuAdminSite(admin.AdminSite):
             'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
             'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
             'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
-            'paymenttransaction': {'order': 4, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
-            'crushcredit': {'order': 5, 'icon': '🎟️', 'group': 'Events & Meetups'},  # store credit ledger
-            'creditredemption': {'order': 6, 'icon': '🧾', 'group': 'Events & Meetups'},
-            'presentationqueue': {'order': 7, 'icon': '📋', 'group': 'Events & Meetups'},
-            'presentationrating': {'order': 8, 'icon': '⭐', 'group': 'Events & Meetups'},
-            'eventpoll': {'order': 9, 'icon': '🗳️', 'group': 'Events & Meetups'},
-            'eventpollvote': {'order': 10, 'icon': '📊', 'group': 'Events & Meetups'},
-            'eventfeedback': {'order': 11, 'icon': '📝', 'group': 'Events & Meetups'},
-            'eventlobbyparticipation': {'order': 12, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
-            'eventmeetsignal': {'order': 13, 'icon': '👋', 'group': 'Events & Meetups'},
-            'eventmeetingconfirmation': {'order': 14, 'icon': '✅', 'group': 'Events & Meetups'},
+            'curatedeventgroup': {'order': 4, 'icon': '🧩', 'group': 'Events & Meetups'},
+            'paymenttransaction': {'order': 5, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
+            'crushcredit': {'order': 6, 'icon': '🎟️', 'group': 'Events & Meetups'},  # store credit ledger
+            'creditredemption': {'order': 7, 'icon': '🧾', 'group': 'Events & Meetups'},
+            'presentationqueue': {'order': 8, 'icon': '📋', 'group': 'Events & Meetups'},
+            'presentationrating': {'order': 9, 'icon': '⭐', 'group': 'Events & Meetups'},
+            'eventpoll': {'order': 10, 'icon': '🗳️', 'group': 'Events & Meetups'},
+            'eventpollvote': {'order': 11, 'icon': '📊', 'group': 'Events & Meetups'},
+            'eventfeedback': {'order': 12, 'icon': '📝', 'group': 'Events & Meetups'},
+            'eventlobbyparticipation': {'order': 13, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
+            'eventmeetsignal': {'order': 14, 'icon': '👋', 'group': 'Events & Meetups'},
+            'eventmeetingconfirmation': {'order': 15, 'icon': '✅', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP: Quiz Night (Live quiz event management)
@@ -302,8 +284,10 @@ class CrushLuAdminSite(admin.AdminSite):
             'campaign': {'order': 7, 'icon': '📢', 'group': 'Notifications'},
             'campaignrecipient': {'order': 8, 'icon': '📮', 'group': 'Notifications'},
             'emailpreference': {'order': 9, 'icon': '📧', 'group': 'Notifications'},
-            'useractivity': {'order': 10, 'icon': '📊', 'group': 'Notifications'},
-            'profilereminder': {'order': 11, 'icon': '📬', 'group': 'Notifications'},
+            'emailsuppression': {'order': 10, 'icon': '🚫', 'group': 'Notifications'},
+            'emailbounceevent': {'order': 11, 'icon': '⚠️', 'group': 'Notifications'},
+            'useractivity': {'order': 12, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 13, 'icon': '📬', 'group': 'Notifications'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)
@@ -358,6 +342,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
             'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
             'userdataconsent': {'order': 3, 'icon': '🔏', 'group': 'Technical & Debug'},  # GDPR audit
+            'eventcheckoutcreationclaim': {'order': 4, 'icon': '🧾', 'group': 'Technical & Debug'},
         }
 
         # Groups that only superusers may see in the menu. Coaches keep the

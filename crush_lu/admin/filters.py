@@ -8,9 +8,17 @@ from django.contrib import admin
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta, date
-from django.db.models import Exists, OuterRef, Q, Count
+from django.db.models import Exists, OuterRef, Q
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
+from .verification_queues import (
+    holds_door_seat,
+    in_legacy_review_state,
+    latest_submission_status,
+    never_submitted_profiles,
+    resubmitted_after_revision,
+)
 
 
 class ReviewTimeFilter(admin.SimpleListFilter):
@@ -40,7 +48,16 @@ class ReviewTimeFilter(admin.SimpleListFilter):
 
 
 class CoachAssignmentFilter(admin.SimpleListFilter):
-    """Filter profiles by coach assignment status"""
+    """Filter profiles by their permanently assigned coach.
+
+    Reads ``CrushProfile.assigned_coach``, the "Assigned Coach" column beside
+    it: set at the member's first event, and backfilled from each member's
+    latest approving coach (migration 0150). It read the coaches on the
+    member's ProfileSubmission rows, which nobody gets since the July 2026
+    verification pivot, so "No Coach Assigned" and "Not Submitted for Review"
+    listed every member who joined after it. Members who never submitted are
+    under Submission History.
+    """
     title = 'Coach Assignment'
     parameter_name = 'coach_assignment'
 
@@ -48,22 +65,13 @@ class CoachAssignmentFilter(admin.SimpleListFilter):
         return (
             ('has_coach', '👤 Has Coach Assigned'),
             ('no_coach', '❌ No Coach Assigned'),
-            ('not_submitted', '📝 Not Submitted for Review'),
         )
 
     def queryset(self, request, queryset):
         if self.value() == 'has_coach':
-            return queryset.filter(
-                profilesubmission__coach__isnull=False
-            ).distinct()
+            return queryset.filter(assigned_coach__isnull=False)
         elif self.value() == 'no_coach':
-            return queryset.filter(
-                profilesubmission__coach__isnull=True
-            ).distinct()
-        elif self.value() == 'not_submitted':
-            return queryset.filter(
-                profilesubmission__isnull=True
-            )
+            return queryset.filter(assigned_coach__isnull=True)
         return queryset
 
 
@@ -251,7 +259,21 @@ class EventCapacityFilter(admin.SimpleListFilter):
 
 
 class MutualConnectionFilter(admin.SimpleListFilter):
-    """Filter connections by mutual status"""
+    """Filter connections by whether the other side asked too.
+
+    "Mutual" means a reciprocal row: the recipient also requested the
+    requester, at the same event. That is
+    `EventConnectionQuerySet.annotate_is_mutual`, the definition behind the
+    changelist's "Mutual" column, so the filter lists exactly the rows the
+    column ticks and "One-Way Only" the rest. It filtered a 'mutual' status
+    that EventConnection never had: "Mutual" was always empty and "One-Way
+    Only" meant "not pending".
+
+    Not ``annotate_is_visible_mutual``, which ignores a crush lead that is not
+    ``shared`` yet. That keeps a private crush from members; this staff
+    changelist lists every row, crush leads and their notes included, and a
+    filter that disagreed with the column beside it would only mislead.
+    """
     title = 'Connection Type'
     parameter_name = 'connection_type'
 
@@ -264,12 +286,19 @@ class MutualConnectionFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'mutual':
-            return queryset.filter(status='mutual')
+            return self._annotated(queryset).filter(is_mutual_annotated=True)
         elif self.value() == 'pending':
             return queryset.filter(status='pending')
         elif self.value() == 'one_way':
-            return queryset.exclude(status__in=['mutual', 'pending'])
+            return self._annotated(queryset).filter(is_mutual_annotated=False)
         return queryset
+
+    @staticmethod
+    def _annotated(queryset):
+        # EventConnectionAdmin.get_queryset already annotates, for its column.
+        if 'is_mutual_annotated' in queryset.query.annotations:
+            return queryset
+        return queryset.annotate_is_mutual()
 
 
 class HasMessagesFilter(admin.SimpleListFilter):
@@ -462,6 +491,31 @@ class EventParticipationFilter(admin.SimpleListFilter):
         return queryset
 
 
+class DoorBookingFilter(admin.SimpleListFilter):
+    """Filter profiles by whether an event door can still verify them.
+
+    "Booked" means a seat or waitlist spot on a current or upcoming,
+    non-cancelled event: the coach "Unverified profiles" page's "Booked on an
+    event" signal. The Action Center splits pending members on it and links
+    here, so each tile opens a list of exactly its own count.
+    """
+    title = 'Event Booking'
+    parameter_name = 'door_booking'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('booked', '🎟️ Booked on a current/upcoming event'),
+            ('unbooked', '🚫 Not booked on any current/upcoming event'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'booked':
+            return queryset.filter(holds_door_seat(timezone.now()))
+        elif self.value() == 'unbooked':
+            return queryset.filter(~holds_door_seat(timezone.now()))
+        return queryset
+
+
 # ============================================================================
 # PRODUCTION-INFORMED FILTERS (Based on 2026-01-27 Database Analysis)
 # ============================================================================
@@ -564,6 +618,9 @@ class ProfileSubmissionDetailFilter(admin.SimpleListFilter):
 
     PRIORITY 3: Production shows 57.2% never submitted (87/152 profiles).
     Identifies users stuck before submission or in revision loops.
+
+    The review options read the member's latest submission, like the profile
+    segments (`verification_queues`): a row behind a newer one is history.
     """
     title = 'Submission History'
     parameter_name = 'submission_history'
@@ -577,43 +634,24 @@ class ProfileSubmissionDetailFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        # Import here to avoid circular import
-        from crush_lu.models import ProfileSubmission
-
         if self.value() == 'never_submitted':
-            # Profiles with no submission records
-            return queryset.filter(
-                ~Exists(
-                    ProfileSubmission.objects.filter(
-                        profile_id=OuterRef('id')
-                    )
-                )
-            )
+            # Still incomplete, with no submission row. "No row" alone also
+            # matched every member who submitted after the July 2026 pivot.
+            return never_submitted_profiles(queryset)
         elif self.value() == 'rejected':
-            # Profiles with most recent submission rejected
-            return queryset.filter(
-                Exists(
-                    ProfileSubmission.objects.filter(
-                        profile_id=OuterRef('id'),
-                        status='rejected'
-                    )
-                )
-            )
+            # Latest submission rejected. Verified members stay listed: this
+            # is history, and an overturned rejection belongs in it.
+            return queryset.alias(
+                latest_submission_status=latest_submission_status()
+            ).filter(latest_submission_status='rejected')
         elif self.value() == 'revision_pending':
-            # Profiles with revision_requested status
-            return queryset.filter(
-                Exists(
-                    ProfileSubmission.objects.filter(
-                        profile_id=OuterRef('id'),
-                        status='revision_requested'
-                    )
-                )
-            )
+            # Asked to revise and not back yet: the Revision Needed segment.
+            # This filtered 'revision_requested', a value the model never had.
+            return in_legacy_review_state(queryset, 'revision')
         elif self.value() == 'resubmitted':
-            # Profiles with multiple submissions (revision workflow)
-            return queryset.annotate(
-                submission_count=Count('profilesubmission')
-            ).filter(submission_count__gte=2)
+            # Back after a revision request. This counted two or more rows,
+            # but a resubmission re-queues the same row.
+            return resubmitted_after_revision(queryset)
         return queryset
 
 

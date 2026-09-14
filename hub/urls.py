@@ -30,6 +30,7 @@ from .views_social import (
     SocialUpcomingEventsView,
 )
 from .views_team import TeamMembersView
+from .views_analytics import AnalyticsOverviewView
 
 app_name = "hub"
 
@@ -46,6 +47,13 @@ urlpatterns = [
     path("locations/", views.LocationsView.as_view()),
     path("team", TeamMembersView.as_view(), name="team"),
     path("team/", TeamMembersView.as_view()),
+    # Aggregate analytics only: provider credentials and member rows stay server-side.
+    path(
+        "analytics/overview",
+        AnalyticsOverviewView.as_view(),
+        name="analytics_overview",
+    ),
+    path("analytics/overview/", AnalyticsOverviewView.as_view()),
     # Financials & Accounting Routes
     path("payments-in", PaymentsInView.as_view(), name="payments_in"),
     path("payments-in/", PaymentsInView.as_view()),

@@ -1,0 +1,27 @@
+{% load i18n %}
+{% comment %}
+Organiser-only chips summarising a registration's speed-dating preferences.
+Expects `reg` in context. Renders nothing when the registration has no
+preference row (non-speed-dating events, or pre-feature registrations).
+These values are Art. 9-adjacent (gender preference) — this partial must only
+ever be included on coach/staff surfaces, never on member-facing pages.
+{% endcomment %}
+{% if reg.preference %}
+{% with pref=reg.preference %}
+<div class="flex flex-wrap gap-1.5">
+    {% if pref.preferred_genders %}
+    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded">
+        💘 {% for label in pref.preferred_genders_display %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}
+    </span>
+    {% endif %}
+    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+        🎂 {{ pref.preferred_age_min }}–{{ pref.preferred_age_max }}
+    </span>
+    {% if pref.languages %}
+    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+        🗣️ {% for label in pref.languages_display %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}
+    </span>
+    {% endif %}
+</div>
+{% endwith %}
+{% endif %}

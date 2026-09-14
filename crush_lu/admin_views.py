@@ -19,6 +19,7 @@ import traceback
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.models.payments import PaymentTransaction
+from azureproject.email_utils import html_to_plain_text
 
 from .models import (
     CrushProfile,
@@ -293,9 +294,6 @@ def crush_admin_dashboard(request):
     total_coaches = CrushCoach.objects.count()
     active_coaches = CrushCoach.objects.filter(is_active=True).count()
 
-    # Pending reviews across all coaches
-    pending_reviews = ProfileSubmission.objects.filter(status="pending").count()
-
     # Coach performance
     coach_performance = (
         CrushCoach.objects.filter(is_active=True)
@@ -395,7 +393,15 @@ def crush_admin_dashboard(request):
                 filter=Q(profilesubmission__status="pending"),
                 distinct=True,
             ),
-            wl_calls=Count("callattempt", distinct=True),
+            # Custom SMS batches (Crush-Admin "Custom SMS" page) log a
+            # CallAttempt per recipient against the sending coach; they are
+            # outreach, not screening calls, so keep them out of the Calls
+            # figure and the Call % denominator.
+            wl_calls=Count(
+                "callattempt",
+                filter=~Q(callattempt__result="custom_sms"),
+                distinct=True,
+            ),
             wl_calls_success=Count(
                 "callattempt", filter=Q(callattempt__result="success"), distinct=True
             ),
@@ -419,8 +425,8 @@ def crush_admin_dashboard(request):
             }
         )
 
-    # Platform-wide call summary
-    call_summary = CallAttempt.objects.aggregate(
+    # Platform-wide call summary (custom SMS outreach rows excluded — see above)
+    call_summary = CallAttempt.objects.exclude(result="custom_sms").aggregate(
         total=Count("id"),
         successful=Count("id", filter=Q(result="success")),
         failed=Count("id", filter=Q(result="failed")),
@@ -916,47 +922,25 @@ def crush_admin_dashboard(request):
     # PENDING ACTIONS (Coach Workflow Quick Links)
     # ============================================================================
 
+    # The same counts as the admin index's Action Center. Keyed on the
+    # profile's verification state: the ProfileSubmission queue these tiles
+    # used to count is empty since the July 2026 verification pivot.
+    from .admin.verification_queues import (
+        pending_action_counts,
+        recent_pending_profiles,
+    )
+
     now = timezone.now()
-    cutoff_24h = now - timedelta(hours=24)
-
-    # Urgent reviews (pending > 24 hours)
-    urgent_reviews = ProfileSubmission.objects.filter(
-        status="pending", submitted_at__lt=cutoff_24h
-    ).count()
-
-    # Awaiting screening call (has coach, pending, no call)
-    awaiting_call = ProfileSubmission.objects.filter(
-        status="pending", coach__isnull=False, review_call_completed=False
-    ).count()
-
-    # Ready to approve (call completed, still pending)
-    ready_to_approve = ProfileSubmission.objects.filter(
-        status="pending", coach__isnull=False, review_call_completed=True
-    ).count()
-
-    # Unassigned (pending, no coach)
-    unassigned_submissions = ProfileSubmission.objects.filter(
-        status="pending", coach__isnull=True
-    ).count()
-
-    pending_actions = {
-        "urgent_reviews": urgent_reviews,
-        "awaiting_call": awaiting_call,
-        "ready_to_approve": ready_to_approve,
-        "unassigned": unassigned_submissions,
-        "total_pending": pending_reviews,
-    }
+    pending_actions = pending_action_counts(now)
 
     # ============================================================================
     # RECENT ACTIVITY
     # ============================================================================
 
-    # Recent profile submissions (last 10)
-    recent_submissions = (
-        ProfileSubmission.objects.filter(status="pending")
-        .select_related("profile__user", "coach__user")
-        .order_by("-submitted_at")[:10]
-    )
+    # The members most recently updated while awaiting verification: the
+    # index's Today's Focus list, longer. This listed pending
+    # ProfileSubmissions, which the July 2026 pivot stopped creating.
+    recent_pending = recent_pending_profiles(10, now)
 
     # Recent event registrations (last 10)
     recent_event_registrations = EventRegistration.objects.select_related(
@@ -1096,7 +1080,6 @@ def crush_admin_dashboard(request):
         # Coach metrics
         "total_coaches": total_coaches,
         "active_coaches": active_coaches,
-        "pending_reviews": pending_reviews,
         "coach_performance": coach_performance,
         "avg_review_hours": round(avg_review_hours, 1),
         # Coach workload & call stats
@@ -1166,7 +1149,7 @@ def crush_admin_dashboard(request):
         # Ideal Crush Preference Metrics
         "preference_metrics": preference_metrics,
         # Recent activity
-        "recent_submissions": recent_submissions,
+        "recent_pending_profiles": recent_pending,
         "recent_event_registrations": recent_event_registrations,
         "recent_connections": recent_connections,
         # Pending actions (workflow quick links)
@@ -1621,7 +1604,7 @@ def email_template_preview(request):
     # Render the email template
     try:
         html_content = render_to_string(template_meta["template"], context)
-        plain_content = _html_to_plain_text(html_content)
+        plain_content = html_to_plain_text(html_content)
     except Exception as e:
         logger.error(f"Error rendering email template preview: {e}")
         logger.error(traceback.format_exc())
@@ -1668,7 +1651,6 @@ def email_template_send(request):
     """
     from django.http import JsonResponse
     from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
     from azureproject.email_utils import send_domain_email
     from .admin.email_templates_config import get_template_by_key
 
@@ -1704,7 +1686,7 @@ def email_template_send(request):
     # Render email
     try:
         html_content = render_to_string(template_meta["template"], context)
-        plain_content = strip_tags(html_content)
+        plain_content = html_to_plain_text(html_content)
     except Exception as e:
         logger.error(f"Error rendering email template: {e}")
         logger.error(traceback.format_exc())
@@ -2320,105 +2302,6 @@ def _create_mock_message():
             self.sent_at = timezone.now()
 
     return MockMessage()
-
-
-def _html_to_plain_text(html_content):
-    """
-    Convert HTML email to clean plain text.
-
-    Removes style/script tags, converts common HTML elements to text equivalents,
-    and cleans up whitespace.
-    """
-    import re
-    from html.parser import HTMLParser
-    from django.utils.html import strip_tags
-
-    # Use a proper HTML parser to remove style/script tags with content
-    class _TagStripper(HTMLParser):
-        SKIP_TAGS = {"style", "script"}
-
-        def __init__(self):
-            super().__init__()
-            self._result = []
-            self._skip_depth = 0
-
-        def handle_starttag(self, tag, attrs):
-            if tag.lower() in self.SKIP_TAGS:
-                self._skip_depth += 1
-            elif not self._skip_depth:
-                self._result.append(self.get_starttag_text())
-
-        def handle_endtag(self, tag):
-            if tag.lower() in self.SKIP_TAGS:
-                self._skip_depth = max(0, self._skip_depth - 1)
-            elif not self._skip_depth:
-                self._result.append(f"</{tag}>")
-
-        def handle_data(self, data):
-            if not self._skip_depth:
-                self._result.append(data)
-
-        def get_output(self):
-            return "".join(self._result)
-
-    stripper = _TagStripper()
-    stripper.feed(html_content)
-    text = stripper.get_output()
-
-    # Remove HTML comments
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-
-    # Convert <br> and <br/> to newlines
-    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-
-    # Convert </p>, </div>, </tr>, </li> to double newlines
-    text = re.sub(r"</p>", "\n\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</tr>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
-
-    # Convert <li> to bullet points
-    text = re.sub(r"<li[^>]*>", "  • ", text, flags=re.IGNORECASE)
-
-    # Convert headings to uppercase with newlines
-    text = re.sub(
-        r"<h[1-6][^>]*>(.*?)</h[1-6]>",
-        r"\n\n\1\n",
-        text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    # Extract href from links and show as [text](url)
-    text = re.sub(
-        r'<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',
-        r"\2 (\1)",
-        text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    # Now strip remaining HTML tags
-    text = strip_tags(text)
-
-    # Decode HTML entities
-    import html
-
-    text = html.unescape(text)
-
-    # Clean up whitespace
-    # Replace multiple spaces with single space
-    text = re.sub(r"[ \t]+", " ", text)
-
-    # Replace 3+ newlines with 2 newlines
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    # Strip leading/trailing whitespace from each line
-    lines = [line.strip() for line in text.split("\n")]
-    text = "\n".join(lines)
-
-    # Remove leading/trailing whitespace from entire text
-    text = text.strip()
-
-    return text
 
 
 @staff_member_required

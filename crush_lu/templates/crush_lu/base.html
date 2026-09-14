@@ -326,6 +326,10 @@
                                             <span class="badge badge-warning ml-2">{{ pending_screening_count }}</span>
                                         {% endif %}
                                     </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_unverified_profiles' %}">
+                                        {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Unverified Profiles" %}
+                                    </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_connections' %}">
                                         {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Connections" %}
@@ -533,6 +537,9 @@
                                                         </div>
                                                         {% if registration.status == 'waitlist' %}
                                                             <span class="badge badge-secondary ml-2">{% trans "Waitlist" %}</span>
+                                                        {% elif registration.status == 'applied' %}
+                                                            {# The success tick below means "you have a seat". An application does not. #}
+                                                            <span class="badge badge-secondary ml-2">{% trans "Applied" %}</span>
                                                         {% else %}
                                                             <span class="badge badge-success ml-2">✓</span>
                                                         {% endif %}
@@ -864,6 +871,10 @@
                                 {% if pending_screening_count > 0 %}
                                     <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
                                 {% endif %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_unverified_profiles' %}">
+                                {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Unverified Profiles" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_connections' %}">
                                 {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}

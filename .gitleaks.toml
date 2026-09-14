@@ -4,19 +4,16 @@
 [extend]
 useDefault = true
 
-# Allowlist for false positives - Azure RBAC role IDs are public GUIDs
+# Global allowlist for false positives.
+#
+# No `paths` on purpose: a global path match skips the whole file for every
+# rule, so a real credential committed there would never be reported. Allow
+# the false positive itself instead:
+#   - `regexes` are matched against the captured secret, not the line, so
+#     anchor each one to the exact capture;
+#   - one-off historical findings go in .gitleaksignore as fingerprints.
 [allowlist]
 description = "Allow Azure RBAC role definitions, documentation examples, test fixtures, and development defaults"
-paths = [
-  '''infra/keyvault\.bicep''',
-  '''azure-functions/.*/README\.md''',
-  '''scripts/.*\.py''',
-  '''.*/migrations/.*\.py''',  # Django migrations with blank=True defaults
-  '''.*/tests/.*\.py''',       # Test fixtures and sample data
-  '''SECURITY_ALERT_.*\.md''', # Security documentation
-  '''.*views_webhook\.py''',   # Webhook documentation in docstrings
-  '''docs/superpowers/plans/.*\.md''', # Planning docs contain test-code snippets with PEM header literals
-]
 regexes = [
   # Key Vault Secrets User role ID (public Azure RBAC GUID)
   '''4633458b-17de-408a-b874-0445c86b69e6''',
@@ -30,10 +27,31 @@ regexes = [
   '''YOUR_ADMIN_API_KEY''',
   '''your-admin-api-key''',
   '''your_secret_token_here''',
+  # Sync-token placeholder in the curl example of the old
+  # finops_hub/views_webhook.py docstring (curl-auth-header).
+  '''^your-secret-token$''',
 
-  # Test fixture placeholders (Web Push p256dh keys)
-  '''blank=True.*help_text=.*token''',
-  '''p256dh_key=.*test.*''',
+  # Test fixture placeholders: fake Web Push subscription keys
+  # (crush_lu/tests/test_campaigns.py, test_notification_service.py,
+  # test_push_notifications.py) and a fake APNs device token
+  # (crush_lu/tests/test_ios_app_readiness.py).
+  '''^(?:p256dh-test-key|test_p256dh_key|test_p256dh_key_disabled)$''',
+  '''^abcdef123456$''',
+
+  # Web Push subscription `auth` test fixture: base64url of the bytes
+  # 0x00..0x0f (crush_lu/tests/test_crush_phase_e_open_points.py; PR #967
+  # copies it into test_push_destination_security.py). Not a credential.
+  '''^AAECAwQFBgcICQoLDA0ODw$''',
+
+  # Django migrations put `help_text="...token...", max_length=64` on one
+  # line; generic-api-key takes the comma after the help text as an
+  # assignment and captures the next keyword argument.
+  '''^max_length=\d+$''',
+
+  # crush_lu/tests/test_echo_lu_sync.py: the "test-key" API key setting is too
+  # short to report, so generic-api-key takes the comma after it as an
+  # assignment and captures the next setting's name across the line break.
+  '''^ECHO_LU_DEFAULT_CATEGORIES=$''',
 
   # Crush.lu admin user-segment keys (e.g. gender_m_age_35_plus) trigger
   # the generic-api-key rule because of length/charset. They're UI labels,
@@ -42,4 +60,9 @@ regexes = [
 
   # Claude Code session URLs appended to commit messages are not credentials.
   '''claude\.ai/code/session_[0-9a-zA-Z]+''',
+
+  # crush_lu/android_push.py passes `credentials_info, scopes=FCM_SCOPES` to the
+  # Google auth helper; generic-api-key captures the keyword argument as a
+  # "secret". Anchored so only that exact capture is allowed.
+  '''^scopes=FCM_SCOPES$''',
 ]

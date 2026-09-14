@@ -1,0 +1,42 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your payment was returned" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Your payment was returned" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}When your payment for <strong>{{ title }}</strong> completed, we could no longer honour the selected place under its certified terms. We therefore did not confirm a place.{% endblocktrans %}</p>
+
+{% if has_credit %}
+<div class="info-box">
+    <p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}We've immediately returned {{ amount }} EUR in Crush Credit to your account.{% endblocktrans %}</strong></p>
+    <ul style="margin: 10px 0;">
+        {% for line in credit_lines %}
+        <li>{% blocktrans with amount=line.amount expiry=line.expires_at|date:"DATE_FORMAT" %}{{ amount }} EUR, valid until {{ expiry }}{% endblocktrans %}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% if cash_refund_available %}
+<p>{% trans "Because we could not provide the selected place you paid for, you may ask for a cash refund instead. Reply to this email and we will arrange it. If you spend any of the credit, the cash option closes." %}</p>
+{% elif cash_refund_option_closed %}
+<p>{% trans "The cash-refund option has closed because some or all of this credit has already been used." %}</p>
+{% elif credit_funded %}
+<p>{% trans "This booking was paid with Crush Credit, so its original value has been restored on its original expiry dates." %}</p>
+{% else %}
+<p>{% trans "The full value was returned as Crush Credit. Reply to this email if you need us to review the original payment method." %}</p>
+{% endif %}
+{% endif %}
+
+{% if reselection_possible %}
+<p>{% trans "Your application remains in the pool. We will contact you if a new viable group is selected; you will not be charged again automatically." %}</p>
+{% else %}
+<p>{% trans "That evening can no longer be re-formed. No place was confirmed, and you will not be charged again automatically." %}</p>
+{% endif %}
+
+<p><a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}

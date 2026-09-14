@@ -1,0 +1,23 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your application stays in the pool" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Your application stays in the pool" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hello {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Thank you for applying to <strong>{{ title }}</strong>. The first groups for this evening have now been formed, and we could not place you in one of them this time.{% endblocktrans %}</p>
+
+<div class="info-box">
+    <p><strong>{% trans "No payment was taken. Your application stays in the pool." %}</strong></p>
+</div>
+
+<p>{% trans "Groups can still change before the evening. If a place opens in a group that works for you, we will contact you before any payment is required." %}</p>
+
+<p>{% trans "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page." %}</p>
+
+<p><a href="{{ event_url }}" class="button">{% trans "View event" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}

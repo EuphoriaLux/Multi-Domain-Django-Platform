@@ -21,6 +21,7 @@ CRUSH_URLS = {"ROOT_URLCONF": "azureproject.urls_crush", "ADMIN_API_KEY": API_KE
 REMINDERS_URL = "/api/admin/event-reminders/"
 RECAPS_URL = "/api/admin/event-recaps/"
 FEEDBACK_URL = "/api/admin/event-feedback/"
+ECHO_SYNC_URL = "/api/admin/echo-sync/"
 
 
 class _EndpointContract:
@@ -63,6 +64,55 @@ class _EndpointContract:
         self.assertEqual(resp.json(), {"error": "command_error"})
         self.assertNotIn("secret", resp.content.decode())
 
+    def test_command_output_is_logged_when_the_command_fails(self):
+        # The command's report — which item failed, and why — is printed to
+        # the captured stdout. Discarding it with the buffer left the echo.lu
+        # sweep's 500s traceable only as a bare "Command error".
+        from django.core.management import CommandError
+
+        def failing_command(*args, stdout=None, **kwargs):
+            stdout.write("  ✗ [23] Karaoke: no echo.lu venue is linked\n")
+            raise CommandError("1 event(s) failed")
+
+        with mock.patch(
+            "crush_lu.api_admin_events.call_command", side_effect=failing_command
+        ), self.assertLogs("crush_lu.api_admin_events", level="ERROR") as logs:
+            resp = self.client.post(self.url, HTTP_AUTHORIZATION=f"Bearer {API_KEY}")
+
+        self.assertEqual(resp.status_code, 500)
+        self.assertIn(
+            "[23] Karaoke: no echo.lu venue is linked", "\n".join(logs.output)
+        )
+        # Logged, never returned.
+        self.assertNotIn("Karaoke", resp.content.decode())
+
+    def test_logged_output_survives_the_pii_filter(self):
+        # Production runs every record through PIIMaskingFilter, whose
+        # argument branch masks any string containing "@" as one email. The
+        # output has to be the message itself, so that only real addresses
+        # are masked and the rest of the report survives.
+        from django.core.management import CommandError
+
+        from azureproject.logging_utils import PIIMaskingFilter
+
+        def failing_command(*args, stdout=None, **kwargs):
+            stdout.write(
+                "  ✗ [23] Speed Dating @ Urban Bar: rejected; contact "
+                "love@crush.lu\n"
+            )
+            raise CommandError("1 event(s) failed")
+
+        with mock.patch(
+            "crush_lu.api_admin_events.call_command", side_effect=failing_command
+        ), self.assertLogs("crush_lu.api_admin_events", level="ERROR") as logs:
+            self.client.post(self.url, HTTP_AUTHORIZATION=f"Bearer {API_KEY}")
+
+        record = next(r for r in logs.records if "command output" in r.getMessage())
+        PIIMaskingFilter().filter(record)
+        rendered = record.getMessage()
+        self.assertIn("[23] Speed Dating @ Urban Bar: rejected", rendered)
+        self.assertNotIn("love@crush.lu", rendered)
+
 
 @override_settings(**CRUSH_URLS)
 class EventRemindersEndpointTests(_EndpointContract, TestCase):
@@ -83,6 +133,12 @@ class EventFeedbackEndpointTests(_EndpointContract, TestCase):
 
 
 @override_settings(**CRUSH_URLS)
+class EchoSyncEndpointTests(_EndpointContract, TestCase):
+    url = ECHO_SYNC_URL
+    command = "sync_events_to_echo"
+
+
+@override_settings(**CRUSH_URLS)
 class EndpointsAreLanguageNeutralTests(TestCase):
     """The Function App hardcodes these paths, so they must resolve without a
     language prefix and must NOT be reachable under one."""
@@ -97,6 +153,7 @@ class EndpointsAreLanguageNeutralTests(TestCase):
             (REMINDERS_URL, "api_admin_event_reminders"),
             (RECAPS_URL, "api_admin_event_recaps"),
             (FEEDBACK_URL, "api_admin_event_feedback"),
+            (ECHO_SYNC_URL, "api_admin_echo_sync"),
         ):
             with self.subTest(url=url):
                 self.assertEqual(resolve(url).url_name, name)

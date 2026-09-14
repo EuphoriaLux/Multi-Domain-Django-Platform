@@ -128,7 +128,7 @@ def push_subscription(user_with_profile):
     """Create a push subscription for the test user."""
     return PushSubscription.objects.create(
         user=user_with_profile,
-        endpoint='https://push.example.com/test-endpoint',
+        endpoint='https://fcm.googleapis.com/fcm/send/test-endpoint',
         p256dh_key='test_p256dh_key_value',
         auth_key='test_auth_key_value',
         device_name='Test Device',
@@ -145,7 +145,7 @@ def disabled_subscription(user_with_profile):
     """Create a disabled push subscription."""
     return PushSubscription.objects.create(
         user=user_with_profile,
-        endpoint='https://push.example.com/disabled-endpoint',
+        endpoint='https://fcm.googleapis.com/fcm/send/disabled-endpoint',
         p256dh_key='test_p256dh_key_disabled',
         auth_key='test_auth_key_disabled',
         device_name='Disabled Device',
@@ -160,7 +160,7 @@ def multiple_subscriptions(user_with_profile):
     for i in range(3):
         subs.append(PushSubscription.objects.create(
             user=user_with_profile,
-            endpoint=f'https://push.example.com/device-{i}',
+            endpoint=f'https://fcm.googleapis.com/fcm/send/device-{i}',
             p256dh_key=f'test_p256dh_key_{i}',
             auth_key=f'test_auth_key_{i}',
             device_name=f'Device {i}',

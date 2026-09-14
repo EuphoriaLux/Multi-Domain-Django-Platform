@@ -13,7 +13,12 @@ logger = logging.getLogger(__name__)
 
 class SumUpError(Exception):
     """Base exception for SumUp API errors."""
+
     pass
+
+
+class SumUpConfigurationError(SumUpError):
+    """Local preflight failure raised before a provider request is sent."""
 
 
 def clean_credential(value: Optional[str]) -> str:
@@ -68,6 +73,30 @@ def extract_successful_transaction_id(checkout_data: Dict[str, Any]) -> Optional
     return candidates[-1]["id"]
 
 
+# SumUp's transaction-history endpoint spells the sort order out in full.
+# ``order=desc`` is not a value it recognises — and it does not reject the
+# request either, it silently sorts ASCENDING and returns the OLDEST rows on
+# the account. A caller asking for the newest 100 transactions to look for a
+# recent refund got the first 100 the merchant ever took, which is how an
+# external refund stayed invisible to the reconciliation sweep.
+_HISTORY_ORDERS = {
+    "desc": "descending",
+    "descending": "descending",
+    "asc": "ascending",
+    "ascending": "ascending",
+}
+
+
+def _normalise_history_order(order: Optional[str]) -> str:
+    """Map a caller's sort order onto the spelling SumUp actually honours.
+
+    Unknown values fall back to ``descending`` rather than being passed
+    through: the endpoint's own default is ascending, and every caller here
+    wants the most recent transactions.
+    """
+    return _HISTORY_ORDERS.get((order or "").strip().lower(), "descending")
+
+
 class SumUpClient:
     """
     Wrapper for SumUp Online Payments REST API.
@@ -76,7 +105,9 @@ class SumUpClient:
 
     BASE_URL = "https://api.sumup.com"
 
-    def __init__(self, api_key: Optional[str] = None, merchant_code: Optional[str] = None):
+    def __init__(
+        self, api_key: Optional[str] = None, merchant_code: Optional[str] = None
+    ):
         self.api_key = clean_credential(
             api_key or getattr(settings, "SUMUP_API_KEY", "")
         )
@@ -89,7 +120,7 @@ class SumUpClient:
             # Fail here rather than sending "Bearer " and letting SumUp answer
             # a generic 401 — that error is indistinguishable from a revoked or
             # mistyped key and sends you hunting in the wrong place.
-            raise SumUpError(
+            raise SumUpConfigurationError(
                 "SUMUP_API_KEY is not configured — set it in the environment "
                 "(App Service application settings) and restart."
             )
@@ -124,7 +155,7 @@ class SumUpClient:
         :param purpose: Set to "SETUP_RECURRING_PAYMENT" for tokenizing card for subscriptions
         """
         url = f"{self.BASE_URL}/v0.1/checkouts"
-        
+
         payload: Dict[str, Any] = {
             "amount": round(float(amount), 2),
             "currency": currency.upper(),
@@ -154,16 +185,22 @@ class SumUpClient:
             payload["purpose"] = purpose
 
         try:
-            response = requests.post(url, json=payload, headers=self._get_headers(), timeout=10)
+            response = requests.post(
+                url, json=payload, headers=self._get_headers(), timeout=10
+            )
             response.raise_for_status()
             return response.json()
         except requests.RequestException as exc:
             logger.error("SumUp create_checkout failed: %s", exc, exc_info=True)
             err_msg = str(exc)
-            if hasattr(exc, 'response') and exc.response is not None:
+            if hasattr(exc, "response") and exc.response is not None:
                 try:
                     err_data = exc.response.json()
-                    err_msg = err_data.get("message") or err_data.get("error_message") or str(err_data)
+                    err_msg = (
+                        err_data.get("message")
+                        or err_data.get("error_message")
+                        or str(err_data)
+                    )
                 except Exception:
                     err_msg = exc.response.text or str(exc)
             raise SumUpError(f"SumUp Checkout Creation Error: {err_msg}") from exc
@@ -201,12 +238,37 @@ class SumUpClient:
             response.raise_for_status()
             return True
         except requests.RequestException as exc:
+            response = getattr(exc, "response", None)
+            if response is not None and response.status_code in {404, 410}:
+                # Idempotent retirement: an already-removed checkout is just
+                # as non-payable as one this DELETE closed now.  This matters
+                # when a multi-checkout sweep closes some IDs before a later
+                # provider call or database revalidation asks the operation
+                # to retry.
+                return True
             logger.warning(
                 "SumUp deactivate_checkout failed for ID %s: %s", checkout_id, exc
             )
             return False
 
-    def create_customer(self, customer_id: str, email: str, name: Optional[str] = None) -> Dict[str, Any]:
+    def ensure_checkout_not_payable(self, checkout_id: str) -> bool:
+        """Prove a checkout is closed, including idempotent retry states."""
+
+        if self.deactivate_checkout(checkout_id):
+            return True
+        try:
+            checkout = self.get_checkout(checkout_id)
+        except SumUpError:
+            return False
+        return (checkout.get("status") or "").upper() in {
+            "FAILED",
+            "CANCELLED",
+            "EXPIRED",
+        }
+
+    def create_customer(
+        self, customer_id: str, email: str, name: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Registers a customer record on SumUp for card tokenization.
         Endpoint: POST /v0.1/customers
@@ -216,13 +278,15 @@ class SumUpClient:
             "customer_id": customer_id,
             "personal_details": {
                 "email": email,
-            }
+            },
         }
         if name:
             payload["personal_details"]["first_name"] = name
 
         try:
-            response = requests.post(url, json=payload, headers=self._get_headers(), timeout=10)
+            response = requests.post(
+                url, json=payload, headers=self._get_headers(), timeout=10
+            )
             response.raise_for_status()
             return response.json()
         except requests.RequestException as exc:
@@ -232,7 +296,7 @@ class SumUpClient:
     def get_transactions_history(
         self,
         limit: int = 100,
-        order: str = "desc",
+        order: str = "descending",
         oldest_ref: Optional[str] = None,
         statuses: Optional[list] = None,
         transaction_code: Optional[str] = None,
@@ -247,7 +311,7 @@ class SumUpClient:
         url = f"{self.BASE_URL}/v0.1/me/transactions/history"
         params: Dict[str, Any] = {
             "limit": min(max(1, limit), 100),
-            "order": order,
+            "order": _normalise_history_order(order),
         }
         if oldest_ref:
             params["oldest_ref"] = oldest_ref
@@ -379,9 +443,15 @@ class SumUpClient:
             payload["merchant_code"] = self.merchant_code
 
         try:
-            response = requests.post(url, json=payload, headers=self._get_headers(), timeout=10)
+            response = requests.post(
+                url, json=payload, headers=self._get_headers(), timeout=10
+            )
             response.raise_for_status()
             return response.json()
         except requests.RequestException as exc:
-            logger.error("SumUp charge_recurring failed for customer %s: %s", customer_id, exc)
-            raise SumUpError(f"Failed to charge recurring payment for customer {customer_id}") from exc
+            logger.error(
+                "SumUp charge_recurring failed for customer %s: %s", customer_id, exc
+            )
+            raise SumUpError(
+                f"Failed to charge recurring payment for customer {customer_id}"
+            ) from exc

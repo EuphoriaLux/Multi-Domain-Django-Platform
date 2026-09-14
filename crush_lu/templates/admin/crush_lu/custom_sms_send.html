@@ -1,0 +1,96 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{{ batch.display_title }} - {% trans "Custom SMS" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% include "admin/crush_lu/partials/_custom_sms_styles.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/custom-sms.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'crush_admin:index' %}">{% trans "Home" %}</a>
+    &rsaquo; <a href="{% url 'custom_sms_compose' %}">{% trans "Custom SMS" %}</a>
+    &rsaquo; {{ batch.display_title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="csms-container" id="csms-send" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <a href="{% url 'custom_sms_compose' %}" class="csms-back">&larr; {% trans "All batches / new message" %}</a>
+
+    <div class="csms-header">
+        <h1>💬 {{ batch.display_title }}</h1>
+        <p>
+            {{ batch.get_audience_type_display }}
+            {% if batch.audience_type == "event" and batch.event %}
+                · {{ batch.event.title }} ({{ batch.event.date_time|date:"D j M Y, H:i" }})
+                · {{ registration_status_display }}
+            {% elif batch.audience_type == "segment" %}
+                · {{ segment_name }}
+            {% endif %}
+            {% if batch.audience_type != "event" and batch.event %} · {% trans "linked to" %} {{ batch.event.title }}{% endif %}
+            · {{ batch.created_at|date:"j M Y H:i" }}{% if batch.created_by %} · {{ batch.created_by.first_name|default:batch.created_by.username }}{% endif %}
+        </p>
+    </div>
+
+    {% for warning in warnings %}
+    <div class="csms-warning">⚠️ {{ warning }}</div>
+    {% endfor %}
+    {% if unverified_count %}
+    <div class="csms-warning">⚠️ {% blocktrans count counter=unverified_count %}{{ counter }} recipient has an unverified phone number.{% plural %}{{ counter }} recipients have unverified phone numbers.{% endblocktrans %}</div>
+    {% endif %}
+
+    {% include "admin/crush_lu/partials/_custom_sms_progress.html" %}
+
+    <div class="csms-grid" style="margin-bottom:16px;">
+        <div class="csms-card" style="margin-bottom:0;">
+            <h2>📝 {% trans "Message" %}</h2>
+            <div class="csms-preview">{{ batch.message_en }}</div>
+            {% if batch.message_de %}<div class="csms-muted" style="margin-top:8px;">DE</div><div class="csms-preview">{{ batch.message_de }}</div>{% endif %}
+            {% if batch.message_fr %}<div class="csms-muted" style="margin-top:8px;">FR</div><div class="csms-preview">{{ batch.message_fr }}</div>{% endif %}
+            <div style="margin-top:10px;">
+                <a class="btn-link" href="{% url 'custom_sms_compose' %}?from={{ batch.pk }}">{% trans "Duplicate with changes" %}</a>
+            </div>
+        </div>
+        <div class="csms-card" style="margin-bottom:0;">
+            <h2>📱 {% trans "On your phone" %}</h2>
+            <p class="csms-muted" style="margin:0 0 8px 0;">{% trans "The “Open SMS” buttons need a phone with an SMS app. Composed on a computer? Scan this to continue on your phone — progress is shared." %}</p>
+            {% if qr_data_uri %}<div class="csms-qr"><img src="{{ qr_data_uri }}" alt="QR"></div>{% endif %}
+            <div class="csms-url" style="margin-top:6px;">{{ page_url }}</div>
+        </div>
+    </div>
+
+    {% if rows %}
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="csms-muted" style="margin-bottom:8px;">
+        {% blocktrans with start=page_obj.start_index end=page_obj.end_index count=total %}Recipients {{ start }}–{{ end }} of {{ count }}{% endblocktrans %}
+    </div>
+    {% endif %}
+    <div class="csms-rows" id="csms-rows" data-next="{{ next_row_id }}" hx-vals='{"page": "{{ page_obj.number }}"}'>
+        {% for row in rows %}
+            {% include "admin/crush_lu/partials/_custom_sms_row.html" %}
+        {% endfor %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="csms-pager">
+        {% if page_obj.has_previous %}<a class="btn btn-secondary btn-sm" role="button" href="?page={{ page_obj.previous_page_number }}">&larr; {% trans "Previous" %}</a>{% endif %}
+        <span class="csms-muted">{% trans "Page" %} {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="btn btn-secondary btn-sm" role="button" href="?page={{ page_obj.next_page_number }}">{% trans "Next page" %} &rarr;</a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="csms-card csms-empty">
+        {% trans "No recipients match this audience (members need a phone number on their profile)." %}
+        <div style="margin-top:10px;"><a class="btn btn-secondary btn-sm" role="button" href="{% url 'custom_sms_compose' %}?from={{ batch.pk }}">{% trans "Adjust the audience" %}</a></div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

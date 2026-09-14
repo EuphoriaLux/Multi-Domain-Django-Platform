@@ -30,17 +30,17 @@ class CrushSiteConfig(models.Model):
     social_instagram_url = models.URLField(
         blank=True,
         verbose_name=_("Instagram URL"),
-        help_text=_("e.g. https://www.instagram.com/crush.lu"),
+        help_text=_("e.g. https://www.instagram.com/crushluofficial/"),
     )
     social_facebook_url = models.URLField(
         blank=True,
         verbose_name=_("Facebook URL"),
-        help_text=_("e.g. https://www.facebook.com/crush.lu"),
+        help_text=_("e.g. https://www.facebook.com/crushluxembourg"),
     )
     social_linkedin_url = models.URLField(
         blank=True,
         verbose_name=_("LinkedIn URL"),
-        help_text=_("e.g. https://www.linkedin.com/company/crush-lu"),
+        help_text=_("e.g. https://www.linkedin.com/showcase/crushluapp/"),
     )
     social_google_business_url = models.URLField(
         blank=True,

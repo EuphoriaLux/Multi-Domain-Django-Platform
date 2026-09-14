@@ -1,0 +1,23 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your application is being reconsidered" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "Your application is being reconsidered" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hello {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}The selected group for <strong>{{ title }}</strong> can no longer go ahead as planned, so we have returned your application to the selection pool.{% endblocktrans %}</p>
+
+<div class="info-box">
+    <p><strong>{% trans "No payment was taken for this place." %}</strong></p>
+</div>
+
+<p>{% trans "We will reconsider your application if another viable group can be formed. We will contact you before any payment is required." %}</p>
+
+<p>{% trans "You do not need to do anything to stay in the pool. If your plans have changed, you can withdraw from the event page." %}</p>
+
+<p><a href="{{ event_url }}" class="button">{% trans "View event" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}

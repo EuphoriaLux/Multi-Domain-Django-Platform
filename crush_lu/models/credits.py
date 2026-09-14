@@ -17,8 +17,8 @@ have. Balance is always Σ issued − Σ redeemed, computed at read time by
 
 ``status`` is the one mutable field, and it is bookkeeping rather than value:
 ``active`` → ``consumed`` when the last cent is spent, → ``expired`` when the
-sweep passes ``expires_at`` (PR 2), → ``void`` when staff withdraw an issue
-that should never have happened. None of those change what was issued.
+sweep passes ``expires_at`` (PR 2), or → ``refunding`` while a cash return is
+in flight → ``void`` once it settles. None of those change what was issued.
 
 Amounts are integer **cents**, not ``Decimal``. ``PaymentTransaction.amount``
 is a 2dp Decimal because that is what SumUp is quoted in; credit is arithmetic
@@ -68,11 +68,15 @@ class CrushCredit(models.Model):
         MEMBER_CANCELLATION = "member_cancellation", _("Member cancelled (>48h)")
         SEAT_RESOLD = "seat_resold", _("Late cancellation, seat resold")
         EVENT_CANCELLED = "event_cancelled", _("Crush.lu cancelled the event")
+        CURATED_GROUP_UNAVAILABLE = "curated_group_unavailable", _(
+            "Curated group became unavailable"
+        )
         GOODWILL = "goodwill", _("Goodwill")
         REFERRAL = "referral", _("Referral")
 
     class Status(models.TextChoices):
         ACTIVE = "active", _("Active")
+        REFUNDING = "refunding", _("Refund in progress")
         CONSUMED = "consumed", _("Fully redeemed")
         EXPIRED = "expired", _("Expired")
         VOID = "void", _("Void")
@@ -138,8 +142,8 @@ class CrushCredit(models.Model):
         default=False,
         help_text=_(
             "This member may ask for their money back instead. Set only when "
-            "Crush.lu cancelled the event — Luxembourg consumer law entitles "
-            "them to a cash refund there and a voucher is not a substitute. "
+            "Crush.lu cancelled the event or could not provide the certified "
+            "curated group sold to them — a voucher is not a substitute. "
             "Refunds themselves are still made by hand in the SumUp dashboard."
         ),
     )
@@ -206,6 +210,24 @@ class CrushCredit(models.Model):
                     source_payment__isnull=False,
                 ),
                 name="one_resale_restore_per_tranche",
+            ),
+            models.UniqueConstraint(
+                fields=["source_payment", "reason"],
+                condition=models.Q(
+                    reason="curated_group_unavailable",
+                    restored_from_credit__isnull=True,
+                    source_payment__isnull=False,
+                ),
+                name="one_group_remedy_per_payment",
+            ),
+            models.UniqueConstraint(
+                fields=["source_payment", "reason", "restored_from_credit"],
+                condition=models.Q(
+                    reason="curated_group_unavailable",
+                    restored_from_credit__isnull=False,
+                    source_payment__isnull=False,
+                ),
+                name="one_group_restore_per_tranche",
             ),
         ]
         # Hand-issuing goodwill credit is a money-minting action that used to

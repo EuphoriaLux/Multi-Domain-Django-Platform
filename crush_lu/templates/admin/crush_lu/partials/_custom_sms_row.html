@@ -1,0 +1,63 @@
+{% load i18n %}
+{% comment %}
+One recipient on the Custom SMS send list. Rendered in the page loop and
+returned whole (outerHTML swap) by the log / unlog endpoints. Tapping the
+"Open SMS" anchor both follows the sms: link and — via the row's
+`hx-trigger="click from:find .js-open-sms"` — POSTs the log endpoint, so the
+row flips to "sent" without a second tap. The anchor itself carries no hx-*
+attribute: HTMX cancels navigation on anchors it handles, and the deep link
+would never fire.
+{% endcomment %}
+<div id="{{ row.row_id }}"
+     class="sms-row{% if row.sent_at %} is-sent{% endif %}"
+     data-sent="{% if row.sent_at %}1{% else %}0{% endif %}"
+     data-name="{{ row.first_name|default:row.name }}"
+     {% if not row.sent_at %}
+     hx-post="{% url 'custom_sms_log' batch.pk row.profile.pk %}"
+     hx-trigger="click from:find .js-open-sms"
+     hx-target="this"
+     hx-swap="outerHTML"
+     {% endif %}>
+    <div class="sms-row-main">
+        <div class="sms-row-who">
+            <div class="sms-row-name">
+                <span class="js-next-badge badge badge-next csms-hidden">{% trans "Up next" %}</span>
+                {{ row.name }}
+                <span class="badge badge-lang">{{ row.language }}</span>
+                {% if row.gender == 'F' %}<span class="csms-muted">&#9792;</span>{% elif row.gender == 'M' %}<span class="csms-muted">&#9794;</span>{% endif %}
+                {% if row.age %}<span class="csms-muted">{{ row.age }}</span>{% endif %}
+                {% if not row.phone_verified %}<span class="badge badge-warning" title="{% trans 'Phone number not verified' %}">{% trans "unverified" %}</span>{% endif %}
+            </div>
+            <div class="sms-row-meta">
+                <span>{{ row.phone }}</span>
+                {% if row.email %}<span>{{ row.email }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="sms-row-actions">
+            {% if row.sent_at %}
+                <span class="badge badge-success">✓ {% trans "Sent" %} {{ row.sent_at|date:"j M H:i" }}</span>
+                <a href="{{ row.sms_uri }}" class="btn-link">{% trans "Open again" %}</a>
+                <button type="button" class="btn-link"
+                        hx-post="{% url 'custom_sms_unlog' batch.pk row.profile.pk %}"
+                        hx-target="#{{ row.row_id }}"
+                        hx-swap="outerHTML">{% trans "Undo" %}</button>
+            {% else %}
+                <a href="{{ row.sms_uri }}" class="btn btn-sms js-open-sms" role="button">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                    {% trans "Open SMS" %}
+                </a>
+                <button type="button" class="btn-link"
+                        hx-post="{% url 'custom_sms_log' batch.pk row.profile.pk %}"
+                        hx-target="#{{ row.row_id }}"
+                        hx-swap="outerHTML">✓ {% trans "Mark sent" %}</button>
+            {% endif %}
+        </div>
+    </div>
+    <details>
+        <summary>{% trans "Message preview" %} · {{ row.body|length }} {% trans "chars" %}</summary>
+        <div class="csms-preview">{{ row.body }}</div>
+    </details>
+</div>
+{% if oob_progress %}
+{% include "admin/crush_lu/partials/_custom_sms_progress.html" with total=oob_progress.total sent_count=oob_progress.sent remaining=oob_progress.remaining next_on_page=oob_progress.next_on_page next_unsent_page=oob_progress.next_unsent_page oob=True %}
+{% endif %}

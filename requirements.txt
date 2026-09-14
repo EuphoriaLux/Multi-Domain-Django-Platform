@@ -4,8 +4,8 @@
 # which 6.1 removed, so azureproject/urls.py failed to import. DRF 3.18.0 replaced it
 # with split_header_value, guarded on django.VERSION >= (6, 1). The matching Dependabot
 # `ignore` for Django >=6.1 was dropped in the same change, as that comment required.
-Django==6.1  # Requires Python 3.12+
-djangorestframework==3.18.0
+Django==6.1.1  # Requires Python 3.12+
+djangorestframework==3.18.1
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.7
 crispy-tailwind==1.0.3
@@ -13,29 +13,29 @@ django-cors-headers==4.9.0
 django-htmx==1.29.0  # HTMX server-side integration
 
 # Database
-psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
+psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.19.1  # Updated from 65.1.0 (latest stable)
+django-allauth==65.19.2  # Updated from 65.1.0 (latest stable)
 PyJWT==2.13.0  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
-cryptography>=50.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.56.3  # Required for Google Wallet API authentication
+cryptography>=50.0.1  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
+google-auth==2.58.0  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
 google-analytics-data==0.23.0
-google-api-python-client==2.199.0
-google-auth-oauthlib==1.4.0
+google-api-python-client==2.200.0
+google-auth-oauthlib==1.4.1
 
 
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2
-azure-storage-blob==12.30.0
+azure-storage-blob==12.30.1
 azure-identity==1.25.3  # Managed Identity & Azure CLI authentication
 
 # Image processing
 Pillow==12.3.0  # Updated from 11.0.0 (security fixes)
-pillow-heif==1.5.0  # HEIC/HEIF decoding support for iOS uploads
+pillow-heif==1.7.0  # HEIC/HEIF decoding support for iOS uploads
 olefile==0.47
 # MIME type detection - platform-specific packages
 # Linux (Azure): python-magic requires libmagic1 (pre-installed on most Linux distros)
@@ -64,17 +64,17 @@ reportlab==5.0.1  # Printable QR sheets (Advent + Crush Cache)
 
 # Push Notifications
 py-vapid==1.9.4
-pywebpush==2.4.0
+pywebpush==2.5.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
-azure-monitor-opentelemetry==1.8.9
+azure-monitor-opentelemetry==1.8.10
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==1.0.0
 
 # Internationalization - Model Field Translations
-django-modeltranslation==0.20.3
+django-modeltranslation==0.20.6
 polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n/ tooling
 
 # Testing

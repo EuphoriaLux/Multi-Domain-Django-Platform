@@ -134,6 +134,20 @@ class EchoLuNotSent(EchoLuError):
     """
 
 
+class EchoLuMisconfigured(EchoLuNotSent):
+    """Not sent because a setting every event shares resolved empty.
+
+    Still :class:`EchoLuNotSent` — nothing reached echo.lu, so nothing was
+    created and the row stays retryable. Its own class because it is not about
+    the event: a blanked audience, format or environment default (the facets
+    no event fills for itself) refuses *every* event, so the sweep has to fail
+    on it rather than warn about it one event at a time (see
+    :func:`is_isolated_failure`). A blank fallback for a field an event *can*
+    fill itself — the picture, say — is a plain :class:`EchoLuNotSent`, named
+    per event in the sweep's warning.
+    """
+
+
 class EchoLuOrphanedCreate(EchoLuError):
     """echo.lu accepted a create but did not return an id.
 
@@ -161,7 +175,9 @@ def _setting_list(name, default=""):
 class EchoLuClient:
     """Thin wrapper over the echo.lu experiences API."""
 
-    def __init__(self, api_key=None, base_url=None, timeout=None, max_retries=None):
+    def __init__(
+        self, api_key=None, base_url=None, timeout=None, max_retries=None, deadline=None
+    ):
         self.api_key = (api_key or getattr(settings, "ECHO_LU_API_KEY", "")).strip()
         base = base_url or getattr(
             settings, "ECHO_LU_API_BASE_URL", "https://api.echo.lu/v1"
@@ -172,6 +188,11 @@ class EchoLuClient:
         # one slow call into a minute of held request, and the hourly sweep is
         # already the retry for anything the fast path drops.
         self.max_retries = MAX_RETRIES if max_retries is None else max_retries
+        # A time.monotonic() value the caller must be finished by, or None.
+        # Only optional follow-up calls read it (see _listing_is_gone): a
+        # caller that reserved time for one request per item must not have a
+        # second, unreserved one tacked on. None means "no time for extras".
+        self.deadline = deadline
 
     def _headers(self):
         if not self.api_key:
@@ -185,7 +206,15 @@ class EchoLuClient:
             "Accept": "application/json",
         }
 
-    def _request(self, method, path, json_body=None, params=None, retry_statuses=None):
+    def _request(
+        self,
+        method,
+        path,
+        json_body=None,
+        params=None,
+        retry_statuses=None,
+        timeout=None,
+    ):
         """Send one API call, retrying only transient failures.
 
         Returns the decoded JSON body (or ``{}`` for an empty 204), and raises
@@ -194,7 +223,12 @@ class EchoLuClient:
         ``retry_statuses`` narrows what counts as retryable, and passing a set
         that excludes the 5xx family also switches off transport-level retries
         — see :meth:`create_experience` for why that pairing is the point.
+
+        ``timeout`` overrides the client's for this one call — used to fit an
+        optional follow-up into whatever is left of the caller's budget.
         """
+        if timeout is None:
+            timeout = self.timeout
         if retry_statuses is None:
             retry_statuses = RETRY_STATUSES
         # A dropped socket and a 502 are indistinguishable from here: either
@@ -216,7 +250,7 @@ class EchoLuClient:
                     headers=headers,
                     json=json_body,
                     params=params,
-                    timeout=self.timeout,
+                    timeout=timeout,
                 )
             except requests.RequestException as exc:
                 # A connection error is transient in the same way a 503 is, so
@@ -304,8 +338,17 @@ class EchoLuClient:
     def update_experience(self, experience_id, payload):
         return self._request("PUT", f"/experiences/{experience_id}", json_body=payload)
 
-    def get_experience(self, experience_id):
-        return self._request("GET", f"/experiences/{experience_id}")
+    def get_experience(self, experience_id, timeout=None):
+        if timeout is None:
+            return self._request("GET", f"/experiences/{experience_id}")
+        # A bounded lookup gets exactly one attempt: a retry sleeping past the
+        # caller's deadline would undo the bound it was given.
+        return self._request(
+            "GET",
+            f"/experiences/{experience_id}",
+            retry_statuses=frozenset(),
+            timeout=timeout,
+        )
 
     def list_experiences(self, **params):
         """One page of the organisation's experiences.
@@ -1070,6 +1113,16 @@ def missing_required_fields(payload):
     return [field for field in REQUIRED_EXPERIENCE_FIELDS if not payload.get(field)]
 
 
+# The required fields filled *only* from settings every event shares. Empty,
+# they refuse every event at once — which is why a payload missing one raises
+# EchoLuMisconfigured, not a per-event refusal. `pictures`, `languages` and
+# `categories` are left out on purpose: each is filled from the event first
+# (its image, its languages, its type's category map) and a shared fallback
+# second, so one event lacking its own value is that event's gap, named in
+# the sweep's per-event warning.
+_SHARED_CONFIG_FIELDS = frozenset({"audiences", "environments", "formats"})
+
+
 # The whole enum. echo.lu answers anything else with `400 Malformed videos
 # data` and refuses the entire experience, so this is checked locally.
 ECHO_VIDEO_TYPES = ("youtube", "vimeo", "other")
@@ -1368,6 +1421,162 @@ def _proves_nothing_was_created(error):
     return status is not None and 400 <= status < 500
 
 
+def is_isolated_failure(error):
+    """True when `error` belongs to one event rather than to the whole sweep.
+
+    The sweep keeps going past every failure either way. This decides the
+    other question: whether a failure should also fail the *sweep* — answer
+    500 to the ``EchoLuSync`` timer — or be reported and left on the event's
+    sync row for a person to fix.
+
+    Isolated: echo.lu read this event's payload and gave a verdict on it —
+    400, 409, 413 or 422 — or we declined to send it for a reason of its own
+    (:class:`EchoLuNotSent` — an unlinked venue, no location). Each is
+    already recorded on the row the admin renders, needs somebody to change
+    something about *that event*, and fails identically every hour until they
+    do. Failing the sweep on them turned three such events into 400+
+    identical exceptions over 18 days, which buried everything else and never
+    said which event to fix.
+
+    Also isolated: echo.lu's 404 "no experience found in your folder"
+    (:func:`listing_not_in_folder`). It names one listing, not a route — it
+    came back for two finished listings on 2026-09-13 while the same key
+    updated the others fine. It stays a failure rather than a take-down that
+    worked, because it proves nothing about whether the listing is still
+    public: the row keeps its id and stays owed until a person has checked
+    the back office and runs ``--forget``.
+
+    Everything else is loud, every other 4xx included. Those are about the
+    key (401, 403), the route or base URL (404 and 405 — the two 404s known
+    to be about a listing are handled apart: "no published experience found"
+    before it gets here, "in your folder" above), the client's own request
+    shape (406, 415) or the service
+    (408, 429), and every event shares all of them. An allowlist rather than
+    a list of exceptions, so a status nobody thought of fails loud. Also
+    loud: a 5xx or a request that got no answer, a missing key, a shared
+    setting left empty (:class:`EchoLuMisconfigured`), and a create that came
+    back without an id — a revoked key, a moved API or a long outage must not
+    read as a healthy run.
+    """
+    if isinstance(error, (EchoLuNotConfigured, EchoLuMisconfigured)):
+        return False
+    if isinstance(error, EchoLuNotSent):
+        return True
+    if listing_not_in_folder(error):
+        return True
+    return getattr(error, "status_code", None) in _PAYLOAD_VERDICT_4XX
+
+
+# The 4xx answers that are a verdict on one event's payload: malformed or
+# invalid content (400, 422), a conflict with that listing's state (409), a
+# payload too large (413). Every other status is shared by every event.
+_PAYLOAD_VERDICT_4XX = frozenset({400, 409, 413, 422})
+
+# echo.lu's 404 body when the key's folder holds no listing under the id,
+# lower-cased and matched as a substring. First seen on prod on 2026-09-13.
+NOT_IN_FOLDER_PHRASE = "no experience found in your folder"
+
+
+def listing_not_in_folder(error):
+    """True for echo.lu's 404 "no experience found in your folder".
+
+    What it proves is narrow: this key cannot find the listing in its own
+    folder. A listing deleted in the back office answers that, but so would
+    one that still exists under another organisation's folder — after a key
+    swap, say — and every read the API offers is scoped to the same key (an
+    anonymous GET answers "API TOKEN NOT VALID"), so nothing in code can tell
+    the two apart. Taken as a finished take-down, it would clear the id of a
+    listing that may still be public and let a republish create a duplicate
+    beside it. See :func:`is_isolated_failure` for what happens instead.
+
+    Matched on the body, like :func:`_no_published_listing`: a bare 404 from
+    a stale base URL or a moved route stays a sweep-wide failure.
+    """
+    if getattr(error, "status_code", None) != 404:
+        return False
+    body = str(getattr(error, "body", "") or "").lower()
+    return NOT_IN_FOLDER_PHRASE in body
+
+
+def recorded_not_in_folder(last_error):
+    """True when a sync row's ``last_error`` is echo.lu's folder 404.
+
+    The row keeps only the text :meth:`EchoLuError.__str__` wrote —
+    "… (HTTP 404): <body>" — so both halves are required. The phrase alone
+    could sit in a 500's body, which says nothing about the listing; see
+    :func:`listing_not_in_folder`, which counts it on a 404 only.
+    """
+    text = (last_error or "").lower()
+    marker = "(http 404): "
+    at = text.find(marker)
+    return at != -1 and NOT_IN_FOLDER_PHRASE in text[at + len(marker) :]
+
+
+def _listing_is_gone(client, experience_id):
+    """Whether echo.lu no longer holds the listing: True, False or None.
+
+    Asked only after an unpublish or cancel came back "no published
+    experience found", which a draft and a listing deleted in the back office
+    both answer. The detail endpoint tells them apart: it returned prod's
+    draft listings when they were checked by hand (2026-08-15). By then the
+    route is known to work, so a 404 here is about the listing — except
+    echo.lu's folder 404 (:func:`listing_not_in_folder`). The GET is scoped to
+    the key's folder like every other read, so that answer proves no more
+    here than on the unpublish: a listing public under another folder gives
+    it too. It is raised as a failed check rather than taken as deleted.
+
+    True means deleted, so forget the id; False means it is there (a draft),
+    so keep it. None means the check was not made — no deadline, or none
+    left — and the caller must settle the row neither way: clearing a live
+    draft's id makes the next republish create a second listing beside it,
+    and settling as withdrawn keeps a possibly dead id for good. See
+    ``EchoExperienceSync.mark_unverified``.
+
+    A lookup that *was* made and failed any other way than 404 raises, like
+    every other echo.lu error. Folding it into None would hide a revoked key
+    or an outage behind a row quietly left pending, while the sweep answered
+    202; raised, the caller records the failure and the sweep classifies it.
+
+    Optional, so it only runs inside the caller's budget. A client without a
+    deadline — the admin's remove action and the save-triggered sync, which
+    reserve time for one call per event inside a web request — or with none
+    left skips the lookup. Otherwise the GET is cut to whatever time remains,
+    and gets a single attempt.
+    """
+    deadline = getattr(client, "deadline", None)
+    if deadline is None:
+        return None
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    # Split between connecting and reading. requests applies a single number
+    # to each phase separately, so a slow connect followed by a slow answer
+    # could spend nearly twice it; halves keep the two within `budget`. (A
+    # response trickling in byte by byte could still overrun — true of every
+    # call the sweep makes, and a small JSON answer does not trickle.)
+    budget = min(getattr(client, "timeout", remaining), remaining)
+    try:
+        client.get_experience(experience_id, timeout=(budget / 2, budget / 2))
+    except EchoLuError as exc:
+        if exc.status_code == 404 and not listing_not_in_folder(exc):
+            return True
+        raise
+    return False
+
+
+def _no_published_listing(error):
+    """True for echo.lu's own 404 "no published experience found".
+
+    Matched on the body, not on the status alone: a 404 from a stale base URL
+    or a moved route has the same status and proves nothing about whether the
+    listing is still public.
+    """
+    if getattr(error, "status_code", None) != 404:
+        return False
+    body = str(getattr(error, "body", "") or "").lower()
+    return "no published experience" in body
+
+
 def _write_experience(sync, payload, fingerprint, client):
     """Send one write for `sync` and record the id it settles on.
 
@@ -1492,13 +1701,21 @@ def sync_event(event, client=None, force=False, dry_run=False):
         answered "would update" for every already-synced event would be
         describing a sweep nobody runs — the real one makes no call at all.
         """
-        if row is None or not row.experience_id or force:
+        if row is None or force:
             return None
         if row.status == EchoExperienceSync.Status.SUPPRESSED:
             # Taken down by hand while still eligible. The event's own fields
             # say "publish me", so without this the next pass would put it
             # straight back and the removal would look like it never happened.
+            #
+            # Checked before the id: a removal can settle with the id cleared,
+            # when the listing turned out to be deleted from echo.lu — found
+            # by the draft-or-deleted GET, or by a person running --forget.
+            # Letting the empty id fall through would create a fresh listing
+            # on the event's next save, undoing the removal.
             return "suppressed"
+        if not row.experience_id:
+            return None
         if (
             row.status == EchoExperienceSync.Status.SYNCED
             and row.payload_hash == fingerprint
@@ -1587,7 +1804,14 @@ def sync_event(event, client=None, force=False, dry_run=False):
             # setting to fix and lands on the sync row the admin renders.
             missing = missing_required_fields(payload)
             if missing:
-                raise EchoLuNotSent(
+                # A shared setting left empty refuses every event, not just
+                # this one, so it gets the class that fails the sweep.
+                refusal_class = (
+                    EchoLuMisconfigured
+                    if _SHARED_CONFIG_FIELDS.intersection(missing)
+                    else EchoLuNotSent
+                )
+                refusal = refusal_class(
                     "not sent — echo.lu requires "
                     + ", ".join(missing)
                     + ". Set the matching ECHO_LU_DEFAULT_* values (run "
@@ -1596,6 +1820,7 @@ def sync_event(event, client=None, force=False, dry_run=False):
                     "empty — that is the one to set, or ECHO_LU_FALLBACK_IMAGE "
                     "to override it just for echo.lu."
                 )
+                raise refusal
 
             outcome = _write_experience(sync, payload, fingerprint, client)
         except EchoLuOrphanedCreate as exc:
@@ -1705,6 +1930,21 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
     # whatever the next writer had already decided.
     with transaction.atomic():
         sync = EchoExperienceSync.objects.select_for_update().get(pk=sync.pk)
+        if not sync.experience_id:
+            # Cleared while this caller waited for the lock — by `--forget`
+            # settling a listing a person found gone from echo.lu's folder.
+            # The check before the wait read the old id; going on would send
+            # a take-down for an empty id and write FAILED over the person's
+            # resolution.
+            if explicit or sync.removal_requested:
+                # An explicit removal saves its request before the wait, so
+                # that save can land after --forget's and set the flag again.
+                # Nothing is left to take down, so the request is satisfied
+                # here: SUPPRESSED, which blocks a republish even without an
+                # id. Left set, the flag would keep the row in every sweep.
+                sync.mark_withdrawn(explicit=True)
+                return "withdrawn"
+            return "skipped"
         # And the event is re-read, exactly as on the publish path. Which
         # action this sends is decided from the event's own fields, so
         # deciding it before the wait means deciding it from state somebody
@@ -1743,12 +1983,76 @@ def withdraw_event(event, client=None, dry_run=False, explicit=False):
         # re-cancelling it does nothing. One predicate decides both whether a
         # notice is still wanted and whether to leave one.
         notice_wanted = _cancellation_notice_wanted(event)
+        send_notice = event.is_cancelled and notice_wanted and not explicit
+        nothing_public = False
         try:
-            if event.is_cancelled and notice_wanted and not explicit:
-                client.cancel_experience(sync.experience_id)
+            try:
+                if send_notice:
+                    client.cancel_experience(sync.experience_id)
+                else:
+                    client.unpublish_experience(sync.experience_id)
+            except EchoLuError as exc:
+                # echo.lu's 404 "no published experience found" means it holds
+                # no *published* listing under this id. A listing created as a
+                # draft and never submitted answers that, and so does one
+                # deleted in the back office. Either way nothing is public,
+                # which is all a take-down is for, so it is recorded as done.
+                #
+                # Recorded as a failure instead, the row stayed FAILED,
+                # `events_needing_sync` re-selected it, and every finished
+                # draft retried the same impossible unpublish each hour — two
+                # of them did on prod from 2026-08-26 onward.
+                #
+                # The body is checked, not just the status. A stale base URL
+                # or a moved route 404s too, while the listing stays public —
+                # taking that as success would stop the sweep retrying a
+                # take-down that never happened.
+                #
+                # echo.lu's "no experience found in your folder" is not taken
+                # here either, on purpose: it only says the key cannot see the
+                # listing, not that nothing is public. It is raised, recorded
+                # on the row with its id kept, and reported per event — see
+                # listing_not_in_folder.
+                if not _no_published_listing(exc):
+                    raise
+                nothing_public = True
+                gone = _listing_is_gone(client, sync.experience_id)
+                logger.info(
+                    "echo.lu has no published listing %s for event %s%s",
+                    sync.experience_id,
+                    event.pk,
+                    {
+                        True: " (deleted there, so its id is forgotten)",
+                        False: " (a draft, so its id is kept)",
+                        None: " (not checked yet, so left pending for the sweep)",
+                    }[gone],
+                )
+                if gone:
+                    # Kept, a dead id would send the next republish to PUT at
+                    # a listing that no longer exists, for ever — and --forget
+                    # only takes orphans. Cleared, the republish creates.
+                    sync.experience_id = ""
+                    sync.save(update_fields=["experience_id", "updated_at"])
+            if nothing_public and gone is None:
+                # Nothing is public, but whether the id is still good is not
+                # known, so settle neither way. The sweep re-selects a PENDING
+                # row that still has its id and makes the check with the
+                # budget for it; no create can come of it meanwhile.
+                sync.mark_unverified(
+                    "echo.lu shows nothing public under this listing; whether "
+                    "it is a draft or was deleted in the back office is "
+                    "checked on the next sweep"
+                )
+            elif send_notice and not nothing_public:
                 sync.mark_cancelled()
             else:
-                client.unpublish_experience(sync.experience_id)
+                # A cancel answered "no published experience" lands here too,
+                # deliberately. No notice is showing, and CANCELLED would say
+                # one is: the sweep would leave the event alone for good, so a
+                # draft later submitted in the back office would go public
+                # uncancelled. WITHDRAWN keeps it owed a notice
+                # (`notice_pending`), so the cancel is retried each hour until
+                # the event ends, and lands once there is something to cancel.
                 sync.mark_withdrawn(explicit=explicit)
         except EchoLuError as exc:
             # Not re-raised here — see sync_event. `removal_requested` was
@@ -1871,8 +2175,8 @@ def events_needing_sync(queryset=None):
     #
     # So this row is selected because of what the *row* says, not the event.
     # No write can result: `sync_event` checks ORPHANED before it looks at
-    # eligibility and answers "blocked", which is what keeps the hourly job
-    # red until a person resolves it.
+    # eligibility and answers "blocked", which is what keeps the event in the
+    # hourly sweep's warning until a person resolves it.
     orphaned = queryset.filter(echo_sync__status=EchoExperienceSync.Status.ORPHANED)
     # A withdrawn listing owed a cancellation notice. The event was pulled
     # while unpublished or private, then republished with the cancellation

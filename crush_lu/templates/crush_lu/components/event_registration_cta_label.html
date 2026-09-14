@@ -1,0 +1,8 @@
+{% load i18n %}
+{% if event.uses_curated_registration %}
+    {% trans "Apply for This Event" %}
+{% elif event_full_for_user %}
+    {% trans "Join Waitlist" %}
+{% else %}
+    {% trans "Register for This Event" %}
+{% endif %}

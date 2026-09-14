@@ -19,4 +19,5 @@ urlpatterns = [
     path("staff/", views.staff_home, name="staff_home"),
     path("staff/<slug:venue_slug>/kds/", views.kds, name="kds"),
     path("staff/order/<uuid:pk>/status/", views.order_set_status, name="order_set_status"),
+    path("staff/order/<uuid:pk>/print/", views.order_print_payload, name="order_print_payload"),
 ]

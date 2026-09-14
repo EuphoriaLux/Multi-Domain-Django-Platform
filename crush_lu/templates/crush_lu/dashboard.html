@@ -146,7 +146,14 @@
         {% if next_registration %}
             <div class="flex items-start justify-between gap-3 mb-2">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-crush-purple mb-0">{% trans "Next event" %}</p>
-                {% if next_registration.event.is_live %}
+                {% if next_registration.status == 'applied' %}
+                    {% comment %}
+                      Ahead of the is_live branch on purpose: an application is
+                      not a seat, so an unselected applicant must not be told
+                      the event they might not be attending is "Live now".
+                    {% endcomment %}
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full flex-shrink-0">{% trans "Applied" %}</span>
+                {% elif next_registration.event.is_live %}
                     {% comment %}
                     A seat is kept here until the event ENDS, so the next event
                     can be one already under way -- including for someone who

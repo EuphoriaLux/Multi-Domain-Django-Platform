@@ -4,26 +4,38 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
-from django.db import transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from datetime import timedelta
 import json
 import logging
+import sqlite3
 
 from .models import (
     CrushProfile,
     MeetupEvent,
     EventRegistration,
+    EventRegistrationPreference,
     EventInvitation,
     EventFeedback,
     PremiumMembership,
 )
 from .models.event_polls import EventPoll
-from .models.events import SEAT_HOLDING_STATUSES
+from .models.events import (
+    SEAT_HOLDING_STATUSES,
+    CuratedEventGroup,
+    CuratedEventGroupMembership,
+)
 from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
-from .forms import EventRegistrationForm, EventFeedbackForm
+from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
+from .services.event_grouping import (
+    count_mutual_matches,
+    load_applicants,
+    match_bucket,
+    viewer_applicant,
+)
 from .services.credits import (
     available_credit_cents,
     is_late_cancellation,
@@ -39,6 +51,41 @@ from .email_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_duplicate_event_registration(error):
+    """Only recover the event/member unique constraint, never another failure.
+
+    Called after a savepoint rollback. PostgreSQL reports the constraint name;
+    introspection checks its columns without pinning a generated migration name.
+    SQLite reports the columns in its unique-constraint error instead.
+    """
+    cause = error.__cause__
+    table = EventRegistration._meta.db_table
+    columns = [
+        EventRegistration._meta.get_field(name).column for name in ("event", "user")
+    ]
+    if connection.vendor == "postgresql":
+        code = getattr(cause, "sqlstate", None) or getattr(cause, "pgcode", None)
+        diagnostic = getattr(cause, "diag", None)
+        if code != "23505" or getattr(diagnostic, "table_name", None) != table:
+            return False
+        with connection.cursor() as cursor:
+            constraints = connection.introspection.get_constraints(cursor, table)
+        constraint = constraints.get(diagnostic.constraint_name, {})
+        return (
+            constraint.get("unique", False)
+            and constraint.get("columns") == columns
+        )
+    if connection.vendor == "sqlite":
+        expected = "UNIQUE constraint failed: " + ", ".join(
+            f"{table}.{column}" for column in columns
+        )
+        return (
+            getattr(cause, "sqlite_errorcode", None) == sqlite3.SQLITE_CONSTRAINT_UNIQUE
+            and str(cause) == expected
+        )
+    return False
 
 
 def _admitted_status(event, registration=None):
@@ -644,8 +691,12 @@ def my_events(request):
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            # "applied" included: withdrawing an application is exactly the
+            # thing an applicant may still want to do, and event_cancel accepts
+            # it. Deliberately NOT SEAT_HOLDING_STATUSES — that set includes
+            # "attended", which event_cancel rejects outright.
             "can_cancel": reg.event.date_time > now
-            and reg.status in ("pending", "confirmed", "waitlist"),
+            and reg.status in ("applied", "pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
             "has_sufficient_crush_credit": credit_balance_cents
             >= int(reg.event.registration_fee * 100),
@@ -708,6 +759,20 @@ def _registration_outlook(event, profile, gender=None):
     first. Anything that changes who gets waitlisted must change here too, or
     both pages go back to guessing.
     """
+    # A curated event never waitlists: `event_register` skips the capacity test
+    # entirely and every sign-up becomes an application. Returning the
+    # capacity-based answer here would have both surfaces offering "Join
+    # Waitlist" and a full-event warning to someone whose submit actually
+    # creates an `applied` row with no queue position — exactly the
+    # second-surface disagreement (#866) this helper exists to prevent.
+    #
+    # Do not return the gender pools either. They are organiser planning data
+    # for a curated event, not seat availability, and publishing them lets an
+    # applicant infer which preference/demographic pool is underserved. The
+    # member-facing group outlook is built separately from a strict whitelist.
+    if event.uses_curated_registration:
+        return [], None, False, None
+
     is_premium = bool(profile and profile.has_active_premium)
     # Total *and* pools off one read -- see MeetupEvent.registration_capacity().
     # Postgres runs READ COMMITTED, so every statement gets its own snapshot: a
@@ -749,6 +814,165 @@ def _registration_outlook(event, profile, gender=None):
     else:
         reason = None
     return pools, user_pool, total_full or pool_blocks, reason
+
+
+# Coarse social proof thresholds for the member outlook card. Deliberately
+# blunt: below them a member could read a single neighbour's status off the
+# sentence ("most verified" over three applicants is one person's badge).
+FIRST_TIMERS_SIGNAL_MIN = 3
+VERIFIED_SIGNAL_MIN_APPLICATIONS = 5
+VERIFIED_SIGNAL_MIN_SHARE = 0.6
+
+
+def _curated_member_outlook(event, *, user=None, profile=None, registration=None):
+    """Return a privacy-safe group outlook for a curated event detail page.
+
+    ``MeetupEvent.get_application_pool()`` intentionally contains both public
+    aggregates and organiser-only ``by_pool`` counts. Never pass that mapping
+    through to a template. This helper copies only configuration values and a
+    coarse overall-interest state, so adding a sensitive key to the model
+    helper cannot accidentally publish it later.
+
+    ``groups_unlocked`` is headcount-only, not proof that mutual preferences
+    can produce a viable round schedule. The public state therefore says only
+    that combinations can be explored; it never promises a group or selection.
+
+    For a logged-in viewer with a profile three more whitelisted values are
+    filled in, all of them buckets, booleans or facts about the viewer's own
+    place -- never a count about other people and never another person's
+    name, gender, age or preferences:
+
+    * ``viewer_match`` -- before selection only (no application, or one still
+      ``applied``): the bucketed mutual-match count from
+      ``count_mutual_matches``/``match_bucket`` (``few``, ``half``,
+      ``evening``, ``multiple``), or ``profile_incomplete`` when the profile
+      lacks the gender or date of birth every comparison needs; only on an
+      event with a configured group size, which is what the bucket is sized
+      in. The count
+      itself never leaves this function: an exact integer over Art.
+      9-adjacent preference rows is a derived disclosure.
+    * ``several_first_timers`` / ``mostly_verified`` -- social proof above the
+      module thresholds, as booleans.
+    * ``group`` -- after selection (``pending``/``confirmed``/``attended`` with
+      an active place in a provisional or locked group): size, planned rounds
+      and the guaranteed minimum, plus -- once locked -- the viewer's OWN
+      tables, built the way ``export_user_data`` builds
+      ``curated_group_history``.
+    """
+    if not event.uses_curated_registration:
+        return None
+
+    pool = event.get_application_pool()
+    groups_unlocked = max(0, int(pool.get("groups_unlocked") or 0))
+    configured_group_size = event.group_size
+    configured_max_groups = int(pool.get("max_groups") or 0)
+
+    outlook = {
+        "interest_state": "exploring" if groups_unlocked else "collecting",
+        "group_size": configured_group_size,
+        "planned_groups": event.planned_groups,
+        "max_groups": configured_max_groups if configured_group_size else None,
+        "parallel_groups_possible": bool(
+            configured_group_size and configured_max_groups > 1
+        ),
+        "viewer_match": None,
+        "several_first_timers": False,
+        "mostly_verified": False,
+        "group": None,
+    }
+    if user is None or not user.is_authenticated or profile is None:
+        return outlook
+
+    # Selected means seat-holding: pending, confirmed or attended.
+    if registration is not None and registration.status in SEAT_HOLDING_STATUSES:
+        outlook["group"] = _curated_member_group(registration)
+        return outlook
+    if registration is not None and registration.status != "applied":
+        return outlook
+
+    # The bucket is sized in groups, so without a configured group size there
+    # is no sentence to promise -- not even the completion hint.
+    if configured_group_size:
+        viewer = viewer_applicant(user, profile, event, registration=registration)
+        if not viewer.gender or viewer.age is None:
+            outlook["viewer_match"] = "profile_incomplete"
+        else:
+            count = count_mutual_matches(viewer, load_applicants(event))
+            outlook["viewer_match"] = match_bucket(count, configured_group_size)
+
+    applications = int(pool.get("applications") or 0)
+    outlook["several_first_timers"] = (
+        int(pool.get("first_timers") or 0) >= FIRST_TIMERS_SIGNAL_MIN
+    )
+    outlook["mostly_verified"] = (
+        applications >= VERIFIED_SIGNAL_MIN_APPLICATIONS
+        and int(pool.get("certified") or 0) >= VERIFIED_SIGNAL_MIN_SHARE * applications
+    )
+    return outlook
+
+
+def _curated_member_group(registration):
+    """The viewer's own place in a provisional or locked group, or ``None``.
+
+    Only the member's own pairing participations are read, sorted the way the
+    GDPR export sorts them; the partner at each table is never loaded.
+    """
+    membership = (
+        CuratedEventGroupMembership.objects.filter(
+            registration=registration,
+            released_at__isnull=True,
+            group__status__in=(
+                CuratedEventGroup.STATUS_PROVISIONAL,
+                CuratedEventGroup.STATUS_LOCKED,
+            ),
+        )
+        .select_related("group")
+        .first()
+    )
+    if membership is None:
+        return None
+    group = membership.group
+    summary = group.viability_summary or {}
+    rounds = int(summary.get("rounds") or 0)
+    if not rounds:
+        rounds = group.pairings.values("round_number").distinct().count()
+    result = {
+        "status": group.status,
+        "size": group.memberships.filter(released_at__isnull=True).count(),
+        "rounds": rounds,
+        "min_dates": CuratedEventGroup.MIN_GUARANTEED_DATES,
+        "tables": None,
+    }
+    if group.status == CuratedEventGroup.STATUS_LOCKED:
+        own = sorted(
+            registration.curated_pairing_participations.filter(
+                group=group
+            ).select_related("pairing"),
+            key=lambda participant: (
+                participant.round_number,
+                participant.pairing.table_number,
+                participant.pk,
+            ),
+        )
+        seated = {participant.round_number: participant for participant in own}
+        last_round = max([rounds, *seated])
+        result["tables"] = [
+            {
+                "round": round_number,
+                "table": (
+                    seated[round_number].pairing.table_number
+                    if round_number in seated
+                    else None
+                ),
+                "seat": (
+                    seated[round_number].seat.upper()
+                    if round_number in seated
+                    else None
+                ),
+            }
+            for round_number in range(1, last_round + 1)
+        ]
+    return result
 
 
 def event_detail(request, event_id):
@@ -835,6 +1059,25 @@ def event_detail(request, event_id):
         lang_map[lang] for lang in (event.languages or []) if lang in lang_map
     ]
 
+    if event.uses_curated_registration:
+        offer_availability = (
+            "https://schema.org/InStock"
+            if event.is_registration_accepting
+            else "https://schema.org/OutOfStock"
+        )
+    else:
+        # Preserve direct-mode structured-data behaviour byte for byte: a full
+        # direct event is SoldOut, while a closed or unpublished one is merely
+        # unavailable.
+        offer_availability = (
+            "https://schema.org/SoldOut"
+            if event.is_full
+            else (
+                "https://schema.org/InStock"
+                if event.is_registration_open
+                else "https://schema.org/OutOfStock"
+            )
+        )
     event_jsonld_data = {
         "@context": "https://schema.org",
         "@type": schema_type,
@@ -859,19 +1102,10 @@ def event_detail(request, event_id):
             "url": f"https://crush.lu{event_url}",
             "price": format(event.registration_fee, ".2f"),
             "priceCurrency": "EUR",
-            "availability": (
-                "https://schema.org/SoldOut"
-                if event.is_full
-                else (
-                    "https://schema.org/InStock"
-                    if event.is_registration_open
-                    else "https://schema.org/OutOfStock"
-                )
-            ),
+            "availability": offer_availability,
             "validFrom": event.created_at.isoformat(),
         },
         "maximumAttendeeCapacity": event.max_participants,
-        "remainingAttendeeCapacity": event.spots_remaining,
         "typicalAgeRange": f"{event.min_age}-{event.max_age}",
         "image": (
             event.image.url
@@ -884,6 +1118,12 @@ def event_detail(request, event_id):
             "suggestedMaxAge": event.max_age,
         },
     }
+    # Curated sign-ups are applications, not claims on the venue ceiling. A
+    # remaining-seat figure would therefore be both stale and misleading while
+    # applications are open. Keep the established schema unchanged for direct
+    # events, where this number is genuine bookable capacity.
+    if not event.uses_curated_registration:
+        event_jsonld_data["remainingAttendeeCapacity"] = event.spots_remaining
     if event_languages:
         event_jsonld_data["inLanguage"] = (
             event_languages if len(event_languages) > 1 else event_languages[0]
@@ -957,8 +1197,17 @@ def event_detail(request, event_id):
     #
     # `is_full_for` here costs no query and cannot disagree with the CTA above:
     # registration_capacity() memoised the count it used, and this reads it.
+    #
+    # Never on a curated event. `event_full_for_user` is False there by
+    # design — an application is never refused for capacity — so this would
+    # fire the moment the organiser has confirmed enough people to fill the
+    # public block, and promise "A seat is reserved for you" to someone whose
+    # submit creates an `applied` row the organiser may still turn down.
+    # Premium buys priority past the reserved-seat block; it does not buy a
+    # place in a group the organiser composes by hand.
     premium_reserved_seat_available = (
         user_is_premium
+        and not event.uses_curated_registration
         and event.is_full_for(is_premium=False)
         and not event_full_for_user
     )
@@ -969,6 +1218,12 @@ def event_detail(request, event_id):
     from .services.event_lobby import lobby_cta
 
     event_lobby_cta = lobby_cta(request.user, event, registration=registration)
+    curated_group_outlook = _curated_member_outlook(
+        event,
+        user=request.user,
+        profile=user_profile,
+        registration=registration,
+    )
 
     context = {
         "event": event,
@@ -988,6 +1243,7 @@ def event_detail(request, event_id):
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
         "event_lobby_cta": event_lobby_cta,
+        "curated_group_outlook": curated_group_outlook,
         "has_sufficient_crush_credit": bool(
             request.user.is_authenticated
             and available_credit_cents(request.user)
@@ -1358,6 +1614,11 @@ def event_register(request, event_id):
     # future key cannot reach one and miss the other.
     template = "crush_lu/event_register.html"
 
+    # Speed-dating registrations also collect per-application dating
+    # preferences (age range / languages / gender preference). Scoped by event
+    # type so every other event's registration form stays byte-identical.
+    collect_preferences = event.event_type == "speed_dating"
+
     if request.method == "POST":
         form = EventRegistrationForm(
             request.POST,
@@ -1365,12 +1626,36 @@ def event_register(request, event_id):
             requires_age_confirmation=requires_age_confirmation,
             requires_gender_selection=requires_gender_selection,
         )
-        if form.is_valid():
+        pref_form = (
+            EventPreferenceForm(request.POST, event=event)
+            if collect_preferences
+            else None
+        )
+        # Evaluate both unconditionally so an invalid re-render carries the
+        # error messages of each form, not just the first.
+        form_valid = form.is_valid()
+        pref_form_valid = pref_form is None or pref_form.is_valid()
+        if form_valid and pref_form_valid:
             # Use select_for_update + atomic to prevent race condition where
             # concurrent registrations could exceed max_participants
             with transaction.atomic():
                 # Lock the event row to get accurate capacity count
                 locked_event = MeetupEvent.objects.select_for_update().get(id=event_id)
+
+                # Another request can register this member while we wait for
+                # the event lock. Re-read before changing their profile, seat,
+                # preferences or queue position; only a cancelled row is reusable.
+                existing_registration = EventRegistration.objects.filter(
+                    event=locked_event, user=request.user
+                ).first()
+                if (
+                    existing_registration
+                    and existing_registration.status != "cancelled"
+                ):
+                    messages.warning(
+                        request, _("You are already registered for this event.")
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
 
                 # Re-check registration deadline under lock to prevent race condition
                 if not locked_event.is_registration_accepting:
@@ -1408,20 +1693,16 @@ def event_register(request, event_id):
                         )
                         return redirect("crush_lu:event_detail", event_id=event_id)
 
-                # If the user submitted a gender, persist it to their profile
+                # Use the submitted gender for capacity, but persist it only
+                # after winning the registration insert. A duplicate loser
+                # must not update (or create) the member's profile.
                 submitted_gender = form.cleaned_data.get("gender")
                 if requires_gender_selection and submitted_gender:
                     if profile is None:
-                        profile = CrushProfile.objects.create(
-                            user=request.user, gender=submitted_gender
-                        )
-                    else:
-                        profile.gender = submitted_gender
-                        profile.save(update_fields=["gender"])
+                        profile = CrushProfile(user=request.user)
+                    profile.gender = submitted_gender
 
-                cancelled_registration = EventRegistration.objects.filter(
-                    event=locked_event, user=request.user, status="cancelled"
-                ).first()
+                cancelled_registration = existing_registration
 
                 if cancelled_registration:
                     registration = cancelled_registration
@@ -1454,58 +1735,127 @@ def event_register(request, event_id):
                     registration.event = locked_event
                     registration.user = request.user
 
-                # Determine confirmed vs waitlist using both total and gender caps.
-                # Premium members -- an ACTIVE PremiumMembership, not merely an
-                # `assigned_coach` -- can claim reserved seats, so their fullness
-                # is measured against the full capacity.
-                user_gender = getattr(profile, "gender", None)
-                is_premium = bool(profile and profile.has_active_premium)
-                total_full = locked_event.is_full_for(is_premium=is_premium)
-                gender_pool_full = (
-                    locked_event.gender_limits_active
-                    and user_gender
-                    and locked_event.is_gender_pool_full(user_gender)
-                )
-
-                if total_full or gender_pool_full:
-                    registration.status = "waitlist"
-                    if gender_pool_full and not total_full:
-                        messages.info(
-                            request,
-                            _(
-                                "All spots for your gender group are taken. "
-                                "You have been added to the waitlist."
-                            ),
-                        )
-                    else:
-                        messages.info(
-                            request,
-                            _("Event is full. You have been added to the waitlist."),
-                        )
+                # A curated event admits nobody at signup: the sign-up is an
+                # application and the organiser composes the group afterwards.
+                # No capacity test runs, because applications are *meant* to
+                # outnumber the places — that is the point of curating — and
+                # "applied" holds no seat (see SEAT_HOLDING_STATUSES), so an
+                # over-subscribed pool cannot overfill the event. No waitlist
+                # either: there is no queue to be behind while nobody has been
+                # admitted. Falling through to the shared tail below is
+                # deliberate — it writes the preference row, skips the resale
+                # claim and the confirmation email (both keyed off
+                # SEAT_HOLDING_STATUSES and the status name), and returns the
+                # same success response as every other path.
+                if locked_event.uses_curated_registration:
+                    registration.status = "applied"
+                    registration_message = (
+                        messages.SUCCESS,
+                        _(
+                            "Your application has been received. The organiser "
+                            "team composes the group before the event and will "
+                            "let you know whether you have a place."
+                        ),
+                    )
                 else:
-                    # A paid event's seat is held, not confirmed, until the money
-                    # arrives -- the SumUp return handler flips it to "confirmed".
-                    # "pending" still counts toward capacity and still yields a
-                    # door ticket (see SEAT_HOLDING_STATUSES); it only changes
-                    # what the status *claims*. Free events are unaffected.
-                    registration.status = _admitted_status(locked_event, registration)
-                    if registration.status == "pending":
-                        messages.success(
-                            request,
-                            _(
-                                "Your spot is reserved! Please complete payment "
-                                "to confirm your registration."
-                            ),
-                        )
-                    else:
-                        messages.success(
-                            request, _("Successfully registered for the event!")
-                        )
+                    # Determine confirmed vs waitlist using both total and gender caps.
+                    # Premium members -- an ACTIVE PremiumMembership, not merely an
+                    # `assigned_coach` -- can claim reserved seats, so their fullness
+                    # is measured against the full capacity.
+                    user_gender = getattr(profile, "gender", None)
+                    is_premium = bool(profile and profile.has_active_premium)
+                    total_full = locked_event.is_full_for(is_premium=is_premium)
+                    gender_pool_full = (
+                        locked_event.gender_limits_active
+                        and user_gender
+                        and locked_event.is_gender_pool_full(user_gender)
+                    )
 
-                registration.save()
+                    if total_full or gender_pool_full:
+                        registration.status = "waitlist"
+                        if gender_pool_full and not total_full:
+                            registration_message = (
+                                messages.INFO,
+                                _(
+                                    "All spots for your gender group are taken. "
+                                    "You have been added to the waitlist."
+                                ),
+                            )
+                        else:
+                            registration_message = (
+                                messages.INFO,
+                                _(
+                                    "Event is full. You have been added to the waitlist."
+                                ),
+                            )
+                    else:
+                        # A paid event's seat is held, not confirmed, until the money
+                        # arrives -- the SumUp return handler flips it to "confirmed".
+                        # "pending" still counts toward capacity and still yields a
+                        # door ticket (see SEAT_HOLDING_STATUSES); it only changes
+                        # what the status *claims*. Free events are unaffected.
+                        registration.status = _admitted_status(
+                            locked_event, registration
+                        )
+                        if registration.status == "pending":
+                            registration_message = (
+                                messages.SUCCESS,
+                                _(
+                                    "Your spot is reserved! Please complete payment "
+                                    "to confirm your registration."
+                                ),
+                            )
+                        else:
+                            registration_message = (
+                                messages.SUCCESS,
+                                _("Successfully registered for the event!"),
+                            )
+
+                try:
+                    # Some writers (for example admin additions) do not take
+                    # the event lock. Keep their unique event/member conflict
+                    # inside a savepoint, so the outer transaction can still
+                    # read the winning registration. Other integrity errors,
+                    # including errors updating a reused row, must propagate.
+                    with transaction.atomic():
+                        registration.save()
+                except IntegrityError as error:
+                    if (
+                        cancelled_registration is not None
+                        or not _is_duplicate_event_registration(error)
+                    ):
+                        raise
+                    winner = (
+                        EventRegistration.objects.filter(
+                            event=locked_event, user=request.user
+                        )
+                        .exclude(status="cancelled")
+                        .first()
+                    )
+                    if winner is None:
+                        raise
+                    messages.warning(
+                        request, _("You are already registered for this event.")
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+                if requires_gender_selection and submitted_gender:
+                    if profile.pk is None:
+                        profile.save()
+                    else:
+                        profile.save(update_fields=["gender"])
+                if pref_form is not None:
+                    # update_or_create, not save(): the registration row is
+                    # reused on re-registration, and a stale preference row
+                    # from a cancelled application must be overwritten with
+                    # this application's answers.
+                    EventRegistrationPreference.objects.update_or_create(
+                        registration=registration,
+                        defaults=pref_form.preference_defaults(),
+                    )
                 if registration.status in SEAT_HOLDING_STATUSES:
                     _attach_unclaimed_resale_claim(registration, locked_event)
 
+            messages.add_message(request, *registration_message)
             try:
                 if registration.status == "confirmed":
                     send_event_registration_confirmation(registration, request)
@@ -1551,6 +1901,14 @@ def event_register(request, event_id):
             requires_age_confirmation=requires_age_confirmation,
             requires_gender_selection=requires_gender_selection,
         )
+        pref_form = (
+            EventPreferenceForm(
+                event=event,
+                initial=EventPreferenceForm.initial_for(request.user, profile, event),
+            )
+            if collect_preferences
+            else None
+        )
 
     # Same answer the event page's CTA used to get here, so the button that said
     # "Join Waitlist" does not land on a page headed "Confirm Registration"
@@ -1577,6 +1935,7 @@ def event_register(request, event_id):
     context = {
         "event": event,
         "form": form,
+        "pref_form": pref_form,
         "requires_age_confirmation": requires_age_confirmation,
         "requires_gender_selection": requires_gender_selection,
         "registration_will_waitlist": registration_will_waitlist,

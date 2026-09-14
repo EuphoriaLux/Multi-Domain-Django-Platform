@@ -1,0 +1,181 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Custom SMS" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% include "admin/crush_lu/partials/_custom_sms_styles.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/htmx-2.0.4.min.js' %}"></script>
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/custom-sms.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'crush_admin:index' %}">{% trans "Home" %}</a>
+    &rsaquo; {% trans "Custom SMS" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="csms-container" id="csms-compose" data-coach-name="{{ coach_name }}">
+    <a href="{% url 'crush_admin:index' %}" class="csms-back">&larr; {% trans "Back to Coach Panel" %}</a>
+
+    <div class="csms-header">
+        <h1>💬 {% trans "Custom SMS" %}</h1>
+        <p>{% trans "Write one message, pick who gets it, then work through the list on your phone: each tap opens your SMS app with the personalised text and is logged automatically. Nothing is sent by the server." %}</p>
+    </div>
+
+    {% if errors %}
+    <div class="csms-errors">
+        <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'custom_sms_compose' %}" class="csms-grid">
+        {% csrf_token %}
+        <div>
+            <div class="csms-card">
+                <h2>1&nbsp;·&nbsp;{% trans "Who" %}</h2>
+
+                <div class="csms-field">
+                    <div class="csms-radio-group">
+                        {% for value, label in audience_choices %}
+                        <label class="csms-radio">
+                            <input type="radio" name="audience_type" value="{{ value }}" class="js-audience" {% if form.audience_type == value %}checked{% endif %}>
+                            {{ label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="csms-field js-audience-panel" data-audience="event">
+                    <label for="id_registration_statuses">{% trans "Registration status" %}</label>
+                    <div class="csms-check-list" id="id_registration_statuses">
+                        {% for value, label in registration_status_options %}
+                        <label><input type="checkbox" name="registration_statuses" value="{{ value }}" {% if value in form.registration_statuses %}checked{% endif %}> {{ label }}</label>
+                        {% endfor %}
+                    </div>
+                    <div class="hint">{% trans "Confirmed + attended is the usual choice for reminders; waitlist for last-minute seats." %}</div>
+                </div>
+
+                <div class="csms-field">
+                    <label for="id_event">{% trans "Event" %} <span class="csms-muted js-event-optional">({% trans "optional for this audience — enables the event placeholders" %})</span></label>
+                    <select name="event_id" id="id_event" class="js-event">
+                        <option value="">{% trans "— none —" %}</option>
+                        {% for event in events %}
+                        <option value="{{ event.id }}" {% if form.event_id == event.id|stringformat:"s" %}selected{% endif %}>
+                            {{ event.date_time|date:"D j M Y, H:i" }} — {{ event.title }}{% if event.is_cancelled %} ({% trans "cancelled" %}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="csms-field js-audience-panel" data-audience="segment">
+                    <label for="id_segment">{% trans "User segment" %}</label>
+                    <div id="segment-select-wrap"
+                         hx-get="{% url 'custom_sms_segment_options' %}?selected={{ form.segment_key|urlencode }}"
+                         hx-trigger="segments:load once"
+                         hx-swap="innerHTML">
+                        <select name="segment_key" id="id_segment">
+                            <option value="{{ form.segment_key }}">{% if form.segment_key %}{{ form.segment_key }}{% else %}{% trans "Loading segments…" %}{% endif %}</option>
+                        </select>
+                    </div>
+                    <div class="hint">{% trans "Same definitions as the User Segments dashboard. Only members with a phone number are listed." %}</div>
+                </div>
+
+                <div class="csms-field js-audience-panel" data-audience="manual">
+                    <label for="id_manual">{% trans "Emails or phone numbers" %}</label>
+                    <textarea name="manual_recipients" id="id_manual" placeholder="marie@example.lu&#10;+352 691 000 001">{{ form.manual_recipients }}</textarea>
+                    <div class="hint">{% trans "One per line. Each line must match a member with a phone number (numbers without a country code are read as +352). Only the matched members are stored, not the list." %}</div>
+                </div>
+
+                <div class="csms-field">
+                    <label style="font-weight:400; display:inline-flex; align-items:center; gap:6px;">
+                        <input type="checkbox" name="include_unverified_phones" {% if form.include_unverified_phones %}checked{% endif %}>
+                        {% trans "Also include members whose phone number is not verified" %}
+                    </label>
+                </div>
+            </div>
+
+            <div class="csms-card">
+                <h2>2&nbsp;·&nbsp;{% trans "What" %}</h2>
+
+                <div class="csms-field">
+                    <label for="id_title">{% trans "Label" %} <span class="csms-muted">({% trans "optional" %})</span></label>
+                    <input type="text" name="title" id="id_title" maxlength="120" value="{{ form.title }}" placeholder="{% trans 'e.g. Reminder Speed Dating 12 Sept' %}">
+                </div>
+
+                <div class="csms-field">
+                    <label>{% trans "Placeholders" %}</label>
+                    <div class="csms-chips">
+                        {% for key, description in base_placeholders %}
+                        <button type="button" class="csms-chip js-chip" data-token="{% templatetag openbrace %}{{ key }}{% templatetag closebrace %}" title="{{ description }}">{% templatetag openbrace %}{{ key }}{% templatetag closebrace %}</button>
+                        {% endfor %}
+                        {% for key, description in event_placeholders %}
+                        <button type="button" class="csms-chip js-chip js-event-chip" data-token="{% templatetag openbrace %}{{ key }}{% templatetag closebrace %}" title="{{ description }}">{% templatetag openbrace %}{{ key }}{% templatetag closebrace %}</button>
+                        {% endfor %}
+                    </div>
+                    <div class="hint">{% trans "Click a chip to insert it at the cursor. Event placeholders need an event selected above." %}</div>
+                </div>
+
+                <div class="csms-field">
+                    <label for="id_message_en">{% trans "Message" %} · EN <span class="csms-muted">({% trans "default for everyone" %})</span></label>
+                    <textarea name="message_en" id="id_message_en" class="js-message" data-lang="en" maxlength="{{ message_max_length }}" required>{{ form.message_en }}</textarea>
+                    <div class="csms-counter js-counter" data-for="en"></div>
+                </div>
+                <div class="csms-field">
+                    <label for="id_message_de">{% trans "Message" %} · DE <span class="csms-muted">({% trans "optional — German speakers get this instead" %})</span></label>
+                    <textarea name="message_de" id="id_message_de" class="js-message" data-lang="de" maxlength="{{ message_max_length }}">{{ form.message_de }}</textarea>
+                    <div class="csms-counter js-counter" data-for="de"></div>
+                </div>
+                <div class="csms-field">
+                    <label for="id_message_fr">{% trans "Message" %} · FR <span class="csms-muted">({% trans "optional — French speakers get this instead" %})</span></label>
+                    <textarea name="message_fr" id="id_message_fr" class="js-message" data-lang="fr" maxlength="{{ message_max_length }}">{{ form.message_fr }}</textarea>
+                    <div class="csms-counter js-counter" data-for="fr"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">{% trans "Build the send list" %} &rarr;</button>
+                <div class="hint" style="margin-top:8px;">{% trans "Nothing is sent yet — the next page lists every recipient with an “Open SMS” button." %}</div>
+            </div>
+        </div>
+
+        <div>
+            <div class="csms-card">
+                <h2>👀 {% trans "Preview" %}</h2>
+                <div class="csms-muted" style="margin-bottom:8px;">{% trans "How it reads for a recipient called Marie:" %}</div>
+                <div class="csms-preview js-preview" data-sample-first-name="Marie">{{ form.message_en|default:_("Your message will appear here.") }}</div>
+                <div class="hint" style="margin-top:8px;">{% trans "Event placeholders are shown as sample values here and filled in per recipient (their language, their link) on the send list." %}</div>
+            </div>
+
+            <div class="csms-card">
+                <h2>🕓 {% trans "Recent batches" %}</h2>
+                {% if recent_batches %}
+                <ul class="csms-batches">
+                    {% for item in recent_batches %}
+                    <li class="csms-batch">
+                        <div class="csms-batch-top">
+                            <a href="{% url 'custom_sms_send' item.batch.pk %}">{{ item.batch.display_title }}</a>
+                            <span class="csms-batch-count">{{ item.sent }} / {{ item.total }}{% if item.total and item.remaining == 0 %} <span class="badge badge-success">✓</span>{% endif %}</span>
+                        </div>
+                        <div class="csms-muted">{{ item.batch.created_at|date:"j M Y H:i" }} · {{ item.batch.get_audience_type_display }}{% if item.batch.event %} · {{ item.batch.event.title|truncatechars:32 }}{% endif %}</div>
+                        <div class="progress-bar-container progress-bar-sm" style="margin-top:6px;"><div class="progress-bar" style="width: {% if item.total %}{% widthratio item.sent item.total 100 %}{% else %}0{% endif %}%"></div></div>
+                        <div class="csms-batch-actions">
+                            <a class="btn btn-secondary btn-sm" role="button" href="{% url 'custom_sms_send' item.batch.pk %}">{% if item.remaining %}{% trans "Continue" %}{% else %}{% trans "Open" %}{% endif %}</a>
+                            <a class="btn-link" href="{% url 'custom_sms_compose' %}?from={{ item.batch.pk }}">{% trans "Duplicate" %}</a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="csms-muted">{% trans "No batches yet." %}</div>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

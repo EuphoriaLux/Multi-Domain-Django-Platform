@@ -72,6 +72,41 @@ CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 # environment explicitly opts in.
 CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 
+# Microsoft 365 NDR processing. Default OFF: enabling writes suppressions and
+# requires the app registration to have Mail.Read application permission.
+CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(
+    "CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED", False
+)
+CRUSH_NEWSLETTER_FROM_EMAIL = os.getenv("CRUSH_NEWSLETTER_FROM_EMAIL", "love@crush.lu")
+CRUSH_EMAIL_BOUNCE_FOLDER = (
+    os.getenv("CRUSH_EMAIL_BOUNCE_FOLDER", "inbox").strip() or "inbox"
+)
+CRUSH_EMAIL_BOUNCE_MAILBOXES = [
+    address.strip()
+    for address in os.getenv(
+        "CRUSH_EMAIL_BOUNCE_MAILBOXES",
+        ",".join(
+            [
+                os.getenv("CRUSH_DEFAULT_FROM_EMAIL", "noreply@crush.lu"),
+                CRUSH_NEWSLETTER_FROM_EMAIL,
+            ]
+        ),
+    ).split(",")
+    if address.strip()
+]
+CRUSH_EMAIL_BOUNCE_FOLDERS = {
+    mailbox.strip().lower(): folder.strip()
+    for entry in os.getenv("CRUSH_EMAIL_BOUNCE_FOLDERS", "").split(",")
+    if "=" in entry
+    for mailbox, folder in [entry.split("=", 1)]
+    if mailbox.strip() and folder.strip()
+}
+CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS = [
+    domain.strip().lower()
+    for domain in os.getenv("CRUSH_EMAIL_BOUNCE_TRUSTED_DOMAINS", "").split(",")
+    if domain.strip()
+]
+
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
 # driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
 # env var; empty means "compute + persist the snapshot but email no one".
@@ -84,12 +119,36 @@ WEEKLY_KPI_RECIPIENTS = [
 # Google Search Indexing API real-time notifications for Crush.lu events (disabled by default outside production)
 GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", False)
 GOOGLE_INDEXING_KEY_JSON = os.getenv("GOOGLE_INDEXING_KEY_JSON", "")
+HUB_ANALYTICS_GSC_SITE_URL = os.getenv(
+    "HUB_ANALYTICS_GSC_SITE_URL", "sc-domain:crush.lu"
+)
+HUB_ANALYTICS_GA4_PROPERTY_ID = os.getenv("HUB_ANALYTICS_GA4_PROPERTY_ID", "516337382")
+# Existing App Service setting; slot-sticky in infra/resources.bicep.
+APPLICATIONINSIGHTS_CONNECTION_STRING = os.getenv(
+    "APPLICATIONINSIGHTS_CONNECTION_STRING", ""
+)
+HUB_ANALYTICS_CACHE_SECONDS = int(os.getenv("HUB_ANALYTICS_CACHE_SECONDS", "900"))
+HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS = int(
+    os.getenv("HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS", "15")
+)
 # Host whose URLs this deployment is allowed to submit. Empty disables the
 # integration outright — see production.py: staging runs an isolated database,
 # so staging event ID N is a *different* event from production event ID N, and
 # submitting crush.lu URLs from there could deindex a live listing.
 GOOGLE_INDEXING_DOMAIN = os.getenv("GOOGLE_INDEXING_DOMAIN", "")
 GOOGLE_INDEXING_TIMEOUT_SECONDS = int(os.getenv("GOOGLE_INDEXING_TIMEOUT_SECONDS", "3"))
+
+# Public "write a review" deep link for the Crush.lu Google Business Profile
+# listing, shown to attendees after an event.
+#
+# Empty here, and empty means *render nothing*. production.py sets the real
+# value, and only when the slot-sticky DJANGO_ENV says production — see the
+# GOOGLE BUSINESS PROFILE block there for why it must not be an App Service
+# setting pinned per slot. A staging slot runs an isolated database, so its
+# event IDs and attendee rows are unrelated to production; asking those people
+# for a public review would be soliciting reviews of an event they never
+# attended.
+CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")
 
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)

@@ -30,18 +30,32 @@ Usage:
 Requires ECHO_LU_API_KEY and ECHO_LU_SYNC_ENABLED=true. Without them the
 command reports what it would do and exits without touching echo.lu.
 
-Exits non-zero when any event failed or is blocked, because the Azure Function
-timer reads a clean exit as a healthy invocation — a sweep that syncs nothing
-for a week must not look the same as one with nothing to do.
+Exits non-zero when the sweep itself is unhealthy — the key refused, the
+account rate-limited, echo.lu erroring or not answering — because the Azure
+Function timer reads a clean exit as a healthy invocation, and a sweep that
+syncs nothing for a week must not look the same as one with nothing to do.
+
+A failure that belongs to one event — echo.lu rejecting its payload, a venue
+nobody has linked, a listing blocked on an untracked create — does not fail
+the run. It is recorded on that event's sync row and named in one WARNING per
+sweep, because it fails identically every hour until a person fixes that
+event, and 500ing the endpoint on it hid every other exception. How many
+events share a failure never changes its scope. With --event-id or --withdraw
+any failure is fatal, since those are an operator asking for one specific
+outcome.
 """
 
+import logging
 import time
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from crush_lu.models import MeetupEvent
 from crush_lu.services import echo_lu
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -181,6 +195,7 @@ class Command(BaseCommand):
         client = None if dry_run else echo_lu.EchoLuClient(max_retries=0)
         counts = {}
         failures = []
+        blocked = []
 
         # The EchoLuSync Function gives this endpoint 110s. One event can burn
         # most of a minute on its own against a struggling echo.lu (timeout
@@ -194,10 +209,21 @@ class Command(BaseCommand):
         # Reserve one worst-case call. Checking only that the budget has not
         # already run out lets an event start at 89s of 90 and then spend a
         # whole timeout more, which is how a bounded sweep still overruns the
-        # Function. With retries off that worst case is one timeout.
+        # Function. With retries off that worst case is one timeout. The one
+        # possible second call — the draft-or-deleted GET after a take-down
+        # answered "no published experience found" — needs no reservation of
+        # its own: it is cut to what is left of the budget (client.deadline,
+        # below) and skipped when nothing is, leaving the row PENDING for the
+        # next sweep. Reserving for it too made any budget of two timeouts or
+        # less start nothing, every hour, for good.
         deadline = (
             time.monotonic() + budget - timeout if budget and not dry_run else None
         )
+        if client is not None and budget:
+            # Where the budget really ends, for the one optional follow-up
+            # call (the draft-or-deleted GET): it is cut short or skipped
+            # rather than run past this.
+            client.deadline = time.monotonic() + budget
         deferred = 0
 
         for index, event in enumerate(events):
@@ -259,6 +285,8 @@ class Command(BaseCommand):
                 continue
 
             counts[outcome] = counts.get(outcome, 0) + 1
+            if outcome == "blocked":
+                blocked.append(event)
             if outcome in ("unchanged", "skipped"):
                 continue
             self.stdout.write(
@@ -267,27 +295,81 @@ class Command(BaseCommand):
 
         self._report(counts, failures, dry_run, deferred)
 
-        blocked = counts.get("blocked", 0)
-        if failures or blocked:
-            # The Function turns a clean return into a successful invocation,
-            # so swallowing this would leave a revoked key or a day-long
-            # outage showing green on the timer's failure count — the one
-            # signal anybody is watching. Every event was still attempted.
+        isolated = [(e, exc) for e, exc in failures if echo_lu.is_isolated_failure(exc)]
+        systemic = [
+            (e, exc) for e, exc in failures if not echo_lu.is_isolated_failure(exc)
+        ]
+
+        # Scope comes from the kind of failure alone, never from how many
+        # events happened to share it in one run. Counting was tried and is
+        # wrong both ways: a retired shared slug usually reaches only the one
+        # event that needed a write this hour, and two unrelated rejections
+        # can share a generic body. A bad shared slug therefore shows up as a
+        # per-event warning carrying echo.lu's rejection text, and
+        # `echo_taxonomy --check` is the gate that validates those settings.
+
+        if isolated or blocked:
+            # Named here because nothing else names them: the lines above go
+            # to a stdout the endpoint only keeps on success, at INFO. One
+            # line per sweep, so a stuck event costs one warning an hour
+            # rather than an exception, and says which event and why.
             #
-            # `blocked` counts too, and it is the more important half: an
-            # orphaned listing does not recover on the next pass the way a
-            # rejection might, so a sweep that returned 0 for one would report
-            # green forever over a listing nobody can reach.
+            # `blocked` belongs here rather than in the failure below. An
+            # orphan never recovers by itself, so it must not go quiet — but
+            # failing the sweep over one is how a single orphan kept the
+            # EchoLuSync timer red for 18 days without the exception ever
+            # saying which event it was.
+            attention = [
+                f"[{e.pk}] {str(exc)[:300]}"
+                # The one isolated failure with a manual way out: once the
+                # back office shows the listing is gone, --forget settles it.
+                + (
+                    f" — if it is gone from echo.lu, run --event-id {e.pk} --forget"
+                    if echo_lu.listing_not_in_folder(exc)
+                    else ""
+                )
+                for e, exc in isolated
+            ] + [
+                f"[{e.pk}] blocked on an untracked listing — run --audit"
+                for e in blocked
+            ]
+            # Rendered here rather than passed as %s arguments: the production
+            # PII filter masks any argument containing "@" wholesale, as if it
+            # were one email, and event titles and echo.lu's error bodies can
+            # hold one. As the message, only real addresses get masked — see
+            # api_admin_events._log_output.
+            logger.warning(
+                f"[ECHO] sweep left {len(attention)} event(s) needing attention: "
+                + "; ".join(attention)
+            )
+
+        if systemic or ((event_id or withdraw) and (failures or blocked)):
+            # The Function turns a clean return into a successful invocation,
+            # so swallowing a sweep-wide failure would leave a revoked key or
+            # a day-long outage showing green on the timer's failure count —
+            # the one signal anybody is watching. Every event was still
+            # attempted. With --event-id there is only one event, and its
+            # failure is the whole answer. With --withdraw somebody asked for
+            # listings to come down, and any one still up means it did not
+            # work — a script taking the calendar off must not exit 0.
             parts = []
-            if failures:
-                parts.append(f"{len(failures)} event(s) rejected by echo.lu")
+            if systemic:
+                parts.append(
+                    f"{len(systemic)} event(s) failed on echo.lu's side or the "
+                    f"key's, or on a shared setting (auth, a missing route, "
+                    f"rate limit, timeout, 5xx, no answer, an empty "
+                    f"ECHO_LU_DEFAULT_* facet or fallback picture)"
+                )
+            if isolated:
+                parts.append(f"{len(isolated)} event(s) rejected by echo.lu")
             if blocked:
-                parts.append(f"{blocked} event(s) blocked on an untracked listing")
+                parts.append(f"{len(blocked)} event(s) blocked on an untracked listing")
             raise CommandError(
                 f"{'; '.join(parts)}. See the errors above and the sync row on "
                 f"each event; --audit resolves the blocked ones."
             )
 
+    @transaction.atomic
     def _resolve_orphan(self, event_id, adopt, forget):
         """Take an event out of the blocked state, the one way out of it.
 
@@ -297,6 +379,16 @@ class Command(BaseCommand):
         that person's tool: `--adopt` when `--audit` found the listing and its
         id should be reattached, `--forget` when it was deleted in the back
         office and a fresh one should be created next sync.
+
+        It also takes a Failed row whose last error is echo.lu's 404 "no
+        experience found in your folder". That answer cannot tell a deleted
+        listing from one the key can no longer see, so the sync keeps the id
+        and keeps retrying (see ``echo_lu.listing_not_in_folder``); this is how
+        a person who has checked the back office settles it. A take-down is
+        recorded as done (Withdrawn, or Suppressed when the removal was asked
+        for by hand); a live event goes back to Pending so the next sync
+        creates. Unlike an orphan, that row is retried by the sweep, so the
+        whole resolution runs under the row lock ``withdraw_event`` takes.
 
         Writes nothing to echo.lu, so it needs neither the key nor the switch.
         """
@@ -310,22 +402,36 @@ class Command(BaseCommand):
             )
 
         try:
-            sync = EchoExperienceSync.objects.get(event_id=event_id)
+            # Locked until the resolution is written: the sweep retries a
+            # folder-failed row, and its write would otherwise land on top.
+            sync = EchoExperienceSync.objects.select_for_update().get(event_id=event_id)
         except EchoExperienceSync.DoesNotExist:
             raise CommandError(
                 f"Event {event_id} has no echo.lu sync row, so there is "
                 f"nothing blocked to resolve."
             )
 
-        if sync.status != EchoExperienceSync.Status.ORPHANED:
+        # Gated on the recorded answer, not on Failed alone: a row failed by
+        # a 503 or a timeout still holds a perfectly good id, and so does one
+        # whose 500 happened to carry the same words. And --forget only:
+        # --adopt would overwrite an id kept on purpose, which unlike an
+        # orphan's may still name a public listing and is the only handle on
+        # it.
+        not_in_folder = (
+            forget
+            and sync.status == EchoExperienceSync.Status.FAILED
+            and echo_lu.recorded_not_in_folder(sync.last_error)
+        )
+        if sync.status != EchoExperienceSync.Status.ORPHANED and not not_in_folder:
             # Pointed at a healthy row, --forget would clear a perfectly good
             # experience id and the next sync would POST a second listing
             # beside the live one — the exact duplicate this command exists to
             # clean up. A mistyped event id is all it would take.
             raise CommandError(
                 f"Event {event_id} is {sync.get_status_display()}, not "
-                f"blocked. --adopt and --forget only apply to a blocked row; "
-                f"on a healthy one they would strand its listing. Use "
+                f"blocked. --adopt and --forget only apply to a blocked row "
+                f"(--forget also to one echo.lu no longer finds in the key's "
+                f"folder); on a healthy one they would strand its listing. Use "
                 f"--event-id {event_id} --force to resync it instead."
             )
 
@@ -360,6 +466,26 @@ class Command(BaseCommand):
                     f"other every sweep. Check the id against --audit."
                 )
             sync.experience_id = adopt
+        elif not_in_folder and (
+            sync.removal_requested or not echo_lu.should_publish(sync.event)
+        ):
+            # A take-down, now confirmed by the person: the listing is gone,
+            # which is all a take-down is for. Settled as done so the row
+            # leaves the sweep — SUPPRESSED when a removal was asked for by
+            # hand, which also clears that request. PENDING would keep an
+            # explicit removal selected every hour for good, answering
+            # "suppressed" to the empty id without ever clearing the flag.
+            sync.experience_id = ""
+            sync.save(update_fields=["experience_id", "updated_at"])
+            sync.mark_withdrawn()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Event {event_id}: cleared the experience id and recorded "
+                    f"the take-down as done (was {previous}, now "
+                    f"{sync.get_status_display()})."
+                )
+            )
+            return
         else:
             sync.experience_id = ""
         # PENDING, not SYNCED: no payload has been confirmed against this

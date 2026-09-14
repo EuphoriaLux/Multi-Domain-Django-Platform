@@ -231,6 +231,61 @@
             </div>
         </div>
 
+        <!-- ===================== -->
+        <!-- VERIFY                -->
+        <!-- ===================== -->
+        {% comment %}The only coach-panel path to verification that needs neither
+        a ProfileSubmission nor an event registration. Members who submitted
+        after the verification pivot have no submission row at all, so without
+        this a coach who finds them here can look but not act.{% endcomment %}
+        {% if profile.verification_status != 'verified' %}
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div x-data="verifyMemberPanel">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{% trans "Verify this member" %}</h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {% trans "Records a manual verification by Crush.lu. It does not count as in-person attendance." %}
+                            </p>
+                        </div>
+                        {% comment %}Bare method and getter names only: the CSP
+                        Alpine build (alpinejs-csp-3.13.3) evaluates no
+                        expressions, so "open = !open" and "!open" are inert
+                        and the form could never be opened.{% endcomment %}
+                        <button type="button" @click="toggleModal" class="btn-crush-outline btn-sm">
+                            <span x-show="isModalClosed">{% trans "Verify…" %}</span>
+                            <span x-show="isModalOpen" x-cloak>{% trans "Cancel" %}</span>
+                        </button>
+                    </div>
+
+                    <form method="post" action="{% url 'crush_lu:coach_verify_member' member.id %}"
+                          x-show="isModalOpen" x-cloak class="mt-4 space-y-3">
+                        {% csrf_token %}
+                        {% comment %}The exact photo this page rendered. The
+                        endpoint refuses the attestation if the member has
+                        replaced it since, so the coach cannot vouch for an
+                        image that is no longer on the profile.{% endcomment %}
+                        <input type="hidden" name="photo_key" value="{{ profile.photo_1.name }}">
+                        <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
+                            <input type="checkbox" name="confirm" value="yes" required
+                                   class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple">
+                            <span>{% trans "I have checked this member's identity and their photo matches." %}</span>
+                        </label>
+                        <div>
+                            <label for="verify-reason" class="block text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold mb-1">
+                                {% trans "Note (optional)" %}
+                            </label>
+                            <textarea name="reason" id="verify-reason" rows="2" maxlength="500"
+                                      placeholder="{% trans 'e.g. checked ID at the September meetup' %}"
+                                      class="w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"></textarea>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{% trans "Saved to the review record and visible in Verification History." %}</p>
+                        </div>
+                        <button type="submit" class="btn-crush-solid btn-sm">{% trans "Verify member" %}</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+
         <!-- Event Identity (structured; replaces free-text bio/interests) -->
         {% if profile.has_event_identity %}
             <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -566,6 +621,8 @@
                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full">{% trans "WhatsApp Sent" %}</span>
                             {% elif attempt.result == 'event_invite_sms' %}
                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{% trans "Event Invite SMS" %}</span>
+                            {% elif attempt.result == 'custom_sms' %}
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full">{% trans "Custom SMS" %}</span>
                             {% endif %}
                             {% if attempt.failure_reason %}
                                 <span class="text-xs text-red-500 dark:text-red-400">({{ attempt.get_failure_reason_display }})</span>
@@ -578,6 +635,8 @@
                             <span>{{ attempt.attempt_date|date:"M j, Y" }}</span>
                             {% if attempt.coach %}
                                 <span>&middot; {{ attempt.coach.user.get_full_name }}</span>
+                            {% elif attempt.logged_by %}
+                                <span>&middot; {{ attempt.logged_by.get_full_name|default:attempt.logged_by.username }}</span>
                             {% endif %}
                         </div>
                     </div>

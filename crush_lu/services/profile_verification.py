@@ -3,7 +3,42 @@
 from collections.abc import Iterable
 from datetime import datetime
 
+from django.utils import timezone
+
 from crush_lu.models import CrushProfile, EventRegistration
+from crush_lu.models.profiles import UserDataConsent
+
+
+def coach_visible_unverified_profiles():
+    """Every unverified member the coach team can work on: the base of the
+    coach "Unverified profiles" page, before its search, filters and
+    annotations.
+
+    Shared with the coach dashboard's "Awaiting Verification" card, which
+    opens that page's pending chip, and with the crush-admin's recent pending
+    lists, whose rows a coach opens there. One definition keeps each count and
+    list from drifting apart from the page it leads to.
+    """
+    # Banned members are excluded from every other coach-facing surface
+    # (campaign segments, Connect invites). Resurfacing them here would hand
+    # the team review work on people who are not coming back.
+    banned_user_ids = UserDataConsent.objects.filter(crushlu_banned=True).values_list(
+        "user_id", flat=True
+    )
+    return (
+        CrushProfile.objects.filter(
+            is_active=True,
+            user__is_active=True,
+            # `create_crush_profile_on_login` gives every crush.lu login an
+            # incomplete profile before the consent screen is answered. Without
+            # this, somebody who abandoned that screen — who never agreed to
+            # the Crush.lu profile layer at all — would be listed by name and
+            # email on a team-wide coach page.
+            user__data_consent__crushlu_consent_given=True,
+        )
+        .exclude(verification_status="verified")
+        .exclude(user_id__in=banned_user_ids)
+    )
 
 
 def _clear_door_photo_attestations(profile: CrushProfile) -> None:
@@ -63,6 +98,40 @@ def claim_profile_verification(
     return True
 
 
+def release_booked_screening_slots(
+    submission,
+    *,
+    now: datetime,
+    actor: str,
+    reason: str,
+    cancelled_reason: str,
+) -> list:
+    """Cancel future booked screening calls for a submission being closed.
+
+    `coach_dashboard` and `coach_action_queue` list every future `booked` slot
+    for a coach without looking at its submission's status, so a slot left
+    booked keeps showing the coach a screening call for somebody who is
+    already verified — and holds an appointment nobody will attend. Mirrors
+    `views_booking.cancel_booking`, down to stamping `cancelled_reason` and the
+    audit entry.
+
+    Call it holding the submission row lock, after the profile claim: the lock
+    order is CrushProfile → ProfileSubmission → ScreeningSlot, the one
+    `ScreeningSlot.claim_for_submission` relies on. Does not save the
+    submission: the caller batches `system_actions` into its own
+    `update_fields`.
+    """
+    slots = list(submission.booked_slots.filter(status="booked", start_at__gte=now))
+    for slot in slots:
+        slot.status = "cancelled"
+        slot.cancelled_reason = cancelled_reason
+        slot.save(update_fields=["status", "cancelled_reason", "updated_at"])
+        submission.log_system_action(
+            "booking_cancelled", actor=actor, slot_id=slot.id, reason=reason
+        )
+    return slots
+
+
 def transition_unverified_profile(
     profile: CrushProfile,
     *,
@@ -77,6 +146,9 @@ def transition_unverified_profile(
     committed ``verified``, the stale form records its review decision without
     silently de-verifying the member.
     """
+    # `update()` skips `auto_now`. Stamp it, so a member the check-in undo
+    # sends back to pending tops the "Recently updated" lists.
+    now = timezone.now()
     transitioned = CrushProfile.objects.filter(
         pk=profile.pk,
         verification_status__in=tuple(transition_from),
@@ -87,6 +159,7 @@ def transition_unverified_profile(
         verification_status=target_status,
         photo_verification_key="",
         photo_verified_at=None,
+        updated_at=now,
     )
     if not transitioned:
         return False
@@ -102,6 +175,7 @@ def transition_unverified_profile(
     profile.verification_status = target_status
     profile.photo_verification_key = ""
     profile.photo_verified_at = None
+    profile.updated_at = now
     return True
 
 

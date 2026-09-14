@@ -118,6 +118,17 @@ document.addEventListener("alpine:init", function () {
         };
     }
 
+    // Coach member-overview verification disclosure.
+    //
+    // Composed through `mixin`, not Object.assign/spread: `makeModal` exposes
+    // `isModalOpen` / `isModalClosed` as getters, and a spread copies their
+    // evaluated value once instead of the accessor, silently freezing the
+    // panel shut. The template binds the getters rather than `!open` because
+    // the CSP build evaluates only bare property and method names.
+    Alpine.data("verifyMemberPanel", function () {
+        return mixin({}, makeModal(false));
+    });
+
     // Event ticket "Add to Google Wallet" button component
     Alpine.data("eventTicketButton", function () {
         return {

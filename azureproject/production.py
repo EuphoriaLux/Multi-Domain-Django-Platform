@@ -11,61 +11,26 @@ DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
 # ============================================================================
 # Azure's OpenTelemetry middleware runs BEFORE Django middleware and calls
 # request.build_absolute_uri() which triggers ALLOWED_HOSTS validation.
-# We must monkey-patch Django's validate_host to allow Azure internal IPs
-# (169.254.*) since middleware-based solutions run too late.
+# A parsed link-local IPv4 exception lets instrumentation inspect Azure probes.
+# HealthCheckMiddleware restricts internal effective hosts to probe paths;
+# no DNS-prefix exception is safe here because every later get_host() uses it.
 from django.http import request as django_request
 
 from .settings import *  # noqa
 from .settings import BASE_DIR, _env_bool, channel_layer_hosts
+from .host_validation import is_azure_internal_host  # noqa: E402
 
 _original_validate_host = django_request.validate_host
 
 
 def _custom_validate_host(host, allowed_hosts):
-    """
-    Custom host validation for Azure App Service with OpenTelemetry.
-
-    This handles two scenarios:
-    1. Azure internal IPs (169.254.*) - health checks and instrumentation
-    2. test.* and test-* subdomains - staging slots OR external scanner probes
-
-    Why this monkey-patch is needed:
-    - Azure auto-injects OpenTelemetry middleware BEFORE our middleware stack
-    - OpenTelemetry calls request.build_absolute_uri() during request processing
-    - This triggers Django's get_host() → validate_host() → DisallowedHost exception
-    - The exception crashes OpenTelemetry and can cause app restarts
-
-    By returning True for test.*/test-* hosts:
-    - OpenTelemetry proceeds without crashing
-    - If test.* is in ALLOWED_HOSTS (staging slot): request proceeds normally
-    - If test.* is NOT in ALLOWED_HOSTS (scanner probe): Django returns 400 later
-    - Either way, no crash and no restart
-
-    Azure Slot Configuration:
-    - Production slot: CUSTOM_DOMAINS = "crush.lu,www.crush.lu,..." (no test.*)
-    - Staging slot: CUSTOM_DOMAINS = "test.crush.lu,test.power-up.lu,..."
-    - Mark CUSTOM_DOMAINS as "slot setting" so it stays with the slot during swap
-    """
-    # Extract hostname without port
-    host_without_port = host.split(":")[0] if host else ""
-
-    # Allow Azure internal IPs (169.254.* range)
-    if host_without_port.startswith("169.254."):
-        return True
-
-    # Allow test.*/test-* subdomains through validation to prevent OpenTelemetry crashes
-    # These will still be rejected with 400 by Django's normal request handling
-    # but without causing exceptions that trigger app restarts
-    # test. = most staging domains (test.crush.lu), test- = portal (test-portal.powerup.lu)
-    if host_without_port.startswith("test.") or host_without_port.startswith("test-"):
-        return True
-
-    # Fall back to standard validation
-    return _original_validate_host(host, allowed_hosts)
+    """Preserve early Azure probe instrumentation without trusting DNS prefixes."""
+    return is_azure_internal_host(host) or _original_validate_host(host, allowed_hosts)
 
 
 # Apply the monkey-patch
 django_request.validate_host = _custom_validate_host
+PRODUCTION_HOST_VALIDATION = True
 
 # ============================================================================
 # ALLOWED_HOSTS Configuration
@@ -80,8 +45,7 @@ CUSTOM_DOMAINS = [
 ALLOWED_HOSTS = []
 if "WEBSITE_HOSTNAME" in os.environ:
     ALLOWED_HOSTS.append(os.environ["WEBSITE_HOSTNAME"])
-# Allow all *.azurewebsites.net hostnames (covers staging slots, swaps, etc.)
-ALLOWED_HOSTS.append(".azurewebsites.net")
+# Slot hosts must be configured explicitly; other Azure tenants are untrusted.
 # Add custom domains (crush.lu, entreprinder.lu, vinsdelux.com, etc.)
 ALLOWED_HOSTS += CUSTOM_DOMAINS
 # Add any additional hosts from environment
@@ -90,10 +54,11 @@ ALLOWED_HOSTS += [
 ]
 # Add localhost for development
 ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
-# Auto-include all domains and aliases from domains.py (e.g. test-portal.powerup.lu)
-# This ensures staging aliases are always allowed without manual env var management
+# Include declared domains and staging aliases (e.g. test-portal.powerup.lu).
+# These exact names are the routing registry, never a wildcard test.* exception.
 from azureproject.domains import DOMAINS
 
+ALLOWED_HOSTS += list(DOMAINS)
 for _config in DOMAINS.values():
     for _alias in _config.get("aliases", []):
         if _alias not in ALLOWED_HOSTS:
@@ -110,7 +75,8 @@ CSRF_TRUSTED_ORIGINS += [
 # Trust all *.azurewebsites.net origins (staging slots, swaps, etc.)
 CSRF_TRUSTED_ORIGINS.append("https://*.azurewebsites.net")
 
-# Trust X-Forwarded-Host header for correct host detection behind proxy
+# Azure forwards the original host. HealthCheckMiddleware validates BOTH host
+# headers before any application response, including redirects and probes.
 USE_X_FORWARDED_HOST = True
 # Trust X-Forwarded-Proto header for SSL detection
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -692,4 +658,34 @@ GOOGLE_INDEXING_ENABLED = _env_bool(
 GOOGLE_INDEXING_DOMAIN = os.environ.get(
     "GOOGLE_INDEXING_DOMAIN",
     "crush.lu" if DJANGO_ENV == "production" else "",
+)
+
+# =============================================================================
+# GOOGLE BUSINESS PROFILE — public review ask
+# =============================================================================
+# The Crush.lu listing's own `newReviewUri`, read from the Business Profile API
+# on 2026-09-13. Public by design — it is the link members are asked to follow —
+# so it lives here rather than in an App Service setting.
+#
+# Keyed off DJANGO_ENV for the same reason as GOOGLE_INDEXING_DOMAIN above, and
+# it is not optional here: **an App Service setting defined on one slot only is
+# exchanged on swap, not kept** (infra/resources.bicep says so explicitly, and
+# CRUSH_GOOGLE_REVIEW_URL is not in slotConfigNames). Had this been "set it on
+# production only", the first swap after release would have handed the live URL
+# to staging — whose attendee rows describe events those people never went to —
+# and left production silently back on the empty default. DJANGO_ENV *is*
+# slot-sticky, so deriving from it needs no new pinning and cannot drift.
+#
+# Staging is unconditional: an env override is honoured only in production, so
+# setting the variable on the staging slot buys nothing. On production the
+# override still works as a kill switch — set CRUSH_GOOGLE_REVIEW_URL="" to stop
+# asking. That switch is itself unpinned, so a later swap restores the default
+# below; it fails back to "asking", never to a broken link.
+CRUSH_GOOGLE_REVIEW_URL = (
+    os.environ.get(
+        "CRUSH_GOOGLE_REVIEW_URL",
+        "https://search.google.com/local/writereview?placeid=ChIJ6a9_t1dy_yQRe8D8qZVlbuY",
+    )
+    if DJANGO_ENV == "production"
+    else ""
 )

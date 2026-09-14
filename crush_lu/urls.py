@@ -570,6 +570,7 @@ urlpatterns = [
     path('coach/queue/', views.coach_action_queue, name='coach_action_queue'),
     path('notifications/', views.notifications_page, name='notifications'),
     path('coach/profiles/', views.coach_profiles, name='coach_profiles'),
+    path('coach/unverified/', views.coach_unverified_profiles, name='coach_unverified_profiles'),
     path('coach/members/', views.coach_members, name='coach_members'),
     path('coach/profile/edit/', views.coach_edit_profile, name='coach_edit_profile'),
     path('coach/review/<int:submission_id>/', views.coach_review_profile, name='coach_review_profile'),
@@ -654,6 +655,7 @@ urlpatterns = [
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),
     path('coach/member/<int:user_id>/matches/', views.coach_member_matches, name='coach_member_matches'),
+    path('coach/member/<int:user_id>/verify/', views.coach_verify_member, name='coach_verify_member'),
     path('coach/match-pairs/', views.coach_match_pairs, name='coach_match_pairs'),
     path('coach/submission/<int:submission_id>/reassign/', views.coach_reassign_submission, name='coach_reassign_submission'),
 

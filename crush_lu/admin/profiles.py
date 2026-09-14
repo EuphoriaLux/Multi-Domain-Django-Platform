@@ -58,12 +58,14 @@ from .filters import (
     DaysPendingApprovalFilter,
     ProfileCompletenessFilter,
     EventParticipationFilter,
+    DoorBookingFilter,
     # New production-informed filters
     EmailVerificationStatusFilter,
     PrivacySettingsFilter,
     ProfileSubmissionDetailFilter,
     ConnectionActivityFilter,
 )
+from .verification_queues import in_legacy_review_state, never_submitted_profiles
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +331,19 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
             )
         return status
 
+    def save(self, commit=True):
+        # Setting "revision" by hand counts a round, like the coach review
+        # and the bulk action: "Resubmitted After Revision" reads it. This
+        # form backs the change form, the list's status column and the
+        # profile page's inline.
+        if (
+            self.instance.pk
+            and "status" in self.changed_data
+            and self.instance.status == "revision"
+        ):
+            self.instance.revision_round = (self.instance.revision_round or 0) + 1
+        return super().save(commit=commit)
+
 
 class ProfileSubmissionProfileInline(admin.TabularInline):
     """Show profile submission/review history"""
@@ -511,6 +526,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "verification_method",
         "is_approved",
         "is_active",
+        DoorBookingFilter,  # Action Center: pending, booked vs not booked
         # NEW: Email & Privacy Filters (Production-Informed Priorities)
         EmailVerificationStatusFilter,  # Priority 1: 58% unverified
         PrivacySettingsFilter,  # Priority 2: 95% name privacy
@@ -847,10 +863,9 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
 
         name_privacy = CrushProfile.objects.filter(show_full_name=False).count()
 
-        # NEW: Never submitted profiles (Priority 3)
-        never_submitted = CrushProfile.objects.filter(
-            ~Exists(ProfileSubmission.objects.filter(profile_id=OuterRef("id")))
-        ).count()
+        # Never finished the profile (Priority 3): the "Submission History"
+        # filter's own definition, which this count's quick filter opens.
+        never_submitted = never_submitted_profiles(CrushProfile.objects.all()).count()
 
         # NEW: No connections (Priority 4)
         from crush_lu.models import EventConnection
@@ -2156,6 +2171,10 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             if submission.status == "expired":
                 skipped_expired += 1
                 continue
+            # Count a new revision cycle only. Retrying the action while the
+            # member is still revising must preserve the current round.
+            if submission.status != "revision":
+                submission.revision_round = (submission.revision_round or 0) + 1
             submission.status = "revision"
             submission.reviewed_at = now
             submission.save()
@@ -2599,9 +2618,23 @@ class RejectedProfile(CrushProfile):
         verbose_name_plural = "Rejected Profiles"
 
 
+# The three legacy coach-review segments read the member's *latest*
+# submission, as `ProfileSubmission.latest_for_profile` does. Matching any row
+# with the status listed a member once per matching row, kept listing members
+# whose newer row had moved on, and kept listing members that LuxID or an
+# event door has since verified (neither path creates a submission).
+
+
 class PendingReviewProfileAdmin(CrushProfileAdmin):
+    """Legacy coach-review queue: the latest submission awaits a coach.
+
+    Not ``AwaitingReviewProfile`` (every profile pending verification): since
+    the July 2026 pivot a pending submission exists only once a member
+    resubmits a pre-pivot revision or recontact request.
+    """
+
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(profilesubmission__status="pending")
+        return in_legacy_review_state(super().get_queryset(request), "pending")
 
     def has_add_permission(self, request):
         return False
@@ -2609,9 +2642,7 @@ class PendingReviewProfileAdmin(CrushProfileAdmin):
 
 class RevisionNeededProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super().get_queryset(request).filter(profilesubmission__status="revision")
-        )
+        return in_legacy_review_state(super().get_queryset(request), "revision")
 
     def has_add_permission(self, request):
         return False
@@ -2619,10 +2650,8 @@ class RevisionNeededProfileAdmin(CrushProfileAdmin):
 
 class RecontactCoachProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .filter(profilesubmission__status="recontact_coach")
+        return in_legacy_review_state(
+            super().get_queryset(request), "recontact_coach"
         )
 
     def has_add_permission(self, request):
@@ -2631,9 +2660,10 @@ class RecontactCoachProfileAdmin(CrushProfileAdmin):
 
 class RejectedProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return (
-            super().get_queryset(request).filter(profilesubmission__status="rejected")
-        )
+        # The profile's own decision. A submission row only ever recorded a
+        # coach-review verdict, and members who joined after the July 2026
+        # pivot never have one.
+        return super().get_queryset(request).filter(verification_status="rejected")
 
     def has_add_permission(self, request):
         return False
@@ -2707,6 +2737,7 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "profile__user",
         "submission__profile__user",
         "coach__user",
+        "logged_by",
         "event",
     ]
     list_filter = ("result", "failure_reason", "attempt_date")
@@ -2728,6 +2759,7 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "failure_reason",
         "notes",
         "coach",
+        "logged_by",
         "event",
     )
     date_hierarchy = "attempt_date"

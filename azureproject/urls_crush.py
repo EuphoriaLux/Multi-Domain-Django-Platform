@@ -23,6 +23,7 @@ from hub.views_whatsapp import WhatsAppWebhookView
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
+from crush_lu.admin import custom_sms as custom_sms_views
 from crush_lu import (
     admin_views,
     views,
@@ -1034,6 +1035,32 @@ urlpatterns = (
             "crush-admin/email-templates/load-gifts/",
             email_template_load_gifts,
             name="email_template_load_gifts",
+        ),
+        # Custom SMS (free-text message, one recipient at a time via sms: links)
+        path(
+            "crush-admin/custom-sms/",
+            custom_sms_views.custom_sms_compose,
+            name="custom_sms_compose",
+        ),
+        path(
+            "crush-admin/custom-sms/segments/",
+            custom_sms_views.custom_sms_segment_options,
+            name="custom_sms_segment_options",
+        ),
+        path(
+            "crush-admin/custom-sms/<int:batch_id>/",
+            custom_sms_views.custom_sms_send,
+            name="custom_sms_send",
+        ),
+        path(
+            "crush-admin/custom-sms/<int:batch_id>/log/<int:profile_id>/",
+            custom_sms_views.custom_sms_log,
+            name="custom_sms_log",
+        ),
+        path(
+            "crush-admin/custom-sms/<int:batch_id>/unlog/<int:profile_id>/",
+            custom_sms_views.custom_sms_unlog,
+            name="custom_sms_unlog",
         ),
         # Account Merge Tool
         path(

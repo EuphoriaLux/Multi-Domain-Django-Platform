@@ -14,6 +14,7 @@ from uuid import UUID
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -141,16 +142,38 @@ def confirm_booking(request, booking_token):
     except ProfileSubmission.DoesNotExist:
         raise Http404("Invalid booking token")
 
-    submission.log_system_action(
-        "booking_confirmed",
-        actor=f"user:{submission.profile.user_id}",
-        slot_id=slot.id,
-        coach_id=slot.coach_id,
-        start_at=slot.start_at.isoformat(),
-    )
-    submission.save(update_fields=["system_actions"])
+    # LOCK ORDER: serialized with panel verification
+    # (`views_coach._record_panel_verification`), which takes this same
+    # submission lock before it releases booked slots. The claim above has
+    # already committed and released it, so a verifier may have cancelled this
+    # slot in between. Re-lock and re-read, and confirm only a slot that is
+    # still booked: the audit entry is appended to the locked row, so it cannot
+    # overwrite the verifier's `booking_cancelled`, and the email goes out
+    # while the lock is held, so verification cannot cancel the slot mid-send.
+    # `_send_confirmation_email` swallows its own errors and cannot roll this
+    # back.
+    with transaction.atomic():
+        submission = ProfileSubmission.objects.select_for_update(of=("self",)).get(
+            pk=submission.pk
+        )
+        slot.refresh_from_db(fields=["status"])
+        still_booked = slot.status == "booked"
+        if still_booked:
+            submission.log_system_action(
+                "booking_confirmed",
+                actor=f"user:{submission.profile.user_id}",
+                slot_id=slot.id,
+                coach_id=slot.coach_id,
+                start_at=slot.start_at.isoformat(),
+            )
+            submission.save(update_fields=["system_actions"])
+            _send_confirmation_email(submission, slot, request)
 
-    _send_confirmation_email(submission, slot, request)
+    if not still_booked:
+        # Same outcome as `claim_for_submission` refusing a submission that
+        # moved on before the claim — the verifier merely won by a hair later.
+        messages.error(request, _("This booking link is no longer valid."))
+        return redirect("crush_lu:book_screening", booking_token=booking_token)
 
     messages.success(request, _("Your screening call is booked. Check your email for the calendar invite."))
     return redirect("crush_lu:book_screening", booking_token=booking_token)

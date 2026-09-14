@@ -3,7 +3,7 @@
 
 {% block title %}{% trans "Complete Your Profile" %} - Crush.lu{% endblock %}
 
-{% block header_title %}{% trans "Hey" %} {{ user.first_name|default:user.username }}! {% endblock %}
+{% block header_title %}{% trans "Hey" %}{% if greeting_name %} {{ greeting_name }}{% endif %}! {% endblock %}
 
 {% block content %}
 <h2>{% trans "Your profile is waiting for you" %}</h2>

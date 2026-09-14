@@ -8,7 +8,7 @@
 {% block content %}
 <h2>{% trans "Your profile is" %} {% if completion_status == 'not_started' %}{% trans "waiting to be created" %}{% else %}{% trans "almost ready" %}{% endif %}</h2>
 
-<p>{% trans "Hey" %} {{ user.first_name|default:user.username }},</p>
+<p>{% trans "Hey" %}{% if greeting_name %} {{ greeting_name }}{% endif %},</p>
 
 <p>{% trans "We noticed you started signing up a few days ago but haven't finished your profile yet. We get it - life gets busy!" %}</p>
 

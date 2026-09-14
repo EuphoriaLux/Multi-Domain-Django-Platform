@@ -7,6 +7,7 @@ catalogue page and teaser, found in the 2026-07-10 staging dry-run). Multi-line
 notes must use ``{% comment %} ... {% endcomment %}``.
 """
 
+import re
 from pathlib import Path
 
 import crush_lu
@@ -65,4 +66,48 @@ def test_no_csrf_token_read_from_cookie():
         "makes that cookie unreadable — use "
         "document.querySelector('input[name=\"csrfmiddlewaretoken\"]').value "
         "instead: " + ", ".join(offenders)
+    )
+
+
+#: Templates that already carry CSP-unsafe Alpine expressions. They predate
+#: this guard and are exempt wholesale rather than fixed here — touching them
+#: is its own change. Do not add to this list: a new entry means a component
+#: that silently does nothing in the browser.
+CSP_ALPINE_DEBT = {
+    "admin/crush_lu/email_template_manager.html",
+    "crush_lu/account_settings.html",
+    "crush_lu/changelog/list.html",
+    "crush_lu/event_ticket.html",
+    "crush_lu/partials/edit_account_notifications.html",
+}
+
+#: The CSP build's evaluator resolves a bare property or method name and
+#: nothing else — no operators, no calls, no object literals.
+_BARE_NAME = re.compile(r"^[A-Za-z_$][\w$]*$")
+
+
+def test_no_csp_unsafe_alpine_expressions():
+    """`alpinejs-csp-3.13.3.min.js` evaluates no expressions.
+
+    `x-data="{ open: false }"`, `@click="open = !open"` and `x-show="!open"`
+    parse fine and then do nothing at runtime, so the component is inert with
+    no console error and no failing view test — the disclosure just never
+    opens. Expose getters and methods from an `Alpine.data` component and bind
+    their bare names instead (see `makeModal` in alpine-components.js).
+    """
+    offenders = []
+    for template in sorted(TEMPLATES_DIR.rglob("*.html")):
+        rel = str(template.relative_to(TEMPLATES_DIR)).replace("\\", "/")
+        if rel in CSP_ALPINE_DEBT:
+            continue
+        for lineno, line in enumerate(
+            template.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            for match in re.finditer(r'(x-data|x-show|@click)="([^"]*)"', line):
+                expression = match.group(2).strip()
+                if expression and not _BARE_NAME.match(expression):
+                    offenders.append(f"{rel}:{lineno} {match.group(1)}={expression!r}")
+    assert not offenders, (
+        "CSP-unsafe Alpine expression — the CSP build evaluates bare property "
+        "and method names only, so these are inert at runtime: " + ", ".join(offenders)
     )

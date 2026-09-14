@@ -1,0 +1,30 @@
+{% load i18n %}
+{% comment %}
+A selected member's own curated group, after selection.
+
+Receives `group` from _curated_member_outlook()["group"]: the group's status,
+size, planned rounds, the guaranteed minimum and -- once the group is locked --
+this member's OWN tables, built the way export_user_data builds
+curated_group_history. Never another member's name, gender, seat or status.
+{% endcomment %}
+{% if group %}
+<div data-curated-member-group="{{ group.status }}" class="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3 sm:p-4 text-sm text-purple-900 dark:text-purple-200 mb-3">
+    <p class="font-semibold">
+        {% if group.status == "locked" %}{% trans "Your group is final." %}{% else %}{% trans "Your group is provisional." %}{% endif %}
+    </p>
+    <p class="mt-1">{% blocktrans with size=group.size rounds=group.rounds minimum=group.min_dates %}You are in a group of {{ size }} people; {{ rounds }} rounds are planned; everyone gets at least {{ minimum }} mini-dates.{% endblocktrans %}</p>
+    {% if group.status == "locked" %}
+        <p class="mt-1 text-xs">{% trans "Groups stay together for the whole evening; this one is locked and will not change." %}</p>
+        {% if group.tables %}
+        <p class="mt-2 font-semibold">{% trans "Your tables" %}</p>
+        <ul data-curated-own-tables class="mt-1 space-y-0.5">
+            {% for slot in group.tables %}
+            <li>{% if slot.table %}{% blocktrans with round=slot.round table=slot.table seat=slot.seat %}Round {{ round }}: table {{ table }}, seat {{ seat }}{% endblocktrans %}{% else %}{% blocktrans with round=slot.round %}Round {{ round }}: break{% endblocktrans %}{% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    {% else %}
+        <p class="mt-1 text-xs">{% trans "The group can still change until it is locked before the first round. Your tables appear here once it is final." %}</p>
+    {% endif %}
+</div>
+{% endif %}

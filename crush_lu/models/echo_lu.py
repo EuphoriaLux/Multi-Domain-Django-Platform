@@ -337,3 +337,33 @@ class EchoExperienceSync(models.Model):
                 "updated_at",
             ]
         )
+
+    def mark_unverified(self, note):
+        """Record a take-down whose listing's fate is not known yet.
+
+        echo.lu answered "no published experience found", so nothing is
+        public — but whether the listing is a draft (keep its id) or was
+        deleted in the back office (forget it) could not be checked this
+        time. Settling it as withdrawn would keep a possibly dead id for good,
+        and a later republish would PUT to it for ever.
+
+        PENDING with the id kept is the one state that settles neither way.
+        The sweep's `withdrawable` term re-selects it, its take-down path makes
+        the check with the budget to spare, and no create can come of it
+        because the id is still set. `removal_requested` is left as it is: an
+        explicit removal stays owed until that check settles it.
+        """
+        now = timezone.now()
+        self.status = self.Status.PENDING
+        self.payload_hash = ""
+        self.last_attempted_at = now
+        self.last_error = str(note)[:2000]
+        self.save(
+            update_fields=[
+                "status",
+                "payload_hash",
+                "last_attempted_at",
+                "last_error",
+                "updated_at",
+            ]
+        )

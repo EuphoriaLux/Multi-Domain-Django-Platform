@@ -14,6 +14,7 @@ Run with: pytest crush_lu/tests/test_admin_smoke.py -v
 """
 
 import io
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -27,8 +28,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.admin import crush_admin_site
+from crush_lu.admin.events import CuratedEventGroupInline
 from crush_lu.models import (
     CallAttempt,
+    CrushCoach,
+    CuratedEventGroup,
+    EmailBounceEvent,
     EventFeedback,
     EventRegistration,
     MeetupEvent,
@@ -62,9 +67,17 @@ class SiteTestMixin:
 class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
     """Every registered changelist must render without errors.
 
-    An invalid relation name in list_select_related (or a broken
-    list_display callable) only fails at render time, not in
-    `manage.py check` — this test catches those regressions.
+    An invalid relation name in list_select_related only fails at render
+    time, not in `manage.py check` — this test catches those regressions.
+
+    ⚠️ It does **not** catch a broken `list_display` callable, despite what
+    this docstring used to claim. Every table is empty here, so Django never
+    builds a result row and never calls one. That false confidence is how
+    `EventFeedbackAdmin.get_nps_segment` reached production calling
+    `format_html()` with no interpolation arguments — a TypeError on Django
+    6.0 — and 500ed the changelist the moment the first survey response
+    arrived. Row-backed coverage lives in the class below; add to it rather
+    than assuming this test covers a new callable.
     """
 
     @classmethod
@@ -91,15 +104,84 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
         )
 
     def test_new_models_are_registered(self):
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            CuratedEventGroup,
+        ):
             self.assertIn(
                 model, crush_admin_site._registry, f"{model.__name__} not registered"
             )
 
+    def test_non_staff_coach_can_open_curated_schedule_read_only(self):
+        coach = User.objects.create_user(
+            username="schedule_coach",
+            email="schedule-coach@test.lu",
+            password="x",
+            is_staff=False,
+        )
+        CrushCoach.objects.create(user=coach, is_active=True)
+        User.objects.filter(pk=coach.pk).update(is_staff=False)
+        coach.refresh_from_db()
+        self.assertFalse(coach.is_staff)
+        coach.user_permissions.add(
+            Permission.objects.get(codename="view_curatedeventgroup")
+        )
+        event = MeetupEvent.objects.create(
+            title="Coach schedule",
+            description="Read-only schedule access",
+            event_type="speed_dating",
+            registration_mode="curated",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="Test venue",
+            max_participants=6,
+            group_size=6,
+            planned_groups=1,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            profile_requirement="none",
+        )
+        group = CuratedEventGroup.objects.create(
+            event=event,
+            generation=1,
+            group_number=1,
+        )
+        url = reverse("crush_admin:crush_lu_curatedeventgroup_change", args=[group.pk])
+        inline = CuratedEventGroupInline(MeetupEvent, crush_admin_site)
+
+        self.assertIn(f'href="{url}"', str(inline.schedule_manifest(group)))
+        self.assertTrue(url.startswith("/crush-admin/"))
+
+        self.client.force_login(coach)
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["has_change_permission"])
+        self.assertNotContains(response, 'name="_save"')
+
+    def test_curated_schedule_admin_is_fully_read_only(self):
+        request = type("Req", (), {"user": self.superuser})()
+        model_admin = crush_admin_site._registry[CuratedEventGroup]
+
+        self.assertFalse(model_admin.has_add_permission(request))
+        self.assertFalse(model_admin.has_change_permission(request))
+        self.assertFalse(model_admin.has_delete_permission(request))
+        for field in CuratedEventGroup._meta.fields:
+            if field.editable and field.name != "id":
+                self.assertIn(field.name, model_admin.readonly_fields)
+
     def test_log_style_admins_disallow_add_and_delete(self):
         """App-written records must not be creatable or deletable by hand."""
         request = type("Req", (), {"user": self.superuser})()
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            EmailBounceEvent,
+        ):
             model_admin = crush_admin_site._registry[model]
             self.assertFalse(
                 model_admin.has_add_permission(request),
@@ -117,7 +199,13 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
         surfaces (e.g. CallAttemptInline on ProfileSubmission), never on
         these audit/log changelists.
         """
-        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+        for model in (
+            EventFeedback,
+            CallAttempt,
+            UserDataConsent,
+            Notification,
+            EmailBounceEvent,
+        ):
             model_admin = crush_admin_site._registry[model]
             editable_fields = [
                 f.name for f in model._meta.fields if f.editable and f.name != "id"
@@ -450,3 +538,57 @@ class ImageUploadSizeTests(TestCase):
             process_uploaded_image(truncated_file)
 
 
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class EventFeedbackChangelistWithRowsTests(SiteTestMixin, TestCase):
+    """The feedback changelist with rows in it — the case that actually broke.
+
+    `AdminChangelistSmokeTests` renders every changelist against empty tables,
+    so `list_display` callables are never executed there. This one creates a
+    response in each NPS band, which is what forces Django to call
+    `get_nps_segment` for every branch.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser(
+            username="nps_admin", email="nps@test.lu", password="x"
+        )
+        start = timezone.now() - timedelta(days=2)
+        cls.event = MeetupEvent.objects.create(
+            title="NPS Segment Render",
+            description="x",
+            event_type="mixer",
+            date_time=start,
+            location="Luxembourg",
+            address="1 Test Street",
+            max_participants=20,
+            registration_deadline=start - timedelta(hours=1),
+            is_published=True,
+        )
+        # 10 and 9 are promoters, 7-8 passive, 0-6 detractors: one of each, so
+        # all three branches of get_nps_segment have to render.
+        for score in (10, 8, 3):
+            member = User.objects.create_user(
+                username=f"nps{score}", email=f"nps{score}@test.lu", password="x"
+            )
+            EventFeedback.objects.create(
+                event=cls.event,
+                user=member,
+                nps_score=score,
+                would_recommend=score >= 7,
+            )
+
+    def test_changelist_renders_every_nps_band(self):
+        self.client.force_login(self.superuser)
+        url = reverse(
+            f"{crush_admin_site.name}:crush_lu_eventfeedback_changelist"
+        )
+        response = self.client.get(url)
+        self.assertEqual(
+            response.status_code,
+            200,
+            "EventFeedback changelist must render once survey responses exist",
+        )
+        body = response.content.decode()
+        for label in ("Promoter", "Passive", "Detractor"):
+            self.assertIn(label, body, f"{label} row missing from the changelist")

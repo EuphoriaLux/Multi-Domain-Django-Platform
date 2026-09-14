@@ -21,7 +21,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.template.loader import render_to_string
 from django.utils import timezone
-from django.utils.html import strip_tags
+
+from azureproject.email_utils import html_to_plain_text
 
 from crush_lu.services.weekly_kpis import (
     last_completed_week_start,
@@ -239,7 +240,7 @@ class Command(BaseCommand):
             **payload,
         }
         html_message = render_to_string("crush_lu/email/weekly_kpis.html", context)
-        plain_message = strip_tags(html_message)
+        plain_message = html_to_plain_text(html_message)
         subject = f"Crush.lu weekly KPIs — week of {payload['week_start']:%d %b %Y}"
         send_domain_email(
             subject=subject,

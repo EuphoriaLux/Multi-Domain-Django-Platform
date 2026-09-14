@@ -114,7 +114,12 @@
         <div class="mt-auto">
             <div class="flex justify-between items-center mb-3">
                 <small class="text-gray-500 dark:text-gray-400">
-                    {% if event.is_full %}
+                    {% if event.uses_curated_registration %}
+                        {# Applications hold no seat, so a seat count would sit frozen at the venue ceiling while the pool grows. #}
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
+                            {% if event.is_registration_accepting %}{% trans "Curated groups · applications open" %}{% else %}{% trans "Curated groups · applications closed" %}{% endif %}
+                        </span>
+                    {% elif event.is_full %}
                         <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-red-600 text-white rounded-full">{% trans "Full" %}</span>
                     {% else %}
                         {% blocktrans count counter=event.spots_remaining %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktrans %}

@@ -11,6 +11,7 @@ from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.core import mail
 
 from crush_lu.models import CrushProfile
 from crush_lu.models.profiles import UserDataConsent
@@ -146,9 +147,7 @@ class SignupRedirectTests(_SiteMixin, TestCase):
                 "password2": "verysafepassword12",
                 "first_name": "New",
                 "last_name": "User",
-                "age_18_plus": "on",
-                "terms_consent": "on",
-                "privacy_consent": "on",
+                "crushlu_consent": "on",
             },
         )
         # May redirect to verification-sent or re-render the form if fields
@@ -159,3 +158,29 @@ class SignupRedirectTests(_SiteMixin, TestCase):
                 response["Location"],
                 reverse("account_email_verification_sent"),
             )
+
+    def test_signup_sends_one_branded_confirmation_email(self):
+        Site.objects.update_or_create(
+            id=1, defaults={"domain": "crush.lu", "name": "Crush.lu"}
+        )
+
+        response = self.client.post(
+            reverse("crush_lu:signup"),
+            {
+                "email": "single-message@example.com",
+                "password1": "verysafepassword12",
+                "password2": "verysafepassword12",
+                "first_name": "Single",
+                "last_name": "Message",
+                "crushlu_consent": "on",
+            },
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertIn("Welcome to Crush.lu", message.subject)
+        self.assertIn("Crush.lu account", message.body)
+        self.assertEqual(message.alternatives[0].mimetype, "text/html")
+        self.assertIn("Crush.lu", message.alternatives[0].content)

@@ -1,4 +1,4 @@
-<div class="ticketcard">
+<div class="ticketcard" data-order-id="{{ order.pk }}" data-order-status="{{ order.status }}">
   {% comment %}The name is the largest thing on the card because it is the thing a
   barkeeper reads off it and shouts across the room.{% endcomment %}
   <div class="kds-name">{{ order.alias_snapshot }}</div>
@@ -58,6 +58,15 @@
       <button class="btn btn-cancel" type="submit">Cancel this order</button>
     </form>
     {% endif %}
+
+    {% comment %}type="button", not a form: printing never touches the order,
+    so it must not ride the POST/redirect cycle the status buttons use. The
+    kds.html script picks this up by [data-print-url]; without RawBT on the
+    device the tap is a silent no-op, same as before the button existed.{% endcomment %}
+    <button class="btn btn-quiet btn-print" type="button"
+            data-print-url="{% url 'atmos:order_print_payload' order.pk %}">
+      Print ticket
+    </button>
   </div>
 
   {% if order.vignette %}
