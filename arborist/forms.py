@@ -1,9 +1,13 @@
-"""
-Forms for the Arborist application.
+﻿"""
+Forms for the Arborist application (arborist.lu).
 """
 
+from datetime import date
 from django import forms
 from django.utils.translation import gettext_lazy as _
+
+from .models import ArboristBooking
+from .services.zones import clean_postal_code
 
 
 class ContactForm(forms.Form):
@@ -72,3 +76,130 @@ class ContactForm(forms.Form):
             }
         ),
     )
+
+
+class BookingForm(forms.ModelForm):
+    """
+    Form for booking on-site consultations and tree care services.
+    Includes distance-based prepayment calculation and rush scheduling.
+    """
+
+    class Meta:
+        model = ArboristBooking
+        fields = [
+            "name",
+            "email",
+            "phone",
+            "street_address",
+            "postal_code",
+            "city_or_commune",
+            "service_type",
+            "number_of_trees",
+            "preferred_date",
+            "preferred_time_slot",
+            "is_rush",
+            "notes",
+        ]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("Jean Dupont / Tom Weber"),
+                    "required": True,
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("name@example.lu"),
+                    "required": True,
+                }
+            ),
+            "phone": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("+352 621 123 456"),
+                    "required": True,
+                }
+            ),
+            "street_address": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("12, Rue Principale"),
+                    "required": True,
+                }
+            ),
+            "postal_code": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent font-mono",
+                    "placeholder": _("6211"),
+                    "id": "id_postal_code",
+                    "required": True,
+                }
+            ),
+            "city_or_commune": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("Altrier / Junglinster"),
+                    "id": "id_city_or_commune",
+                    "required": True,
+                }
+            ),
+            "service_type": forms.Select(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent bg-white",
+                    "id": "id_service_type",
+                }
+            ),
+            "number_of_trees": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "placeholder": _("e.g. 1 Apple tree, 3 large Oaks"),
+                }
+            ),
+            "preferred_date": forms.DateInput(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent",
+                    "type": "date",
+                }
+            ),
+            "preferred_time_slot": forms.Select(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent bg-white",
+                }
+            ),
+            "is_rush": forms.CheckboxInput(
+                attrs={
+                    "class": "h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded cursor-pointer",
+                    "id": "id_is_rush",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent resize-y",
+                    "rows": 4,
+                    "placeholder": _("Describe the situation: tree health, height, obstacles (fence, power line), accessibility..."),
+                }
+            ),
+        }
+
+    def clean_postal_code(self):
+        val = self.cleaned_data.get("postal_code", "")
+        code = clean_postal_code(val)
+        if not code or len(code) != 4:
+            raise forms.ValidationError(
+                _("Please enter a valid 4-digit Luxembourg postal code (e.g. 6211, 6110).")
+            )
+        return code
+
+    def clean_phone(self):
+        val = self.cleaned_data.get("phone", "").strip()
+        if len(val) < 6:
+            raise forms.ValidationError(_("Please enter a valid telephone number."))
+        return val
+
+    def clean_preferred_date(self):
+        val = self.cleaned_data.get("preferred_date")
+        if val and val < date.today():
+            raise forms.ValidationError(_("Preferred date cannot be in the past."))
+        return val

@@ -1,135 +1,210 @@
-{% extends "arborist/base.html" %}
+﻿{% extends "arborist/base.html" %}
 {% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Gallery" %} - Arborist Tom Aakrann{% endblock %}
 
 {% block content %}
 <!-- Header -->
-<section class="bg-green-800 text-white py-16">
-    <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl font-bold mb-4">
-                {% trans "Gallery" %}
-            </h1>
-            <p class="text-xl">
-                {% trans "Insights into my work as an arborist in Luxembourg." %}
-            </p>
-        </div>
+<section class="bg-gradient-to-b from-green-900 to-green-800 text-white py-16" style="background: linear-gradient(180deg, #2d5016 0%, #45622a 100%);">
+    <div class="container mx-auto px-4 max-w-4xl text-center">
+        <h1 class="text-4xl md:text-5xl font-extrabold mb-4">
+            {% trans "Fotogalerie & Einblicke" %}
+        </h1>
+        <p class="text-lg md:text-xl text-green-100 max-w-2xl mx-auto leading-relaxed">
+            {% trans "Authentische Einblicke in unsere Einsätze in ganz Luxemburg: Seilklettertechnik, moderne Hubarbeitsbühnen und präzise FLL-Baumkontrollen." %}
+        </p>
     </div>
 </section>
 
-<!-- Gallery Introduction -->
-<section class="py-12">
-    <div class="container mx-auto px-4">
-        <div class="max-w-4xl mx-auto text-center">
-            <p class="text-lg text-gray-700">
-                {% trans "Here you will find examples of my tree care projects. The images show various work from fruit tree care to crown maintenance of large trees." %}
-            </p>
-        </div>
-    </div>
-</section>
+<!-- Gallery Content -->
+<section class="py-16 bg-gray-50">
+    <div class="container mx-auto px-4 max-w-6xl">
 
-<!-- Gallery Grid - Placeholder -->
-<section class="py-8">
-    <div class="container mx-auto px-4">
-        <div class="max-w-6xl mx-auto">
-            <!-- Category: Obstbaumpflege -->
-            <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
-                    {% trans "Fruit Tree Care" %}
-                </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
-                    </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
-                    </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127822;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
-                    </div>
+        <!-- CATEGORY 1: Seilklettertechnik (SKT-B) -->
+        <div class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-xl bg-green-100 text-green-800 flex items-center justify-center text-xl font-bold">🧗‍♂️</span>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">
+                        {% trans "Seilklettertechnik (SKT-B)" %}
+                    </h2>
+                    <p class="text-xs text-gray-500">{% trans "Schonender Aufstieg und sicheres Arbeiten in Kronen ohne schweres Gerät" %}</p>
                 </div>
             </div>
 
-            <!-- Category: Baumpflege -->
-            <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
-                    {% trans "Tree Care" %}
-                </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                <!-- Image 1 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-climbing-gear.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-climbing-gear.jpg' %}" alt="Klettergurt Vorbereitung SKT-B" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
-                    </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#127795;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Ausrüstung & Gurtzeug" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Vorbereitung des zertifizierten Klettergurts mit Karabinern & Bandschlingen." %}</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Category: Seilklettertechnik -->
-            <div class="mb-12">
-                <h2 class="text-2xl font-bold mb-6 text-green-800">
-                    {% trans "Rope Climbing Technique" %}
-                </h2>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
+                <!-- Image 2 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-hardware.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-hardware.jpg' %}" alt="Klettertechnik Petzl ZigZag" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Präzisions-Klettergeräte" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Mechanische Brems- und Reibungsgeräte für maximale Sicherheit am Seil." %}</p>
                     </div>
-                    <div class="bg-gray-100 rounded-xl aspect-square flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-4">
-                            <div class="text-4xl mb-2">&#9875;</div>
-                            <p class="text-sm">{% trans "Photo coming soon" %}</p>
-                        </div>
+                </div>
+
+                <!-- Image 3 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-canopy-ascent.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-canopy-ascent.jpg' %}" alt="Aufstieg in die Baumkrone" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Kronenzugang & Seillinie" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Einbau der Aufstiegsseile in die Krone für schonende Kronenpflege." %}</p>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
 
-<!-- Coming Soon Notice -->
-<section class="py-12 bg-green-50">
-    <div class="container mx-auto px-4">
-        <div class="max-w-2xl mx-auto text-center">
-            <div class="text-4xl mb-4">&#128247;</div>
-            <h2 class="text-2xl font-bold mb-4 text-green-800">
-                {% trans "More photos coming soon!" %}
+        <!-- CATEGORY 2: Spezialgeräte & Hubarbeitsbühne -->
+        <div class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-xl bg-green-100 text-green-800 flex items-center justify-center text-xl font-bold">🚜</span>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">
+                        {% trans "Spezialtechnik & Raupen-Hubbühne" %}
+                    </h2>
+                    <p class="text-xs text-gray-500">{% trans "Bodenschonender Einsatz für hohe Bäume und sensible Gartenbereiche" %}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                <!-- Image 4 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-spider-lift.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-spider-lift.jpg' %}" alt="Raupen-Arbeitsbühne Einsatz" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Gummiketten-Hubarbeitsbühne" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Extreme Wendigkeit bei minimalem Bodendruck auf Rasen und Wegen." %}</p>
+                    </div>
+                </div>
+
+                <!-- Image 5 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-basket-work.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-basket-work.jpg' %}" alt="Arbeit im Korb der Hubbühne" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Präzisionsarbeit im Korb" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Sicherer Zugang zu äußeren Kronenpartien mit voller Schutzausrüstung." %}</p>
+                    </div>
+                </div>
+
+                <!-- Image 6 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-chainsaw.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-chainsaw.jpg' %}" alt="Stihl Akku-Motorsäge für Baumpflege" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Moderne Akku-Motorsägen" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Leise, vibrationsarme und emissionsfreie Stihl-Akkugeräte für Siedlungsgebiete." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CATEGORY 3: Baumkontrolle & Pflege -->
+        <div class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="w-10 h-10 rounded-xl bg-green-100 text-green-800 flex items-center justify-center text-xl font-bold">🔬</span>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">
+                        {% trans "Baumkontrolle & Diagnose" %}
+                    </h2>
+                    <p class="text-xs text-gray-500">{% trans "Erkennung von Holzfäulen, Schadsymptomen und Verkehrssicherheit nach FLL" %}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                <!-- Image 7 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-decay-diagnostics.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-decay-diagnostics.jpg' %}" alt="Holzfäule Diagnose Stammquerschnitt" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Fäule- & Schadholzanalyse" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Begutachtung von Kernfäule und Zersetzungsprozessen im Stammholz." %}</p>
+                    </div>
+                </div>
+
+                <!-- Image 8 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-tree-care.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-tree-care.jpg' %}" alt="Kronenpflege Altbaum" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Kronenpflege am Altbaum" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Entlastungsschnitt und Totholzbeseitigung zur Verlängerung der Vitalität." %}</p>
+                    </div>
+                </div>
+
+                <!-- Image 9 -->
+                <div class="bg-white rounded-2xl overflow-hidden shadow-md border border-gray-100 group">
+                    <div class="aspect-square overflow-hidden relative">
+                        <picture>
+                            <source srcset="{% static 'arborist/images/gallery-aerial-view.webp' %}" type="image/webp">
+                            <img src="{% static 'arborist/images/gallery-aerial-view.jpg' %}" alt="Drohnenaufnahme Einsatzort Luxemburg" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        </picture>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-bold text-gray-900 text-sm">{% trans "Luftbild-Übersicht" %}</h3>
+                        <p class="text-xs text-gray-500 mt-1">{% trans "Drohnengestützte Bestandsaufnahme von Parks und Freizeitanlagen." %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Box -->
+        <div class="bg-green-800 text-white rounded-2xl p-8 md:p-12 text-center max-w-3xl mx-auto shadow-xl">
+            <h2 class="text-2xl md:text-3xl font-bold mb-3">
+                {% trans "Haben Sie ein Baumprojekt für uns?" %}
             </h2>
-            <p class="text-gray-700 mb-6">
-                {% trans "The gallery is regularly updated with new project photos. Interested in my work? Contact me for an on-site consultation." %}
+            <p class="text-green-100 text-sm md:text-base mb-6 max-w-xl mx-auto">
+                {% trans "Gerne begutachten wir Ihre Bäume direkt vor Ort mit transparenter Anfahrtspauschale ab Altrier." %}
             </p>
-            <a href="{% url 'arborist:contact' %}" class="btn btn-primary">
-                {% trans "Get in Touch" %}
+            <a href="{% url 'arborist:booking' %}" class="inline-block px-8 py-3.5 bg-white text-green-900 font-extrabold rounded-xl shadow hover:bg-green-50 transition-colors">
+                📅 {% trans "Vor-Ort-Termin buchen" %}
             </a>
         </div>
+
     </div>
 </section>
 {% endblock %}

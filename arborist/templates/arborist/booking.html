@@ -1,0 +1,380 @@
+﻿{% extends "arborist/base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Book an Appointment" %} - Arborist Tom Aakrann{% endblock %}
+
+{% block content %}
+<!-- Header Hero -->
+<section class="bg-gradient-to-b from-green-900 to-green-800 text-white py-14" style="background: linear-gradient(180deg, #2d5016 0%, #45622a 100%);">
+    <div class="container mx-auto px-4 max-w-4xl text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-green-200 text-sm font-medium mb-4 backdrop-blur-sm">
+            <span>📍 Altrier (Junglinster) Base</span>
+            <span>•</span>
+            <span>{% trans "Transparente Anfahrtspauschalen" %}</span>
+        </div>
+        <h1 class="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
+            {% trans "Vor-Ort-Termin & Beratung buchen" %}
+        </h1>
+        <p class="text-lg md:text-xl text-green-100 max-w-2xl mx-auto leading-relaxed">
+            {% trans "Fachgerechte Baumpflege, FLL-Baumkontrolle oder Fällung. Wählen Sie Ihren Wunschtermin und erhalten Sie eine transparente Anfahrtspauschale." %}
+        </p>
+
+        <!-- Zone Badges Overview -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 max-w-xl mx-auto text-left">
+            <div class="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-bold text-white text-lg">Zone 1</span>
+                    <span class="text-xl font-extrabold text-green-300">50 €</span>
+                </div>
+                <p class="text-xs text-green-100">
+                    {% trans "Umkreis ~18 km um Altrier & Junglinster (Müllerthal, Echternach, Grevenmacher...)" %}
+                </p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-bold text-white text-lg">Zone 2</span>
+                    <span class="text-xl font-extrabold text-green-300">100 €</span>
+                </div>
+                <p class="text-xs text-green-100">
+                    {% trans "Erweitertes Luxemburg (> 18 km, z.B. Stadt Luxemburg, Süden, Westen, Norden)" %}
+                </p>
+            </div>
+        </div>
+        
+        <p class="text-xs text-green-200 mt-3 italic">
+            ✓ {% trans "Die Vorabpauschale wird bei Durchführung der Baumarbeiten zu 100% mit der Gesamtrechnung verrechnet!" %}
+        </p>
+    </div>
+</section>
+
+<!-- Booking Form Section -->
+<section class="py-12 bg-gray-50">
+    <div class="container mx-auto px-4 max-w-3xl">
+
+        {% if messages %}
+        <div class="mb-8">
+            {% for message in messages %}
+            <div class="p-4 rounded-xl mb-3 text-sm font-medium {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200{% else %}bg-red-100 text-red-800 border border-red-200{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" class="bg-white shadow-xl rounded-2xl p-6 md:p-10 border border-gray-100 space-y-8" id="booking-form">
+            {% csrf_token %}
+
+            <!-- SECTION 1: Service Selection -->
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-sm">1</span>
+                    {% trans "Gewünschte Dienstleistung" %}
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">
+                    {% trans "Welche Arbeiten stehen an Ihren Bäumen an?" %}
+                </p>
+                <div>
+                    {{ form.service_type }}
+                    {% if form.service_type.errors %}
+                    <p class="text-red-600 text-xs mt-1">{{ form.service_type.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        {% trans "Anzahl oder Art der Bäume (optional)" %}
+                    </label>
+                    {{ form.number_of_trees }}
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- SECTION 2: Location & Live Zone Calculation -->
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-sm">2</span>
+                    {% trans "Einsatzort & Entfernungszone" %}
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">
+                    {% trans "Geben Sie Ihre luxemburgische Postleitzahl ein, um die Zone automatisch zu ermitteln." %}
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Straße und Hausnummer" %} *
+                        </label>
+                        {{ form.street_address }}
+                        {% if form.street_address.errors %}
+                        <p class="text-red-600 text-xs mt-1">{{ form.street_address.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Postleitzahl (4-stellig)" %} *
+                        </label>
+                        {{ form.postal_code }}
+                        {% if form.postal_code.errors %}
+                        <p class="text-red-600 text-xs mt-1">{{ form.postal_code.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Ortschaft / Gemeinde" %} *
+                        </label>
+                        {{ form.city_or_commune }}
+                        {% if form.city_or_commune.errors %}
+                        <p class="text-red-600 text-xs mt-1">{{ form.city_or_commune.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- DYNAMIC ZONE CALCULATION BOX -->
+                <div id="zone-indicator-box" class="mt-5 p-4 rounded-xl border transition-all duration-300 bg-green-50/70 border-green-200">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span id="zone-badge" class="px-2.5 py-1 rounded-md text-xs font-bold text-white bg-green-800">
+                                    Zone 1
+                                </span>
+                                <span id="zone-commune-name" class="font-semibold text-gray-900 text-sm">
+                                    Altrier / Junglinster Region
+                                </span>
+                                <span id="zone-distance-text" class="text-xs text-gray-500 font-mono">
+                                    (~5 km)
+                                </span>
+                            </div>
+                            <p id="zone-notice-text" class="text-xs text-gray-600 mt-1.5 leading-relaxed">
+                                {% trans "Gültige Anfahrtspauschale für diesen Standort. Zu 100% mit der Endabrechnung verrechenbar." %}
+                            </p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-xs text-gray-500 block uppercase tracking-wider font-semibold">{% trans "Pauschale" %}</span>
+                            <span id="zone-prepayment-amount" class="text-2xl font-extrabold text-green-900">
+                                50.00 €
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- SECTION 3: Urgency & Scheduling -->
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-sm">3</span>
+                    {% trans "Terminwunsch & Dringlichkeit" %}
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">
+                    {% trans "Wann soll der Termin stattfinden?" %}
+                </p>
+
+                <!-- RUSH ORDER BOX -->
+                <div class="p-4 rounded-xl border border-red-200 bg-red-50/60 mb-5">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        {{ form.is_rush }}
+                        <div>
+                            <span class="font-bold text-red-900 text-base flex items-center gap-1.5">
+                                🚨 {% trans "Rush Order / Express-Termin anfordern" %}
+                                <span class="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded-full font-bold">+50 €</span>
+                            </span>
+                            <p class="text-xs text-red-700 mt-1 leading-relaxed">
+                                {% trans "Dringender Notfall innerhalb 24-48 Stunden (z.B. Sturmschaden, abgebrochene Äste auf Dach/Einfahrt, akute Bruchgefahr). Bevorzugte Einplanung." %}
+                            </p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Wunschdatum" %}
+                        </label>
+                        {{ form.preferred_date }}
+                        {% if form.preferred_date.errors %}
+                        <p class="text-red-600 text-xs mt-1">{{ form.preferred_date.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Tageszeit" %}
+                        </label>
+                        {{ form.preferred_time_slot }}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        {% trans "Beschreibung / Besonderheiten" %}
+                    </label>
+                    {{ form.notes }}
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <!-- SECTION 4: Contact Information -->
+            <div>
+                <h2 class="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-green-700 text-white text-sm">4</span>
+                    {% trans "Ihre Kontaktdaten" %}
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">
+                    {% trans "Für die Bestätigung und telefonische Rücksprache." %}
+                </p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            {% trans "Vollständiger Name" %} *
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <p class="text-red-600 text-xs mt-1">{{ form.name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                {% trans "E-Mail-Adresse" %} *
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                            <p class="text-red-600 text-xs mt-1">{{ form.email.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                {% trans "Telefonnummer" %} *
+                            </label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}
+                            <p class="text-red-600 text-xs mt-1">{{ form.phone.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOTAL SUMMARY CARD -->
+            <div class="p-6 rounded-2xl bg-gray-900 text-white">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold block">
+                            {% trans "Gesamte Vorabpauschale" %}
+                        </span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span id="summary-total" class="text-3xl md:text-4xl font-extrabold text-green-400">50.00 €</span>
+                            <span id="summary-breakdown" class="text-xs text-gray-400">({% trans "Zone 1 Basis" %})</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full sm:w-auto px-8 py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-lg transition-all text-center">
+                        {% trans "Terminanfrage jetzt absenden" %} →
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-4 border-t border-gray-800 pt-3">
+                    ℹ️ {% trans "Mit dem Absenden erhalten Sie eine Bestätigung mit allen Details und Bankverbindung per E-Mail. Die Vorabpauschale wird bei Auftragsvergabe voll angerechnet." %}
+                </p>
+            </div>
+
+        </form>
+    </div>
+</section>
+
+<!-- Dynamic Zone Calculation Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const postalInput = document.getElementById('id_postal_code');
+    const cityInput = document.getElementById('id_city_or_commune');
+    const rushCheckbox = document.getElementById('id_is_rush');
+
+    const zoneBadge = document.getElementById('zone-badge');
+    const zoneCommuneName = document.getElementById('zone-commune-name');
+    const zoneDistanceText = document.getElementById('zone-distance-text');
+    const zonePrepaymentAmount = document.getElementById('zone-prepayment-amount');
+    const summaryTotal = document.getElementById('summary-total');
+    const summaryBreakdown = document.getElementById('summary-breakdown');
+    const zoneBox = document.getElementById('zone-indicator-box');
+
+    let debounceTimer = null;
+
+    function fetchZoneQuote() {
+        const postal = (postalInput ? postalInput.value : '').trim();
+        const isRush = rushCheckbox ? rushCheckbox.checked : false;
+        const city = (cityInput ? cityInput.value : '').trim();
+
+        if (postal.length < 2) return;
+
+        fetch(`{% url 'arborist:api_calculate_zone' %}?postal_code=${encodeURIComponent(postal)}&is_rush=${isRush}&city=${encodeURIComponent(city)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (zoneBadge) {
+                    zoneBadge.textContent = `Zone ${data.zone}`;
+                    zoneBadge.className = data.zone === 1 
+                        ? 'px-2.5 py-1 rounded-md text-xs font-bold text-white bg-green-800'
+                        : 'px-2.5 py-1 rounded-md text-xs font-bold text-white bg-amber-700';
+                }
+
+                if (zoneCommuneName) {
+                    zoneCommuneName.textContent = data.commune || 'Luxembourg';
+                    if (cityInput && !cityInput.value && data.commune) {
+                        cityInput.value = data.commune;
+                    }
+                }
+
+                if (zoneDistanceText) {
+                    zoneDistanceText.textContent = `(~${data.distance_km} km)`;
+                }
+
+                if (zonePrepaymentAmount) {
+                    zonePrepaymentAmount.textContent = `${data.total_prepayment_eur.toFixed(2)} €`;
+                }
+
+                if (summaryTotal) {
+                    summaryTotal.textContent = `${data.total_prepayment_eur.toFixed(2)} €`;
+                }
+
+                if (summaryBreakdown) {
+                    if (data.is_rush) {
+                        summaryBreakdown.textContent = `(Zone ${data.zone}: ${data.base_prepayment_eur.toFixed(0)}€ + Rush: ${data.rush_fee_eur.toFixed(0)}€)`;
+                    } else {
+                        summaryBreakdown.textContent = `(Zone ${data.zone} Basis)`;
+                    }
+                }
+
+                if (zoneBox) {
+                    if (data.zone === 1) {
+                        zoneBox.className = 'mt-5 p-4 rounded-xl border transition-all duration-300 bg-green-50/70 border-green-200';
+                    } else {
+                        zoneBox.className = 'mt-5 p-4 rounded-xl border transition-all duration-300 bg-amber-50/70 border-amber-200';
+                    }
+                }
+            })
+            .catch(err => console.error('Zone lookup error:', err));
+    }
+
+    if (postalInput) {
+        postalInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(fetchZoneQuote, 250);
+        });
+    }
+
+    if (rushCheckbox) {
+        rushCheckbox.addEventListener('change', fetchZoneQuote);
+    }
+
+    if (cityInput) {
+        cityInput.addEventListener('blur', fetchZoneQuote);
+    }
+});
+</script>
+{% endblock %}

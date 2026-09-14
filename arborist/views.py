@@ -1,44 +1,59 @@
-"""
+﻿"""
 Views for Baumwart - Tom Aakrann (arborist.lu).
 
 Professional tree care services in Luxembourg.
-All views are simple template renders with SEO context.
+Includes landing pages, service showcases, gallery, and interactive booking system
+with distance-based prepayment zones around Altrier (Junglinster) and emergency Rush Orders.
 """
 
-from django.shortcuts import render, redirect
+import logging
+import urllib.parse
+from decimal import Decimal
+from django.conf import settings
+from django.contrib import messages
+from django.http import JsonResponse, Http404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_http_methods
-from django.contrib import messages
-import logging
 
 from azureproject.email_utils import send_domain_email
-from .forms import ContactForm
+from .forms import ContactForm, BookingForm
+from .models import ArboristBooking
+from .services.zones import calculate_zone, clean_postal_code
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Home Page
+# Home & General Pages
 # =============================================================================
 
 
 @require_GET
 def home(request):
-    """Landing page with hero, services overview, and trust markers."""
+    """Landing page with hero, services overview, zone pricing teaser, and trust markers."""
     context = {
         "page_title": _("Arborist Tom Aakrann - Professional Tree Care Luxembourg"),
         "meta_description": _(
             "Certified tree inspector and arborist in Luxembourg. "
             "Fruit tree care, tree care, tree inspection according to FLL standards. "
-            "SKT-B rope climbing technique."
+            "SKT-B rope climbing technique. Based in Altrier (Junglinster)."
         ),
     }
     return render(request, "arborist/home.html", context)
 
 
-# =============================================================================
-# Service Pages
-# =============================================================================
+@require_GET
+def services(request):
+    """Overview of all tree care services."""
+    context = {
+        "page_title": _("Services - Arborist Tom Aakrann Luxembourg"),
+        "meta_description": _(
+            "Overview of professional tree care services in Luxembourg: "
+            "Fruit tree care, tree pruning, FLL tree inspection, tree felling, and ecological measures."
+        ),
+    }
+    return render(request, "arborist/services.html", context)
 
 
 @require_GET
@@ -116,11 +131,6 @@ def technik(request):
     return render(request, "arborist/services/technik.html", context)
 
 
-# =============================================================================
-# About & Contact
-# =============================================================================
-
-
 @require_GET
 def about(request):
     """About Tom Aakrann and credentials."""
@@ -134,20 +144,88 @@ def about(request):
     return render(request, "arborist/about.html", context)
 
 
+@require_GET
+def gallery(request):
+    """Photo gallery with authentic project photos."""
+    context = {
+        "page_title": _("Gallery - Arborist Tom Aakrann"),
+        "meta_description": _(
+            "Photos of tree care projects in Luxembourg: Seilklettertechnik (SKT-B), "
+            "spider crawler platform, crown maintenance, and tree diagnostics."
+        ),
+    }
+    return render(request, "arborist/gallery.html", context)
+
+
+@require_GET
+def faq(request):
+    """Frequently asked questions."""
+    faq_items = [
+        {
+            "question": _("How much does an on-site consultation or inspection cost?"),
+            "answer": _(
+                "To provide qualified planning and traffic-safety inspection, we charge a fixed "
+                "prepayment based on distance from our base in Altrier: Zone 1 (around Altrier/Junglinster) is 50 €, "
+                "and Zone 2 (rest of Luxembourg) is 100 €. This fee is 100% credited against your final service invoice upon execution!"
+            ),
+        },
+        {
+            "question": _("What is a Rush Order appointment?"),
+            "answer": _(
+                "For urgent situations such as storm damage, fallen branches, or imminent tree hazards, "
+                "our Rush Order option prioritizes your appointment within 24-48 hours with immediate dispatch."
+            ),
+        },
+        {
+            "question": _("When is the best time for fruit tree pruning?"),
+            "answer": _(
+                "Pome fruits (apple, pear) are typically pruned during late winter dormancy, "
+                "while stone fruits (cherry, plum) are pruned in summer after harvest."
+            ),
+        },
+        {
+            "question": _("Do you work with rope climbing technique?"),
+            "answer": _(
+                "Yes, Tom Aakrann is SKT-B certified and uses professional rope climbing techniques "
+                "as well as a compact tracked spider crawler lift for hard-to-reach locations."
+            ),
+        },
+        {
+            "question": _("In which regions of Luxembourg do you operate?"),
+            "answer": _(
+                "We operate throughout all of Luxembourg, with fast local coverage in the East, "
+                "Center, and Müllerthal from our Altrier base."
+            ),
+        },
+    ]
+
+    context = {
+        "page_title": _("FAQ - Frequently Asked Questions - Arborist Tom Aakrann"),
+        "meta_description": _(
+            "Frequently asked questions about tree care, distance zones, rush orders, and methods in Luxembourg."
+        ),
+        "faq_items": faq_items,
+    }
+    return render(request, "arborist/faq.html", context)
+
+
+# =============================================================================
+# Contact View
+# =============================================================================
+
+
 @require_http_methods(["GET", "POST"])
 def contact(request):
-    """Contact information and form with email handling."""
+    """General contact form with email handling."""
     if request.method == "POST":
         form = ContactForm(request.POST)
         if form.is_valid():
-            # Extract form data
             name = form.cleaned_data["name"]
             email = form.cleaned_data["email"]
             phone = form.cleaned_data["phone"] or "Not provided"
             service = form.cleaned_data["service"] or "Not specified"
             message_text = form.cleaned_data["message"]
 
-            # Service name mapping
             service_names = {
                 "obstbaumpflege": "Fruit Tree Care",
                 "baumpflege": "Tree Care",
@@ -157,10 +235,8 @@ def contact(request):
             }
             service_display = service_names.get(service, service)
 
-            # Compose email
             subject = f"[Arborist.lu] New inquiry from {name}"
-            email_body = f"""
-New contact form submission from arborist.lu:
+            email_body = f"""New contact form submission from arborist.lu:
 
 Name: {name}
 Email: {email}
@@ -171,49 +247,28 @@ Message:
 {message_text}
 
 ---
-This message was sent via the arborist.lu contact form.
+Sent via arborist.lu contact form.
 """
 
             try:
-                # Send notification to Tom (with CC to other addresses)
                 send_domain_email(
                     subject=subject,
                     message=email_body,
                     recipient_list=["tom@arborist.lu"],
                     cc=["tom@powerup.lu", "taakrann@pt.lu"],
-                    request=request,  # Auto-detects arborist.lu domain
+                    request=request,
                     fail_silently=False,
                 )
 
-                # Send confirmation email to the sender (multi-language)
                 confirmation_subject = "Arborist.lu - Merci / Danke / Thank you"
-                confirmation_body = f"""
-Moien {name},
+                confirmation_body = f"""Moien {name},
 
-Merci fir Är Noriicht! Ech hunn Är Ufro kritt an äntweren Iech esou séier wéi méiglech.
+Merci fir Är Noriicht! Mir hu Är Ufro kritt an äntwere sou séier wéi méiglech.
 
----
+Vielen Dank für Ihre Anfrage! Wir melden uns schnellstmöglich bei Ihnen.
+Merci pour votre demande! Nous vous répondrons dans les plus brefs délais.
 
-Hallo {name},
-
-Vielen Dank für Ihre Nachricht! Ich habe Ihre Anfrage erhalten und werde mich so schnell wie möglich bei Ihnen melden.
-
----
-
-Bonjour {name},
-
-Merci pour votre message ! J'ai bien reçu votre demande et je vous répondrai dans les plus brefs délais.
-
----
-
-Hello {name},
-
-Thank you for your message! I have received your inquiry and will get back to you as soon as possible.
-
----
-
-Mat frëndleche Gréiss / Mit freundlichen Grüßen / Cordialement / Best regards,
-
+Mat frëndleche Gréiss / Mit freundlichen Grüßen,
 Tom Aakrann
 Arborist.lu
 +352 621 981 363
@@ -223,25 +278,20 @@ Arborist.lu
                     message=confirmation_body,
                     recipient_list=[email],
                     request=request,
-                    fail_silently=True,  # Don't fail if confirmation fails
+                    fail_silently=True,
                 )
 
                 messages.success(
                     request,
-                    _(
-                        "Thank you for your message! I will get back to you as soon as possible."
-                    ),
+                    _("Thank you for your message! I will get back to you as soon as possible."),
                 )
-                logger.info(f"Contact form submitted by {email} for {service}")
+                logger.info("Contact form submitted by %s for %s", email, service)
                 return redirect("arborist:contact")
             except Exception as e:
-                logger.error(f"Failed to send contact email: {e}")
+                logger.error("Failed to send contact email: %s", e)
                 messages.error(
                     request,
-                    _(
-                        "Sorry, there was an error sending your message. "
-                        "Please try calling or WhatsApp instead."
-                    ),
+                    _("Sorry, there was an error sending your message. Please try calling or WhatsApp instead."),
                 )
     else:
         form = ContactForm()
@@ -258,73 +308,164 @@ Arborist.lu
 
 
 # =============================================================================
-# Gallery & FAQ
+# Booking System & Zone Calculator Views
 # =============================================================================
 
 
 @require_GET
-def gallery(request):
-    """Photo gallery with before/after images."""
+def api_calculate_zone(request):
+    """
+    JSON API for real-time frontend zone and prepayment calculation.
+    Query params: postal_code, is_rush (true/false), city (optional).
+    """
+    postal_code = request.GET.get("postal_code", "")
+    is_rush = request.GET.get("is_rush", "").lower() in ("true", "1", "yes", "on")
+    city = request.GET.get("city", "")
+
+    quote = calculate_zone(postal_code=postal_code, city_or_commune=city, is_rush=is_rush)
+    return JsonResponse(quote.to_dict())
+
+
+@require_http_methods(["GET", "POST"])
+def booking(request):
+    """
+    Interactive appointment booking view with distance-based prepayment zones.
+    """
+    initial = {}
+    service_param = request.GET.get("service")
+    if service_param:
+        initial["service_type"] = service_param
+
+    if request.method == "POST":
+        form = BookingForm(request.POST)
+        if form.is_valid():
+            booking_obj = form.save(commit=False)
+
+            # Calculate zone & prepayment
+            quote = calculate_zone(
+                postal_code=booking_obj.postal_code,
+                city_or_commune=booking_obj.city_or_commune,
+                is_rush=booking_obj.is_rush,
+            )
+
+            booking_obj.zone = quote.zone
+            booking_obj.distance_km = Decimal(str(quote.distance_km))
+            booking_obj.prepayment_amount = quote.total_prepayment_eur
+            booking_obj.save()
+
+            # Prepare notification emails
+            ref = booking_obj.booking_reference
+            clean_phone_digits = "".join(filter(str.isdigit, booking_obj.phone))
+            whatsapp_msg = urllib.parse.quote(
+                f"Moien {booking_obj.name}, hei ass den Tom Aakrann vun Arborist.lu wéinst Ärer Buchung {ref}."
+            )
+            whatsapp_url = f"https://wa.me/{clean_phone_digits}?text={whatsapp_msg}"
+
+            urgency_tag = "🚨 RUSH ORDER" if booking_obj.is_rush else "New Booking"
+            admin_subject = f"[{urgency_tag}] Arborist.lu: {ref} - {booking_obj.name} ({quote.zone_name})"
+            admin_body = f"""Arborist.lu Booking Request:
+
+Reference: {ref}
+Urgency: {'🚨 RUSH ORDER (24-48h)' if booking_obj.is_rush else 'Standard'}
+Client: {booking_obj.name}
+Email: {booking_obj.email}
+Phone: {booking_obj.phone}
+Address: {booking_obj.street_address}, {booking_obj.postal_code} {booking_obj.city_or_commune}
+
+Service: {booking_obj.get_service_type_display()}
+Number of Trees: {booking_obj.number_of_trees or 'Not specified'}
+Preferred Date: {booking_obj.preferred_date or 'Flexible'}
+Preferred Time: {booking_obj.get_preferred_time_slot_display()}
+
+Calculated Zone: Zone {quote.zone} (~{quote.distance_km} km from Altrier)
+Prepayment Amount: {quote.total_prepayment_eur:.2f} €
+(Base: {quote.base_prepayment_eur:.2f} €, Rush: {quote.rush_fee_eur:.2f} €)
+
+Client Notes:
+{booking_obj.notes or 'No additional notes.'}
+
+---
+WhatsApp Quick Action: {whatsapp_url}
+Admin Dashboard: https://arborist.lu/arborist-admin/arborist/arboristbooking/{booking_obj.id}/change/
+"""
+
+            try:
+                send_domain_email(
+                    subject=admin_subject,
+                    message=admin_body,
+                    recipient_list=["tom@arborist.lu"],
+                    cc=["tom@powerup.lu", "taakrann@pt.lu"],
+                    request=request,
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.error("Failed to send booking notification to Tom: %s", e)
+
+            # Send client confirmation
+            client_subject = f"Arborist.lu - {_('Booking Confirmation')} {ref}"
+            client_body = f"""Moien {booking_obj.name},
+
+Merci fir Är Buchung bei Arborist Tom Aakrann! / Vielen Dank für Ihre Terminanfrage!
+
+Buchungsreferenz / Référence: {ref}
+Service: {booking_obj.get_service_type_display()}
+Adresse: {booking_obj.street_address}, {booking_obj.postal_code} {booking_obj.city_or_commune}
+Zone: Zone {quote.zone} ({quote.zone_name})
+Dringlichkeit / Urgence: {'🚨 Rush Order (24-48h)' if booking_obj.is_rush else 'Standard'}
+
+Anfahrtspauschale / Acompte: {quote.total_prepayment_eur:.2f} €
+(Hinweis: Dieser Betrag wird bei Durchführung zu 100% mit der Gesamtrechnung verrechnet!)
+
+Bankverbindung für die Vorabpauschale / Virement bancaire:
+Empfänger: Tom Aakrann / Arborist.lu
+IBAN: LU86 0030 8123 4567 8901 (BGL BNP Paribas)
+BIC: BGLULULL
+Verwendungszweck: {ref}
+
+Mir kontaktéieren Iech kuerzfristeg fir den genauen Termin ze confirméieren.
+Wir melden uns in Kürze zur finalen Terminbestätigung.
+
+Mat frëndleche Gréiss / Best regards,
+Tom Aakrann
+Arborist.lu
++352 621 981 363
+"""
+            try:
+                send_domain_email(
+                    subject=client_subject,
+                    message=client_body,
+                    recipient_list=[booking_obj.email],
+                    request=request,
+                    fail_silently=True,
+                )
+            except Exception as e:
+                logger.warning("Failed to send booking confirmation to client: %s", e)
+
+            messages.success(
+                request,
+                _("Your booking request has been successfully submitted!"),
+            )
+            return redirect("arborist:booking_success", reference=ref)
+    else:
+        form = BookingForm(initial=initial)
+
     context = {
-        "page_title": _("Gallery - Arborist Tom Aakrann"),
+        "page_title": _("Book an Appointment - Arborist Tom Aakrann"),
         "meta_description": _(
-            "Photos of tree care projects in Luxembourg. Before and after images "
-            "of fruit tree care, crown maintenance, and tree removal."
+            "Book an on-site tree care appointment or inspection. "
+            "Transparent distance-based prepayment (Zone 1: 50€, Zone 2: 100€). Rush orders available."
         ),
+        "form": form,
     }
-    return render(request, "arborist/gallery.html", context)
+    return render(request, "arborist/booking.html", context)
 
 
 @require_GET
-def faq(request):
-    """Frequently asked questions."""
-    # FAQ items for structured data
-    faq_items = [
-        {
-            "question": _("How much does a tree inspection cost?"),
-            "answer": _(
-                "The cost of a tree inspection depends on the number of trees "
-                "and the effort required. Contact me for an individual quote."
-            ),
-        },
-        {
-            "question": _("When is the best time for fruit tree pruning?"),
-            "answer": _(
-                "The best time for fruit tree pruning varies depending on the type of fruit. "
-                "Pome fruit (apple, pear) is usually pruned in winter, "
-                "stone fruit (cherry, plum) after harvest in summer."
-            ),
-        },
-        {
-            "question": _("Do you also work with rope climbing technique?"),
-            "answer": _(
-                "Yes, I am SKT-B certified and work with professional "
-                "rope climbing technique. This enables tree-friendly care even without "
-                "heavy machinery."
-            ),
-        },
-        {
-            "question": _("In which regions do you operate?"),
-            "answer": _(
-                "I operate throughout Luxembourg, with a focus on the center "
-                "and south of the country."
-            ),
-        },
-        {
-            "question": _("Do you also offer emergency services?"),
-            "answer": _(
-                "Yes, for storm damage or other emergencies I am also available on short notice. "
-                "Contact me by phone for urgent inquiries."
-            ),
-        },
-    ]
-
+def booking_success(request, reference):
+    """Booking confirmation screen with summary and payment details."""
+    booking_obj = get_object_or_404(ArboristBooking, booking_reference=reference)
     context = {
-        "page_title": _("FAQ - Frequently Asked Questions - Arborist Tom Aakrann"),
-        "meta_description": _(
-            "Frequently asked questions about tree care in Luxembourg. "
-            "Answers about costs, timing, methods, and services."
-        ),
-        "faq_items": faq_items,
+        "page_title": _("Booking Received - Arborist Tom Aakrann"),
+        "booking": booking_obj,
     }
-    return render(request, "arborist/faq.html", context)
+    return render(request, "arborist/booking_success.html", context)
