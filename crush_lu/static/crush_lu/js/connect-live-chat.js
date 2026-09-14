@@ -82,6 +82,7 @@
     let delay = 5000;
     try {
       const data = await request(root.dataset.messagesUrl + '?after=' + cursor);
+      if (!data.is_open) stop();
       const stick = nearBottom();
       let added = false;
       for (const message of data.messages) {
@@ -91,7 +92,7 @@
       if (added && stick) bottom();
       else if (added) newButton.hidden = false;
       if (data.has_more) delay = 0;
-      pollStatus.textContent = '';
+      if (!stopped) pollStatus.textContent = '';
       acknowledge();
     } catch {
       delay = 30000;
@@ -107,12 +108,13 @@
     older.disabled = true;
     try {
       const data = await request(root.dataset.messagesUrl + '?before=' + oldest);
+      if (!data.is_open) stop();
       const height = thread.scrollHeight, top = thread.scrollTop;
       data.messages.forEach(append);
       thread.scrollTop = top + thread.scrollHeight - height;
       older.hidden = !data.has_older;
       acknowledge();
-    } catch { if (!stopped) pollStatus.textContent = root.dataset.retrying; }
+    } catch { pollStatus.textContent = root.dataset.retrying; }
     finally { historyLoading = false; older.disabled = false; }
   });
   form?.addEventListener('submit', async event => {

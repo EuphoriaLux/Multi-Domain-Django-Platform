@@ -48,6 +48,12 @@ def _get_participant_chat(user, chat_id):
         Q(participant_1=user) | Q(participant_2=user),
         pk=chat_id,
     )
+    if not _participants_available(chat):
+        raise Http404
+    return chat
+
+
+def _participants_available(chat):
     for member in (chat.participant_1, chat.participant_2):
         membership = getattr(member, "crush_connect_membership", None)
         profile = getattr(member, "crushprofile", None)
@@ -55,10 +61,12 @@ def _get_participant_chat(user, chat_id):
             not member.is_active
             or not profile
             or not profile.is_active
-            or (membership and membership.excluded_by_coach)
+            or not membership
+            or not membership.is_onboarded
+            or membership.excluded_by_coach
         ):
-            raise Http404
-    return chat
+            return False
+    return True
 
 
 @crush_login_required
@@ -79,6 +87,8 @@ def connect_week_chats(request):
         .select_related("participant_1__crushprofile", "participant_2__crushprofile")
         .order_by("-created_at")
     ):
+        if not _participants_available(chat):
+            continue
         chat = sync_chat_state(chat)
         chat.partner = chat.get_other_participant(user)
         chat.latest_message = (
@@ -299,10 +309,8 @@ def _message_json(message, user):
 @require_GET
 def connect_chat_messages(request, chat_id):
     chat = sync_chat_state(_get_participant_chat(request.user, chat_id))
-    if not chat_is_open(chat):
-        return JsonResponse(
-            {"error": str(_("This conversation has ended."))}, status=410
-        )
+    # Preserve participants' read-only history after closure. Sending and read
+    # acknowledgements keep their separate open-chat gates.
     try:
         after = int(request.GET.get("after", 0))
         before = int(request.GET.get("before", 0))
@@ -319,6 +327,7 @@ def connect_chat_messages(request, chat_id):
         rows = list(reversed(list(queryset.order_by("-pk")[:50])))
     return JsonResponse(
         {
+            "is_open": chat_is_open(chat),
             "messages": [_message_json(row, request.user) for row in rows],
             "has_older": bool(
                 rows and chat.messages.filter(pk__lt=rows[0].pk).exists()
