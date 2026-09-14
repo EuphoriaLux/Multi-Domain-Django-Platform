@@ -3,7 +3,7 @@
 from django.db.models import Q
 from django.utils import timezone
 
-from crush_lu.connect_phase import cycle_access_open
+from crush_lu.connect_phase import candidate_access_open, cycle_access_open
 from crush_lu.models import (
     ConnectChatMessage,
     ConnectCycleCard,
@@ -22,6 +22,10 @@ from crush_lu.services.crush_connect import is_catalogue_eligible
 def get_connect_summary(user):
     membership = getattr(user, "crush_connect_membership", None)
     participating = bool(membership and membership.is_participating)
+    visible = is_catalogue_eligible(user)
+    inbox_access = not (membership and membership.is_paused) and (
+        user.is_staff or (candidate_access_open() and visible)
+    )
     cycle_access = user.is_staff or (participating and cycle_access_open(user))
     session = ConnectWeekSession.objects.filter(user=user).first()
     if session:
@@ -58,8 +62,8 @@ def get_connect_summary(user):
     )
     return {
         "cycle_access": cycle_access,
-        "is_visible": is_catalogue_eligible(user),
-        "pending_requests": len(get_pending_inbox(user)) if participating else 0,
+        "is_visible": visible,
+        "pending_requests": len(get_pending_inbox(user)) if inbox_access else 0,
         "chat_count": chats.count(),
         "unread_chats": chats.filter(
             pk__in=ConnectChatMessage.objects.filter(read_at__isnull=True)
