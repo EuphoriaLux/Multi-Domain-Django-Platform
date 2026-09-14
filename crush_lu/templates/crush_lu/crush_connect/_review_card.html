@@ -18,7 +18,7 @@ Context:
 {% endcomment %}
 {% load i18n crush_media %}
 <details class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col">
-    <summary class="px-4 font-semibold">{{ target.first_name|default:_("A member") }} · {{ target_profile.age_range }}{% if sent_request.recipient_id == target.pk %} · {% trans "Request sent" %}{% endif %}</summary>
+    <summary class="px-4 font-semibold">{{ target.first_name|default:_("A member") }} · {{ target_profile.age_range }}{% if sent_request.recipient_id == target.pk %} · {% trans "Request sent" %}{% endif %}{% if target.pk == highlight_user_id %}<span class="block text-xs text-crush-purple dark:text-crush-pink">{% trans "Suggested connection" %}</span>{% endif %}</summary>
     <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
         {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none"></div>

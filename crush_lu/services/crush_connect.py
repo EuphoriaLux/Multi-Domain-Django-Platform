@@ -452,6 +452,22 @@ def active_week_questions(today: date | None = None):
 # ---------------------------------------------------------------------------
 
 
+def filter_catalogue_eligible(qs):
+    """Queryset equivalent of is_catalogue_eligible for stored-card read paths."""
+    return filter_connect_identity_verified(
+        qs.filter(
+            is_active=True,
+            crushprofile__is_active=True,
+            crush_connect_membership__onboarded_at__isnull=False,
+            crush_connect_membership__excluded_by_coach=False,
+            crush_connect_membership__paused_at__isnull=True,
+            crush_connect_membership__photo_share_consent=True,
+            last_login__gte=timezone.now()
+            - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS),
+        ).exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
+    )
+
+
 def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:

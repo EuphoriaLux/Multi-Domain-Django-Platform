@@ -5,7 +5,11 @@ from django.utils import timezone
 
 from crush_lu.connect_phase import cycle_access_open
 from crush_lu.models import ConnectCycleCard, ConnectTemporaryChat, ConnectWeekSession
-from crush_lu.services.connect_cycle import get_pending_inbox, sync_session_state
+from crush_lu.services.connect_cycle import (
+    get_pending_inbox,
+    sync_session_state,
+    visible_cycle_cards,
+)
 from crush_lu.services.crush_connect import is_catalogue_eligible
 
 
@@ -23,6 +27,12 @@ def get_connect_summary(user):
         if session
         else ConnectCycleCard.objects.none()
     )
+    cards = visible_cycle_cards(
+        cards.select_related(
+            "target_user__crushprofile", "target_user__crush_connect_membership"
+        ),
+        user,
+    )
     chats = ConnectTemporaryChat.objects.filter(
         Q(participant_1=user) | Q(participant_2=user),
         expires_at__gt=timezone.now(),
@@ -34,6 +44,6 @@ def get_connect_summary(user):
         "chat_count": chats.count(),
         "session": session,
         "review_open": bool(cycle_access and session and session.is_review_active),
-        "daily_total": cards.count(),
-        "daily_completed": cards.filter(is_completed=True).count(),
+        "daily_total": len(cards),
+        "daily_completed": sum(card.is_completed for card in cards),
     }
