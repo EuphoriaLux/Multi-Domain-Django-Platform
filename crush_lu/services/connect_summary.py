@@ -44,6 +44,7 @@ def get_connect_summary(user):
         ),
         user,
     )
+    blocked = blocked_user_ids(user)
     chats = ConnectTemporaryChat.objects.filter(
         Q(participant_1=user) | Q(participant_2=user),
         expires_at__gt=timezone.now(),
