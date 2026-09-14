@@ -48,7 +48,7 @@
         <div class="grid grid-cols-1 gap-6">
             {% for card in cards %}
                 <details name="daily-cards" class="rounded-2xl bg-white dark:bg-slate-800" {% if card.pk == next_card_id %}open{% endif %}>
-                <summary class="px-4 font-semibold">{{ card.target_user.first_name }} · {% if card.is_completed %}{% trans "Completed" %}{% else %}{% trans "Answer questions" %}{% endif %}</summary>
+                <summary class="px-4 font-semibold">{{ card.target_user.first_name|default:_("A member") }} · {% if card.is_completed %}{% trans "Completed" %}{% else %}{% trans "Answer questions" %}{% endif %}</summary>
                 {% include "crush_lu/crush_connect/_cycle_card.html" with card=card target=card.target_user target_profile=card.target_user.crushprofile target_membership=card.target_user.crush_connect_membership answered_ids=answered_ids %}
                 </details>
             {% endfor %}

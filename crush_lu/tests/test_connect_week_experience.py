@@ -97,6 +97,35 @@ def _answer_all(card):
     return record_card_answer(card, guesses)
 
 
+@pytest.mark.django_db
+def test_inbox_profile_interests_are_prefetched(settings, django_assert_num_queries):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    recipient = _make_cycle_user("inbox_recipient", gender="F")
+    for index in range(3):
+        sender = _make_cycle_user(f"inbox_sender_{index}")
+        session, card = _reviewable_session_with_card(sender, recipient)
+        send_weekly_request(session, sender, recipient)
+    requests = get_pending_inbox(recipient)
+    assert len(requests) == 3
+    with django_assert_num_queries(0):
+        for pending in requests:
+            list(pending.requester.crush_connect_membership.interests.all())
+
+
+@pytest.mark.django_db
+def test_review_confirmation_uses_member_name_fallback(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_cycle_user("review_viewer")
+    target = _make_cycle_user("unnamed", gender="F")
+    target.first_name = ""
+    target.save(update_fields=["first_name"])
+    _reviewable_session_with_card(member, target)
+    _login_eligible(client, member)
+    body = client.get(WEEK_REVIEW_URL).content.decode()
+    assert "Choose A member" in body
+    assert "Send your one weekly request to A member?" in body
+
+
 # ---------------------------------------------------------------------------
 # Eligible pool
 # ---------------------------------------------------------------------------
@@ -667,7 +696,9 @@ def test_week_card_answer_view_records_and_redirects(client, settings):
     client.get(WEEK_HOME_URL)  # triggers session + card generation
     card = ConnectCycleCard.objects.filter(session__user=me).first()
     membership = card.target_user.crush_connect_membership
-    data = {f"answer_{gq.question_id}": "yes" for gq in membership.active_gate_questions}
+    data = {
+        f"answer_{gq.question_id}": "yes" for gq in membership.active_gate_questions
+    }
 
     resp = client.post(f"/en/crush-connect/week/card/{card.pk}/answer/", data)
 
@@ -749,8 +780,9 @@ def test_week_review_shows_stored_guess_not_targets_current_questions(client, se
     from crush_lu.models import ConnectQuestion, MemberGateQuestion
 
     replacement_questions = list(
-        ConnectQuestion.objects.filter(is_active=True)
-        .exclude(pk__in=[q.pk for q in original_questions])[:3]
+        ConnectQuestion.objects.filter(is_active=True).exclude(
+            pk__in=[q.pk for q in original_questions]
+        )[:3]
     )
     assert len(replacement_questions) == 3, "fixture needs >=6 active questions"
     membership = target.crush_connect_membership
@@ -806,7 +838,9 @@ def test_week_request_send_view_creates_request(client, settings):
     resp = client.post(f"/en/crush-connect/week/review/{card.pk}/request/")
 
     assert resp.status_code in (302, 301)
-    assert ConnectWeeklyRequest.objects.filter(session=session, recipient=target).exists()
+    assert ConnectWeeklyRequest.objects.filter(
+        session=session, recipient=target
+    ).exists()
 
 
 @pytest.mark.django_db
