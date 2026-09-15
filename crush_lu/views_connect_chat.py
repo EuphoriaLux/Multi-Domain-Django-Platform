@@ -136,18 +136,32 @@ def connect_week_chat_detail(request, chat_id: int):
         )
         is_proposer = coffee_date.proposer_id == user.id
 
+    chat_messages = list(
+        reversed(list(chat.messages.select_related("sender").order_by("-pk")[:50]))
+    )
+    is_open = chat_is_open(chat)
+    if is_open:
+        # Rendering the thread is reading it. The JavaScript /read/ call is an
+        # enhancement; without it the unread badge would never clear. Same
+        # open-chat gate as connect_chat_read.
+        unread_ids = [
+            m.pk for m in chat_messages if m.sender_id != user.id and m.read_at is None
+        ]
+        if unread_ids:
+            chat.messages.filter(pk__in=unread_ids, read_at__isnull=True).update(
+                read_at=timezone.now()
+            )
+
     context = {
         "chat": chat,
         "partner": partner,
-        "chat_messages": list(
-            reversed(list(chat.messages.select_related("sender").order_by("-pk")[:50]))
-        ),
+        "chat_messages": chat_messages,
         "coffee_date": coffee_date,
         "is_proposer": is_proposer,
         "my_confirmed_at": my_confirmed_at,
         "partner_confirmed_at": partner_confirmed_at,
         "venues": get_partner_venues(),
-        "is_open": chat_is_open(chat),
+        "is_open": is_open,
         "message_max_length": CHAT_MESSAGE_MAX_LENGTH,
         "today": timezone.localdate(),
     }

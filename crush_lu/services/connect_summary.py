@@ -21,6 +21,13 @@ from crush_lu.services.crush_connect import get_active_coach_pick, is_catalogue_
 
 def get_connect_summary(user):
     membership = getattr(user, "crush_connect_membership", None)
+    # Today / Requests / Chats are Connect features: a member still preparing
+    # on the hub would only be bounced to onboarding or the teaser by them.
+    nav_access = user.is_staff or bool(
+        membership
+        and membership.onboarded_at is not None
+        and not membership.excluded_by_coach
+    )
     participating = bool(membership and membership.is_participating)
     visible = is_catalogue_eligible(user)
     inbox_access = not (membership and membership.is_paused) and (
@@ -64,6 +71,7 @@ def get_connect_summary(user):
         get_active_coach_pick(user, include_accepted=True) if participating else None
     )
     return {
+        "nav_access": nav_access,
         "cycle_access": cycle_access,
         "coach_pick_status": coach_pick.status if coach_pick else "",
         "is_visible": visible,
