@@ -39,7 +39,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             {% for value, label in form.preferred_genders.field.choices %}{% if value != 'P' %}
             <label class="cursor-pointer block">
-                <input type="checkbox" name="preferred_genders" value="{{ value }}" class="peer hidden"
+                <input type="checkbox" name="preferred_genders" value="{{ value }}" class="peer sr-only"
                        {% if value in form.preferred_genders.value %}checked{% endif %}>
                 <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
                             border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
@@ -64,7 +64,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.first_step_preference.field.choices %}
             <label class="cursor-pointer block">
-                <input type="radio" name="first_step_preference" value="{{ value }}" class="peer hidden"
+                <input type="radio" name="first_step_preference" value="{{ value }}" class="peer sr-only"
                        {% if form.first_step_preference.value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}>
                 <div class="connect-selectable flex items-center justify-center text-center gap-1 rounded-[14px] px-3 py-2.5 text-sm font-medium">
                     {{ label }}

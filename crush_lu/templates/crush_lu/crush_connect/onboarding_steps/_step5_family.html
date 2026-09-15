@@ -12,7 +12,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.has_children.field.choices %}{% if value %}
             <label class="cursor-pointer block">
-                <input type="radio" name="has_children" value="{{ value }}" class="peer hidden" {% if form.has_children.value == value %}checked{% endif %}>
+                <input type="radio" name="has_children" value="{{ value }}" class="peer sr-only" {% if form.has_children.value == value %}checked{% endif %}>
                 <div class="connect-selectable w-full text-center px-3 py-2.5 rounded-[14px] text-sm font-medium">{{ label }}</div>
             </label>
             {% endif %}{% endfor %}
@@ -25,7 +25,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {% for value, label in form.wants_children.field.choices %}{% if value %}
             <label class="cursor-pointer block">
-                <input type="radio" name="wants_children" value="{{ value }}" class="peer hidden" {% if form.wants_children.value == value %}checked{% endif %}>
+                <input type="radio" name="wants_children" value="{{ value }}" class="peer sr-only" {% if form.wants_children.value == value %}checked{% endif %}>
                 <div class="connect-selectable w-full text-center px-3 py-2.5 rounded-[14px] text-sm font-medium">{{ label }}</div>
             </label>
             {% endif %}{% endfor %}
@@ -38,7 +38,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {% for value, label in form.relationship_timeline.field.choices %}{% if value %}
             <label class="cursor-pointer block">
-                <input type="radio" name="relationship_timeline" value="{{ value }}" class="peer hidden" {% if form.relationship_timeline.value == value %}checked{% endif %}>
+                <input type="radio" name="relationship_timeline" value="{{ value }}" class="peer sr-only" {% if form.relationship_timeline.value == value %}checked{% endif %}>
                 <div class="connect-selectable w-full text-center px-3 py-2.5 rounded-[14px] text-sm font-medium">{{ label }}</div>
             </label>
             {% endif %}{% endfor %}

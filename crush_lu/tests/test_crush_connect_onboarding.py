@@ -43,6 +43,44 @@ ONBOARDING_URL = "/en/crush-connect/onboarding/"
 PROFILE_EDIT_URL = "/en/crush-connect/profile/"
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize("onboarded", [False, True])
+def test_invalid_connect_forms_retain_unsaved_state(client, settings, onboarded):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="invalid_form", onboarded=onboarded)
+    _login_eligible(client, me)
+    url = PROFILE_EDIT_URL + "?section=intention" if onboarded else _step_url(1)
+    clean = client.get(url)
+    assert b'data-initial-dirty="false"' in clean.content
+    rejected = client.post(
+        url, {"relationship_goal": "invalid", "section": "intention"}
+    )
+    assert rejected.status_code == 200
+    assert b'data-initial-dirty="true"' in rejected.content
+    assert me.crush_connect_membership.relationship_goal != "invalid"
+
+
+@pytest.mark.django_db
+def test_profile_preview_and_section_labels_disclose_public_fields(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="privacy_labels")
+    membership = me.crush_connect_membership
+    membership.relationship_goal = "serious"
+    membership.save(update_fields=["relationship_goal"])
+    _login_eligible(client, me)
+    response = client.get(PROFILE_EDIT_URL)
+    body = response.content.decode()
+    assert body.count("Includes public card content") == 3
+    assert body.count("Hidden from other members") == 3
+    assert "Public questions; answers hidden from members" in body
+    assert "Coaches can see your answers, life situation and family preferences" in body
+    assert (
+        "Also visible in Coach&#x27;s Pick" in body
+        or "Also visible in Coach's Pick" in body
+    )
+    assert membership.get_relationship_goal_display() in body
+
+
 def _step_url(step):
     return f"/en/crush-connect/onboarding/{step}/"
 
@@ -453,6 +491,24 @@ def test_fewer_than_three_questions_rejected(client, settings):
     m = CrushConnectMembership.objects.get(user=me)
     assert m.onboarded_at is None
     assert m.gate_questions.count() == 0
+    for error in resp.context["form"].non_field_errors():
+        assert resp.content.decode().count(str(error)) == 1
+
+
+@pytest.mark.django_db
+def test_question_editor_renders_validation_error_once(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="question_error", onboarded=True)
+    _login_eligible(client, me)
+    ids = _week_question_ids(2)
+    data = {f"q_{qid}": "yes" for qid in ids}
+    data["section"] = "questions"
+    response = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
+    assert response.status_code == 200
+    errors = response.context["form"].non_field_errors()
+    assert errors
+    for error in errors:
+        assert response.content.decode().count(str(error)) == 1
 
 
 @pytest.mark.django_db
@@ -486,8 +542,8 @@ def _login_at_step_4(client, settings):
 
 @pytest.mark.django_db
 def test_life_step_renders_slider_and_tiles(client, settings):
-    """Step 4 renders the height slider (single named hidden input) and radio
-    tiles for all four choice fields — the native selects are gone."""
+    """Step 4 retains the height slider and smoking/drinking tiles, with
+    labelled selects for work and education."""
     _login_at_step_4(client, settings)
 
     resp = client.get(_step_url(4))
@@ -496,13 +552,13 @@ def test_life_step_renders_slider_and_tiles(client, settings):
     assert 'x-data="heightSlider"' in body
     # Only the hidden input carries the field name; the visible range is unnamed.
     assert body.count('name="height_cm"') == 1
-    assert body.count('name="work_field"') == 14
-    assert body.count('name="education_level"') == 6
+    assert body.count('<select name="work_field"') == 1
+    assert body.count('<select name="education_level"') == 1
     assert body.count('name="smoking"') == 4
     assert body.count('name="drinking"') == 4
-    assert "💻" in body  # emoji tiles present
-    assert '<select name="work_field"' not in body
-    assert '<select name="education_level"' not in body
+    assert 'value="prefer_not_say"' in body
+    assert '<select name="work_field"' in body
+    assert '<select name="education_level"' in body
 
 
 @pytest.mark.django_db
@@ -555,7 +611,7 @@ def test_life_step_height_out_of_bounds_rejected(client, settings):
     assert resp.status_code == 200  # re-render with errors
     assert CrushConnectMembership.objects.get(user=me).height_cm is None
     body = resp.content.decode()
-    assert re.search(r'name="work_field" value="it"[^>]*checked', body)
+    assert re.search(r'<option value="it"[^>]*selected', body)
 
 
 @pytest.mark.django_db
@@ -572,7 +628,7 @@ def test_profile_edit_life_section_renders_and_saves(client, settings):
     body = resp.content.decode()
     assert 'name="section" value="life"' in body
     assert 'x-data="heightSlider"' in body
-    assert body.count('name="work_field"') == 14
+    assert body.count('<select name="work_field"') == 1
 
     data = dict(_valid_step_data(4), section="life", height_cm="172")
     resp = client.post(PROFILE_EDIT_URL + "?section=life", data=data)
@@ -603,6 +659,11 @@ def test_attended_member_completion_redirects_to_connect_week(
     assert resp.status_code in (301, 302)
     assert "/crush-connect/week/" in resp.url
     assert len(mailoutbox) == 0
+    from django.contrib.messages import get_messages
+
+    completion_messages = list(get_messages(resp.wsgi_request))
+    assert len(completion_messages) == 1
+    assert "You are now visible" in str(completion_messages[0])
 
 
 @pytest.mark.django_db

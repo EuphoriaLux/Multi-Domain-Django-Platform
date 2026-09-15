@@ -108,6 +108,7 @@ def _user_passes_pre_onboarding_gate(user) -> bool:
         return False
     return profile.is_connect_identity_verified
 
+
 def _hub_access_blocker(user):
     """Gate for the Crush Connect hub.
 
@@ -386,18 +387,13 @@ def crush_connect_onboarding(request):
 def _emit_onboarding_complete(request, done_url):
     """Show the appropriate Connect Week/Mix welcome and send the welcome mail."""
     user = request.user
-    if cycle_access_open(user):
-        messages.success(
-            request, _("Welcome to Crush Connect — your Connect Week is ready.")
-        )
-    else:
-        messages.success(
-            request,
-            _(
-                "Welcome to Crush Connect — you're in the mix and can "
-                "be matched by a Crush Coach."
-            ),
-        )
+    messages.success(
+        request,
+        _(
+            "You are now visible in Crush Connect. Open Today to see your next step, or check Requests for invitations."
+        ),
+    )
+    if not cycle_access_open(user):
         send_crush_connect_catalogue_welcome(user, request)
 
 
@@ -1000,6 +996,8 @@ def crush_connect_coach_pick(request):
         "crush_lu/crush_connect/coach_pick.html",
         {"coach_pick": get_active_coach_pick(request.user)},
     )
+
+
 # ---------------------------------------------------------------------------
 # Coach Picks (M7) — coach curation interface + member response
 # ---------------------------------------------------------------------------

@@ -1,0 +1,8 @@
+{% load i18n %}
+{% if form.errors %}
+<div data-validation-summary tabindex="-1" role="alert" class="rounded-xl bg-red-50 dark:bg-red-900/20 p-4 mb-4 text-red-800 dark:text-red-200">
+    <h2 class="text-base">{% trans "Please check your answers" %}</h2>
+    <ul>{% for field in form %}{% if field.errors %}<li><a href="#{{ field.id_for_label }}" data-error-field="{{ field.name }}">{{ field.label }}: {{ field.errors|join:' ' }}</a></li>{% endif %}{% endfor %}</ul>
+    {{ form.non_field_errors }}
+</div>
+{% endif %}

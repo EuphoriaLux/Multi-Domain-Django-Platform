@@ -11,7 +11,7 @@
         {% for value, label in form.relationship_goal.field.choices %}
         {% if value %}
         <label class="cursor-pointer block">
-            <input type="radio" name="relationship_goal" value="{{ value }}" class="peer hidden"
+            <input type="radio" name="relationship_goal" value="{{ value }}" class="peer sr-only"
                    {% if form.relationship_goal.value == value %}checked{% endif %}>
             <div class="connect-selectable flex items-center gap-4 rounded-[14px] px-4 py-4 text-left">
                 <span class="text-2xl flex-shrink-0">{% if value == 'serious' %}💍{% elif value == 'open' %}🌊{% else %}🔍{% endif %}</span>
