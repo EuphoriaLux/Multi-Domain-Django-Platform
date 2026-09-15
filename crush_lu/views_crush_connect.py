@@ -274,7 +274,7 @@ def _connect_readiness(user):
     ]
     completed_count = sum(step["complete"] for step in steps)
     return {
-        "steps": steps,
+        "steps": sorted(steps, key=lambda step: step["complete"]),
         "completed_count": completed_count,
         "total_count": len(steps),
         "is_complete": completed_count == len(steps),

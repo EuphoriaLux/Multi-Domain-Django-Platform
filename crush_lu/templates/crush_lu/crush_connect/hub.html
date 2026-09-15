@@ -42,61 +42,41 @@
     </section>
     {% else %}
 
-    {# Editorial hero — sells the "curated, not swiped" promise. #}
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-6 mb-5">
-        <div class="absolute -right-6 top-2 w-36 h-36 opacity-50 pointer-events-none">
-            {% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}
-        </div>
-        <p class="relative text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-3">{% trans "Crush Connect" %}</p>
-        <h1 class="relative font-display text-3xl font-semibold tracking-tight text-white mb-2 max-w-[15rem]">
-            {% trans "Curated, never swiped." %}
-        </h1>
-        <p class="relative text-sm leading-relaxed text-white/90 max-w-[16rem] mb-0">
-            {% if not membership.is_onboarded and not user.is_staff %}
-                {% trans "Complete your setup below. You are not visible in Connect until you explicitly finish onboarding." %}
-            {% elif not connect_readiness.is_complete %}
-                {% trans "Complete the steps below to prepare your Connect profile and weekly experience." %}
-            {% elif has_premium %}
-                {% trans "Connect Week for deliberate discovery, plus one human-curated Coach Pick each week." %}
-            {% else %}
-                {% trans "You're in the mix. Join Connect Week, and coaches can consider you for thoughtful matches." %}
-            {% endif %}
-        </p>
-        {% comment %}
-        Premium members need a clear entitlement badge and named coach because
-        the human curation layer is what they bought.
-        NB {# … #} is single-line only in Django — a multi-line one renders
-        straight onto the page.
-        {% endcomment %}
-        {% if has_premium %}
-        <div class="relative flex items-center gap-2 mt-4 rounded-xl bg-white/20 px-3 py-2">
-            <span class="text-base leading-none">⭐</span>
-            <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-wider text-white mb-0">{% trans "Premium member" %}</p>
-                {% if premium_coach %}
-                {% comment %}
-                get_full_name|default:username, as book_screening.html does:
-                User.first_name is blank-able and coach accounts are created
-                by hand, so keying on it alone renders "Your coach is " with
-                no name — worse than saying nothing on the one line that is
-                meant to confirm what was bought. username is never blank.
-                {% endcomment %}
-                <p class="text-xs text-white/90 mb-0 truncate">
-                    {% blocktrans with name=premium_coach.user.get_full_name|default:premium_coach.user.username %}Your coach is {{ name }}{% endblocktrans %}
-                </p>
-                {% endif %}
-            </div>
-        </div>
+    <header class="mb-4">
+        <h1 class="text-2xl mb-1">{% blocktrans with name=user.first_name|default:user.username %}Hello, {{ name }}{% endblocktrans %}</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% if connect_summary.is_visible %}{% trans "Your Connect profile is visible to eligible members." %}{% elif membership.is_onboarded %}{% trans "Your Connect profile is currently hidden. Check your readiness details below." %}{% else %}{% trans "Complete your setup. You become visible only after final consent." %}{% endif %}</p>
+        {% if has_premium %}<p class="text-sm">⭐ {% trans "Premium member" %}{% if premium_coach %} · {{ premium_coach.user.get_full_name|default:premium_coach.user.username }}{% endif %}</p>{% endif %}
+    </header>
+    {% if connect_summary.pending_requests %}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple">
+        <h2>{% trans "Your response needed" %}</h2>
+        <p>{% blocktrans count count=connect_summary.pending_requests %}You have {{ count }} pending request.{% plural %}You have {{ count }} pending requests.{% endblocktrans %}</p>
+        <a class="btn-crush-primary btn-block" href="{% url 'crush_lu:connect_week_inbox' %}">{% trans "Review requests" %}</a>
+    </section>
+    {% endif %}
+    {% if connect_summary.cycle_access %}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-gray-200 dark:ring-slate-700">
+        {% if connect_summary.review_open %}
+        <h2>{% trans "Your weekly review is ready" %}</h2>
+        <p>{% trans "Request deadline" %}: <time datetime="{{ connect_summary.session.review_expires_at|date:'c' }}">{{ connect_summary.session.review_expires_at|date:'DATETIME_FORMAT' }}</time></p>
+        <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
+        {% else %}
+        <h2>{% trans "Your Connect Week" %}</h2>
+        {% if connect_summary.daily_total %}<p>{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p>{% trans "Open Today to see your available introductions." %}</p>{% endif %}
+        <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
         {% endif %}
-        <div class="relative flex flex-wrap gap-2 mt-4">
-            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">👥 {% trans "Human-curated" %}</span>
-            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">🔒 {% trans "Privacy-first" %}</span>
-            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">🇱🇺 {% trans "Luxembourg" %}</span>
-        </div>
-    </div>
-
+    </section>
+    {% elif connect_summary.is_visible %}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4">
+        <h2>{% trans "You can receive requests" %}</h2>
+        <p>{% trans "Taking part in a Crush event unlocks daily discovery during the beta." %}</p>
+        <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:event_list' %}">{% trans "Find an event" %}</a>
+    </section>
+    {% endif %}
+    {% if connect_summary.chat_count %}<a class="btn-crush-outline btn-block mb-4" href="{% url 'crush_lu:connect_week_chats' %}">{% trans "Continue your conversations" %} ({{ connect_summary.chat_count }})</a>{% endif %}
+    {% if not connect_readiness.is_complete %}
     {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
-
+    {% endif %}
     {% comment %}
     Pre-onboarding members may use this personal hub as preparation, but no
     Connect feature surface is exposed until the existing opt-in gate is met.
@@ -143,6 +123,7 @@
     </a>
     {% endif %}
 
+    {% if connect_readiness.is_complete %}<details class="mb-4 rounded-xl bg-white dark:bg-slate-800 px-4"><summary class="font-semibold">{% trans "Ready to connect" %}</summary>{% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}</details>{% endif %}
     <div class="grid grid-cols-2 gap-3">
 
         {# Catalogue status and anonymous Read-the-Photo results. #}
@@ -157,23 +138,6 @@
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
-
-        {% comment %}
-        Connect Week: daily cards plus one deliberate weekly request.
-        {% endcomment %}
-        {% if cycle_access %}
-        <a href="{% url 'crush_lu:connect_week_home' %}"
-           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
-            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
-                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your Connect Week" %}</p>
-                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Three fresh faces a day, one deliberate request on day 8." %}</p>
-            </div>
-            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
-        </a>
-        {% endif %}
 
         {% comment %}
         Staff keep a way into Connect Week even though the tile above requires

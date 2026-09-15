@@ -6151,10 +6151,9 @@ msgstr "Connexions après l'événement"
 
 #: models/moderation.py:123
 #: templates/admin/crush_lu/campaign_dashboard.html:167
-#, fuzzy
 #| msgid "Messages"
 msgid "Message"
-msgstr "Messages"
+msgstr "Message"
 
 #: models/moderation.py:125
 #, fuzzy
@@ -21274,7 +21273,6 @@ msgstr ""
 "nouveaux visages — s'ouvre d'abord à un petit groupe."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:141
-#, fuzzy
 #| msgid ""
 #| "Your full name and exact age are never shown. Photos stay blurred until you "
 #| "both Spark. Leave Crush Connect anytime from settings."
@@ -21282,9 +21280,8 @@ msgid ""
 "Your full name and exact age are never shown. Leave Crush Connect anytime "
 "from settings."
 msgstr ""
-"Votre nom complet et votre âge exact ne sont jamais affichés. Les photos "
-"restent floutées jusqu'à ce que vous vous soyez Sparkés mutuellement. "
-"Quittez Crush Connect à tout moment depuis les réglages."
+"Votre nom complet et votre âge exact ne sont jamais affichés. Vous pouvez "
+"quitter Crush Connect à tout moment dans les paramètres."
 
 #: templates/crush_lu/crush_connect/coach_member_detail.html:4
 msgid "Curate a match — Crush Connect"
@@ -21895,10 +21892,9 @@ msgid "Your Coach's Pick for this week is ready — take a look."
 msgstr "Le choix de votre coach pour cette semaine est prêt — jetez-y un œil."
 
 #: templates/crush_lu/crush_connect/hub.html:61
-#, fuzzy
 #| msgid "Event recap"
 msgid "Event recap is ready"
-msgstr "Récapitulatif de l'événement"
+msgstr "Le récapitulatif de l'événement est prêt"
 
 #: templates/crush_lu/crush_connect/hub.html:96
 msgid "You're in the mix"
@@ -26498,67 +26494,62 @@ msgstr ""
 
 #: templates/crush_lu/event_lobby/lobby.html:27
 msgid "Someone new arrived."
-msgstr ""
+msgstr "Une nouvelle personne est arrivée."
 
 #: templates/crush_lu/event_lobby/lobby.html:28
-#, fuzzy
 #| msgid "Finish Crush Connect to join the Event Lobby"
 msgid "Someone new joined the Event Lobby."
-msgstr "Terminez Crush Connect pour rejoindre l'Event Lobby"
+msgstr "Une nouvelle personne a rejoint l'Event Lobby."
 
 #: templates/crush_lu/event_lobby/lobby.html:29
 msgid "Signal sent. They only find out if it becomes mutual."
 msgstr ""
+"Signal envoyé. La personne ne le découvrira que si l'intérêt est mutuel."
 
 #: templates/crush_lu/event_lobby/lobby.html:30
-#, fuzzy
 #| msgid "You already have a personal coach."
 msgid "You already sent this person a signal."
-msgstr "Vous avez déjà un coach personnel."
+msgstr "Vous avez déjà envoyé un signal à cette personne."
 
 #: templates/crush_lu/event_lobby/lobby.html:31
-#, fuzzy
 #| msgid "You are already registered for this event."
 msgid "You have used all three signals for this event."
-msgstr "Vous êtes déjà inscrit à cet événement."
+msgstr "Vous avez utilisé les trois signaux pour cet événement."
 
 #: templates/crush_lu/event_lobby/lobby.html:32
 #, python-brace-format
 msgid "You and {name} would like to meet. Say hello now."
 msgstr ""
+"Vous et {name} souhaitez vous rencontrer. Dites-vous bonjour maintenant."
 
 #: templates/crush_lu/event_lobby/lobby.html:33
 #: templates/crush_lu/event_lobby/recap.html:20
-#, fuzzy
 #| msgid "You have already given consent."
 msgid "You have already met this person."
-msgstr "Vous avez déjà donné votre consentement."
+msgstr "Vous avez déjà rencontré cette personne."
 
 #: templates/crush_lu/event_lobby/lobby.html:34
 #: templates/crush_lu/event_lobby/lobby.html:223
 msgid "The live lobby has ended."
-msgstr ""
+msgstr "Le lobby en direct est terminé."
 
 #: templates/crush_lu/event_lobby/lobby.html:35
 #: templates/crush_lu/event_lobby/lobby.html:192
-#, fuzzy
 #| msgid "participants"
 msgid "Select participant photo"
-msgstr "participants"
+msgstr "Sélectionner une photo de participant"
 
 #: templates/crush_lu/event_lobby/lobby.html:36
 #: templates/crush_lu/event_lobby/lobby.html:184
-#, fuzzy
 #| msgid "Total sent"
 msgid "Signal sent"
-msgstr "Total envoyé"
+msgstr "Signal envoyé"
 
 #: templates/crush_lu/event_lobby/lobby.html:37
 #: templates/crush_lu/event_lobby/recap.html:23
-#, fuzzy
 #| msgid "You have already given consent."
 msgid "You have already met"
-msgstr "Vous avez déjà donné votre consentement."
+msgstr "Déjà rencontré"
 
 #: templates/crush_lu/event_lobby/lobby.html:38
 #: templates/crush_lu/event_lobby/lobby.html:88
@@ -26582,35 +26573,34 @@ msgid "Spent ones don't come back."
 msgstr "Une fois dépensés, ils ne reviennent pas."
 
 #: templates/crush_lu/event_lobby/lobby.html:109
-#, fuzzy
 #| msgid "wants to connect"
 msgid "want to meet you"
-msgstr "veut se connecter"
+msgstr "souhaitent vous rencontrer"
 
 #: templates/crush_lu/event_lobby/lobby.html:142
 msgid "Go say hello"
 msgstr "Allez dire bonjour"
 
 #: templates/crush_lu/event_lobby/lobby.html:161
-#, fuzzy
 #| msgid "People I've Met"
 msgid "People here now"
-msgstr "Mes rencontres"
+msgstr "Personnes présentes"
 
 #: templates/crush_lu/event_lobby/lobby.html:171
 #: templates/crush_lu/event_lobby/recap.html:78
-#, fuzzy
 #| msgid "You've arrived!"
 msgid "You've already met"
-msgstr "Vous y êtes !"
+msgstr "Vous vous êtes déjà rencontrés"
 
 #: templates/crush_lu/event_lobby/lobby.html:196
 msgid "I'd like to meet"
-msgstr ""
+msgstr "J'aimerais vous rencontrer"
 
 #: templates/crush_lu/event_lobby/lobby.html:204
 msgid "You're the first one here — new arrivals appear automatically."
 msgstr ""
+"Vous êtes la première personne ici : les nouvelles arrivées apparaissent "
+"automatiquement."
 
 #: templates/crush_lu/event_lobby/lobby.html:212
 msgid ""
@@ -26618,28 +26608,31 @@ msgid ""
 "and cannot be undone — names are revealed only when you both choose each "
 "other."
 msgstr ""
+"Seuls les membres Crush Connect présents voient cette grille. Les signaux "
+"sont anonymes et irréversibles : les prénoms ne sont révélés que si vous "
+"vous choisissez mutuellement."
 
 #: templates/crush_lu/event_lobby/lobby.html:225
 msgid "Who did you meet? You have 48 hours to confirm."
-msgstr ""
+msgstr "Qui avez-vous rencontré ? Vous avez 48 heures pour confirmer."
 
 #: templates/crush_lu/event_lobby/lobby.html:228
-#, fuzzy
 #| msgid "Event recap"
 msgid "Open the recap"
-msgstr "Récapitulatif de l'événement"
+msgstr "Ouvrir le récapitulatif"
 
 #: templates/crush_lu/event_lobby/lobby.html:246
 msgid "Spend a signal on them?"
 msgstr "Dépenser un signal pour cette personne ?"
 
 #: templates/crush_lu/event_lobby/lobby.html:249
-#, fuzzy
 #| msgid ""
 #| "Are you absolutely sure you want to delete your account? This cannot be "
 #| "undone."
 msgid "It stays anonymous unless they pick you too. This cannot be undone."
-msgstr "Êtes-vous sûr de vouloir refuser cette connexion ?"
+msgstr ""
+"Cela reste anonyme tant que cette personne ne vous choisit pas aussi. Cette "
+"action est irréversible."
 
 #: templates/crush_lu/event_lobby/lobby.html:252
 msgid "This leaves you"
@@ -37803,7 +37796,6 @@ msgid "Welcome to Crush Connect — your first Drop is ready."
 msgstr "Bienvenue sur Crush Connect — votre premier Drop est prêt."
 
 #: views_crush_connect.py:294
-#, fuzzy
 #| msgid ""
 #| "Welcome to Crush Connect — you're now in the catalogue and can be matched by"
 #| " a Crush Coach."
@@ -37811,8 +37803,8 @@ msgid ""
 "Welcome to Crush Connect — you're in the mix and can be matched by a Crush "
 "Coach."
 msgstr ""
-"Bienvenue sur Crush Connect — vous êtes maintenant dans le catalogue et "
-"pouvez être mis en relation par un Crush Coach."
+"Bienvenue sur Crush Connect : votre carte est visible et un coach Crush peut"
+" vous proposer une rencontre."
 
 #: views_crush_connect.py:532
 #, python-format
@@ -37859,10 +37851,9 @@ msgstr ""
 " vous correspondre."
 
 #: views_crush_connect.py:1061
-#, fuzzy
 #| msgid "Read them back — answer their 3 questions"
 msgid "Please answer all three questions."
-msgstr "Lisez-les à votre tour — répondez à leurs 3 questions"
+msgstr "Veuillez répondre aux trois questions."
 
 #: views_crush_connect.py:1091
 msgid ""
@@ -39823,7 +39814,7 @@ msgstr "Double vérification : LuxID + événement Crush"
 msgid ""
 "Your identity is confirmed digitally and through an in-person Crush event."
 msgstr ""
-"Ton identité est confirmée numériquement et lors d’un événement Crush en "
+"Votre identité est confirmée numériquement et lors d'un événement Crush en "
 "personne."
 
 #: crush_lu/views_crush_connect.py
@@ -39833,7 +39824,7 @@ msgstr "Vérifié lors d’un événement Crush"
 #: crush_lu/views_crush_connect.py
 msgid "A Crush coach confirmed your participation at an in-person event."
 msgstr ""
-"Un coach Crush a confirmé ta participation à un événement en personne."
+"Un coach Crush a confirmé votre participation à un événement en personne."
 
 #: crush_lu/views_crush_connect.py
 msgid "Identity confirmed by LuxID"
@@ -39845,9 +39836,9 @@ msgid ""
 "active Connect journey and your three daily suggestions, once the other "
 "steps are complete."
 msgstr ""
-"LuxID confirme ton identité. Participer à un événement Crush débloque le "
-"parcours Connect actif et tes trois propositions quotidiennes, une fois les "
-"autres étapes terminées."
+"LuxID confirme votre identité. La participation à un événement Crush "
+"débloque le parcours Connect actif et vos trois suggestions quotidiennes, "
+"une fois les autres étapes terminées."
 
 #: crush_lu/views_crush_connect.py
 msgid "Verified profile and identity"
@@ -39858,8 +39849,8 @@ msgid ""
 "Your Crush profile must be approved and your identity confirmed before "
 "Connect can show you suggestions."
 msgstr ""
-"Ton profil Crush doit être approuvé et ton identité confirmée avant que "
-"Connect puisse te proposer des profils."
+"Votre profil Crush doit être approuvé et votre identité confirmée avant que "
+"Connect puisse vous proposer des profils."
 
 #: crush_lu/views_crush_connect.py
 msgid "Complete verification"
@@ -39880,7 +39871,7 @@ msgstr ""
 #: crush_lu/views_crush_connect.py
 msgid "A profile photo is required for your daily Connect suggestions."
 msgstr ""
-"Une photo de profil est requise pour tes propositions quotidiennes Connect."
+"Une photo de profil est requise pour vos suggestions quotidiennes Connect."
 
 #: crush_lu/views_crush_connect.py
 msgid "Add a photo"
@@ -39895,8 +39886,8 @@ msgid ""
 "Confirm that your clear photo may be shown only to the few verified members "
 "matched with you."
 msgstr ""
-"Confirme que ta photo nette peut être montrée uniquement aux quelques "
-"membres vérifiés qui te sont proposés."
+"Confirmez que votre photo nette peut être montrée uniquement aux quelques "
+"membres vérifiés qui vous sont proposés."
 
 #: crush_lu/views_crush_connect.py
 msgid "Review photo consent"
@@ -39911,8 +39902,8 @@ msgid ""
 "Complete the Connect onboarding to set your preferences and explicitly opt "
 "in."
 msgstr ""
-"Termine l’onboarding Connect pour définir tes préférences et donner "
-"explicitement ton accord."
+"Terminez la configuration Connect pour définir vos préférences et donner "
+"explicitement votre accord."
 
 #: crush_lu/views_crush_connect.py
 msgid "Continue onboarding"
@@ -39920,7 +39911,7 @@ msgstr "Continuer l’onboarding"
 
 #: crush_lu/views_crush_connect.py
 msgid "Your three Connect questions"
-msgstr "Tes trois questions Connect"
+msgstr "Vos trois questions Connect"
 
 #: crush_lu/views_crush_connect.py
 msgid ""
@@ -39955,16 +39946,16 @@ msgid ""
 "Your profile photo is missing. It blocks access to your daily Connect "
 "suggestions; add it now in Photos."
 msgstr ""
-"Ta photo de profil manque. Cela bloque l’accès à tes propositions "
-"quotidiennes Connect ; ajoute-la maintenant dans Photos."
+"Votre photo de profil manque. Cela bloque l'accès à vos suggestions "
+"quotidiennes Connect ; ajoutez-la maintenant dans Photos."
 
 #: crush_lu/views_connect_cycle.py
 msgid ""
 "Your profile photo is missing. It blocks access to your three daily Connect "
 "Week suggestions; add it now in Photos."
 msgstr ""
-"Ta photo de profil manque. Cela bloque l’accès à tes trois propositions "
-"quotidiennes de la Connect Week ; ajoute-la maintenant dans Photos."
+"Votre photo de profil manque. Cela bloque l'accès à vos trois suggestions "
+"quotidiennes Connect Week ; ajoutez-la maintenant dans Photos."
 
 #: crush_lu/templates/crush_lu/crush_connect/hub.html
 msgid ""
@@ -41519,3 +41510,666 @@ msgstr ""
 #: templates/crush_lu/emails/event_recap.html:70
 msgid "Leave a Google review"
 msgstr "Laisser un avis Google"
+
+msgid "%(completed)s of %(total)s completed"
+msgstr "%(completed)s sur %(total)s terminées"
+
+msgid "24-hour review"
+msgstr "Bilan de 24 heures"
+
+msgid "Accept plan"
+msgstr "Accepter le rendez-vous"
+
+msgid ""
+"After a full week of new encounters, they picked you — no ranking, no "
+"pressure either way."
+msgstr ""
+"Après une semaine de découvertes, cette personne vous a choisi : sans "
+"classement ni pression."
+
+msgid "All available cards are complete. Come back tomorrow."
+msgstr "Toutes les cartes disponibles sont terminées. Revenez demain."
+
+msgid "All chats"
+msgstr "Toutes les conversations"
+
+msgid "Already confirmed — thanks!"
+msgstr "Déjà confirmé, merci !"
+
+msgid "Also let a Crush Coach know"
+msgstr "Informer également un coach Crush"
+
+msgid "Answer questions"
+msgstr "Répondre aux questions"
+
+msgid "Answer saved. Continue with your next available card."
+msgstr "Réponse enregistrée. Passez à la prochaine carte disponible."
+
+msgid "Anything a coach should know? (optional)"
+msgstr "Une information à transmettre au coach ? (facultatif)"
+
+msgid "Block this member"
+msgstr "Bloquer ce membre"
+
+msgid ""
+"Blocked. They won't be able to reach you, and you won't see each other "
+"again."
+msgstr ""
+"Membre bloqué. Vous ne pourrez plus vous contacter ni apparaître l'un pour "
+"l'autre."
+
+msgid "Both agreed — enjoy your coffee!"
+msgstr "Vous êtes d'accord : profitez de votre café !"
+
+msgid "Cancel this plan"
+msgstr "Annuler ce rendez-vous"
+
+msgid "Change the plan"
+msgstr "Modifier le rendez-vous"
+
+msgid "Chats"
+msgstr "Conversations"
+
+msgid "Choose %(name)s"
+msgstr "Choisir %(name)s"
+
+msgid "Choose 1–5"
+msgstr "Choisissez 1 à 5 éléments"
+
+msgid "Choose a partner venue or enter your own."
+msgstr "Choisissez un lieu partenaire ou saisissez votre propre lieu."
+
+msgid ""
+"Choose exactly 3 questions. Tap Skip to remove one. Continue when you have "
+"selected and answered all three."
+msgstr ""
+"Choisissez exactement 3 questions. Appuyez sur Ignorer pour en retirer une. "
+"Continuez lorsque vous avez choisi et répondu aux trois."
+
+msgid ""
+"Choose three questions for your card and answer honestly. Other members can "
+"guess; your own answers remain private."
+msgstr ""
+"Choisissez trois questions pour votre carte et répondez honnêtement. Les "
+"autres membres peuvent deviner ; vos propres réponses restent privées."
+
+msgid "Coffee date plan"
+msgstr "Votre rendez-vous café"
+
+msgid "Coffee date plan saved."
+msgstr "Rendez-vous café enregistré."
+
+msgid "Coffee date planned"
+msgstr "Rendez-vous café prévu"
+
+msgid "Complete your setup. You become visible only after final consent."
+msgstr ""
+"Terminez votre configuration. Vous ne devenez visible qu'après votre "
+"consentement final."
+
+msgid "Confirm and send request"
+msgstr "Confirmer et envoyer la demande"
+
+msgid "Confirm decline"
+msgstr "Confirmer le refus"
+
+msgid "Confirm the plan with your match before marking the meeting as done."
+msgstr ""
+"Confirmez le rendez-vous avec votre rencontre avant d'indiquer qu'il a eu "
+"lieu."
+
+msgid "Connect Week requests"
+msgstr "Demandes Connect Week"
+
+msgid "Connect home"
+msgstr "Accueil Connect"
+
+msgid "Connect navigation"
+msgstr "Navigation Connect"
+
+msgid ""
+"Connect participation is free. During the beta, event verification unlocks "
+"daily discovery. Premium adds personal introductions chosen by your coach."
+msgstr ""
+"La participation à Connect est gratuite. Pendant la bêta, la vérification "
+"lors d'un événement débloque les découvertes quotidiennes. Premium ajoute "
+"des présentations personnelles choisies par votre coach."
+
+msgid "Connection interrupted. Retrying…"
+msgstr "Connexion interrompue. Nouvelle tentative…"
+
+msgid "Continue your conversations"
+msgstr "Reprendre vos conversations"
+
+msgid "Conversation messages"
+msgstr "Messages de la conversation"
+
+msgid "Could not send. Your draft is saved here; try again."
+msgstr "Échec de l'envoi. Votre brouillon est conservé ici ; réessayez."
+
+msgid "Couldn't block this member."
+msgstr "Impossible de bloquer ce membre."
+
+msgid "Couldn't record that."
+msgstr "Impossible d'enregistrer cette information."
+
+msgid "Couldn't save that plan."
+msgstr "Impossible d'enregistrer ce rendez-vous."
+
+msgid "Couldn't send that message."
+msgstr "Impossible d'envoyer ce message."
+
+msgid "Day %(day)s of %(total)s"
+msgstr "Jour %(day)s sur %(total)s"
+
+msgid "Decline request"
+msgstr "Refuser la demande"
+
+msgid "Declined — they won't be told."
+msgstr "Demande refusée. La personne ne sera pas informée."
+
+msgid ""
+"Declining permanently excludes this pair from future Connect Week discovery "
+"and requests. This cannot be undone. They will not be notified."
+msgstr ""
+"Le refus exclut définitivement cette paire des futures découvertes et "
+"demandes Connect Week. Cette action est irréversible. La personne ne sera "
+"pas avertie."
+
+msgid "Discover today's available cards. Your guesses stay private."
+msgstr ""
+"Découvrez les cartes disponibles aujourd'hui. Vos suppositions restent "
+"privées."
+
+msgid ""
+"Everyone you completed a card for this week — %(count)s in total. Send "
+"exactly one request, or send none."
+msgid_plural ""
+"Everyone you completed a card for this week — %(count)s in total. Send "
+"exactly one request, or send none."
+msgstr[0] ""
+"Toutes les personnes dont vous avez terminé la carte cette semaine, soit "
+"%(count)s au total. Envoyez une seule demande, ou aucune."
+msgstr[1] ""
+"Toutes les personnes dont vous avez terminé la carte cette semaine, soit "
+"%(count)s au total. Envoyez une seule demande, ou aucune."
+
+msgid "Exit for now"
+msgstr "Quitter pour le moment"
+
+msgid "Expires"
+msgstr "Expire le"
+
+msgid "Find an event"
+msgstr "Trouver un événement"
+
+msgid ""
+"Free Connect participation includes eligible daily discovery and one weekly "
+"request. Premium adds personal introductions chosen by your coach."
+msgstr ""
+"La participation gratuite à Connect comprend les découvertes quotidiennes "
+"selon votre accès et une demande hebdomadaire. Premium ajoute des "
+"présentations personnelles choisies par votre coach."
+
+msgid "Hello, %(name)s"
+msgstr "Bonjour, %(name)s"
+
+msgid "How Connect works"
+msgstr "Comment fonctionne Connect"
+
+msgid "I would like to get to know you."
+msgstr "J'aimerais faire votre connaissance."
+
+msgid "I'm interested"
+msgstr "Cette personne m'intéresse"
+
+msgid "Includes public card content"
+msgstr "Comprend des éléments visibles sur votre carte"
+
+msgid "It's mutual! Say hello — your chat is open."
+msgstr ""
+"L'intérêt est mutuel ! Dites bonjour : votre conversation est ouverte."
+
+msgid "It's mutual! Your chat is open."
+msgstr "L'intérêt est mutuel ! Votre conversation est ouverte."
+
+msgid ""
+"Leave this step? Your completed steps are saved. Unsaved changes on this "
+"step will be discarded."
+msgstr ""
+"Quitter cette étape ? Les étapes terminées sont enregistrées. Les "
+"modifications non enregistrées de cette étape seront perdues."
+
+msgid "Leave without saving your changes?"
+msgstr "Quitter sans enregistrer vos modifications ?"
+
+msgid "Load older messages"
+msgstr "Charger les messages précédents"
+
+msgid ""
+"Make your card visible, discover eligible daily cards, send one weekly "
+"request, open a mutual chat, then plan a coffee."
+msgstr ""
+"Rendez votre carte visible, découvrez les cartes quotidiennes selon votre "
+"accès, envoyez une demande hebdomadaire, ouvrez une conversation mutuelle, "
+"puis prévoyez un café."
+
+msgid "Met — chat closes soon"
+msgstr "Rencontre confirmée : fermeture prochaine"
+
+msgid "New messages"
+msgstr "Nouveaux messages"
+
+msgid "No cards for today."
+msgstr "Aucune carte aujourd'hui."
+
+msgid "No chats yet."
+msgstr "Aucune conversation pour le moment."
+
+msgid "No completed cards this week."
+msgstr "Aucune carte terminée cette semaine."
+
+msgid "No messages yet — say hello!"
+msgstr "Aucun message pour le moment : dites bonjour !"
+
+msgid "No plan was made."
+msgstr "Aucun rendez-vous n'a été prévu."
+
+msgid "No requests right now."
+msgstr "Aucune demande pour le moment."
+
+msgid "Not this one"
+msgstr "Pas ce rendez-vous"
+
+msgid "Open Today"
+msgstr "Ouvrir Aujourd'hui"
+
+msgid "Open Today to see your available introductions."
+msgstr "Ouvrez Aujourd'hui pour voir les présentations disponibles."
+
+msgid "Open chat"
+msgstr "Ouvrir la conversation"
+
+msgid ""
+"Opened once a weekly request becomes mutual. Plan a coffee date, then "
+"confirm you both showed up."
+msgstr ""
+"La conversation s'ouvre lorsqu'une demande hebdomadaire devient mutuelle. "
+"Prévoyez un café, puis confirmez chacun votre présence."
+
+msgid "Plan cancelled."
+msgstr "Rendez-vous annulé."
+
+msgid "Plan confirmed — see you there!"
+msgstr "Rendez-vous confirmé, à bientôt !"
+
+msgid "Please check your answers"
+msgstr "Veuillez vérifier vos réponses"
+
+msgid "Please pick a valid date."
+msgstr "Veuillez choisir une date valide."
+
+msgid "Preview your discovery card"
+msgstr "Aperçu de votre carte de découverte"
+
+msgid "Private preferences and answers"
+msgstr "Préférences et réponses privées"
+
+msgid "Ready to connect"
+msgstr "Prêt pour Connect"
+
+msgid "Request deadline"
+msgstr "Date limite d'envoi"
+
+msgid "Request sent"
+msgstr "Demande envoyée"
+
+msgid "Request sent. They have 24 hours to respond."
+msgstr "Demande envoyée. La personne dispose de 24 heures pour répondre."
+
+msgid "Requests"
+msgstr "Demandes"
+
+msgid "Response deadline"
+msgstr "Date limite de réponse"
+
+msgid "Review available from"
+msgstr "Bilan disponible à partir du"
+
+msgid "Review requests"
+msgstr "Consulter les demandes"
+
+msgid "Review your week"
+msgstr "Consulter votre semaine"
+
+msgid "Say hello and plan a coffee date."
+msgstr "Dites bonjour et prévoyez un café."
+
+msgid "Search interests"
+msgstr "Rechercher des centres d'intérêt"
+
+msgid "Selected interests"
+msgstr "Centres d'intérêt sélectionnés"
+
+msgid "Selected traits"
+msgstr "Traits sélectionnés"
+
+msgid "Send message"
+msgstr "Envoyer le message"
+
+msgid ""
+"Send your one weekly request to %(name)s? You cannot choose someone else "
+"this week after sending."
+msgstr ""
+"Envoyer votre unique demande hebdomadaire à %(name)s ? Vous ne pourrez plus "
+"choisir quelqu'un d'autre cette semaine après l'envoi."
+
+msgid "Sending…"
+msgstr "Envoi en cours…"
+
+msgid "Sent · waiting for mutual interest"
+msgstr "Envoyé · en attente d'un intérêt mutuel"
+
+msgid "Someone chose you"
+msgstr "Quelqu'un vous a choisi"
+
+msgid "Staff preview: open Connect Week"
+msgstr "Aperçu équipe : ouvrir Connect Week"
+
+msgid "Suggested connection"
+msgstr "Rencontre suggérée"
+
+msgid "Taking part in a Crush event unlocks daily discovery during the beta."
+msgstr ""
+"La participation à un événement Crush débloque les découvertes quotidiennes "
+"pendant la bêta."
+
+msgid "Thanks — recorded. Hope it was a great coffee!"
+msgstr "Merci, c'est enregistré. Nous espérons que ce café vous a plu !"
+
+msgid "That plan can't be changed right now."
+msgstr "Ce rendez-vous ne peut pas être modifié pour le moment."
+
+msgid "That request isn't possible right now."
+msgstr "Cette demande n'est pas possible pour le moment."
+
+msgid "The review window for this week has closed."
+msgstr "La période de bilan de cette semaine est terminée."
+
+msgid "They weren't able to connect right now."
+msgstr "Cette personne n'a pas pu donner suite."
+
+msgid ""
+"They won't be able to reach you, and you won't see each other again. This "
+"can't be undone."
+msgstr ""
+"Vous ne pourrez plus vous contacter ni apparaître l'un pour l'autre. Cette "
+"action est irréversible."
+
+msgid "This card is no longer open."
+msgstr "Cette carte n'est plus disponible."
+
+msgid "This conversation has ended."
+msgstr "Cette conversation est terminée."
+
+msgid "This isn't your Connect Week."
+msgstr "Ce n'est pas votre Connect Week."
+
+msgid "This meeting is already confirmed — the plan can't change now."
+msgstr ""
+"Cette rencontre est déjà confirmée : le rendez-vous ne peut plus être "
+"modifié."
+
+msgid "This profile isn't part of this week's review."
+msgstr "Ce profil ne fait pas partie du bilan de cette semaine."
+
+msgid "This request expired without a response."
+msgstr "Cette demande a expiré sans réponse."
+
+msgid "This request is no longer available."
+msgstr "Cette demande n'est plus disponible."
+
+msgid "This review closes %(when)s."
+msgstr "Ce bilan se termine le %(when)s."
+
+msgid "This review has closed. Your next Connect Week starts fresh."
+msgstr "Ce bilan est terminé. Votre prochaine Connect Week repart à zéro."
+
+msgid "Thoughtful connections, one step at a time."
+msgstr "Des rencontres réfléchies, une étape à la fois."
+
+msgid "To cancel, close this choice without sending."
+msgstr "Pour annuler, fermez ce choix sans envoyer."
+
+msgid "To cancel, close this choice. The request stays pending."
+msgstr "Pour annuler, fermez ce choix. La demande reste en attente."
+
+msgid "Type a message…"
+msgstr "Écrivez un message…"
+
+msgid ""
+"Unanswered cards expire at the end of each day. Your answers remain private."
+msgstr ""
+"Les cartes sans réponse expirent à la fin de la journée. Vos réponses "
+"restent privées."
+
+msgid "Verified members · Luxembourg"
+msgstr "Membres vérifiés · Luxembourg"
+
+msgid "View profile details"
+msgstr "Voir les détails du profil"
+
+msgid "View requests"
+msgstr "Voir les demandes"
+
+msgid "Waiting for their answer — they have 24 hours to respond."
+msgstr "En attente de sa réponse : la personne dispose de 24 heures."
+
+msgid "Waiting for their response"
+msgstr "En attente de sa réponse"
+
+msgid ""
+"We didn't find anyone new to introduce you to today. Come back tomorrow — "
+"your cycle keeps counting down."
+msgstr ""
+"Nous n'avons trouvé personne de nouveau à vous présenter aujourd'hui. "
+"Revenez demain : votre cycle continue."
+
+msgid "We met — confirm"
+msgstr "Nous nous sommes rencontrés : confirmer"
+
+msgid "When a weekly request becomes mutual, the chat opens here."
+msgstr ""
+"Lorsqu'une demande hebdomadaire devient mutuelle, la conversation s'ouvre "
+"ici."
+
+msgid ""
+"When someone completes their Connect Week and chooses you, it'll show up "
+"here."
+msgstr ""
+"Lorsqu'une personne termine sa Connect Week et vous choisit, sa demande "
+"apparaît ici."
+
+msgid "Write something first."
+msgstr "Écrivez d'abord un message."
+
+msgid "Yes, block"
+msgstr "Oui, bloquer"
+
+msgid "Yes, let's chat"
+msgstr "Oui, discutons"
+
+msgid ""
+"You are hidden from new Connect Week cards, requests, and Event Lobbies. "
+"Your Crush.lu account, events, Premium membership, profile answers, and "
+"existing chats are unchanged."
+msgstr ""
+"Vous êtes masqué des nouvelles cartes Connect Week, demandes et Event "
+"Lobbies. Votre compte Crush.lu, vos événements, votre abonnement Premium, "
+"vos réponses et vos conversations existantes restent inchangés."
+
+msgid ""
+"You are now visible in Crush Connect. Open Today to see your next step, or "
+"check Requests for invitations."
+msgstr ""
+"Vous êtes maintenant visible sur Crush Connect. Ouvrez Aujourd'hui pour la "
+"prochaine étape, ou consultez Demandes pour vos invitations."
+
+msgid "You asked to get to know %(name)s."
+msgstr "Vous avez demandé à faire connaissance avec %(name)s."
+
+msgid "You both confirmed you met."
+msgstr "Vous avez tous deux confirmé votre rencontre."
+
+msgid "You both confirmed — this chat closes %(when)s."
+msgstr ""
+"Vous avez tous deux confirmé : cette conversation se termine le %(when)s."
+
+msgid "You can receive requests"
+msgstr "Vous pouvez recevoir des demandes"
+
+msgid "You confirmed you met — waiting for them."
+msgstr ""
+"Vous avez confirmé la rencontre : l'autre confirmation est en attente."
+
+msgid ""
+"You didn't answer any cards this cycle, so there's no one to review. Your "
+"next Connect Week starts fresh."
+msgstr ""
+"Vous n'avez répondu à aucune carte pendant ce cycle : aucun profil à revoir."
+" Votre prochaine Connect Week repart à zéro."
+
+msgid "You have %(count)s pending request."
+msgid_plural "You have %(count)s pending requests."
+msgstr[0] "Vous avez %(count)s demande en attente."
+msgstr[1] "Vous avez %(count)s demandes en attente."
+
+msgid "You've already sent your one request for this week."
+msgstr "Vous avez déjà envoyé votre unique demande de la semaine."
+
+msgid "Your Connect Week"
+msgstr "Votre Connect Week"
+
+msgid "Your Connect chats"
+msgstr "Vos conversations Connect"
+
+msgid "Your Connect profile"
+msgstr "Votre profil Connect"
+
+msgid "Your Connect profile is visible to eligible members."
+msgstr "Votre profil Connect est visible pour les membres autorisés."
+
+msgid ""
+"Your LuxID is verified and your card is visible to eligible members. You can"
+" receive requests and be considered for private coach curation."
+msgstr ""
+"Votre LuxID est vérifié et votre carte est visible pour les membres "
+"autorisés. Vous pouvez recevoir des demandes et être présenté dans le cadre "
+"de la sélection privée d'un coach."
+
+msgid ""
+"Your card is removed from new Connect Weeks, requests, and Event Lobbies."
+msgstr ""
+"Votre carte est retirée des nouvelles Connect Weeks, demandes et Event "
+"Lobbies."
+
+msgid "Your chats"
+msgstr "Vos conversations"
+
+msgid "Your coach is confirming interest"
+msgstr "Votre coach vérifie l'intérêt mutuel"
+
+msgid ""
+"Your coach is confirming their interest. A date can be arranged only after "
+"you both agree."
+msgstr ""
+"Votre coach vérifie l'intérêt de l'autre personne. Un rendez-vous ne pourra "
+"être organisé qu'après votre accord mutuel."
+
+msgid ""
+"Your coach will check their interest. A date is arranged only if you both "
+"agree."
+msgstr ""
+"Votre coach vérifiera son intérêt. Un rendez-vous ne sera organisé que si "
+"vous êtes tous deux d'accord."
+
+msgid "Your discovery card never shows your full name or exact age."
+msgstr ""
+"Votre carte de découverte n'affiche jamais votre nom complet ni votre âge "
+"exact."
+
+msgid ""
+"Your event participation is verified and your card is visible to eligible "
+"members. Open Today for daily discovery."
+msgstr ""
+"Votre participation à un événement est vérifiée et votre carte est visible "
+"pour les membres autorisés. Ouvrez Aujourd'hui pour les découvertes "
+"quotidiennes."
+
+msgid "Your interest is saved"
+msgstr "Votre intérêt est enregistré"
+
+msgid "Your interest is saved. View your introduction."
+msgstr "Votre intérêt est enregistré. Consultez votre présentation."
+
+msgid ""
+"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
+"on to appear in eligible discovery and private coach curation."
+msgstr ""
+"Le partage de photo est désactivé : personne ne voit votre carte. Réactivez-"
+"le pour apparaître dans les découvertes autorisées et la sélection privée "
+"des coachs."
+
+msgid "Your private answer"
+msgstr "Votre réponse privée"
+
+msgid ""
+"Your public card shows your photo, first name, age range, languages and "
+"selected interests. Your answers and matching preferences remain private."
+msgstr ""
+"Votre carte publique montre votre photo, prénom, tranche d'âge, langues et "
+"centres d'intérêt sélectionnés. Vos réponses et préférences de mise en "
+"relation restent privées."
+
+msgid "Your response needed"
+msgstr "Votre réponse est attendue"
+
+msgid "Your selected three"
+msgstr "Vos trois questions sélectionnées"
+
+msgid "Your three questions are visible; your answers are private."
+msgstr "Vos trois questions sont visibles ; vos réponses restent privées."
+
+msgid "Your weekly review"
+msgstr "Votre bilan hebdomadaire"
+
+msgid "Your weekly review is ready"
+msgstr "Votre bilan hebdomadaire est prêt"
+
+msgid "Address (optional)"
+msgstr "Adresse (facultatif)"
+
+msgid "Choose a partner café/bar…"
+msgstr "Choisissez un café ou bar partenaire…"
+
+msgid "Partner venue"
+msgstr "Lieu partenaire"
+
+msgid "Save plan"
+msgstr "Enregistrer le rendez-vous"
+
+msgid "Time (optional)"
+msgstr "Heure (facultatif)"
+
+msgid "Venue name"
+msgstr "Nom du lieu"
+
+msgid "e.g. 18:30"
+msgstr "par ex. 18 h 30"
+
+msgid ""
+"Your Connect profile is currently hidden. Check your readiness details "
+"below."
+msgstr ""
+"Votre profil Connect est actuellement masqué. Vérifiez ci-dessous les "
+"conditions à remplir."
