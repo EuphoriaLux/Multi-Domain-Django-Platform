@@ -26399,7 +26399,7 @@ msgstr "Jemand Neues ist angekommen."
 #: templates/crush_lu/event_lobby/lobby.html:28
 #| msgid "Finish Crush Connect to join the Event Lobby"
 msgid "Someone new joined the Event Lobby."
-msgstr "Jemand Neues ist dem Event Lobby beigetreten."
+msgstr "Jemand Neues ist der Event Lobby beigetreten."
 
 #: templates/crush_lu/event_lobby/lobby.html:29
 msgid "Signal sent. They only find out if it becomes mutual."
@@ -41886,7 +41886,7 @@ msgstr ""
 "Schritt oder prüfe Anfragen auf Einladungen."
 
 msgid "You asked to get to know %(name)s."
-msgstr "Du möchtest %(name)s kennenlernen."
+msgstr "Du hast %(name)s eine Anfrage zum Kennenlernen gesendet."
 
 msgid "You both confirmed you met."
 msgstr "Ihr habt beide euer Treffen bestätigt."

@@ -151,7 +151,10 @@ def test_unonboarded_eligible_member_gets_preparation_hub(client, settings):
     response = client.get(HUB_URL)
 
     assert response.status_code == 200
-    assert "Complete your setup" in response.content.decode()
+    body = response.content.decode()
+    assert "Complete your setup" in body
+    # Today / Requests / Chats would only bounce a preparing member away.
+    assert "Connect navigation" not in body
 
 
 @pytest.mark.django_db

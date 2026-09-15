@@ -10,9 +10,10 @@ from decimal import Decimal
 
 # A few tests below are individually skipped where they drifted from the
 # current dashboard: CostRecord lost the subscription_id/subscription_name
-# kwargs, the 'all_charge_types' context key is gone, the default charge_type
-# is now 'payg' (no "Usage costs only" banner), and the period buttons were
-# renamed. The security and robustness tests (SQLi/XSS/malformed params) still
+# kwargs, the 'all_charge_types' context key is gone, and the period buttons
+# were renamed. (test_dashboard_default_usage_filter has been repaired below
+# to the current payg/reserved/all vocabulary and no longer carries this
+# marker.) The security and robustness tests (SQLi/XSS/malformed params) still
 # target the live surface and MUST keep running — they are the only CI
 # coverage for those paths.
 _STALE = pytest.mark.skip(
@@ -56,16 +57,26 @@ class TestFinOpsDashboardEdgeCases:
         response = client_logged_in.get('/finops/?days=365&charge_type=all&subscription=&service=')
         assert response.status_code == 200
         assert b'Total Cost' in response.content
-        # Should not show "Usage only" message when charge_type=all
-        assert b'Showing Usage costs only' not in response.content
+        # Should not show either the payg-only or reserved-only info banner
+        # when charge_type=all. Assert against strings the template can
+        # actually render: power_up/templates/finops/dashboard.html only
+        # emits "Showing <strong>Pay-as-you-go costs only</strong>" (charge_type
+        # payg/empty) or "Showing <strong>Reserved Instance usage only</strong>"
+        # (reserved), never under 'all'. The pre-rename string "Showing Usage
+        # costs only" no longer exists anywhere in the template tree, so
+        # asserting on it held unconditionally and would keep holding even if
+        # the banner logic broke completely.
+        assert b'Showing <strong>Pay-as-you-go costs only' not in response.content
+        assert b'Showing <strong>Reserved Instance usage only' not in response.content
 
-    @_STALE
     def test_dashboard_default_usage_filter(self, client_logged_in):
-        """Test default filter is 'usage'"""
+        """Test default charge_type filter is 'payg' and shows the payg-only banner"""
         response = client_logged_in.get('/finops/')
         assert response.status_code == 200
-        # Should show info message for usage-only
-        assert b'Showing' in response.content and b'Usage costs only' in response.content
+        # The default charge_type is now 'payg' (the 'usage' value was removed
+        # in the payg/reserved/all rename), and dashboard.html shows the
+        # payg-only info banner whenever charge_type is 'payg' or absent.
+        assert b'Showing <strong>Pay-as-you-go costs only' in response.content
 
     def test_edge_case_negative_days(self, client_logged_in):
         """Test with negative days parameter"""
