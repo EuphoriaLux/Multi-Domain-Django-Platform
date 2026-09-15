@@ -33,7 +33,7 @@ class ArboristRoutingTestCase(TestCase):
 
     def test_about_page_returns_200(self):
         """About page returns 200 and uses correct template."""
-        response = self.client.get("/en/about/")
+        response = self.client.get("/en/ueber-uns/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "arborist/about.html")
 
@@ -45,9 +45,22 @@ class ArboristRoutingTestCase(TestCase):
 
     def test_contact_page_returns_200(self):
         """Contact page returns 200 and uses correct template."""
-        response = self.client.get("/en/contact/")
+        response = self.client.get("/en/kontakt/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "arborist/contact.html")
+
+    def test_alias_slugs_redirect_to_the_canonical_page(self):
+        """Every language accepts every slug, so the extra ones 301 to the one
+        canonical route instead of serving duplicate self-canonical pages."""
+        for alias, target in [
+            ("/en/about/", "/en/ueber-uns/"),
+            ("/fr/a-propos/", "/fr/ueber-uns/"),
+            ("/de/contact/", "/de/kontakt/"),
+            ("/en/gallery/", "/en/galerie/"),
+        ]:
+            response = self.client.get(alias)
+            self.assertEqual(response.status_code, 301, alias)
+            self.assertEqual(response["Location"], target, alias)
 
     def test_robots_txt_returns_200(self):
         """robots.txt is accessible and has correct content type."""
@@ -130,3 +143,11 @@ class ArboristSEOTestCase(TestCase):
         response = self.client.get("/robots.txt")
         content = response.content.decode()
         self.assertIn("Disallow: /healthz/", content)
+
+    def test_sitemap_lists_the_booking_page(self):
+        """The booking page is in the sitemap under its canonical slug."""
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("/en/termin/", content)
+        self.assertNotIn("/en/booking/", content)

@@ -1,15 +1,16 @@
 {% extends "arborist/base.html" %}
 {% load i18n %}
+{% load static %}
 
 {% block content %}
 <!-- Header -->
-<section class="bg-green-800 text-white py-16">
+<section class="bg-gradient-to-b from-green-900 to-green-800 text-white py-16" style="background: linear-gradient(180deg, #2d5016 0%, #45622a 100%);">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h1 class="text-4xl font-bold mb-4">
                 {% trans "About Me" %}
             </h1>
-            <p class="text-xl">
+            <p class="text-xl text-green-100">
                 {% trans "Tom Aakrann - Your Arborist in Luxembourg" %}
             </p>
         </div>
@@ -17,31 +18,39 @@
 </section>
 
 <!-- Introduction -->
-<section class="py-16">
+<section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
             <div class="grid md:grid-cols-2 gap-12 items-center">
                 <div>
+                    <div class="inline-block text-xs font-bold text-green-800 bg-green-100 px-3 py-1 rounded-full mb-3">
+                        📍 Altrier (Junglinster) Base
+                    </div>
                     <h2 class="text-3xl font-bold mb-6 text-green-800">
                         {% trans "Passion for Trees" %}
                     </h2>
                     <div class="text-gray-700 space-y-4">
-                        <p class="text-lg">
+                        <p class="text-lg leading-relaxed">
                             {% trans "My name is Tom Aakrann and trees are my passion. As a certified arborist and tree inspector, I combine solid expertise with practical experience." %}
                         </p>
-                        <p class="text-lg">
+                        <p class="text-lg leading-relaxed">
                             {% trans "Every tree tells a story and deserves expert care. Whether a centuries-old oak or a young fruit tree - I treat every tree with the respect and care it deserves." %}
                         </p>
                     </div>
                 </div>
-                <div class="bg-green-50 rounded-xl p-8 text-center">
-                    <div class="text-6xl mb-4">&#127795;</div>
-                    <p class="text-green-800 font-semibold text-lg">
-                        {% trans "Arborist Tom Aakrann" %}
-                    </p>
-                    <p class="text-gray-600">
-                        {% trans "Luxembourg" %}
-                    </p>
+                <div class="bg-gray-100 rounded-2xl overflow-hidden shadow-xl border border-gray-200">
+                    <picture>
+                        <source srcset="{% static 'arborist/images/tom-climbing.webp' %}" type="image/webp">
+                        <img src="{% static 'arborist/images/tom-climbing.jpg' %}" alt="Tom Aakrann Baumpfleger Klettergurt" class="w-full h-auto object-cover">
+                    </picture>
+                    <div class="p-4 bg-white text-center border-t border-gray-100">
+                        <p class="text-green-900 font-bold text-base">
+                            Tom Aakrann
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            FLL-Baumprüfer & SKT-B Kletterer • Altrier, Luxemburg
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -187,9 +196,14 @@
         <p class="text-xl mb-8">
             {% trans "Contact me for a free consultation." %}
         </p>
-        <a href="{% url 'arborist:contact' %}" class="btn" style="background: #fff; color: #2d5016;">
-            {% trans "Get in Touch" %}
-        </a>
+        <div class="flex flex-wrap justify-center gap-4">
+            <a href="{% url 'arborist:booking' %}" class="btn" style="background: #fff; color: #2d5016; font-weight: bold;">
+                📅 {% trans "Vor-Ort-Termin buchen" %}
+            </a>
+            <a href="{% url 'arborist:contact' %}" class="btn" style="background: transparent; border: 2px solid #fff; color: #fff;">
+                {% trans "Get in Touch" %}
+            </a>
+        </div>
     </div>
 </section>
 {% endblock %}

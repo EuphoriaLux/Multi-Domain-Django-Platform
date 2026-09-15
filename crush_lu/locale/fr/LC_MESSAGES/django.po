@@ -9837,9 +9837,10 @@ msgid "Inbound replies"
 msgstr "Réponses entrantes"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:162
+#, fuzzy
 #| msgid "Unread"
 msgid "unread"
-msgstr "non lus"
+msgstr "Non lu"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:167
 #: templates/crush_lu/coach_verification_history.html:43

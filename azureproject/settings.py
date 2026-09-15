@@ -938,6 +938,20 @@ SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
 SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00").strip()
 
 # ============================================================================
+# ARBORIST PREPAYMENT BANK TRANSFER
+# ============================================================================
+# Account that arborist.lu booking confirmations ask customers to wire the
+# distance prepayment to (arborist/services/payment.py). Unset by default: the
+# booking email and success page then say the bank details follow with the
+# appointment confirmation. An IBAN that fails its checksum is treated as unset
+# and logged, so a placeholder or typo is never published to customers.
+ARBORIST_PREPAYMENT_ACCOUNT_HOLDER = os.environ.get(
+    "ARBORIST_PREPAYMENT_ACCOUNT_HOLDER", "Tom Aakrann"
+)
+ARBORIST_PREPAYMENT_IBAN = os.environ.get("ARBORIST_PREPAYMENT_IBAN", "")
+ARBORIST_PREPAYMENT_BIC = os.environ.get("ARBORIST_PREPAYMENT_BIC", "")
+
+# ============================================================================
 # CRUSH CREDIT
 # ============================================================================
 # Store credit, which replaced cash refunds as the default remedy for a
