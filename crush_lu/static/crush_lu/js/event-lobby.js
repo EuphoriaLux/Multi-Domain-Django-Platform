@@ -167,6 +167,12 @@ document.addEventListener("alpine:init", function () {
                     if (this.signalsRemaining <= 0) this.showBanner(this.msgs.quota);
                     return;
                 }
+                this.$root.querySelectorAll("button[data-handle]").forEach(function (tile) {
+                    var selected = tile.dataset.handle === handle;
+                    tile.setAttribute("aria-pressed", selected ? "true" : "false");
+                    tile.classList.toggle("ring-4", selected);
+                    tile.classList.toggle("ring-crush-pink", selected);
+                });
                 this.confirmHandle = handle;
                 this.confirmPhotoUrl = photoUrl || "";
                 this.confirmOpen = true;
@@ -174,6 +180,10 @@ document.addEventListener("alpine:init", function () {
 
             closeConfirm: function () {
                 this.confirmOpen = false;
+                this.$root.querySelectorAll('button[aria-pressed="true"]').forEach(function (tile) {
+                    tile.setAttribute("aria-pressed", "false");
+                    tile.classList.remove("ring-4", "ring-crush-pink");
+                });
                 this.confirmHandle = null;
             },
 
@@ -318,6 +328,7 @@ document.addEventListener("alpine:init", function () {
                     tile.disabled = true;
                     tile.classList.add("lobby-tile--signalled");
                     tile.appendChild(this.buildSparkMark());
+                    tile.appendChild(this.buildTileLabel(this.msgs.sentBadge, false));
                     tile.setAttribute("aria-label", this.msgs.sentBadge);
                 }
                 if (this.readOnly) tile.disabled = true;

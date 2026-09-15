@@ -391,6 +391,7 @@ def connect_summary_json(request):
             key: summary[key]
             for key in (
                 "pending_requests",
+                "coach_pick_status",
                 "unread_chats",
                 "chat_count",
                 "daily_total",

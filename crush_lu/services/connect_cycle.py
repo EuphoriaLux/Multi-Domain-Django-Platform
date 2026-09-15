@@ -7,13 +7,11 @@ and recipient-inbox mechanics on top of the models PR #883 shipped
 
 Important design notes:
 
-- No model/schema changes. "Exactly one session in progress" and "exactly
-  one non-terminal weekly request per session" are enforced here in
-  application code, not database constraints — a concurrent-write race could
-  in theory create two; ``get_or_create_active_session``/
-  ``can_send_weekly_request`` narrow the window but don't close it (SQLite
-  ignores ``select_for_update`` in tests AND in this repo's CI, so this can't
-  be proven by a test either — see the worktree-postgres memory).
+- Weekly request submission locks the owning session and rechecks eligibility
+  and the one-request limit inside the transaction. Request responses and
+  expiry also lock and refresh the request before transitioning it. SQLite
+  ignores these row locks; concurrent behavior must be checked on PostgreSQL.
+  Starting an active session retains the existing lifecycle behavior.
 - Card questions reuse the *target's* existing 3 "Read-the-Photo" gate
   questions (``CrushConnectMembership.active_gate_questions``) instead of a
   new question bank. Guesses are recorded only in
@@ -537,6 +535,7 @@ def get_review_cards(session):
 # ---------------------------------------------------------------------------
 
 
+@transaction.atomic
 def sync_request_state(weekly_request):
     """Flip a PENDING request past its 24h ``expires_at`` to EXPIRED and
     permanently exclude the pair — re-checked at every read/action point
@@ -555,6 +554,14 @@ def sync_request_state(weekly_request):
         ConnectWeeklyRequest,
     )
 
+    fresh = (
+        type(weekly_request)
+        .objects.select_for_update(of=("self",))
+        .get(pk=weekly_request.pk)
+    )
+    weekly_request.status = fresh.status
+    weekly_request.expires_at = fresh.expires_at
+    weekly_request.responded_at = fresh.responded_at
     if (
         weekly_request.status == ConnectWeeklyRequest.Status.PENDING
         and timezone.now() > weekly_request.expires_at
@@ -600,6 +607,8 @@ def can_send_weekly_request(session, requester, recipient) -> Tuple[bool, str]:
         return False, "already_sent"
     if is_assigned_coach_pair(requester, recipient):
         return False, "recipient_unavailable"
+    if not is_catalogue_eligible(requester):
+        return False, "requester_unavailable"
     if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
     if is_blocked_pair(requester, recipient):
@@ -614,14 +623,23 @@ def send_weekly_request(session, requester, recipient, request=None):
     recipient. Raises ``ValueError(reason)`` when ``can_send_weekly_request``
     fails — callers should have checked first; this is the race-condition
     safety net."""
-    from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
+    from crush_lu.models.crush_connect_cycle import (
+        ConnectWeeklyRequest,
+        ConnectWeekSession,
+    )
 
-    allowed, reason = can_send_weekly_request(session, requester, recipient)
-    if not allowed:
-        raise ValueError(reason)
-
-    card = session.cards.get(target_user=recipient, is_completed=True)
     with transaction.atomic():
+        session = ConnectWeekSession.objects.select_for_update().get(pk=session.pk)
+        requester = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=requester.pk)
+        recipient = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=recipient.pk)
+        allowed, reason = can_send_weekly_request(session, requester, recipient)
+        if not allowed:
+            raise ValueError(reason)
+        card = session.cards.get(target_user=recipient, is_completed=True)
         weekly_request = ConnectWeeklyRequest.objects.create(
             session=session,
             requester=requester,
@@ -632,6 +650,7 @@ def send_weekly_request(session, requester, recipient, request=None):
     return weekly_request
 
 
+@transaction.atomic
 def respond_to_weekly_request(weekly_request, accept: bool, request=None):
     """Record the recipient's decision on a pending weekly request.
 
@@ -663,6 +682,16 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
         is_catalogue_eligible,
     )
 
+    weekly_request = (
+        ConnectWeeklyRequest.objects.select_for_update(of=("self",))
+        .select_related(
+            "requester__crushprofile",
+            "requester__crush_connect_membership",
+            "recipient__crushprofile",
+            "recipient__crush_connect_membership",
+        )
+        .get(pk=weekly_request.pk)
+    )
     sync_request_state(weekly_request)
     if weekly_request.status != ConnectWeeklyRequest.Status.PENDING:
         return weekly_request
@@ -671,6 +700,7 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
         is_blocked_pair(weekly_request.requester, weekly_request.recipient)
         or is_assigned_coach_pair(weekly_request.requester, weekly_request.recipient)
         or not is_catalogue_eligible(weekly_request.requester)
+        or not is_catalogue_eligible(weekly_request.recipient)
     ):
         return weekly_request
 
@@ -691,7 +721,9 @@ def respond_to_weekly_request(weekly_request, accept: bool, request=None):
                     "participant_2": weekly_request.recipient,
                 },
             )
-        _notify_weekly_request_accepted(weekly_request, request=request)
+        transaction.on_commit(
+            lambda: _notify_weekly_request_accepted(weekly_request, request=request)
+        )
     else:
         with transaction.atomic():
             weekly_request.status = ConnectWeeklyRequest.Status.DECLINED

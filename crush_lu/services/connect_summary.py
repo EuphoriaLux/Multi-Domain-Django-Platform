@@ -10,13 +10,13 @@ from crush_lu.models import (
     ConnectTemporaryChat,
     ConnectWeekSession,
 )
-from crush_lu.services.blocking import blocked_user_ids
 from crush_lu.services.connect_cycle import (
     get_pending_inbox,
     sync_session_state,
     visible_cycle_cards,
 )
-from crush_lu.services.crush_connect import is_catalogue_eligible
+from crush_lu.services.blocking import blocked_user_ids
+from crush_lu.services.crush_connect import get_active_coach_pick, is_catalogue_eligible
 
 
 def get_connect_summary(user):
@@ -67,9 +67,13 @@ def get_connect_summary(user):
         | Q(participant_1__crush_connect_membership__excluded_by_coach=True)
         | Q(participant_2__crush_connect_membership__excluded_by_coach=True)
     )
+    coach_pick = (
+        get_active_coach_pick(user, include_accepted=True) if participating else None
+    )
     return {
         "nav_access": nav_access,
         "cycle_access": cycle_access,
+        "coach_pick_status": coach_pick.status if coach_pick else "",
         "is_visible": visible,
         "pending_requests": len(get_pending_inbox(user)) if inbox_access else 0,
         "chat_count": chats.count(),

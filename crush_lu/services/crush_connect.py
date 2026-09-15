@@ -568,13 +568,16 @@ def gate_answer_stats(user) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def get_active_coach_pick(member):
+def get_active_coach_pick(member, *, include_accepted=False):
     """The member's current 'proposed' pick with a still-eligible candidate,
     or None. A stale candidate hides the pick (coach re-picks)."""
     from crush_lu.models import ConnectCoachPick
 
     pick = (
-        ConnectCoachPick.objects.filter(member=member, status="proposed")
+        ConnectCoachPick.objects.filter(
+            member=member,
+            status__in=["proposed", "accepted"] if include_accepted else ["proposed"],
+        )
         .select_related(
             "candidate__crushprofile",
             "candidate__crush_connect_membership",
@@ -583,7 +586,7 @@ def get_active_coach_pick(member):
         .order_by("-created_at")
         .first()
     )
-    if pick is None:
+    if pick is None or pick.status not in {"proposed", "accepted"}:
         return None
     # Full-pool re-check (subsumes catalogue eligibility) so display and
     # accept agree — otherwise a member could be stuck seeing a pick the

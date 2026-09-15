@@ -15,7 +15,7 @@
             {% trans "Your Connect profile is paused" %}
         </h1>
         <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
-            {% trans "You are hidden from new Drops, Connect Week cards, Sparks, requests, and Event Lobbies. Your Crush.lu account, events, Premium membership, profile answers, and existing chats are unchanged." %}
+            {% trans "You are hidden from new Connect Week cards, requests, and Event Lobbies. Your Crush.lu account, events, Premium membership, profile answers, and existing chats are unchanged." %}
         </p>
 
         <form method="post" action="{% url 'crush_lu:crush_connect_reactivate' %}">
@@ -91,8 +91,8 @@
                 {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your coach picked a match" %}</p>
-                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your Coach's Pick for this week is ready — take a look." %}</p>
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% if coach_pick.status == "accepted" %}{% trans "Your coach is confirming interest" %}{% else %}{% trans "Your coach picked a match" %}{% endif %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% if coach_pick.status == "accepted" %}{% trans "Your interest is saved. View your introduction." %}{% else %}{% trans "Your Coach's Pick for this week is ready — take a look." %}{% endif %}</p>
             </div>
             {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-crush-purple shrink-0" %}
         </div>

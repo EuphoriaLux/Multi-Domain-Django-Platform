@@ -97,6 +97,146 @@ def _answer_all(card):
     return record_card_answer(card, guesses)
 
 
+@pytest.mark.django_db(transaction=True)
+def test_acceptance_notification_database_failure_cannot_roll_back_chat(settings):
+    from unittest.mock import patch
+    from django.db import transaction
+    from crush_lu.models import Notification
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    sender = _make_cycle_user("notify_sender")
+    recipient = _make_cycle_user("notify_recipient", gender="F")
+    session, _ = _reviewable_session_with_card(sender, recipient)
+    pending = send_weekly_request(session, sender, recipient)
+    real_create = Notification.objects.create
+
+    def database_failure(**kwargs):
+        # A real NOT NULL violation, not a mock exception: this poisons an
+        # enclosing transaction if the callback runs before it commits.
+        kwargs["user"] = None
+        return real_create(**kwargs)
+
+    with patch.object(
+        Notification.objects, "create", side_effect=database_failure
+    ) as notify:
+        with transaction.atomic():
+            accepted = respond_to_weekly_request(pending, accept=True)
+            assert accepted.status == ConnectWeeklyRequest.Status.ACCEPTED
+            notify.assert_not_called()
+        notify.assert_called_once()
+    pending.refresh_from_db()
+    assert pending.status == ConnectWeeklyRequest.Status.ACCEPTED
+    assert ConnectTemporaryChat.objects.filter(request=pending).exists()
+
+
+@pytest.mark.django_db
+def test_full_week_card_filter_has_bounded_queries(
+    settings, django_assert_max_num_queries
+):
+    from crush_lu.services.connect_cycle import get_review_cards
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    viewer = _make_cycle_user("bulk_viewer")
+    targets = _seed_cycle_pool(viewer, n=21)
+    session = ConnectWeekSession.objects.create(user=viewer)
+    ConnectCycleCard.objects.bulk_create(
+        [
+            ConnectCycleCard(
+                session=session,
+                day_number=index // 3 + 1,
+                card_index=index % 3 + 1,
+                target_user=target,
+                generated_date=timezone.localdate(),
+                is_completed=True,
+            )
+            for index, target in enumerate(targets)
+        ]
+    )
+    targets[0].crush_connect_membership.photo_share_consent = False
+    targets[0].crush_connect_membership.save(update_fields=["photo_share_consent"])
+    with django_assert_max_num_queries(6):
+        cards = get_review_cards(session)
+        assert len(cards) == 20
+        assert all(card.target_user_id != targets[0].pk for card in cards)
+        for card in cards:
+            assert card.target_user.crushprofile.photo_1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "state",
+    [
+        "eligible",
+        "no_consent",
+        "paused",
+        "no_photo",
+        "inactive",
+        "excluded",
+        "unverified",
+        "old_login",
+    ],
+)
+def test_bulk_catalogue_filter_matches_member_eligibility(state):
+    from django.contrib.auth import get_user_model
+    from crush_lu.services.crush_connect import (
+        filter_catalogue_eligible,
+        is_catalogue_eligible,
+    )
+
+    user = _make_cycle_user("bulk_candidate")
+    membership, profile = user.crush_connect_membership, user.crushprofile
+    if state == "no_consent":
+        membership.photo_share_consent = False
+    elif state == "paused":
+        membership.paused_at = timezone.now()
+    elif state == "no_photo":
+        profile.photo_1 = ""
+    elif state == "inactive":
+        profile.is_active = False
+    elif state == "excluded":
+        membership.excluded_by_coach = True
+    elif state == "unverified":
+        profile.verification_status = "unverified"
+        profile.is_approved = False
+    elif state == "old_login":
+        user.last_login = timezone.now() - timedelta(days=400)
+    membership.save()
+    profile.save()
+    user.save()
+    assert filter_catalogue_eligible(
+        get_user_model().objects.filter(pk=user.pk)
+    ).exists() == is_catalogue_eligible(user)
+    assert is_catalogue_eligible(user) is (state == "eligible")
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("lost", ["photo", "consent"])
+def test_unavailable_requester_gets_recovery_guidance_without_spending_request(
+    client, settings, lost
+):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_cycle_user("recover_sender")
+    target = _make_cycle_user("recover_target", gender="F")
+    session, card = _reviewable_session_with_card(me, target)
+    deadline = session.review_expires_at
+    _login_eligible(client, me)
+    assert client.get(WEEK_REVIEW_URL).status_code == 200
+    if lost == "consent":
+        me.crush_connect_membership.photo_share_consent = False
+        me.crush_connect_membership.save(update_fields=["photo_share_consent"])
+    else:
+        me.crushprofile.photo_1 = ""
+        me.crushprofile.save(update_fields=["photo_1"])
+    response = client.post(f"/en/crush-connect/week/review/{card.pk}/request/")
+    assert response.status_code == 302
+    assert response.url == "/en/crush-connect/home/"
+    feedback = " ".join(str(message) for message in get_messages(response.wsgi_request))
+    assert "Check your photo, sharing consent and verification" in feedback
+    assert not session.weekly_requests.exists()
+    session.refresh_from_db()
+    assert session.review_expires_at == deadline
+
+
 @pytest.mark.django_db
 def test_daily_progress_and_next_card_exclude_revoked_photo_consent(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
@@ -1053,3 +1193,82 @@ def test_daily_progress_and_read_only_completed_card(client, settings):
     assert response.context["next_card_id"] != card.pk
     assert "1 of 3 completed" in response.content.decode()
     assert "All available cards are complete" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_weekly_send_rechecks_requester_consent_from_database():
+    me = _make_cycle_user("stale_sender")
+    target = _make_cycle_user("recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    type(me.crush_connect_membership).objects.filter(user=me).update(
+        photo_share_consent=False
+    )
+    with pytest.raises(ValueError, match="requester_unavailable"):
+        send_weekly_request(session, me, target)
+    assert not session.weekly_requests.exists()
+
+
+@pytest.mark.django_db
+def test_stale_decline_cannot_overwrite_an_accepted_request():
+    me = _make_cycle_user("request_sender")
+    target = _make_cycle_user("request_recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    request = send_weekly_request(session, me, target)
+    stale = ConnectWeeklyRequest.objects.get(pk=request.pk)
+    respond_to_weekly_request(request, accept=True)
+    result = respond_to_weekly_request(stale, accept=False)
+    assert result.status == ConnectWeeklyRequest.Status.ACCEPTED
+    assert not ConnectPairExclusion.are_excluded(me, target)
+    assert ConnectTemporaryChat.objects.filter(request=request).count() == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("accept", [True, False])
+def test_request_response_locks_only_request_row_with_nullable_relations(
+    mocker, accept
+):
+    sender = _make_cycle_user("response_lock_sender")
+    recipient = _make_cycle_user("response_lock_recipient")
+    session, _ = _reviewable_session_with_card(sender, recipient)
+    request = send_weekly_request(session, sender, recipient)
+    lock = mocker.spy(ConnectWeeklyRequest.objects, "select_for_update")
+    result = respond_to_weekly_request(request, accept=accept)
+    assert result.status == ("accepted" if accept else "declined")
+    assert lock.call_count >= 1
+    # SQLite ignores locking; guard PostgreSQL's nullable outer-join restriction.
+    assert all(call.kwargs == {"of": ("self",)} for call in lock.call_args_list)
+
+
+@pytest.mark.django_db
+def test_weekly_send_locks_session_before_checking_limit(mocker):
+    from django.db import connection
+    from crush_lu.services import connect_cycle
+
+    me = _make_cycle_user("locked_sender")
+    target = _make_cycle_user("locked_recipient")
+    session, _ = _reviewable_session_with_card(me, target)
+    lock = mocker.spy(ConnectWeekSession.objects, "select_for_update")
+    original = connect_cycle.can_send_weekly_request
+
+    def check(*args):
+        assert connection.in_atomic_block
+        assert lock.call_count == 1
+        return original(*args)
+
+    mocker.patch.object(connect_cycle, "can_send_weekly_request", side_effect=check)
+    send_weekly_request(session, me, target)
+
+
+@pytest.mark.django_db
+def test_stored_cards_hide_revoked_photo_consent_in_review_and_summary():
+    from crush_lu.services.connect_cycle import get_review_cards
+    from crush_lu.services.connect_summary import get_connect_summary
+
+    me = _make_cycle_user("private_viewer")
+    target = _make_cycle_user("private_target")
+    session, _ = _reviewable_session_with_card(me, target)
+    membership = target.crush_connect_membership
+    membership.photo_share_consent = False
+    membership.save(update_fields=["photo_share_consent"])
+    assert get_review_cards(session) == []
+    assert get_connect_summary(me)["daily_total"] == 0
