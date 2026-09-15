@@ -2077,3 +2077,890 @@ msgid ""
 msgstr ""
 "Questions fréquentes sur l'entretien des arbres au Luxembourg.Réponses sur "
 "les coûts, le calendrier, les méthodes et les services."
+
+#: arborist/templates/arborist/booking.html:5
+msgid "Book an Appointment"
+msgstr "Prendre rendez-vous"
+
+#: arborist/templates/arborist/booking.html:15
+msgid "Transparente Anfahrtspauschalen"
+msgstr "Frais de déplacement transparents"
+
+#: arborist/templates/arborist/booking.html:18
+msgid "Vor-Ort-Termin & Beratung buchen"
+msgstr "Réserver un rendez-vous et un conseil sur place"
+
+#: arborist/templates/arborist/booking.html:21
+msgid ""
+"Fachgerechte Baumpflege, FLL-Baumkontrolle oder Fällung. Wählen Sie Ihren "
+"Wunschtermin und erhalten Sie eine transparente Anfahrtspauschale."
+msgstr ""
+"Soins arboricoles professionnels, contrôle d'arbres selon la FLL ou "
+"abattage. Choisissez la date qui vous convient et obtenez des frais de "
+"déplacement transparents."
+
+#: arborist/templates/arborist/booking.html:32
+msgid ""
+"Umkreis ~18 km um Altrier & Junglinster (Müllerthal, Echternach, "
+"Grevenmacher...)"
+msgstr ""
+"Dans un rayon d'environ 18 km autour d'Altrier et de Junglinster "
+"(Mullerthal, Echternach, Grevenmacher...)"
+
+#: arborist/templates/arborist/booking.html:41
+msgid ""
+"Erweitertes Luxemburg (> 18 km, z.B. Stadt Luxemburg, Süden, Westen, Norden)"
+msgstr ""
+"Reste du Luxembourg (> 18 km, p. ex. Luxembourg-Ville, Sud, Ouest, Nord)"
+
+#: arborist/templates/arborist/booking.html:47
+msgid ""
+"Die Vorabpauschale wird bei Durchführung der Baumarbeiten zu 100%% mit der "
+"Gesamtrechnung verrechnet!"
+msgstr ""
+"L'acompte est entièrement déduit de la facture finale lors de la réalisation"
+" des travaux !"
+
+#: arborist/templates/arborist/booking.html:73
+msgid "Gewünschte Dienstleistung"
+msgstr "Prestation souhaitée"
+
+#: arborist/templates/arborist/booking.html:76
+msgid "Welche Arbeiten stehen an Ihren Bäumen an?"
+msgstr "Quels travaux vos arbres nécessitent-ils ?"
+
+#: arborist/templates/arborist/booking.html:87
+msgid "Anzahl oder Art der Bäume (optional)"
+msgstr "Nombre ou type d'arbres (facultatif)"
+
+#: arborist/templates/arborist/booking.html:99
+msgid "Einsatzort & Entfernungszone"
+msgstr "Lieu d'intervention et zone de distance"
+
+#: arborist/templates/arborist/booking.html:102
+msgid ""
+"Geben Sie Ihre luxemburgische Postleitzahl ein, um die Zone automatisch zu "
+"ermitteln."
+msgstr ""
+"Saisissez votre code postal luxembourgeois pour déterminer automatiquement "
+"la zone."
+
+#: arborist/templates/arborist/booking.html:108
+msgid "Straße und Hausnummer"
+msgstr "Rue et numéro"
+
+#: arborist/templates/arborist/booking.html:118
+msgid "Postleitzahl (4-stellig)"
+msgstr "Code postal (4 chiffres)"
+
+#: arborist/templates/arborist/booking.html:128
+msgid "Ortschaft / Gemeinde"
+msgstr "Localité / Commune"
+
+#: arborist/templates/arborist/booking.html:153
+msgid ""
+"Gültige Anfahrtspauschale für diesen Standort. Zu 100%% mit der "
+"Endabrechnung verrechenbar."
+msgstr ""
+"Frais de déplacement pour ce lieu. Entièrement déductibles de la facture "
+"finale."
+
+#: arborist/templates/arborist/booking.html:157
+msgid "Pauschale"
+msgstr "Forfait"
+
+#: arborist/templates/arborist/booking.html:172
+msgid "Terminwunsch & Dringlichkeit"
+msgstr "Date souhaitée et urgence"
+
+#: arborist/templates/arborist/booking.html:175
+msgid "Wann soll der Termin stattfinden?"
+msgstr "Quand le rendez-vous doit-il avoir lieu ?"
+
+#: arborist/templates/arborist/booking.html:184
+msgid "Rush Order / Express-Termin anfordern"
+msgstr "Demander une intervention urgente (Rush Order)"
+
+#: arborist/templates/arborist/booking.html:188
+msgid ""
+"Dringender Notfall innerhalb 24-48 Stunden (z.B. Sturmschaden, abgebrochene "
+"Äste auf Dach/Einfahrt, akute Bruchgefahr). Bevorzugte Einplanung."
+msgstr ""
+"Urgence à traiter sous 24 à 48 heures (p. ex. dégâts de tempête, branches "
+"cassées sur le toit ou l'allée, risque de rupture imminent). Planification "
+"prioritaire."
+
+#: arborist/templates/arborist/booking.html:197
+msgid "Wunschdatum"
+msgstr "Date souhaitée"
+
+#: arborist/templates/arborist/booking.html:207
+msgid "Tageszeit"
+msgstr "Moment de la journée"
+
+#: arborist/templates/arborist/booking.html:215
+msgid "Beschreibung / Besonderheiten"
+msgstr "Description / particularités"
+
+#: arborist/templates/arborist/booking.html:227
+msgid "Ihre Kontaktdaten"
+msgstr "Vos coordonnées"
+
+#: arborist/templates/arborist/booking.html:230
+msgid "Für die Bestätigung und telefonische Rücksprache."
+msgstr "Pour la confirmation et un échange téléphonique."
+
+#: arborist/templates/arborist/booking.html:236
+msgid "Vollständiger Name"
+msgstr "Nom complet"
+
+#: arborist/templates/arborist/booking.html:247
+msgid "E-Mail-Adresse"
+msgstr "Adresse e-mail"
+
+#: arborist/templates/arborist/booking.html:257
+msgid "Telefonnummer"
+msgstr "Numéro de téléphone"
+
+#: arborist/templates/arborist/booking.html:273
+msgid "Gesamte Vorabpauschale"
+msgstr "Acompte total"
+
+#: arborist/templates/arborist/booking.html:8
+msgid "Basis"
+msgstr "forfait de base"
+
+#: arborist/templates/arborist/booking.html:281
+msgid "Terminanfrage jetzt absenden"
+msgstr "Envoyer la demande de rendez-vous"
+
+#: arborist/templates/arborist/booking.html:285
+msgid ""
+"Mit dem Absenden erhalten Sie eine Bestätigung mit allen Details per E-Mail."
+" Die Vorabpauschale wird bei Auftragsvergabe voll angerechnet."
+msgstr ""
+"Après l'envoi, vous recevrez une confirmation avec tous les détails par "
+"e-mail. L'acompte est entièrement déduit lors de la commande."
+
+#: arborist/templates/arborist/booking_success.html:5
+msgid "Booking Confirmation"
+msgstr "Confirmation de réservation"
+
+#: arborist/templates/arborist/booking_success.html:22
+msgid "Vielen Dank für Ihre Terminanfrage!"
+msgstr "Merci pour votre demande de rendez-vous !"
+
+#: arborist/templates/arborist/booking_success.html:25
+msgid ""
+"Ihre Buchung ist erfolgreich bei uns eingegangen. Wir prüfen Ihren "
+"Terminwunsch und melden uns schnellstmöglich telefonisch oder per E-Mail zur"
+" finalen Bestätigung."
+msgstr ""
+"Nous avons bien reçu votre réservation. Nous examinons la date souhaitée et "
+"vous contactons au plus vite par téléphone ou par e-mail pour la confirmer."
+
+#: arborist/templates/arborist/booking_success.html:31
+msgid "Dienstleistung"
+msgstr "Prestation"
+
+#: arborist/templates/arborist/booking_success.html:35
+msgid "Einsatzort"
+msgstr "Lieu d'intervention"
+
+#: arborist/templates/arborist/booking_success.html:39
+msgid "Entfernungszone"
+msgstr "Zone de distance"
+
+#: arborist/templates/arborist/booking_success.html:44
+msgid "Dringlichkeit"
+msgstr "Urgence"
+
+#: arborist/templates/arborist/booking_success.html:49
+msgid "Anfahrtspauschale"
+msgstr "Frais de déplacement"
+
+#: arborist/templates/arborist/booking_success.html:57
+msgid "Überweisung der Vorabpauschale"
+msgstr "Virement de l'acompte"
+
+#: arborist/templates/arborist/booking_success.html:61
+msgid ""
+"Bitte überweisen Sie die Pauschale unter Angabe Ihrer Buchungsreferenz. Der "
+"Betrag wird bei Durchführung der Baumarbeiten zu 100%% mit der "
+"Gesamtrechnung verrechnet."
+msgstr ""
+"Veuillez virer le forfait en indiquant votre référence de réservation. Le "
+"montant est entièrement déduit de la facture finale lors de la réalisation "
+"des travaux."
+
+#: arborist/templates/arborist/booking_success.html:66
+msgid "Empfänger"
+msgstr "Bénéficiaire"
+
+#: arborist/templates/arborist/booking_success.html:80
+msgid "Verwendungszweck"
+msgstr "Communication"
+
+#: arborist/templates/arborist/booking_success.html:86
+msgid ""
+"Die Bankverbindung für die Überweisung erhalten Sie zusammen mit der finalen"
+" Terminbestätigung. Der Betrag wird bei Durchführung der Baumarbeiten zu "
+"100%% mit der Gesamtrechnung verrechnet."
+msgstr ""
+"Vous recevrez les coordonnées bancaires pour le virement avec la "
+"confirmation finale du rendez-vous. Le montant est entièrement déduit de la "
+"facture finale lors de la réalisation des travaux."
+
+#: arborist/templates/arborist/booking_success.html:96
+msgid "WhatsApp Direktkontakt"
+msgstr "Contact direct par WhatsApp"
+
+#: arborist/templates/arborist/booking_success.html:100
+msgid "Zurück zur Startseite"
+msgstr "Retour à l'accueil"
+
+#: arborist/templates/arborist/about.html:201
+#: arborist/templates/arborist/gallery.html:204
+#: arborist/templates/arborist/home.html:37
+msgid "Vor-Ort-Termin buchen"
+msgstr "Réserver une visite sur place"
+
+#: arborist/templates/arborist/home.html:29
+msgid "Professionelle Baumpflege & Baumkontrolle in Luxemburg"
+msgstr "Soins et contrôle des arbres professionnels au Luxembourg"
+
+#: arborist/templates/arborist/home.html:32
+msgid ""
+"Ihr zertifizierter Baumpfleger für Obstbaumschnitt, Totholzentfernung, "
+"Fällungen und FLL-Gutachten. Schonend per Seilklettertechnik oder mobiler "
+"Raupen-Hubarbeitsbühne."
+msgstr ""
+"Votre arboriste certifié pour la taille des arbres fruitiers, l'élimination "
+"du bois mort, les abattages et les expertises FLL. En douceur, grâce au "
+"grimper sur corde ou à une nacelle mobile sur chenilles."
+
+#: arborist/templates/arborist/home.html:40
+msgid "Notdienst / Rush Order"
+msgstr "Urgence / Rush Order"
+
+#: arborist/templates/arborist/home.html:43
+msgid "Kontakt"
+msgstr "Contact"
+
+#: arborist/templates/arborist/home.html:50
+msgid "Feste Anfahrtspauschalen"
+msgstr "Frais de déplacement fixes"
+
+#: arborist/templates/arborist/home.html:70
+#: arborist/templates/arborist/home.html:172
+msgid "FLL-Zertifiziert"
+msgstr "Certifié FLL"
+
+#: arborist/templates/arborist/home.html:71
+msgid "Baumprüfer & Verkehrssicherheit"
+msgstr "Contrôleur d'arbres et sécurité publique"
+
+#: arborist/templates/arborist/home.html:75
+msgid "SKT-B Zertifikat"
+msgstr "Certificat SKT-B"
+
+#: arborist/templates/arborist/home.html:76
+msgid "Professionelle Seilklettertechnik"
+msgstr "Technique professionnelle de grimper sur corde"
+
+#: arborist/templates/arborist/home.html:80
+msgid "Raupen-Hubbühne"
+msgstr "Nacelle sur chenilles"
+
+#: arborist/templates/arborist/home.html:81
+msgid "Schonend für Rasen & Parks"
+msgstr "Respectueuse des pelouses et des parcs"
+
+#: arborist/templates/arborist/home.html:85
+msgid "In ganz Luxemburg"
+msgstr "Dans tout le Luxembourg"
+
+#: arborist/templates/arborist/home.html:86
+msgid "LU | DE | FR | EN"
+msgstr "LU | DE | FR | EN"
+
+#: arborist/templates/arborist/home.html:98
+msgid "Unsere Dienstleistungen"
+msgstr "Nos prestations"
+
+#: arborist/templates/arborist/home.html:101
+msgid ""
+"Von fachgerechtem Obstbaumschnitt bis zur zertifizierten FLL-Baumkontrolle –"
+" nachhaltige Baumpflege aus einer Hand."
+msgstr ""
+"De la taille experte des arbres fruitiers au contrôle d'arbres certifié FLL "
+"– des soins arboricoles durables auprès d'un seul interlocuteur."
+
+#: arborist/templates/arborist/home.html:114
+msgid "Obstbäume"
+msgstr "Arbres fruitiers"
+
+#: arborist/templates/arborist/home.html:119
+msgid "Obstbaumpflege"
+msgstr "Entretien des arbres fruitiers"
+
+#: arborist/templates/arborist/home.html:121
+msgid ""
+"Pflanzschnitt, Erziehungsschnitt, Fruchtholzerneuerung und Sanierung alter "
+"Streuobstwiesen für reiche Ernten und gesunde Bäume."
+msgstr ""
+"Taille de plantation, taille de formation, renouvellement du bois fruitier "
+"et restauration de vieux vergers haute-tige pour des récoltes abondantes et "
+"des arbres sains."
+
+#: arborist/templates/arborist/home.html:126
+#: arborist/templates/arborist/home.html:155
+#: arborist/templates/arborist/home.html:184
+msgid "Details"
+msgstr "Détails"
+
+#: arborist/templates/arborist/home.html:129
+#: arborist/templates/arborist/home.html:158
+#: arborist/templates/arborist/home.html:187
+msgid "Buchen"
+msgstr "Réserver"
+
+#: arborist/templates/arborist/home.html:143
+msgid "ZTV-Norm"
+msgstr "Norme ZTV"
+
+#: arborist/templates/arborist/home.html:148
+msgid "Baumpflege & Schnitt"
+msgstr "Soins et taille des arbres"
+
+#: arborist/templates/arborist/home.html:150
+msgid ""
+"Kronenpflege, Totholzentfernung, Kroneneinkürzung und Kronensicherungen "
+"fachgerecht nach anerkannten ZTV-Baumpflegestandards."
+msgstr ""
+"Entretien de couronne, élimination du bois mort, réduction de couronne et "
+"haubanage, réalisés selon les normes reconnues ZTV-Baumpflege."
+
+#: arborist/templates/arborist/home.html:177
+msgid "FLL-Baumkontrolle"
+msgstr "Contrôle d'arbres FLL"
+
+#: arborist/templates/arborist/home.html:179
+msgid ""
+"Qualifizierte Sichtkontrolle, Erfassung von Pilzbefall & Fäulnis, "
+"Baumkataster und verlässliche Prüfung der Verkehrssicherheit."
+msgstr ""
+"Contrôle visuel qualifié, relevé des attaques fongiques et de la pourriture,"
+" cadastre des arbres et vérification fiable de la sécurité."
+
+#: arborist/templates/arborist/home.html:205
+msgid "Technik & Hubbühne"
+msgstr "Matériel et nacelle"
+
+#: arborist/templates/arborist/home.html:207
+msgid ""
+"Einsatz modernster bodenschonender Raupenarbeitsbühnen und SKT-B "
+"Seilklettertechnik für schwer zugängliche Bäume."
+msgstr ""
+"Utilisation de nacelles sur chenilles modernes, respectueuses du sol, et du "
+"grimper sur corde SKT-B pour les arbres difficiles d'accès."
+
+#: arborist/templates/arborist/home.html:211
+#: arborist/templates/arborist/home.html:232
+msgid "Mehr erfahren"
+msgstr "En savoir plus"
+
+#: arborist/templates/arborist/home.html:226
+msgid "Ökologische Maßnahmen"
+msgstr "Mesures écologiques"
+
+#: arborist/templates/arborist/home.html:228
+msgid ""
+"Habitatbaum-Management, Totholzkonzepte, Nisthilfen und naturnaher "
+"Baumerhalt zur Förderung der Biodiversität."
+msgstr ""
+"Gestion des arbres-habitats, concepts de bois mort, nichoirs et conservation"
+" naturelle des arbres pour favoriser la biodiversité."
+
+#: arborist/templates/arborist/home.html:244
+msgid "Benötigen Sie eine fachgerechte Baumprüfung oder Pflege?"
+msgstr ""
+"Vous avez besoin d'un contrôle ou d'un entretien professionnel de vos arbres"
+" ?"
+
+#: arborist/templates/arborist/home.html:247
+msgid ""
+"Buchen Sie jetzt Ihren Vor-Ort-Termin online mit transparenter Pauschale, "
+"oder kontaktieren Sie uns bei Sturmschäden direkt per Telefon oder WhatsApp."
+msgstr ""
+"Réservez dès maintenant votre visite sur place en ligne avec un forfait "
+"transparent, ou contactez-nous directement par téléphone ou WhatsApp en cas "
+"de dégâts de tempête."
+
+#: arborist/templates/arborist/home.html:251
+msgid "Termin jetzt buchen"
+msgstr "Réserver un rendez-vous"
+
+#: arborist/templates/arborist/partials/footer.html:93
+#: arborist/templates/arborist/partials/navigation.html:227
+msgid "Termin buchen"
+msgstr "Prendre rendez-vous"
+
+#: arborist/templates/arborist/partials/navigation.html:281
+msgid "Termin buchen (Online)"
+msgstr "Prendre rendez-vous (en ligne)"
+
+#: arborist/templates/arborist/gallery.html:12
+msgid "Fotogalerie & Einblicke"
+msgstr "Galerie photos et aperçus"
+
+#: arborist/templates/arborist/gallery.html:15
+msgid ""
+"Authentische Einblicke in unsere Einsätze in ganz Luxemburg: "
+"Seilklettertechnik, moderne Hubarbeitsbühnen und präzise FLL-Baumkontrollen."
+msgstr ""
+"Un aperçu authentique de nos interventions dans tout le Luxembourg : grimper"
+" sur corde, nacelles modernes et contrôles d'arbres FLL précis."
+
+#: arborist/templates/arborist/gallery.html:30
+msgid "Seilklettertechnik (SKT-B)"
+msgstr "Grimper sur corde (SKT-B)"
+
+#: arborist/templates/arborist/gallery.html:32
+msgid ""
+"Schonender Aufstieg und sicheres Arbeiten in Kronen ohne schweres Gerät"
+msgstr ""
+"Ascension en douceur et travail sûr dans les couronnes, sans engins lourds"
+
+#: arborist/templates/arborist/gallery.html:46
+msgid "Ausrüstung & Gurtzeug"
+msgstr "Équipement et harnais"
+
+#: arborist/templates/arborist/gallery.html:47
+msgid ""
+"Vorbereitung des zertifizierten Klettergurts mit Karabinern & Bandschlingen."
+msgstr "Préparation du harnais certifié avec mousquetons et sangles."
+
+#: arborist/templates/arborist/gallery.html:60
+msgid "Präzisions-Klettergeräte"
+msgstr "Appareils de grimpe de précision"
+
+#: arborist/templates/arborist/gallery.html:61
+msgid "Mechanische Brems- und Reibungsgeräte für maximale Sicherheit am Seil."
+msgstr ""
+"Freins et dispositifs de friction mécaniques pour une sécurité maximale sur "
+"la corde."
+
+#: arborist/templates/arborist/gallery.html:74
+msgid "Kronenzugang & Seillinie"
+msgstr "Accès à la couronne et ligne de corde"
+
+#: arborist/templates/arborist/gallery.html:75
+msgid "Einbau der Aufstiegsseile in die Krone für schonende Kronenpflege."
+msgstr ""
+"Installation des cordes d'ascension dans la couronne pour un entretien en "
+"douceur."
+
+#: arborist/templates/arborist/gallery.html:87
+msgid "Spezialtechnik & Raupen-Hubbühne"
+msgstr "Matériel spécialisé et nacelle sur chenilles"
+
+#: arborist/templates/arborist/gallery.html:89
+msgid "Bodenschonender Einsatz für hohe Bäume und sensible Gartenbereiche"
+msgstr ""
+"Intervention respectueuse du sol pour les grands arbres et les jardins "
+"sensibles"
+
+#: arborist/templates/arborist/gallery.html:103
+msgid "Gummiketten-Hubarbeitsbühne"
+msgstr "Nacelle sur chenilles en caoutchouc"
+
+#: arborist/templates/arborist/gallery.html:104
+msgid "Extreme Wendigkeit bei minimalem Bodendruck auf Rasen und Wegen."
+msgstr ""
+"Très grande maniabilité avec une pression au sol minimale sur les pelouses "
+"et les allées."
+
+#: arborist/templates/arborist/gallery.html:117
+msgid "Präzisionsarbeit im Korb"
+msgstr "Travail de précision depuis la nacelle"
+
+#: arborist/templates/arborist/gallery.html:118
+msgid "Sicherer Zugang zu äußeren Kronenpartien mit voller Schutzausrüstung."
+msgstr ""
+"Accès sûr aux parties extérieures de la couronne avec un équipement de "
+"protection complet."
+
+#: arborist/templates/arborist/gallery.html:131
+msgid "Moderne Akku-Motorsägen"
+msgstr "Tronçonneuses à batterie modernes"
+
+#: arborist/templates/arborist/gallery.html:132
+msgid ""
+"Leise, vibrationsarme und emissionsfreie Stihl-Akkugeräte für "
+"Siedlungsgebiete."
+msgstr ""
+"Outils Stihl à batterie silencieux, à faibles vibrations et sans émissions "
+"pour les zones résidentielles."
+
+#: arborist/templates/arborist/gallery.html:144
+msgid "Baumkontrolle & Diagnose"
+msgstr "Contrôle et diagnostic des arbres"
+
+#: arborist/templates/arborist/gallery.html:146
+msgid ""
+"Erkennung von Holzfäulen, Schadsymptomen und Verkehrssicherheit nach FLL"
+msgstr ""
+"Détection de la pourriture du bois, des symptômes de dégâts et des risques "
+"pour la sécurité selon la FLL"
+
+#: arborist/templates/arborist/gallery.html:160
+msgid "Fäule- & Schadholzanalyse"
+msgstr "Analyse de la pourriture et du bois endommagé"
+
+#: arborist/templates/arborist/gallery.html:161
+msgid "Begutachtung von Kernfäule und Zersetzungsprozessen im Stammholz."
+msgstr ""
+"Expertise de la pourriture du cœur et des processus de décomposition dans le"
+" tronc."
+
+#: arborist/templates/arborist/gallery.html:174
+msgid "Kronenpflege am Altbaum"
+msgstr "Entretien de la couronne d'un arbre ancien"
+
+#: arborist/templates/arborist/gallery.html:175
+msgid ""
+"Entlastungsschnitt und Totholzbeseitigung zur Verlängerung der Vitalität."
+msgstr ""
+"Taille d'allègement et élimination du bois mort pour prolonger la vitalité "
+"de l'arbre."
+
+#: arborist/templates/arborist/gallery.html:188
+msgid "Luftbild-Übersicht"
+msgstr "Vue aérienne"
+
+#: arborist/templates/arborist/gallery.html:189
+msgid "Drohnengestützte Bestandsaufnahme von Parks und Freizeitanlagen."
+msgstr "Inventaire par drone des parcs et des espaces de loisirs."
+
+#: arborist/templates/arborist/gallery.html:198
+msgid "Haben Sie ein Baumprojekt für uns?"
+msgstr "Vous avez un projet arboricole pour nous ?"
+
+#: arborist/templates/arborist/gallery.html:201
+msgid ""
+"Gerne begutachten wir Ihre Bäume direkt vor Ort mit transparenter "
+"Anfahrtspauschale ab Altrier."
+msgstr ""
+"Nous évaluons volontiers vos arbres sur place, avec des frais de déplacement"
+" transparents depuis Altrier."
+
+#: arborist/views.py:39
+msgid ""
+"Certified tree inspector and arborist in Luxembourg. Fruit tree care, tree "
+"care, tree inspection according to FLL standards. SKT-B rope climbing "
+"technique. Based in Altrier (Junglinster)."
+msgstr ""
+"Contrôleur d'arbres et arboriste certifié au Luxembourg. Entretien des "
+"arbres fruitiers, soins des arbres, contrôle d'arbres selon les normes FLL. "
+"Technique de grimper sur corde SKT-B. Basé à Altrier (Junglinster)."
+
+#: arborist/views.py:52
+msgid "Services - Arborist Tom Aakrann Luxembourg"
+msgstr "Prestations - Arboriste Tom Aakrann Luxembourg"
+
+#: arborist/views.py:53
+msgid ""
+"Overview of professional tree care services in Luxembourg: Fruit tree care, "
+"tree pruning, FLL tree inspection, tree felling, and ecological measures."
+msgstr ""
+"Aperçu des prestations arboricoles professionnelles au Luxembourg : "
+"entretien des arbres fruitiers, taille, contrôle d'arbres FLL, abattage et "
+"mesures écologiques."
+
+#: arborist/views.py:154
+msgid ""
+"Photos of tree care projects in Luxembourg: Seilklettertechnik (SKT-B), "
+"spider crawler platform, crown maintenance, and tree diagnostics."
+msgstr ""
+"Photos de chantiers arboricoles au Luxembourg : grimper sur corde (SKT-B), "
+"nacelle sur chenilles, entretien de couronne et diagnostic des arbres."
+
+#: arborist/views.py:167
+msgid "How much does an on-site consultation or inspection cost?"
+msgstr "Combien coûte un conseil ou un contrôle sur place ?"
+
+#: arborist/views.py:168
+msgid ""
+"To provide qualified planning and traffic-safety inspection, we charge a "
+"fixed prepayment based on distance from our base in Altrier: Zone 1 (around "
+"Altrier/Junglinster) is 50 €, and Zone 2 (rest of Luxembourg) is 100 €. This"
+" fee is 100% credited against your final service invoice upon execution!"
+msgstr ""
+"Pour une planification qualifiée et un contrôle de sécurité, nous facturons "
+"un acompte forfaitaire selon la distance depuis notre base d'Altrier : la "
+"zone 1 (autour d'Altrier/Junglinster) coûte 50 €, la zone 2 (reste du "
+"Luxembourg) 100 €. Ce forfait est entièrement déduit de votre facture finale"
+" lors de la réalisation des travaux !"
+
+#: arborist/views.py:175
+msgid "What is a Rush Order appointment?"
+msgstr "Qu'est-ce qu'un rendez-vous Rush Order ?"
+
+#: arborist/views.py:176
+msgid ""
+"For urgent situations such as storm damage, fallen branches, or imminent "
+"tree hazards, our Rush Order option prioritizes your appointment within "
+"24-48 hours with immediate dispatch."
+msgstr ""
+"En cas d'urgence, comme des dégâts de tempête, des branches tombées ou un "
+"danger imminent, l'option Rush Order planifie votre rendez-vous en priorité "
+"sous 24 à 48 heures."
+
+#: arborist/views.py:183
+msgid ""
+"Pome fruits (apple, pear) are typically pruned during late winter dormancy, "
+"while stone fruits (cherry, plum) are pruned in summer after harvest."
+msgstr ""
+"Les fruits à pépins (pomme, poire) se taillent généralement en fin de "
+"dormance hivernale, les fruits à noyau (cerise, prune) en été après la "
+"récolte."
+
+#: arborist/views.py:189
+msgid "Do you work with rope climbing technique?"
+msgstr "Travaillez-vous avec la technique du grimper sur corde ?"
+
+#: arborist/views.py:190
+msgid ""
+"Yes, Tom Aakrann is SKT-B certified and uses professional rope climbing "
+"techniques as well as a compact tracked spider crawler lift for hard-to-"
+"reach locations."
+msgstr ""
+"Oui, Tom Aakrann est certifié SKT-B et utilise des techniques "
+"professionnelles de grimper sur corde ainsi qu'une nacelle compacte sur "
+"chenilles pour les endroits difficiles d'accès."
+
+#: arborist/views.py:196
+msgid "In which regions of Luxembourg do you operate?"
+msgstr "Dans quelles régions du Luxembourg intervenez-vous ?"
+
+#: arborist/views.py:197
+msgid ""
+"We operate throughout all of Luxembourg, with fast local coverage in the "
+"East, Center, and Müllerthal from our Altrier base."
+msgstr ""
+"Nous intervenons dans tout le Luxembourg, avec une présence rapide dans "
+"l'Est, le Centre et le Mullerthal depuis notre base d'Altrier."
+
+#: arborist/views.py:206
+msgid ""
+"Frequently asked questions about tree care, distance zones, rush orders, and"
+" methods in Luxembourg."
+msgstr ""
+"Questions fréquentes sur les soins des arbres, les zones de distance, les "
+"interventions urgentes et nos méthodes au Luxembourg."
+
+#: arborist/views.py:494
+msgid "Book an Appointment - Arborist Tom Aakrann"
+msgstr "Prendre rendez-vous - Arboriste Tom Aakrann"
+
+#: arborist/views.py:495
+msgid ""
+"Book an on-site tree care appointment or inspection. Transparent distance-"
+"based prepayment (Zone 1: 50€, Zone 2: 100€). Rush orders available."
+msgstr ""
+"Réservez un rendez-vous sur place pour des soins ou un contrôle d'arbres. "
+"Acompte transparent selon la distance (zone 1 : 50 €, zone 2 : 100 €). "
+"Interventions urgentes possibles."
+
+#: arborist/views.py:519
+msgid "Booking Received - Arborist Tom Aakrann"
+msgstr "Réservation reçue - Arboriste Tom Aakrann"
+
+#: arborist/forms.py:122
+msgid "Jean Dupont / Tom Weber"
+msgstr "Jean Dupont / Tom Weber"
+
+#: arborist/forms.py:129
+msgid "name@example.lu"
+msgstr "nom@exemple.lu"
+
+#: arborist/forms.py:136
+msgid "+352 621 123 456"
+msgstr "+352 621 123 456"
+
+#: arborist/forms.py:143
+msgid "12, Rue Principale"
+msgstr "12, Rue Principale"
+
+#: arborist/forms.py:150
+msgid "6211"
+msgstr "6211"
+
+#: arborist/forms.py:158
+msgid "Altrier / Junglinster"
+msgstr "Altrier / Junglinster"
+
+#: arborist/forms.py:172
+msgid "e.g. 1 Apple tree, 3 large Oaks"
+msgstr "p. ex. 1 pommier, 3 grands chênes"
+
+#: arborist/forms.py:196
+msgid ""
+"Describe the situation: tree health, height, obstacles (fence, power line), "
+"accessibility..."
+msgstr ""
+"Décrivez la situation : état de l'arbre, hauteur, obstacles (clôture, ligne "
+"électrique), accessibilité..."
+
+#: arborist/forms.py:21
+msgid "Please enter a valid 4-digit Luxembourg postal code (e.g. 6211, 6110)."
+msgstr ""
+"Veuillez saisir un code postal luxembourgeois valide à 4 chiffres (p. ex. "
+"6211, 6110)."
+
+#: arborist/forms.py:206
+msgid "Please enter a valid telephone number."
+msgstr "Veuillez saisir un numéro de téléphone valide."
+
+#: arborist/forms.py:212
+msgid "Preferred date cannot be in the past."
+msgstr "La date souhaitée ne peut pas être dans le passé."
+
+#: arborist/models.py:26
+msgid "Fruit Tree Care (Obstbaumpflege)"
+msgstr "Entretien des arbres fruitiers"
+
+#: arborist/models.py:27
+msgid "Tree Care & Pruning (Baumpflege)"
+msgstr "Soins et taille des arbres"
+
+#: arborist/models.py:28
+msgid "Tree Inspection according to FLL (Baumkontrolle)"
+msgstr "Contrôle d'arbres selon la FLL"
+
+#: arborist/models.py:29
+msgid "Tree Felling / Removal (Baumfällung)"
+msgstr "Abattage / enlèvement d'arbres"
+
+#: arborist/models.py:30
+msgid "Ecological Measures (Ökologische Maßnahmen)"
+msgstr "Mesures écologiques"
+
+#: arborist/models.py:31
+msgid "Emergency & Storm Damage (Notdienst & Sturmschaden)"
+msgstr "Urgence et dégâts de tempête"
+
+#: arborist/models.py:32
+msgid "General Consultation (Beratung)"
+msgstr "Conseil général"
+
+#: arborist/models.py:36
+msgid "Flexible / Any time"
+msgstr "Flexible / à tout moment"
+
+#: arborist/models.py:37
+msgid "Morning (08:00 - 12:00)"
+msgstr "Matin (08h00 - 12h00)"
+
+#: arborist/models.py:38
+msgid "Afternoon (12:00 - 17:00)"
+msgstr "Après-midi (12h00 - 17h00)"
+
+#: arborist/templates/arborist/home.html:51
+msgid "100%% verrechenbar bei Auftrag"
+msgstr "100 %% déduit lors de la commande"
+
+#: arborist/templates/arborist/home.html:54
+msgid "um Altrier & Junglinster"
+msgstr "autour d'Altrier et de Junglinster"
+
+#: arborist/templates/arborist/home.html:56
+msgid "Restl. Luxemburg"
+msgstr "reste du Luxembourg"
+
+#: arborist/views.py:341
+msgid "Hello %(name)s,"
+msgstr "Bonjour %(name)s,"
+
+#: arborist/views.py:343
+msgid "Thank you for your appointment request with Arborist Tom Aakrann!"
+msgstr ""
+"Merci pour votre demande de rendez-vous auprès de l'arboriste Tom Aakrann !"
+
+#: arborist/views.py:345
+msgid "Booking reference"
+msgstr "Référence de réservation"
+
+#: arborist/views.py:346
+msgid "Service"
+msgstr "Prestation"
+
+#: arborist/views.py:349
+msgid "Address"
+msgstr "Adresse"
+
+#: arborist/views.py:354
+msgid "Zone"
+msgstr "Zone"
+
+#: arborist/views.py:355
+msgid "Urgency"
+msgstr "Urgence"
+
+#: arborist/views.py:339
+msgid "Rush Order (24-48h)"
+msgstr "Intervention urgente (24-48 h)"
+
+#: arborist/views.py:339
+msgid "Standard"
+msgstr "Standard"
+
+#: arborist/views.py:357
+msgid "Prepayment"
+msgstr "Acompte"
+
+#: arborist/views.py:359
+msgid ""
+"This amount is credited 100% against the final invoice once the work is "
+"carried out."
+msgstr ""
+"Ce montant est entièrement déduit de la facture finale lors de la "
+"réalisation des travaux."
+
+#: arborist/views.py:368
+msgid "Bank details for the prepayment:"
+msgstr "Coordonnées bancaires pour l'acompte :"
+
+#: arborist/views.py:369
+msgid "Recipient"
+msgstr "Bénéficiaire"
+
+#: arborist/views.py:374
+msgid "Payment reference"
+msgstr "Communication"
+
+#: arborist/views.py:378
+msgid ""
+"You will receive the bank details for the prepayment with the final "
+"appointment confirmation."
+msgstr ""
+"Les coordonnées bancaires pour l'acompte vous seront communiquées avec la "
+"confirmation finale du rendez-vous."
+
+#: arborist/views.py:385
+msgid "We will contact you shortly to confirm the exact appointment."
+msgstr ""
+"Nous vous contacterons rapidement pour confirmer le rendez-vous exact."
+
+#: arborist/views.py:387
+msgid "Kind regards,"
+msgstr "Cordialement,"
+
+#: arborist/forms.py:229
+msgid ""
+"A Rush Order is scheduled within 24-48 hours: please choose a date within "
+"the next two days, or untick Rush Order."
+msgstr ""
+"Une intervention urgente est planifiée sous 24 à 48 heures : veuillez "
+"choisir une date dans les deux prochains jours, ou décochez Rush Order."

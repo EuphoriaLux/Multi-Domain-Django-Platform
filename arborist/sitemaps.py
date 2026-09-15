@@ -34,6 +34,7 @@ class ArboristStaticViewSitemap(Sitemap):
             "arborist:technik",
             "arborist:about",
             "arborist:contact",
+            "arborist:booking",
             "arborist:gallery",
             "arborist:faq",
         ]
@@ -50,6 +51,7 @@ class ArboristStaticViewSitemap(Sitemap):
             "arborist:baumpflege": 0.9,
             "arborist:obstbaumpflege": 0.9,
             "arborist:contact": 0.8,
+            "arborist:booking": 0.8,
             "arborist:about": 0.7,
             "arborist:oekologie": 0.7,
             "arborist:technik": 0.7,

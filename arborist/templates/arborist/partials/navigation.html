@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load static %}
 <style>
     /* Arborist Navigation Styles - Must be before the HTML */
     /* Responsive navigation */
@@ -184,8 +185,9 @@
         <div style="display: flex; justify-content: space-between; align-items: center; height: 4rem;">
             <!-- Logo -->
             <div>
-                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; font-size: 1.25rem; font-weight: bold; color: #2d5016; text-decoration: none;">
-                    &#127795; {% trans "Arborist" %}
+                <a href="{% url 'arborist:home' %}" style="display: flex; align-items: center; gap: 0.6rem; font-size: 1.25rem; font-weight: bold; color: #2d5016; text-decoration: none;">
+                    <img src="{% static 'arborist/images/logo.png' %}" alt="Arborist Tom Aakrann" style="height: 2.5rem; width: 2.5rem; object-fit: contain;">
+                    <span>{% trans "Arborist" %}</span>
                 </a>
             </div>
 
@@ -217,8 +219,12 @@
                 <a href="{% url 'arborist:faq' %}" class="arborist-nav-link">
                     {% trans "FAQ" %}
                 </a>
-                <a href="{% url 'arborist:contact' %}" class="arborist-nav-btn">
+                <a href="{% url 'arborist:contact' %}" class="arborist-nav-link">
                     {% trans "Contact" %}
+                </a>
+                <a href="{% url 'arborist:booking' %}" class="arborist-nav-btn" style="background: #2d5016; color: #fff; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none; box-shadow: 0 2px 4px rgba(45,80,22,0.2);">
+                    <svg style="width: 1rem; height: 1rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    {% trans "Termin buchen" %}
                 </a>
                 <!-- Language Switcher -->
                 {% include "arborist/partials/language_switcher.html" %}
@@ -269,9 +275,13 @@
                     </a>
                 </div>
 
-                <!-- Contact Button -->
-                <a href="{% url 'arborist:contact' %}"
+                <!-- Booking & Contact Buttons -->
+                <a href="{% url 'arborist:booking' %}"
                    style="display: block; padding: 0.75rem 1rem; background: #2d5016; color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center; margin-top: 0.5rem;">
+                    📅 {% trans "Termin buchen (Online)" %}
+                </a>
+                <a href="{% url 'arborist:contact' %}"
+                   style="display: block; padding: 0.6rem 1rem; background: transparent; border: 1px solid #2d5016; color: #2d5016; border-radius: 0.5rem; font-weight: 600; text-decoration: none; text-align: center; margin-top: 0.35rem;">
                     {% trans "Contact" %}
                 </a>
 

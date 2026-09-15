@@ -1,0 +1,107 @@
+﻿{% extends "arborist/base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Booking Confirmation" %} {{ booking.booking_reference }} - Arborist Tom Aakrann{% endblock %}
+
+{% block content %}
+<section class="py-16 bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 max-w-2xl">
+        <div class="bg-white shadow-xl rounded-2xl p-8 md:p-10 border border-gray-100 text-center">
+
+            <!-- Checkmark Icon -->
+            <div class="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold">
+                ✓
+            </div>
+
+            <div class="inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-mono font-bold rounded-full mb-3">
+                {{ booking.booking_reference }}
+            </div>
+
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                {% trans "Vielen Dank für Ihre Terminanfrage!" %}
+            </h1>
+            <p class="text-gray-600 mb-8 text-sm md:text-base leading-relaxed">
+                {% trans "Ihre Buchung ist erfolgreich bei uns eingegangen. Wir prüfen Ihren Terminwunsch und melden uns schnellstmöglich telefonisch oder per E-Mail zur finalen Bestätigung." %}
+            </p>
+
+            <!-- Booking Summary Box -->
+            <div class="bg-gray-50 rounded-xl p-6 text-left border border-gray-200 mb-8 space-y-3">
+                <div class="flex justify-between border-b border-gray-200 pb-2">
+                    <span class="text-xs text-gray-500 font-semibold uppercase">{% trans "Dienstleistung" %}</span>
+                    <span class="text-sm font-bold text-gray-900">{{ booking.get_service_type_display }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-200 pb-2">
+                    <span class="text-xs text-gray-500 font-semibold uppercase">{% trans "Einsatzort" %}</span>
+                    <span class="text-sm font-medium text-gray-800">{{ booking.street_address }}, {{ booking.postal_code }} {{ booking.city_or_commune }}</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-200 pb-2">
+                    <span class="text-xs text-gray-500 font-semibold uppercase">{% trans "Entfernungszone" %}</span>
+                    <span class="text-sm font-medium text-gray-800">Zone {{ booking.zone }} (~{{ booking.distance_km }} km)</span>
+                </div>
+                {% if booking.is_rush %}
+                <div class="flex justify-between border-b border-gray-200 pb-2 bg-red-50 p-2 rounded">
+                    <span class="text-xs text-red-700 font-bold uppercase">{% trans "Dringlichkeit" %}</span>
+                    <span class="text-sm font-bold text-red-700">🚨 RUSH ORDER (24-48h)</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between pt-1">
+                    <span class="text-sm text-gray-700 font-bold">{% trans "Anfahrtspauschale" %}</span>
+                    <span class="text-lg font-extrabold text-green-800">{{ booking.prepayment_amount }} €</span>
+                </div>
+            </div>
+
+            <!-- Prepayment & Bank Details Box -->
+            <div class="bg-green-50/70 border border-green-200 rounded-xl p-6 text-left mb-8">
+                <h3 class="font-bold text-green-900 mb-2 flex items-center gap-2">
+                    <span>💳</span> {% trans "Überweisung der Vorabpauschale" %}
+                </h3>
+                {% if bank %}
+                <p class="text-xs text-green-800 mb-4 leading-relaxed">
+                    {% trans "Bitte überweisen Sie die Pauschale unter Angabe Ihrer Buchungsreferenz. Der Betrag wird bei Durchführung der Baumarbeiten zu 100% mit der Gesamtrechnung verrechnet." %}
+                </p>
+
+                <div class="bg-white p-4 rounded-lg border border-green-200 space-y-2 text-xs font-mono">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-sans">{% trans "Empfänger" %}:</span>
+                        <span class="font-bold text-gray-900">{{ bank.account_holder }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-sans">IBAN:</span>
+                        <span class="font-bold text-gray-900">{{ bank.iban_display }}</span>
+                    </div>
+                    {% if bank.bic %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 font-sans">BIC:</span>
+                        <span class="font-bold text-gray-900">{{ bank.bic }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between border-t border-gray-100 pt-2 text-green-900">
+                        <span class="text-gray-500 font-sans">{% trans "Verwendungszweck" %}:</span>
+                        <span class="font-bold bg-green-100 px-2 py-0.5 rounded">{{ booking.booking_reference }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-xs text-green-800 leading-relaxed">
+                    {% trans "Die Bankverbindung für die Überweisung erhalten Sie zusammen mit der finalen Terminbestätigung. Der Betrag wird bei Durchführung der Baumarbeiten zu 100% mit der Gesamtrechnung verrechnet." %}
+                </p>
+                {% endif %}
+            </div>
+
+            <!-- Direct Contact Links -->
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <a href="https://wa.me/352621981363?text=Moien%20Tom%2C%20ech%20hunn%20eng%20Ufro%20gemaach%20({{ booking.booking_reference }})."
+                   target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors shadow">
+                    <span>💬</span> {% trans "WhatsApp Direktkontakt" %}
+                </a>
+                <a href="{% url 'arborist:home' %}"
+                   class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors">
+                    {% trans "Zurück zur Startseite" %}
+                </a>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}
