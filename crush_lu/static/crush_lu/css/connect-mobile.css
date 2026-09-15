@@ -20,7 +20,9 @@
 .connect-composer textarea { min-width: 0; font-size: 16px; }
 .connect-chat [hidden] { display: none !important; }
 @media (min-width: 1024px) { .connect-composer { bottom: 0; } }
-.connect-wizard main { padding-bottom: 130px; }
+/* Must match tailwind's unlayered `body.connect-wizard main.has-bottom-nav { padding-bottom: 0 }`
+   (every signed-in wizard page has it); equal specificity, and this file loads later. */
+.connect-wizard main, body.connect-wizard main.has-bottom-nav { padding-bottom: 130px; }
 .connect-wizard-footer { position: fixed; inset-inline: 0; bottom: 0; max-width: 620px; margin-inline: auto; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: var(--color-surface-card, white); z-index: 30; box-shadow: 0 -2px 8px rgb(0 0 0 / .08); }
 .dark .connect-wizard-footer { background: var(--color-slate-800); }
 .connect-wizard button, .connect-wizard label, .connect-wizard a, .connect-wizard summary,

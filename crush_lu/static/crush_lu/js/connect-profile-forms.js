@@ -10,7 +10,21 @@
   window.addEventListener('beforeunload', event => {
     if (!leaving && isDirty()) { event.preventDefault(); event.returnValue = ''; }
   });
-  form.addEventListener('submit', () => { leaving = true; });
+  // page-loading.js schedules its full-screen overlay from a capture-phase
+  // click listener, before the Exit confirm or the browser's leave-page prompt
+  // can cancel the navigation, and a cancelled one never takes it down again.
+  // So while changes are unsaved, opt the page's links out of the overlay.
+  const syncLoaderOptOut = () => document.body.classList.toggle('no-loading', isDirty());
+  form.addEventListener('input', syncLoaderOptOut);
+  form.addEventListener('change', syncLoaderOptOut);
+  syncLoaderOptOut();
+  // Capture on window runs before page-loading.js's document listener, so the
+  // real submit still gets its overlay.
+  window.addEventListener('submit', event => {
+    if (event.target !== form) return;
+    leaving = true;
+    document.body.classList.remove('no-loading');
+  }, true);
   document.querySelector('[data-exit]')?.addEventListener('click', event => {
     if (isDirty() && !window.confirm(form.dataset.unsaved)) event.preventDefault();
     else leaving = true;
