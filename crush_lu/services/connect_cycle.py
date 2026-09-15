@@ -280,7 +280,7 @@ def _expire_incomplete_cards(session, up_to_day: int) -> None:
     ).update(is_expired=True)
 
 
-def _compute_compatibility_highlight(session):
+def _compute_compatibility_highlight(session, completed=None):
     """Pick the session's one "Passt besonders gut zu dir" profile among its
     completed cards: highest cached Ideal-Crush ``MatchScore`` (neutral 0.5
     fallback, mirroring ``services.crush_connect._weight_for``), tie-broken
@@ -290,15 +290,8 @@ def _compute_compatibility_highlight(session):
     from crush_lu.models import MatchScore
     from crush_lu.services.crush_connect import MATCHSCORE_NEUTRAL
 
-    completed = list(
-        session.cards.filter(
-            is_completed=True,
-            target_user__is_active=True,
-            target_user__crushprofile__is_active=True,
-            target_user__crush_connect_membership__paused_at__isnull=True,
-            target_user__crush_connect_membership__excluded_by_coach=False,
-        ).select_related("target_user")
-    )
+    if completed is None:
+        completed = get_review_cards(session)
     if not completed:
         return None
 
@@ -327,6 +320,19 @@ def _compute_compatibility_highlight(session):
 
     ranked = sorted(completed, key=sort_key)
     return ranked[0].target_user
+
+
+def refresh_compatibility_highlight(session, visible_cards):
+    """Keep the weekly highlight stable while visible, replacing stale targets."""
+    if session.compatibility_highlight_user_id in {
+        card.target_user_id for card in visible_cards
+    }:
+        return
+    highlight = _compute_compatibility_highlight(session, completed=visible_cards)
+    highlight_id = highlight.pk if highlight else None
+    if session.compatibility_highlight_user_id != highlight_id:
+        session.compatibility_highlight_user_id = highlight_id
+        session.save(update_fields=["compatibility_highlight_user"])
 
 
 def sync_session_state(session):
@@ -465,6 +471,39 @@ def record_card_answer(card, guesses: dict):
     return card
 
 
+def visible_cycle_cards(cards, viewer):
+    """Recheck photo consent and safety before exposing stored card snapshots."""
+    from django.db.models import QuerySet
+    from crush_lu.models import ConnectCycleCard
+    from crush_lu.services.blocking import blocked_user_ids
+    from crush_lu.services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        filter_catalogue_eligible,
+    )
+
+    eligible = filter_catalogue_eligible(User.objects.all())
+    eligible = exclude_assigned_coach_pairs(eligible, viewer).exclude(
+        pk__in=blocked_user_ids(viewer)
+    )
+    # Reviews and summaries stay lazy until all eligibility predicates apply.
+    # Generation can return a list; reload its surviving rows in one query,
+    # preserving its original order and preloading the permitted profile fields.
+    if isinstance(cards, QuerySet):
+        return list(cards.filter(target_user_id__in=eligible.values("pk")))
+    card_ids = [card.pk for card in cards]
+    if not card_ids:
+        return []
+    visible = {
+        card.pk: card
+        for card in ConnectCycleCard.objects.filter(
+            pk__in=card_ids, target_user_id__in=eligible.values("pk")
+        ).select_related(
+            "target_user__crushprofile", "target_user__crush_connect_membership"
+        )
+    }
+    return [visible[pk] for pk in card_ids if pk in visible]
+
+
 def get_review_cards(session):
     """Every completed card from the session, for the 24h review grid —
     normally up to 21 (3 x 7 days), fewer if the pool ran dry some days or
@@ -477,7 +516,7 @@ def get_review_cards(session):
     which resolves question text from the stored guess keys instead of
     ``CrushConnectMembership.active_gate_questions``.
     """
-    return list(
+    return visible_cycle_cards(
         session.cards.filter(
             is_completed=True,
             target_user__is_active=True,
@@ -488,7 +527,8 @@ def get_review_cards(session):
         .select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
         )
-        .order_by("day_number", "card_index")
+        .order_by("day_number", "card_index"),
+        session.user,
     )
 
 
@@ -692,6 +732,7 @@ def get_pending_inbox(user):
             "requester__crush_connect_membership",
             "target_card",
         )
+        .prefetch_related("requester__crush_connect_membership__interests")
         .order_by("-sent_at")
     )
     fresh = [sync_request_state(r) for r in candidates]

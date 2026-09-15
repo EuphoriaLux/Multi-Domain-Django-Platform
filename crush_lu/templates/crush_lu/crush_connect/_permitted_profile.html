@@ -1,0 +1,7 @@
+{% load i18n crush_media %}
+<div class="space-y-3">
+    {% profile_photo target_profile 'photo_1' css_class='w-full rounded-xl object-cover max-h-80' alt_text=target.first_name %}
+    <p>{{ target.first_name|default:_("A member") }} · {{ target_profile.age_range }}</p>
+    <div class="flex flex-wrap gap-2">{% for language in target_membership.languages_display %}<span class="badge badge-info">{{ language }}</span>{% endfor %}
+    {% for interest in target_membership.interests.all|slice:':3' %}<span class="badge badge-primary">{{ interest.label }}</span>{% endfor %}</div>
+</div>

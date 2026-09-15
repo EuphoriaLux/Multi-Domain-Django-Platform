@@ -1,7 +1,7 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Deine Connect-Woche" %}{% endblock %}
+{% block title %}{% trans "Your weekly review" %}{% endblock %}
 
 {% block connect_content %}
 <div class="max-w-3xl mx-auto px-4 py-8 pb-24 lg:pb-10">
@@ -11,14 +11,14 @@
             {% trans "24-hour review" %}
         </p>
         <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
-            {% trans "Deine Connect-Woche" %}
+            {% trans "Your weekly review" %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300 max-w-md">
             {% blocktrans count count=review_items|length %}Everyone you completed a card for this week — {{ count }} in total. Send exactly one request, or send none.{% plural %}Everyone you completed a card for this week — {{ count }} in total. Send exactly one request, or send none.{% endblocktrans %}
         </p>
         {% if review_active and session.review_expires_at %}
         <p class="mt-2 text-xs font-medium text-crush-purple dark:text-crush-pink">
-            {% blocktrans with when=session.review_expires_at|date:"l H:i" %}This review closes {{ when }}.{% endblocktrans %}
+            {% blocktrans with when=session.review_expires_at|date:"DATETIME_FORMAT" %}This review closes {{ when }}.{% endblocktrans %}
         </p>
         {% elif not review_active %}
         <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -51,7 +51,7 @@
     {% endif %}
 
     {% if review_items %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4">
             {% for item in review_items %}
                 {% include "crush_lu/crush_connect/_review_card.html" with card=item.card target=item.target target_profile=item.target.crushprofile answers=item.answers highlight_user_id=highlight_user_id review_active=review_active sent_request=sent_request %}
             {% endfor %}

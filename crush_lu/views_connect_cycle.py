@@ -10,6 +10,9 @@ See ``crush_lu.services.connect_cycle`` for the mechanics and its module
 docstring for this PR's documented scope simplifications.
 """
 
+from datetime import timedelta
+
+from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
@@ -37,6 +40,8 @@ from crush_lu.services.connect_cycle import (
     send_weekly_request,
     sync_request_state,
     sync_session_state,
+    visible_cycle_cards,
+    refresh_compatibility_highlight,
 )
 
 User = get_user_model()
@@ -100,7 +105,7 @@ def connect_week_home(request):
     if session.status == ConnectWeekSession.Status.REVIEW_OPEN:
         return redirect("crush_lu:connect_week_review")
 
-    cards = get_or_create_todays_cards(session)
+    cards = visible_cycle_cards(get_or_create_todays_cards(session), user)
     answered_ids = {c.target_user_id for c in cards if c.is_completed}
 
     # "Your chats" entry point: the review page it's also linked from stops
@@ -112,6 +117,12 @@ def connect_week_home(request):
         "session": session,
         "cards": cards,
         "answered_ids": answered_ids,
+        "completed_count": sum(card.is_completed for card in cards),
+        "next_card_id": next(
+            (card.pk for card in cards if not card.is_completed), None
+        ),
+        "review_date": timezone.localtime(session.started_at).date()
+        + timedelta(days=CYCLE_LENGTH_DAYS),
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
         "has_non_closed_chat": user_has_non_closed_chat(user),
@@ -178,7 +189,26 @@ def connect_week_card_answer(request, card_id: int):
         guesses[gq.question_id] = raw == "yes"
 
     record_card_answer(card, guesses)
-    messages.success(request, _("Got it — see you tomorrow for three new faces."))
+    remaining = bool(
+        visible_cycle_cards(
+            session.cards.filter(
+                day_number=session.current_day_number,
+                is_completed=False,
+                is_expired=False,
+            ).select_related(
+                "target_user__crushprofile", "target_user__crush_connect_membership"
+            ),
+            request.user,
+        )
+    )
+    messages.success(
+        request,
+        (
+            _("Answer saved. Continue with your next available card.")
+            if remaining
+            else _("All available cards are complete. Come back tomorrow.")
+        ),
+    )
     return redirect("crush_lu:connect_week_home")
 
 
@@ -203,6 +233,7 @@ def connect_week_review(request):
         return redirect("crush_lu:connect_week_home")
 
     cards = get_review_cards(session)
+    refresh_compatibility_highlight(session, cards)
 
     # Resolve display text from the STORED guesses (answers_json), never from
     # the target's current CrushConnectMembership.active_gate_questions —
@@ -285,7 +316,7 @@ def connect_week_request_send(request, card_id: int):
     else:
         messages.success(
             request,
-            _('Sent — "Ich möchte dich kennenlernen." They have 24 hours to respond.'),
+            _("Request sent. They have 24 hours to respond."),
         )
     return redirect("crush_lu:connect_week_review")
 
@@ -349,7 +380,10 @@ def connect_week_request_respond(request, request_id: int):
         pk=request_id,
         recipient=user,
     )
-    accept = request.POST.get("action") == "accept"
+    action = request.POST.get("action")
+    if action not in {"accept", "decline"}:
+        return redirect("crush_lu:connect_week_inbox")
+    accept = action == "accept"
     updated = respond_to_weekly_request(weekly_request, accept=accept, request=request)
     # respond_to_weekly_request can no-op either direction (already resolved
     # in another tab, or an accept left PENDING because the requester lost
