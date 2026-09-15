@@ -141,13 +141,13 @@ def lookup_commune_from_postcode(postal_code: str) -> Optional[str]:
     cleaned = clean_postal_code(postal_code)
     if not cleaned:
         return None
-    try:
-        from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
+    # Imported here, not at module level: arborist.models imports this module
+    # while the app registry loads, and crush_lu.services' package __init__
+    # pulls in model-importing services. A failure must surface, not silently
+    # re-price the booking from the postcode-prefix fallback.
+    from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
 
-        return POSTCODE_TO_COMMUNE.get(cleaned)
-    except Exception as exc:
-        logger.warning("Could not import POSTCODE_TO_COMMUNE: %s", exc)
-        return None
+    return POSTCODE_TO_COMMUNE.get(cleaned)
 
 
 def calculate_zone(

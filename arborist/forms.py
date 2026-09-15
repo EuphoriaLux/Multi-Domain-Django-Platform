@@ -204,6 +204,18 @@ class BookingForm(LuxembourgPostalCodeMixin, forms.ModelForm):
             ),
         }
 
+    # Honeypot: booking.html renders it hidden and aria-hidden, so people never
+    # fill it in; form-spamming bots that fill every input get rejected.
+    website = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"tabindex": "-1", "autocomplete": "off"}),
+    )
+
+    def clean_website(self):
+        if self.cleaned_data.get("website"):
+            raise forms.ValidationError("honeypot")
+        return ""
+
     def clean_phone(self):
         val = self.cleaned_data.get("phone", "").strip()
         if len(val) < 6:

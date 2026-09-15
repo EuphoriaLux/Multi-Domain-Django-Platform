@@ -6,13 +6,17 @@ views, the receipt page, bank details, WhatsApp links and admin re-pricing.
 from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sites.models import Site
 from django.core import mail
+from django.core.cache import cache
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
 from arborist.admin import ArboristBookingAdmin, arborist_admin_site
+from arborist.views import PUBLIC_FORM_RATE
 from arborist.forms import BookingForm
 from arborist.models import ArboristBooking
 from arborist.services.payment import get_prepayment_bank_details, is_valid_iban
@@ -46,6 +50,9 @@ BOOKING_POST = {
 
 class ArboristClientTestCase(TestCase):
     def setUp(self):
+        # The public forms are rate-limited per IP, and every test client is
+        # 127.0.0.1: without this the counter leaks from one test to the next.
+        cache.clear()
         self.client = Client(HTTP_HOST="arborist.lu")
         Site.objects.update_or_create(
             domain="arborist.lu", defaults={"name": "Arborist"}
@@ -447,3 +454,65 @@ class AdminRepricingTests(TestCase):
         form = form_class(data=self.form_data(postal_code="62111"))
         self.assertFalse(form.is_valid())
         self.assertIn("postal_code", form.errors)
+
+    def test_bookings_are_only_on_the_arborist_admin(self):
+        # Customer names, addresses and phones stay off the shared default admin.
+        self.assertTrue(arborist_admin_site.is_registered(ArboristBooking))
+        self.assertFalse(admin.site.is_registered(ArboristBooking))
+
+    def test_bulk_actions_stamp_updated_at(self):
+        booking = self.save(self.form_data())
+        stale = timezone.now() - timedelta(days=3)
+        ArboristBooking.objects.filter(pk=booking.pk).update(updated_at=stale)
+        self.request.session = {}
+        self.request._messages = FallbackStorage(self.request)
+        for action, field, value in (
+            (self.model_admin.mark_as_confirmed, "status", "confirmed"),
+            (self.model_admin.mark_prepayment_paid, "payment_status", "paid"),
+            (self.model_admin.mark_as_completed, "status", "completed"),
+        ):
+            ArboristBooking.objects.filter(pk=booking.pk).update(updated_at=stale)
+            action(self.request, ArboristBooking.objects.filter(pk=booking.pk))
+            booking.refresh_from_db()
+            self.assertEqual(getattr(booking, field), value)
+            self.assertGreater(booking.updated_at, stale, action.__name__)
+
+
+class PublicFormAbuseTests(ArboristClientTestCase):
+    """The public forms mail through the shared Graph sender, auto-reply included."""
+
+    LIMIT = int(PUBLIC_FORM_RATE.split("/")[0])
+
+    def test_booking_posts_are_rate_limited_per_ip(self):
+        for _ in range(self.LIMIT):
+            self.assertEqual(self.client.post("/en/termin/", data={}).status_code, 200)
+        response = self.client.post("/en/termin/", data=BOOKING_POST)
+        self.assertEqual(response.status_code, 429)
+        self.assertFalse(ArboristBooking.objects.exists())
+        self.assertEqual(mail.outbox, [])
+
+    def test_contact_posts_are_rate_limited_per_ip(self):
+        for _ in range(self.LIMIT):
+            self.assertEqual(self.client.post("/en/kontakt/", data={}).status_code, 200)
+        self.assertEqual(self.client.post("/en/kontakt/", data={}).status_code, 429)
+
+    def test_booking_page_still_opens_after_the_limit(self):
+        for _ in range(self.LIMIT + 1):
+            self.client.post("/en/termin/", data={})
+        self.assertEqual(self.client.get("/en/termin/").status_code, 200)
+
+    def test_filled_honeypot_is_rejected_without_mail(self):
+        response = self.client.post(
+            "/en/termin/", data={**BOOKING_POST, "website": "https://spam.example"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ArboristBooking.objects.exists())
+        self.assertEqual(mail.outbox, [])
+
+    def test_honeypot_is_rendered_hidden(self):
+        content = self.client.get("/en/termin/").content.decode()
+        self.assertIn('<div hidden aria-hidden="true"><input type="text" name="website"', content)
+
+    def test_empty_honeypot_books_normally(self):
+        booking = self.book(website="")
+        self.assertEqual(booking.name, BOOKING_POST["name"])

@@ -17,6 +17,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
 from azureproject.email_utils import send_domain_email
+from crush_lu.decorators import ratelimit
 from .forms import ContactForm, BookingForm
 from .models import ArboristBooking
 from .services.payment import get_prepayment_bank_details
@@ -24,6 +25,10 @@ from .services.phone import to_whatsapp_number
 from .services.zones import calculate_zone, clean_postal_code, is_valid_postal_code
 
 logger = logging.getLogger(__name__)
+
+# Both public forms mail through the shared Graph sender, including an
+# auto-reply to whatever address was typed in, so cap POSTs per client IP.
+PUBLIC_FORM_RATE = "10/h"
 
 
 # =============================================================================
@@ -217,6 +222,7 @@ def faq(request):
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit(key="ip", rate=PUBLIC_FORM_RATE, method="POST")
 def contact(request):
     """General contact form with email handling."""
     if request.method == "POST":
@@ -414,6 +420,7 @@ def api_calculate_zone(request):
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit(key="ip", rate=PUBLIC_FORM_RATE, method="POST")
 def booking(request):
     """
     Interactive appointment booking view with distance-based prepayment zones.

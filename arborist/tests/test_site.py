@@ -143,3 +143,11 @@ class ArboristSEOTestCase(TestCase):
         response = self.client.get("/robots.txt")
         content = response.content.decode()
         self.assertIn("Disallow: /healthz/", content)
+
+    def test_sitemap_lists_the_booking_page(self):
+        """The booking page is in the sitemap under its canonical slug."""
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("/en/termin/", content)
+        self.assertNotIn("/en/booking/", content)

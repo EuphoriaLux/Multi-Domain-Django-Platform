@@ -65,6 +65,8 @@
 
         <form method="post" class="bg-white shadow-xl rounded-2xl p-6 md:p-10 border border-gray-100 space-y-8" id="booking-form">
             {% csrf_token %}
+            {# Honeypot (see BookingForm.website): never shown to or reachable by people. #}
+            <div hidden aria-hidden="true">{{ form.website }}</div>
 
             <!-- SECTION 1: Service Selection -->
             <div>

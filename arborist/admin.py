@@ -1,4 +1,5 @@
 ﻿from django.contrib import admin
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -162,21 +163,18 @@ class ArboristBookingAdmin(admin.ModelAdmin):
     def prepayment_display(self, obj):
         return f"{obj.prepayment_amount:.2f} €"
 
+    # QuerySet.update() skips auto_now, so the bulk actions stamp updated_at.
     @admin.action(description=_("Mark selected bookings as Confirmed"))
     def mark_as_confirmed(self, request, queryset):
-        count = queryset.update(status="confirmed")
+        count = queryset.update(status="confirmed", updated_at=timezone.now())
         self.message_user(request, _(f"{count} booking(s) marked as Confirmed."))
 
     @admin.action(description=_("Mark selected bookings as Prepayment Paid"))
     def mark_prepayment_paid(self, request, queryset):
-        count = queryset.update(payment_status="paid")
+        count = queryset.update(payment_status="paid", updated_at=timezone.now())
         self.message_user(request, _(f"{count} booking(s) marked as Prepayment Paid."))
 
     @admin.action(description=_("Mark selected bookings as Completed"))
     def mark_as_completed(self, request, queryset):
-        count = queryset.update(status="completed")
+        count = queryset.update(status="completed", updated_at=timezone.now())
         self.message_user(request, _(f"{count} booking(s) marked as Completed."))
-
-
-# Also register on standard admin site for convenience
-admin.site.register(ArboristBooking, ArboristBookingAdmin)
