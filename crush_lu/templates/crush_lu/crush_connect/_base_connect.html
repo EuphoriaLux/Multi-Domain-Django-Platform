@@ -15,7 +15,7 @@ the whole Connect area free of it.
 <div class="connect-shell">
 {% if user.is_authenticated %}
 {% connect_navigation as connect_summary %}
-{% block connect_navigation %}{% include 'crush_lu/crush_connect/_connect_subnav.html' %}{% endblock %}
+{% if connect_summary.nav_access %}{% block connect_navigation %}{% include 'crush_lu/crush_connect/_connect_subnav.html' %}{% endblock %}{% endif %}
 {% endif %}
 {% block connect_content %}{% endblock %}
 </div>
