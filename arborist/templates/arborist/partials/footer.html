@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load static %}
 <style>
     .arborist-footer-link {
         color: #9ca3af;
@@ -26,8 +27,9 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
             <!-- Brand -->
             <div>
-                <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
-                    &#127795; {% trans "Arborist" %}
+                <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
+                    <img src="{% static 'arborist/images/logo.png' %}" alt="Arborist" style="height: 2.75rem; width: 2.75rem; object-fit: contain;">
+                    <span>{% trans "Arborist" %}</span>
                 </div>
                 <p style="color: #9ca3af; max-width: 20rem; margin-bottom: 1rem;">
                     {% trans "Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climber." %}
@@ -86,6 +88,11 @@
                     {% trans "Information" %}
                 </h3>
                 <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.75rem;">
+                        <a href="{% url 'arborist:booking' %}" class="arborist-footer-link" style="color: #4ade80; font-weight: 600;">
+                            📅 {% trans "Termin buchen" %}
+                        </a>
+                    </li>
                     <li style="margin-bottom: 0.75rem;">
                         <a href="{% url 'arborist:about' %}" class="arborist-footer-link">
                             {% trans "About Me" %}
