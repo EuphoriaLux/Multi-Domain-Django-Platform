@@ -213,3 +213,54 @@ def test_async_send_is_idempotent_and_normal_form_still_redirects(client):
     assert first.json() == retry.json()
     assert chat.messages.count() == 1
     assert client.post(url, {"message": "Normal form"}).status_code == 302
+
+
+def test_retry_after_hard_deadline_returns_the_stored_message(client):
+    me, _, chat = _make_open_chat()
+    _login_eligible(client, me)
+    url = f"{CHATS_URL}{chat.pk}/send/"
+    payload = {"message": "Hello", "client_submission_id": str(uuid4())}
+    first = client.post(url, payload, HTTP_ACCEPT="application/json")
+    # The fixed post-meeting window passes before the retry arrives.
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
+        status=ConnectTemporaryChat.Status.MEETING_CONFIRMED,
+        expires_at=timezone.now() - timedelta(minutes=1),
+    )
+    retry = client.post(url, payload, HTTP_ACCEPT="application/json")
+    assert retry.status_code == 200
+    assert retry.json() == first.json()
+    chat.refresh_from_db()
+    assert chat.status == ConnectTemporaryChat.Status.CLOSED
+    fresh = client.post(
+        url,
+        {"message": "Hello", "client_submission_id": str(uuid4())},
+        HTTP_ACCEPT="application/json",
+    )
+    assert fresh.status_code == 409
+    assert chat.messages.count() == 1
+
+
+def test_rendering_the_thread_marks_incoming_messages_read(client):
+    me, peer, chat = _make_open_chat()
+    incoming = send_message(chat, peer, "Hello")
+    outgoing = send_message(chat, me, "Hi")
+    _login_eligible(client, me)
+    assert get_connect_summary(me)["unread_chats"] == 1
+    assert client.get(f"{CHATS_URL}{chat.pk}/").status_code == 200
+    incoming.refresh_from_db()
+    outgoing.refresh_from_db()
+    assert incoming.read_at is not None
+    assert outgoing.read_at is None
+    assert get_connect_summary(me)["unread_chats"] == 0
+
+
+def test_rendering_a_closed_thread_does_not_mark_it_read(client):
+    me, peer, chat = _make_open_chat()
+    incoming = send_message(chat, peer, "Hello")
+    ConnectTemporaryChat.objects.filter(pk=chat.pk).update(
+        expires_at=timezone.now() - timedelta(minutes=1)
+    )
+    _login_eligible(client, me)
+    assert client.get(f"{CHATS_URL}{chat.pk}/").status_code == 200
+    incoming.refresh_from_db()
+    assert incoming.read_at is None

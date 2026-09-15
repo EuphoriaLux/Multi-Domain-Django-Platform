@@ -166,7 +166,10 @@ def send_message(chat, sender, text, client_submission_id=None):
     Raises ``ValueError``: ``not_participant`` if ``sender`` isn't in the
     chat, ``chat_closed`` if the chat is no longer open (synced first so a
     just-expired chat is caught, not a stale flag), ``empty_message`` for a
-    blank/whitespace-only body. The body is stripped and hard-capped at
+    blank/whitespace-only body. A retry of an already-stored
+    ``client_submission_id`` returns that message even once the chat has
+    closed: the first attempt can commit just before a hard deadline while
+    only its response is lost. The body is stripped and hard-capped at
     ``CHAT_MESSAGE_MAX_LENGTH`` — the model's ``max_length=1000`` is
     form-only (TextField), not DB-enforced, so this is the actual guard
     (mirrors the ``[:2000]`` truncation ``views_moderation.report_user``
@@ -186,7 +189,8 @@ def send_message(chat, sender, text, client_submission_id=None):
         raise ValueError("not_participant")
 
     chat = sync_chat_state(chat)
-    if not chat_is_open(chat):
+    # A retry is settled under the lock below, before the open-state check.
+    if not chat_is_open(chat) and not client_submission_id:
         raise ValueError("chat_closed")
 
     body = (text or "").strip()[:CHAT_MESSAGE_MAX_LENGTH]
@@ -198,6 +202,12 @@ def send_message(chat, sender, text, client_submission_id=None):
         chat = sync_chat_state(
             ConnectTemporaryChat.objects.select_for_update().get(pk=chat.pk)
         )
+        if client_submission_id:
+            existing = ConnectChatMessage.objects.filter(
+                chat=chat, sender=sender, client_submission_id=client_submission_id
+            ).first()
+            if existing is not None:
+                return existing
         if not chat_is_open(chat):
             raise ValueError("chat_closed")
         if client_submission_id:
