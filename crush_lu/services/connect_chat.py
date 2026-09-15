@@ -60,6 +60,7 @@ REPORT_DETAILS_MAX_LENGTH = 2000
 # ---------------------------------------------------------------------------
 
 
+@transaction.atomic
 def sync_chat_state(chat):
     """Advance a chat's lifecycle to "now" — sync-on-read, mirrors
     ``connect_cycle.sync_session_state`` / ``sync_request_state``.
@@ -77,6 +78,18 @@ def sync_chat_state(chat):
     from crush_lu.models.crush_connect_cycle import ConnectTemporaryChat
     from crush_lu.services.blocking import is_blocked_pair
 
+    # Polling may hold an object read before a concurrent send extended expiry.
+    # Use the same row lock as sends before deciding any terminal transition.
+    chat.refresh_from_db(
+        from_queryset=ConnectTemporaryChat.objects.select_for_update(
+            of=("self",)
+        ).select_related(
+            "participant_1__crushprofile",
+            "participant_2__crushprofile",
+            "participant_1__crush_connect_membership",
+            "participant_2__crush_connect_membership",
+        )
+    )
     Status = ConnectTemporaryChat.Status
     if chat.status in (Status.CLOSED, Status.BLOCKED):
         return chat
@@ -147,13 +160,16 @@ def list_messages(chat):
     return list(chat.messages.select_related("sender").order_by("sent_at"))
 
 
-def send_message(chat, sender, text):
+def send_message(chat, sender, text, client_submission_id=None):
     """Post a message and roll the 7-day inactivity window forward.
 
     Raises ``ValueError``: ``not_participant`` if ``sender`` isn't in the
     chat, ``chat_closed`` if the chat is no longer open (synced first so a
     just-expired chat is caught, not a stale flag), ``empty_message`` for a
-    blank/whitespace-only body. The body is stripped and hard-capped at
+    blank/whitespace-only body. A retry of an already-stored
+    ``client_submission_id`` returns that message even once the chat has
+    closed: the first attempt can commit just before a hard deadline while
+    only its response is lost. The body is stripped and hard-capped at
     ``CHAT_MESSAGE_MAX_LENGTH`` — the model's ``max_length=1000`` is
     form-only (TextField), not DB-enforced, so this is the actual guard
     (mirrors the ``[:2000]`` truncation ``views_moderation.report_user``
@@ -173,7 +189,8 @@ def send_message(chat, sender, text):
         raise ValueError("not_participant")
 
     chat = sync_chat_state(chat)
-    if not chat_is_open(chat):
+    # A retry is settled under the lock below, before the open-state check.
+    if not chat_is_open(chat) and not client_submission_id:
         raise ValueError("chat_closed")
 
     body = (text or "").strip()[:CHAT_MESSAGE_MAX_LENGTH]
@@ -181,9 +198,31 @@ def send_message(chat, sender, text):
         raise ValueError("empty_message")
 
     with transaction.atomic():
-        message = ConnectChatMessage.objects.create(
-            chat=chat, sender=sender, message=body
+        # Serialize this chat's sends, including duplicate retries, on PostgreSQL.
+        chat = sync_chat_state(
+            ConnectTemporaryChat.objects.select_for_update().get(pk=chat.pk)
         )
+        if client_submission_id:
+            existing = ConnectChatMessage.objects.filter(
+                chat=chat, sender=sender, client_submission_id=client_submission_id
+            ).first()
+            if existing is not None:
+                return existing
+        if not chat_is_open(chat):
+            raise ValueError("chat_closed")
+        if client_submission_id:
+            message, created = ConnectChatMessage.objects.get_or_create(
+                chat=chat,
+                sender=sender,
+                client_submission_id=client_submission_id,
+                defaults={"message": body},
+            )
+            if not created:
+                return message
+        else:
+            message = ConnectChatMessage.objects.create(
+                chat=chat, sender=sender, message=body
+            )
         if chat.status in (
             ConnectTemporaryChat.Status.ACTIVE,
             ConnectTemporaryChat.Status.MEETING_SCHEDULED,

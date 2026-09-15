@@ -28,10 +28,11 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-gray-900 dark:text-white mb-0.5 truncate">
-                            {{ chat.partner.first_name|default:_("A member") }}
+                            {{ chat.partner.first_name|default:_("A member") }}{% if chat.unread_count %} <span class="badge badge-primary">{{ chat.unread_count }} {% trans "unread" %}</span>{% endif %}
                         </p>
+                        {% if chat.latest_message %}<p class="text-sm truncate">{{ chat.latest_message.message }}</p>{% endif %}
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
-                            {% if chat.status == "active" %}{% trans "Say hello" %}
+                            {% if chat.status == "active" %}{% trans "Expires" %}: {{ chat.expires_at|date:"SHORT_DATETIME_FORMAT" }}
                             {% elif chat.status == "meeting_scheduled" %}{% trans "Coffee date planned" %}
                             {% elif chat.status == "meeting_confirmed" %}{% trans "Met — chat closes soon" %}
                             {% comment %}
@@ -52,7 +53,7 @@
                 {% trans "No chats yet." %}
             </h2>
             <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
-                {% trans "When your Sunday review request becomes mutual, the chat opens here." %}
+                {% trans "When a weekly request becomes mutual, the chat opens here." %}
             </p>
         </div>
     {% endif %}

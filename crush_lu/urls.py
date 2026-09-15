@@ -280,6 +280,9 @@ urlpatterns = [
         views_connect_chat.connect_week_chat_detail,
         name='connect_week_chat_detail',
     ),
+    path('crush-connect/week/chats/<int:chat_id>/messages/', views_connect_chat.connect_chat_messages, name='connect_chat_messages'),
+    path('crush-connect/week/chats/<int:chat_id>/read/', views_connect_chat.connect_chat_read, name='connect_chat_read'),
+    path('crush-connect/summary/', views_connect_chat.connect_summary_json, name='connect_summary_json'),
     path(
         'crush-connect/week/chats/<int:chat_id>/send/',
         views_connect_chat.connect_week_chat_send,

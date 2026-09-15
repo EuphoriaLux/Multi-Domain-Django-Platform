@@ -1,9 +1,9 @@
 {% load i18n %}
 {% with page=request.resolver_match.url_name %}
 {% if page != 'crush_connect_hub' %}<a class="inline-flex items-center text-sm" href="{% url 'crush_lu:crush_connect_hub' %}">← {% trans "Connect home" %}</a>{% endif %}
-<nav class="connect-local-nav mb-3" aria-label="{% trans 'Connect navigation' %}">
+<nav data-connect-summary="{% url 'crush_lu:connect_summary_json' %}" class="connect-local-nav mb-3" aria-label="{% trans 'Connect navigation' %}">
 <a href="{% if connect_summary.cycle_access %}{% url 'crush_lu:connect_week_home' %}{% else %}{% url 'crush_lu:crush_connect_catalogue_status' %}{% endif %}" {% if page == 'connect_week_home' or page == 'connect_week_review' or page == 'crush_connect_catalogue_status' %}aria-current="page"{% endif %}>{% trans "Today" %}</a>
-<a href="{% url 'crush_lu:connect_week_inbox' %}" {% if page == 'connect_week_inbox' %}aria-current="page"{% endif %}>{% trans "Requests" %}{% if connect_summary.pending_requests %} ({{ connect_summary.pending_requests }}){% endif %}</a>
-<a href="{% url 'crush_lu:connect_week_chats' %}" {% if page == 'connect_week_chats' or page == 'connect_week_chat_detail' %}aria-current="page"{% endif %}>{% trans "Chats" %}</a>
+<a href="{% url 'crush_lu:connect_week_inbox' %}" {% if page == 'connect_week_inbox' %}aria-current="page"{% endif %}>{% trans "Requests" %}<span data-count="pending_requests">{% if connect_summary.pending_requests %} ({{ connect_summary.pending_requests }}){% endif %}</span></a>
+<a href="{% url 'crush_lu:connect_week_chats' %}" {% if page == 'connect_week_chats' or page == 'connect_week_chat_detail' %}aria-current="page"{% endif %}>{% trans "Chats" %}<span data-count="unread_chats">{% if connect_summary.unread_chats %} ({{ connect_summary.unread_chats }}){% endif %}</span></a>
 </nav>
 {% endwith %}

@@ -4,7 +4,12 @@ from django.db.models import Q
 from django.utils import timezone
 
 from crush_lu.connect_phase import candidate_access_open, cycle_access_open
-from crush_lu.models import ConnectCycleCard, ConnectTemporaryChat, ConnectWeekSession
+from crush_lu.models import (
+    ConnectChatMessage,
+    ConnectCycleCard,
+    ConnectTemporaryChat,
+    ConnectWeekSession,
+)
 from crush_lu.services.blocking import blocked_user_ids
 from crush_lu.services.connect_cycle import (
     get_pending_inbox,
@@ -68,6 +73,11 @@ def get_connect_summary(user):
         "is_visible": visible,
         "pending_requests": len(get_pending_inbox(user)) if inbox_access else 0,
         "chat_count": chats.count(),
+        "unread_chats": chats.filter(
+            pk__in=ConnectChatMessage.objects.filter(read_at__isnull=True)
+            .exclude(sender=user)
+            .values("chat_id")
+        ).count(),
         "session": session,
         "review_open": bool(cycle_access and session and session.is_review_active),
         "daily_total": len(cards),

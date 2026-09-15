@@ -12,3 +12,11 @@
 @media (prefers-reduced-motion: reduce) {
   .connect-shell *, .connect-shell *::before, .connect-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.connect-thread { height: clamp(180px, 40dvh, 420px); overflow-anchor: none; }
+.connect-thread [data-message-id] { flex-shrink: 0; overflow-wrap: anywhere; }
+.connect-composer { position: sticky; bottom: max(calc(72px + env(safe-area-inset-bottom)), var(--connect-keyboard, 0px)); background: var(--bg-primary, white); padding-block: .5rem; z-index: 20; }
+.dark .connect-composer { background: var(--color-slate-800); }
+.connect-composer textarea { min-width: 0; font-size: 16px; }
+.connect-chat [hidden] { display: none !important; }
+@media (min-width: 1024px) { .connect-composer { bottom: 0; } }
