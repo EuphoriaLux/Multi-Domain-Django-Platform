@@ -44,7 +44,6 @@ def get_connect_summary(user):
         if session
         else ConnectCycleCard.objects.none()
     )
-    blocked = blocked_user_ids(user)
     cards = visible_cycle_cards(
         cards.select_related(
             "target_user__crushprofile", "target_user__crush_connect_membership"
