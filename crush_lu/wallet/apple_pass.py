@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import logging
 import os
 import secrets
 from datetime import datetime, timezone
@@ -46,6 +47,74 @@ def _load_brand_assets():
         except FileNotFoundError:
             continue
     return files
+
+
+logger = logging.getLogger(__name__)
+
+
+def generate_pass_thumbnail(profile):
+    """
+    Generate thumbnail.png (90x90) and thumbnail@2x.png (180x180) for Apple Wallet pass.
+
+    Uses profile photo (photo_1) if available and allowed by profile.show_photo_on_wallet.
+    Falls back to branded Crush emblem (180.png) if photo is not available.
+    """
+    from PIL import Image, ImageOps
+
+    # 1. Try user photo first
+    if getattr(profile, "show_photo_on_wallet", True) and getattr(profile, "photo_1", None):
+        try:
+            profile.photo_1.seek(0)
+            raw_bytes = profile.photo_1.read()
+            profile.photo_1.seek(0)
+            if raw_bytes:
+                with Image.open(BytesIO(raw_bytes)) as img:
+                    img = ImageOps.exif_transpose(img)
+                    img = img.convert("RGBA")
+                    width, height = img.size
+                    min_dim = min(width, height)
+                    left = (width - min_dim) // 2
+                    top = (height - min_dim) // 2
+                    cropped = img.crop((left, top, left + min_dim, top + min_dim))
+
+                    thumb_2x = cropped.resize((180, 180), Image.Resampling.LANCZOS)
+                    buf_2x = BytesIO()
+                    thumb_2x.save(buf_2x, format="PNG")
+
+                    thumb_1x = cropped.resize((90, 90), Image.Resampling.LANCZOS)
+                    buf_1x = BytesIO()
+                    thumb_1x.save(buf_1x, format="PNG")
+
+                    return {
+                        "thumbnail.png": buf_1x.getvalue(),
+                        "thumbnail@2x.png": buf_2x.getvalue(),
+                    }
+        except Exception as exc:
+            logger.warning(
+                "Could not create wallet thumbnail from photo for profile %s: %s",
+                getattr(profile, "pk", "unknown"),
+                exc,
+            )
+
+    # 2. Fallback to branded Crush icon (180.png)
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        fallback_path = os.path.join(base_dir, "crush_lu", "static", "crush_lu", "icons", "ios", "180.png")
+        if os.path.exists(fallback_path):
+            with open(fallback_path, "rb") as f:
+                content_2x = f.read()
+            with Image.open(BytesIO(content_2x)) as img:
+                thumb_1x = img.resize((90, 90), Image.Resampling.LANCZOS)
+                buf_1x = BytesIO()
+                thumb_1x.save(buf_1x, format="PNG")
+                return {
+                    "thumbnail.png": buf_1x.getvalue(),
+                    "thumbnail@2x.png": content_2x,
+                }
+    except Exception as exc:
+        logger.warning("Could not load fallback wallet thumbnail: %s", exc)
+
+    return {}
 
 
 def _require_setting(name):
@@ -185,7 +254,7 @@ def _build_pass_payload(
     primary_fields = [
         {
             "key": "member",
-            "label": "Member",
+            "label": "MEMBER",
             "value": pass_data["display_name"],
         }
     ]
@@ -193,60 +262,104 @@ def _build_pass_payload(
     header_fields = [
         {
             "key": "tier",
-            "label": "Status",
-            "value": pass_data["tier_display"],
+            "label": "STATUS",
+            "value": pass_data.get("status_display") or pass_data.get("tier_display", "Member"),
         }
     ]
 
-    secondary_fields = []
+    secondary_fields = [
+        {
+            "key": "member_id",
+            "label": "MEMBER ID",
+            "value": pass_data.get("member_id") or f"#{profile.pk:05d}",
+        }
+    ]
     if pass_data["next_event"]:
         secondary_fields.append(
             {
                 "key": "next_event",
-                "label": "Next Event",
+                "label": "NEXT EVENT",
                 "value": pass_data["next_event"]["title"],
-            }
-        )
-        secondary_fields.append(
-            {
-                "key": "event_date",
-                "label": "Date",
-                "value": pass_data["next_event"]["date"],
             }
         )
     else:
         secondary_fields.append(
             {
-                "key": "next_event",
-                "label": "Next Event",
-                "value": "No upcoming events",
+                "key": "community",
+                "label": "COMMUNITY",
+                "value": "Singles Mixers & Events 🥂",
             }
         )
 
-    auxiliary_fields = [
-        {
-            "key": "member_since",
-            "label": "Member since",
-            "value": pass_data["member_since"]
-            or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        },
+    auxiliary_fields = []
+    if pass_data["next_event"]:
+        auxiliary_fields.append(
+            {
+                "key": "event_date",
+                "label": "DATE",
+                "value": f"{pass_data['next_event']['date']} • {pass_data['next_event']['time']}",
+            }
+        )
+    else:
+        auxiliary_fields.append(
+            {
+                "key": "member_since",
+                "label": "MEMBER SINCE",
+                "value": pass_data.get("member_since_formatted")
+                or pass_data.get("member_since")
+                or datetime.now(timezone.utc).strftime("%b %Y"),
+            }
+        )
+
+    auxiliary_fields.append(
         {
             "key": "points",
-            "label": "Points",
-            "value": str(pass_data["referral_points"]),
-        },
-    ]
+            "label": "REWARDS",
+            "value": f"{pass_data['referral_points']:,} pts 🎁",
+        }
+    )
+
+    auxiliary_fields.append(
+        {
+            "key": "location",
+            "label": "LOCATION",
+            "value": pass_data.get("location") or "Luxembourg 🇱🇺",
+        }
+    )
 
     back_fields = [
         {
-            "key": "referral_info",
-            "label": "Share & Earn",
-            "value": "Invite friends using the QR code on this card. Earn 100 points for each signup!",
+            "key": "member_info",
+            "label": "Your Membership",
+            "value": (
+                f"{pass_data['display_name']} ({pass_data.get('member_id', '')})\n"
+                f"Status: {pass_data.get('verification_badge', pass_data['tier_display'])}\n"
+                f"Location: {pass_data.get('location', 'Luxembourg 🇱🇺')}\n"
+                f"Member since: {pass_data.get('member_since_full') or pass_data.get('member_since_formatted') or pass_data.get('member_since', 'Active')}"
+            ),
         },
         {
-            "key": "tier_info",
-            "label": "Membership Tiers",
-            "value": "Basic (0pts) > Bronze (200pts) > Silver (500pts) > Gold (1000pts)",
+            "key": "referral_info",
+            "label": "🎁 Invite Friends & Earn Rewards",
+            "value": (
+                f"Share your personal invite link:\n{pass_data['referral_url']}\n\n"
+                "Earn 100 points for each friend who joins Crush.lu! Redeem points for event tickets, free drinks, and VIP perks."
+            ),
+        },
+        {
+            "key": "quick_links",
+            "label": "Quick Links",
+            "value": (
+                "• Browse Events: https://crush.lu/events/\n"
+                "• Your Profile: https://crush.lu/profile/\n"
+                "• Crush Connect: https://crush.lu/connect/\n"
+                "• Dashboard: https://crush.lu/dashboard/"
+            ),
+        },
+        {
+            "key": "event_entry",
+            "label": "Event Access & Check-In",
+            "value": "Present this digital pass at Crush.lu mixers and events for express check-in and attendee verification.",
         },
     ]
 
@@ -254,10 +367,40 @@ def _build_pass_payload(
         back_fields.append(
             {
                 "key": "event_location",
-                "label": "Event Location",
-                "value": pass_data["next_event"]["location"],
+                "label": "Next Event Location",
+                "value": f"{pass_data['next_event']['title']}\n📅 {pass_data['next_event']['date']} at {pass_data['next_event']['time']}\n📍 {pass_data['next_event']['location']}",
             }
         )
+
+    back_fields.append(
+        {
+            "key": "tier_info",
+            "label": "Membership Tiers & Perks",
+            "value": (
+                "• Basic: Access to all public mixers & speed dating\n"
+                "• Bronze (200 pts): 10% discount on event tickets\n"
+                "• Silver (500 pts): Priority check-in & welcome drink\n"
+                "• Gold (1,000 pts): Free event entry & VIP status\n"
+                "• Premium: Verified matchmaking & dedicated coach"
+            ),
+        }
+    )
+
+    back_fields.append(
+        {
+            "key": "safety_support",
+            "label": "Trust, Safety & Support",
+            "value": (
+                "Crush.lu is a verified dating community built on mutual respect and genuine connections.\n\n"
+                "Questions or assistance?\n"
+                "Email: contact@crush.lu\n"
+                "Instagram: https://www.instagram.com/crushluofficial/"
+            ),
+        }
+    )
+
+    ref_code = pass_data.get("referral_code", "")
+    alt_text = f"Scan to Connect • Ref: {ref_code}" if ref_code else "Scan to join Crush.lu"
 
     payload = {
         "formatVersion": 1,
@@ -277,21 +420,21 @@ def _build_pass_payload(
         },
         "groupingIdentifier": pass_type_identifier,
         "sharingProhibited": True,
-        "backgroundColor": "rgb(155, 89, 182)",
+        "backgroundColor": "rgb(109, 40, 217)",
         "foregroundColor": "rgb(255, 255, 255)",
-        "labelColor": "rgb(255, 220, 230)",
+        "labelColor": "rgb(233, 213, 255)",
         "barcode": {
             "format": "PKBarcodeFormatQR",
             "message": pass_data["referral_url"],
             "messageEncoding": "iso-8859-1",
-            "altText": "Scan to join Crush.lu",
+            "altText": alt_text,
         },
         "barcodes": [
             {
                 "format": "PKBarcodeFormatQR",
                 "message": pass_data["referral_url"],
                 "messageEncoding": "iso-8859-1",
-                "altText": "Scan to join Crush.lu",
+                "altText": alt_text,
             }
         ],
     }
@@ -391,7 +534,8 @@ def build_apple_pass(profile, request=None, web_service_url=None):
         request=request,
         web_service_url=web_service_url,
     )
-    return _build_pkpass(pass_payload)
+    thumbnail_files = generate_pass_thumbnail(profile)
+    return _build_pkpass(pass_payload, files=thumbnail_files)
 
 
 def provide_pass_for_serial(
