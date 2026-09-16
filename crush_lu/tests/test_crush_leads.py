@@ -1,7 +1,7 @@
 """
 "My Crush!" Phase B — lead model tests.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Covers (Phase B scope only):
 - flow discriminator default + no backfill semantics (§7, §13)

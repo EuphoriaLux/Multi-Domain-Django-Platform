@@ -1,7 +1,7 @@
 """
 "My Crush!" Phase C — member declaration flow tests.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Covers (Phase C scope):
 - declaration creates a flow='crush' lead with a routed coach (§5/§7)

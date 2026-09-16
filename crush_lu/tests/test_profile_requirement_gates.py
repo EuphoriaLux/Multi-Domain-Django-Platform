@@ -1,6 +1,6 @@
 """`profile_requirement` registration gates — the full option x state matrix.
 
-Spec: docs/superpowers/specs/2026-07-27-profile-requirement-audit.md
+Spec: ai-memory-hub/specs/2026-07-27-crush-profile-requirement-audit.md
 
 These defects survived because nothing pinned *who* each option admits — the
 labels described intent and the gates implemented something different, in both

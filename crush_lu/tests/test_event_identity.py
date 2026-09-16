@@ -1,7 +1,7 @@
 """Tests for the Event Identity redesign — Phase B (models, migration command,
 and the Event Identity form's validation layer).
 
-Spec: docs/superpowers/specs/2026-07-21-crush-event-identity-redesign.md (§8, §13).
+Spec: ai-memory-hub/specs/2026-07-21-crush-event-identity-redesign.md (§8, §13).
 The Interest taxonomy (including the O3 additions) ships as data migrations, but
 this module seeds it itself (see ``interest_taxonomy``) rather than trusting the
 test DB to still hold it.

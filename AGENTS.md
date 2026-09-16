@@ -77,7 +77,7 @@ Uses Django 6.0's native `TASKS` framework — but **production runs on the defa
 
 ### Multi-channel campaigns (crush_lu Coach Panel)
 
-`/crush-admin/campaigns/` runs unified outreach campaigns across **email / WhatsApp / web push**: compose once, pick a segment (`get_segment_definitions()`), send now or schedule. Spec + runbook: `docs/specs/campaign-dashboard.md`. Key mechanics you must not break:
+`/crush-admin/campaigns/` runs unified outreach campaigns across **email / WhatsApp / web push**: compose once, pick a segment (`get_segment_definitions()`), send now or schedule. Spec + runbook: `ai-memory-hub/specs/2026-07-21-crush-campaign-dashboard.md`. Key mechanics you must not break:
 
 - **One `Campaign`, per-channel engines**: the email leg is a campaign-linked `Newsletter` (nullable `Newsletter.campaign` OneToOne — standalone newsletters must stay byte-identical); WhatsApp/push state lives in `CampaignRecipient` (`WhatsAppMessage.user` is the *sending admin*, recipient is a phone string — never treat it as the recipient FK). Channel adapters + dispatcher: `crush_lu/services/campaigns.py`; shared Meta send: `hub/whatsapp_service.py` (also backs the hub CRM views — response shapes are contract).
 - **No inline sends**: production has no task worker, so sending is driven by the `CampaignDispatch` Azure Function timer (every 5 min, `hybrid-maintenance` app) → `POST /api/admin/campaigns/dispatch/` (`crush_lu/api_admin_campaigns.py`, Bearer `ADMIN_API_KEY`, outside `i18n_patterns`) → bounded resumable tick (email 25 = one Graph batch / WhatsApp 30 / push 150, ~80s wall budget under the 120s gunicorn timeout; heartbeat claim prevents double-sends). Gated by `CAMPAIGN_DISPATCH_ENABLED` (default OFF). Manual: `manage.py dispatch_campaigns [--dry-run]`.
@@ -94,6 +94,8 @@ EN/DE/FR via `i18n_patterns` (language-prefixed URLs like `/fr/…`) **plus** `d
 `crush_lu` is by far the largest app and uses **split-by-feature files**: `models/` and `admin/` are packages, and views/api/forms are sharded (`views_<feature>.py`, `api_<feature>.py`). When adding a feature, follow this convention rather than growing a monolithic `views.py`. Other apps (`vinsdelux`, `arborist`, `tableau` are mostly static; `entreprinder`, `power_up`, `delegations`, `hub` are full apps). `power_up` contains submodules `crm/`, `onboarding/`, `finops/` registered as separate apps.
 
 ## Crush.lu conventions (scoped to crush_lu only)
+
+**Crush.lu knowledge lives in the shared memory hubs, never in this repo.** Put product notes, design specs, implementation plans, reviews, audits, validation handoffs, runbooks and store-submission notes in `C:\GitHub\ai-memory-hub` (`specs/`, `runbooks/`, `reviews/`). Put business and offer documents in `C:\GitHub\business-memory-hub`. Do not add them under `docs/`. Code comments cite the vault path, e.g. `Spec: ai-memory-hub/specs/<file>`, and the catalogue is `ai-memory-hub/runbooks/project-documentation-hub.md`. Files that tools read (this file, `crush_lu/STYLE.md`, build READMEs, fastlane metadata) stay here.
 
 `crush_lu/STYLE.md` is the **canonical visual + component reference** — read it before touching any `crush_lu/templates/crush_lu/` page. It defines the four canonical button variants, design tokens (brand colors live in **four** places that must stay in sync), shared component partials, and the Alpine.js mixin pattern.
 

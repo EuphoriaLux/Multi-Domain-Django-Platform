@@ -1,6 +1,6 @@
 """"My Crush!" Phase E — the three open points from §11.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 - **O12 / option 3** — unclaimed pool leads reach the SLA-tracked coach inbox.
   A member at a ``profile_requirement="none"`` event can declare a crush that

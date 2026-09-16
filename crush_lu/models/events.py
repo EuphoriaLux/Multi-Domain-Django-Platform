@@ -328,7 +328,7 @@ class MeetupEvent(models.Model):
     max_age = models.PositiveIntegerField(default=99)
     # Labels name what each option CHECKS, not what it was intended for — the
     # previous wording described intent and diverged from the gates in both
-    # directions (see docs/superpowers/specs/2026-07-27-profile-requirement-audit.md).
+    # directions (see ai-memory-hub/specs/2026-07-27-crush-profile-requirement-audit.md).
     # Notably `coach_assigned` is NOT a Premium check: a coach is auto-assigned
     # on first attendance without payment, so it admits every past attendee.
     # `CrushProfile.has_active_premium` is the real entitlement.

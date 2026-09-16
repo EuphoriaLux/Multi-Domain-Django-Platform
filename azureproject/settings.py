@@ -1007,7 +1007,7 @@ SUMUP_ADMIN_REFUND_BUDGET_SECONDS = float(
 # ============================================================================
 # Publishes public Crush.lu events to echo.lu, Luxembourg's national events
 # portal, via its partner API (https://api.echo.lu/). See
-# crush_lu/services/echo_lu.py and docs/integrations/echo-lu-sync.md.
+# crush_lu/services/echo_lu.py and ai-memory-hub/runbooks/crush-echo-lu-sync.md.
 #
 # The api-key is issued per ORGANISATION from the echo.lu organiser back
 # office, so the key alone identifies who the experience is published as —
@@ -1018,7 +1018,7 @@ ECHO_LU_API_KEY = os.environ.get("ECHO_LU_API_KEY", "")
 # mention a test environment, and that hostname serves a byte-identical
 # documentation page from the same address as api.echo.lu. Every write lands on
 # the live national portal — which is why the first run is a single event by
-# id, not a staging walk. See docs/integrations/echo-lu-sync.md.
+# id, not a staging walk. See ai-memory-hub/runbooks/crush-echo-lu-sync.md.
 ECHO_LU_API_BASE_URL = os.environ.get(
     "ECHO_LU_API_BASE_URL", "https://api.echo.lu/v1"
 ).strip()

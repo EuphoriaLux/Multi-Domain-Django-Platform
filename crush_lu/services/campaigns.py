@@ -2,7 +2,7 @@
 Multi-channel campaign service: audience resolution, channel adapters, and the
 bounded-batch dispatcher behind the Coach Panel campaign dashboard.
 
-Design constraints (see docs/specs/campaign-dashboard.md):
+Design constraints (see ai-memory-hub/specs/2026-07-21-crush-campaign-dashboard.md):
 
 - Production has no async task worker (Django tasks run on ImmediateBackend),
   so campaign sends are driven by an Azure Function timer POSTing
