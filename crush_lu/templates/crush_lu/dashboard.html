@@ -305,8 +305,9 @@
 {% endif %}
 
 {# ─── 10. Secondary: PWA + Wallet ─── #}
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-    {# PWA Install #}
+<div class="grid grid-cols-1 {% if not is_native_app %}md:grid-cols-2{% endif %} gap-5 mb-5">
+    {# PWA Install - only shown for web browsers, hidden in native apps #}
+    {% if not is_native_app %}
     <div class="status-card rounded-2xl">
         <div class="status-card-body p-4 sm:p-5">
             <div x-data="pwaInstallButton">
@@ -338,6 +339,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     {# Membership / Wallet #}
     <div class="status-card rounded-2xl">
@@ -345,16 +347,22 @@
             <h5 class="font-semibold text-base sm:text-lg mb-2">{% trans "Membership Card" %}</h5>
             <p class="text-gray-500 dark:text-gray-400 mb-3.5 text-xs sm:text-sm">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                {% if apple_wallet_enabled %}
-                <a href="{% url 'wallet_apple_pass' %}" target="_blank" rel="noopener" class="inline-block p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                    <img src="{% static 'crush_lu/img/wallet/apple_wallet_badge.svg' %}" alt="{% trans 'Add to Apple Wallet' %}" class="h-10 sm:h-12 w-auto">
-                </a>
-                {% else %}
-                <button type="button" disabled class="inline-flex items-center gap-2 text-xs sm:text-sm px-3.5 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed">
-                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Apple Wallet" %}
-                    <span class="text-[10px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
-                </button>
+                {# Apple Wallet: show on iOS devices and desktop, hide on Android #}
+                {% if not is_android_device %}
+                    {% if apple_wallet_enabled %}
+                    <a href="{% url 'wallet_apple_pass' %}" target="_blank" rel="noopener" class="apple-wallet-link inline-block p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <img src="{% static 'crush_lu/img/wallet/apple_wallet_badge.svg' %}" alt="{% trans 'Add to Apple Wallet' %}" class="h-10 sm:h-12 w-auto">
+                    </a>
+                    {% else %}
+                    <button type="button" disabled class="inline-flex items-center gap-2 text-xs sm:text-sm px-3.5 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed">
+                        {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Apple Wallet" %}
+                        <span class="text-[10px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
+                    </button>
+                    {% endif %}
                 {% endif %}
+
+                {# Google Wallet: show on Android devices and desktop, hide on iOS #}
+                {% if not is_ios_device %}
                 <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     {% get_current_language as LANGUAGE_CODE %}
                     {% if LANGUAGE_CODE == 'de' %}<img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-10 sm:h-12 w-auto" id="google-wallet-img">
@@ -362,6 +370,7 @@
                     {% else %}<img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-10 sm:h-12 w-auto" id="google-wallet-img">{% endif %}
                     <span id="google-wallet-loading" class="hidden text-xs sm:text-sm text-gray-500 dark:text-gray-400">{% trans "Loading..." %}</span>
                 </button>
+                {% endif %}
             </div>
             <div class="mt-3.5">
                 <button type="button" id="share-referral-btn" data-referral-url="{{ referral_url }}" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
@@ -413,6 +422,34 @@
                 try { const r = await fetch(jwtUrl); const d = await r.json(); if (d.jwt) { window.location.href = 'https://pay.google.com/gp/v/save/' + d.jwt; } else if (d.error) { alert(d.error); setLoading(false); } } catch(e) { alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}'); setLoading(false); }
             });
         }
+        // Native iOS app bridge: intercept Apple Wallet link clicks and ferry .pkpass base64 to Swift
+        document.querySelectorAll('a[href*="/wallet/apple/"]').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.pkpassDownload) {
+                    e.preventDefault();
+                    var url = link.href;
+                    fetch(url, { credentials: 'same-origin' })
+                        .then(function (resp) {
+                            if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+                            return resp.blob();
+                        })
+                        .then(function (blob) {
+                            var reader = new FileReader();
+                            reader.onload = function () {
+                                var b64 = String(reader.result).split(',')[1] || '';
+                                window.webkit.messageHandlers.pkpassDownload.postMessage({ data: b64 });
+                            };
+                            reader.onerror = function () {
+                                window.webkit.messageHandlers.pkpassDownload.postMessage({ error: 'read failed' });
+                            };
+                            reader.readAsDataURL(blob);
+                        })
+                        .catch(function (err) {
+                            window.webkit.messageHandlers.pkpassDownload.postMessage({ error: String(err && err.message || err) });
+                        });
+                }
+            });
+        });
     });
 </script>
 {% endblock %}

@@ -146,6 +146,39 @@ def get_membership_tier_display(profile):
     return f"{tier.capitalize()} Member"
 
 
+def get_wallet_status_display(profile):
+    """Short punchy status string for wallet headers (e.g. '✨ VIP', '🛡️ Verified', '🥇 Gold')."""
+    if getattr(profile, "has_active_premium", False):
+        return "✨ VIP"
+    if getattr(profile, "verification_status", "") == "verified":
+        if getattr(profile, "verification_method", "") == "luxid":
+            return "🛡️ LuxID"
+        return "🛡️ Verified"
+    tier = (getattr(profile, "membership_tier", "") or "basic").lower()
+    tier_emojis = {
+        "gold": "🥇 Gold",
+        "silver": "🥈 Silver",
+        "bronze": "🥉 Bronze",
+        "basic": "💜 Member",
+    }
+    return tier_emojis.get(tier, "💜 Member")
+
+
+def get_wallet_verification_badge(profile):
+    """Detailed badge display for membership information."""
+    if getattr(profile, "has_active_premium", False):
+        return "✨ Premium Member"
+    if getattr(profile, "verification_status", "") == "verified":
+        method = getattr(profile, "verification_method", "")
+        if method == "luxid":
+            return "🛡️ LuxID Verified"
+        elif method == "coach_event":
+            return "🛡️ Coach Verified (Event)"
+        return "🛡️ Verified Member"
+    tier = (getattr(profile, "membership_tier", "") or "basic").capitalize()
+    return f"{tier} Member"
+
+
 def get_profile_photo_url(profile, request=None):
     """
     Returns the URL for the profile's primary photo.
@@ -186,19 +219,30 @@ def build_wallet_pass_data(profile, request=None, base_url=None):
         Dictionary with all pass data
     """
     referral_url = build_wallet_pass_barcode_value(profile, request=request, base_url=base_url)
+    referral_code_obj = ReferralCode.get_or_create_for_profile(profile)
+    referral_code = referral_code_obj.code if referral_code_obj else ""
     next_event = get_next_event_for_pass(profile)
     tier_display = get_membership_tier_display(profile)
     photo_url = get_profile_photo_url(profile, request=request)
+    created_at = getattr(profile, "created_at", None)
+    member_id = f"#{profile.pk:05d}" if profile and profile.pk else "#00001"
 
     return {
         "display_name": profile.display_name,
         "membership_tier": profile.membership_tier,
         "tier_display": tier_display,
+        "status_display": get_wallet_status_display(profile),
+        "verification_badge": get_wallet_verification_badge(profile),
+        "member_id": member_id,
         "referral_points": profile.referral_points,
+        "referral_code": referral_code,
         "referral_url": referral_url,
         "next_event": next_event,
         "photo_url": photo_url,
-        "member_since": profile.created_at.strftime("%Y-%m-%d") if profile.created_at else None,
+        "location": getattr(profile, "location", "") or "Luxembourg 🇱🇺",
+        "member_since": created_at.strftime("%Y-%m-%d") if created_at else None,
+        "member_since_formatted": created_at.strftime("%b %Y") if created_at else None,
+        "member_since_full": created_at.strftime("%B %d, %Y") if created_at else None,
     }
 
 
