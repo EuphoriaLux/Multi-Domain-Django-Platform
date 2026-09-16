@@ -357,7 +357,7 @@ def sync_event_to_echo_task(event_id):
     except MeetupEvent.DoesNotExist:
         # Deleted between enqueue and execution. The listing goes with it: the
         # sync row cascades, so there is nothing left to reconcile from here —
-        # see docs/integrations/echo-lu-sync.md on deleting events.
+        # see ai-memory-hub/runbooks/crush-echo-lu-sync.md on deleting events.
         logger.info(f"[TASK] Event {event_id} gone before echo.lu sync; skipping")
         return
 

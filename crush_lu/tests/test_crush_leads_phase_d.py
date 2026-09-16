@@ -1,7 +1,7 @@
 """
 "My Crush!" Phase D — coach UI & notifications tests.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Covers (Phase D scope):
 - reciprocal crush leads stay independent: start_review/approve/claim never

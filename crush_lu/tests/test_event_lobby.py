@@ -1,7 +1,7 @@
 """
 Tests for the Crush Connect Event Lobby prototype slice.
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 Covers the §18 test-plan rows that fall inside the slice: every eligibility
 condition independently denies access; non-Connect check-in succeeds without
 participation; onboarding before/after end; exact three-signal quota with

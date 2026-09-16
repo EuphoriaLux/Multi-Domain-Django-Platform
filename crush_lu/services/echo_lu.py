@@ -675,7 +675,7 @@ def _commune_for(postcode, town):
     Rodange's commune is Petange, Belval straddles Esch-sur-Alzette and
     Sanem, and a quarter like Ville-Haute is not a commune at all. See
     ``crush_lu/services/echo_lu_postcodes.py`` for the authoritative source
-    and ``docs/integrations/echo-lu-sync.md`` ("Known limitation") for the
+    and ``ai-memory-hub/runbooks/crush-echo-lu-sync.md`` ("Known limitation") for the
     history.
 
     A handful of rural postcodes straddle a commune border and are
@@ -740,7 +740,7 @@ def address_payload(event):
             # postcode is looked up first and only falls back to the town
             # when the postcode is unmapped or absent. See
             # `crush_lu/services/echo_lu_postcodes.py` and the "Known
-            # limitation" section of docs/integrations/echo-lu-sync.md.
+            # limitation" section of ai-memory-hub/runbooks/crush-echo-lu-sync.md.
             "commune": _commune_for(postcode, town),
             "country": "Luxembourg",
         }

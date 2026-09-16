@@ -321,7 +321,7 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
                     "CrushConnectMembership"):
             self.assertIn(obj, names)
 
-    # -- Redesign: tiered sidebar (see docs/crush-admin-redesign.md) ----------
+    # -- Redesign: tiered sidebar (see ai-memory-hub/reviews/2026-09-13-crush-admin-redesign-audit.md) ----------
 
     def test_no_model_falls_into_the_other_catch_all(self):
         """Every registered model must have an explicit group.

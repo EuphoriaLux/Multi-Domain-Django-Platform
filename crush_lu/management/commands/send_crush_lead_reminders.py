@@ -1,7 +1,7 @@
 """
 Send the 24h untouched-lead reminder for "My Crush!" coach leads.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 §6/O8 — a member who declares a crush is promised a coach call within 48h.
 This fires at the halfway mark so the routed coach still has a day to make
 it, and only for leads nobody has touched.

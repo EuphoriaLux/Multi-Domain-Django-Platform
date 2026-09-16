@@ -81,4 +81,4 @@ Set these in production before submitting:
 
 - Store listing metadata: `fastlane/metadata/android/en-US/`
 - Review notes: `fastlane/metadata/android/en-US/review_notes.txt`
-- App access/data safety/content rating draft: `docs/app-store/crush-android-play-console-answers.md`
+- App access/data safety/content rating draft: `ai-memory-hub/runbooks/crush-android-play-console-answers.md`

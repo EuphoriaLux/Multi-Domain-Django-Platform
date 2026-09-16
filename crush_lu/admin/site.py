@@ -191,7 +191,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # These proxy admins stay registered (index Action Center deep-links
             # target them); they just live in their own collapsed "More"-tier
             # group instead of padding Users & Profiles with 9 extra rows.
-            # See docs/crush-admin-redesign.md.
+            # See ai-memory-hub/reviews/2026-09-13-crush-admin-redesign-audit.md.
             # ═══════════════════════════════════════════════════════════════════
             'approvedprofile': {'order': 1, 'icon': '✅', 'group': 'Profile Segments'},
             'awaitingreviewprofile': {'order': 2, 'icon': '📋', 'group': 'Profile Segments'},
@@ -357,7 +357,7 @@ class CrushLuAdminSite(admin.AdminSite):
         #   more      -> collapsed under a "More" section
         #   superuser -> collapsed under a "Developer & Analytics" section
         # Each fake-app below gets a 'tier' key so the template can group them.
-        # See docs/crush-admin-redesign.md.
+        # See ai-memory-hub/reviews/2026-09-13-crush-admin-redesign-audit.md.
         PINNED_GROUPS = {
             'Crush Connect', 'Users & Profiles', 'Events & Meetups',
             'Connections', 'Notifications',
