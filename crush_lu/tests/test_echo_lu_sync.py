@@ -355,7 +355,7 @@ class PayloadTests(TestCase):
     def test_commune_resolves_from_the_postcode_when_it_differs_from_the_town(self):
         # Rodange is the doc's own worked example of the town/commune split:
         # the venue's town is Rodange, but Rodange's commune is Petange. See
-        # docs/integrations/echo-lu-sync.md ("Known limitation").
+        # ai-memory-hub/runbooks/crush-echo-lu-sync.md ("Known limitation").
         event = make_event(
             address_street="Avenue de la Gare",
             address_postcode="4802",

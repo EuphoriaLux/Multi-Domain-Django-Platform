@@ -1,7 +1,7 @@
 """Luxembourg postcode to commune (municipality) lookup table.
 
 Wired into ``address_payload()`` in ``crush_lu/services/echo_lu.py`` to fix the
-known limitation documented in ``docs/integrations/echo-lu-sync.md`` ("A
+known limitation documented in ``ai-memory-hub/runbooks/crush-echo-lu-sync.md`` ("A
 Luxembourg commune takes its name from its principal town... It is wrong
 where they do not: Rodange is in the commune of Petange, Belval is in
 Sanem..."). A Luxembourg commune usually shares its name with its principal
@@ -41,7 +41,7 @@ crush_lu/tests/test_echo_lu_sync.py):
     is registered as a QUARTIER of the "Luxembourg" locality, not a commune
     of its own, confirming the doc's Ville-Haute case.
   - 4361-4366 (Belval campus -- Rockhal, Maison du Savoir, Belval Plaza) ->
-    "Esch-sur-Alzette", NOT "Sanem" as docs/integrations/echo-lu-sync.md
+    "Esch-sur-Alzette", NOT "Sanem" as ai-memory-hub/runbooks/crush-echo-lu-sync.md
     previously (incorrectly) stated. Postcodes 4367-4375, on the boundary
     with Sanem's "Belvaux" locality, ARE ambiguous and are excluded from
     this table -- see the PR that introduced this file for the full

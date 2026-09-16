@@ -2,7 +2,7 @@
 Event Lobby service layer — eligibility, phase math, roster shaping, and the
 irrevocable meet-signal loop.
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 (§5 eligibility, §6 time/state model, §7.2–7.8 live lobby / recap / People
 I've Met, §9–10 domain model and service boundaries, §13 privacy invariants).
 

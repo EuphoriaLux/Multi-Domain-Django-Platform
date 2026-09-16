@@ -1,7 +1,7 @@
 """
 Event Lobby models — the live, event-scoped "I'd like to meet you" surface.
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 
 - ``EventLobbyParticipation``: one row per eligible checked-in Crush Connect
   member admitted while the live lobby or its 48-hour recap is open. Admission

@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
+import requests
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
@@ -18,6 +19,7 @@ from crush_lu.models import (
     UserDataConsent,
 )
 from hub.buffer_service import (
+    BufferAuthError,
     BufferPartialFailure,
     BufferServiceError,
     create_buffer_update,
@@ -298,6 +300,24 @@ class SocialMediaTests(TestCase):
             response.data["error"], "Buffer channels are temporarily unavailable."
         )
         self.assertNotIn("sensitive Buffer diagnostic", str(response.data))
+
+    @patch(
+        "hub.views_social.list_buffer_profiles",
+        side_effect=BufferAuthError("sensitive credential diagnostic"),
+    )
+    def test_buffer_profiles_names_a_rejected_credential(self, _list_profiles):
+        """A 401 is permanent -- "temporarily unavailable" sent the last
+        operator looking for a Buffer outage instead of the app setting."""
+
+        response = self.client.get("/hub/social/buffer-profiles")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["error"],
+            "Buffer rejected the configured API key. Update BUFFER_API_KEY, "
+            "then retry.",
+        )
+        self.assertNotIn("sensitive credential diagnostic", str(response.data))
 
     @patch(
         "hub.views_social.expand_social_post",
@@ -1170,6 +1190,40 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.status, SocialPost.Status.FAILED)
         self.assertNotIn("sensitive scheduling diagnostic", str(post.status_history))
 
+    @patch(
+        "hub.views_social.create_buffer_update",
+        side_effect=BufferAuthError("sensitive credential diagnostic"),
+    )
+    def test_scheduling_names_a_rejected_credential(self, _dispatch):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.data["error"],
+            "Buffer rejected the configured API key. Update BUFFER_API_KEY, "
+            "then retry.",
+        )
+        self.assertNotIn("sensitive credential diagnostic", str(response.data))
+        post.refresh_from_db()
+        # Same FAILED bookkeeping as any other dispatch failure; only the
+        # recorded reason changes.
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+        self.assertIn("BUFFER_API_KEY", str(post.status_history))
+
     def test_scheduling_requires_time_and_channel_without_mutating_status(self):
         post = SocialPost.objects.create(
             user=self.user,
@@ -1267,8 +1321,47 @@ class BufferServiceTests(SimpleTestCase):
 
     @override_settings(BUFFER_API_KEY="")
     def test_missing_buffer_key_fails_closed(self):
-        with self.assertRaises(BufferServiceError):
+        with self.assertRaises(BufferAuthError):
             create_buffer_update(text="Hello", profile_ids=["channel_1"])
+
+    @patch("hub.buffer_service.requests.post")
+    def test_rejected_api_key_raises_auth_error(self, post_request):
+        for status_code in (401, 403):
+            with self.subTest(status_code=status_code):
+                response = Mock()
+                response.status_code = status_code
+                response.raise_for_status.side_effect = requests.HTTPError(
+                    f"{status_code} Client Error", response=response
+                )
+                post_request.return_value = response
+
+                with self.assertRaises(BufferAuthError):
+                    create_buffer_update(text="Hello", profile_ids=["channel_1"])
+
+    @patch("hub.buffer_service.requests.post")
+    def test_server_error_stays_a_transient_failure(self, post_request):
+        """Only 401/403 are permanent -- a 5xx must keep the retry wording."""
+
+        response = Mock()
+        response.status_code = 500
+        response.raise_for_status.side_effect = requests.HTTPError(
+            "500 Server Error", response=response
+        )
+        post_request.return_value = response
+
+        with self.assertRaises(BufferServiceError) as raised:
+            create_buffer_update(text="Hello", profile_ids=["channel_1"])
+
+        self.assertNotIsInstance(raised.exception, BufferAuthError)
+
+    @patch("hub.buffer_service.requests.post")
+    def test_connection_failure_stays_a_transient_failure(self, post_request):
+        post_request.side_effect = requests.ConnectionError("connection reset")
+
+        with self.assertRaises(BufferServiceError) as raised:
+            create_buffer_update(text="Hello", profile_ids=["channel_1"])
+
+        self.assertNotIsInstance(raised.exception, BufferAuthError)
 
     def test_localhost_media_is_rejected_before_buffer_dispatch(self):
         with self.assertRaisesMessage(

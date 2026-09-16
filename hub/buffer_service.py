@@ -14,9 +14,23 @@ logger = logging.getLogger(__name__)
 
 BUFFER_GRAPHQL_URL = "https://api.buffer.com"
 
+# Buffer answers a bad key with 401; 403 covers a key whose organization access
+# was withdrawn. Both are credential problems, neither survives a retry.
+BUFFER_AUTH_STATUS_CODES = frozenset({401, 403})
+
 
 class BufferServiceError(RuntimeError):
     """Raised for Buffer configuration, transport, or GraphQL errors."""
+
+
+class BufferAuthError(BufferServiceError):
+    """Raised when Buffer rejects the configured API key.
+
+    Split from the generic error because it is *permanent*: retrying cannot
+    revive a revoked key, so callers surface "check the credential" instead of
+    "try again later". Conflating the two is what made a 401 on production read
+    as a Buffer outage for a full planning cycle.
+    """
 
 
 class BufferPartialFailure(BufferServiceError):
@@ -48,7 +62,7 @@ def _is_public_media_url(url: str) -> bool:
 def _graphql(query: str, variables: dict | None = None) -> dict:
     api_key = settings.BUFFER_API_KEY
     if not api_key:
-        raise BufferServiceError("BUFFER_API_KEY is not configured")
+        raise BufferAuthError("BUFFER_API_KEY is not configured")
 
     try:
         response = requests.post(
@@ -62,6 +76,22 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
         )
         response.raise_for_status()
         payload = response.json()
+    except requests.HTTPError as exc:
+        status_code = getattr(exc.response, "status_code", None)
+        if status_code in BUFFER_AUTH_STATUS_CODES:
+            # Logged without a traceback: the status code is the whole
+            # diagnosis, and this fires on every channel refresh for as long as
+            # the key stays broken.
+            logger.error(
+                "Buffer rejected the configured API key (HTTP %s). BUFFER_API_KEY "
+                "is invalid, revoked, or an unresolved Key Vault reference.",
+                status_code,
+            )
+            raise BufferAuthError(
+                f"Buffer rejected the configured API key (HTTP {status_code})"
+            ) from exc
+        logger.exception("Buffer GraphQL request failed")
+        raise BufferServiceError("Buffer is temporarily unavailable") from exc
     except (requests.RequestException, ValueError) as exc:
         logger.exception("Buffer GraphQL request failed")
         raise BufferServiceError("Buffer is temporarily unavailable") from exc

@@ -1,7 +1,7 @@
 """
 Tests for the Crush Connect Event Lobby recap & People I've Met slice (Phase C).
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 Covers the §18 rows for this phase: recap admission remains open for 48 hours;
 unlimited immutable confirmations; anonymous recap counter excluding
 blocked/ineligible; reciprocal confirmations create exactly one permanent

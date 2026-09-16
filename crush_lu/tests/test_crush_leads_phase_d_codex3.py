@@ -1,6 +1,6 @@
 """"My Crush!" Phase D — Codex round-3 review findings.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Nine findings on commit ``a389767``, all against the routed-coach workspace
 and the reminder sweep added earlier in the phase. The through-line is that

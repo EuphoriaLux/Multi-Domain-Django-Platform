@@ -1,7 +1,7 @@
 """
 Backfill ``recipient_coach`` on "My Crush!" leads declared before Phase D.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 §11 / O13.
 
 Phase D added the recipient-side co-coach hand-off. Leads declared before it

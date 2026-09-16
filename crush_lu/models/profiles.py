@@ -702,7 +702,7 @@ class CrushProfile(models.Model):
     # --- Event Identity (2026 redesign) ------------------------------------
     # Structured replacement for the free-text bio/interests fields above:
     # "what people discover about you at events." See the Event Identity spec
-    # (docs/superpowers/specs/2026-07-21-crush-event-identity-redesign.md).
+    # (ai-memory-hub/specs/2026-07-21-crush-event-identity-redesign.md).
     interests_new = models.ManyToManyField(
         "crush_lu.Interest",
         blank=True,

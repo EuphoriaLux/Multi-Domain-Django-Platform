@@ -4,6 +4,9 @@ These explicit, opt-in characterization probes reproduce existing gaps without
 changing payment logic. They are outside pytest's default testpaths. Replace
 the defect assertions with the specification's acceptance cases when recovery
 is implemented; do not preserve these outcomes as product requirements.
+
+The specification lives in the shared memory hub:
+ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 """
 
 from decimal import Decimal

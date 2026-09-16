@@ -1,7 +1,7 @@
 """
 "My Crush!" crush-lead services.
 
-Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
+Spec: ai-memory-hub/specs/2026-07-21-crush-my-crush-post-event-flow.md
 Phase B — lead model: §7 call-tracking fields, routing tier, coach action
 queue integration.
 Phase C — member declaration: gender-independent counter under a

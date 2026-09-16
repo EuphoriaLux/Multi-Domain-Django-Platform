@@ -1176,7 +1176,7 @@ def crush_connect_pick_respond(request, pick_id: int):
 # Member-facing landing pages, one per Crush Connect experience. Educational,
 # so they are deliberately softer-gated than the live surfaces: any logged-in
 # member may read them (no onboarding required) once the flag is on.
-# Canonical taxonomy and copy rules: docs/products/crush-connect.md.
+# Canonical taxonomy and copy rules: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md.
 
 CONNECT_EXPERIENCES = {
     "coach-pick": {

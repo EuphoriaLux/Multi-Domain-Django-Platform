@@ -1,7 +1,7 @@
 """
 Prune expired Event Lobby audit rows (spec §13 retention).
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 
 > Expired one-sided signals, directional meeting confirmations, and lobby
 > participation rows are no longer user-visible after recap close. Retain them

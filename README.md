@@ -343,7 +343,7 @@ A unified multi-channel campaign system at `/crush-admin/campaigns/`: compose on
 - **Scheduled sending** via an Azure Function timer → `/api/admin/campaigns/dispatch/` → bounded, resumable batches (no async worker needed); gated by `CAMPAIGN_DISPATCH_ENABLED`.
 - **Click + UTM tracking** through `/c/<token>/` redirects with signed recipient attribution and GDPR data minimization (no IP/UA stored).
 - Segments tab with one-click "Start campaign" shortcuts; WhatsApp delivery funnel + inbound inbox; profile-reminder conversion funnel.
-- Details: `docs/specs/campaign-dashboard.md`.
+- Details: `ai-memory-hub/specs/2026-07-21-crush-campaign-dashboard.md`.
 
 ### Hub CRM SPA API (`api.crush.lu`)
 

@@ -1,7 +1,7 @@
 """
 Crush Connect Event Lobby views — the protected live photo grid.
 
-Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
+Spec: ai-memory-hub/specs/2026-07-17-crush-connect-event-lobby-design.md
 (§7 UX, §11 HTTP/realtime contract, §13 privacy invariants).
 
 All business rules live in ``services.event_lobby``; these views only

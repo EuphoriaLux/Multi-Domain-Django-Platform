@@ -1084,7 +1084,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "description": (
                     "Published, public, upcoming events are mirrored to echo.lu, "
                     "Luxembourg's national events portal. Private invitation "
-                    "events are never sent. See docs/integrations/echo-lu-sync.md."
+                    "events are never sent. See ai-memory-hub/runbooks/crush-echo-lu-sync.md."
                 ),
             },
         ),
