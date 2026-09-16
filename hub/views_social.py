@@ -18,6 +18,7 @@ from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
 from crush_lu.utils.i18n import build_absolute_url
 
 from .buffer_service import (
+    BufferAuthError,
     BufferPartialFailure,
     BufferServiceError,
     create_buffer_update,
@@ -42,6 +43,9 @@ ALLOWED_PILLARS = {choice for choice, _label in SocialPost.Pillar.choices}
 BUFFER_SCHEDULE_ERROR = "Buffer could not schedule this post. Try again later."
 COPY_GENERATION_ERROR = "Social copy generation is temporarily unavailable."
 BUFFER_PROFILES_ERROR = "Buffer channels are temporarily unavailable."
+BUFFER_AUTH_ERROR = (
+    "Buffer rejected the configured API key. Update BUFFER_API_KEY, then retry."
+)
 ARTICLE_GENERATION_ERROR = "Article generation is temporarily unavailable."
 BUFFER_PARTIAL_ERROR = (
     "Some Buffer channels were scheduled before another channel failed. "
@@ -702,24 +706,33 @@ class SocialPostDetailView(APIView):
                     },
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
-            except BufferServiceError:
-                logger.exception(
-                    "Buffer scheduling failed for social post %s", updated_post.pk
-                )
+            except BufferServiceError as exc:
+                if isinstance(exc, BufferAuthError):
+                    schedule_error = BUFFER_AUTH_ERROR
+                    logger.error(
+                        "Buffer scheduling failed for social post %s: "
+                        "credential rejected",
+                        updated_post.pk,
+                    )
+                else:
+                    schedule_error = BUFFER_SCHEDULE_ERROR
+                    logger.exception(
+                        "Buffer scheduling failed for social post %s", updated_post.pk
+                    )
                 updated_post.status = SocialPost.Status.FAILED
                 history = list(updated_post.status_history or [])
                 history.append(
                     _history_entry(
                         request,
                         SocialPost.Status.FAILED,
-                        note=BUFFER_SCHEDULE_ERROR,
+                        note=schedule_error,
                     )
                 )
                 updated_post.status_history = history
                 updated_post.save(update_fields=["status", "status_history"])
                 return Response(
                     {
-                        "error": BUFFER_SCHEDULE_ERROR,
+                        "error": schedule_error,
                         "post": SocialPostSerializer(updated_post).data,
                     },
                     status=status.HTTP_502_BAD_GATEWAY,
@@ -1014,6 +1027,12 @@ class SocialBufferProfilesView(APIView):
                 for profile in list_buffer_profiles()
                 if profile.get("service") in ALLOWED_PLATFORMS
             ]
+        except BufferAuthError:
+            logger.error("Buffer channel discovery failed: credential rejected")
+            return Response(
+                {"error": BUFFER_AUTH_ERROR},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         except BufferServiceError:
             logger.exception("Buffer channel discovery failed")
             return Response(
