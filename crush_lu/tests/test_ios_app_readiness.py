@@ -255,3 +255,144 @@ def test_notification_service_fans_out_to_ios_push(user):
     assert result.push_success_count == 1
     send_native.assert_called_once()
     assert send_native.call_args.kwargs["preference_key"] == "profile_updates"
+
+
+def test_device_detection_ios_and_android():
+    from crush_lu.ios_app_utils import (
+        is_android_device,
+        is_android_native_request,
+        is_ios_device,
+        is_ios_native_request,
+        is_native_app_request,
+    )
+    from django.test import RequestFactory
+
+    rf = RequestFactory()
+
+    # iOS native app
+    req_ios_app = rf.get(
+        "/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 AppleWebKit/605.1.15 CrushLUApp/1.0.2",
+    )
+    assert is_ios_native_request(req_ios_app) is True
+    assert is_ios_device(req_ios_app) is True
+    assert is_android_device(req_ios_app) is False
+    assert is_native_app_request(req_ios_app) is True
+
+    # iPhone Safari
+    req_iphone_safari = rf.get(
+        "/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    )
+    assert is_ios_native_request(req_iphone_safari) is False
+    assert is_ios_device(req_iphone_safari) is True
+    assert is_android_device(req_iphone_safari) is False
+    assert is_native_app_request(req_iphone_safari) is False
+
+    # Android native app
+    req_android_app = rf.get(
+        "/dashboard/", HTTP_USER_AGENT="CrushLUAndroid/1.0.0 (Linux; Android 14)"
+    )
+    assert is_android_native_request(req_android_app) is True
+    assert is_ios_device(req_android_app) is False
+    assert is_android_device(req_android_app) is True
+    assert is_native_app_request(req_android_app) is True
+
+    # Android Chrome browser
+    req_android_chrome = rf.get(
+        "/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36",
+    )
+    assert is_android_native_request(req_android_chrome) is False
+    assert is_ios_device(req_android_chrome) is False
+    assert is_android_device(req_android_chrome) is True
+    assert is_native_app_request(req_android_chrome) is False
+
+    # Desktop
+    req_desktop = rf.get(
+        "/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    )
+    assert is_ios_device(req_desktop) is False
+    assert is_android_device(req_desktop) is False
+    assert is_native_app_request(req_desktop) is False
+
+
+def test_crush_user_context_device_flags():
+    from crush_lu.context_processors import crush_user_context
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    rf = RequestFactory()
+
+    # iOS native app request
+    req = rf.get("/dashboard/", HTTP_USER_AGENT="CrushLUApp/1.0.2")
+    req.user = AnonymousUser()
+    ctx = crush_user_context(req)
+    assert ctx["is_ios_native_app"] is True
+    assert ctx["is_native_app"] is True
+    assert ctx["is_ios_device"] is True
+    assert ctx["is_android_device"] is False
+
+    # Android native app request
+    req = rf.get("/dashboard/", HTTP_USER_AGENT="CrushLUAndroid/1.0.0")
+    req.user = AnonymousUser()
+    ctx = crush_user_context(req)
+    assert ctx["is_android_native_app"] is True
+    assert ctx["is_native_app"] is True
+    assert ctx["is_ios_device"] is False
+    assert ctx["is_android_device"] is True
+
+    # iPhone Safari request
+    req = rf.get(
+        "/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15",
+    )
+    req.user = AnonymousUser()
+    ctx = crush_user_context(req)
+    assert ctx["is_ios_native_app"] is False
+    assert ctx["is_native_app"] is False
+    assert ctx["is_ios_device"] is True
+    assert ctx["is_android_device"] is False
+
+
+@pytest.mark.django_db
+def test_dashboard_hides_pwa_and_filters_wallets(client, user):
+    from crush_lu.models import CrushProfile
+
+    profile, _ = CrushProfile.objects.get_or_create(
+        user=user,
+        defaults={
+            "display_name": "Test User",
+            "gender": "man",
+            "interested_in": "women",
+            "date_of_birth": "1995-01-01",
+            "city": "Luxembourg",
+            "verification_status": "verified",
+        },
+    )
+    client.force_login(user)
+
+    # 1. Native iOS App request: PWA card hidden, Apple Wallet shown, Google Wallet hidden
+    response_ios = client.get(
+        "/en/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 AppleWebKit/605.1.15 CrushLUApp/1.0.2",
+    )
+    assert response_ios.status_code == 200
+    content_ios = response_ios.content.decode("utf-8")
+    assert "pwaInstallButton" not in content_ios
+    assert "apple_wallet_badge.svg" in content_ios
+    assert "save-google-wallet-btn" not in content_ios
+    assert "pkpassDownload" in content_ios
+
+    # 2. Android Chrome request: PWA card visible, Apple Wallet hidden, Google Wallet shown
+    response_android = client.get(
+        "/en/dashboard/",
+        HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/128.0.0.0 Mobile Safari/537.36",
+    )
+    assert response_android.status_code == 200
+    content_android = response_android.content.decode("utf-8")
+    assert "pwaInstallButton" in content_android
+    assert "apple_wallet_badge.svg" not in content_android
+    assert "save-google-wallet-btn" in content_android
+

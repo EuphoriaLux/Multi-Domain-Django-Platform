@@ -437,7 +437,7 @@ struct CrushWebView: UIViewRepresentable {
         ///   - wallet/apple/event-ticket/<id>/pass/        (event ticket)
         private func isAppleWalletPassURL(_ url: URL) -> Bool {
             guard isInternal(url) else { return false }
-            let path = url.path
+            let path = url.path.hasSuffix("/") ? url.path : url.path + "/"
             if path == "/wallet/apple/pass/" { return true }
             if path.hasPrefix("/wallet/apple/event-ticket/"), path.hasSuffix("/pass/") {
                 return true

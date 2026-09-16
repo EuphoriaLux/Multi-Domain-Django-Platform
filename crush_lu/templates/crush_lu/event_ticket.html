@@ -163,15 +163,15 @@
             {% if apple_wallet_enabled or wallet_enabled %}
             {# Wallet buttons #}
             <div class="px-6 pb-6 text-center space-y-3">
-                {% if apple_wallet_enabled %}
+                {% if apple_wallet_enabled and not is_android_device %}
                 <div>
-                    <a href="{{ apple_wallet_url }}" target="_blank" rel="noopener" class="inline-block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                    <a href="{{ apple_wallet_url }}" target="_blank" rel="noopener" class="apple-wallet-link inline-block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                         <img src="{% static 'crush_lu/img/wallet/apple_wallet_badge.svg' %}" alt="{% trans 'Add to Apple Wallet' %}" class="h-12 w-auto">
                     </a>
                 </div>
                 {% endif %}
 
-                {% if wallet_enabled %}
+                {% if wallet_enabled and not is_ios_device %}
                 <div x-data="eventTicketButton" data-registration-id="{{ registration.id }}">
                     <button type="button" @click="saveToWallet" x-bind:disabled="isLoading" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         {% get_current_language as LANGUAGE_CODE %}
@@ -224,6 +224,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+    // Native iOS app bridge: intercept Apple Wallet link clicks and ferry .pkpass base64 to Swift
+    document.querySelectorAll('a[href*="/wallet/apple/"]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.pkpassDownload) {
+                e.preventDefault();
+                var url = link.href;
+                fetch(url, { credentials: 'same-origin' })
+                    .then(function (resp) {
+                        if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+                        return resp.blob();
+                    })
+                    .then(function (blob) {
+                        var reader = new FileReader();
+                        reader.onload = function () {
+                            var b64 = String(reader.result).split(',')[1] || '';
+                            window.webkit.messageHandlers.pkpassDownload.postMessage({ data: b64 });
+                        };
+                        reader.onerror = function () {
+                            window.webkit.messageHandlers.pkpassDownload.postMessage({ error: 'read failed' });
+                        };
+                        reader.readAsDataURL(blob);
+                    })
+                    .catch(function (err) {
+                        window.webkit.messageHandlers.pkpassDownload.postMessage({ error: String(err && err.message || err) });
+                    });
+            }
+        });
+    });
 });
 </script>
 {% endblock %}

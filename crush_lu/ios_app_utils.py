@@ -31,6 +31,22 @@ def is_native_app_request(request):
     return is_ios_native_request(request) or is_android_native_request(request)
 
 
+def is_ios_device(request):
+    """Return True if the user is on an iOS device (native app or browser)."""
+    if is_ios_native_request(request):
+        return True
+    ua = request.META.get("HTTP_USER_AGENT", "").lower()
+    return any(device in ua for device in ("iphone", "ipad", "ipod"))
+
+
+def is_android_device(request):
+    """Return True if the user is on an Android device (native app or browser)."""
+    if is_android_native_request(request):
+        return True
+    ua = request.META.get("HTTP_USER_AGENT", "").lower()
+    return "android" in ua
+
+
 def ios_commerce_suppressed(request):
     return is_ios_native_request(request) and not getattr(
         settings, "IOS_NATIVE_COMMERCE_ENABLED", False
