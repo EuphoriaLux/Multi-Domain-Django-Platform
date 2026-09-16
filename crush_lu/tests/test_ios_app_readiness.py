@@ -357,23 +357,27 @@ def test_crush_user_context_device_flags():
 
 
 @pytest.mark.django_db
-def test_dashboard_hides_pwa_and_filters_wallets(client, user):
-    from crush_lu.models import CrushProfile
+def test_dashboard_hides_pwa_and_filters_wallets(client, user, monkeypatch):
+    from datetime import date
+    from crush_lu.models import CrushProfile, UserDataConsent
 
+    monkeypatch.setattr("crush_lu.views_wallet._is_apple_wallet_configured", lambda: True)
+    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
     profile, _ = CrushProfile.objects.get_or_create(
         user=user,
         defaults={
-            "display_name": "Test User",
-            "gender": "man",
-            "interested_in": "women",
-            "date_of_birth": "1995-01-01",
-            "city": "Luxembourg",
+            "date_of_birth": date(1995, 5, 15),
+            "gender": "M",
+            "location": "Luxembourg City",
+            "bio": "Bio",
+            "is_approved": True,
+            "is_active": True,
             "verification_status": "verified",
         },
     )
     client.force_login(user)
 
-    # 1. Native iOS App request: PWA card hidden, Apple Wallet shown, Google Wallet hidden
+    # 1. Native iOS App request: PWA card hidden, Apple Wallet shown, Google Wallet button hidden
     response_ios = client.get(
         "/en/dashboard/",
         HTTP_USER_AGENT="Mozilla/5.0 AppleWebKit/605.1.15 CrushLUApp/1.0.2",
@@ -382,7 +386,7 @@ def test_dashboard_hides_pwa_and_filters_wallets(client, user):
     content_ios = response_ios.content.decode("utf-8")
     assert "pwaInstallButton" not in content_ios
     assert "apple_wallet_badge.svg" in content_ios
-    assert "save-google-wallet-btn" not in content_ios
+    assert '<button type="button" id="save-google-wallet-btn"' not in content_ios
     assert "pkpassDownload" in content_ios
 
     # 2. Android Chrome request: PWA card visible, Apple Wallet hidden, Google Wallet shown
@@ -394,5 +398,5 @@ def test_dashboard_hides_pwa_and_filters_wallets(client, user):
     content_android = response_android.content.decode("utf-8")
     assert "pwaInstallButton" in content_android
     assert "apple_wallet_badge.svg" not in content_android
-    assert "save-google-wallet-btn" in content_android
+    assert '<button type="button" id="save-google-wallet-btn"' in content_android
 
