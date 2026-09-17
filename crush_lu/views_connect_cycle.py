@@ -1,5 +1,5 @@
 """
-Crush Connect — 7-Day Connect Cycle views (Epic 13 / Task 13.2).
+Crush Connect — Connect Cycle views (Epic 13 / Task 13.2).
 
 Daily 3-card generation, the 24h "Deine Connect-Woche" review grid, the
 one-or-none weekly request, and the recipient inbox. Kept in its own module
@@ -82,8 +82,8 @@ def _connect_week_access_blocker(user):
 
 @crush_login_required
 def connect_week_home(request):
-    """Connect Week home: today's up-to-3 cards, or a redirect to the review
-    once day 7 has fully elapsed. Starts a new session on first visit for a
+    """Connect Week home: today's cards, or a redirect to the review once the
+    last cycle day has fully elapsed. Starts a new session on first visit for a
     cycle-eligible member with no session in progress."""
     user = request.user
     profile = getattr(user, "crushprofile", None)
@@ -91,7 +91,7 @@ def connect_week_home(request):
         messages.warning(
             request,
             _(
-                "Your profile photo is missing. It blocks access to your three daily Connect Week suggestions; add it now in Photos."
+                "Your profile photo is missing. It blocks access to your daily Connect Week suggestions; add it now in Photos."
             ),
         )
         return redirect(reverse("crush_lu:edit_profile") + "?section=photos")
@@ -125,6 +125,7 @@ def connect_week_home(request):
         + timedelta(days=CYCLE_LENGTH_DAYS),
         "day_number": session.current_day_number,
         "cycle_length": CYCLE_LENGTH_DAYS,
+        "cycle_days": range(1, CYCLE_LENGTH_DAYS + 1),
         "has_non_closed_chat": user_has_non_closed_chat(user),
         # The cycle that just ENDED, if it is still owed a verdict. This page
         # is the only reliable place to ask: a completed session has no page of

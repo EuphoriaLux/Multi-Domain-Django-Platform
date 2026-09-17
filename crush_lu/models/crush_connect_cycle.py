@@ -2,7 +2,9 @@
 Crush Connect 7-Day Deliberate Connection System Models.
 
 Implements the approved product blueprint (2026-08-17 / Epic 13):
-- 7-day Connect cycle with daily 3 cards, private answers, daily expiry.
+- Multi-day Connect cycle with a few cards a day (length and cards/day are
+  ``services.connect_cycle.CYCLE_LENGTH_DAYS`` / ``CARDS_PER_DAY``),
+  private answers, daily expiry.
 - 24-hour weekly review ("Deine Connect-Woche") with platform compatibility highlight
   ("Passt besonders gut zu dir") and single "Ich möchte dich kennenlernen" request.
 - Temporary Connect chat with structured coffee-date planning (partner venues from hub.Location),
@@ -19,10 +21,10 @@ from django.utils.translation import gettext_lazy as _
 
 
 class ConnectWeekSession(models.Model):
-    """Tracks a member's 7-day deliberate Connect cycle."""
+    """Tracks a member's deliberate multi-day Connect cycle."""
 
     class Status(models.TextChoices):
-        ACTIVE = "active", _("Active (In 7-day cycle)")
+        ACTIVE = "active", _("Active (in cycle)")
         REVIEW_OPEN = "review_open", _("Review Open (24h review window)")
         COMPLETED = "completed", _("Completed")
         EXPIRED = "expired", _("Expired")
@@ -36,7 +38,7 @@ class ConnectWeekSession(models.Model):
     started_at = models.DateTimeField(auto_now_add=True, db_index=True)
     current_day_number = models.PositiveSmallIntegerField(
         default=1,
-        help_text=_("Current day in the 7-day cycle (1 to 7)"),
+        help_text=_("Current day of the cycle (1-based)"),
     )
     status = models.CharField(
         max_length=20,
@@ -46,7 +48,7 @@ class ConnectWeekSession(models.Model):
     )
     is_review_open = models.BooleanField(
         default=False,
-        help_text=_("True during the 24h review window on Day 8"),
+        help_text=_("True during the 24h review window after the last cycle day"),
     )
     review_opened_at = models.DateTimeField(null=True, blank=True)
     review_expires_at = models.DateTimeField(
@@ -112,10 +114,10 @@ class ConnectCycleCard(models.Model):
         related_name="cards",
     )
     day_number = models.PositiveSmallIntegerField(
-        help_text=_("Cycle day on which this card was generated (1-7)"),
+        help_text=_("Cycle day on which this card was generated (1-based)"),
     )
     card_index = models.PositiveSmallIntegerField(
-        help_text=_("Index of the card for the day (1, 2, or 3)"),
+        help_text=_("Position of the card within its day (1-based)"),
     )
     target_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -523,7 +525,7 @@ class ConnectReport(models.Model):
 class ConnectCycleFeedback(models.Model):
     """One member's verdict on one finished Connect Week (Task 13.4).
 
-    The beta's only structured read on whether the 7-day rhythm works. Kept as
+    The beta's only structured read on whether the cycle rhythm works. Kept as
     a ``OneToOne`` on the session rather than a free-standing survey row so the
     prompt is answerable exactly once per cycle and can never be double-counted
     by a resubmitted form.

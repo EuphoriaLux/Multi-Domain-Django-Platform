@@ -36,9 +36,9 @@
         <p class="font-semibold" role="status">{% blocktrans with completed=completed_count total=cards|length %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>
         <p class="text-sm">{% trans "Review available from" %}: <time datetime="{{ review_date|date:'Y-m-d' }}">{{ review_date|date:'DATE_FORMAT' }}</time></p>
         {% if cards and not next_card_id %}<p class="font-semibold">{% trans "All available cards are complete. Come back tomorrow." %}</p>{% endif %}
-        {# 7-day progress dots #}
+        {# cycle progress dots #}
         <div class="flex items-center gap-1.5 mt-4" aria-hidden="true">
-            {% for d in "1234567" %}
+            {% for d in cycle_days %}
             <span class="h-1.5 flex-1 rounded-full {% if forloop.counter < day_number %}bg-crush-purple{% elif forloop.counter == day_number %}bg-gradient-to-r from-crush-purple to-crush-pink{% else %}bg-gray-200 dark:bg-slate-700{% endif %}"></span>
             {% endfor %}
         </div>

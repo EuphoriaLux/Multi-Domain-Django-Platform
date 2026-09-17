@@ -47,8 +47,13 @@ from django.utils import timezone
 
 User = get_user_model()
 
-CYCLE_LENGTH_DAYS = 7
-CARDS_PER_DAY = 3
+# 2 x 5 = 10 targets per cycle (was 3 x 7 = 21). Measured on prod
+# 2026-09-17: only 8 of 52 cycle members had >= 21 mutually eligible
+# candidates; the median was 10.5. Under 3 x 7 the median member saw three
+# days of cards and four empty ones. The shorter format is one the supply
+# can actually fill, and closer to "deliberate and few" than 21 was.
+CYCLE_LENGTH_DAYS = 5
+CARDS_PER_DAY = 2
 REVIEW_WINDOW_HOURS = 24
 
 
@@ -267,15 +272,17 @@ def get_or_create_active_session(user):
     return ConnectWeekSession.objects.create(user=user)
 
 
-def _expire_incomplete_cards(session, up_to_day: int) -> None:
+def _expire_incomplete_cards(session, up_to_day: int | None = None) -> None:
+    """Flip every still-open card up to ``up_to_day`` (all days when
+    ``None``) to expired."""
     from crush_lu.models.crush_connect_cycle import ConnectCycleCard
 
-    ConnectCycleCard.objects.filter(
-        session=session,
-        day_number__lte=up_to_day,
-        is_completed=False,
-        is_expired=False,
-    ).update(is_expired=True)
+    qs = ConnectCycleCard.objects.filter(
+        session=session, is_completed=False, is_expired=False
+    )
+    if up_to_day is not None:
+        qs = qs.filter(day_number__lte=up_to_day)
+    qs.update(is_expired=True)
 
 
 def _compute_compatibility_highlight(session, completed=None):
@@ -362,7 +369,11 @@ def sync_session_state(session):
         wall_day = elapsed_days + 1  # 1-indexed: elapsed_days=0 -> still day 1
 
         if wall_day > CYCLE_LENGTH_DAYS:
-            _expire_incomplete_cards(session, up_to_day=CYCLE_LENGTH_DAYS)
+            # Every day, not just up to CYCLE_LENGTH_DAYS: a session that
+            # started under a longer cycle (the 7 -> 5 change shipped with
+            # 35 sessions in flight) still owns cards with a higher
+            # day_number, and those must not stay live behind a review.
+            _expire_incomplete_cards(session)
             if session.current_day_number != CYCLE_LENGTH_DAYS:
                 session.current_day_number = CYCLE_LENGTH_DAYS
                 session.save(update_fields=["current_day_number"])
@@ -390,9 +401,9 @@ def sync_session_state(session):
 
 
 def get_or_create_todays_cards(session):
-    """Idempotently return (creating on first visit) today's up-to-3 cards
+    """Idempotently return (creating on first visit) today's up-to-``CARDS_PER_DAY``
     for an ACTIVE session. Returns the persisted cards for a day already
-    generated (even fewer than 3, if the pool ran dry) without re-rolling.
+    generated (even fewer, if the pool ran dry) without re-rolling.
     Returns ``[]`` for a non-ACTIVE session or a day beyond the cycle."""
     from crush_lu.models.crush_connect_cycle import ConnectCycleCard, ConnectWeekSession
 
@@ -408,7 +419,7 @@ def get_or_create_todays_cards(session):
         # The persisted day is an immutable snapshot, but a member-controlled
         # pause (or an account/moderation deactivation) takes effect at render
         # time. Do not refill vacated slots: doing so would silently change the
-        # already-issued day and can exceed the three-card contract on resume.
+        # already-issued day and can exceed the per-day card contract on resume.
         return [
             card
             for card in existing
@@ -504,7 +515,7 @@ def visible_cycle_cards(cards, viewer):
 
 def get_review_cards(session):
     """Every completed card from the session, for the 24h review grid —
-    normally up to 21 (3 x 7 days), fewer if the pool ran dry some days or
+    normally up to ``CARDS_PER_DAY x CYCLE_LENGTH_DAYS``, fewer if the pool ran dry some days or
     a day was missed.
 
     No gate-questions prefetch here deliberately: the review must show the
