@@ -42105,3 +42105,59 @@ msgstr "Du kannst deine Fragen jederzeit in deinem Connect-Profil ändern."
 
 msgid "Answer hidden from other members"
 msgstr "Antwort für andere Mitglieder verborgen"
+
+msgid "Someone wants to get to know you"
+msgstr "Jemand möchte dich kennenlernen"
+
+msgid ""
+"A Crush Connect member chose you after a full week of Connect encounters. "
+"Take a look and decide."
+msgstr ""
+"Ein Crush-Connect-Mitglied hat dich nach einer ganzen Connect-Woche "
+"ausgewählt. Schau es dir an und entscheide."
+
+msgid "%(name)s chose you after their Connect Week. Take a look and decide."
+msgstr ""
+"%(name)s hat dich nach der Connect-Woche ausgewählt. Schau es dir an und "
+"entscheide."
+
+msgid "%(name)s wants to get to know you"
+msgstr "%(name)s möchte dich kennenlernen"
+
+msgid ""
+"<strong>%(name)s</strong> spent their Connect Week getting to know a handful"
+" of profiles — and chose you."
+msgstr ""
+"<strong>%(name)s</strong> hat in der Connect-Woche eine Handvoll Profile "
+"kennengelernt – und dich ausgewählt."
+
+msgid "You have 24 hours to answer"
+msgstr "Du hast 24 Stunden Zeit zu antworten"
+
+msgid ""
+"The request stays open until %(deadline)s. After that it quietly expires — "
+"no one is told either way."
+msgstr ""
+"Die Anfrage bleibt bis %(deadline)s offen. Danach läuft sie still ab – "
+"niemand erfährt davon."
+
+msgid "See who chose you"
+msgstr "Sieh, wer dich ausgewählt hat"
+
+msgid "Your choice stays private"
+msgstr "Deine Entscheidung bleibt privat"
+
+msgid ""
+"If you say yes, a temporary chat opens so you can plan a coffee. If you "
+"decline, they are never told — it simply stops being pending."
+msgstr ""
+"Wenn du Ja sagst, öffnet sich ein temporärer Chat, in dem ihr einen Kaffee "
+"planen könnt. Wenn du ablehnst, erfährt die Person nichts davon – die "
+"Anfrage ist einfach nicht mehr offen."
+
+msgid ""
+"You're receiving this because a Crush Connect member sent you their one "
+"weekly request."
+msgstr ""
+"Du erhältst diese E-Mail, weil dir ein Crush-Connect-Mitglied seine eine "
+"wöchentliche Anfrage geschickt hat."

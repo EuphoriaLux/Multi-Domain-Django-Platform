@@ -405,6 +405,43 @@ def send_new_connection_notification(user, connection):
     )
 
 
+def send_connect_week_request_notification(user, weekly_request):
+    """Web push for a received Connect Week request (``user`` is the recipient).
+
+    Names the requester: the inbox the tap opens shows their full profile,
+    so the name discloses nothing the click would not.
+    """
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_new_connections=True
+    )
+    if not subscriptions.exists():
+        return
+
+    requester = weekly_request.requester
+    display_name = (
+        requester.crushprofile.display_name
+        if hasattr(requester, 'crushprofile')
+        else requester.first_name
+    )
+
+    with user_language_context(user):
+        title = _("Someone wants to get to know you")
+        body = _(
+            "%(name)s chose you after their Connect Week. Take a look and decide."
+        ) % {'name': display_name}
+
+    url = get_user_language_url(user, 'crush_lu:connect_week_inbox')
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        tag=f'connect-week-request-{weekly_request.id}',
+        preference_key='new_connections',
+    )
+
+
 def send_new_message_notification(user, message):
     """
     Send notification for new connection message.

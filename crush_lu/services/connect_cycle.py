@@ -782,25 +782,17 @@ def get_pending_inbox(user):
 
 
 def _notify_weekly_request_received(weekly_request, request=None):
-    """In-app bell only for this PR — no dedicated email template yet
-    (``request`` is accepted for future use, but unused). Restrisiko: a recipient who
-    doesn't check the bell has no other way to learn a request is waiting."""
+    """Email + push + bell to the recipient, in *their* language, via
+    ``NotificationService`` — and never blocks the caller.
+
+    This used to write a bell row only, rendered in whatever locale the
+    sender's view had active. On prod (2026-09-17) 17 of 24 requests
+    expired without the recipient ever seeing them."""
     try:
-        from django.urls import reverse
-        from django.utils.translation import gettext as _g
+        from crush_lu.notification_service import notify_connect_week_request
 
-        from crush_lu.models import Notification
-
-        Notification.objects.create(
-            user=weekly_request.recipient,
-            notification_type="connect_week_request_received",
-            title=_g("Someone wants to get to know you"),
-            body=_g(
-                "A Crush Connect member chose you after a full week of Connect "
-                "encounters. Take a look and decide."
-            ),
-            link_url=reverse("crush_lu:connect_week_inbox"),
-            metadata={"weekly_request_id": weekly_request.pk},
+        notify_connect_week_request(
+            weekly_request.recipient, weekly_request, request=request
         )
     except Exception:  # pragma: no cover - notification must never block
         import logging

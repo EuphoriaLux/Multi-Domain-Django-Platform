@@ -42,6 +42,9 @@ class NotificationType(Enum):
     SPARK_RECIPIENT_ASSIGNED = 'spark_recipient_assigned'
     SPARK_JOURNEY_READY = 'spark_journey_ready'
     SPARK_COMPLETED = 'spark_completed'
+    # Value kept equal to the bell row type the pre-#994 code wrote, so
+    # existing Notification rows and any filter on it keep matching.
+    CONNECT_WEEK_REQUEST = 'connect_week_request_received'
 
     @property
     def preference_key(self) -> str:
@@ -65,6 +68,7 @@ class NotificationType(Enum):
             'spark_recipient_assigned': 'new_connections',
             'spark_journey_ready': 'new_connections',
             'spark_completed': 'new_connections',
+            'connect_week_request_received': 'new_connections',
         }
         return preference_mapping.get(self.value, self.value)
 
@@ -343,6 +347,7 @@ class NotificationService:
                 'crush_lu:edit_profile': '/edit-profile/',
                 'crush_lu:my_connections': '/my-connections/',
                 'crush_lu:my_events': '/my-events/',
+                'crush_lu:connect_week_inbox': '/crush-connect/week/inbox/',
             }
             if url_name in url_paths:
                 return url_paths[url_name]
@@ -436,6 +441,22 @@ class NotificationService:
                     ),
                 }
 
+            if notification_type == NotificationType.CONNECT_WEEK_REQUEST:
+                weekly_request = context.get('weekly_request')
+                return {
+                    "title": _("Someone wants to get to know you"),
+                    "body": _(
+                        "A Crush Connect member chose you after a full week of Connect "
+                        "encounters. Take a look and decide."
+                    ),
+                    "link_url": get_user_language_url(
+                        user, 'crush_lu:connect_week_inbox', request
+                    ),
+                    "metadata": {
+                        "weekly_request_id": weekly_request.pk if weekly_request else None
+                    },
+                }
+
             if notification_type == NotificationType.EVENT_REMINDER and event:
                 return {
                     "title": _("Event reminder: {title}").format(title=event.title),
@@ -520,6 +541,13 @@ class NotificationService:
                 event = context.get('event')
                 if event:
                     return push_notifications.send_event_reminder(user, event) or {}
+
+            elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
+                weekly_request = context.get('weekly_request')
+                if weekly_request:
+                    return push_notifications.send_connect_week_request_notification(
+                        user, weekly_request
+                    ) or {}
 
             # For types without specific push functions, use generic
             return {'success': 0, 'failed': 0, 'total': 0}
@@ -697,6 +725,18 @@ class NotificationService:
                     )
                     return result == 1
 
+            elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:
+                weekly_request = context.get('weekly_request')
+                # Not gated on `request`, for the same reason as EVENT_REMINDER:
+                # the request is sent from a view today, but the service is
+                # also called without one (tests, any future sweep) and the
+                # helper builds its URLs and picks the sender by domain.
+                if weekly_request:
+                    result = email_helpers.send_connect_week_request_notification(
+                        user, weekly_request, request
+                    )
+                    return result == 1
+
             logger.warning(
                 f"No email handler for {notification_type.name}, skipping email"
             )
@@ -854,6 +894,22 @@ def notify_mutual_match(user, other_user, connection, request=None) -> Notificat
         user=user,
         notification_type=NotificationType.MUTUAL_MATCH,
         context={'connection': connection, 'other_user': other_user},
+        request=request,
+    )
+
+
+def notify_connect_week_request(recipient, weekly_request, request=None) -> NotificationResult:
+    """Tell the recipient of a Connect Week request that someone chose them.
+
+    Email + push + bell, rendered in the *recipient's* language. Until this
+    existed the recipient got a bell row only, rendered in whatever locale
+    the sender's view had active; on prod (2026-09-17) 17 of 24 requests
+    expired without the recipient ever seeing them.
+    """
+    return NotificationService.notify(
+        user=recipient,
+        notification_type=NotificationType.CONNECT_WEEK_REQUEST,
+        context={'weekly_request': weekly_request},
         request=request,
     )
 

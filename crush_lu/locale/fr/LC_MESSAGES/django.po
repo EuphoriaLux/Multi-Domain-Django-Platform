@@ -42239,3 +42239,58 @@ msgstr ""
 
 msgid "Answer hidden from other members"
 msgstr "Réponse masquée aux autres membres"
+
+msgid "Someone wants to get to know you"
+msgstr "Quelqu'un souhaite faire votre connaissance"
+
+msgid ""
+"A Crush Connect member chose you after a full week of Connect encounters. "
+"Take a look and decide."
+msgstr ""
+"Un membre de Crush Connect vous a choisi(e) après une semaine complète de "
+"rencontres Connect. Jetez un œil et décidez."
+
+msgid "%(name)s chose you after their Connect Week. Take a look and decide."
+msgstr ""
+"%(name)s vous a choisi(e) après sa semaine Connect. Jetez un œil et décidez."
+
+msgid "%(name)s wants to get to know you"
+msgstr "%(name)s souhaite faire votre connaissance"
+
+msgid ""
+"<strong>%(name)s</strong> spent their Connect Week getting to know a handful"
+" of profiles — and chose you."
+msgstr ""
+"<strong>%(name)s</strong> a passé sa semaine Connect à découvrir quelques "
+"profils – et vous a choisi(e)."
+
+msgid "You have 24 hours to answer"
+msgstr "Vous avez 24 heures pour répondre"
+
+msgid ""
+"The request stays open until %(deadline)s. After that it quietly expires — "
+"no one is told either way."
+msgstr ""
+"La demande reste ouverte jusqu'au %(deadline)s. Ensuite, elle expire "
+"discrètement – personne n'en est informé."
+
+msgid "See who chose you"
+msgstr "Voir qui vous a choisi(e)"
+
+msgid "Your choice stays private"
+msgstr "Votre choix reste privé"
+
+msgid ""
+"If you say yes, a temporary chat opens so you can plan a coffee. If you "
+"decline, they are never told — it simply stops being pending."
+msgstr ""
+"Si vous dites oui, une discussion temporaire s'ouvre pour organiser un café."
+" Si vous déclinez, la personne n'en est jamais informée – la demande cesse "
+"simplement d'être en attente."
+
+msgid ""
+"You're receiving this because a Crush Connect member sent you their one "
+"weekly request."
+msgstr ""
+"Vous recevez cet e-mail parce qu'un membre de Crush Connect vous a envoyé "
+"son unique demande hebdomadaire."
