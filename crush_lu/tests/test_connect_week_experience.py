@@ -1,5 +1,5 @@
 """
-Tests for the 7-Day Connect Cycle experience (Epic 13 / Task 13.2):
+Tests for the Connect Cycle experience (Epic 13 / Task 13.2):
 daily card generation, day rollover/expiry, the 24h "Deine Connect-Woche"
 review + compatibility highlight, the one-or-none weekly request, and the
 recipient inbox.
@@ -24,11 +24,14 @@ from crush_lu.models.crush_connect_cycle import (
     ConnectWeekSession,
 )
 from crush_lu.services.connect_cycle import (
+    CARDS_PER_DAY,
+    CYCLE_LENGTH_DAYS,
     can_send_weekly_request,
     get_cycle_eligible_pool,
     get_or_create_active_session,
     get_or_create_todays_cards,
     get_pending_inbox,
+    get_review_cards,
     record_card_answer,
     respond_to_weekly_request,
     send_weekly_request,
@@ -302,7 +305,7 @@ def test_highlight_tracks_visible_completed_cards(client, settings, when, loss):
     targets = _seed_cycle_pool(viewer, n=2)
     session = ConnectWeekSession.objects.create(user=viewer)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=7)
+        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
     )
     for index, target in enumerate(targets):
         ConnectCycleCard.objects.create(
@@ -482,18 +485,18 @@ def test_todays_cards_generated_and_idempotent(settings):
     cards_1 = get_or_create_todays_cards(session)
     cards_2 = get_or_create_todays_cards(session)
 
-    assert len(cards_1) == 3
+    assert len(cards_1) == CARDS_PER_DAY
     assert [c.pk for c in cards_1] == [c.pk for c in cards_2]
 
 
 @pytest.mark.django_db
-def test_todays_cards_fewer_when_pool_smaller_than_three(settings):
+def test_todays_cards_fewer_when_pool_smaller_than_cards_per_day(settings):
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
     me = _make_cycle_user("me")
-    _seed_cycle_pool(me, n=2)
+    _seed_cycle_pool(me, n=CARDS_PER_DAY - 1)
     session = get_or_create_active_session(me)
     cards = get_or_create_todays_cards(session)
-    assert len(cards) == 2
+    assert len(cards) == CARDS_PER_DAY - 1
 
 
 @pytest.mark.django_db
@@ -519,7 +522,7 @@ def test_sync_session_state_advances_day_and_expires_missed_cards(settings):
 
 
 @pytest.mark.django_db
-def test_sync_session_state_opens_review_after_day_seven(settings):
+def test_sync_session_state_opens_review_after_last_day(settings):
     settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
     me = _make_cycle_user("me")
     _seed_cycle_pool(me, n=3)
@@ -529,7 +532,7 @@ def test_sync_session_state_opens_review_after_day_seven(settings):
         _answer_all(card)
 
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=7)
+        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
     )
     session.refresh_from_db()
     session = sync_session_state(session)
@@ -927,7 +930,7 @@ def test_week_home_renders_cards_for_event_verified_member(client, settings):
 
     assert resp.status_code == 200
     assert ConnectWeekSession.objects.filter(user=me).exists()
-    assert ConnectCycleCard.objects.filter(session__user=me).count() == 3
+    assert ConnectCycleCard.objects.filter(session__user=me).count() == CARDS_PER_DAY
 
 
 @pytest.mark.django_db
@@ -995,7 +998,7 @@ def test_week_review_renders_highlight_after_day_seven(client, settings):
     for card in get_or_create_todays_cards(session):
         _answer_all(card)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=7)
+        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
     )
     _login_eligible(client, me)
 
@@ -1191,7 +1194,7 @@ def test_daily_progress_and_read_only_completed_card(client, settings):
     response = client.get(WEEK_HOME_URL)
     assert response.context["completed_count"] == 1
     assert response.context["next_card_id"] != card.pk
-    assert "1 of 3 completed" in response.content.decode()
+    assert f"1 of {CARDS_PER_DAY} completed" in response.content.decode()
     assert "All available cards are complete" not in response.content.decode()
 
 
@@ -1272,3 +1275,62 @@ def test_stored_cards_hide_revoked_photo_consent_in_review_and_summary():
     membership.save(update_fields=["photo_share_consent"])
     assert get_review_cards(session) == []
     assert get_connect_summary(me)["daily_total"] == 0
+
+
+@pytest.mark.django_db
+def test_week_home_progress_dots_follow_cycle_length(client, settings):
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    _seed_cycle_pool(me, n=CARDS_PER_DAY)
+    _login_eligible(client, me)
+
+    resp = client.get(WEEK_HOME_URL)
+
+    assert resp.status_code == 200
+    assert list(resp.context["cycle_days"]) == list(range(1, CYCLE_LENGTH_DAYS + 1))
+    assert resp.context["cycle_length"] == CYCLE_LENGTH_DAYS
+
+
+@pytest.mark.django_db
+def test_in_flight_longer_cycle_lands_in_review_with_late_cards_settled(settings):
+    """A session that started under a longer cycle (the 7 -> 5 day change
+    shipped with 35 sessions in flight) and already sits past the new last
+    day: the next sync opens the review, keeps its completed late-day card in
+    the review grid, and expires the incomplete one instead of leaving it
+    live forever behind a review."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    targets = _seed_cycle_pool(me, n=2)
+    session = ConnectWeekSession.objects.create(user=me)
+    ConnectWeekSession.objects.filter(pk=session.pk).update(
+        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS + 3),
+        current_day_number=CYCLE_LENGTH_DAYS + 2,
+    )
+    late_day = CYCLE_LENGTH_DAYS + 1
+    done = ConnectCycleCard.objects.create(
+        session=session,
+        day_number=late_day,
+        card_index=1,
+        target_user=targets[0],
+        generated_date=timezone.localdate(),
+        is_completed=True,
+        completed_at=timezone.now(),
+    )
+    missed = ConnectCycleCard.objects.create(
+        session=session,
+        day_number=late_day,
+        card_index=2,
+        target_user=targets[1],
+        generated_date=timezone.localdate(),
+    )
+
+    session.refresh_from_db()
+    session = sync_session_state(session)
+
+    assert session.status == ConnectWeekSession.Status.REVIEW_OPEN
+    assert session.current_day_number == CYCLE_LENGTH_DAYS
+    assert {card.pk for card in get_review_cards(session)} == {done.pk}
+    missed.refresh_from_db()
+    assert missed.is_expired is True
+    done.refresh_from_db()
+    assert done.is_expired is False
