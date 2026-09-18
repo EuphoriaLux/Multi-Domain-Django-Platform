@@ -55,4 +55,25 @@ class Migration(migrations.Migration):
                 max_length=20,
             ),
         ),
+        migrations.AlterField(
+            model_name="connectcyclefeedback",
+            name="match_quality",
+            field=models.CharField(
+                blank=True,
+                choices=[("good", "Good fit"), ("mixed", "Mixed"), ("poor", "Not really")],
+                help_text="Whether the daily cards felt like a fit",
+                max_length=10,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="connectcyclefeedback",
+            name="sentiment",
+            field=models.CharField(
+                blank=True,
+                choices=[("good", "Good week"), ("mixed", "Mixed"), ("poor", "Not for me")],
+                db_index=True,
+                help_text="Overall verdict on the cycle (blank when dismissed)",
+                max_length=10,
+            ),
+        ),
     ]

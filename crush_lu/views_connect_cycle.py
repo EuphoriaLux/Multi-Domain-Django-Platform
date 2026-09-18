@@ -1,7 +1,7 @@
 """
 Crush Connect — Connect Cycle views (Epic 13 / Task 13.2).
 
-Daily 3-card generation, the 24h "Deine Connect-Woche" review grid, the
+Daily card generation, the 24h "Deine Connect-Woche" review grid, the
 one-or-none weekly request, and the recipient inbox. Kept in its own module
 (rather than growing the 1547-line ``views_crush_connect.py``) since the
 Cycle is a distinct surface with its own access gate.

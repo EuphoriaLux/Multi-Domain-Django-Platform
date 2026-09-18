@@ -1,5 +1,5 @@
 """
-Crush Connect 7-Day Deliberate Connection System Models.
+Crush Connect Deliberate Connection Cycle Models.
 
 Implements the approved product blueprint (2026-08-17 / Epic 13):
 - Multi-day Connect cycle with a few cards a day (length and cards/day are
@@ -577,13 +577,13 @@ class ConnectCycleFeedback(models.Model):
         choices=Sentiment.choices,
         blank=True,
         db_index=True,
-        help_text=_("Overall verdict on the 7-day cycle (blank when dismissed)"),
+        help_text=_("Overall verdict on the cycle (blank when dismissed)"),
     )
     match_quality = models.CharField(
         max_length=10,
         choices=MatchQuality.choices,
         blank=True,
-        help_text=_("Whether the three daily cards felt like a fit"),
+        help_text=_("Whether the daily cards felt like a fit"),
     )
     comment = models.TextField(
         max_length=1000,

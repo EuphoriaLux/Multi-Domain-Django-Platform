@@ -347,8 +347,8 @@ def sync_session_state(session):
     lazily-updated ``current_day_number`` display field — so a session that
     hasn't been visited in a few days still catches up correctly on the next
     visit: any still-incomplete cards for elapsed days flip ``is_expired``,
-    ``current_day_number`` advances, and the 24h review opens once day 7 has
-    fully elapsed. The review itself closes (-> COMPLETED) independently once
+    ``current_day_number`` advances, and the 24h review opens once the last
+    cycle day has fully elapsed. The review itself closes (-> COMPLETED) independently once
     its own 24h window elapses; a still-pending weekly request is NOT forced
     to resolve at that point (the recipient's response window is tracked on
     the request, not the session — see ``sync_request_state``). Idempotent:
