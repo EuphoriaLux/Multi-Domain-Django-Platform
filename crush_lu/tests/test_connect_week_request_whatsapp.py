@@ -76,6 +76,23 @@ def test_opted_in_member_gets_the_template_in_their_language(settings):
 
 
 @pytest.mark.django_db
+def test_blank_first_name_never_sends_an_empty_parameter(settings):
+    """Meta fails a template send whose body parameter is "" — fall back to
+    the display name instead of burning the alert."""
+    sender, recipient, session = _pair(settings)
+    User.objects.filter(pk=recipient.pk).update(first_name="")
+    recipient.refresh_from_db()
+
+    with patch(SEND) as mocked:
+        send_weekly_request(session, sender, recipient)
+
+    mocked.assert_called_once()
+    greeting = mocked.call_args.kwargs["parameters"]["1"]
+    assert greeting == recipient.crushprofile.display_name
+    assert greeting.strip()
+
+
+@pytest.mark.django_db
 def test_no_opt_in_means_no_send(settings):
     sender, recipient, session = _pair(settings, opt_in=False)
     with patch(SEND) as mocked:

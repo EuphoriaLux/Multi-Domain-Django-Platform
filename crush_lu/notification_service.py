@@ -983,7 +983,13 @@ def send_connect_week_request_whatsapp(recipient, weekly_request):
         recipient=profile.phone_number,
         template_name=template_name,
         language=get_user_preferred_language(user=recipient, default="en"),
-        parameters={"1": recipient.first_name or "", "2": requester_name},
+        # Meta rejects a template whose body parameter is an empty string
+        # (the send comes back FAILED), and social signups can carry a blank
+        # first_name — display_name always resolves to something.
+        parameters={
+            "1": (recipient.first_name or "").strip() or profile.display_name,
+            "2": requester_name,
+        },
     )
 
 
