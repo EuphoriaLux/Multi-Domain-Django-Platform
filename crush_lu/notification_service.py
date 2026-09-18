@@ -905,12 +905,91 @@ def notify_connect_week_request(recipient, weekly_request, request=None) -> Noti
     existed the recipient got a bell row only, rendered in whatever locale
     the sender's view had active; on prod (2026-09-17) 17 of 24 requests
     expired without the recipient ever seeing them.
+
+    WhatsApp is a fourth, optional channel (see
+    ``send_connect_week_request_whatsapp``): it is attempted after the
+    others and its failure is recorded on the result, never raised.
     """
-    return NotificationService.notify(
+    result = NotificationService.notify(
         user=recipient,
         notification_type=NotificationType.CONNECT_WEEK_REQUEST,
         context={'weekly_request': weekly_request},
         request=request,
+    )
+    try:
+        send_connect_week_request_whatsapp(recipient, weekly_request)
+    except Exception as e:  # noqa: BLE001 — a paid side channel must never block
+        logger.error("WhatsApp Connect Week request send crashed: %s", e)
+        result.errors.append(f"WhatsApp error: {e}")
+    return result
+
+
+def send_connect_week_request_whatsapp(recipient, weekly_request):
+    """WhatsApp Utility-template send for a received Connect Week request.
+
+    Off until ``WHATSAPP_CONNECT_REQUEST_TEMPLATE`` names an APPROVED Meta
+    Utility template (en/de/fr). Then it goes only to members who ticked
+    "Enable WhatsApp Notifications" in account settings (the copy there
+    promises "match alerts" — this is one), are not unsubscribed from
+    everything, and have a verified number Meta has not flagged as
+    off-WhatsApp. Reuses the hub's Meta sender so the send lands in the
+    same ``WhatsAppMessage`` ledger the webhook updates, attributed to the
+    platform (an active superuser — same fallback the campaign dispatcher
+    uses; the requester is a member, not a sender identity).
+
+    Returns the ``WhatsAppMessage`` row, or ``None`` when skipped.
+    """
+    from django.conf import settings
+
+    template_name = getattr(settings, "WHATSAPP_CONNECT_REQUEST_TEMPLATE", "")
+    if not template_name:
+        return None
+
+    from django.contrib.auth import get_user_model
+
+    from hub.whatsapp_service import meta_settings_ok, send_whatsapp_template
+
+    from .models import EmailPreference
+    from .services.whatsapp import can_send_whatsapp
+    from .utils.i18n import get_user_preferred_language
+
+    if not meta_settings_ok():
+        return None
+    prefs = EmailPreference.get_or_create_for_user(recipient)
+    if not prefs.whatsapp_opt_in or prefs.unsubscribed_all:
+        return None
+    profile = getattr(recipient, "crushprofile", None)
+    if not can_send_whatsapp(profile):
+        return None
+
+    sender = (
+        get_user_model()
+        .objects.filter(is_superuser=True, is_active=True)
+        .order_by("pk")
+        .first()
+    )
+    if sender is None:
+        logger.warning("WhatsApp Connect Week request skipped: no active superuser to attribute the send to")
+        return None
+
+    requester = weekly_request.requester
+    requester_name = (
+        requester.crushprofile.display_name
+        if hasattr(requester, "crushprofile")
+        else requester.first_name
+    )
+    return send_whatsapp_template(
+        sender=sender,
+        recipient=profile.phone_number,
+        template_name=template_name,
+        language=get_user_preferred_language(user=recipient, default="en"),
+        # Meta rejects a template whose body parameter is an empty string
+        # (the send comes back FAILED), and social signups can carry a blank
+        # first_name — display_name always resolves to something.
+        parameters={
+            "1": (recipient.first_name or "").strip() or profile.display_name,
+            "2": requester_name,
+        },
     )
 
 

@@ -918,6 +918,13 @@ WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
 # warning and message validity period configured in WhatsApp Manager (3 min).
 WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
 
+# Name of an APPROVED Meta *Utility* template (en/de/fr variants) used to tell
+# a member that someone sent them a Connect Week request. Empty = channel off.
+# Body params: {{1}} recipient first name, {{2}} requester display name.
+WHATSAPP_CONNECT_REQUEST_TEMPLATE = os.environ.get(
+    "WHATSAPP_CONNECT_REQUEST_TEMPLATE", ""
+)
+
 # ============================================================================
 # SUMUP ONLINE PAYMENTS
 # ============================================================================
