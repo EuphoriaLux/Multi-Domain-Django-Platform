@@ -473,6 +473,19 @@ class ConnectCycleCardAdmin(admin.ModelAdmin):
 
 
 class ConnectWeeklyRequestAdmin(admin.ModelAdmin):
+    """Read-mostly view of the one-or-none weekly request.
+
+    ``status`` is deliberately NOT editable here. Every status transition in
+    ``services.connect_cycle`` carries a dependent write — accept opens a
+    ``ConnectTemporaryChat``, decline and expiry write a permanent
+    ``ConnectPairExclusion``, all of them stamp ``responded_at`` — and a value
+    typed into the change form performs none of those. Prod request #4 was
+    exactly that: ``declined`` by hand, ``responded_at`` NULL, no exclusion
+    row, and the pair could be carded to each other again. The only staff
+    transition offered is the idempotent ``sync_request_state`` sweep, which
+    expires an overdue PENDING row *with* its exclusion.
+    """
+
     list_display = [
         "requester",
         "recipient",
@@ -485,8 +498,30 @@ class ConnectWeeklyRequestAdmin(admin.ModelAdmin):
     list_filter = ["status", "sent_at"]
     search_fields = ["requester__username", "recipient__username", "message"]
     raw_id_fields = ["session", "requester", "recipient", "target_card"]
-    readonly_fields = ["sent_at", "expires_at", "responded_at"]
+    readonly_fields = ["status", "sent_at", "expires_at", "responded_at"]
     date_hierarchy = "sent_at"
+    actions = ["sync_request_state_action"]
+
+    @admin.action(description=_("Sync request state (expire if past 24h)"))
+    def sync_request_state_action(self, request, queryset):
+        from crush_lu.services.connect_cycle import sync_request_state
+
+        changed = 0
+        for weekly_request in queryset:
+            before = weekly_request.status
+            if sync_request_state(weekly_request).status != before:
+                changed += 1
+        if changed:
+            text = ngettext(
+                "%(changed)d request expired (pair exclusion written).",
+                "%(changed)d requests expired (pair exclusions written).",
+                changed,
+            ) % {"changed": changed}
+            self.message_user(request, text, messages.SUCCESS)
+        else:
+            self.message_user(
+                request, _("No request was overdue; nothing changed."), messages.INFO
+            )
 
 
 class ConnectChatMessageInline(admin.TabularInline):
