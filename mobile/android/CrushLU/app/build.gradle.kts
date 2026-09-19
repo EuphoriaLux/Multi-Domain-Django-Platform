@@ -32,7 +32,7 @@ val hostName = when {
 
 android {
     namespace = "lu.crush.app"
-    compileSdk = 35
+    compileSdk = 36
 
     buildFeatures {
         buildConfig = true
@@ -48,7 +48,7 @@ android {
             applicationIdSuffix = ".local"
         }
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // CI (android-release.yml) passes -PCRUSH_VERSION_CODE=<seconds since
         // 2024-01-01>, a monotonic value computed at run time under a serialized
         // concurrency group so Play always sees increasing codes. The literal
