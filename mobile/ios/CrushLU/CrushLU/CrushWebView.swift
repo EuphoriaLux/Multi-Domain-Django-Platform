@@ -1,3 +1,4 @@
+import CoreLocation
 import PassKit
 import SafariServices
 import SwiftUI
@@ -7,6 +8,86 @@ import WebKit
 /// from the WKWebView's JS fetch back into Swift. Declared here so the
 /// Coordinator registration and the injected JS stay in sync.
 private let pkpassMessageName = "pkpassDownload"
+
+/// Message-handler name used to bridge W3C navigator.geolocation calls from
+/// inside the WKWebView to the native CLLocationManager.
+private let locationMessageName = "crushLocation"
+
+private let locationBridgeScript = """
+(function () {
+    if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.crushLocation) {
+        return;
+    }
+    var watchCallbacks = {};
+    var nextWatchId = 1;
+
+    window.__crushLocationSuccess = function (id, pos) {
+        var cb = watchCallbacks[id];
+        if (cb && typeof cb.success === 'function') {
+            try { cb.success(pos); } catch (e) { console.error('crushLocation success error', e); }
+        }
+    };
+
+    window.__crushLocationError = function (id, err) {
+        var cb = watchCallbacks[id];
+        if (cb && typeof cb.error === 'function') {
+            try { cb.error(err); } catch (e) { console.error('crushLocation error callback error', e); }
+        }
+    };
+
+    var customGeolocation = {
+        getCurrentPosition: function (success, error, options) {
+            var id = nextWatchId++;
+            watchCallbacks[id] = {
+                success: function (pos) {
+                    delete watchCallbacks[id];
+                    if (typeof success === 'function') success(pos);
+                },
+                error: function (err) {
+                    delete watchCallbacks[id];
+                    if (typeof error === 'function') error(err);
+                }
+            };
+            window.webkit.messageHandlers.crushLocation.postMessage({
+                action: "getCurrentPosition",
+                id: id,
+                options: options || {}
+            });
+        },
+        watchPosition: function (success, error, options) {
+            var id = nextWatchId++;
+            watchCallbacks[id] = { success: success, error: error };
+            window.webkit.messageHandlers.crushLocation.postMessage({
+                action: "watchPosition",
+                id: id,
+                options: options || {}
+            });
+            return id;
+        },
+        clearWatch: function (id) {
+            delete watchCallbacks[id];
+            window.webkit.messageHandlers.crushLocation.postMessage({
+                action: "clearWatch",
+                id: id
+            });
+        }
+    };
+
+    try {
+        Object.defineProperty(navigator, 'geolocation', {
+            value: customGeolocation,
+            configurable: true,
+            writable: true
+        });
+    } catch (e) {
+        try {
+            navigator.geolocation.getCurrentPosition = customGeolocation.getCurrentPosition;
+            navigator.geolocation.watchPosition = customGeolocation.watchPosition;
+            navigator.geolocation.clearWatch = customGeolocation.clearWatch;
+        } catch (e2) {}
+    }
+})();
+"""
 
 struct CrushWebView: UIViewRepresentable {
     @ObservedObject var appState: AppState
@@ -23,6 +104,15 @@ struct CrushWebView: UIViewRepresentable {
         // download carry the authenticated session cookie — a plain
         // URLSession.shared request would arrive unauthenticated.
         configuration.userContentController.add(context.coordinator, name: pkpassMessageName)
+        configuration.userContentController.add(context.coordinator, name: locationMessageName)
+
+        let locationScript = WKUserScript(
+            source: locationBridgeScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        configuration.userContentController.addUserScript(locationScript)
+
         configuration.allowsInlineMediaPlayback = true
         // The scanner's <video> is fed by a MediaStream and started from inside a
         // promise chain, so the tap's user-gesture no longer counts by the time
@@ -36,6 +126,7 @@ struct CrushWebView: UIViewRepresentable {
         webView.customUserAgent = "Mozilla/5.0 AppleWebKit/605.1.15 CrushLUApp/1.0.2"
 
         context.coordinator.webView = webView
+        context.coordinator.locationBridge = NativeLocationBridge(webView: webView)
         context.coordinator.load(appState.navigation)
         context.coordinator.registerForNativeEvents()
         return webView
@@ -47,6 +138,7 @@ struct CrushWebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, PKAddPassesViewControllerDelegate {
         weak var webView: WKWebView?
+        var locationBridge: NativeLocationBridge?
         private let appState: AppState
         private var lastHandledRequestID: UUID?
         private var nativeAuthSession: NativeAuthSession?
@@ -93,27 +185,33 @@ struct CrushWebView: UIViewRepresentable {
             if let token = UserDefaults.standard.string(forKey: AppDelegate.apnsDeviceTokenKey) {
                 NativeBridge.registerDeviceToken(token, in: webView)
             }
+            if webView.url?.path.contains("/cache/") == true {
+                locationBridge?.promptForLocationIfNeeded()
+            }
         }
 
-        // MARK: - Apple Wallet (.pkpass)
+        // MARK: - Apple Wallet (.pkpass) & Geolocation
 
-        /// Callback from the injected JS fetch: the downloaded `.pkpass` bytes,
-        /// base64-encoded, or an error payload. This runs on the page origin so
-        /// `credentials: 'same-origin'` carried the session cookie.
+        /// Callback from injected JS fetches or handlers.
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == pkpassMessageName else { return }
-            // Reported back either way, so let the next tap through immediately
-            // rather than waiting out the deadline.
-            passDownloadStartedAt = nil
-            guard let body = message.body as? [String: Any] else { return }
-            let error = body["error"] as? String
-            let base64 = body["data"] as? String
+            if message.name == pkpassMessageName {
+                // Reported back either way, so let the next tap through immediately
+                // rather than waiting out the deadline.
+                passDownloadStartedAt = nil
+                guard let body = message.body as? [String: Any] else { return }
+                let error = body["error"] as? String
+                let base64 = body["data"] as? String
 
-            if let base64, !base64.isEmpty,
-               let data = Data(base64Encoded: base64) {
-                presentAddPassesVC(with: data)
-            } else {
-                showAddPassFailure(message: error)
+                if let base64, !base64.isEmpty,
+                   let data = Data(base64Encoded: base64) {
+                    presentAddPassesVC(with: data)
+                } else {
+                    showAddPassFailure(message: error)
+                }
+            } else if message.name == locationMessageName {
+                if let body = message.body as? [String: Any] {
+                    locationBridge?.handleMessage(body)
+                }
             }
         }
 
@@ -467,3 +565,186 @@ struct CrushWebView: UIViewRepresentable {
         }
     }
 }
+
+// MARK: - Native Location Bridge (CoreLocation -> WKWebView navigator.geolocation)
+
+final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
+    private let locationManager = CLLocationManager()
+    private weak var webView: WKWebView?
+    private var activeWatchIDs = Set<Int>()
+    private var pendingCurrentPositionIDs = Set<Int>()
+    private var lastLocation: CLLocation?
+
+    init(webView: WKWebView) {
+        self.webView = webView
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        locationManager.distanceFilter = 1.0
+        locationManager.activityType = .fitness
+    }
+
+    func promptForLocationIfNeeded() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.locationManager.authorizationStatus == .notDetermined {
+                self.locationManager.requestWhenInUseAuthorization()
+            }
+        }
+    }
+
+    func handleMessage(_ body: [String: Any]) {
+        guard let action = body["action"] as? String,
+              let id = body["id"] as? Int else { return }
+
+        switch action {
+        case "getCurrentPosition":
+            pendingCurrentPositionIDs.insert(id)
+            ensureAuthorizationAndStart()
+        case "watchPosition":
+            activeWatchIDs.insert(id)
+            ensureAuthorizationAndStart()
+            if let last = lastLocation, Date().timeIntervalSince(last.timestamp) < 3.0 {
+                dispatchLocation(last, to: id)
+            }
+        case "clearWatch":
+            activeWatchIDs.remove(id)
+            pendingCurrentPositionIDs.remove(id)
+            if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
+                locationManager.stopUpdatingLocation()
+            }
+        default:
+            break
+        }
+    }
+
+    func stopAll() {
+        activeWatchIDs.removeAll()
+        pendingCurrentPositionIDs.removeAll()
+        locationManager.stopUpdatingLocation()
+    }
+
+    private func ensureAuthorizationAndStart() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let status = self.locationManager.authorizationStatus
+            switch status {
+            case .notDetermined:
+                self.locationManager.requestWhenInUseAuthorization()
+            case .authorizedWhenInUse, .authorizedAlways:
+                self.locationManager.startUpdatingLocation()
+            case .denied, .restricted:
+                self.dispatchError(code: 1, message: "Location permission denied", to: nil)
+            @unknown default:
+                self.locationManager.requestWhenInUseAuthorization()
+            }
+        }
+    }
+
+    // MARK: - CLLocationManagerDelegate
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let status = manager.authorizationStatus
+            switch status {
+            case .authorizedWhenInUse, .authorizedAlways:
+                if !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty {
+                    self.locationManager.startUpdatingLocation()
+                }
+            case .denied, .restricted:
+                self.dispatchError(code: 1, message: "Location permission denied", to: nil)
+                self.activeWatchIDs.removeAll()
+                self.pendingCurrentPositionIDs.removeAll()
+                self.locationManager.stopUpdatingLocation()
+            case .notDetermined:
+                break
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        lastLocation = location
+
+        let currentIDs = pendingCurrentPositionIDs
+        pendingCurrentPositionIDs.removeAll()
+        for id in currentIDs {
+            dispatchLocation(location, to: id)
+        }
+
+        for id in activeWatchIDs {
+            dispatchLocation(location, to: id)
+        }
+
+        if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
+            locationManager.stopUpdatingLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let clErr = error as? CLError
+        if clErr?.code == .denied {
+            dispatchError(code: 1, message: "Location permission denied", to: nil)
+            activeWatchIDs.removeAll()
+            pendingCurrentPositionIDs.removeAll()
+            locationManager.stopUpdatingLocation()
+        } else {
+            dispatchError(code: 2, message: "Location unavailable: \(error.localizedDescription)", to: nil)
+        }
+    }
+
+    private func dispatchLocation(_ location: CLLocation, to id: Int) {
+        let lat = location.coordinate.latitude
+        let lng = location.coordinate.longitude
+        let accuracy = max(0.0, location.horizontalAccuracy)
+        let altitude = location.altitude
+        let altAcc = location.verticalAccuracy >= 0 ? "\(location.verticalAccuracy)" : "null"
+        let heading = location.course >= 0 ? "\(location.course)" : "null"
+        let speed = location.speed >= 0 ? "\(location.speed)" : "null"
+        let timestamp = Int64(location.timestamp.timeIntervalSince1970 * 1000)
+
+        let js = """
+        if (typeof window.__crushLocationSuccess === 'function') {
+            window.__crushLocationSuccess(\(id), {
+                coords: {
+                    latitude: \(lat),
+                    longitude: \(lng),
+                    accuracy: \(accuracy),
+                    altitude: \(altitude),
+                    altitudeAccuracy: \(altAcc),
+                    heading: \(heading),
+                    speed: \(speed)
+                },
+                timestamp: \(timestamp)
+            });
+        }
+        """
+        DispatchQueue.main.async { [weak self] in
+            self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+        }
+    }
+
+    private func dispatchError(code: Int, message: String, to targetID: Int?) {
+        let escaped = message
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+        let targets = targetID.map { Set([$0]) } ?? activeWatchIDs.union(pendingCurrentPositionIDs)
+        for id in targets {
+            let js = """
+            if (typeof window.__crushLocationError === 'function') {
+                window.__crushLocationError(\(id), {
+                    code: \(code),
+                    message: '\(escaped)'
+                });
+            }
+            """
+            DispatchQueue.main.async { [weak self] in
+                self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+    }
+}
+
