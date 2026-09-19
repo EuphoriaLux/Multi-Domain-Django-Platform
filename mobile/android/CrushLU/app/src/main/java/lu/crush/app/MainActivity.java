@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -52,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final int CAMERA_PERMISSION_REQUEST = 1003;
+    private static final int LOCATION_PERMISSION_REQUEST = 1004;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
@@ -78,6 +80,9 @@ public class MainActivity extends AppCompatActivity {
     // Held while the OS camera prompt is up: the WebView's request must stay
     // un-answered until the user decides, then be granted or denied.
     private PermissionRequest pendingCameraRequest;
+    // Held while the OS location prompt is up for Crush Cache navigation.
+    private GeolocationPermissions.Callback pendingGeolocationCallback;
+    private String pendingGeolocationOrigin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -193,6 +198,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setSupportZoom(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setGeolocationEnabled(true);
         // The WebView only ever shows our own origin, so it never needs the
         // local filesystem, and setAllowFileAccess still defaults to true below
         // API 30 — which minSdk 26 includes. That default is what would turn an
@@ -279,23 +285,69 @@ public class MainActivity extends AppCompatActivity {
                     pendingCameraRequest = null;
                 }
             }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(
+                    String origin,
+                    GeolocationPermissions.Callback callback
+            ) {
+                // Crush Cache scavenger hunt uses geolocation in the WebView.
+                // Only our own internal origins are granted access.
+                if (!isInternal(Uri.parse(origin))) {
+                    callback.invoke(origin, false, false);
+                    return;
+                }
+
+                if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    callback.invoke(origin, true, false);
+                    return;
+                }
+
+                if (pendingGeolocationCallback != null) {
+                    callback.invoke(origin, false, false);
+                    return;
+                }
+
+                pendingGeolocationCallback = callback;
+                pendingGeolocationOrigin = origin;
+                requestPermissions(
+                        new String[]{
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        },
+                        LOCATION_PERMISSION_REQUEST);
+            }
+
+            @Override
+            public void onGeolocationPermissionsHidePrompt() {
+                pendingGeolocationCallback = null;
+                pendingGeolocationOrigin = null;
+            }
         });
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != CAMERA_PERMISSION_REQUEST || pendingCameraRequest == null) {
+        if (requestCode == CAMERA_PERMISSION_REQUEST && pendingCameraRequest != null) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                pendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            } else {
+                // Denying (rather than dropping it) lets the page surface its
+                // "camera permission denied" message instead of hanging.
+                pendingCameraRequest.deny();
+            }
+            pendingCameraRequest = null;
             return;
         }
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            pendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-        } else {
-            // Denying (rather than dropping it) lets the page surface its
-            // "camera permission denied" message instead of hanging.
-            pendingCameraRequest.deny();
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST && pendingGeolocationCallback != null) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
+            pendingGeolocationCallback = null;
+            pendingGeolocationOrigin = null;
         }
-        pendingCameraRequest = null;
     }
 
     private void configureSwipeRefresh() {

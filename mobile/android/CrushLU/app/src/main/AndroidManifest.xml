@@ -7,12 +7,18 @@
          WebView. Without this declaration the runtime request is auto-denied and
          no system prompt is ever shown. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Crush Cache scavenger hunt navigates players to stations using
+         navigator.geolocation in the WebView. Foreground-only; background
+         location is deliberately omitted to avoid intrusive tracking. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Declaring CAMERA implies a *required* camera feature, which would hide
          the app on Play from camera-less devices. Everything but the scanner
          works without one, so keep distribution open. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- targetSdk 35 hides other packages by default, so without this the
          browser lookup in startNativeAuth() returns nothing and the handoff

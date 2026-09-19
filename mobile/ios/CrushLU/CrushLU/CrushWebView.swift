@@ -426,6 +426,22 @@ struct CrushWebView: UIViewRepresentable {
             decisionHandler(.grant)
         }
 
+        @available(iOS 15.0, *)
+        func webView(
+            _ webView: WKWebView,
+            requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin,
+            initiatedByFrame frame: WKFrameInfo,
+            decisionHandler: @escaping (WKPermissionDecision) -> Void
+        ) {
+            // Crush Cache compass navigation uses DeviceOrientationEvent.
+            // Granting here skips WebKit's redundant prompt for internal pages.
+            guard isInternalHost(origin.host) else {
+                decisionHandler(.deny)
+                return
+            }
+            decisionHandler(.grant)
+        }
+
         private func isInternal(_ url: URL) -> Bool {
             isInternalHost(url.host)
         }
