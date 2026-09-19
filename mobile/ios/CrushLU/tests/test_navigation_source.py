@@ -82,7 +82,7 @@ class IOSNavigationSourceTests(unittest.TestCase):
         project = (Path(__file__).parents[1] / "project.yml").read_text(encoding="utf-8")
 
         self.assertIn('MARKETING_VERSION: "1.0.2"', project)
-        self.assertIn('CURRENT_PROJECT_VERSION: "6"', project)
+        self.assertIn('CURRENT_PROJECT_VERSION: "7"', project)
 
 
 if __name__ == "__main__":

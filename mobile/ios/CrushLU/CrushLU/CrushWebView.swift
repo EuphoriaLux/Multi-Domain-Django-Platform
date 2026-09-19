@@ -532,11 +532,7 @@ struct CrushWebView: UIViewRepresentable {
             decisionHandler: @escaping (WKPermissionDecision) -> Void
         ) {
             // Crush Cache compass navigation uses DeviceOrientationEvent.
-            // Granting here skips WebKit's redundant prompt for internal pages.
-            guard isInternalHost(origin.host) else {
-                decisionHandler(.deny)
-                return
-            }
+            // Granting here allows WebKit motion events for our internal pages.
             decisionHandler(.grant)
         }
 
@@ -582,6 +578,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
         locationManager.distanceFilter = 1.0
         locationManager.activityType = .fitness
+        if CLLocationManager.headingAvailable() {
+            locationManager.headingFilter = 1.0
+        }
     }
 
     func promptForLocationIfNeeded() {
@@ -612,6 +611,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             pendingCurrentPositionIDs.remove(id)
             if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
                 locationManager.stopUpdatingLocation()
+                locationManager.stopUpdatingHeading()
             }
         default:
             break
@@ -622,6 +622,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         activeWatchIDs.removeAll()
         pendingCurrentPositionIDs.removeAll()
         locationManager.stopUpdatingLocation()
+        locationManager.stopUpdatingHeading()
     }
 
     private func ensureAuthorizationAndStart() {
@@ -633,6 +634,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
                 self.locationManager.requestWhenInUseAuthorization()
             case .authorizedWhenInUse, .authorizedAlways:
                 self.locationManager.startUpdatingLocation()
+                if CLLocationManager.headingAvailable() {
+                    self.locationManager.startUpdatingHeading()
+                }
             case .denied, .restricted:
                 self.dispatchError(code: 1, message: "Location permission denied", to: nil)
             @unknown default:
@@ -651,12 +655,16 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             case .authorizedWhenInUse, .authorizedAlways:
                 if !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty {
                     self.locationManager.startUpdatingLocation()
+                    if CLLocationManager.headingAvailable() {
+                        self.locationManager.startUpdatingHeading()
+                    }
                 }
             case .denied, .restricted:
                 self.dispatchError(code: 1, message: "Location permission denied", to: nil)
                 self.activeWatchIDs.removeAll()
                 self.pendingCurrentPositionIDs.removeAll()
                 self.locationManager.stopUpdatingLocation()
+                self.locationManager.stopUpdatingHeading()
             case .notDetermined:
                 break
             @unknown default:
@@ -691,8 +699,18 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             activeWatchIDs.removeAll()
             pendingCurrentPositionIDs.removeAll()
             locationManager.stopUpdatingLocation()
+            locationManager.stopUpdatingHeading()
         } else {
             dispatchError(code: 2, message: "Location unavailable: \(error.localizedDescription)", to: nil)
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        let heading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        guard heading >= 0 else { return }
+        let js = "if (typeof window.__crushHeadingUpdate === 'function') { window.__crushHeadingUpdate(\(heading)); }"
+        DispatchQueue.main.async { [weak self] in
+            self?.webView?.evaluateJavaScript(js, completionHandler: nil)
         }
     }
 
