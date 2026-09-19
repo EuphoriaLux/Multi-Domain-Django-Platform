@@ -6,10 +6,11 @@ plugins {
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
 val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
+// Targeted at staging (test.crush.lu) to validate Crush Cache GPS navigation
+// in real conditions via Google Play internal track before production rollout.
 val baseUrl = when (env) {
-    "staging" -> "https://test.crush.lu"
     "local" -> "http://10.0.2.2:8000"
-    else -> "https://crush.lu"
+    else -> "https://test.crush.lu"
 }
 
 val isStaging = (env == "staging")
@@ -25,9 +26,8 @@ val authScheme = when {
     else -> "crushlu"
 }
 val hostName = when {
-    isStaging -> "test.crush.lu"
     isLocal -> "10.0.2.2"
-    else -> "crush.lu"
+    else -> "test.crush.lu"
 }
 
 android {
