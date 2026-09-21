@@ -204,25 +204,36 @@ class LeadTests(TestCase):
         self.client.get("/en/?utm_source=google&utm_campaign=trees")
         lead, _ = self.create_lead()
         self.assertEqual(lead.first_attribution, {})
+        # The cookies core/templates/includes/cookie_banner.html writes on
+        # "accept all": JSON in cookie_consent, plus the server-side flag.
+        self.client.cookies["cookie_consent"] = '{"essential":true,"analytics":true}'
+        self.client.cookies["cookie_consent_analytics"] = "accept"
+        self.client.get(
+            "/en/?utm_source=google&utm_campaign=trees&email=private@example.com"
+        )
+        self.client.get("/en/baumpflege/?utm_source=partner")
+        lead, _ = self.create_lead()
+        self.assertEqual(
+            lead.first_attribution,
+            {
+                "utm_source": "google",
+                "utm_campaign": "trees",
+                "landing_path": "/en/",
+            },
+        )
+        self.assertEqual(lead.last_attribution["utm_source"], "partner")
+        self.client.cookies["cookie_consent_analytics"] = "decline"
+        lead, _ = self.create_lead()
+        self.assertEqual(lead.first_attribution, {})
+
+    def test_library_format_consent_still_honoured(self):
+        # /cookies/ (django-cookie-consent's own pages) writes no banner flag.
         with patch(
             "arborist.services.leads.get_cookie_value_from_request", return_value=True
         ):
-            self.client.get(
-                "/en/?utm_source=google&utm_campaign=trees&email=private@example.com"
-            )
-            self.client.get("/en/baumpflege/?utm_source=partner")
+            self.client.get("/en/?utm_source=newsletter")
             lead, _ = self.create_lead()
-            self.assertEqual(
-                lead.first_attribution,
-                {
-                    "utm_source": "google",
-                    "utm_campaign": "trees",
-                    "landing_path": "/en/",
-                },
-            )
-            self.assertEqual(lead.last_attribution["utm_source"], "partner")
-        lead, _ = self.create_lead()
-        self.assertEqual(lead.first_attribution, {})
+        self.assertEqual(lead.first_attribution["utm_source"], "newsletter")
 
     def test_invalid_upload_token_rejected(self):
         lead, url = self.create_lead()
@@ -230,9 +241,14 @@ class LeadTests(TestCase):
         self.assertFalse(lead.photos.exists())
 
     def test_booking_prefills_owned_enquiry(self):
-        lead, _ = self.create_lead()
+        lead, _ = self.create_lead(service="faellung")
         response = self.client.get(f"/en/termin/?lead={lead.pk}")
-        self.assertEqual(response.context["form"].initial["name"], lead.name)
+        initial = response.context["form"].initial
+        self.assertEqual(initial["name"], lead.name)
+        self.assertEqual(initial["service_type"], "faellung")
+        # An explicit ?service= still wins over the enquiry's choice.
+        response = self.client.get(f"/en/termin/?lead={lead.pk}&service=beratung")
+        self.assertEqual(response.context["form"].initial["service_type"], "beratung")
 
     def test_enquiry_pages_noindex(self):
         _, url = self.create_lead()

@@ -1365,6 +1365,18 @@ if AZURITE_MODE:
         "shared_media": {
             "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
         },
+        # Same backend as production, so the private-container check and
+        # blob I/O are exercised locally (scripts/setup_azurite.py creates it)
+        "arborist_private": {
+            "BACKEND": "arborist.storage.AzurePrivateStorage",
+            "OPTIONS": {
+                "connection_string": AZURE_CONNECTION_STRING,
+                "azure_container": os.getenv(
+                    "AZURE_ARBORIST_PRIVATE_CONTAINER", "arborist-private"
+                ),
+                "cache_control": "private, no-store",
+            },
+        },
         # Use simple StaticFilesStorage in development for instant refresh
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
@@ -1463,11 +1475,15 @@ else:
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Never mount this directory under MEDIA_URL: enquiry assets are served only
-# through Arborist's permission-checked view. Production replaces this backend.
-STORAGES["arborist_private"] = {
-    "BACKEND": "arborist.storage.LocalPrivateStorage",
-    "OPTIONS": {"location": BASE_DIR / "private-arborist"},
-}
+# through Arborist's permission-checked view. Azurite (above) and production
+# configure their own backend; this is the filesystem fallback.
+STORAGES.setdefault(
+    "arborist_private",
+    {
+        "BACKEND": "arborist.storage.LocalPrivateStorage",
+        "OPTIONS": {"location": BASE_DIR / "private-arborist"},
+    },
+)
 
 # CSRF Cookie Settings
 # CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie

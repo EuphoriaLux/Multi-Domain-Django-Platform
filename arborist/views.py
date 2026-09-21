@@ -338,6 +338,9 @@ def booking(request):
             postal_code=lead.postal_code,
             notes=lead.message,
         )
+        # "Not sure yet" is stored as "", so the model default still applies.
+        if lead.service in dict(ArboristBooking.SERVICE_CHOICES):
+            initial["service_type"] = lead.service
     service_param = request.GET.get("service")
     if service_param in dict(ArboristBooking.SERVICE_CHOICES):
         initial["service_type"] = service_param

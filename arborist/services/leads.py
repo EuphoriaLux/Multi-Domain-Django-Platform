@@ -15,9 +15,23 @@ logger = logging.getLogger(__name__)
 ATTRIBUTION_KEY = "arborist_attribution"
 
 
+def has_analytics_consent(request):
+    """True only for an explicit analytics opt-in.
+
+    The shared banner (core/templates/includes/cookie_banner.html) stores JSON
+    in ``cookie_consent``, which django-cookie-consent cannot parse, and records
+    the choice for the server in ``cookie_consent_analytics``. The library's own
+    /cookies/ pages still write the library format, so fall back to it.
+    """
+    banner_choice = request.COOKIES.get("cookie_consent_analytics")
+    if banner_choice is not None:
+        return banner_choice == "accept"
+    return get_cookie_value_from_request(request, "analytics") is True
+
+
 def capture_attribution(request):
     # Unknown/declined consent never stores attribution or reuses earlier data.
-    if get_cookie_value_from_request(request, "analytics") is not True:
+    if not has_analytics_consent(request):
         request.session.pop(ATTRIBUTION_KEY, None)
         return {}
     values = {}
