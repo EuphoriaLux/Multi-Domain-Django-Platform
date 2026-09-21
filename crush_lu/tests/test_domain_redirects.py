@@ -40,27 +40,38 @@ def test_redirect_only_domains_301_to_their_target(host):
     response = _get("/", host)
 
     assert response.status_code == 301
-    assert response["Location"] == REDIRECT_DOMAINS[host] + "/"
+    assert response["Location"] == REDIRECT_DOMAINS[host]
 
 
 def test_moonlightdating_redirects_to_crush():
     response = _get("/", "moonlightdating.lu")
 
     assert response.status_code == 301
-    assert response["Location"] == "https://crush.lu/"
+    assert response["Location"] == "https://crush.lu"
 
 
 def test_www_variant_redirects_without_a_stop_on_the_apex():
     response = _get("/", "www.moonlightdating.lu")
 
     assert response.status_code == 301
-    assert response["Location"] == "https://crush.lu/"
+    assert response["Location"] == "https://crush.lu"
 
 
-def test_path_and_query_string_are_carried_to_the_target():
-    response = _get("/events/?utm_source=flyer", "moonlightdating.lu")
+@pytest.mark.parametrize(
+    "path", ["/events/?utm_source=flyer", "/profil/", "/a/deep/link"]
+)
+def test_paths_are_not_carried_to_the_target(path):
+    """Every path lands on the target itself, not on a copy of the path.
 
-    assert response["Location"] == "https://crush.lu/events/?utm_source=flyer"
+    crush.lu's user-facing routes live inside
+    i18n_patterns(prefix_default_language=True), so a literal /events/ is not
+    a valid URL there (AGENTS.md). Copying paths from a parked domain that
+    never served them would send visitors to 404s.
+    """
+    response = _get(path, "moonlightdating.lu")
+
+    assert response.status_code == 301
+    assert response["Location"] == "https://crush.lu"
 
 
 def test_redirect_fires_before_the_application_is_reached():

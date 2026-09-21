@@ -97,10 +97,11 @@ class RedirectWWWToRootDomainMiddleware:
             return self.get_response(request)
 
         # Redirect-only domains never reach a urlconf: they are parked names
-        # whose whole job is to hand the visitor to another site.
+        # whose whole job is to hand the visitor to another site. The path is
+        # not carried over -- see REDIRECT_DOMAINS in domains.py.
         target = get_redirect_target(host)
         if target:
-            return HttpResponsePermanentRedirect(target + request.get_full_path())
+            return HttpResponsePermanentRedirect(target)
 
         # Redirect Azure App Service hostname to production default
         if host.endswith('.azurewebsites.net'):

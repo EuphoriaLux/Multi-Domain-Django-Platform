@@ -96,8 +96,14 @@ PRODUCTION_DEFAULT = 'entreprinder.lu'
 # DomainURLRoutingMiddleware would pick a urlconf.
 #
 # Keys are exact hostnames (list the www. name too if it has a DNS record);
-# values are absolute URLs including the scheme. The request path and query
-# string are appended to the target, so /about?x=1 keeps its place.
+# values are absolute URLs including the scheme.
+#
+# Every path lands on the target as given -- the request path is deliberately
+# NOT carried over. A parked domain has no inbound deep links to preserve, and
+# copying the path across would mostly manufacture 404s: crush.lu's
+# user-facing routes live inside i18n_patterns(prefix_default_language=True),
+# so a literal /events/ is not a valid URL there (see AGENTS.md). Sending
+# visitors to the target's landing page is the only reliably valid choice.
 #
 # Note: the redirect middleware is only installed by azureproject.production,
 # so these hosts do nothing under the dev settings module -- same as the
