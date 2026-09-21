@@ -9,8 +9,10 @@ stops short of the host's 10-minute kill, and that a failed night still raises
 so the alert fires.
 """
 import importlib.util
+import logging
 import sys
 import types
+from datetime import datetime, time, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -104,7 +106,13 @@ def transport(timer_app, monkeypatch):
     return calls
 
 
-def run(timer_app, past_due=False):
+LAST_RUN = datetime(2026, 8, 21, 6, 40, 0, 12000, tzinfo=timezone.utc)
+FIRST_RUN = datetime(2026, 8, 21, 4, 0, 0, 12000, tzinfo=timezone.utc)
+
+
+def run(timer_app, past_due=False, now=LAST_RUN):
+    """Run the timer; by default as the window's last run, which may alert."""
+    timer_app._utcnow = lambda: now
     timer_app.daily_retail_price_sync(SimpleNamespace(past_due=past_due))
 
 
@@ -201,6 +209,121 @@ def test_a_backend_timeout_stops_the_walk_instead_of_occupying_more_workers(
     assert transport.posted == [REGIONS[0]], "kept posting after a timeout"
     assert "timeout" in str(excinfo.value)
     assert "2 region(s) not attempted" in str(excinfo.value)
+
+
+def test_a_region_is_only_started_with_a_full_timeout_left(timer_app, transport):
+    """The old walk posted with whatever time was left, down to a second.
+
+    That gave up on Django mid-region, left the worker fetching for nobody,
+    and was misreported as a backend timeout. Now a region that cannot be
+    waited on in full is left for a later run instead.
+    """
+    timer_app.BUDGET_SECONDS = timer_app.PER_REGION_TIMEOUT - 1
+
+    run(timer_app, now=FIRST_RUN)
+
+    assert transport.posted == []
+
+
+def test_every_post_waits_the_full_per_region_timeout(timer_app, transport):
+    timeouts = []
+
+    def recording_post(url, **kwargs):
+        timeouts.append(kwargs["timeout"])
+        return FakeResponse(200, {"message": "ok"})
+
+    transport.set_post(recording_post)
+
+    run(timer_app)
+
+    assert timeouts == [timer_app.PER_REGION_TIMEOUT] * len(REGIONS)
+
+
+def test_an_earlier_run_leaves_failures_to_the_next_slot(
+    timer_app, transport, caplog
+):
+    """Before the window's last slot an incomplete run is expected, not an alert."""
+
+    def flaky_post(url, **kwargs):
+        region = kwargs["json"]["region"]
+        transport.posted.append(region)
+        if region == "northeurope":
+            return FakeResponse(500, {"error": "boom"})
+        return FakeResponse(200, {"message": "ok"})
+
+    transport.set_post(flaky_post)
+
+    with caplog.at_level(logging.WARNING):
+        run(timer_app, now=FIRST_RUN)
+
+    assert transport.posted == REGIONS
+    assert "northeurope (HTTP 500)" in caplog.text
+    assert "later run in the window retries them" in caplog.text
+
+
+def test_only_the_pending_regions_are_posted(timer_app, transport):
+    transport.set_get(
+        lambda url, **kwargs: FakeResponse(
+            200,
+            {
+                "regions": list(REGIONS),
+                "pending": ["uksouth"],
+                "snapshot_date": "2026-08-21",
+            },
+        )
+    )
+
+    run(timer_app)
+
+    assert transport.posted == ["uksouth"]
+
+
+def test_nothing_pending_means_a_quiet_no_op_even_on_the_last_run(
+    timer_app, transport
+):
+    transport.set_get(
+        lambda url, **kwargs: FakeResponse(
+            200, {"regions": list(REGIONS), "pending": [], "snapshot_date": "2026-08-21"}
+        )
+    )
+
+    run(timer_app)
+
+    assert transport.posted == []
+
+
+def test_a_django_build_without_pending_gets_every_region(timer_app, transport):
+    """This app deploys on merge; Django may still be the pre-swap build."""
+    run(timer_app, now=FIRST_RUN)
+
+    assert transport.posted == REGIONS
+
+
+@pytest.mark.parametrize(
+    "clock, expected",
+    [
+        (time(4, 0), False),
+        (time(6, 20), False),
+        (time(6, 39, 30), True),  # a trigger firing a hair early
+        (time(6, 40), True),
+        (time(8, 15), True),  # a past-due run after the window
+    ],
+)
+def test_last_run_detection(timer_app, clock, expected):
+    now = datetime.combine(datetime(2026, 8, 21).date(), clock, tzinfo=timezone.utc)
+    assert timer_app._is_last_run_of_window(now) is expected
+
+
+def test_the_last_run_constant_matches_the_schedule(timer_app):
+    """Drift between these would mean the alert never fires, or fires early."""
+    _, minutes, hours, *_ = timer_app.RETAIL_SCHEDULE.split()
+    last_minute = max(int(m) for m in minutes.split(","))
+    last_hour = int(hours.split("-")[-1])
+    assert timer_app.RETAIL_LAST_RUN_UTC == time(last_hour, last_minute)
+    # Slots must be further apart than one run can last, so runs never overlap.
+    slots = sorted(int(m) for m in minutes.split(","))
+    gap_minutes = min(b - a for a, b in zip(slots, slots[1:]))
+    assert gap_minutes * 60 > timer_app.BUDGET_SECONDS
 
 
 def test_the_client_waits_longer_than_the_backend_budget(timer_app):

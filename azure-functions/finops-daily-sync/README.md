@@ -19,7 +19,8 @@ Management Command (sync_daily_costs)
 Cost Data Import + Aggregation
 ```
 
-The same Function App also runs `retail_price_daily_sync` at 04:00 UTC. It
+The same Function App also runs `retail_price_daily_sync` every 20 minutes
+from 04:00 to 06:40 UTC. It
 archives every paginated Azure Retail Prices response and appends normalized
 EUR observations for the default European regions. It does not access customer
 Azure subscriptions.
@@ -42,7 +43,25 @@ whole-catalogue POST therefore failed *every* night. The timer now:
    neither;
 3. attempts every region before failing, so one bad region costs one region
    rather than the whole day, and stops early against a wall-clock budget so a
-   slow night ends with a logged summary instead of a silent kill.
+   slow night ends with a logged summary instead of a silent kill. It only
+   starts a region with a full `PER_REGION_TIMEOUT` left: posting with a few
+   seconds to spare gave up on Django mid-region and left the worker fetching
+   for nobody.
+
+**One run cannot do all 19 regions, so a day takes several runs.** In
+production a region takes 15-100s, mostly spent waiting out `prices.azure.com`
+throttling (429s) rather than downloading, so one 8-minute run fits about eight
+regions. Until 2026-09 a single 04:00 run meant the alphabetically last regions
+(Spain to West Europe) were never captured and the run failed every night.
+
+Now `/regions/` also returns `pending`, the regions with no completed run for
+the day, and each run in the window posts only those. A region lost to a 429
+storm is retried 20 minutes later. Earlier runs never fail the invocation over
+regions they leave behind; **only the last run (06:40 UTC) raises**, so the
+`function-app-timer-failures` alert means "the day ended incomplete", not "one
+run hit a throttle". A Django build without `pending` still works: every
+region is posted again and the ones already captured answer 200 in about a
+second.
 
 ### Why the two timeouts are ordered the way they are
 
@@ -88,7 +107,9 @@ Set these environment variables in Azure Portal:
 - **Frequency:** Daily at 3:00 AM UTC
 - **Timeout:** 10 minutes
 
-Retail price snapshots use `0 0 4 * * *` (daily at 4:00 AM UTC). Keep
+Retail price snapshots use `0 0,20,40 4-6 * * *` (`RETAIL_SCHEDULE`: every
+20 minutes, 04:00-06:40 UTC). `RETAIL_LAST_RUN_UTC` must name the last slot;
+a test pins the two together. Keep
 `RETAIL_PRICE_SYNC_ENABLED=false` until the Django migration and endpoint are
 deployed and the new webhook URL is configured.
 
