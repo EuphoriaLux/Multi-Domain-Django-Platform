@@ -1101,3 +1101,198 @@ msgid ""
 "Get in touch with Power-Up. Contact information for investors, partners, and "
 "general inquiries."
 msgstr ""
+
+msgid "For venues, event agencies and companies"
+msgstr ""
+
+msgid "Event technology, proven live on Crush.lu"
+msgstr ""
+
+msgid ""
+"The ticketing, quiz and speed-dating tools behind Crush.lu events, now "
+"available for your events."
+msgstr ""
+
+msgid "Talk to us"
+msgstr ""
+
+msgid "See the products"
+msgstr ""
+
+msgid "Ask about this"
+msgstr ""
+
+msgid "Beta"
+msgstr ""
+
+msgid "How we work"
+msgstr ""
+
+msgid "Start with one event. Grow into your own platform."
+msgstr ""
+
+msgid "Available now"
+msgstr ""
+
+msgid "Managed events"
+msgstr ""
+
+msgid ""
+"We set up and run the technology for your event: ticket sales, the door, the"
+" quiz or the dating rounds. You focus on your guests."
+msgstr ""
+
+msgid "Your guests register with a free Crush.lu account."
+msgstr ""
+
+msgid "Pilot partners, 2027"
+msgstr ""
+
+msgid "Your own branded platform"
+msgstr ""
+
+msgid ""
+"Your name, your colours, your web address. We are looking for a small number"
+" of pilot partners to build it with in 2027."
+msgstr ""
+
+msgid "Become a pilot partner"
+msgstr ""
+
+msgid "Who it's for"
+msgstr ""
+
+msgid "Venues and bars"
+msgstr ""
+
+msgid "Fill quiet weeknights with quiz nights and singles evenings."
+msgstr ""
+
+msgid "Event agencies"
+msgstr ""
+
+msgid "Sell tickets and run the door without building your own tools."
+msgstr ""
+
+msgid "Companies and associations"
+msgstr ""
+
+msgid "Team quizzes and social evenings for your staff or members."
+msgstr ""
+
+msgid "Planning an event?"
+msgstr ""
+
+msgid "Tell us what you have in mind and we will get back to you."
+msgstr ""
+
+msgid "Event solutions for businesses"
+msgstr ""
+
+msgid "Explore event solutions"
+msgstr ""
+
+msgid "Solutions"
+msgstr ""
+
+msgid "Ticketing & Sales"
+msgstr ""
+
+msgid "Sell seats online and run a smooth door"
+msgstr ""
+
+msgid ""
+"Online card payments, capacity limits and an automatic waitlist, followed by"
+" QR tickets that your team scans at the door."
+msgstr ""
+
+msgid "Quiz Nights"
+msgstr ""
+
+msgid "A live quiz run from one host console"
+msgstr ""
+
+msgid ""
+"Tables answer on their phones while questions and scores appear on the big "
+"screen. The host moves through the rounds, and table rotation and the "
+"leaderboard are handled for you."
+msgstr ""
+
+msgid "Speed Dating"
+msgstr ""
+
+msgid "Singles evenings for venues and companies"
+msgstr ""
+
+msgid ""
+"A structured evening that keeps every table balanced, from registration "
+"through the last round."
+msgstr ""
+
+msgid "Online card payment"
+msgstr ""
+
+msgid "Capacity limits and an automatic waitlist"
+msgstr ""
+
+msgid "QR tickets with live door check-in"
+msgstr ""
+
+msgid "Printed tickets at the door"
+msgstr ""
+
+msgid "Apple Wallet and Google Wallet passes"
+msgstr ""
+
+msgid "Confirmation and reminder emails"
+msgstr ""
+
+msgid "Cancellation and refund handling"
+msgstr ""
+
+msgid "Attendee list export"
+msgstr ""
+
+msgid "Host console with a PIN-protected projector screen"
+msgstr ""
+
+msgid "Multiple-choice, true/false and open questions"
+msgstr ""
+
+msgid "Image, video and audio questions"
+msgstr ""
+
+msgid "Table rotation and team scoring"
+msgstr ""
+
+msgid "Live leaderboard"
+msgstr ""
+
+msgid "Ready-made question packs in English, French and German"
+msgstr ""
+
+msgid "Balanced registration"
+msgstr ""
+
+msgid "Three-part evening: activity vote, introductions, dating rounds"
+msgstr ""
+
+msgid "Countdown on the projector for every round"
+msgstr ""
+
+msgid "Printed table cards with anonymous numbers"
+msgstr ""
+
+msgid "Curated groups where nobody meets the same person twice"
+msgstr ""
+
+msgid "Pilot partner 2027"
+msgstr ""
+
+msgid "Event Solutions for Businesses - Power-Up"
+msgstr ""
+
+msgid ""
+"Ticketing, quiz nights and speed dating for venues, event agencies and "
+"companies in Luxembourg, run on technology proven live on Crush.lu."
+msgstr ""

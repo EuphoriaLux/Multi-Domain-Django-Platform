@@ -11,9 +11,11 @@ and both are easy to break independently:
     or the parked domain quietly serves the PRODUCTION_DEFAULT site instead.
 """
 
+from urllib.parse import urlsplit
+
 import pytest
 from django.http import HttpResponse
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
 
 from azureproject.domains import (
     REDIRECT_DOMAINS,
@@ -24,6 +26,7 @@ from azureproject.domains import (
 from azureproject.redirect_www_middleware import RedirectWWWToRootDomainMiddleware
 
 SENTINEL = "served by the application"
+POWER_UP_SOLUTIONS = "https://power-up.lu/solutions/"
 
 
 def _response(request):
@@ -43,18 +46,18 @@ def test_redirect_only_domains_301_to_their_target(host):
     assert response["Location"] == REDIRECT_DOMAINS[host]
 
 
-def test_moonlightdating_redirects_to_crush():
+def test_moonlightdating_redirects_to_power_up_solutions():
     response = _get("/", "moonlightdating.lu")
 
     assert response.status_code == 301
-    assert response["Location"] == "https://crush.lu"
+    assert response["Location"] == POWER_UP_SOLUTIONS
 
 
-def test_www_variant_redirects_without_a_stop_on_the_apex():
+def test_www_variant_redirects_to_power_up_solutions_without_a_stop_on_the_apex():
     response = _get("/", "www.moonlightdating.lu")
 
     assert response.status_code == 301
-    assert response["Location"] == "https://crush.lu"
+    assert response["Location"] == POWER_UP_SOLUTIONS
 
 
 @pytest.mark.parametrize(
@@ -63,15 +66,35 @@ def test_www_variant_redirects_without_a_stop_on_the_apex():
 def test_paths_are_not_carried_to_the_target(path):
     """Every path lands on the target itself, not on a copy of the path.
 
-    crush.lu's user-facing routes live inside
-    i18n_patterns(prefix_default_language=True), so a literal /events/ is not
-    a valid URL there (AGENTS.md). Copying paths from a parked domain that
-    never served them would send visitors to 404s.
+    The sites' user-facing routes live inside
+    i18n_patterns(prefix_default_language=True), so a copied path only
+    resolves if that exact page exists on the target (AGENTS.md). Copying
+    paths from a parked domain that never served them would send visitors to
+    404s.
     """
     response = _get(path, "moonlightdating.lu")
 
     assert response.status_code == 301
-    assert response["Location"] == "https://crush.lu"
+    assert response["Location"] == POWER_UP_SOLUTIONS
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("target", sorted(set(REDIRECT_DOMAINS.values())))
+def test_redirect_targets_land_on_a_live_page(target):
+    """A 301 is cached for good, so it must never point at a 404.
+
+    The target host is one of our own sites: its LocaleMiddleware should send
+    the unprefixed path on to a language-prefixed page that renders.
+    """
+    url = urlsplit(target)
+    response = Client(HTTP_HOST=url.netloc).get(url.path)
+
+    assert response.status_code == 302
+    assert response["Location"] == f"/en{url.path}"
+
+    response = Client(HTTP_HOST=url.netloc).get(response["Location"])
+
+    assert response.status_code == 200
 
 
 def test_redirect_fires_before_the_application_is_reached():
@@ -110,6 +133,6 @@ def test_redirect_domains_are_not_routed_sites():
 
 
 def test_get_redirect_target_normalises_the_host():
-    assert get_redirect_target("MoonlightDating.LU:443") == "https://crush.lu"
-    assert get_redirect_target("moonlightdating.lu.") == "https://crush.lu"
+    assert get_redirect_target("MoonlightDating.LU:443") == POWER_UP_SOLUTIONS
+    assert get_redirect_target("moonlightdating.lu.") == POWER_UP_SOLUTIONS
     assert get_redirect_target("crush.lu") is None

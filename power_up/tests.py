@@ -11,6 +11,7 @@ from django.test import TestCase, Client
 from django.contrib.sites.models import Site
 
 from .platforms import PLATFORMS
+from .solutions import SOLUTIONS
 
 
 class PowerUpRoutingTestCase(TestCase):
@@ -269,3 +270,63 @@ class PowerUpPlatformDataTestCase(TestCase):
                 0,
                 f"Platform {platform['name']} should have highlights",
             )
+
+
+class PowerUpSolutionsTestCase(TestCase):
+    """The event solutions page that moonlightdating.lu redirects to."""
+
+    def setUp(self):
+        """Create test client with power-up.lu host header."""
+        self.client = Client(HTTP_HOST="power-up.lu")
+        Site.objects.update_or_create(
+            domain="power-up.lu", defaults={"name": "Power-Up"}
+        )
+
+    def test_solutions_page_renders_in_every_language(self):
+        """Each language-prefixed solutions page returns 200."""
+        for language in ("en", "de", "fr"):
+            response = self.client.get(f"/{language}/solutions/")
+            self.assertEqual(response.status_code, 200, language)
+            self.assertTemplateUsed(response, "power_up/solutions.html")
+
+    def test_unprefixed_solutions_redirects_to_language(self):
+        """moonlightdating.lu lands on /solutions/, which picks a language."""
+        response = self.client.get("/solutions/", HTTP_ACCEPT_LANGUAGE="fr")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/fr/solutions/")
+
+    def test_solutions_page_lists_every_product_with_an_anchor(self):
+        """Each product has its own section to deep-link to."""
+        response = self.client.get("/en/solutions/")
+        content = response.content.decode()
+        for solution in SOLUTIONS:
+            self.assertIn(f'id="{solution["slug"]}"', content)
+
+    def test_solutions_page_has_mailto_cta(self):
+        """Leads go to the hello@ mailbox; there is no form."""
+        response = self.client.get("/en/solutions/")
+        content = response.content.decode()
+        self.assertIn("mailto:hello@power-up.lu", content)
+        self.assertIn("mailto:hello@power-up.lu?subject=Quiz%20Nights", content)
+
+    def test_solutions_page_has_meta_description(self):
+        """The solutions page sets its own meta description."""
+        response = self.client.get("/en/solutions/")
+        content = response.content.decode()
+        self.assertIn("Ticketing, quiz nights and speed dating", content)
+
+    def test_solutions_linked_from_navigation_and_home(self):
+        """The nav bar and the home page teaser both link to the page."""
+        response = self.client.get("/en/")
+        content = response.content.decode()
+        self.assertIn('href="/en/solutions/"', content)
+        self.assertIn('href="/en/solutions/#quiz"', content)
+
+    def test_solutions_have_required_fields(self):
+        """Each solution has the fields the templates read."""
+        for solution in SOLUTIONS:
+            for field in ("slug", "name", "tagline", "description", "icon", "features"):
+                self.assertIn(
+                    field, solution, f"{solution.get('slug')} missing {field}"
+                )
+            self.assertGreater(len(solution["features"]), 0)

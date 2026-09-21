@@ -64,7 +64,7 @@ class RedirectWWWToRootDomainMiddleware:
     Redirect WWW subdomains to root domains and Azure hostnames to production domain.
 
     Redirects:
-    - moonlightdating.lu -> crush.lu (REDIRECT_DOMAINS, redirect-only domains)
+    - moonlightdating.lu -> power-up.lu/solutions/ (REDIRECT_DOMAINS, redirect-only domains)
     - www.crush.lu -> crush.lu
     - www.vinsdelux.com -> vinsdelux.com
     - www.entreprinder.lu -> entreprinder.lu
