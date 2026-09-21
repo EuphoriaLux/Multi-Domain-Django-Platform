@@ -1,0 +1,43 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+{% block content %}
+<section class="bg-green-800 text-white py-16">
+  <div class="container mx-auto px-4 max-w-4xl">
+    <h1 class="text-4xl font-bold mb-4">{% trans "Tell us about your trees" %}</h1>
+    <p class="text-xl">{% trans "Describe your project. An arborist will review your enquiry and help you decide the next step." %}</p>
+  </div>
+</section>
+<section class="py-16 bg-gray-50">
+  <div class="container mx-auto px-4 max-w-4xl">
+    <div class="card mb-6">
+      <p class="mb-4">{% trans "Initial enquiries are free. On-site visits cost 50 € or 100 € depending on the zone, credited against subsequent work. Rush appointments add 50 €. Written reports and tree work are quoted separately." %}</p>
+      <a class="text-green-700 underline" href="{% url 'arborist:booking' %}">{% trans "View visit fees and book an appointment" %}</a>
+    </div>
+    <div class="card">
+      <h2 class="text-2xl font-bold text-green-800 mb-6">{% trans "Request a review" %}</h2>
+      <form method="post" class="space-y-6 enquiry-form">
+        {% csrf_token %}{{ form.submission_id }}
+        <div hidden aria-hidden="true">{{ form.website }}</div>
+        {% if form.errors %}<div role="alert">{{ form.non_field_errors }}{{ form.submission_id.errors }}<p>{% trans "Please check the fields below." %}</p></div>{% endif %}
+        {% for field in form.visible_fields %}
+          {% if field.name != 'website' %}
+          <div><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{{ field.errors }}</div>
+          {% endif %}
+        {% endfor %}
+        <p class="text-sm text-gray-600">{% trans "Provide an email address or telephone number. You can add photos after sending your enquiry." %}</p>
+        <p class="text-sm text-gray-600">{% trans "We use your details to handle this enquiry and contact you about your project. This does not subscribe you to marketing." %}</p>
+        <button class="btn btn-primary" type="submit">{% trans "Send enquiry and optionally add photos" %}</button>
+      </form>
+    </div>
+    <div class="card mt-6">
+      <h2 class="text-xl font-bold mb-4">{% trans "Prefer to contact us directly?" %}</h2>
+      <p class="mb-4">{% trans "For urgent hazards, stay clear of the tree and call. An online enquiry does not guarantee immediate attendance." %}</p>
+      <div class="flex flex-wrap gap-4">
+        <a class="text-green-700 underline" href="tel:+352621981363">+352 621 981 363</a>
+        <a class="text-green-700 underline" href="https://wa.me/352621981363" rel="noopener noreferrer" target="_blank">WhatsApp</a>
+        <a class="text-green-700 underline" href="mailto:info@arborist.lu">info@arborist.lu</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

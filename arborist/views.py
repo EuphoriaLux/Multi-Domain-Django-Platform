@@ -8,8 +8,6 @@ with distance-based prepayment zones around Altrier (Junglinster) and emergency 
 
 import logging
 import urllib.parse
-from django.conf import settings
-from django.contrib import messages
 from django.http import JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.translation import gettext_lazy as _
@@ -18,7 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from azureproject.email_utils import send_domain_email
 from crush_lu.decorators import ratelimit
-from .forms import ContactForm, BookingForm
+from .forms import BookingForm
 from .models import ArboristBooking
 from .services.payment import get_prepayment_bank_details
 from .services.phone import to_whatsapp_number
@@ -180,7 +178,7 @@ def faq(request):
             "question": _("What is a Rush Order appointment?"),
             "answer": _(
                 "For urgent situations such as storm damage, fallen branches, or imminent tree hazards, "
-                "our Rush Order option prioritizes your appointment within 24-48 hours with immediate dispatch."
+                "please call us to discuss availability. A rush appointment request does not guarantee immediate attendance."
             ),
         },
         {
@@ -214,109 +212,6 @@ def faq(request):
         "faq_items": faq_items,
     }
     return render(request, "arborist/faq.html", context)
-
-
-# =============================================================================
-# Contact View
-# =============================================================================
-
-
-@require_http_methods(["GET", "POST"])
-@ratelimit(key="ip", rate=PUBLIC_FORM_RATE, method="POST")
-def contact(request):
-    """General contact form with email handling."""
-    if request.method == "POST":
-        form = ContactForm(request.POST)
-        if form.is_valid():
-            name = form.cleaned_data["name"]
-            email = form.cleaned_data["email"]
-            phone = form.cleaned_data["phone"] or "Not provided"
-            service = form.cleaned_data["service"] or "Not specified"
-            message_text = form.cleaned_data["message"]
-
-            service_names = {
-                "obstbaumpflege": "Fruit Tree Care",
-                "baumpflege": "Tree Care",
-                "baumkontrolle": "Tree Inspection",
-                "oekologie": "Ecological Measures",
-                "beratung": "General Consultation",
-            }
-            service_display = service_names.get(service, service)
-
-            subject = f"[Arborist.lu] New inquiry from {name}"
-            email_body = f"""New contact form submission from arborist.lu:
-
-Name: {name}
-Email: {email}
-Phone: {phone}
-Service Interest: {service_display}
-
-Message:
-{message_text}
-
----
-Sent via arborist.lu contact form.
-"""
-
-            try:
-                send_domain_email(
-                    subject=subject,
-                    message=email_body,
-                    recipient_list=["tom@arborist.lu"],
-                    cc=["tom@powerup.lu", "taakrann@pt.lu"],
-                    request=request,
-                    fail_silently=False,
-                )
-
-                confirmation_subject = "Arborist.lu - Merci / Danke / Thank you"
-                confirmation_body = f"""Moien {name},
-
-Merci fir Är Noriicht! Mir hu Är Ufro kritt an äntwere sou séier wéi méiglech.
-
-Vielen Dank für Ihre Anfrage! Wir melden uns schnellstmöglich bei Ihnen.
-Merci pour votre demande! Nous vous répondrons dans les plus brefs délais.
-
-Mat frëndleche Gréiss / Mit freundlichen Grüßen,
-Tom Aakrann
-Arborist.lu
-+352 621 981 363
-"""
-                send_domain_email(
-                    subject=confirmation_subject,
-                    message=confirmation_body,
-                    recipient_list=[email],
-                    request=request,
-                    fail_silently=True,
-                )
-
-                messages.success(
-                    request,
-                    _(
-                        "Thank you for your message! I will get back to you as soon as possible."
-                    ),
-                )
-                logger.info("Contact form submitted by %s for %s", email, service)
-                return redirect("arborist:contact")
-            except Exception as e:
-                logger.error("Failed to send contact email: %s", e)
-                messages.error(
-                    request,
-                    _(
-                        "Sorry, there was an error sending your message. Please try calling or WhatsApp instead."
-                    ),
-                )
-    else:
-        form = ContactForm()
-
-    context = {
-        "page_title": _("Contact - Arborist Tom Aakrann"),
-        "meta_description": _(
-            "Contact Arborist Tom Aakrann for tree care in Luxembourg. "
-            "Free consultation, quick response. Phone, WhatsApp, email."
-        ),
-        "form": form,
-    }
-    return render(request, "arborist/contact.html", context)
 
 
 # =============================================================================
@@ -426,6 +321,23 @@ def booking(request):
     Interactive appointment booking view with distance-based prepayment zones.
     """
     initial = {}
+    lead = None
+    if request.GET.get("lead"):
+        import uuid
+        from .views_leads import customer_lead
+
+        try:
+            lead_id = uuid.UUID(request.GET["lead"])
+        except ValueError:
+            raise Http404
+        lead = customer_lead(request, lead_id)
+        initial.update(
+            name=lead.name,
+            email=lead.email,
+            phone=lead.phone,
+            postal_code=lead.postal_code,
+            notes=lead.message,
+        )
     service_param = request.GET.get("service")
     if service_param in dict(ArboristBooking.SERVICE_CHOICES):
         initial["service_type"] = service_param
@@ -438,6 +350,7 @@ def booking(request):
         form = BookingForm(request.POST)
         if form.is_valid():
             booking_obj = form.save(commit=False)
+            booking_obj.lead = lead
             quote = booking_obj.apply_quote()
             booking_obj.save()
             ref = booking_obj.booking_reference

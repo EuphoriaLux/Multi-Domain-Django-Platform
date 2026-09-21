@@ -304,6 +304,8 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",  # HTMX request detection
 ]
 
+MIDDLEWARE.append("arborist.middleware.LeadAttributionMiddleware")
+
 
 from django.contrib.messages import constants as messages
 
@@ -1445,6 +1447,13 @@ else:
     }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Never mount this directory under MEDIA_URL: enquiry assets are served only
+# through Arborist's permission-checked view. Production replaces this backend.
+STORAGES["arborist_private"] = {
+    "BACKEND": "arborist.storage.LocalPrivateStorage",
+    "OPTIONS": {"location": BASE_DIR / "private-arborist"},
+}
 
 # CSRF Cookie Settings
 # CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie
