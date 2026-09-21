@@ -195,8 +195,51 @@ def test_retail_sync_regions_endpoint_requires_token_and_lists_every_region(
 
     assert response.status_code == 200
     assert response.json()["regions"] == list(DEFAULT_EUROPEAN_REGIONS)
+    assert response.json()["pending"] == list(DEFAULT_EUROPEAN_REGIONS)
     # Handed out once so every region of an invocation shares a date.
     assert response.json()["snapshot_date"] == timezone.localdate().isoformat()
+
+
+@pytest.mark.django_db
+def test_retail_sync_regions_endpoint_leaves_out_regions_captured_today(
+    client, settings
+):
+    """The timer runs several times a morning; only what is missing is pending.
+
+    A failed attempt, another day's run, or another currency does not count as
+    captured, so those regions stay pending.
+    """
+    from power_up.finops.models import RetailPriceSyncRun
+
+    settings.SECRET_SYNC_TOKEN = "expected-token"
+    today = timezone.localdate()
+
+    def add_run(region, **overrides):
+        values = {
+            "provider": "azure",
+            "snapshot_date": today,
+            "currency": "EUR",
+            "region": region,
+            "regions": [region],
+            "status": RetailPriceSyncRun.Status.COMPLETED,
+        }
+        values.update(overrides)
+        RetailPriceSyncRun.objects.create(**values)
+
+    add_run("westeurope")
+    add_run("northeurope", status=RetailPriceSyncRun.Status.FAILED)
+    add_run("uksouth", snapshot_date=today - timedelta(days=1))
+    add_run("swedencentral", currency="USD")
+
+    response = client.get(
+        "/finops/api/sync/retail-prices/regions/",
+        HTTP_X_SYNC_TOKEN="expected-token",
+    )
+
+    pending = response.json()["pending"]
+    assert "westeurope" not in pending
+    assert {"northeurope", "uksouth", "swedencentral"} <= set(pending)
+    assert len(pending) == len(response.json()["regions"]) - 1
 
 
 @pytest.mark.django_db
