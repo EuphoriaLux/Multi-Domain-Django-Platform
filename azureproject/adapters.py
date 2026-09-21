@@ -26,19 +26,31 @@ def _is_power_up_domain(request):
     return bool(config) and config.get("app") == "power_up"
 
 
+# Multi-tenant authorities: any tenant (or none) can sign in through them.
+_MICROSOFT_SHARED_AUTHORITIES = {"common", "organizations", "consumers"}
+
+
 def _microsoft_tenant_id(sociallogin):
-    """The Entra tenant ("tid") a Microsoft login came from, or None.
+    """The Entra tenant a Microsoft login is bound to, or None.
 
     allauth's extra_data is the Graph /me profile, which carries no tenant, so
-    ``extra_data.get("tid")`` is always None. The access token has it: for a
-    work or school account it is a JWT with a "tid" claim. The token came
-    straight from Microsoft's token endpoint in the code exchange, so its
-    claims are read without checking the signature (Graph tokens are not meant
-    to be validated by clients). A personal Microsoft account gets an opaque
-    token and therefore no tenant.
+    ``extra_data.get("tid")`` is always None. Two sources are used instead:
+
+    1. The tenant the SocialApp pins its authority to (``settings.tenant``).
+       allauth builds the authorize and token endpoints from it, so Microsoft
+       itself only signs in users of that tenant. This is the stable source
+       and what power-up.lu's app should be configured with.
+    2. Failing that, the "tid" claim of the access token. For a work account
+       today that is a JWT, but Graph token format is not a client contract;
+       an opaque or encrypted token yields None, and callers refuse.
     """
-    token = getattr(getattr(sociallogin, "token", None), "token", "") or ""
-    parts = token.split(".")
+    token = getattr(sociallogin, "token", None)
+    app_settings = getattr(getattr(token, "app", None), "settings", None) or {}
+    pinned = app_settings.get("tenant") if isinstance(app_settings, dict) else None
+    if isinstance(pinned, str) and pinned.lower() not in _MICROSOFT_SHARED_AUTHORITIES:
+        return pinned
+
+    parts = (getattr(token, "token", "") or "").split(".")
     if len(parts) != 3:
         return None
     try:

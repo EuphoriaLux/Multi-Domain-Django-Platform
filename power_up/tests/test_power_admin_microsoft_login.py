@@ -35,14 +35,15 @@ def _jwt(claims):
     return f"{part({'alg': 'RS256'})}.{part(claims)}.signature"
 
 
-def _sociallogin(token):
+def _sociallogin(token, app_tenant=None):
+    app_settings = {"tenant": app_tenant} if app_tenant else {}
     return SimpleNamespace(
         account=SimpleNamespace(
             provider="microsoft",
             uid="00000000-0000-0000-0000-000000000001",
             extra_data={"displayName": "Tom", "mail": "tom@example.test"},
         ),
-        token=SimpleNamespace(token=token),
+        token=SimpleNamespace(token=token, app=SimpleNamespace(settings=app_settings)),
         is_existing=True,
         user=None,
     )
@@ -67,6 +68,19 @@ class MicrosoftTenantIdTests(TestCase):
             with self.subTest(token=token):
                 self.assertIsNone(_microsoft_tenant_id(_sociallogin(token)))
 
+    def test_an_app_pinned_to_a_tenant_is_the_stable_source(self):
+        """Microsoft only signs in that tenant's users, whatever the token looks like."""
+        login = _sociallogin("EwBwA8l6BAAU...opaque", app_tenant=COMPANY)
+        self.assertEqual(_microsoft_tenant_id(login), COMPANY)
+
+    def test_shared_authorities_fall_back_to_the_token(self):
+        for authority in ("common", "Organizations", "consumers"):
+            with self.subTest(authority=authority):
+                login = _sociallogin(_jwt({"tid": OTHER}), app_tenant=authority)
+                self.assertEqual(_microsoft_tenant_id(login), OTHER)
+                opaque = _sociallogin("EwBwA8l6BAAU...opaque", app_tenant=authority)
+                self.assertIsNone(_microsoft_tenant_id(opaque))
+
     def test_no_token_at_all(self):
         login = _sociallogin("")
         login.token = None
@@ -78,17 +92,17 @@ class PowerUpMicrosoftLoginTenantTests(TestCase):
     def setUp(self):
         self.adapter = MultiDomainSocialAccountAdapter()
 
-    def _run(self, host, token, next_url=""):
+    def _run(self, host, token, next_url="", app_tenant=None):
         path = "/accounts/microsoft/login/callback/"
         if next_url:
             path += f"?next={next_url}"
         request = RequestFactory().get(path, HTTP_HOST=host)
         request.session = {}
-        self.adapter.pre_social_login(request, _sociallogin(token))
+        self.adapter.pre_social_login(request, _sociallogin(token, app_tenant))
 
-    def assert_refused(self, host, token, next_url=""):
+    def assert_refused(self, host, token, next_url="", app_tenant=None):
         with self.assertRaises(ImmediateHttpResponse) as ctx:
-            self._run(host, token, next_url)
+            self._run(host, token, next_url, app_tenant)
         self.assertEqual(ctx.exception.response.status_code, 403)
 
     @mock.patch.dict(os.environ, {"GRAPH_TENANT_ID": COMPANY})
@@ -103,6 +117,12 @@ class PowerUpMicrosoftLoginTenantTests(TestCase):
         self.assert_refused("power-up.lu", "EwBwA8l6BAAU...opaque")
         # Not tied to the ?next= target, which is empty at the callback.
         self.assert_refused("power-up.lu", _jwt({"tid": OTHER}), next_url="/")
+
+    @mock.patch.dict(os.environ, {"GRAPH_TENANT_ID": COMPANY})
+    def test_an_app_pinned_to_the_company_tenant_admits_any_token_format(self):
+        self._run("power-up.lu", "EwBwA8l6BAAU...opaque", app_tenant=COMPANY)
+        # A pin to someone else's tenant is still someone else's tenant.
+        self.assert_refused("power-up.lu", _jwt({"tid": COMPANY}), app_tenant=OTHER)
 
     def test_fails_closed_without_a_configured_tenant(self):
         env = {k: v for k, v in os.environ.items() if k != "GRAPH_TENANT_ID"}
