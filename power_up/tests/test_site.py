@@ -10,8 +10,8 @@ Note: Power-Up uses i18n_patterns, so user-facing pages are under /en/, /de/, /f
 from django.test import TestCase, Client
 from django.contrib.sites.models import Site
 
-from .platforms import PLATFORMS
-from .solutions import SOLUTIONS
+from power_up.platforms import PLATFORMS
+from power_up.solutions import SOLUTIONS
 
 
 class PowerUpRoutingTestCase(TestCase):
