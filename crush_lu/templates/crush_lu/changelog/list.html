@@ -91,19 +91,22 @@
 
 {% block extra_css %}
 <style nonce="{{ csp_nonce }}">
-    /* Respect prefers-reduced-motion globally */
     @media (prefers-reduced-motion: reduce) {
-        .changelog-release { transition: none !important; animation: none !important; }
+        .changelog-release { transition: none !important; }
     }
-    /* Subtle entrance */
-    .changelog-release {
-        opacity: 0;
-        transform: translateY(8px);
-        animation: crush-changelog-in 420ms ease-out forwards;
+    /* Subtle entrance, opted into rather than switched off: the hidden start
+       state only applies alongside the animation that ends it, so reduced
+       motion (or a browser without the query) always shows the cards. */
+    @media (prefers-reduced-motion: no-preference) {
+        .changelog-release {
+            opacity: 0;
+            transform: translateY(8px);
+            animation: crush-changelog-in 420ms ease-out forwards;
+        }
+        .changelog-release:nth-child(2) { animation-delay: 60ms; }
+        .changelog-release:nth-child(3) { animation-delay: 120ms; }
+        .changelog-release:nth-child(4) { animation-delay: 180ms; }
     }
-    .changelog-release:nth-child(2) { animation-delay: 60ms; }
-    .changelog-release:nth-child(3) { animation-delay: 120ms; }
-    .changelog-release:nth-child(4) { animation-delay: 180ms; }
     @keyframes crush-changelog-in {
         to { opacity: 1; transform: translateY(0); }
     }
