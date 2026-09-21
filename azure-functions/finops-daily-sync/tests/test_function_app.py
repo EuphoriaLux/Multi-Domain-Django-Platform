@@ -8,6 +8,7 @@ that a single bad region does not stop the walk, that the wall-clock budget
 stops short of the host's 10-minute kill, and that a failed night still raises
 so the alert fires.
 """
+
 import importlib.util
 import logging
 import sys
@@ -218,7 +219,9 @@ def test_a_region_is_only_started_with_a_full_timeout_left(timer_app, transport)
     and was misreported as a backend timeout. Now a region that cannot be
     waited on in full is left for a later run instead.
     """
-    timer_app.BUDGET_SECONDS = timer_app.PER_REGION_TIMEOUT - 1
+    timer_app.BUDGET_SECONDS = (
+        timer_app.CONNECT_TIMEOUT + timer_app.PER_REGION_TIMEOUT - 1
+    )
 
     run(timer_app, now=FIRST_RUN)
 
@@ -236,12 +239,12 @@ def test_every_post_waits_the_full_per_region_timeout(timer_app, transport):
 
     run(timer_app)
 
-    assert timeouts == [timer_app.PER_REGION_TIMEOUT] * len(REGIONS)
+    # A (connect, read) pair: a scalar applies to each phase, doubling the wait.
+    expected = (timer_app.CONNECT_TIMEOUT, timer_app.PER_REGION_TIMEOUT)
+    assert timeouts == [expected] * len(REGIONS)
 
 
-def test_an_earlier_run_leaves_failures_to_the_next_slot(
-    timer_app, transport, caplog
-):
+def test_an_earlier_run_leaves_failures_to_the_next_slot(timer_app, transport, caplog):
     """Before the window's last slot an incomplete run is expected, not an alert."""
 
     def flaky_post(url, **kwargs):
@@ -278,12 +281,11 @@ def test_only_the_pending_regions_are_posted(timer_app, transport):
     assert transport.posted == ["uksouth"]
 
 
-def test_nothing_pending_means_a_quiet_no_op_even_on_the_last_run(
-    timer_app, transport
-):
+def test_nothing_pending_means_a_quiet_no_op_even_on_the_last_run(timer_app, transport):
     transport.set_get(
         lambda url, **kwargs: FakeResponse(
-            200, {"regions": list(REGIONS), "pending": [], "snapshot_date": "2026-08-21"}
+            200,
+            {"regions": list(REGIONS), "pending": [], "snapshot_date": "2026-08-21"},
         )
     )
 
@@ -346,9 +348,7 @@ def test_an_unreachable_region_list_aborts_before_syncing_anything(
     assert transport.posted == [], "synced without knowing which regions to walk"
 
 
-def test_a_404_region_list_explains_the_pending_production_swap(
-    timer_app, transport
-):
+def test_a_404_region_list_explains_the_pending_production_swap(timer_app, transport):
     """This app auto-deploys to production; Django waits on a manual swap.
 
     That window is real, so the failure has to name it — and must never fall
@@ -364,6 +364,28 @@ def test_a_404_region_list_explains_the_pending_production_swap(
     assert "swap" in message.lower()
     assert "No regions were synced" in message
     assert transport.posted == [], "fell back to syncing without a region list"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        FakeResponse(503, {"error": "down"}),
+        FakeResponse(404, {"detail": "nope"}),
+        FakeResponse(200, {"regions": []}),
+    ],
+    ids=["5xx", "404", "empty"],
+)
+def test_an_earlier_run_does_not_alert_on_a_bad_region_list(
+    timer_app, transport, caplog, response
+):
+    """Any failed invocation alerts, and the next slot may get through."""
+    transport.set_get(lambda url, **kwargs: response)
+
+    with caplog.at_level(logging.ERROR):
+        run(timer_app, now=FIRST_RUN)
+
+    assert transport.posted == []
+    assert caplog.text, "the failure was swallowed without a log line"
 
 
 def test_an_empty_region_list_is_treated_as_a_failure(timer_app, transport):
@@ -384,7 +406,9 @@ def test_the_kill_switch_makes_no_requests_at_all(timer_app, transport, monkeypa
     assert transport.region_list_url is None
 
 
-@pytest.mark.parametrize("missing", ["DJANGO_RETAIL_PRICE_WEBHOOK_URL", "SECRET_SYNC_TOKEN"])
+@pytest.mark.parametrize(
+    "missing", ["DJANGO_RETAIL_PRICE_WEBHOOK_URL", "SECRET_SYNC_TOKEN"]
+)
 def test_missing_configuration_fails_loudly(timer_app, transport, monkeypatch, missing):
     monkeypatch.delenv(missing)
 

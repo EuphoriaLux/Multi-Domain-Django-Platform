@@ -25,6 +25,10 @@ app = func.FunctionApp()
 # Django is given room to always answer first, and a timeout here is treated as
 # "the backend is wedged" rather than "try the next one".
 PER_REGION_TIMEOUT = 170
+# requests applies a scalar timeout to connecting and to reading separately,
+# so a bare 170 could spend 170s + 170s. Connecting gets its own short limit
+# and a region only starts when both fit in what is left of the budget.
+CONNECT_TIMEOUT = 10
 # host.json gives this function 10 minutes. Leave headroom so the run ends with
 # a summary rather than being killed mid-region.
 BUDGET_SECONDS = 8 * 60
@@ -209,7 +213,9 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
     # Django supplies it so it cannot drift from this side's clock or timezone.
     regions_url = webhook_url.rstrip("/") + "/regions/"
     try:
-        regions_response = requests.get(regions_url, headers=headers, timeout=30)
+        regions_response = requests.get(
+            regions_url, headers=headers, timeout=(CONNECT_TIMEOUT, 30)
+        )
         if regions_response.status_code == 404:
             # This Function App deploys straight to production on merge, while
             # the Django side lands on the staging slot and waits for a manual
@@ -232,10 +238,18 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
         logging.error(
             f"[{timestamp}] Could not fetch the region list from {regions_url}: {e}"
         )
-        raise
+        # Every failed invocation reaches the alert, and a later slot may well
+        # get through, so only the window's last run fails over this.
+        if last_run:
+            raise
+        return
 
     if not all_regions:
-        raise RuntimeError("The retail price endpoint returned an empty region list")
+        message = "The retail price endpoint returned an empty region list"
+        if last_run:
+            raise RuntimeError(message)
+        logging.error(f"[{timestamp}] {message}; a later run in the window retries")
+        return
 
     # "pending" leaves out regions already captured for the day. A Django
     # build without it (this app deploys on merge, Django waits for a swap)
@@ -271,7 +285,7 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
         # few seconds left gave up on Django before it could answer, which
         # left a web worker fetching for nobody and was then reported as a
         # backend timeout that stopped the walk, every night.
-        if remaining < PER_REGION_TIMEOUT:
+        if remaining < CONNECT_TIMEOUT + PER_REGION_TIMEOUT:
             skipped = [r for r in regions if r not in attempted]
             logging.warning(
                 f"[{timestamp}] Out of time for this run after {len(attempted)} "
@@ -288,7 +302,7 @@ def daily_retail_price_sync(timer: func.TimerRequest) -> None:
                 webhook_url,
                 headers=headers,
                 json=payload,
-                timeout=PER_REGION_TIMEOUT,
+                timeout=(CONNECT_TIMEOUT, PER_REGION_TIMEOUT),
             )
             response.raise_for_status()
             result = response.json()

@@ -66,7 +66,8 @@ second.
 ### Why the two timeouts are ordered the way they are
 
 Django gives one region **90s** (`DEFAULT_MAX_SECONDS`) plus at most one page's
-worst case (~50s); this Function App waits **170s** (`PER_REGION_TIMEOUT`). That
+worst case (~50s); this Function App waits **170s** (`PER_REGION_TIMEOUT`), plus a
+separate 10s `CONNECT_TIMEOUT` (a scalar would apply 170s to each phase). That
 ordering is deliberate and must be preserved.
 
 `requests` timing out only stops *this* side waiting — it does not cancel the
