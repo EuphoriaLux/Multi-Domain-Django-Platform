@@ -25,7 +25,7 @@ Example:
 
 The error and help paragraphs carry the ids the input's aria-describedby
 points at: Django's own <auto_id>_error / <auto_id>_helptext, plus
-<auto_id>_help for the caller's help (wired by with_custom_help). auto_id
+<auto_id>_help for the caller's help (wired by with_descriptions). auto_id
 includes the form prefix, so prefixed forms and formsets stay unique.
 {% endcomment %}
 {% load i18n form_field_tags %}
@@ -36,7 +36,8 @@ includes the form prefix, so prefixed forms and formsets stay unique.
             {{ label|default:field.label }}{% if field.field.required %}<span class="text-red-500" aria-hidden="true"> *</span>{% endif %}
         </label>
     {% endif %}
-    {% if help %}{{ field|with_custom_help }}{% else %}{{ field }}{% endif %}
+    {# A filter argument that isn't in the context raises, so only pass help when set. #}
+    {% if help %}{{ field|with_descriptions:help }}{% else %}{{ field|with_descriptions }}{% endif %}
     {% if field.errors %}
         <p{% if field.auto_id %} id="{{ field.auto_id }}_error"{% endif %} class="text-red-500 dark:text-red-400 text-sm" role="alert">{{ field.errors.0 }}</p>
     {% endif %}

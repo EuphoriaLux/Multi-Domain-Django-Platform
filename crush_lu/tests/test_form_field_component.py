@@ -53,6 +53,13 @@ class _PresetForm(forms.Form):
     )
 
 
+class _PresetHelpForm(forms.Form):
+    code = forms.CharField(
+        help_text="From your ticket.",
+        widget=forms.TextInput(attrs={"aria-describedby": "code-rules"}),
+    )
+
+
 class FormFieldDescribedByTests(SimpleTestCase):
     def assert_references_resolve(self, html):
         page = _collect(html)
@@ -105,6 +112,24 @@ class FormFieldDescribedByTests(SimpleTestCase):
         )
         page = _collect(html)
         self.assertEqual(page.described_by["id_code"], ["code-rules", "id_code_help"])
+
+    def test_widget_describedby_is_merged_with_help_text_and_errors(self):
+        # Django adds nothing when the widget presets aria-describedby, which
+        # would leave the rendered help and error paragraphs unannounced.
+        form = _PresetHelpForm(data={})
+        self.assertFalse(form.is_valid())
+        html = render_to_string(FIELD_TEMPLATE, {"field": form["code"]})
+        self.assertEqual(
+            _collect(html).described_by["id_code"],
+            ["code-rules", "id_code_helptext", "id_code_error"],
+        )
+        html = render_to_string(
+            FIELD_TEMPLATE, {"field": form["code"], "help": "Six digits."}
+        )
+        self.assertEqual(
+            _collect(html).described_by["id_code"],
+            ["code-rules", "id_code_helptext", "id_code_error", "id_code_help"],
+        )
 
     def test_no_references_without_help_or_errors(self):
         html = render_to_string(FIELD_TEMPLATE, {"field": _PlainForm()["nickname"]})
