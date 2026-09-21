@@ -21,6 +21,9 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
+# The one currency the scheduled retail-price snapshot captures.
+RETAIL_PRICE_CURRENCY = "EUR"
+
 
 def _reject_invalid_sync_token(request):
     """Return an error response when the caller's sync token is unusable.
@@ -98,13 +101,26 @@ def retail_price_sync_regions(request):
     if denied is not None:
         return denied
 
+    from .models import CloudProvider, RetailPriceSyncRun
     from .retail_prices.connectors.azure import DEFAULT_EUROPEAN_REGIONS
 
+    snapshot_date = timezone.localdate()
+    # The scheduler runs several times a morning and only needs what is still
+    # missing; "regions" stays the full list so the day's scope is explicit.
+    captured = set(
+        RetailPriceSyncRun.objects.filter(
+            provider=CloudProvider.AZURE,
+            snapshot_date=snapshot_date,
+            currency=RETAIL_PRICE_CURRENCY,
+            status=RetailPriceSyncRun.Status.COMPLETED,
+        ).values_list("region", flat=True)
+    )
     return JsonResponse(
         {
             "success": True,
             "regions": list(DEFAULT_EUROPEAN_REGIONS),
-            "snapshot_date": timezone.localdate().isoformat(),
+            "pending": [r for r in DEFAULT_EUROPEAN_REGIONS if r not in captured],
+            "snapshot_date": snapshot_date.isoformat(),
         }
     )
 
@@ -174,7 +190,7 @@ def trigger_retail_price_sync(request):
         error_stream = io.StringIO()
         call_command(
             "sync_retail_prices",
-            currency="EUR",
+            currency=RETAIL_PRICE_CURRENCY,
             regions=[region],
             snapshot_date=snapshot_date or None,
             stdout=output_stream,
