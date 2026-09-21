@@ -1399,6 +1399,20 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
         POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png"
 
+    # Django's own defaults, spelled out so the arborist_private alias below
+    # has a dict to extend. production.py imports this module with
+    # AZURE_ACCOUNT_NAME set, so this branch runs on every prod boot before
+    # production.py replaces STORAGES; pytest-xdist workers land here too
+    # (conftest.py sets AZURE_ACCOUNT_NAME).
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
     if os.environ.get("RUN_MAIN"):
         print("Using Azure Blob Storage with platform-specific containers.")
 else:
