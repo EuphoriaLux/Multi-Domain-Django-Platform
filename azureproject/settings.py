@@ -304,6 +304,8 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",  # HTMX request detection
 ]
 
+MIDDLEWARE.append("arborist.middleware.LeadAttributionMiddleware")
+
 
 from django.contrib.messages import constants as messages
 
@@ -1363,6 +1365,18 @@ if AZURITE_MODE:
         "shared_media": {
             "BACKEND": "azureproject.storage_shared.SharedMediaStorage",
         },
+        # Same backend as production, so the private-container check and
+        # blob I/O are exercised locally (scripts/setup_azurite.py creates it)
+        "arborist_private": {
+            "BACKEND": "arborist.storage.AzurePrivateStorage",
+            "OPTIONS": {
+                "connection_string": AZURE_CONNECTION_STRING,
+                "azure_container": os.getenv(
+                    "AZURE_ARBORIST_PRIVATE_CONTAINER", "arborist-private"
+                ),
+                "cache_control": "private, no-store",
+            },
+        },
         # Use simple StaticFilesStorage in development for instant refresh
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
@@ -1396,6 +1410,20 @@ elif os.getenv("AZURE_ACCOUNT_NAME"):
         CRUSH_SOCIAL_PREVIEW_URL = f"{CRUSH_MEDIA_BASE_URL}/branding/social-preview.jpg"
     if "POWERUP_DEFAULT_PROFILE_URL" not in os.environ:
         POWERUP_DEFAULT_PROFILE_URL = f"{POWERUP_MEDIA_BASE_URL}/defaults/profile.png"
+
+    # Django's own defaults, spelled out so the arborist_private alias below
+    # has a dict to extend. production.py imports this module with
+    # AZURE_ACCOUNT_NAME set, so this branch runs on every prod boot before
+    # production.py replaces STORAGES; pytest-xdist workers land here too
+    # (conftest.py sets AZURE_ACCOUNT_NAME).
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
     if os.environ.get("RUN_MAIN"):
         print("Using Azure Blob Storage with platform-specific containers.")
@@ -1445,6 +1473,17 @@ else:
     }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Never mount this directory under MEDIA_URL: enquiry assets are served only
+# through Arborist's permission-checked view. Azurite (above) and production
+# configure their own backend; this is the filesystem fallback.
+STORAGES.setdefault(
+    "arborist_private",
+    {
+        "BACKEND": "arborist.storage.LocalPrivateStorage",
+        "OPTIONS": {"location": BASE_DIR / "private-arborist"},
+    },
+)
 
 # CSRF Cookie Settings
 # CSRF_COOKIE_HTTPONLY=True prevents JavaScript from reading the CSRF cookie

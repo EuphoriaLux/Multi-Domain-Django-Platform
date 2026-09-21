@@ -1,0 +1,42 @@
+{% extends "arborist/base.html" %}
+{% load i18n %}
+{% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block tracking_head %}{% endblock %}
+{% block tracking_body %}{% endblock %}
+{% block content %}
+<section class="py-16 bg-gray-50">
+  <div class="container mx-auto px-4 max-w-4xl">
+    <h1 class="text-3xl font-bold text-green-800 mb-4">{% trans "Your enquiry is saved" %}</h1>
+    <p class="mb-4">{% trans "We will review your request and contact you. You can add photos now or return to this page in the same browser later." %}</p>
+    <p class="mb-6"><a class="text-green-700 underline" href="tel:+352621981363">{% trans "Urgent situation? Call +352 621 981 363." %}</a></p>
+    <div class="card mb-6">
+      <h2 class="text-2xl font-bold mb-4">{% trans "Optional photos for the arborist" %}</h2>
+      <p class="mb-4">{% trans "Only take photos from a safe location. Do not approach a dangerous tree or climb. Photos cannot confirm tree safety or provide a binding price." %}</p>
+      <ol class="list-decimal pl-6 mb-4">{% for value, label in categories %}<li>{{ label }}</li>{% endfor %}</ol>
+      <p class="text-sm mb-6">{% trans "Photos are used to review your enquiry, not for AI training or public marketing. Location metadata is removed from uploaded images." %}</p>
+      <form method="post" enctype="multipart/form-data" class="space-y-4 enquiry-form">
+        {% csrf_token %}{{ photo_form.upload_id }}
+        {{ photo_form.non_field_errors }}{{ photo_form.upload_id.errors }}
+        {% for field in photo_form.visible_fields %}
+          <div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% if field.help_text %}<p class="text-sm text-gray-600">{{ field.help_text }}</p>{% endif %}</div>
+        {% endfor %}
+        <button class="btn btn-primary" name="action" value="photo" type="submit">{% trans "Add photo" %}</button>
+      </form>
+    </div>
+    {% if lead.photos.exists %}
+    <div class="card mb-6"><h2 class="text-xl font-bold mb-4">{% trans "Photos received" %}</h2>
+      <ul>{% for photo in lead.photos.all %}<li class="mb-2"><a class="underline text-green-700" href="{% url 'arborist:lead_photo' photo.pk %}">{{ photo.tree_label }} — {{ photo.get_category_display }}</a></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    <div class="card mb-6">
+      <form method="post" class="space-y-4 enquiry-form">{% csrf_token %}
+        <label for="{{ notes_form.photo_notes.id_for_label }}">{{ notes_form.photo_notes.label }}</label>
+        <p class="text-sm">{% trans "For example: no leaves this season, unsafe access, or unsure which tree. Missing photos do not prevent us from reviewing your enquiry." %}</p>
+        {{ notes_form.photo_notes }}{{ notes_form.photo_notes.errors }}
+        <button class="btn btn-primary" type="submit" name="action" value="notes">{% trans "Save notes" %}</button>
+      </form>
+    </div>
+    <a class="text-green-700 underline" href="{% url 'arborist:booking' %}?lead={{ lead.pk }}">{% trans "Prefer an on-site visit? View fees and request an appointment." %}</a>
+  </div>
+</section>
+{% endblock %}

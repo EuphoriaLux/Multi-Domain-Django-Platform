@@ -181,6 +181,17 @@ STORAGES = {
 }
 
 # MEDIA_URL is now derived from platform-specific storage backends
+STORAGES["arborist_private"] = {
+    "BACKEND": "arborist.storage.AzurePrivateStorage",
+    "OPTIONS": {
+        "account_name": os.getenv("AZURE_ACCOUNT_NAME"),
+        "account_key": os.getenv("AZURE_ACCOUNT_KEY"),
+        "azure_container": os.getenv("AZURE_ARBORIST_PRIVATE_CONTAINER", "arborist-private"),
+        "custom_domain": None,
+        "cache_control": "private, no-store",
+    },
+}
+
 # Each platform uses its own container (crush-lu-media, vinsdelux-media, etc.)
 # Legacy AZURE_CONTAINER_NAME removed - use storage backend's .url() method instead
 AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")

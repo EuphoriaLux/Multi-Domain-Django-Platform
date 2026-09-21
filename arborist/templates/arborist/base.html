@@ -24,10 +24,11 @@
 
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="{% static 'arborist/css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static 'arborist/css/enquiry.css' %}">
 
     <!-- SEO Meta Tags -->
     <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Arborist Tom Aakrann - Professional tree care in Luxembourg. FLL-certified tree inspector, SKT-B rope climbing technician." }}{% endblock %}">
-    <meta name="robots" content="index, follow">
+    {% block robots %}<meta name="robots" content="index, follow">{% endblock %}
     <link rel="canonical" href="{% canonical_url %}">
 
     <!-- SEO: Hreflang tags for multi-language support (en, de, fr) -->
@@ -61,13 +62,8 @@
         "email": "info@arborist.lu",
         "address": {
             "@type": "PostalAddress",
-            "addressLocality": "Luxemburg",
+            "addressLocality": "Altrier",
             "addressCountry": "LU"
-        },
-        "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": "49.6116",
-            "longitude": "6.1319"
         },
         "areaServed": {
             "@type": "Country",
@@ -119,13 +115,13 @@
     {% block extra_head %}{% endblock %}
 
     <!-- Google Analytics 4 with Consent Mode v2 -->
-    {% analytics_head %}
+    {% block tracking_head %}{% analytics_head %}
 
     <!-- Azure Application Insights Browser SDK (authenticated users only for performance) -->
-    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
+    {% if user.is_authenticated %}{% appinsights_head %}{% endif %}{% endblock %}
 </head>
 <body class="bg-white text-gray-900">
-    {% analytics_body %}
+    {% block tracking_body %}{% analytics_body %}{% endblock %}
     {% include "includes/staging_banner.html" %}
     {% include "arborist/partials/navigation.html" %}
 

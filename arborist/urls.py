@@ -9,6 +9,7 @@ from django.urls import path
 from django.views.generic import RedirectView
 
 from . import views
+from . import views_leads
 
 app_name = "arborist"
 
@@ -46,8 +47,10 @@ urlpatterns = [
     path("a-propos/", _alias("about")),
 
     # Contact
-    path("kontakt/", views.contact, name="contact"),
+    path("kontakt/", views_leads.enquiry, name="contact"),
     path("contact/", _alias("contact")),
+    path("enquiry/<uuid:lead_id>/", views_leads.lead_detail, name="lead_detail"),
+    path("enquiry-photo/<uuid:photo_id>/", views_leads.lead_photo, name="lead_photo"),
 
     # Booking Flow & API
     path("termin/", views.booking, name="booking"),

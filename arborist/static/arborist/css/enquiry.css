@@ -1,0 +1,5 @@
+.enquiry-form input:not([type="checkbox"]):not([type="hidden"]),
+.enquiry-form select,.enquiry-form textarea{display:block;width:100%;padding:.65rem .8rem;border:1px solid #9ca3af;border-radius:.5rem;background:#fff;color:#111827}
+.enquiry-form label{display:block;font-weight:600;margin-bottom:.35rem}
+.enquiry-form .errorlist{color:#991b1b;margin:.4rem 0;list-style:disc;padding-left:1.25rem}
+.enquiry-form input:focus,.enquiry-form textarea:focus,.enquiry-form select:focus{outline:2px solid #15803d;outline-offset:2px}

@@ -23,6 +23,11 @@ class ArboristAdminSite(admin.AdminSite):
 
 arborist_admin_site = ArboristAdminSite(name="arborist_admin")
 
+from .admin_leads import ArboristLeadAdmin  # noqa: E402
+from .models import ArboristLead  # noqa: E402
+
+arborist_admin_site.register(ArboristLead, ArboristLeadAdmin)
+
 
 @admin.register(ArboristBooking, site=arborist_admin_site)
 class ArboristBookingAdmin(admin.ModelAdmin):
@@ -72,6 +77,7 @@ class ArboristBookingAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "booking_reference",
+                    "lead",
                     "name",
                     "email",
                     "phone",
