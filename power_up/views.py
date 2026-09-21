@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET
 
 from .platforms import PLATFORMS
+from .solutions import SOLUTIONS
 
 
 @require_GET
@@ -17,6 +18,7 @@ def home(request):
     """Landing page with hero, mission, and portfolio preview."""
     context = {
         "platforms": PLATFORMS,
+        "solutions": SOLUTIONS,
         "page_title": _("Power-Up - Building Luxembourg's Digital Future"),
         "meta_description": _(
             "Power-Up builds digital platforms for Luxembourg. "
@@ -37,6 +39,22 @@ def about(request):
         ),
     }
     return render(request, "power_up/about.html", context)
+
+
+@require_GET
+def solutions(request):
+    """Event products sold to venues, agencies and companies."""
+    context = {
+        "solutions": SOLUTIONS,
+        "pilot_subject": _("Pilot partner 2027"),
+        "page_title": _("Event Solutions for Businesses - Power-Up"),
+        "meta_description": _(
+            "Ticketing, quiz nights and speed dating for venues, event "
+            "agencies and companies in Luxembourg, run on technology "
+            "proven live on Crush.lu."
+        ),
+    }
+    return render(request, "power_up/solutions.html", context)
 
 
 @require_GET

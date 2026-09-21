@@ -100,17 +100,26 @@ PRODUCTION_DEFAULT = 'entreprinder.lu'
 #
 # Every path lands on the target as given -- the request path is deliberately
 # NOT carried over. A parked domain has no inbound deep links to preserve, and
-# copying the path across would mostly manufacture 404s: crush.lu's
-# user-facing routes live inside i18n_patterns(prefix_default_language=True),
-# so a literal /events/ is not a valid URL there (see AGENTS.md). Sending
-# visitors to the target's landing page is the only reliably valid choice.
+# copying the path across would mostly manufacture 404s: the sites' user-facing
+# routes live inside i18n_patterns(prefix_default_language=True), so a copied
+# path only resolves if that exact page happens to exist on the target (see
+# AGENTS.md). One fixed page per domain is the only reliably valid choice.
+#
+# Point targets at an unprefixed path on a real page (e.g. /solutions/, not
+# /en/solutions/). The 301 is cached by browsers for good, so it should stay
+# language-neutral; the target's LocaleMiddleware then sends each visitor to
+# /en/, /de/ or /fr/ with an ordinary 302. Use the site's canonical host, not
+# an alias.
+#
+# moonlightdating.lu is a parked name that lands on the Power-Up event
+# solutions page (ticketing, quiz nights, speed dating for businesses).
 #
 # Note: the redirect middleware is only installed by azureproject.production,
 # so these hosts do nothing under the dev settings module -- same as the
 # existing www. redirects.
 REDIRECT_DOMAINS = {
-    'moonlightdating.lu': 'https://crush.lu',
-    'www.moonlightdating.lu': 'https://crush.lu',
+    'moonlightdating.lu': 'https://power-up.lu/solutions/',
+    'www.moonlightdating.lu': 'https://power-up.lu/solutions/',
 }
 
 

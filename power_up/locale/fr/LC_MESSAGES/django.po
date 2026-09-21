@@ -1378,3 +1378,222 @@ msgid ""
 msgstr ""
 "Contacte Power-Up. Informations de contact pour investisseurs,partenaires et "
 "demandes generales."
+
+msgid "For venues, event agencies and companies"
+msgstr "Pour les lieux, agences événementielles et entreprises"
+
+msgid "Event technology, proven live on Crush.lu"
+msgstr "Une technologie événementielle éprouvée en direct sur Crush.lu"
+
+msgid ""
+"The ticketing, quiz and speed-dating tools behind Crush.lu events, now "
+"available for your events."
+msgstr ""
+"Les outils de billetterie, de quiz et de speed dating des événements "
+"Crush.lu, désormais disponibles pour vos événements."
+
+msgid "Talk to us"
+msgstr "Parlons-en"
+
+msgid "See the products"
+msgstr "Voir les produits"
+
+msgid "Ask about this"
+msgstr "Demander des informations"
+
+msgid "Beta"
+msgstr "Bêta"
+
+msgid "How we work"
+msgstr "Notre façon de travailler"
+
+msgid "Start with one event. Grow into your own platform."
+msgstr "Commencez par un événement. Évoluez vers votre propre plateforme."
+
+msgid "Available now"
+msgstr "Disponible dès maintenant"
+
+msgid "Managed events"
+msgstr "Événements clés en main"
+
+msgid ""
+"We set up and run the technology for your event: ticket sales, the door, the"
+" quiz or the dating rounds. You focus on your guests."
+msgstr ""
+"Nous installons et gérons la technologie de votre événement : billetterie, "
+"accueil, quiz ou tours de speed dating. Vous vous concentrez sur vos "
+"invités."
+
+msgid "Your guests register with a free Crush.lu account."
+msgstr "Vos invités s’inscrivent avec un compte Crush.lu gratuit."
+
+msgid "Pilot partners, 2027"
+msgstr "Partenaires pilotes, 2027"
+
+msgid "Your own branded platform"
+msgstr "Votre propre plateforme à votre marque"
+
+msgid ""
+"Your name, your colours, your web address. We are looking for a small number"
+" of pilot partners to build it with in 2027."
+msgstr ""
+"Votre nom, vos couleurs, votre adresse web. Nous recherchons un petit nombre"
+" de partenaires pilotes pour la construire ensemble en 2027."
+
+msgid "Become a pilot partner"
+msgstr "Devenir partenaire pilote"
+
+msgid "Who it's for"
+msgstr "Pour qui"
+
+msgid "Venues and bars"
+msgstr "Lieux et bars"
+
+msgid "Fill quiet weeknights with quiz nights and singles evenings."
+msgstr ""
+"Animez vos soirées de semaine avec des quiz et des soirées célibataires."
+
+msgid "Event agencies"
+msgstr "Agences événementielles"
+
+msgid "Sell tickets and run the door without building your own tools."
+msgstr ""
+"Vendez des billets et gérez l’accueil sans développer vos propres outils."
+
+msgid "Companies and associations"
+msgstr "Entreprises et associations"
+
+msgid "Team quizzes and social evenings for your staff or members."
+msgstr ""
+"Quiz d’équipe et soirées conviviales pour vos collaborateurs ou vos membres."
+
+msgid "Planning an event?"
+msgstr "Vous organisez un événement ?"
+
+msgid "Tell us what you have in mind and we will get back to you."
+msgstr "Dites-nous ce que vous avez en tête et nous reviendrons vers vous."
+
+msgid "Event solutions for businesses"
+msgstr "Solutions événementielles pour les entreprises"
+
+msgid "Explore event solutions"
+msgstr "Découvrir les solutions événementielles"
+
+msgid "Solutions"
+msgstr "Solutions"
+
+msgid "Ticketing & Sales"
+msgstr "Billetterie et ventes"
+
+msgid "Sell seats online and run a smooth door"
+msgstr "Vendez vos places en ligne, fluidifiez l’accueil"
+
+msgid ""
+"Online card payments, capacity limits and an automatic waitlist, followed by"
+" QR tickets that your team scans at the door."
+msgstr ""
+"Paiement par carte en ligne, limites de capacité et liste d’attente "
+"automatique, puis des billets QR que votre équipe scanne à l’entrée."
+
+msgid "Quiz Nights"
+msgstr "Soirées quiz"
+
+msgid "A live quiz run from one host console"
+msgstr "Un quiz en direct piloté depuis une seule console"
+
+msgid ""
+"Tables answer on their phones while questions and scores appear on the big "
+"screen. The host moves through the rounds, and table rotation and the "
+"leaderboard are handled for you."
+msgstr ""
+"Les tables répondent sur leur téléphone pendant que les questions et les "
+"scores s’affichent sur grand écran. L’animateur fait avancer les manches ; "
+"la rotation des tables et le classement sont gérés pour vous."
+
+msgid "Speed Dating"
+msgstr "Speed dating"
+
+msgid "Singles evenings for venues and companies"
+msgstr "Des soirées célibataires pour les lieux et les entreprises"
+
+msgid ""
+"A structured evening that keeps every table balanced, from registration "
+"through the last round."
+msgstr ""
+"Une soirée structurée où chaque table reste équilibrée, de l’inscription "
+"jusqu’au dernier tour."
+
+msgid "Online card payment"
+msgstr "Paiement par carte en ligne"
+
+msgid "Capacity limits and an automatic waitlist"
+msgstr "Limites de capacité et liste d’attente automatique"
+
+msgid "QR tickets with live door check-in"
+msgstr "Billets QR avec contrôle d’accès en direct"
+
+msgid "Printed tickets at the door"
+msgstr "Billets imprimés à l’entrée"
+
+msgid "Apple Wallet and Google Wallet passes"
+msgstr "Billets Apple Wallet et Google Wallet"
+
+msgid "Confirmation and reminder emails"
+msgstr "E-mails de confirmation et de rappel"
+
+msgid "Cancellation and refund handling"
+msgstr "Gestion des annulations et des remboursements"
+
+msgid "Attendee list export"
+msgstr "Export de la liste des participants"
+
+msgid "Host console with a PIN-protected projector screen"
+msgstr "Console d’animation avec écran de projection protégé par code PIN"
+
+msgid "Multiple-choice, true/false and open questions"
+msgstr "Questions à choix multiples, vrai/faux et ouvertes"
+
+msgid "Image, video and audio questions"
+msgstr "Questions en image, vidéo et audio"
+
+msgid "Table rotation and team scoring"
+msgstr "Rotation des tables et score par équipe"
+
+msgid "Live leaderboard"
+msgstr "Classement en direct"
+
+msgid "Ready-made question packs in English, French and German"
+msgstr "Packs de questions prêts à l’emploi en anglais, français et allemand"
+
+msgid "Balanced registration"
+msgstr "Inscriptions équilibrées"
+
+msgid "Three-part evening: activity vote, introductions, dating rounds"
+msgstr ""
+"Soirée en trois temps : vote d’activité, présentations, tours de speed "
+"dating"
+
+msgid "Countdown on the projector for every round"
+msgstr "Compte à rebours projeté à chaque tour"
+
+msgid "Printed table cards with anonymous numbers"
+msgstr "Cartes de table imprimées avec numéros anonymes"
+
+msgid "Curated groups where nobody meets the same person twice"
+msgstr ""
+"Groupes composés sur mesure où personne ne rencontre deux fois la même "
+"personne"
+
+msgid "Pilot partner 2027"
+msgstr "Partenaire pilote 2027"
+
+msgid "Event Solutions for Businesses - Power-Up"
+msgstr "Solutions événementielles pour les entreprises - Power-Up"
+
+msgid ""
+"Ticketing, quiz nights and speed dating for venues, event agencies and "
+"companies in Luxembourg, run on technology proven live on Crush.lu."
+msgstr ""
+"Billetterie, soirées quiz et speed dating pour les lieux, agences "
+"événementielles et entreprises au Luxembourg, avec une technologie éprouvée "
+"en direct sur Crush.lu."
