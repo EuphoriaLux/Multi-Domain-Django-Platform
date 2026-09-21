@@ -146,6 +146,7 @@ _PROBE = textwrap.dedent("""
             "hidden-host": asyncio.run(static_request("attacker.invalid", "crush.lu")),
             "internal": asyncio.run(static_request("169.254.1.2")),
             "internal-transport": asyncio.run(static_request("169.254.1.2", "crush.lu")),
+            "redirect-only": asyncio.run(static_request("moonlightdating.lu")),
         }
 
     # Run the actual ASGI protocol router with real OriginValidator, session/auth
@@ -345,6 +346,11 @@ def test_asgi_static_shortcut_enforces_the_same_host_boundary(production_hosts):
         "hidden-host": 400,
         "internal": 400,
         "internal-transport": 200,
+        # A redirect-only host is in ALLOWED_HOSTS so it clears the boundary,
+        # but this shortcut runs ahead of RedirectWWWToRootDomainMiddleware —
+        # without its own check it would serve the asset with a 200 and the
+        # parked domain would never redirect on /static/ paths.
+        "redirect-only": 301,
     }
 
 

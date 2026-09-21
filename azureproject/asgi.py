@@ -38,6 +38,7 @@ from django.core.exceptions import DisallowedHost  # noqa: E402
 from django.core.handlers.asgi import ASGIRequest  # noqa: E402
 from whitenoise import WhiteNoise  # noqa: E402
 
+from azureproject.domains import get_redirect_target  # noqa: E402
 from azureproject.host_validation import validate_production_request_host  # noqa: E402
 from crush_lu.routing import websocket_urlpatterns  # noqa: E402
 
@@ -121,6 +122,20 @@ class StaticFilesASGI:
                             {"type": "http.response.body", "body": b"Bad Request"}
                         )
                         return
+                # This shortcut answers before any Django middleware runs, so
+                # a redirect-only domain would serve assets with a 200 and
+                # never reach RedirectWWWToRootDomainMiddleware. A parked name
+                # must redirect on every path, /static/ included.
+                try:
+                    host = ASGIRequest(scope, None).get_host()
+                except DisallowedHost:
+                    # Only reachable when host validation is off (dev); leave
+                    # the pre-existing behaviour of this shortcut untouched.
+                    host = ""
+                redirect_target = get_redirect_target(host) if host else None
+                if redirect_target is not None:
+                    await self._serve_redirect(redirect_target, send)
+                    return
                 static_file = (
                     whitenoise_app.find_file(path)
                     if whitenoise_app.autorefresh
@@ -130,6 +145,21 @@ class StaticFilesASGI:
                     await self._serve_static(scope, static_file, send)
                     return
         await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _serve_redirect(location, send):
+        """Send a 301 for a redirect-only host, without touching WhiteNoise."""
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 301,
+                "headers": [
+                    (b"location", location.encode("latin-1")),
+                    (b"content-length", b"0"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": b""})
 
     @staticmethod
     async def _serve_static(scope, static_file, send):
