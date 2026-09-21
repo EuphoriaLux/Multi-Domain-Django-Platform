@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .services.zones import calculate_zone
+from .models_leads import ArboristLead, LeadEvent, LeadPhoto  # noqa: F401
 
 
 class ArboristBooking(models.Model):
@@ -62,6 +63,14 @@ class ArboristBooking(models.Model):
     )
 
     # Customer Contact Info
+    lead = models.ForeignKey(
+        ArboristLead,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="bookings",
+        verbose_name=_("Enquiry"),
+    )
     name = models.CharField(_("Full Name"), max_length=150)
     email = models.EmailField(_("Email Address"))
     phone = models.CharField(_("Phone Number"), max_length=50)

@@ -2964,3 +2964,307 @@ msgid ""
 msgstr ""
 "Une intervention urgente est planifiée sous 24 à 48 heures : veuillez "
 "choisir une date dans les deux prochains jours, ou décochez Rush Order."
+
+msgid "Add photo"
+msgstr "Ajouter une photo"
+
+msgid "Arborist enquiries"
+msgstr "Demandes arboricoles"
+
+msgid "Arborist enquiry"
+msgstr "Demande arboricole"
+
+msgid "Arborist.lu — enquiry received"
+msgstr "Arborist.lu — demande reçue"
+
+msgid "Closed"
+msgstr "Clôturée"
+
+msgid ""
+"Contact us to discuss your project. On-site visits have a transparent fee "
+"credited against subsequent work."
+msgstr ""
+"Contactez-nous pour votre projet. Les visites sur place font l’objet d’un "
+"forfait transparent, déduit des travaux ultérieurs."
+
+msgid ""
+"Describe your project. An arborist will review your enquiry and help you "
+"decide the next step."
+msgstr ""
+"Décrivez votre projet. Un arboriste examinera votre demande et vous aidera à"
+" décider de la suite."
+
+msgid ""
+"Describe your tree project and optionally add photos. On-site visits: 50 € "
+"or 100 €, credited against subsequent work."
+msgstr ""
+"Décrivez votre projet et ajoutez des photos si vous le souhaitez. Visites "
+"sur place : 50 € ou 100 €, déduits des travaux ultérieurs."
+
+msgid "Enquiry received — add photos"
+msgstr "Demande reçue — ajouter des photos"
+
+msgid "Failed — retry available"
+msgstr "Échec — nouvel essai possible"
+
+msgid "Follow up at"
+msgstr "Relancer le"
+
+msgid "Follow-up"
+msgstr "Suivi"
+
+msgid ""
+"For example: no leaves this season, unsafe access, or unsure which tree. "
+"Missing photos do not prevent us from reviewing your enquiry."
+msgstr ""
+"Par exemple : absence de feuilles cette saison, accès dangereux ou doute sur"
+" l’arbre concerné. Les photos manquantes n’empêchent pas l’examen de votre "
+"demande."
+
+msgid ""
+"For urgent hazards, stay clear of the tree and call. An online enquiry does "
+"not guarantee immediate attendance."
+msgstr ""
+"En cas de danger urgent, restez à distance de l’arbre et appelez. Une "
+"demande en ligne ne garantit pas une intervention immédiate."
+
+msgid ""
+"Initial enquiries are free. On-site visits cost 50 € or 100 € depending on "
+"the zone, credited against subsequent work. Rush appointments add 50 €. "
+"Written reports and tree work are quoted separately."
+msgstr ""
+"Les premières demandes sont gratuites. Les visites sur place coûtent 50 € ou"
+" 100 € selon la zone, déduits des travaux ultérieurs. Un rendez-vous express"
+" entraîne un supplément de 50 €. Les rapports écrits et les travaux font "
+"l’objet de devis séparés."
+
+msgid "Internal review notes"
+msgstr "Notes internes d’examen"
+
+msgid "JPEG, PNG or WebP, up to 8 MB."
+msgstr "JPEG, PNG ou WebP, jusqu’à 8 Mo."
+
+msgid "Leaves and twig"
+msgstr "Feuilles et rameau"
+
+msgid "Missing photos / access notes"
+msgstr "Photos manquantes / précisions sur l’accès"
+
+msgid "New enquiry"
+msgstr "Nouvelle demande"
+
+msgid "Next action"
+msgstr "Prochaine action"
+
+msgid "No email supplied"
+msgstr "Aucune adresse e-mail fournie"
+
+msgid "Not sure yet"
+msgstr "Je ne sais pas encore"
+
+msgid ""
+"On-site visits cost 50 € or 100 € depending on the zone, credited against "
+"subsequent work."
+msgstr ""
+"Les visites sur place coûtent 50 € ou 100 € selon la zone, déduits des "
+"travaux ultérieurs."
+
+msgid ""
+"Only take photos from a safe location. Do not approach a dangerous tree or "
+"climb. Photos cannot confirm tree safety or provide a binding price."
+msgstr ""
+"Prenez uniquement des photos depuis un endroit sûr. N’approchez pas d’un "
+"arbre dangereux et ne grimpez pas. Les photos ne permettent ni de confirmer "
+"la sécurité d’un arbre ni de fixer un prix ferme."
+
+msgid "Optional photos for the arborist"
+msgstr "Photos facultatives pour l’arboriste"
+
+msgid "Overdue"
+msgstr "En retard"
+
+msgid "Pending"
+msgstr "En attente"
+
+msgid "Photo"
+msgstr "Photo"
+
+msgid "Photo category"
+msgstr "Catégorie de photo"
+
+msgid ""
+"Photos are used to review your enquiry, not for AI training or public "
+"marketing. Location metadata is removed from uploaded images."
+msgstr ""
+"Les photos servent à examiner votre demande, pas à entraîner une IA ni à "
+"faire de la publicité. Les métadonnées de localisation sont supprimées des "
+"images envoyées."
+
+msgid "Photos received"
+msgstr "Photos reçues"
+
+msgid "Please check the fields below."
+msgstr "Veuillez vérifier les champs ci-dessous."
+
+msgid "Please choose a photo smaller than 8 MB."
+msgstr "Veuillez choisir une photo de moins de 8 Mo."
+
+msgid "Please choose a valid JPEG, PNG or WebP photo (maximum 24 megapixels)."
+msgstr ""
+"Veuillez choisir une photo JPEG, PNG ou WebP valide (24 mégapixels maximum)."
+
+msgid "Please provide an email address or telephone number."
+msgstr "Veuillez fournir une adresse e-mail ou un numéro de téléphone."
+
+msgid "Postal code"
+msgstr "Code postal"
+
+msgid "Prefer an on-site visit? View fees and request an appointment."
+msgstr ""
+"Vous préférez une visite sur place ? Consultez les tarifs et demandez un "
+"rendez-vous."
+
+msgid "Prefer to contact us directly?"
+msgstr "Vous préférez nous contacter directement ?"
+
+msgid ""
+"Provide an email address or telephone number. You can add photos after "
+"sending your enquiry."
+msgstr ""
+"Indiquez une adresse e-mail ou un numéro de téléphone. Vous pourrez ajouter "
+"des photos après l’envoi de votre demande."
+
+msgid "Qualified"
+msgstr "Qualifiée"
+
+msgid "Request a review"
+msgstr "Demander un examen"
+
+msgid "Request a review with photos"
+msgstr "Demander un examen avec photos"
+
+msgid "Request a tree assessment — Arborist.lu"
+msgstr "Demander un examen de votre arbre — Arborist.lu"
+
+msgid "Retry unsent notifications (up to 20 enquiries)"
+msgstr "Réessayer les notifications non envoyées (20 demandes maximum)"
+
+msgid "Save notes"
+msgstr "Enregistrer les précisions"
+
+msgid "Send enquiry and optionally add photos"
+msgstr "Envoyer la demande et ajouter des photos si souhaité"
+
+msgid "Sent"
+msgstr "Envoyée"
+
+msgid "Source"
+msgstr "Source"
+
+msgid "Status"
+msgstr "Statut"
+
+msgid "Tell us about your trees"
+msgstr "Parlez-nous de vos arbres"
+
+msgid ""
+"Thank you. Your enquiry has been saved. We will contact you to discuss the "
+"next steps. Photos are reviewed by an arborist; they do not provide a safety"
+" clearance or a binding quote."
+msgstr ""
+"Merci. Votre demande a été enregistrée. Nous vous contacterons pour discuter"
+" de la suite. Les photos sont examinées par un arboriste ; elles ne "
+"constituent ni une attestation de sécurité ni un devis ferme."
+
+msgid "This form has expired. Reload the page and try again."
+msgstr "Ce formulaire a expiré. Rechargez la page et réessayez."
+
+msgid "Tree label"
+msgstr "Repère de l’arbre"
+
+msgid "Trunk–ground junction"
+msgstr "Jonction entre le tronc et le sol"
+
+msgid "Under review"
+msgstr "En cours d’examen"
+
+msgid ""
+"Unsent notifications scheduled for retry. Check delivery status before "
+"retrying again."
+msgstr ""
+"Un nouvel envoi des notifications en attente a été demandé. Vérifiez leur "
+"statut avant de réessayer."
+
+msgid "Urgent situation"
+msgstr "Situation urgente"
+
+msgid "Urgent situation? Call +352 621 981 363."
+msgstr "Situation urgente ? Appelez le +352 621 981 363."
+
+msgid "Use the same label for photos of the same tree."
+msgstr "Utilisez le même repère pour les photos d’un même arbre."
+
+msgid "View private photo"
+msgstr "Voir la photo privée"
+
+msgid "View visit fees and book an appointment"
+msgstr "Consulter les tarifs et demander un rendez-vous"
+
+msgid "Visible symptoms"
+msgstr "Symptômes visibles"
+
+msgid "Waiting for customer"
+msgstr "En attente du client"
+
+msgid ""
+"We use your details to handle this enquiry and contact you about your "
+"project. This does not subscribe you to marketing."
+msgstr ""
+"Nous utilisons vos coordonnées pour traiter cette demande et vous contacter "
+"au sujet de votre projet. Cela ne vous inscrit à aucune communication "
+"marketing."
+
+msgid ""
+"We will review your request and contact you. You can add photos now or "
+"return to this page in the same browser later."
+msgstr ""
+"Nous examinerons votre demande et vous contacterons. Vous pouvez ajouter des"
+" photos maintenant ou revenir plus tard sur cette page dans le même "
+"navigateur."
+
+msgid "Whole tree and surroundings"
+msgstr "Arbre entier et environnement"
+
+msgid "You can add up to 12 photos. Please contact us if more are needed."
+msgstr ""
+"Vous pouvez ajouter jusqu’à 12 photos. Contactez-nous si davantage de photos"
+" sont nécessaires."
+
+msgid "Your enquiry is saved"
+msgstr "Votre demande est enregistrée"
+
+msgid ""
+"Your enquiry is saved, but the photo could not be uploaded. Please try again"
+" later."
+msgstr ""
+"Votre demande est enregistrée, mais la photo n’a pas pu être envoyée. "
+"Veuillez réessayer plus tard."
+
+msgid "Project description"
+msgstr "Description du projet"
+
+msgid "Enquiry"
+msgstr "Demande"
+
+msgid "Retry unsent notifications (one enquiry at a time)"
+msgstr "Réessayer les notifications non envoyées (une demande à la fois)"
+
+msgid ""
+"For urgent situations such as storm damage, fallen branches, or imminent "
+"tree hazards, please call us to discuss availability. A rush appointment "
+"request does not guarantee immediate attendance."
+msgstr ""
+"Pour les situations urgentes telles que les dégâts de tempête, les branches "
+"tombées ou un danger imminent, appelez-nous pour connaître nos "
+"disponibilités. Une demande de rendez-vous express ne garantit pas une "
+"intervention immédiate."

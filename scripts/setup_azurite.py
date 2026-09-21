@@ -11,6 +11,7 @@ azureproject/storage_shared.py, entreprinder/storage.py, power_up/storage.py):
 - entreprinder-media : Public  - Entreprinder media (EntreprinderMediaStorage)
 - powerup-media      : Public  - PowerUp media (PowerUpMediaStorage)
 - powerup-finops     : Private - FinOps documents (FinOpsStorage)
+- arborist-private   : Private - Arborist enquiry photos (AzurePrivateStorage)
 
 Usage:
     python scripts/setup_azurite.py
@@ -40,6 +41,7 @@ CONTAINERS = [
     {"name": "entreprinder-media", "public_access": PublicAccess.BLOB},
     {"name": "powerup-media", "public_access": PublicAccess.BLOB},
     {"name": "powerup-finops", "public_access": None},  # private financial docs
+    {"name": "arborist-private", "public_access": None},  # enquiry photos
 ]
 
 

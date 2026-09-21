@@ -1,0 +1,170 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+        <div class="text-center max-w-3xl mx-auto">
+            <p class="text-sm font-semibold uppercase tracking-wider text-orange-100 mb-4">
+                {% trans "For venues, event agencies and companies" %}
+            </p>
+            <h1 class="text-4xl sm:text-5xl font-bold mb-6">
+                {% trans "Event technology, proven live on Crush.lu" %}
+            </h1>
+            <p class="text-xl text-orange-100 mb-8">
+                {% trans "The ticketing, quiz and speed-dating tools behind Crush.lu events, now available for your events." %}
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="mailto:hello@power-up.lu" class="btn-primary bg-white text-powerup-orange hover:bg-gray-100">
+                    {% trans "Talk to us" %}
+                </a>
+                <a href="#products" class="btn-outline-white">
+                    {% trans "See the products" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Product overview -->
+<section id="products" class="py-16 lg:py-20 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for solution in solutions %}
+            <a href="#{{ solution.slug }}" class="feature-card block">
+                <div class="feature-icon">
+                    {% include "power_up/partials/solution_icon.html" with icon=solution.icon size="w-7 h-7" %}
+                </div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">{{ solution.name }}</h2>
+                <p class="text-gray-600">{{ solution.tagline }}</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Product details -->
+{% for solution in solutions %}
+<section id="{{ solution.slug }}" class="section scroll-mt-20 {% cycle '' 'bg-gray-50' %}">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div>
+                <div class="feature-icon">
+                    {% include "power_up/partials/solution_icon.html" with icon=solution.icon size="w-7 h-7" %}
+                </div>
+                <span class="text-powerup-orange font-semibold text-sm uppercase tracking-wider">
+                    {{ solution.name }}
+                </span>
+                <h2 class="text-3xl font-bold text-gray-900 mt-2 mb-4">
+                    {{ solution.tagline }}
+                </h2>
+                <p class="text-lg text-gray-600 mb-8">
+                    {{ solution.description }}
+                </p>
+                <a href="mailto:hello@power-up.lu?subject={{ solution.name|urlencode }}" class="btn-primary">
+                    {% trans "Ask about this" %}
+                </a>
+            </div>
+            <ul class="space-y-4">
+                {% for feature in solution.features %}
+                <li class="flex items-start text-gray-700">
+                    <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    {{ feature }}
+                </li>
+                {% endfor %}
+                {% for feature in solution.beta_features %}
+                <li class="flex items-start text-gray-700">
+                    <svg class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>
+                        {{ feature }}
+                        <span class="badge-coming-soon ml-2">{% trans "Beta" %}</span>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+{% endfor %}
+
+<!-- How we work -->
+<section class="section-dark">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                {% trans "How we work" %}
+            </h2>
+            <p class="text-lg text-gray-300">
+                {% trans "Start with one event. Grow into your own platform." %}
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-8">
+                <span class="badge-live mb-4">{% trans "Available now" %}</span>
+                <h3 class="text-2xl font-semibold mb-3">{% trans "Managed events" %}</h3>
+                <p class="text-gray-300 mb-4">
+                    {% trans "We set up and run the technology for your event: ticket sales, the door, the quiz or the dating rounds. You focus on your guests." %}
+                </p>
+                <p class="text-sm text-gray-400">
+                    {% trans "Your guests register with a free Crush.lu account." %}
+                </p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-8">
+                <span class="badge-coming-soon mb-4">{% trans "Pilot partners, 2027" %}</span>
+                <h3 class="text-2xl font-semibold mb-3">{% trans "Your own branded platform" %}</h3>
+                <p class="text-gray-300 mb-4">
+                    {% trans "Your name, your colours, your web address. We are looking for a small number of pilot partners to build it with in 2027." %}
+                </p>
+                <a href="mailto:hello@power-up.lu?subject={{ pilot_subject|urlencode }}" class="inline-flex items-center text-powerup-orange-lighter hover:text-white font-medium">
+                    {% trans "Become a pilot partner" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Who it's for -->
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                {% trans "Who it's for" %}
+            </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Venues and bars" %}</h3>
+                <p class="text-gray-600">{% trans "Fill quiet weeknights with quiz nights and singles evenings." %}</p>
+            </div>
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Event agencies" %}</h3>
+                <p class="text-gray-600">{% trans "Sell tickets and run the door without building your own tools." %}</p>
+            </div>
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Companies and associations" %}</h3>
+                <p class="text-gray-600">{% trans "Team quizzes and social evenings for your staff or members." %}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section bg-gray-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+            {% trans "Planning an event?" %}
+        </h2>
+        <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+            {% trans "Tell us what you have in mind and we will get back to you." %}
+        </p>
+        <a href="mailto:hello@power-up.lu" class="btn-primary">
+            hello@power-up.lu
+        </a>
+    </div>
+</section>
+{% endblock %}
