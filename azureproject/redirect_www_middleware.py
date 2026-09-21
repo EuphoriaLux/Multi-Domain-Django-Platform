@@ -10,7 +10,7 @@ This module handles:
 """
 from django.http import HttpResponsePermanentRedirect
 
-from .domains import DOMAINS, PRODUCTION_DEFAULT
+from .domains import DOMAINS, PRODUCTION_DEFAULT, get_redirect_target
 
 
 def is_staging_subdomain(host):
@@ -64,6 +64,7 @@ class RedirectWWWToRootDomainMiddleware:
     Redirect WWW subdomains to root domains and Azure hostnames to production domain.
 
     Redirects:
+    - moonlightdating.lu -> crush.lu (REDIRECT_DOMAINS, redirect-only domains)
     - www.crush.lu -> crush.lu
     - www.vinsdelux.com -> vinsdelux.com
     - www.entreprinder.lu -> entreprinder.lu
@@ -94,6 +95,12 @@ class RedirectWWWToRootDomainMiddleware:
         # These should stay on the staging slot, not redirect to production
         if is_staging_subdomain(host):
             return self.get_response(request)
+
+        # Redirect-only domains never reach a urlconf: they are parked names
+        # whose whole job is to hand the visitor to another site.
+        target = get_redirect_target(host)
+        if target:
+            return HttpResponsePermanentRedirect(target + request.get_full_path())
 
         # Redirect Azure App Service hostname to production default
         if host.endswith('.azurewebsites.net'):

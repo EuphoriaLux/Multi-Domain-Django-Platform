@@ -56,13 +56,19 @@ ALLOWED_HOSTS += [
 ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
 # Include declared domains and staging aliases (e.g. test-portal.powerup.lu).
 # These exact names are the routing registry, never a wildcard test.* exception.
-from azureproject.domains import DOMAINS
+from azureproject.domains import DOMAINS, REDIRECT_DOMAINS
 
 ALLOWED_HOSTS += list(DOMAINS)
 for _config in DOMAINS.values():
     for _alias in _config.get("aliases", []):
         if _alias not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_alias)
+# Redirect-only domains serve no content, but must still clear the host
+# boundary in host_validation.py -- that runs before the redirect middleware,
+# so an unlisted name gets a 400 instead of its 301.
+for _redirect_host in REDIRECT_DOMAINS:
+    if _redirect_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_redirect_host)
 
 
 # Configure CSRF_TRUSTED_ORIGINS

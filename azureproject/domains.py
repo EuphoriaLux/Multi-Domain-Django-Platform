@@ -90,6 +90,23 @@ DEV_DOMAIN_MAPPINGS = {
 # Production fallback (used for unknown domains and Azure hostnames)
 PRODUCTION_DEFAULT = 'entreprinder.lu'
 
+# Domains that exist only to send visitors somewhere else. They are never
+# routed to a urlconf and serve no content of their own -- the request is
+# answered with a 301 by RedirectWWWToRootDomainMiddleware, long before
+# DomainURLRoutingMiddleware would pick a urlconf.
+#
+# Keys are exact hostnames (list the www. name too if it has a DNS record);
+# values are absolute URLs including the scheme. The request path and query
+# string are appended to the target, so /about?x=1 keeps its place.
+#
+# Note: the redirect middleware is only installed by azureproject.production,
+# so these hosts do nothing under the dev settings module -- same as the
+# existing www. redirects.
+REDIRECT_DOMAINS = {
+    'moonlightdating.lu': 'https://crush.lu',
+    'www.moonlightdating.lu': 'https://crush.lu',
+}
+
 
 def get_domain_config(host):
     """
@@ -154,11 +171,12 @@ def get_all_hosts():
     Get all valid hosts for ALLOWED_HOSTS configuration.
 
     Returns:
-        List of all domain names and aliases
+        List of all domain names, aliases and redirect-only hosts
     """
     hosts = list(DOMAINS.keys())
     for config in DOMAINS.values():
         hosts.extend(config.get('aliases', []))
+    hosts.extend(REDIRECT_DOMAINS)
     hosts.extend(DEV_HOSTS)
     # Add dev domain mappings (*.localhost)
     hosts.extend(DEV_DOMAIN_MAPPINGS.keys())
@@ -176,3 +194,17 @@ def is_valid_domain(host):
         True if the host is configured, False otherwise
     """
     return get_domain_config(host) is not None
+
+
+def get_redirect_target(host):
+    """
+    Get the external redirect target for a redirect-only domain.
+
+    Args:
+        host: The HTTP host (may include port)
+
+    Returns:
+        Absolute target URL string, or None if the host serves its own content
+    """
+    host = host.split(':')[0].lower().rstrip('.')
+    return REDIRECT_DOMAINS.get(host)
