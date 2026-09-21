@@ -232,6 +232,30 @@ class ChangelogViewTests(TestCase):
         # an HTMX fragment response.
         self.assertNotContains(resp, "<!DOCTYPE html>")
 
+    def test_entrance_hides_cards_only_while_animating(self):
+        # Audit A8: the opacity:0 start state belongs inside the
+        # no-preference query with the animation that ends it. Anywhere else,
+        # reduced motion turns the animation off and the cards stay invisible.
+        html = self.client.get(self.LIST_URL).content.decode()
+        style = next(
+            chunk for chunk in html.split("<style") if "crush-changelog-in" in chunk
+        ).split("</style>")[0]
+        query = "@media (prefers-reduced-motion: no-preference)"
+        start = style.index(query)
+        depth, end = 0, None
+        for pos in range(style.index("{", start), len(style)):
+            if style[pos] == "{":
+                depth += 1
+            elif style[pos] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = pos
+                    break
+        block, outside = style[start:end], style[:start] + style[end:]
+        self.assertIn("opacity: 0", block)
+        self.assertIn("animation: crush-changelog-in", block)
+        self.assertNotIn("opacity: 0", outside)
+
     def test_list_filters_by_category(self):
         resp = self.client.get(self.LIST_URL + "?category=fix")
         self.assertEqual(resp.status_code, 200)

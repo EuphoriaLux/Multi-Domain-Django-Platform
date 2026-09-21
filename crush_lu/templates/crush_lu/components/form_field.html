@@ -22,8 +22,13 @@ Optional:
 
 Example:
   {% include "crush_lu/components/form_field.html" with field=form.sender_description help=_("Be as specific as possible.") %}
+
+The error and help paragraphs carry the ids the input's aria-describedby
+points at: Django's own <auto_id>_error / <auto_id>_helptext, plus
+<auto_id>_help for the caller's help (wired by with_descriptions). auto_id
+includes the form prefix, so prefixed forms and formsets stay unique.
 {% endcomment %}
-{% load i18n %}
+{% load i18n form_field_tags %}
 <div class="space-y-1 {{ field_class }}">
     {% if label != "" %}
         <label for="{{ field.id_for_label }}"
@@ -31,14 +36,15 @@ Example:
             {{ label|default:field.label }}{% if field.field.required %}<span class="text-red-500" aria-hidden="true"> *</span>{% endif %}
         </label>
     {% endif %}
-    {{ field }}
+    {# A filter argument that isn't in the context raises, so only pass help when set. #}
+    {% if help %}{{ field|with_descriptions:help }}{% else %}{{ field|with_descriptions }}{% endif %}
     {% if field.errors %}
-        <p class="text-red-500 dark:text-red-400 text-sm" role="alert">{{ field.errors.0 }}</p>
+        <p{% if field.auto_id %} id="{{ field.auto_id }}_error"{% endif %} class="text-red-500 dark:text-red-400 text-sm" role="alert">{{ field.errors.0 }}</p>
     {% endif %}
     {% if field.help_text %}
-        <p class="text-xs text-gray-400 dark:text-gray-500">{{ field.help_text|safe }}</p>
+        <p{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %} class="text-xs text-gray-400 dark:text-gray-500">{{ field.help_text|safe }}</p>
     {% endif %}
     {% if help %}
-        <p class="text-xs text-gray-400 dark:text-gray-500">{{ help }}</p>
+        <p{% if field.auto_id %} id="{{ field.auto_id }}_help"{% endif %} class="text-xs text-gray-400 dark:text-gray-500">{{ help }}</p>
     {% endif %}
 </div>
