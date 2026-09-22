@@ -38,6 +38,10 @@ Environment Variables Required:
     - DJANGO_EVENT_RECAPS_URL: e.g. https://crush.lu/api/admin/event-recaps/
     - DJANGO_EVENT_FEEDBACK_URL: e.g. https://crush.lu/api/admin/event-feedback/
     - DJANGO_ECHO_SYNC_URL: e.g. https://crush.lu/api/admin/echo-sync/
+    - DJANGO_SUMUP_RECONCILIATION_URL: e.g. https://crush.lu/api/admin/sumup-reconciliation/
+      (the one exception to "unset raises": SumUpReconciliation ships dormant,
+      so while this is unset it logs a WARNING and returns. Set it only after
+      the slot swap that puts the route on production.)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -58,7 +62,12 @@ import requests
 app = func.FunctionApp()
 
 
-def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None:
+def _call_admin_endpoint(
+    name: str,
+    url_env_var: str,
+    timeout: int = 60,
+    dormant_if_unset: bool = False,
+) -> None:
     """Shared body: POST to a Django admin endpoint with bearer auth.
 
     Raises so Azure Functions marks the invocation as Failed on any
@@ -75,6 +84,14 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
     ``HYBRID_MAINTENANCE_ENABLED`` stays a quiet return, because that one is a
     deliberate off-switch rather than a misconfiguration.
 
+    ``dormant_if_unset=True`` is the narrow exception for a timer that ships
+    *before* its URL may be set — a merge here deploys to production at once,
+    while the Django route only reaches production at the next slot swap.
+    Raising in that gap would fail the invocation every day and trip the
+    timer-failure alert for a timer nobody has switched on yet. The skip is
+    logged at WARNING and names the variable, so it is never mistaken for a
+    run. Only for timers whose Django endpoint is itself feature-flagged off.
+
     The URL's own host is sent in the Host header (requests' default).
     DomainURLRoutingMiddleware treats `test.crush.lu` as an alias of
     `crush.lu` (see `azureproject/domains.py`), so both production and
@@ -89,6 +106,14 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
 
     if not enabled:
         logging.info("%s: HYBRID_MAINTENANCE_ENABLED is not true — skipping", name)
+        return
+    if not url and dormant_if_unset:
+        logging.warning(
+            "%s: DORMANT — %s is not set on this Function App, so no request "
+            "was sent and no work was done. Set it to activate this timer.",
+            name,
+            url_env_var,
+        )
         return
     # Enabled but unconfigured is a deployment defect, not a benign skip.
     if not url:
@@ -446,3 +471,44 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
         logging.warning("EchoLuSync: timer past due at %s", ts)
     logging.info("EchoLuSync: starting at %s", ts)
     _call_admin_endpoint("EchoLuSync", "DJANGO_ECHO_SYNC_URL", timeout=110)
+
+
+@app.function_name(name="SumUpReconciliation")
+@app.timer_trigger(
+    # Daily at 02:18 UTC. Off-peak, and clear of every other trigger on this
+    # app — invites (:x0), campaigns (:x2/:x7), echo (:05), SLA (:15), recaps
+    # (:25), reminders (:35), lead reminders (:45), feedback (:55) — and of the
+    # finops app's 03:00 sync and 04:00–06:40 retail-price window.
+    schedule="0 18 2 * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def sumup_reconciliation(timer: func.TimerRequest) -> None:
+    """Sync Django to refunds taken in the SumUp dashboard or on a terminal.
+
+    SumUp sends no webhook for those refunds, so the Django endpoint polls
+    recent PAID payments (30-day window) and reconciles full refunds; partial
+    refunds are counted and left for a human. It never issues a refund.
+
+    Three gates, each logged: HYBRID_MAINTENANCE_ENABLED here (INFO skip),
+    DJANGO_SUMUP_RECONCILIATION_URL here (WARNING "DORMANT" while unset), and
+    SUMUP_RECONCILIATION_ENABLED on the Django side (200 skipped → WARNING
+    "SKIPPED"). A real run answers 202 with checked/reconciled/partial/errors
+    counters. Idempotent: only PAID rows are selected and each write re-checks
+    the row under a lock.
+
+    Contract: ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("SumUpReconciliation: timer past due at %s", ts)
+    logging.info("SumUpReconciliation: starting at %s", ts)
+    # The Django side stops starting new rows after 80 s; each row is at most
+    # two SumUp reads of 10 s, so 110 s covers the tail.
+    _call_admin_endpoint(
+        "SumUpReconciliation",
+        "DJANGO_SUMUP_RECONCILIATION_URL",
+        timeout=110,
+        dormant_if_unset=True,
+    )

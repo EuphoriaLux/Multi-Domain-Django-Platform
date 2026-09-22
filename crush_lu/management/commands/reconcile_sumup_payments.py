@@ -83,6 +83,9 @@ def _to_decimal(value) -> Decimal:
 # up at all — reported nothing refunded.
 _REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
 
+# SumUpClient.get_transactions_history clamps ``limit`` to 100.
+_HISTORY_PREFETCH_LIMIT = 100
+
 
 def _refunded_total(item) -> Decimal:
     """Largest refunded total this payload reports, under either spelling."""
@@ -302,13 +305,47 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        days = options["days"]
-        dry_run = options["dry_run"]
-        include_partial = options["include_partial"]
-        quiet = options["quiet"]
-        checkout_id = options.get("checkout_id")
-        reference = options.get("reference")
-        delay = options["batch_delay"]
+        # handle() must not return the counters: BaseCommand.execute() writes
+        # any truthy return value to stdout and expects a string. The sweep
+        # body lives in run_sweep() so the /api/admin/sumup-reconciliation/
+        # endpoint can read the counters without parsing stdout
+        # (contract: ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md §6.5).
+        self.run_sweep(
+            days=options["days"],
+            dry_run=options["dry_run"],
+            include_partial=options["include_partial"],
+            quiet=options["quiet"],
+            checkout_id=options.get("checkout_id"),
+            reference=options.get("reference"),
+            batch_delay=options["batch_delay"],
+        )
+
+    def run_sweep(
+        self,
+        *,
+        days=30,
+        dry_run=False,
+        include_partial=False,
+        quiet=False,
+        checkout_id=None,
+        reference=None,
+        batch_delay=0.05,
+        budget_seconds=None,
+    ) -> dict:
+        """Run one sweep and return its counters.
+
+        Returns ``{"checked", "reconciled", "partial", "errors", "unchecked"}``.
+        ``unchecked`` is only ever non-zero when ``budget_seconds`` is given:
+        the CLI passes None and so behaves exactly as before; the scheduled
+        endpoint passes a wall-clock budget so the request cannot run into the
+        App Service front end's ~230 s cap. Rows the budget left unchecked
+        stay PAID and untouched; they are the OLDEST rows in the window (the
+        queryset is newest-first), so a sweep that exhausts its budget every
+        run never reaches them — a non-zero ``unchecked`` is a WARNING, not
+        a backlog that drains by itself.
+        """
+        delay = batch_delay
+        started = time.monotonic()
 
         if days < 1:
             raise CommandError("--days must be at least 1")
@@ -343,7 +380,13 @@ class Command(BaseCommand):
         if total_count == 0:
             if not quiet:
                 self.stdout.write("No matching PAID transactions found.")
-            return
+            return {
+                "checked": 0,
+                "reconciled": 0,
+                "partial": 0,
+                "errors": 0,
+                "unchecked": 0,
+            }
 
         client = SumUpClient()
         history_map = {}
@@ -351,9 +394,23 @@ class Command(BaseCommand):
             # Prefetch recent merchant transaction history to catch refunds done via
             # the dashboard/POS terminal that do not mutate the static checkout resource.
             history_data = client.get_transactions_history(
-                limit=100, order="descending"
+                limit=_HISTORY_PREFETCH_LIMIT, order="descending"
             )
-            index_history(history_map, history_data.get("items"))
+            prefetched = history_data.get("items") or []
+            index_history(history_map, prefetched)
+            # The client caps this at 100 (sumup.py). A full page means the
+            # prefetch no longer reaches back over the whole lookback window,
+            # so refunds on older payments rely entirely on the per-row
+            # lookup below — say so, rather than degrade silently (contract §6.4).
+            if len(prefetched) >= _HISTORY_PREFETCH_LIMIT:
+                logger.warning(
+                    "SumUp history prefetch returned a full page (%s items): "
+                    "it no longer covers the whole %s-day window, so external "
+                    "refunds on older payments are found only by the "
+                    "per-transaction lookup.",
+                    len(prefetched),
+                    days,
+                )
         except Exception as exc:
             logger.warning("Could not prefetch SumUp transaction history: %s", exc)
 
@@ -361,8 +418,22 @@ class Command(BaseCommand):
         refunded_count = 0
         errors_count = 0
         partial_count = 0
+        unchecked = 0
 
         for tx_obj in qs:
+            if (
+                budget_seconds is not None
+                and time.monotonic() - started >= budget_seconds
+            ):
+                unchecked = total_count - checked
+                logger.warning(
+                    "SumUp reconciliation stopped at its %ss budget: %s of %s "
+                    "transaction(s) left unchecked until the next run.",
+                    budget_seconds,
+                    unchecked,
+                    total_count,
+                )
+                break
             checked += 1
             if delay > 0 and checked > 1:
                 time.sleep(delay)
@@ -621,6 +692,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(summary_msg))
         elif not quiet:
             self.stdout.write(summary_msg)
+
+        return {
+            "checked": checked,
+            "reconciled": refunded_count,
+            "partial": partial_count,
+            "errors": errors_count,
+            "unchecked": unchecked,
+        }
 
     def _reconcile_refunded(self, tx_obj, remote_data, dry_run=False):
         """Apply external refund adjustments across PaymentTransaction, EventRegistration,

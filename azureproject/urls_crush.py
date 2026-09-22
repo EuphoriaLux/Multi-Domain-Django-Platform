@@ -72,6 +72,7 @@ from crush_lu import (
     api_admin_events,
     api_admin_campaigns,
     api_admin_changelog,
+    api_admin_sumup,
     views_crush_spark,
     views_checkin,
     api_crush_connect,
@@ -864,6 +865,14 @@ urlpatterns = (
             "api/admin/campaigns/dispatch/",
             api_admin_campaigns.dispatch_campaigns_endpoint,
             name="api_admin_campaign_dispatch",
+        ),
+        # SumUp Tier-2 refund reconciliation (SumUpReconciliation Azure Function
+        # timer, daily). Gated by SUMUP_RECONCILIATION_ENABLED (default off).
+        # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+        path(
+            "api/admin/sumup-reconciliation/",
+            api_admin_sumup.sumup_reconciliation_endpoint,
+            name="api_admin_sumup_reconciliation",
         ),
         # Live Quiz API (called from quiz-live.js WebSocket fallback)
         path(
