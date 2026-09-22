@@ -46,6 +46,7 @@ def _sociallogin(token, app_tenant=None):
         token=SimpleNamespace(token=token, app=SimpleNamespace(settings=app_settings)),
         is_existing=True,
         user=None,
+        email_addresses=[],
     )
 
 
