@@ -4236,7 +4236,7 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=CrushCoach)
-def manage_coach_staff_status(sender, instance, created, **kwargs):
+def manage_coach_staff_status(sender, instance, created, raw=False, **kwargs):
     """
     Automatically manage staff status for Crush coaches.
 
@@ -4248,7 +4248,16 @@ def manage_coach_staff_status(sender, instance, created, **kwargs):
     without requiring manual staff status assignment.
 
     Note: Superusers are never affected - their staff status is preserved.
+
+    Skipped on raw saves (``loaddata`` fixtures, and the migration-catalogue
+    replay in crush_lu/tests/conftest.py's ``_restore_migration_seeded_rows``):
+    a raw save replays stored state, so it must not grant or revoke staff
+    status, and the referenced User may not exist yet inside a
+    deferred-constraint transaction, so ``instance.user`` can raise.
     """
+    if raw:
+        return
+
     user = instance.user
 
     # Never modify superuser accounts
