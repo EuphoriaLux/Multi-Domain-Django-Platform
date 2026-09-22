@@ -8,10 +8,58 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+import base64
+import json
 import os
 import logging
 
+from azureproject.domains import get_domain_config
+
 logger = logging.getLogger(__name__)
+
+
+def _is_power_up_domain(request):
+    """power-up.lu, powerup.lu and the portal: staff-only, no public members."""
+    if not request:
+        return False
+    config = get_domain_config(request.get_host())
+    return bool(config) and config.get("app") == "power_up"
+
+
+# Multi-tenant authorities: any tenant (or none) can sign in through them.
+_MICROSOFT_SHARED_AUTHORITIES = {"common", "organizations", "consumers"}
+
+
+def _microsoft_tenant_id(sociallogin):
+    """The Entra tenant a Microsoft login is bound to, or None.
+
+    allauth's extra_data is the Graph /me profile, which carries no tenant, so
+    ``extra_data.get("tid")`` is always None. Two sources are used instead:
+
+    1. The tenant the SocialApp pins its authority to (``settings.tenant``).
+       allauth builds the authorize and token endpoints from it, so Microsoft
+       itself only signs in users of that tenant. This is the stable source
+       and what power-up.lu's app should be configured with.
+    2. Failing that, the "tid" claim of the access token. For a work account
+       today that is a JWT, but Graph token format is not a client contract;
+       an opaque or encrypted token yields None, and callers refuse.
+    """
+    token = getattr(sociallogin, "token", None)
+    app_settings = getattr(getattr(token, "app", None), "settings", None) or {}
+    pinned = app_settings.get("tenant") if isinstance(app_settings, dict) else None
+    if isinstance(pinned, str) and pinned.lower() not in _MICROSOFT_SHARED_AUTHORITIES:
+        return pinned
+
+    parts = (getattr(token, "token", "") or "").split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded))
+    except ValueError:
+        return None
+    tid = claims.get("tid") if isinstance(claims, dict) else None
+    return tid if isinstance(tid, str) else None
 
 
 def _is_oauth_callback(request):
@@ -212,13 +260,35 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                 f"userPrincipalName={extra.get('userPrincipalName')}"
             )
 
+            if _is_power_up_domain(request):
+                # Power-Up has no public members, so every Microsoft login
+                # there is a staff login and must come from the company
+                # tenant. Unlike the crush.lu check below this does not depend
+                # on the ?next= target, and it fails closed: no tenant claim
+                # (a personal account) or no configured tenant is a refusal.
+                allowed_tenant = os.environ.get("GRAPH_TENANT_ID")
+                user_tenant = _microsoft_tenant_id(sociallogin)
+                if not allowed_tenant or user_tenant != allowed_tenant:
+                    logger.warning(
+                        "[OAUTH-ADAPTER] Power-Up Microsoft login rejected: "
+                        "tenant=%s, configured=%s",
+                        user_tenant,
+                        bool(allowed_tenant),
+                    )
+                    raise ImmediateHttpResponse(
+                        HttpResponseForbidden(
+                            "Access denied. Only Microsoft accounts from the "
+                            "Power-Up organization can sign in here."
+                        )
+                    )
+
             # Tenant validation for ADMIN PANEL access only
             # Consumers on crush.lu can use any Microsoft account
             # But admin panel requires users from the enterprise tenant
             next_url = request.session.get("next") or request.GET.get("next", "")
             is_admin_login = "/admin/" in next_url or "/crush-admin/" in next_url
 
-            if is_admin_login:
+            if is_admin_login and not _is_power_up_domain(request):
                 allowed_tenant = os.environ.get("GRAPH_TENANT_ID")
                 if allowed_tenant:
                     # Get tenant ID from token (stored in extra_data by allauth)
