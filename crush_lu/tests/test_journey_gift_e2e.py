@@ -84,8 +84,13 @@ class TestGiftCreationFlow:
         else:
             authenticated_sender_page.fill('input[name="sender_message"]', 'A special journey for you!')
 
-        # Navigate to Step 2 (Media upload - optional)
-        authenticated_sender_page.click('button:has-text("Next")')
+        # Navigate to Step 2 (Media upload - optional). Scoped to the
+        # gift-form's own .btn-group: an unrelated PWA-install-banner button
+        # elsewhere on the page also matches a bare `has_text="Next"`
+        # substring and is hidden, so an unscoped selector resolves to that
+        # element first and every click times out waiting for it to become
+        # visible (reproduced directly before this fix).
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)  # Wait for step transition
 
         # Submit form from Step 2
@@ -107,7 +112,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -129,7 +134,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -152,7 +157,7 @@ class TestGiftCreationFlow:
         authenticated_sender_page.fill('input[name="location_first_met"]', 'Test Location')
 
         # Navigate to Step 2 and submit
-        authenticated_sender_page.click('button:has-text("Next")')
+        authenticated_sender_page.click('.btn-group button:has-text("Next")')
         authenticated_sender_page.wait_for_timeout(500)
         authenticated_sender_page.click('button:has-text("Create Gift")')
         authenticated_sender_page.wait_for_load_state('networkidle')
@@ -280,17 +285,35 @@ class TestGiftClaimNewUser:
         page.fill('input[name="password1"]', 'TestPass123!')
         page.fill('input[name="password2"]', 'TestPass123!')
 
+        # Signup requires the Crush.lu data-processing consent checkbox
+        # (crushlu_consent, `required`) — without checking it the form
+        # re-renders with a validation error and the user never actually
+        # signs up (reproduced directly: URL stays on /signup/).
+        page.check('input[name="crushlu_consent"]')
+
         # Dismiss cookie banner if present
         cookie_decline = page.locator('button:has-text("Decline All")')
         if cookie_decline.count() > 0 and cookie_decline.is_visible():
             cookie_decline.click()
             page.wait_for_timeout(500)
 
-        # Submit signup (button says "Create Account")
-        page.click('button:has-text("Create Account")')
-        page.wait_for_load_state('networkidle')
+        # Submit signup (button says "Create Account"). Await the navigation
+        # the POST triggers rather than wait_for_load_state('networkidle'):
+        # networkidle can return while the signup redirect is still in flight
+        # (page.url still /en/signup/), and the NEXT goto then cancels that
+        # in-flight navigation, which is what surfaced as a spurious
+        # net::ERR_ABORTED. Verified directly: with expect_navigation the POST
+        # lands on /accounts/confirm-email/ (ACCOUNT_EMAIL_VERIFICATION=
+        # "mandatory") and the subsequent claim goto succeeds every time.
+        with page.expect_navigation(wait_until="commit"):
+            page.click('button:has-text("Create Account")')
+        page.wait_for_load_state('domcontentloaded')
 
-        # Manually navigate to claim page (session should have pending_gift_code)
+        # Manually navigate to claim page (session should have pending_gift_code).
+        # ACCOUNT_EMAIL_VERIFICATION="mandatory" means the user is NOT logged
+        # in after signup (allauth holds login until the email link is
+        # confirmed), so this /claim/ request legitimately 302s to
+        # /accounts/login/ and the gift is NOT claimed.
         page.goto(f"{live_server_url}/en/journey/gift/{pending_gift.gift_code}/claim/")
         page.wait_for_load_state('networkidle')
 
@@ -306,10 +329,37 @@ class TestGiftClaimNewUser:
             claim_button.first.click()
             page.wait_for_load_state('networkidle')
 
-        # Verify gift was claimed by refreshing from DB
+        # Assert the REAL post-condition of this flow. Under mandatory email
+        # verification the freshly-signed-up user is unauthenticated, so the
+        # claim must NOT succeed: the gift stays pending and unowned, and the
+        # request is gated behind login. Verified directly against the app:
+        # GET /en/journey/gift/<code>/claim/ while unauthenticated returns
+        # 302 -> /accounts/login/?next=..., gift.status == 'pending',
+        # gift.claimed_by is None.
+        #
+        # Asserting the gated outcome (rather than a claimed journey) is what
+        # makes this test falsifiable: if the claim view ever stopped
+        # enforcing authentication, or auto-claimed for an unverified
+        # account, these assertions fail. Promoting this to an end-to-end
+        # "claim succeeds" test requires confirming the email link first and
+        # is tracked separately — see docs/testing/playwright-coverage-matrix.md
+        # Section 5 Row 5, which flagged this exact test as previously
+        # asserting nothing.
+        from crush_lu.models import JourneyGift
+
         pending_gift.refresh_from_db()
-        # Note: Gift may or may not be claimed depending on signup flow completion
-        # The test verifies the navigation works
+        assert pending_gift.status == JourneyGift.Status.PENDING, (
+            "Unverified signup must not claim the gift; "
+            f"status was {pending_gift.status!r}"
+        )
+        assert pending_gift.claimed_by is None, (
+            "Unverified signup must not become the gift owner; "
+            f"claimed_by was {pending_gift.claimed_by!r}"
+        )
+        assert '/accounts/login/' in page.url, (
+            "Claim while unauthenticated must be gated behind login; "
+            f"landed on {page.url!r}"
+        )
 
     def test_redirect_to_journey_after_claim(self, authenticated_recipient_page: Page, live_server_url, pending_gift):
         """After claiming, user should be redirected to journey map."""
@@ -466,8 +516,13 @@ class TestJourneyAfterClaim:
         authenticated_recipient_page.goto(f"{live_server_url}/en/journey/chapter/1/")
         authenticated_recipient_page.wait_for_load_state('networkidle')
 
-        # Should load chapter content (not redirect to error)
-        assert '404' not in authenticated_recipient_page.content()
+        # Should load chapter content (not redirect to error). A bare
+        # substring check on page content is unreliable here: "404" appears
+        # legitimately inside unrelated SVG path-coordinate data on this
+        # page (reproduced directly), so assert on the actual 404 template's
+        # title (crush_lu/templates/crush_lu/404.html) instead of grepping
+        # the raw HTML.
+        assert "Page not found" not in authenticated_recipient_page.title()
         assert 'error' not in authenticated_recipient_page.url.lower()
 
     def test_personalization_in_journey(self, authenticated_recipient_page: Page, live_server_url, pending_gift, db):
