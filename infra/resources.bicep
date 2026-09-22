@@ -534,13 +534,15 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'WALLET_APPLE_WWDR_CERT_BASE64'
     ]
     // CRITICAL: Database isolation - prevents staging database from swapping to production.
-    // 'pythonappConnection' is the name both slots use (prod → pythonapp,
+    // 'pythonappConnection' is the name both slots use live (prod → pythonapp,
     // staging → pythonapp_staging) and the only name the live resource pins.
-    // The historical 'AZURE_POSTGRESQL_CONNECTIONSTRING' orphan was removed
-    // 2026-09-22: no connection string by that name exists on either slot.
-    // Removing 'pythonappConnection' would un-isolate the database.
+    // 'AZURE_POSTGRESQL_CONNECTIONSTRING' does not exist live, but THIS file's
+    // own webAppConnectionStrings / stagingConnectionStrings resources define
+    // the database under that key — so if this file were ever deployed, it is
+    // the name that must be pinned. Keep both; a pin on an absent name is inert.
     connectionStringNames: [
       'pythonappConnection'
+      'AZURE_POSTGRESQL_CONNECTIONSTRING'
     ]
   }
 }
