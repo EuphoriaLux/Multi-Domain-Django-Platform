@@ -2305,6 +2305,32 @@ class TestQuizViews:
         assert b'data-round-number="1"' in response.content
 
 
+class TestQuizPhotoUrl:
+    """``_photo_url`` must only point at photos ``quiz_display_photo`` serves;
+    otherwise every projector poll re-requests a photo that 404s."""
+
+    def test_approved_profile_with_photo_gets_a_url(self):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views_quiz import _photo_url
+
+        profile = CrushProfile(user_id=7, is_approved=True, photo_1="p.jpg")
+        assert _photo_url(profile) == "/api/quiz/photo/7/"
+
+    def test_unapproved_profile_gets_no_url(self):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views_quiz import _photo_url
+
+        profile = CrushProfile(user_id=7, is_approved=False, photo_1="p.jpg")
+        assert _photo_url(profile) is None
+
+    def test_profile_without_photo_gets_no_url(self):
+        from crush_lu.models import CrushProfile
+        from crush_lu.views_quiz import _photo_url
+
+        assert _photo_url(CrushProfile(user_id=7, is_approved=True)) is None
+        assert _photo_url(None) is None
+
+
 # ============================================================================
 # ENSURE TABLES
 # ============================================================================

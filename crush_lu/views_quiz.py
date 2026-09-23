@@ -25,8 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 def _photo_url(profile):
-    """Return public quiz photo URL if photo_1 exists, else None."""
-    if profile and getattr(profile, "photo_1", None):
+    """Return the quiz photo URL, or None when ``quiz_display_photo`` would 404.
+
+    Mirrors that view's gates (approved profile with a photo_1). Emitting a URL
+    for an unapproved profile made every projector poll re-request a photo the
+    endpoint refuses; the initials avatar is the intended fallback.
+    """
+    if profile and profile.is_approved and getattr(profile, "photo_1", None):
         return f"/api/quiz/photo/{profile.user_id}/"
     return None
 
@@ -518,10 +523,7 @@ def quiz_table_display_data(request, event_id):
         try:
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
             name = profile.display_name or "Anonymous"
-            has_photo = bool(getattr(profile, "photo_1", None))
-            photo_url = (
-                f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
-            )
+            photo_url = _photo_url(profile)
         except CrushProfile.DoesNotExist:
             name = "Anonymous"
             photo_url = None

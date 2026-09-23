@@ -443,6 +443,10 @@ document.addEventListener("alpine:init", function () {
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "active" && data.question) {
+                        if (data.current_round) {
+                            this.roundName = _localized(data.current_round, "title");
+                            this.isBonusRound = data.current_round.is_bonus || false;
+                        }
                         this.showQuestion(data);
                         // Render persistent leaderboard after question setup
                         this._renderTableLeaderboard();
@@ -501,6 +505,12 @@ document.addEventListener("alpine:init", function () {
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "round_complete") {
                         this.screen = "waiting";
+                    }
+                    // Start broadcasts the first round here; nothing else
+                    // carries its title to the player header.
+                    if (data.current_round) {
+                        this.roundName = _localized(data.current_round, "title");
+                        this.isBonusRound = data.current_round.is_bonus || false;
                     }
                 } else if (type === "quiz.table_scored") {
                     // Scoring in progress — no correctness info yet (deferred until all tables scored)
