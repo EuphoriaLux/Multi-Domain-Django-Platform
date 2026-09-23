@@ -113,6 +113,16 @@ WRITE_RESERVE_SECONDS = (
 
 _FLAG = "SUMUP_RECONCILIATION_ENABLED"
 
+COUNTER_KEYS = (
+    "in_window",
+    "checked",
+    "reconciled",
+    "refunded_superseded",
+    "partial",
+    "errors",
+    "unchecked",
+)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -151,31 +161,28 @@ def sumup_reconciliation_endpoint(request):
             read_reserve_seconds=READ_RESERVE_SECONDS,
             write_reserve_seconds=WRITE_RESERVE_SECONDS,
             max_writes=MAX_WRITES_PER_RUN,
+            # Oldest first: a run cut short (time or write limit) leaves the
+            # newest rows, which stay in the 30-day window for weeks, rather
+            # than the oldest, which are about to age out unchecked.
+            oldest_first=True,
         )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] Unhandled error")
         return JsonResponse({"error": "internal_error"}, status=500)
 
-    body = {
-        "status": "ok",
-        "timestamp": started.isoformat(),
-        "checked": counters["checked"],
-        "reconciled": counters["reconciled"],
-        "partial": counters["partial"],
-        "errors": counters["errors"],
-        "unchecked": counters["unchecked"],
-    }
+    body = {"status": "ok", "timestamp": started.isoformat()}
+    body.update({key: counters[key] for key in COUNTER_KEYS})
     # One structured line, queryable in App Insights without a database.
     # Counts only — no references, emails or payloads (contract §7.3).
-    needs_attention = body["partial"] or body["errors"] or body["unchecked"]
+    needs_attention = (
+        body["partial"]
+        or body["errors"]
+        or body["unchecked"]
+        or body["refunded_superseded"]
+    )
     logger.log(
         logging.WARNING if needs_attention else logging.INFO,
-        "[sumup_reconciliation] checked=%s reconciled=%s partial=%s errors=%s "
-        "unchecked=%s",
-        body["checked"],
-        body["reconciled"],
-        body["partial"],
-        body["errors"],
-        body["unchecked"],
+        "[sumup_reconciliation] %s",
+        " ".join(f"{key}={body[key]}" for key in COUNTER_KEYS),
     )
     return JsonResponse(body, status=202)

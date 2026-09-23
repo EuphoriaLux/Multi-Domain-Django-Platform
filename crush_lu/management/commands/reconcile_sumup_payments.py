@@ -35,7 +35,8 @@ from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from crush_lu.models.credits import CrushCredit
@@ -110,6 +111,10 @@ _REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
 
 # SumUpClient.get_transactions_history clamps ``limit`` to 100.
 _HISTORY_PREFETCH_LIMIT = 100
+
+# Truthy outcomes of Command._reconcile_refunded.
+RECONCILED = "reconciled"
+SUPERSEDED = "superseded"
 
 
 def _refunded_total(item) -> Decimal:
@@ -233,6 +238,29 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
 
     candidates.extend([per_tx_total, refunds_total])
     return max(candidates)
+
+
+def refund_history_evidence(data: dict, history_map: Optional[dict]) -> list:
+    """The history rows that show a refund for this checkout's transaction codes.
+
+    Kept with the reconciled payment: when the checkout resource still says
+    PAID (a dashboard/terminal refund never mutates it), these rows are the
+    only proof of the refund, and storing the checkout alone would lose it.
+    """
+    if not isinstance(data, dict) or not history_map:
+        return []
+    codes = []
+    if data.get("transaction_code"):
+        codes.append(data["transaction_code"])
+    for tx in data.get("transactions") or []:
+        if isinstance(tx, dict) and tx.get("transaction_code"):
+            codes.append(tx["transaction_code"])
+    evidence = []
+    for code in dict.fromkeys(codes):
+        item = history_map.get(code)
+        if history_row_shows_refund(item):
+            evidence.append(item)
+    return evidence
 
 
 def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool:
@@ -359,18 +387,25 @@ class Command(BaseCommand):
         read_reserve_seconds=0.0,
         write_reserve_seconds=0.0,
         max_writes=None,
+        oldest_first=False,
     ) -> dict:
         """Run one sweep and return its counters.
 
-        Returns ``{"checked", "reconciled", "partial", "errors", "unchecked"}``.
-        ``unchecked`` is only ever non-zero when ``budget_seconds`` is given:
-        the CLI passes None and so behaves exactly as before; the scheduled
-        endpoint passes a wall-clock budget so the request cannot run into the
-        App Service front end's ~230 s cap. Rows the budget left unchecked
-        stay PAID and untouched; they are the OLDEST rows in the window (the
-        queryset is newest-first), so a sweep that exhausts its budget every
-        run never reaches them — a non-zero ``unchecked`` is a WARNING, not
-        a backlog that drains by itself.
+        Returns ``{"in_window", "checked", "reconciled", "refunded_superseded",
+        "partial", "errors", "unchecked"}``. ``unchecked`` is only ever
+        non-zero when ``budget_seconds`` or ``max_writes`` is given: the CLI
+        passes neither; the scheduled endpoint does, so the request cannot run
+        into the App Service front end's ~230 s cap. Rows left unchecked stay
+        PAID and untouched.
+
+        The window is on when the member PAID (``paid_at``, falling back to
+        ``created_at`` for rows from before it was stamped), not on when the
+        checkout was opened.
+
+        ``oldest_first`` (the endpoint) walks the window oldest-first, so a
+        run cut short leaves the NEWEST rows for later — they stay in the
+        window for weeks — rather than the oldest ones, which are about to age
+        out. The CLI keeps newest-first.
 
         ``budget_seconds`` is a hard deadline for the whole sweep, including
         what a write sets off after it commits. Two reserves keep it one:
@@ -412,9 +447,16 @@ class Command(BaseCommand):
             cutoff = timezone.now() - timedelta(days=days)
             # sumup_checkout_id is CharField(blank=True) with no null=True, so
             # the column is never NULL — excluding "" is the whole filter.
-            qs = qs.filter(created_at__gte=cutoff).exclude(sumup_checkout_id="")
+            qs = (
+                qs.annotate(paid_or_created=Coalesce(F("paid_at"), F("created_at")))
+                .filter(paid_or_created__gte=cutoff)
+                .exclude(sumup_checkout_id="")
+            )
 
-        qs = qs.order_by("-created_at")
+        if oldest_first:
+            qs = qs.order_by(Coalesce(F("paid_at"), F("created_at")).asc(), "pk")
+        else:
+            qs = qs.order_by("-created_at")
         total_count = qs.count()
 
         if not quiet:
@@ -427,8 +469,10 @@ class Command(BaseCommand):
             if not quiet:
                 self.stdout.write("No matching PAID transactions found.")
             return {
+                "in_window": 0,
                 "checked": 0,
                 "reconciled": 0,
+                "refunded_superseded": 0,
                 "partial": 0,
                 "errors": 0,
                 "unchecked": 0,
@@ -464,6 +508,7 @@ class Command(BaseCommand):
         refunded_count = 0
         errors_count = 0
         partial_count = 0
+        superseded_count = 0
         unchecked = 0
 
         def _over_budget(reserve):
@@ -476,11 +521,13 @@ class Command(BaseCommand):
             if _over_budget(read_reserve_seconds):
                 unchecked = total_count - checked
                 logger.warning(
-                    "SumUp reconciliation stopped at its %ss budget: %s of %s "
-                    "transaction(s) left unchecked until the next run.",
+                    "SumUp reconciliation stopped at its %ss budget: checked %s "
+                    "of %s transaction(s) in the window; %s left unchecked "
+                    "this run.",
                     budget_seconds,
-                    unchecked,
+                    checked,
                     total_count,
+                    unchecked,
                 )
                 break
             checked += 1
@@ -712,22 +759,26 @@ class Command(BaseCommand):
                     checked -= 1
                     unchecked = total_count - checked
                     logger.warning(
-                        "SumUp reconciliation deferred a detected refund on %s "
-                        "(checkout %s): too little of the %ss budget left to "
-                        "write it safely. %s of %s transaction(s) left "
-                        "unchecked until the next run.",
-                        tx_obj.transaction_reference,
-                        tx_obj.sumup_checkout_id,
+                        "SumUp reconciliation deferred a detected refund on "
+                        "payment %s: too little of the %ss budget left to "
+                        "write it safely. Checked %s of %s transaction(s) in "
+                        "the window; %s left unchecked this run.",
+                        tx_obj.pk,
                         budget_seconds,
-                        unchecked,
+                        checked,
                         total_count,
+                        unchecked,
                     )
                     break
 
                 write_attempted = not dry_run
                 try:
+                    evidence = refund_history_evidence(remote_data, history_map)
+                    kwargs = {"dry_run": dry_run}
+                    if evidence:
+                        kwargs["history_evidence"] = evidence
                     transitioned = self._reconcile_refunded(
-                        tx_obj, remote_data, dry_run=dry_run
+                        tx_obj, remote_data, **kwargs
                     )
                 except Exception as exc:
                     errors_count += 1
@@ -754,21 +805,27 @@ class Command(BaseCommand):
                 # False when an overlapping run got there first: it waited on
                 # the row lock, found the row no longer PAID and did nothing.
                 if transitioned:
-                    refunded_count += 1
+                    if transitioned == SUPERSEDED:
+                        superseded_count += 1
+                    else:
+                        refunded_count += 1
+                    writes = refunded_count + superseded_count
                     if (
                         max_writes is not None
                         and write_attempted
-                        and refunded_count >= max_writes
+                        and writes >= max_writes
                     ):
                         unchecked = total_count - checked
                         if unchecked:
                             logger.warning(
                                 "SumUp reconciliation stopped after %s refund "
-                                "write(s), its per-run limit: %s of %s "
-                                "transaction(s) left unchecked until the next run.",
-                                refunded_count,
-                                unchecked,
+                                "write(s), its per-run limit: checked %s of %s "
+                                "transaction(s) in the window; %s left "
+                                "unchecked this run.",
+                                writes,
+                                checked,
                                 total_count,
+                                unchecked,
                             )
                         break
             elif not quiet:
@@ -781,29 +838,69 @@ class Command(BaseCommand):
             f"{partial_count} partial refund(s) flagged for manual review, "
             f"{errors_count} error(s)."
         )
+        if superseded_count:
+            summary_msg += (
+                f" {superseded_count} superseded payment(s) marked refunded; "
+                "their registration kept (another payment covers it)."
+            )
         if dry_run:
             summary_msg = f"[DRY RUN] {summary_msg}"
 
-        if refunded_count > 0:
+        if refunded_count > 0 or superseded_count > 0:
             self.stdout.write(self.style.SUCCESS(summary_msg))
         elif not quiet:
             self.stdout.write(summary_msg)
 
         return {
+            "in_window": total_count,
             "checked": checked,
             "reconciled": refunded_count,
+            "refunded_superseded": superseded_count,
             "partial": partial_count,
             "errors": errors_count,
             "unchecked": unchecked,
         }
 
-    def _reconcile_refunded(self, tx_obj, remote_data, dry_run=False) -> bool:
+    @staticmethod
+    def _other_paid_payment_ids(tx):
+        """Other PAID payments funding the same registration or membership.
+
+        EventRegistration rows are reused on re-registration (views_events
+        ``_admitted_status``), so a member who cancelled, re-registered and
+        paid again has TWO PaymentTransactions on one registration. Refunding
+        the old one must not cancel the seat the new one paid for.
+        """
+        others = PaymentTransaction.objects.filter(
+            status=PaymentTransaction.Status.PAID
+        ).exclude(pk=tx.pk)
+        if tx.event_registration_id:
+            return list(
+                others.filter(event_registration_id=tx.event_registration_id)
+                .values_list("pk", flat=True)
+            )
+        if tx.premium_membership_id:
+            return list(
+                others.filter(premium_membership_id=tx.premium_membership_id)
+                .values_list("pk", flat=True)
+            )
+        return []
+
+    def _reconcile_refunded(
+        self, tx_obj, remote_data, dry_run=False, history_evidence=None
+    ):
         """Apply external refund adjustments across PaymentTransaction, EventRegistration,
         CrushCredit, and PremiumMembership under atomic lock order.
 
-        Returns True when this call moved the row PAID -> REFUNDED (or, in a
-        dry run, would have), False when the row was no longer PAID under the
-        lock — i.e. an overlapping run already reconciled it."""
+        Returns a truthy outcome when this call moved the row PAID -> REFUNDED
+        (or, in a dry run, would have): ``RECONCILED``, or ``SUPERSEDED`` when
+        another PAID payment still funds the same registration/membership —
+        then only this payment and the credit sourced FROM it change, the
+        seat/membership is left alone. Returns False when the row was no
+        longer PAID under the lock — an overlapping run already reconciled it.
+
+        ``history_evidence`` — the transaction-history rows that proved the
+        refund — is stored beside the checkout payload in ``raw_response``,
+        because a dashboard refund leaves the checkout itself saying PAID."""
         ref = tx_obj.transaction_reference
         cid = tx_obj.sumup_checkout_id
 
@@ -813,7 +910,7 @@ class Command(BaseCommand):
                     f"[DRY RUN] External refund detected on {ref} (checkout {cid}). Would reconcile to REFUNDED."
                 )
             )
-            return True
+            return SUPERSEDED if self._other_paid_payment_ids(tx_obj) else RECONCILED
 
         # LOCK ORDER: PaymentTransaction FIRST, then EventRegistration / CrushProfile / CrushCredit
         with transaction.atomic():
@@ -830,8 +927,34 @@ class Command(BaseCommand):
                 )
                 return False
 
+            # Take the registration / membership lock BEFORE asking whether
+            # another payment funds it (same order as below: payment first).
+            # A capture of another payment locks that registration too
+            # (_apply_paid_checkout: payment -> event -> registration), so once
+            # we hold it, any racing capture has either committed — and is
+            # seen here as PAID — or waits until this write is done.
+            if locked_tx.event_registration_id:
+                EventRegistration.objects.select_for_update().filter(
+                    pk=locked_tx.event_registration_id
+                ).first()
+            elif locked_tx.premium_membership_id:
+                PremiumMembership.objects.select_for_update().filter(
+                    pk=locked_tx.premium_membership_id
+                ).first()
+            superseding_ids = self._other_paid_payment_ids(locked_tx)
+
             locked_tx.status = PaymentTransaction.Status.REFUNDED
-            locked_tx.raw_response = remote_data
+            if history_evidence and isinstance(remote_data, dict):
+                # A dashboard/terminal refund leaves the checkout saying PAID;
+                # the history rows are the proof. Keep both. Readers of
+                # raw_response only look at "transactions"/"redemptions", so an
+                # extra top-level key changes nothing for them.
+                locked_tx.raw_response = {
+                    **remote_data,
+                    "reconciliation_history_evidence": list(history_evidence),
+                }
+            else:
+                locked_tx.raw_response = remote_data
             locked_tx.failure_reason = (
                 "External refund detected and reconciled by background sweep."
             )
@@ -847,8 +970,23 @@ class Command(BaseCommand):
             already_cancelled_reg_id = None
             withdrawn_cents = 0
 
+            if superseding_ids:
+                # Another PAID payment funds this seat/membership: leave it
+                # alone. Only the credit sourced from THIS payment follows the
+                # usual rule (cash back and credit still spendable would be a
+                # double-dip); credit sourced from the other payment, or
+                # matched only by registration, is not touched.
+                logger.warning(
+                    "SumUp refund of superseded payment %s: registration %s / "
+                    "membership %s kept — still funded by payment(s) %s.",
+                    locked_tx.pk,
+                    locked_tx.event_registration_id,
+                    locked_tx.premium_membership_id,
+                    superseding_ids,
+                )
+
             # 1. Reconcile EventRegistration
-            if locked_tx.event_registration_id:
+            if locked_tx.event_registration_id and not superseding_ids:
                 reg = (
                     EventRegistration.objects.select_for_update()
                     .filter(pk=locked_tx.event_registration_id)
@@ -880,7 +1018,7 @@ class Command(BaseCommand):
                     )
 
             # 2. Reconcile PremiumMembership
-            if locked_tx.premium_membership_id:
+            if locked_tx.premium_membership_id and not superseding_ids:
                 pm = (
                     PremiumMembership.objects.select_for_update()
                     .filter(pk=locked_tx.premium_membership_id)
@@ -927,7 +1065,7 @@ class Command(BaseCommand):
             # the member is genuinely owed. A credit naming its own source_payment
             # is only ours when that payment is the one being refunded.
             credit_filters = Q(source_payment=locked_tx)
-            if locked_tx.event_registration_id:
+            if locked_tx.event_registration_id and not superseding_ids:
                 credit_filters |= Q(
                     source_registration_id=locked_tx.event_registration_id,
                     source_payment__isnull=True,
@@ -991,6 +1129,18 @@ class Command(BaseCommand):
             # cancelled gets no signal email at all, yet the member can see
             # the change — the payment is now refunded and any credit issued
             # for that cancellation is gone — so tell them, once.
+            # A superseded payment's refund voids credit the member can see
+            # while their current seat stays put; tell them about the credit,
+            # not about the seat. No credit touched: nothing they can see
+            # changed beyond the card refund, and a mail saying "payment
+            # refunded" beside a live seat would only alarm them.
+            if (
+                superseding_ids
+                and withdrawn_cents > 0
+                and locked_tx.event_registration_id
+            ):
+                already_cancelled_reg_id = locked_tx.event_registration_id
+
             if already_cancelled_reg_id is not None:
                 transaction.on_commit(
                     lambda reg_id=already_cancelled_reg_id, cents=withdrawn_cents: (
@@ -1003,4 +1153,4 @@ class Command(BaseCommand):
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"
             )
         )
-        return True
+        return SUPERSEDED if superseding_ids else RECONCILED

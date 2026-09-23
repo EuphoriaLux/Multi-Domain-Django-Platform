@@ -91,6 +91,8 @@ class _Posts(list):
             "partial": 0,
             "errors": 0,
             "unchecked": 0,
+            "in_window": 5,
+            "refunded_superseded": 0,
         },
     )
 
@@ -176,6 +178,8 @@ def _counters(**overrides):
         "partial": 0,
         "errors": 0,
         "unchecked": 0,
+        "in_window": 5,
+        "refunded_superseded": 0,
     }
     body.update(overrides)
     return body

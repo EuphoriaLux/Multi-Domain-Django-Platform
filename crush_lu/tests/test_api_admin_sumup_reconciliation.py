@@ -25,7 +25,7 @@ from django.utils import timezone
 from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
-from crush_lu.models.profiles import CrushProfile
+from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpError
 
 User = get_user_model()
@@ -35,7 +35,15 @@ URL = "/api/admin/sumup-reconciliation/"
 CMD = "crush_lu.management.commands.reconcile_sumup_payments"
 GET_CHECKOUT = f"{CMD}.SumUpClient.get_checkout"
 GET_HISTORY = f"{CMD}.SumUpClient.get_transactions_history"
-COUNTER_KEYS = {"checked", "reconciled", "partial", "errors", "unchecked"}
+COUNTER_KEYS = {
+    "in_window",
+    "checked",
+    "reconciled",
+    "refunded_superseded",
+    "partial",
+    "errors",
+    "unchecked",
+}
 
 STILL_PAID = {"id": "chk_t2_1", "status": "PAID", "amount": 15.50}
 FULL_REFUND = {"id": "chk_t2_1", "status": "REFUNDED", "amount": 15.50}
@@ -313,7 +321,9 @@ class SumUpReconciliationEndpointTests(TestCase):
     def test_reconcile_reports_whether_it_transitioned(self):
         from crush_lu.management.commands.reconcile_sumup_payments import Command
 
-        self.assertIs(Command()._reconcile_refunded(self.payment, FULL_REFUND), True)
+        self.assertEqual(
+            Command()._reconcile_refunded(self.payment, FULL_REFUND), "reconciled"
+        )
         self.assertIs(Command()._reconcile_refunded(self.payment, FULL_REFUND), False)
 
     def test_a_row_refunded_between_selection_and_lock_is_skipped(self):
@@ -384,9 +394,10 @@ class SumUpReconciliationEndpointTests(TestCase):
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
             user=self.user,
         )
-        # Newest first: make the failing row the one the sweep reads first.
+        # The endpoint reads oldest first: make the failing row the older one.
         PaymentTransaction.objects.filter(pk=other.pk).update(
-            created_at=timezone.now() + timedelta(seconds=5)
+            created_at=timezone.now() - timedelta(days=5),
+            paid_at=timezone.now() - timedelta(days=5),
         )
 
         def by_id(checkout_id):
@@ -442,7 +453,11 @@ class SumUpReconciliationEndpointTests(TestCase):
         with self.assertLogs("crush_lu.api_admin_sumup", level=logging.INFO) as logs:
             self._run(STILL_PAID)
         line = next(m for m in logs.output if "checked=" in m)
-        self.assertIn("checked=1 reconciled=0 partial=0 errors=0 unchecked=0", line)
+        self.assertIn(
+            "in_window=1 checked=1 reconciled=0 refunded_superseded=0 partial=0 "
+            "errors=0 unchecked=0",
+            line,
+        )
         self.assertNotIn(self.payment.transaction_reference, line)
         self.assertNotIn(self.payment.sumup_checkout_id, line)
 
@@ -786,6 +801,254 @@ class SumUpReconciliationEndpointTests(TestCase):
             self.assertIn("vous avez utilisé", gettext(m1))
             self.assertIn("votre inscription a été retiré", gettext(m2))
 
+    # -- round 4 (Codex 4080357451 / 463 / 469 / 478) ----------------------
+
+    def _age(self, tx, days):
+        """Backdate a payment's paid_at and created_at (no signals)."""
+        when = timezone.now() - timedelta(days=days)
+        PaymentTransaction.objects.filter(pk=tx.pk).update(
+            created_at=when, paid_at=when
+        )
+
+    def _new_payment(self, ref, checkout_id, **extra):
+        defaults = dict(
+            provider=PaymentTransaction.Provider.SUMUP,
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+        )
+        defaults.update(extra)
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref, sumup_checkout_id=checkout_id, **defaults
+        )
+
+    def _run_by_id(self, payloads):
+        with (
+            override_settings(SUMUP_RECONCILIATION_ENABLED=True),
+            patch(GET_CHECKOUT, side_effect=lambda c: payloads[c]) as get_checkout,
+            patch(GET_HISTORY, return_value={"items": []}),
+        ):
+            resp = self._post()
+        return resp.json(), [c.args[0] for c in get_checkout.call_args_list]
+
+    def test_refund_of_a_superseded_payment_keeps_the_reused_registration(self):
+        """Cancel, re-register, pay again: views_events reuses the row, so two
+        payments point at it. Refunding the OLD one must not cancel the seat
+        the NEW one paid for."""
+        self._age(self.payment, 20)
+        new = self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        old_credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        registration_only_credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=500,
+            currency="EUR",
+            reason=CrushCredit.Reason.GOODWILL,
+            status=CrushCredit.Status.ACTIVE,
+            source_registration=self.registration,
+        )
+        new_credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=700,
+            currency="EUR",
+            reason=CrushCredit.Reason.GOODWILL,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=new,
+        )
+
+        with (
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            body, _ = self._run_by_id(
+                {"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID}
+            )
+
+        self.assertEqual((body["refunded_superseded"], body["reconciled"]), (1, 0))
+        self.payment.refresh_from_db()
+        new.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(new.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(self.registration.payment_confirmed)
+        for credit, expected in (
+            (old_credit, CrushCredit.Status.VOID),
+            (registration_only_credit, CrushCredit.Status.ACTIVE),
+            (new_credit, CrushCredit.Status.ACTIVE),
+        ):
+            credit.refresh_from_db()
+            self.assertEqual(credit.status, expected)
+
+        warning = next(m for m in logs.output if "superseded payment" in m)
+        self.assertIn(str(self.payment.pk), warning)
+        self.assertNotIn(self.payment.transaction_reference, warning)
+        # The voided credit is visible to the member, so they are told once.
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        self.assertIn(self.WITHDRAWN_SENTENCE, mine[0].body)
+
+    def test_superseded_refund_without_credit_sends_nothing(self):
+        self._age(self.payment, 20)
+        self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            body, _ = self._run_by_id(
+                {"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID}
+            )
+        self.assertEqual(body["refunded_superseded"], 1)
+        self.assertEqual(mail.outbox, [])
+
+    def test_superseded_premium_payment_keeps_the_membership(self):
+        coach_user = User.objects.create_user(
+            username="t2_coach", email="t2_coach@crush.lu", password="x" * 12
+        )
+        coach = CrushCoach.objects.create(
+            user=coach_user, is_active=True, accepting_premium=True
+        )
+        pm = PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="active"
+        )
+        PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+            status=PaymentTransaction.Status.FAILED
+        )
+        old = self._new_payment(
+            "CRUSH-PREM-T2-old",
+            "chk_prem_old",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        self._age(old, 20)
+        self._new_payment(
+            "CRUSH-PREM-T2-new",
+            "chk_prem_new",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        body, _ = self._run_by_id(
+            {
+                "chk_prem_old": {"id": "chk_prem_old", "status": "REFUNDED"},
+                "chk_prem_new": {"id": "chk_prem_new", "status": "PAID"},
+            }
+        )
+        self.assertEqual(body["refunded_superseded"], 1)
+        pm.refresh_from_db()
+        old.refresh_from_db()
+        self.assertEqual(pm.status, "active")
+        self.assertEqual(old.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_single_payment_refund_is_unchanged(self):
+        body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "cancelled")
+
+    def test_endpoint_reads_oldest_first(self):
+        self._age(self.payment, 2)
+        older = self._new_payment("CRUSH-T2-older", "chk_older")
+        self._age(older, 25)
+        middle = self._new_payment("CRUSH-T2-middle", "chk_middle")
+        self._age(middle, 10)
+        body, order = self._run_by_id(
+            {c: STILL_PAID for c in ("chk_t2_1", "chk_older", "chk_middle")}
+        )
+        self.assertEqual(order, ["chk_older", "chk_middle", "chk_t2_1"])
+        self.assertEqual((body["in_window"], body["checked"]), (3, 3))
+
+    def test_two_bounded_runs_cover_different_rows(self):
+        """With the one-write limit, run 2 moves past the row run 1 wrote."""
+        self._age(self.payment, 2)
+        older = self._new_payment("CRUSH-T2-older", "chk_older")
+        self._age(older, 25)
+        payloads = {
+            "chk_older": {"id": "chk_older", "status": "REFUNDED"},
+            "chk_t2_1": FULL_REFUND,
+        }
+        first, order1 = self._run_by_id(payloads)
+        second, order2 = self._run_by_id(payloads)
+        self.assertEqual(order1, ["chk_older"])
+        self.assertEqual(order2, ["chk_t2_1"])
+        self.assertEqual((first["unchecked"], second["unchecked"]), (1, 0))
+        older.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(older.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_window_is_on_paid_at_not_checkout_creation(self):
+        """Checkout opened 40 days ago, paid 5 days ago: inside a 30-day window."""
+        PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+            created_at=timezone.now() - timedelta(days=40),
+            paid_at=timezone.now() - timedelta(days=5),
+        )
+        body, _ = self._run_by_id({"chk_t2_1": STILL_PAID})
+        self.assertEqual(body["checked"], 1)
+
+    def test_legacy_row_without_paid_at_falls_back_to_created_at(self):
+        recent = self._new_payment("CRUSH-T2-legacy-recent", "chk_legacy_recent")
+        old = self._new_payment("CRUSH-T2-legacy-old", "chk_legacy_old")
+        PaymentTransaction.objects.filter(pk=recent.pk).update(
+            paid_at=None, created_at=timezone.now() - timedelta(days=10)
+        )
+        PaymentTransaction.objects.filter(pk=old.pk).update(
+            paid_at=None, created_at=timezone.now() - timedelta(days=40)
+        )
+        body, order = self._run_by_id(
+            {c: STILL_PAID for c in ("chk_t2_1", "chk_legacy_recent", "chk_legacy_old")}
+        )
+        self.assertIn("chk_legacy_recent", order)
+        self.assertNotIn("chk_legacy_old", order)
+
+    def test_history_evidence_is_kept_with_the_checkout(self):
+        checkout = {
+            "id": "chk_t2_1",
+            "status": "PAID",
+            "transaction_code": "TX_EVID",
+            "transactions": [
+                {"status": "SUCCESSFUL", "transaction_code": "TX_EVID", "amount": 15.5}
+            ],
+        }
+        history_row = {
+            "transaction_code": "TX_EVID",
+            "type": "PAYMENT",
+            "status": "REFUNDED",
+            "amount": 15.5,
+            "refunded_amount": 15.5,
+        }
+        resp = self._run(checkout, history={"items": [history_row]})
+        self.assertEqual(resp.json()["reconciled"], 1)
+        self.payment.refresh_from_db()
+        stored = self.payment.raw_response
+        self.assertEqual(stored["status"], "PAID")
+        self.assertEqual(stored["transactions"], checkout["transactions"])
+        evidence = stored["reconciliation_history_evidence"]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["status"], "REFUNDED")
+        self.assertEqual(evidence[0]["transaction_code"], "TX_EVID")
+
+    def test_no_evidence_key_when_the_checkout_itself_proves_it(self):
+        self._run(FULL_REFUND)
+        self.payment.refresh_from_db()
+        self.assertNotIn("reconciliation_history_evidence", self.payment.raw_response)
+        self.assertEqual(self.payment.raw_response, FULL_REFUND)
+
     def test_dry_run_sends_nothing(self):
         from django.core.management import call_command
 
@@ -830,6 +1093,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertIs(kwargs["dry_run"], False)
         self.assertNotIn("batch_delay", kwargs)
         self.assertEqual(kwargs["max_writes"], 1)
+        self.assertIs(kwargs["oldest_first"], True)
         self.assertIsNotNone(kwargs["budget_seconds"])
 
     # -- §6.4 history cap --------------------------------------------------
@@ -876,8 +1140,11 @@ class SumUpReconciliationStructureTests(TestCase):
 
         src = inspect.getsource(Command._reconcile_refunded)
         seq = re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src)
+        # The funded row is locked early (before the superseded check) and
+        # re-read later; what matters is the order each model is FIRST locked.
+        self.assertEqual(seq[0], "PaymentTransaction")
         self.assertEqual(
-            seq,
+            list(dict.fromkeys(seq)),
             ["PaymentTransaction", "EventRegistration", "PremiumMembership"],
         )
         self.assertGreater(

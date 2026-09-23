@@ -534,7 +534,15 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     _check_sumup_reconciliation_counters(response)
 
 
-_SUMUP_COUNTERS = ("checked", "reconciled", "partial", "errors", "unchecked")
+_SUMUP_COUNTERS = (
+    "in_window",
+    "checked",
+    "reconciled",
+    "refunded_superseded",
+    "partial",
+    "errors",
+    "unchecked",
+)
 
 
 def _check_sumup_reconciliation_counters(response) -> None:
@@ -579,10 +587,15 @@ def _check_sumup_reconciliation_counters(response) -> None:
             f"SumUpReconciliation: {counts['errors']} row(s) could not be "
             f"checked or written — {summary}"
         )
-    if counts["unchecked"] > 0 or counts["partial"] > 0:
+    if (
+        counts["unchecked"] > 0
+        or counts["partial"] > 0
+        or counts["refunded_superseded"] > 0
+    ):
         logging.warning(
-            "SumUpReconciliation: needs attention (unchecked rows are left "
-            "for the next run; partial refunds need a human) — %s",
+            "SumUpReconciliation: needs attention (unchecked rows wait for a "
+            "later run; partial refunds need a human; superseded payments were "
+            "refunded with the seat kept) — %s",
             summary,
         )
     else:
