@@ -2286,6 +2286,24 @@ class TestQuizViews:
         assert response.status_code == 200
         assert b"data-quiz-night" in response.content
 
+    def test_coach_view_seeds_the_current_rotation_round(
+        self, client, quiz_event, coach_user
+    ):
+        """The table-overview poll reads ``data-round-number``; left at its
+        round-0 default, it replaced the rendered seating with the first
+        round's five seconds after a mid-quiz page load."""
+        QuizRound.objects.create(quiz=quiz_event, title="R1", sort_order=0)
+        r2 = QuizRound.objects.create(quiz=quiz_event, title="R2", sort_order=1)
+        QuizRound.objects.create(quiz=quiz_event, title="R3", sort_order=2)
+        quiz_event.current_round = r2
+        quiz_event.save(update_fields=["current_round"])
+
+        client.force_login(coach_user)
+        response = client.get(f"/en/events/{quiz_event.event_id}/quiz/coach/")
+        assert response.status_code == 200
+        assert response.context["round_number"] == 1
+        assert b'data-round-number="1"' in response.content
+
 
 # ============================================================================
 # ENSURE TABLES

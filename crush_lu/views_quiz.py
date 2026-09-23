@@ -317,6 +317,10 @@ def quiz_coach_view(request, event_id):
         "tables": tables,
         "is_quiz_night": is_quiz_night,
         "table_members_json": json.dumps(table_members),
+        # Seeds the overview poll's ``?round=``. Without it the poll starts at
+        # round 0 and, 5 s after load, swaps the server-rendered current seating
+        # for the first round's until the next rotate broadcast arrives.
+        "round_number": round_number,
         "rotation_warnings": rotation_warnings,
         "unassigned_attendees": unassigned_attendees,
         "table_numbers": list(range(1, (quiz.num_tables or 0) + 1)),
