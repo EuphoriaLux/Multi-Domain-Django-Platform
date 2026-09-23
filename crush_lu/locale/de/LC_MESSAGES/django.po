@@ -42246,3 +42246,23 @@ msgstr ""
 " mit dem du bezahlt hast. Deine Anmeldung wurde deshalb storniert und dein "
 "Platz freigegeben."
 
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Your payment for <strong>%(title)s</strong> has been refunded to the payment"
+" method you used."
+msgstr ""
+"Deine Zahlung für <strong>%(title)s</strong> wurde auf das Zahlungsmittel "
+"zurückerstattet, mit dem du bezahlt hast."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Because of this refund, the %(amount)s EUR in Crush Credit issued when you "
+"cancelled this registration has been withdrawn."
+msgstr ""
+"Wegen dieser Rückerstattung wurde das Crush Credit über %(amount)s EUR, das "
+"du bei der Stornierung dieser Anmeldung erhalten hast, zurückgezogen."
+

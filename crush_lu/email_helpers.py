@@ -1129,6 +1129,49 @@ def send_curated_group_payment_remedy(registration, credits, request=None):
     )
 
 
+def send_refund_after_cancellation_notice(registration, withdrawn_cents, request=None):
+    """Tell a member that the payment for an already-cancelled seat was refunded.
+
+    Sent by ``reconcile_sumup_payments`` when a refund taken outside Django
+    (SumUp dashboard / terminal) lands on a registration that was already
+    cancelled — the cancellation signal sends nothing in that case.
+    ``withdrawn_cents`` is the unspent Crush Credit the sweep voided because
+    the cash went back instead; 0 means no credit was affected.
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    user = registration.user
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    context = {
+        "user": user,
+        "event": registration.event,
+        "credit_withdrawn": withdrawn_cents > 0,
+        "withdrawn_total": withdrawn_cents / 100,
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+    with translation.override(lang):
+        subject = _("Your payment for {title} was returned").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/event_payment_refunded.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_curated_group_withdrawal_notice(registration, request=None):
     """Tell an unpaid applicant that their application is back in the pool."""
     from django.utils import translation

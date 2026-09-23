@@ -22,7 +22,7 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.models.credits import CrushCredit
+from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushProfile
@@ -664,6 +664,127 @@ class SumUpReconciliationEndpointTests(TestCase):
             again = self._run(FULL_REFUND)
         self.assertEqual(again.json()["reconciled"], 0)
         self.assertEqual(mail.outbox, [])
+
+    # -- refund on an ALREADY-cancelled seat (Codex 4080234097) -----------
+
+    REFUNDED_SENTENCE = "has been refunded to the payment method you used."
+    WITHDRAWN_SENTENCE = "has been withdrawn"
+
+    def _cancel_seat_first(self, credit_cents=None, redeemed_cents=0):
+        """The member cancelled earlier (>48h, credit issued); the card refund
+        comes later. Written with .update() so no signal fires here."""
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            status="cancelled", payment_confirmed=False
+        )
+        if credit_cents is None:
+            return None
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=credit_cents,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        if redeemed_cents:
+            CreditRedemption.objects.create(credit=credit, amount_cents=redeemed_cents)
+        return credit
+
+    def test_already_cancelled_with_credit_gets_one_withdrawal_email(self):
+        credit = self._cancel_seat_first(credit_cents=1550)
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._run(FULL_REFUND)
+        self.assertEqual(resp.json()["reconciled"], 1)
+
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        body = mine[0].body
+        self.assertIn(self.REFUNDED_SENTENCE, body)
+        self.assertIn("15.50 EUR in Crush Credit", body)
+        self.assertIn(self.WITHDRAWN_SENTENCE, body)
+        self.assertNotIn("No payment was recorded", body)
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_withdrawn_amount_is_what_was_still_spendable(self):
+        self._cancel_seat_first(credit_cents=2000, redeemed_cents=1000)
+        with self.captureOnCommitCallbacks(execute=True):
+            self._run(FULL_REFUND)
+        (only,) = self._mails_to(self.user.email)
+        self.assertIn("10.00 EUR in Crush Credit", only.body)
+
+    def test_already_cancelled_without_credit_gets_one_plain_email(self):
+        self._cancel_seat_first()
+        with self.captureOnCommitCallbacks(execute=True):
+            self._run(FULL_REFUND)
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        self.assertIn(self.REFUNDED_SENTENCE, mine[0].body)
+        self.assertNotIn(self.WITHDRAWN_SENTENCE, mine[0].body)
+
+    def test_already_cancelled_second_run_and_dry_run_send_nothing(self):
+        from django.core.management import call_command
+
+        self._cancel_seat_first(credit_cents=1550)
+        with (
+            patch(GET_CHECKOUT, return_value=FULL_REFUND),
+            patch(GET_HISTORY, return_value={"items": []}),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            call_command("reconcile_sumup_payments", dry_run=True, quiet=True)
+        self.assertEqual(mail.outbox, [])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self._run(FULL_REFUND)
+        self.assertEqual(len(mail.outbox), 1)
+        mail.outbox.clear()
+        with self.captureOnCommitCallbacks(execute=True):
+            again = self._run(FULL_REFUND)
+        self.assertEqual(again.json()["checked"], 0)
+        self.assertEqual(mail.outbox, [])
+
+    def test_a_seat_cancelled_by_the_refund_gets_only_the_signal_email(self):
+        """No double send: the new notice is only for already-cancelled seats."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self._run(FULL_REFUND)
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        self.assertIn("Registration Cancelled", mine[0].subject)
+
+    def test_a_failing_refund_notice_does_not_break_the_sweep(self):
+        self._cancel_seat_first(credit_cents=1550)
+        with (
+            patch(
+                "crush_lu.email_helpers.send_refund_after_cancellation_notice",
+                side_effect=RuntimeError("graph down"),
+            ),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            resp = self._run(FULL_REFUND)
+        body = resp.json()
+        self.assertEqual((body["reconciled"], body["errors"]), (1, 0))
+
+    def test_refund_notice_strings_are_translated(self):
+        from django.utils import translation
+        from django.utils.translation import gettext
+
+        m1 = (
+            "Your payment for <strong>%(title)s</strong> has been refunded to "
+            "the payment method you used."
+        )
+        m2 = (
+            "Because of this refund, the %(amount)s EUR in Crush Credit issued "
+            "when you cancelled this registration has been withdrawn."
+        )
+        with translation.override("de"):
+            self.assertIn("du bezahlt hast", gettext(m1))
+            self.assertIn("zurückgezogen", gettext(m2))
+        with translation.override("fr"):
+            self.assertIn("vous avez utilisé", gettext(m1))
+            self.assertIn("votre inscription a été retiré", gettext(m2))
 
     def test_dry_run_sends_nothing(self):
         from django.core.management import call_command

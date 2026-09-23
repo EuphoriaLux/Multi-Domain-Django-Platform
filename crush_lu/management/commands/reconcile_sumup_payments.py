@@ -48,6 +48,31 @@ from crush_lu.services.sumup import SumUpClient, SumUpError
 logger = logging.getLogger(__name__)
 
 
+def _send_refund_after_cancellation_notice_safely(registration_id, withdrawn_cents):
+    """Email a member whose ALREADY-cancelled seat was refunded in cash.
+
+    Runs on commit. Never raises: the refund is already durable, and a mail
+    failure must not turn a reconciled row into a sweep error.
+    """
+    try:
+        from crush_lu.email_helpers import send_refund_after_cancellation_notice
+
+        registration = (
+            EventRegistration.objects.select_related("event", "user")
+            .filter(pk=registration_id)
+            .first()
+        )
+        if registration is None:
+            return
+        send_refund_after_cancellation_notice(registration, withdrawn_cents)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Failed to send refund-after-cancellation email for registration %s: %s",
+            registration_id,
+            type(exc).__name__,
+        )
+
+
 def _to_decimal(value) -> Decimal:
     """Coerce a SumUp amount to Decimal, never raising.
 
@@ -814,6 +839,14 @@ class Command(BaseCommand):
                 update_fields=["status", "raw_response", "failure_reason", "updated_at"]
             )
 
+            # Set when the refunded seat was ALREADY cancelled before this
+            # write. The cancellation signal stays silent then (its
+            # _previous_status == "cancelled" guard), so this path owes the
+            # member the only email about the refund — see the end of this
+            # method.
+            already_cancelled_reg_id = None
+            withdrawn_cents = 0
+
             # 1. Reconcile EventRegistration
             if locked_tx.event_registration_id:
                 reg = (
@@ -830,6 +863,8 @@ class Command(BaseCommand):
                     # Crush Credit is due", which is false — they paid and
                     # were refunded in cash.
                     reg._external_cash_refund = True
+                    if reg.status == "cancelled":
+                        already_cancelled_reg_id = reg.pk
 
                     # If the registration was confirmed and hasn't attended yet, cancel it.
                     # Saving status='cancelled' invokes promote_waitlist_on_cancellation automatically.
@@ -930,6 +965,8 @@ class Command(BaseCommand):
                 # concurrent redemption between those two points would otherwise
                 # write a wrong number onto an append-only ledger row.
                 redeemed_cents = credit.redeemed_cents
+                # What the member could still spend and now cannot.
+                withdrawn_cents += max(0, credit.amount_cents - redeemed_cents)
                 if redeemed_cents:
                     credit.note = (
                         f"{credit.note}\nWARNING: {redeemed_cents} cents already "
@@ -948,6 +985,18 @@ class Command(BaseCommand):
                         credit.pk,
                         ref,
                     )
+
+            # A seat cancelled by THIS write is announced by the cancellation
+            # signal (with the cash-refund wording). A seat that was already
+            # cancelled gets no signal email at all, yet the member can see
+            # the change — the payment is now refunded and any credit issued
+            # for that cancellation is gone — so tell them, once.
+            if already_cancelled_reg_id is not None:
+                transaction.on_commit(
+                    lambda reg_id=already_cancelled_reg_id, cents=withdrawn_cents: (
+                        _send_refund_after_cancellation_notice_safely(reg_id, cents)
+                    )
+                )
 
         self.stdout.write(
             self.style.SUCCESS(

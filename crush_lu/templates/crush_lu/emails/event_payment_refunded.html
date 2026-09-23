@@ -1,0 +1,21 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your payment was returned" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Your payment was returned" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Your payment for <strong>{{ title }}</strong> has been refunded to the payment method you used.{% endblocktrans %}</p>
+
+{% if credit_withdrawn %}
+<p>{% blocktrans with amount=withdrawn_total|floatformat:2 %}Because of this refund, the {{ amount }} EUR in Crush Credit issued when you cancelled this registration has been withdrawn.{% endblocktrans %}</p>
+{% endif %}
+
+<p>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
