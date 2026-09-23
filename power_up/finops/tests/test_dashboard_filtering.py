@@ -79,7 +79,10 @@ def staff_page(page: Page, staff_user, powerup_url):
 
 
 @pytest.mark.playwright
-@pytest.mark.django_db
+# transaction=True: the live server reads staff_user and the injected session
+# over its own connection. pytest-django already forces this for any test using
+# live_server; the explicit mark keeps it true if the fixture chain changes.
+@pytest.mark.django_db(transaction=True)
 class TestFinOpsDashboardFiltering:
     """Test FinOps dashboard with various filtering scenarios"""
 
