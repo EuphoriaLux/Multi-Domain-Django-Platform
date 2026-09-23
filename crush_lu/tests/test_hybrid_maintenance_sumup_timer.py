@@ -92,7 +92,7 @@ class _Posts(list):
             "errors": 0,
             "unchecked": 0,
             "in_window": 5,
-            "refunded_superseded": 0,
+            "needs_review": 0,
         },
     )
 
@@ -179,7 +179,7 @@ def _counters(**overrides):
         "errors": 0,
         "unchecked": 0,
         "in_window": 5,
-        "refunded_superseded": 0,
+        "needs_review": 0,
     }
     body.update(overrides)
     return body
@@ -288,6 +288,33 @@ def test_schedule_is_0234_utc():
     src = MODULE_PATH.read_text(encoding="utf-8")
     block = src[src.index('@app.function_name(name="SumUpReconciliation")') :]
     assert re.search(r'schedule="0 34 2 \* \* \*"', block[:1200])
+
+
+def test_needs_review_fails_the_invocation(app, posts, monkeypatch, caplog):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(needs_review=1, errors=1)))
+    with pytest.raises(RuntimeError, match="1 need manual review"):
+        app.sumup_reconciliation(FakeTimer())
+
+
+def test_needs_review_alone_still_fails(app, posts, monkeypatch):
+    """Even if Django ever stops folding it into errors."""
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(needs_review=1)))
+    with pytest.raises(RuntimeError, match="need manual review"):
+        app.sumup_reconciliation(FakeTimer())
+
+
+def test_another_endpoints_skip_does_not_pass(app, posts, monkeypatch):
+    """api_admin_campaigns answers the same {skipped, reason} shape."""
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(
+        FakeResponse(
+            200, {"skipped": True, "reason": "CAMPAIGN_DISPATCH_ENABLED is off"}
+        )
+    )
+    with pytest.raises(RuntimeError, match="unexpected"):
+        app.sumup_reconciliation(FakeTimer())
 
 
 def test_timer_source_never_mentions_refund_issuing():

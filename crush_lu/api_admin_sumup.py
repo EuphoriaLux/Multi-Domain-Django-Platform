@@ -120,7 +120,7 @@ COUNTER_KEYS = (
     "in_window",
     "checked",
     "reconciled",
-    "refunded_superseded",
+    "needs_review",
     "partial",
     "errors",
     "unchecked",
@@ -249,7 +249,7 @@ def sumup_reconciliation_endpoint(request):
         body["partial"]
         or body["errors"]
         or body["unchecked"]
-        or body["refunded_superseded"]
+        or body["needs_review"]
     )
     logger.log(
         logging.WARNING if needs_attention else logging.INFO,

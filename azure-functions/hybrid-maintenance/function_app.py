@@ -534,11 +534,13 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     _check_sumup_reconciliation_counters(response)
 
 
+_SUMUP_FLAG = "SUMUP_RECONCILIATION_ENABLED"
+
 _SUMUP_COUNTERS = (
     "in_window",
     "checked",
     "reconciled",
-    "refunded_superseded",
+    "needs_review",
     "partial",
     "errors",
     "unchecked",
@@ -558,14 +560,18 @@ def _check_sumup_reconciliation_counters(response) -> None:
         body = None
     if response.status_code != 202:
         # The only other success the endpoint sends is its flag-off skip,
-        # exactly {"skipped": true, "reason": "<flag> is off"}. Anything else
-        # (a 204, an HTML page from a proxy, a changed contract) is not proof
-        # of anything, so it fails rather than reading as a quiet skip.
+        # exactly {"skipped": true, "reason": "SUMUP_RECONCILIATION_ENABLED is
+        # off"} (crush_lu/api_admin_sumup.py). Other endpoints answer the same
+        # shape for THEIR flag (api_admin_campaigns: CAMPAIGN_DISPATCH_ENABLED),
+        # so the reason must name this one — a URL pointed at the wrong
+        # endpoint must not read as a quiet skip. Anything else (a 204, an HTML
+        # page from a proxy, a changed contract) fails too.
         if (
             isinstance(body, dict)
             and set(body) == {"skipped", "reason"}
             and body["skipped"] is True
             and isinstance(body["reason"], str)
+            and _SUMUP_FLAG in body["reason"]
         ):
             return
         raise RuntimeError(
@@ -581,21 +587,19 @@ def _check_sumup_reconciliation_counters(response) -> None:
         )
     counts = {key: body[key] for key in _SUMUP_COUNTERS}
     summary = " ".join(f"{key}={value}" for key, value in counts.items())
-    if counts["errors"] > 0:
+    # needs_review is folded into errors on the Django side; both are
+    # checked so the alert fires even if that ever changes.
+    if counts["errors"] > 0 or counts["needs_review"] > 0:
         logging.error("SumUpReconciliation: sweep reported errors — %s", summary)
         raise RuntimeError(
             f"SumUpReconciliation: {counts['errors']} row(s) could not be "
-            f"checked or written — {summary}"
+            f"checked or written, {counts['needs_review']} need manual review "
+            f"— {summary}"
         )
-    if (
-        counts["unchecked"] > 0
-        or counts["partial"] > 0
-        or counts["refunded_superseded"] > 0
-    ):
+    if counts["unchecked"] > 0 or counts["partial"] > 0:
         logging.warning(
             "SumUpReconciliation: needs attention (unchecked rows wait for a "
-            "later run; partial refunds need a human; superseded payments were "
-            "refunded with the seat kept) — %s",
+            "later run; partial refunds need a human) — %s",
             summary,
         )
     else:

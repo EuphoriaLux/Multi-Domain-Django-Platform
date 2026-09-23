@@ -10,6 +10,7 @@ transaction history): unmocked, they are real HTTP calls to SumUp.
 """
 
 import inspect
+import io
 import logging
 import re
 from datetime import date, timedelta
@@ -39,7 +40,7 @@ COUNTER_KEYS = {
     "in_window",
     "checked",
     "reconciled",
-    "refunded_superseded",
+    "needs_review",
     "partial",
     "errors",
     "unchecked",
@@ -457,7 +458,7 @@ class SumUpReconciliationEndpointTests(TestCase):
             self._run(STILL_PAID)
         line = next(m for m in logs.output if "checked=" in m)
         self.assertIn(
-            "in_window=1 checked=1 reconciled=0 refunded_superseded=0 partial=0 "
+            "in_window=1 checked=1 reconciled=0 needs_review=0 partial=0 "
             "errors=0 unchecked=0 cursor_resumed=False wrapped=True",
             line,
         )
@@ -836,10 +837,47 @@ class SumUpReconciliationEndpointTests(TestCase):
             resp = self._post()
         return resp.json(), [c.args[0] for c in get_checkout.call_args_list]
 
-    def test_refund_of_a_superseded_payment_keeps_the_reused_registration(self):
-        """Cancel, re-register, pay again: views_events reuses the row, so two
-        payments point at it. Refunding the OLD one must not cancel the seat
-        the NEW one paid for."""
+    # -- two PAID payments on one registration/membership (Codex round 7) --
+
+    def _snapshot(self, *objs):
+        """Everything the sweep could mutate, as plain values."""
+        out = []
+        for obj in objs:
+            obj.refresh_from_db()
+            if isinstance(obj, PaymentTransaction):
+                out.append((obj.pk, obj.status, obj.raw_response, obj.failure_reason))
+            elif isinstance(obj, EventRegistration):
+                out.append(
+                    (obj.pk, obj.status, obj.payment_confirmed, obj.payment_date)
+                )
+            elif isinstance(obj, CrushCredit):
+                out.append((obj.pk, obj.status, obj.note))
+            elif isinstance(obj, PremiumMembership):
+                out.append((obj.pk, obj.status, obj.payment_confirmed))
+        return out
+
+    def _assert_flagged_for_review(self, body, logs, refunded, others, funded):
+        self.assertEqual(
+            (body["needs_review"], body["errors"], body["reconciled"]), (1, 1, 0)
+        )
+        warning = next(m for m in logs.output if "needs manual review" in m)
+        self.assertIn(f"payment {refunded.pk}", warning)
+        self.assertIn(refunded.sumup_checkout_id, warning)
+        self.assertIn(funded, warning)
+        for other in others:
+            self.assertIn(str(other.pk), warning)
+        self.assertNotIn(refunded.transaction_reference, warning)
+        self.assertNotIn(self.user.email, warning)
+
+    def _review_run(self, payloads):
+        with (
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            body, _ = self._run_by_id(payloads)
+        return body, logs
+
+    def test_old_payment_refunded_with_a_newer_paid_one_is_flagged(self):
         self._age(self.payment, 20)
         new = self._new_payment(
             "CRUSH-EVT-T2-repaid",
@@ -847,6 +885,29 @@ class SumUpReconciliationEndpointTests(TestCase):
             event_registration=self.registration,
             event=self.event,
         )
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        before = self._snapshot(self.payment, new, self.registration, credit)
+        body, logs = self._review_run(
+            {"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID}
+        )
+        self._assert_flagged_for_review(
+            body, logs, self.payment, [new], f"registration {self.registration.pk}"
+        )
+        self.assertEqual(
+            self._snapshot(self.payment, new, self.registration, credit), before
+        )
+        self.assertEqual(mail.outbox, [])
+
+    def test_new_payment_refunded_with_an_older_compensated_one_is_flagged(self):
+        self._age(self.payment, 20)
         old_credit = CrushCredit.objects.create(
             user=self.user,
             amount_cents=1550,
@@ -856,61 +917,68 @@ class SumUpReconciliationEndpointTests(TestCase):
             source_payment=self.payment,
             source_registration=self.registration,
         )
-        registration_only_credit = CrushCredit.objects.create(
-            user=self.user,
-            amount_cents=500,
-            currency="EUR",
-            reason=CrushCredit.Reason.GOODWILL,
-            status=CrushCredit.Status.ACTIVE,
-            source_registration=self.registration,
-        )
-        with (
-            self.assertLogs(CMD, level=logging.WARNING) as logs,
-            self.captureOnCommitCallbacks(execute=True),
-        ):
-            body, _ = self._run_by_id(
-                {"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID}
-            )
-
-        self.assertEqual((body["refunded_superseded"], body["reconciled"]), (1, 0))
-        self.payment.refresh_from_db()
-        new.refresh_from_db()
-        self.registration.refresh_from_db()
-        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
-        self.assertEqual(new.status, PaymentTransaction.Status.PAID)
-        self.assertEqual(self.registration.status, "confirmed")
-        self.assertTrue(self.registration.payment_confirmed)
-        for credit, expected in (
-            (old_credit, CrushCredit.Status.VOID),
-            (registration_only_credit, CrushCredit.Status.ACTIVE),
-        ):
-            credit.refresh_from_db()
-            self.assertEqual(credit.status, expected)
-
-        warning = next(m for m in logs.output if "superseded payment" in m)
-        self.assertIn(str(self.payment.pk), warning)
-        self.assertNotIn(self.payment.transaction_reference, warning)
-        # The voided credit is visible to the member, so they are told once.
-        mine = self._mails_to(self.user.email)
-        self.assertEqual(len(mine), 1)
-        self.assertIn(self.WITHDRAWN_SENTENCE, mine[0].body)
-
-    def test_superseded_refund_without_credit_sends_nothing(self):
-        self._age(self.payment, 20)
-        self._new_payment(
+        new = self._new_payment(
             "CRUSH-EVT-T2-repaid",
             "chk_t2_new",
             event_registration=self.registration,
             event=self.event,
         )
-        with self.captureOnCommitCallbacks(execute=True):
-            body, _ = self._run_by_id(
-                {"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID}
-            )
-        self.assertEqual(body["refunded_superseded"], 1)
+        before = self._snapshot(self.payment, new, self.registration, old_credit)
+        body, logs = self._review_run(
+            {"chk_t2_1": STILL_PAID, "chk_t2_new": FULL_REFUND}
+        )
+        self._assert_flagged_for_review(
+            body, logs, new, [self.payment], f"registration {self.registration.pk}"
+        )
+        self.assertEqual(
+            self._snapshot(self.payment, new, self.registration, old_credit), before
+        )
         self.assertEqual(mail.outbox, [])
 
-    def test_superseded_premium_payment_keeps_the_membership(self):
+    def test_a_credit_funded_repayment_is_flagged_not_kept(self):
+        """The card payment is refunded; the newer CREDIT payment was funded by
+        credit issued FROM that card payment (now consumed). Keeping the seat
+        would leave the member with both the seat and the cash."""
+        self._age(self.payment, 20)
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.CONSUMED,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        credit_payment = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-T2-credit",
+            provider=PaymentTransaction.Provider.CREDIT,
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            event=self.event,
+        )
+        CreditRedemption.objects.create(
+            credit=credit, amount_cents=1550, event_registration=self.registration
+        )
+        before = self._snapshot(self.payment, credit_payment, self.registration, credit)
+        body, logs = self._review_run({"chk_t2_1": FULL_REFUND})
+        self._assert_flagged_for_review(
+            body,
+            logs,
+            self.payment,
+            [credit_payment],
+            f"registration {self.registration.pk}",
+        )
+        self.assertEqual(
+            self._snapshot(self.payment, credit_payment, self.registration, credit),
+            before,
+        )
+        self.assertEqual(mail.outbox, [])
+
+    def test_premium_with_two_paid_payments_is_flagged(self):
         coach_user = User.objects.create_user(
             username="t2_coach", email="t2_coach@crush.lu", password="x" * 12
         )
@@ -930,97 +998,99 @@ class SumUpReconciliationEndpointTests(TestCase):
             premium_membership=pm,
         )
         self._age(old, 20)
-        self._new_payment(
+        new = self._new_payment(
             "CRUSH-PREM-T2-new",
             "chk_prem_new",
             purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
             premium_membership=pm,
         )
-        body, _ = self._run_by_id(
+        before = self._snapshot(old, new, pm)
+        body, logs = self._review_run(
             {
                 "chk_prem_old": {"id": "chk_prem_old", "status": "REFUNDED"},
                 "chk_prem_new": {"id": "chk_prem_new", "status": "PAID"},
             }
         )
-        self.assertEqual(body["refunded_superseded"], 1)
-        pm.refresh_from_db()
-        old.refresh_from_db()
-        self.assertEqual(pm.status, "active")
-        self.assertEqual(old.status, PaymentTransaction.Status.REFUNDED)
+        self._assert_flagged_for_review(body, logs, old, [new], f"membership {pm.pk}")
+        self.assertEqual(self._snapshot(old, new, pm), before)
 
-    def test_refunding_the_current_payment_cancels_despite_an_older_paid_one(self):
-        """Codex 4080525262: the member cancelled early (credit issued, the old
-        payment stays PAID), re-registered and paid again; the NEW payment is
-        refunded. The compensated older payment must not keep the seat."""
+    def test_a_flagged_row_spends_no_write_and_the_sweep_goes_on(self):
+        """Nothing was written, so a later refund is still reconciled in the
+        same run; the flagged row counts as read for the cursor."""
+        from crush_lu import api_admin_sumup
+
         self._age(self.payment, 20)
-        old_credit = CrushCredit.objects.create(
-            user=self.user,
-            amount_cents=1550,
-            currency="EUR",
-            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
-            status=CrushCredit.Status.ACTIVE,
-            source_payment=self.payment,
-            source_registration=self.registration,
-        )
-        new = self._new_payment(
+        self._new_payment(
             "CRUSH-EVT-T2-repaid",
             "chk_t2_new",
             event_registration=self.registration,
             event=self.event,
         )
+        later = self._second_refundable_payment()
         body, order = self._run_by_id(
-            {"chk_t2_1": STILL_PAID, "chk_t2_new": FULL_REFUND}
+            {
+                "chk_t2_1": FULL_REFUND,
+                "chk_t2_new": STILL_PAID,
+                "chk_t2_2": {"id": "chk_t2_2", "status": "REFUNDED"},
+            }
         )
-        self.assertEqual(order, ["chk_t2_1", "chk_t2_new"])
-        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
-        new.refresh_from_db()
+        self.assertEqual(order[0], "chk_t2_1")
+        self.assertEqual((body["needs_review"], body["reconciled"]), (1, 1))
+        later.refresh_from_db()
+        self.assertEqual(later.status, PaymentTransaction.Status.REFUNDED)
+
+        # And it counts as read: a one-row run moves the cursor past it.
+        cache.clear()
+        PaymentTransaction.objects.filter(pk=later.pk).update(
+            status=PaymentTransaction.Status.PAID
+        )
+        import itertools
+
+        # Clock: start, the row's read check and its write check are in
+        # budget; the next row's read check is past it.
+        clock = patch(
+            f"{CMD}.time",
+            **{
+                "monotonic.side_effect": itertools.chain(
+                    [0, 0, 0], itertools.repeat(10**6)
+                )
+            },
+        )
+        with clock:
+            _, order = self._run_by_id(
+                {
+                    "chk_t2_1": FULL_REFUND,
+                    "chk_t2_new": STILL_PAID,
+                    "chk_t2_2": STILL_PAID,
+                }
+            )
+        self.assertEqual(order, ["chk_t2_1"])
+        cursor = cache.get(api_admin_sumup.CURSOR_CACHE_KEY)
+        self.assertEqual(cursor["pk"], self.payment.pk)
+
+    def test_cli_prints_the_review_as_an_error(self):
+        from django.core.management import call_command
+
+        self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        out = io.StringIO()
+        with (
+            patch(
+                GET_CHECKOUT,
+                side_effect=lambda c: FULL_REFUND if c == "chk_t2_1" else STILL_PAID,
+            ),
+            patch(GET_HISTORY, return_value={"items": []}),
+        ):
+            call_command("reconcile_sumup_payments", stdout=out, no_color=True)
+        text = out.getvalue()
+        self.assertIn("needs manual review", text)
+        self.assertIn("1 error(s)", text)
         self.payment.refresh_from_db()
-        self.registration.refresh_from_db()
-        old_credit.refresh_from_db()
-        self.assertEqual(new.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
-        self.assertEqual(self.registration.status, "cancelled")
-        self.assertFalse(self.registration.payment_confirmed)
-        # Existing rule: only credit sourced from the refunded payment (or
-        # matched by registration with no payment) is voided. The old credit
-        # was earned by the earlier cancellation and stays.
-        self.assertEqual(old_credit.status, CrushCredit.Status.ACTIVE)
-
-    def test_an_older_uncompensated_payment_never_supersedes(self):
-        self._age(self.payment, 20)
-        new = self._new_payment(
-            "CRUSH-EVT-T2-repaid",
-            "chk_t2_new",
-            event_registration=self.registration,
-            event=self.event,
-        )
-        body, _ = self._run_by_id({"chk_t2_1": STILL_PAID, "chk_t2_new": FULL_REFUND})
-        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
-        new.refresh_from_db()
-        self.registration.refresh_from_db()
-        self.assertEqual(new.status, PaymentTransaction.Status.REFUNDED)
-        self.assertEqual(self.registration.status, "cancelled")
-
-    def test_a_newer_but_compensated_payment_does_not_supersede(self):
-        """A later payment that was itself compensated funds nothing."""
-        self._age(self.payment, 20)
-        new = self._new_payment(
-            "CRUSH-EVT-T2-repaid",
-            "chk_t2_new",
-            event_registration=self.registration,
-            event=self.event,
-        )
-        CrushCredit.objects.create(
-            user=self.user,
-            amount_cents=1550,
-            currency="EUR",
-            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
-            status=CrushCredit.Status.ACTIVE,
-            source_payment=new,
-            source_registration=self.registration,
-        )
-        body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID})
-        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
 
     # -- a failed write must not block every run (Codex 4080525269) -------
 
@@ -1179,7 +1249,7 @@ class SumUpReconciliationEndpointTests(TestCase):
 
     def test_single_payment_refund_is_unchanged(self):
         body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
-        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
+        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 0))
         self.registration.refresh_from_db()
         self.assertEqual(self.registration.status, "cancelled")
 
@@ -1362,7 +1432,7 @@ class SumUpReconciliationStructureTests(TestCase):
 
         src = inspect.getsource(Command._reconcile_refunded)
         seq = re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src)
-        # The funded row is locked early (before the superseded check) and
+        # The funded row is locked early (before the second-payment check) and
         # re-read later; what matters is the order each model is FIRST locked.
         self.assertEqual(seq[0], "PaymentTransaction")
         self.assertEqual(
