@@ -1,0 +1,65 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <h1 class="text-4xl sm:text-5xl font-bold mb-6">{% trans "Selected work" %}</h1>
+        <p class="text-xl text-orange-100 max-w-3xl">{% trans "Different kinds of work, clearly labelled: client delivery, our own products, internal tools and concepts." %}</p>
+    </div>
+</section>
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <article class="card p-8">
+            <p class="text-sm font-semibold uppercase text-powerup-orange mb-3">{% trans "Client delivery · Live" %}</p>
+            <h2 class="text-3xl font-bold mb-4">Arborist.lu</h2>
+            <p class="text-gray-600 mb-5">{% trans "For a Luxembourg tree-care business, we built a multilingual website and appointment workflow. Customers can request an on-site visit; the system handles travel-zone pricing and urgent requests." %}</p>
+            <p class="text-sm text-gray-500 mb-6">{% trans "Website · Booking · Staff workflow" %}</p>
+            <a href="https://arborist.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange font-semibold hover:underline">{% trans "Visit Arborist.lu" %} ↗</a>
+        </article>
+        <article class="card p-8">
+            <p class="text-sm font-semibold uppercase text-powerup-orange mb-3">{% trans "Owned product · Live" %}</p>
+            <h2 class="text-3xl font-bold mb-4">Crush.lu</h2>
+            <p class="text-gray-600 mb-5">{% trans "Our own event and dating platform combines registration, identity checks, event operations, member experiences and mobile applications." %}</p>
+            <p class="text-sm text-gray-500 mb-6">{% trans "Web platform · Operations · Mobile" %}</p>
+            <a href="https://crush.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange font-semibold hover:underline">{% trans "Visit Crush.lu" %} ↗</a>
+        </article>
+        <article class="card p-8">
+            <p class="text-sm font-semibold uppercase text-powerup-orange mb-3">{% trans "Internal tool · Restricted access" %}</p>
+            <h2 class="text-3xl font-bold mb-4">Azure FinOps</h2>
+            <p class="text-gray-600">{% trans "An internal tool for importing and reviewing Azure cost data. It illustrates data pipelines and operational reporting; the dashboard is not a public product." %}</p>
+        </article>
+        <article class="card p-8">
+            <p class="text-sm font-semibold uppercase text-powerup-orange mb-3">{% trans "Managed service · Available" %}</p>
+            <h2 class="text-3xl font-bold mb-4">{% trans "Event solutions" %}</h2>
+            <p class="text-gray-600 mb-6">{% trans "We run ticketing, quiz nights and speed-dating events for venues, agencies and organizations using tools developed for Crush.lu." %}</p>
+            <a href="{% url 'power_up:solutions' %}" class="text-powerup-orange font-semibold hover:underline">{% trans "Explore event solutions" %} →</a>
+        </article>
+    </div>
+</section>
+<section class="section bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold mb-4">{% trans "Other projects and concepts" %}</h2>
+        <p class="text-lg text-gray-600 mb-8">{% trans "These sites show ideas at different stages. A concept is not a launched customer product." %}</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for platform in platforms %}
+                {% if platform.group == "other" %}
+                <article class="bg-white rounded-xl p-6">
+                    <p class="text-sm font-semibold uppercase text-powerup-orange mb-2">{{ platform.status_label }}</p>
+                    <h3 class="text-xl font-semibold mb-2">{{ platform.name }}</h3>
+                    <p class="text-gray-600 mb-4">{{ platform.description }}</p>
+                    <a href="{{ platform.url }}" target="_blank" rel="noopener noreferrer" class="text-powerup-orange font-medium hover:underline">{% trans "Visit site" %} ↗</a>
+                </article>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+<section class="section bg-gray-900 text-white text-center">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold mb-4">{% trans "Have a similar challenge?" %}</h2>
+        <p class="text-lg text-gray-300 mb-8">{% trans "Tell us what your team needs to do better. We can discuss a practical first step." %}</p>
+        <a href="{% url 'power_up:contact' %}" class="btn-primary">{% trans "Discuss your project" %}</a>
+    </div>
+</section>
+{% endblock %}

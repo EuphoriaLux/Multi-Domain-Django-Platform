@@ -34,11 +34,20 @@ class PowerUpRoutingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "power_up/home.html")
 
-    def test_home_page_has_platforms(self):
-        """Home page includes platforms in context."""
+    def test_home_page_leads_with_agency_offer(self):
+        """A prospective client sees the custom software offer first."""
         response = self.client.get("/en/")
-        self.assertIn("platforms", response.context)
-        self.assertEqual(len(response.context["platforms"]), len(PLATFORMS))
+        self.assertContains(response, "Custom business software")
+        self.assertContains(response, 'href="/en/services/"')
+        self.assertContains(response, 'href="/en/contact/"')
+
+    def test_agency_pages_render_in_every_language(self):
+        """New buyer-facing routes resolve on all three site languages."""
+        for language in ("en", "fr", "de"):
+            for path in ("services", "work", "approach"):
+                with self.subTest(language=language, path=path):
+                    response = self.client.get(f"/{language}/{path}/")
+                    self.assertEqual(response.status_code, 200)
 
     def test_about_page_returns_200(self):
         """About page returns 200 and uses correct template."""
@@ -166,19 +175,24 @@ class PowerUpNavigationTestCase(TestCase):
         """Home page contains navigation links (with language prefix)."""
         response = self.client.get("/en/")
         content = response.content.decode()
-        # URLs now have language prefix
+        self.assertIn('href="/en/services/"', content)
+        self.assertIn('href="/en/work/"', content)
+        self.assertIn('href="/en/approach/"', content)
         self.assertIn('href="/en/about/"', content)
-        self.assertIn('href="/en/platforms/"', content)
-        self.assertIn('href="/en/investors/"', content)
         self.assertIn('href="/en/contact/"', content)
 
-    def test_home_has_platform_links(self):
-        """Home page contains links to external platforms."""
-        response = self.client.get("/en/")
+    def test_work_labels_project_relationships(self):
+        """Work page distinguishes client, owned and internal projects."""
+        response = self.client.get("/en/work/")
         content = response.content.decode()
+        self.assertIn("Client delivery", content)
+        self.assertIn("Owned product", content)
+        self.assertIn("Internal tool", content)
+        self.assertIn("Concept", content)
+        self.assertIn("Coming soon", content)
+        self.assertNotIn('href="/finops/"', content)
         self.assertIn("https://crush.lu", content)
         self.assertIn("https://vinsdelux.com", content)
-        self.assertIn("https://entreprinder.lu", content)
 
 
 class PowerUpSEOTestCase(TestCase):
@@ -316,11 +330,10 @@ class PowerUpSolutionsTestCase(TestCase):
         self.assertIn("Ticketing, quiz nights and speed dating", content)
 
     def test_solutions_linked_from_navigation_and_home(self):
-        """The nav bar and the home page teaser both link to the page."""
+        """The agency homepage keeps a path to managed event solutions."""
         response = self.client.get("/en/")
         content = response.content.decode()
         self.assertIn('href="/en/solutions/"', content)
-        self.assertIn('href="/en/solutions/#quiz"', content)
 
     def test_solutions_have_required_fields(self):
         """Each solution has the fields the templates read."""

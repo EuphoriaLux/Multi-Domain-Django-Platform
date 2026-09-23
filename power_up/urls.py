@@ -12,6 +12,9 @@ app_name = "power_up"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("services/", views.services, name="services"),
+    path("work/", views.work, name="work"),
+    path("approach/", views.approach, name="approach"),
     path("about/", views.about, name="about"),
     path("solutions/", views.solutions, name="solutions"),
     path("platforms/", views.platforms, name="platforms"),
