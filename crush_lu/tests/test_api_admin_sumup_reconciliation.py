@@ -861,15 +861,6 @@ class SumUpReconciliationEndpointTests(TestCase):
             status=CrushCredit.Status.ACTIVE,
             source_registration=self.registration,
         )
-        new_credit = CrushCredit.objects.create(
-            user=self.user,
-            amount_cents=700,
-            currency="EUR",
-            reason=CrushCredit.Reason.GOODWILL,
-            status=CrushCredit.Status.ACTIVE,
-            source_payment=new,
-        )
-
         with (
             self.assertLogs(CMD, level=logging.WARNING) as logs,
             self.captureOnCommitCallbacks(execute=True),
@@ -889,7 +880,6 @@ class SumUpReconciliationEndpointTests(TestCase):
         for credit, expected in (
             (old_credit, CrushCredit.Status.VOID),
             (registration_only_credit, CrushCredit.Status.ACTIVE),
-            (new_credit, CrushCredit.Status.ACTIVE),
         ):
             credit.refresh_from_db()
             self.assertEqual(credit.status, expected)
@@ -954,6 +944,131 @@ class SumUpReconciliationEndpointTests(TestCase):
         old.refresh_from_db()
         self.assertEqual(pm.status, "active")
         self.assertEqual(old.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_refunding_the_current_payment_cancels_despite_an_older_paid_one(self):
+        """Codex 4080525262: the member cancelled early (credit issued, the old
+        payment stays PAID), re-registered and paid again; the NEW payment is
+        refunded. The compensated older payment must not keep the seat."""
+        self._age(self.payment, 20)
+        old_credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        new = self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        body, order = self._run_by_id(
+            {"chk_t2_1": STILL_PAID, "chk_t2_new": FULL_REFUND}
+        )
+        self.assertEqual(order, ["chk_t2_1", "chk_t2_new"])
+        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
+        new.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        old_credit.refresh_from_db()
+        self.assertEqual(new.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "cancelled")
+        self.assertFalse(self.registration.payment_confirmed)
+        # Existing rule: only credit sourced from the refunded payment (or
+        # matched by registration with no payment) is voided. The old credit
+        # was earned by the earlier cancellation and stays.
+        self.assertEqual(old_credit.status, CrushCredit.Status.ACTIVE)
+
+    def test_an_older_uncompensated_payment_never_supersedes(self):
+        self._age(self.payment, 20)
+        new = self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        body, _ = self._run_by_id({"chk_t2_1": STILL_PAID, "chk_t2_new": FULL_REFUND})
+        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
+        new.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(new.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.registration.status, "cancelled")
+
+    def test_a_newer_but_compensated_payment_does_not_supersede(self):
+        """A later payment that was itself compensated funds nothing."""
+        self._age(self.payment, 20)
+        new = self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=new,
+            source_registration=self.registration,
+        )
+        body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND, "chk_t2_new": STILL_PAID})
+        self.assertEqual((body["reconciled"], body["refunded_superseded"]), (1, 0))
+
+    # -- a failed write must not block every run (Codex 4080525269) -------
+
+    def _two_refunds_oldest_first(self):
+        self._age(self.payment, 20)
+        later = self._second_refundable_payment()
+        return later, {
+            "chk_t2_1": FULL_REFUND,
+            "chk_t2_2": {"id": "chk_t2_2", "status": "REFUNDED"},
+        }
+
+    def test_a_rolled_back_write_does_not_spend_the_allowance(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        later, payloads = self._two_refunds_oldest_first()
+        original = Command._reconcile_refunded
+
+        def fail_before_commit(cmd, tx_obj, remote_data, **kwargs):
+            if tx_obj.pk == self.payment.pk:
+                raise RuntimeError("credit could not be voided")
+            return original(cmd, tx_obj, remote_data, **kwargs)
+
+        with patch.object(Command, "_reconcile_refunded", fail_before_commit):
+            body, order = self._run_by_id(payloads)
+        self.assertEqual(order, ["chk_t2_1", "chk_t2_2"])
+        self.assertEqual(
+            (body["errors"], body["reconciled"], body["unchecked"]), (1, 1, 0)
+        )
+        self.payment.refresh_from_db()
+        later.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(later.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_a_committed_write_that_raises_afterwards_still_stops(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        later, payloads = self._two_refunds_oldest_first()
+        original = Command._reconcile_refunded
+
+        def fail_after_commit(cmd, tx_obj, remote_data, **kwargs):
+            original(cmd, tx_obj, remote_data, **kwargs)
+            raise RuntimeError("on_commit callback blew up")
+
+        with patch.object(Command, "_reconcile_refunded", fail_after_commit):
+            body, order = self._run_by_id(payloads)
+        self.assertEqual(order, ["chk_t2_1"])
+        self.assertEqual((body["errors"], body["unchecked"]), (1, 1))
+        self.payment.refresh_from_db()
+        later.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(later.status, PaymentTransaction.Status.PAID)
 
     def test_single_payment_refund_is_unchanged(self):
         body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})

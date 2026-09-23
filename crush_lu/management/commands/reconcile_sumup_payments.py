@@ -20,8 +20,8 @@ Usage::
     # Reconcile a single checkout
     python manage.py reconcile_sumup_payments --checkout-id <sumup_checkout_id>
 
-⚠️ ``--days`` windows on ``PaymentTransaction.created_at`` — when the member
-PAID, not when the refund happened. A refund taken today against a three-week-old
+⚠️ ``--days`` windows on ``PaymentTransaction.paid_at`` (``created_at`` for
+legacy rows without it) — when the member PAID, not when the refund happened. A refund taken today against a three-week-old
 seat is outside ``--days 7`` no matter how recent the refund is. To check a
 refund you just made, name the payment instead: ``--reference`` and
 ``--checkout-id`` skip the date window entirely.
@@ -35,7 +35,7 @@ from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -794,10 +794,20 @@ class Command(BaseCommand):
                             f"({tx_obj.sumup_checkout_id}): {exc}"
                         )
                     )
-                    # An exception can come from an on_commit callback AFTER
-                    # the write committed, so a raised write still used up
-                    # this run's write allowance.
-                    if max_writes is not None and write_attempted:
+                    # Did the write commit? Ask the database, not the cached
+                    # row. REFUNDED means it committed and the exception came
+                    # from an on_commit callback: the allowance is spent (the
+                    # post-commit chain ran), so stop. Anything else means the
+                    # atomic block rolled back: an error on this row only —
+                    # keep the allowance and go on, or one bad row at the
+                    # front of an oldest-first window would block every run.
+                    committed = (
+                        PaymentTransaction.objects.filter(pk=tx_obj.pk)
+                        .values_list("status", flat=True)
+                        .first()
+                        == PaymentTransaction.Status.REFUNDED
+                    )
+                    if max_writes is not None and write_attempted and committed:
                         unchecked = total_count - checked
                         break
                     continue
@@ -863,16 +873,34 @@ class Command(BaseCommand):
 
     @staticmethod
     def _other_paid_payment_ids(tx):
-        """Other PAID payments funding the same registration or membership.
+        """PAID payments from a LATER cycle that fund the same registration or membership.
 
         EventRegistration rows are reused on re-registration (views_events
         ``_admitted_status``), so a member who cancelled, re-registered and
         paid again has TWO PaymentTransactions on one registration. Refunding
         the old one must not cancel the seat the new one paid for.
+
+        Only a payment that could be what funds the seat NOW counts:
+
+        * it is from a later cycle — paid (or, for legacy rows, created)
+          after the refunded one, pk breaking a tie. An older payment never
+          supersedes: when the CURRENT charge is refunded, the seat goes.
+        * it has not been compensated — no live Crush Credit was issued from
+          it. A compensated payment belongs to a cycle the member already
+          cancelled; it funds nothing.
         """
-        others = PaymentTransaction.objects.filter(
-            status=PaymentTransaction.Status.PAID
-        ).exclude(pk=tx.pk)
+        mine = tx.paid_at or tx.created_at
+        cycle_key = Coalesce(F("paid_at"), F("created_at"))
+        compensated = CrushCredit.objects.filter(
+            source_payment=OuterRef("pk")
+        ).exclude(status=CrushCredit.Status.VOID)
+        others = (
+            PaymentTransaction.objects.filter(status=PaymentTransaction.Status.PAID)
+            .exclude(pk=tx.pk)
+            .annotate(cycle_key=cycle_key)
+            .filter(Q(cycle_key__gt=mine) | Q(cycle_key=mine, pk__gt=tx.pk))
+            .exclude(Exists(compensated))
+        )
         if tx.event_registration_id:
             return list(
                 others.filter(event_registration_id=tx.event_registration_id)
