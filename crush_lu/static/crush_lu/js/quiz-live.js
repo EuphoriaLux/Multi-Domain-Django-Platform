@@ -443,6 +443,10 @@ document.addEventListener("alpine:init", function () {
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "active" && data.question) {
+                        if (data.current_round) {
+                            this.roundName = _localized(data.current_round, "title");
+                            this.isBonusRound = data.current_round.is_bonus || false;
+                        }
                         this.showQuestion(data);
                         // Render persistent leaderboard after question setup
                         this._renderTableLeaderboard();
@@ -501,6 +505,12 @@ document.addEventListener("alpine:init", function () {
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "round_complete") {
                         this.screen = "waiting";
+                    }
+                    // Start broadcasts the first round here; nothing else
+                    // carries its title to the player header.
+                    if (data.current_round) {
+                        this.roundName = _localized(data.current_round, "title");
+                        this.isBonusRound = data.current_round.is_bonus || false;
                     }
                 } else if (type === "quiz.table_scored") {
                     // Scoring in progress — no correctness info yet (deferred until all tables scored)
@@ -1242,6 +1252,10 @@ document.addEventListener("alpine:init", function () {
                     this.tableCount = parseInt(tc, 10);
                     this.totalTables = this.tableCount;
                 }
+                // Seed the rotation round from the server so the overview poll
+                // asks for the seating the page was rendered with — not round 0.
+                var rn = parseInt(this.$el.getAttribute("data-round-number"), 10);
+                if (!isNaN(rn)) this._currentRoundNumber = rn;
                 // Parse initial table members from server
                 var tmAttr = this.$el.getAttribute("data-table-members");
                 if (tmAttr) {
@@ -1332,6 +1346,18 @@ document.addEventListener("alpine:init", function () {
                         }
                         this.isLastRound = !hasUpcoming;
                         this._renderRoundButtons();
+                        // Resync the rotation round: a rotate broadcast missed
+                        // while disconnected would otherwise leave the overview
+                        // poll on the old round. `rounds` arrives in the same
+                        // (sort_order, pk) order that numbers rotation rounds.
+                        if (data.current_round) {
+                            for (var rj = 0; rj < this.rounds.length; rj++) {
+                                if (this.rounds[rj].id === data.current_round.id) {
+                                    this._currentRoundNumber = rj;
+                                    break;
+                                }
+                            }
+                        }
                     }
                     if (data.question) {
                         this.currentQuestion = data.question;

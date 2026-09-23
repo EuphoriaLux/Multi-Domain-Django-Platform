@@ -2026,6 +2026,7 @@ def build_leaderboard(quiz_id):
 
     # Individual top scorers (using display_name for privacy)
     from crush_lu.models import CrushProfile
+    from crush_lu.views_quiz import _photo_url
 
     top_individuals = (
         IndividualScore.objects.filter(quiz_id=quiz_id)
@@ -2039,8 +2040,7 @@ def build_leaderboard(quiz_id):
         try:
             profile = CrushProfile.objects.get(user_id=entry["user_id"])
             name = profile.display_name
-            has_photo = bool(getattr(profile, "photo_1", None))
-            photo_url = f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
+            photo_url = _photo_url(profile)
         except CrushProfile.DoesNotExist:
             name = "Anonymous"
             photo_url = None
