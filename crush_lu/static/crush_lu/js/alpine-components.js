@@ -58,6 +58,10 @@ document.addEventListener("alpine:init", function () {
         return target;
     }
 
+    // The only path the coach door scanner may POST a scanned QR to — see
+    // coachCheckin._checkinPathFromScan. Group 1 is the registration id.
+    var CHECKIN_API_PATH_RE = /^\/api\/events\/checkin\/(\d+)\/[^\/]+\/$/;
+
     function makeTabs(initial, names) {
         return {
             activeTab: initial,
@@ -1613,6 +1617,7 @@ document.addEventListener("alpine:init", function () {
                 var url =
                     btn.getAttribute("data-print-url") ||
                     self._apiUrl("print-ticket", regId);
+                if (self._missingActionUrl(url)) return;
                 fetch(url)
                     .then(function (r) {
                         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -1826,7 +1831,73 @@ document.addEventListener("alpine:init", function () {
                     .catch(function () {});
             },
 
-            handleScan: function (url) {
+            // A scanned QR is untrusted text: whatever the camera decodes
+            // lands here — a stranger's QR, a menu, a half-read frame. Only
+            // a Crush.lu check-in ticket may reach the network, and only as
+            // a path on THIS origin. Before this guard an empty or "?…"/"#…"
+            // decode resolved to the door page's own URL and was POSTed
+            // there (prod: 403 "CSRF token missing" on
+            // /de/coach/events/<id>/checkin/ from iOS Safari), and a foreign
+            // QR was POSTed blind to whatever host it named.
+            //
+            // Returns the path to POST, or null to reject. Hosts compare
+            // with one leading "www." dropped: www.crush.lu is served (not
+            // redirected) and tickets embed the host they were minted on
+            // (views_ticket.py, wallet/*), so a crush.lu ticket must still
+            // work at a www.crush.lu door. The signed token is
+            // host-independent and the caller fetches the bare path, so no
+            // request ever leaves this origin. test.crush.lu stays foreign.
+            _checkinPathFromScan: function (text) {
+                if (typeof text !== "string" || !text.trim()) return null;
+                var parsed;
+                try {
+                    parsed = new URL(text.trim(), window.location.origin);
+                } catch (e) {
+                    return null;
+                }
+                var bareHost = function (host) {
+                    return String(host).toLowerCase().replace(/^www\./, "");
+                };
+                if (
+                    parsed.protocol !== window.location.protocol ||
+                    parsed.port !== window.location.port ||
+                    bareHost(parsed.hostname) !== bareHost(window.location.hostname)
+                ) {
+                    return null;
+                }
+                // Mirrors azureproject/urls_crush.py
+                // "api/events/checkin/<int:registration_id>/<str:token>/";
+                // <str:> is [^/]+ (the Signer token contains colons).
+                if (!CHECKIN_API_PATH_RE.test(parsed.pathname)) return null;
+                return parsed.pathname;
+            },
+
+            // Re-arm the camera 2 s after any scan outcome. Every exit of
+            // handleScan must call this, or scanBusy stays true and the door
+            // is dead after one bad QR.
+            _resumeScanSoon: function () {
+                var self = this;
+                setTimeout(function () {
+                    self.scanBusy = false;
+                    if (self.scanner && self.scannerActive) {
+                        self.scanner.start().catch(function () {});
+                    }
+                }, 2000);
+            },
+
+            // Door buttons read their endpoint from a data-* attribute. An
+            // empty one must never reach fetch(): fetch("") (or a relative
+            // "?…") resolves to the page's own URL. Returns true — after
+            // telling the coach — when the action has to stop here.
+            _missingActionUrl: function (url) {
+                if (url && String(url).trim()) return false;
+                alert(
+                    gettext("This button has no action link. Please reload the page."),
+                );
+                return true;
+            },
+
+            handleScan: function (text) {
                 var self = this;
                 // qr-scanner keeps decoding ~10x/s while the code is visible;
                 // process the first hit and ignore the rest until resume.
@@ -1836,9 +1907,19 @@ document.addEventListener("alpine:init", function () {
                     self.scanner.pause();
                 }
 
+                var url = self._checkinPathFromScan(text);
+                if (!url) {
+                    self.result = true;
+                    self.success = false;
+                    self.errorState = true;
+                    self.message = gettext("This QR code is not a Crush.lu ticket.");
+                    self._resumeScanSoon();
+                    return;
+                }
+
                 // Pre-mark registration as processed to prevent WebSocket duplicate
-                // URL format: /api/events/checkin/<reg_id>/<token>/
-                var urlMatch = url.match(/\/checkin\/(\d+)\//);
+                // Path format: /api/events/checkin/<reg_id>/<token>/
+                var urlMatch = url.match(CHECKIN_API_PATH_RE);
                 if (urlMatch) {
                     self.processedIds[urlMatch[1]] = true;
                 }
@@ -1876,24 +1957,14 @@ document.addEventListener("alpine:init", function () {
                             self.errorState = true;
                             self.message = data.error || gettext("Check-in failed.");
                         }
-                        setTimeout(function () {
-                            self.scanBusy = false;
-                            if (self.scanner && self.scannerActive) {
-                                self.scanner.start().catch(function () {});
-                            }
-                        }, 2000);
+                        self._resumeScanSoon();
                     })
                     .catch(function () {
                         self.result = true;
                         self.success = false;
                         self.errorState = true;
                         self.message = gettext("Network error or invalid QR code.");
-                        setTimeout(function () {
-                            self.scanBusy = false;
-                            if (self.scanner && self.scannerActive) {
-                                self.scanner.start().catch(function () {});
-                            }
-                        }, 2000);
+                        self._resumeScanSoon();
                     });
             },
 
@@ -1903,6 +1974,7 @@ document.addEventListener("alpine:init", function () {
                 var btn = evt.currentTarget;
                 var url = btn.getAttribute("data-checkin-url");
                 var regId = btn.getAttribute("data-reg-id");
+                if (self._missingActionUrl(url)) return;
                 btn.disabled = true;
                 btn.textContent = "...";
 
@@ -1961,6 +2033,7 @@ document.addEventListener("alpine:init", function () {
                 var url = btn.getAttribute("data-undo-url");
                 var regId = btn.getAttribute("data-reg-id");
                 var i18n = window._checkinI18n || {};
+                if (self._missingActionUrl(url)) return;
                 if (!window.confirm(i18n.undoConfirm || "Undo this check-in?")) {
                     return;
                 }
@@ -2010,6 +2083,7 @@ document.addEventListener("alpine:init", function () {
                 var url = btn.getAttribute("data-promote-url");
                 var regId = btn.getAttribute("data-reg-id");
                 var i18n = window._checkinI18n || {};
+                if (self._missingActionUrl(url)) return;
                 btn.disabled = true;
                 btn.textContent = "...";
 
@@ -2065,6 +2139,7 @@ document.addEventListener("alpine:init", function () {
                 var regId = btn.getAttribute("data-reg-id");
                 var toastId = btn.getAttribute("data-toast-id");
                 var i18n = window._checkinI18n || {};
+                if (self._missingActionUrl(url)) return;
 
                 if (
                     !window.confirm(
@@ -2113,6 +2188,7 @@ document.addEventListener("alpine:init", function () {
                 var url = btn.getAttribute("data-verify-url");
                 var regId = btn.getAttribute("data-reg-id");
                 var i18n = window._checkinI18n || {};
+                if (self._missingActionUrl(url)) return;
                 btn.disabled = true;
                 btn.textContent = "...";
 

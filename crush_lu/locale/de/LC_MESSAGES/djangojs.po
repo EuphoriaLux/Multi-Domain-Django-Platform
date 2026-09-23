@@ -320,3 +320,11 @@ msgstr "Jetzt aktualisieren"
 #: static/crush_lu/js/pwa-update.js:89
 msgid "Later"
 msgstr "Später"
+
+#: static/crush_lu/js/alpine-components.js
+msgid "This QR code is not a Crush.lu ticket."
+msgstr "Dieser QR-Code ist kein Crush.lu-Ticket."
+
+#: static/crush_lu/js/alpine-components.js
+msgid "This button has no action link. Please reload the page."
+msgstr "Diese Schaltfläche hat keinen Aktionslink. Bitte aktualisiere die Seite."
