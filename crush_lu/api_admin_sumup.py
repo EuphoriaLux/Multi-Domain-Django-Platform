@@ -43,11 +43,36 @@ logger = logging.getLogger(__name__)
 # refund happened, so it must stay at the command's 30-day default.
 RECONCILIATION_DAYS = 30
 
-# Contract §6.3: the App Service front end abandons a request at ~230 s and
-# leaves no request telemetry. Stop starting new rows after this many seconds;
-# each row costs at most two SumUp reads with a 10 s timeout each, so the
-# request still ends well inside the Function's 110 s HTTP timeout.
-RECONCILIATION_BUDGET_SECONDS = 80
+# Time budget (contract §6.3). The whole request — including what a write sets
+# off after it commits — must end before the SumUpReconciliation Function's
+# 110 s HTTP timeout (function_app.py), which is itself under gunicorn's
+# --timeout 120 (startup.sh). Nothing retries a request cut off mid-flight, so
+# the budget is a worst case built from the real timeouts, not an average:
+#
+#   SumUpClient.get_checkout / get_transactions_history: timeout=10 each
+#     (crush_lu/services/sumup.py), and a row makes at most two reads.
+#   GraphEmailBackend sendMail: timeout=30 (azureproject/graph_email_backend.py).
+#     Reconciling a confirmed registration cancels it; the waitlist signal then
+#     runs synchronously on commit and can send two emails — the cancelled
+#     member's confirmation and the promoted member's seat email.
+#
+# Both source timeouts are pinned by a test so this cannot drift silently.
+FUNCTION_TIMEOUT_SECONDS = 110
+DEADLINE_MARGIN_SECONDS = 10
+SUMUP_READ_TIMEOUT_SECONDS = 10
+SUMUP_READS_PER_ROW = 2
+GRAPH_SEND_TIMEOUT_SECONDS = 30
+EMAILS_PER_RECONCILED_ROW = 2
+WRITE_MARGIN_SECONDS = 5  # locks, row writes, credit void, MSAL token
+
+# 100 s: the hard deadline for the sweep.
+RECONCILIATION_BUDGET_SECONDS = FUNCTION_TIMEOUT_SECONDS - DEADLINE_MARGIN_SECONDS
+# 21 s: a row is started only while elapsed < 79 s.
+READ_RESERVE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * SUMUP_READS_PER_ROW + 1
+# 65 s: a detected refund is written only while elapsed < 35 s.
+WRITE_RESERVE_SECONDS = (
+    GRAPH_SEND_TIMEOUT_SECONDS * EMAILS_PER_RECONCILED_ROW + WRITE_MARGIN_SECONDS
+)
 
 _FLAG = "SUMUP_RECONCILIATION_ENABLED"
 
@@ -86,6 +111,8 @@ def sumup_reconciliation_endpoint(request):
             include_partial=False,
             quiet=True,
             budget_seconds=RECONCILIATION_BUDGET_SECONDS,
+            read_reserve_seconds=READ_RESERVE_SECONDS,
+            write_reserve_seconds=WRITE_RESERVE_SECONDS,
         )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] Unhandled error")

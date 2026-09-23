@@ -285,6 +285,36 @@ class SumUpReconciliationEndpointTests(TestCase):
             "the second run must not write the transaction again",
         )
 
+    def test_overlapping_run_that_loses_the_lock_counts_nothing(self):
+        """Codex 4079854861: the run that waited on the lock must not count.
+
+        Simulates the overlap: between this run's read and its write, another
+        run reconciles the row. _reconcile_refunded then finds it no longer
+        PAID and does nothing, and the counter must say so.
+        """
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        original = Command._reconcile_refunded
+
+        def other_run_wins(cmd, tx_obj, remote_data, dry_run=False):
+            PaymentTransaction.objects.filter(pk=tx_obj.pk).update(
+                status=PaymentTransaction.Status.REFUNDED
+            )
+            return original(cmd, tx_obj, remote_data, dry_run=dry_run)
+
+        with patch.object(Command, "_reconcile_refunded", other_run_wins):
+            resp = self._run(FULL_REFUND)
+        body = resp.json()
+        self.assertEqual((body["checked"], body["reconciled"]), (1, 0))
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "confirmed")
+
+    def test_reconcile_reports_whether_it_transitioned(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        self.assertIs(Command()._reconcile_refunded(self.payment, FULL_REFUND), True)
+        self.assertIs(Command()._reconcile_refunded(self.payment, FULL_REFUND), False)
+
     def test_a_row_refunded_between_selection_and_lock_is_skipped(self):
         """Case 5, overlap: the write re-checks status under the row lock."""
         from crush_lu.management.commands.reconcile_sumup_payments import Command
@@ -424,6 +454,77 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual((body["checked"], body["unchecked"]), (0, 1))
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+
+    def test_a_refund_is_not_written_without_time_for_its_post_commit_work(self):
+        """Codex 4079854872: a write sets off synchronous post-commit emails.
+
+        With too little budget left for the worst case of that work, the
+        detected refund is left PAID and counted unchecked - never committed
+        and then cut off by the caller's timeout before the member is told.
+        """
+        from crush_lu import api_admin_sumup
+
+        with (
+            patch.object(api_admin_sumup, "WRITE_RESERVE_SECONDS", 10_000),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            resp = self._run(FULL_REFUND)
+        body = resp.json()
+        self.assertEqual(
+            (body["checked"], body["reconciled"], body["unchecked"]), (0, 0, 1)
+        )
+        self.assertTrue(any("deferred a detected refund" in m for m in logs.output))
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+
+    def test_write_reserve_does_not_hold_back_rows_that_need_no_write(self):
+        """The write reserve only gates writes; plain PAID rows still get read."""
+        from crush_lu import api_admin_sumup
+
+        with patch.object(api_admin_sumup, "WRITE_RESERVE_SECONDS", 10_000):
+            resp = self._run(STILL_PAID)
+        body = resp.json()
+        self.assertEqual((body["checked"], body["unchecked"]), (1, 0))
+
+    def test_budget_is_built_from_the_real_timeouts(self):
+        """Pin the numbers and the source timeouts they are derived from."""
+        from pathlib import Path
+
+        from crush_lu import api_admin_sumup as m
+
+        root = Path(__file__).resolve().parents[2]
+        sumup_src = (root / "crush_lu" / "services" / "sumup.py").read_text(
+            encoding="utf-8"
+        )
+        for method in ("def get_checkout", "def get_transactions_history"):
+            body = sumup_src[sumup_src.index(method) :]
+            body = body[: body.index("\n    def ", 1)]
+            self.assertIn(f"timeout={m.SUMUP_READ_TIMEOUT_SECONDS}", body, method)
+        graph_src = (root / "azureproject" / "graph_email_backend.py").read_text(
+            encoding="utf-8"
+        )
+        send = graph_src[graph_src.index("def _send_message") :]
+        send = send[: send.index("\ndef ")]
+        self.assertIn(f"timeout={m.GRAPH_SEND_TIMEOUT_SECONDS}", send)
+        fa_src = (
+            root / "azure-functions" / "hybrid-maintenance" / "function_app.py"
+        ).read_text(encoding="utf-8")
+        call = fa_src[
+            fa_src.index('"DJANGO_SUMUP_RECONCILIATION_URL",\n        timeout=') :
+        ]
+        self.assertIn(f"timeout={m.FUNCTION_TIMEOUT_SECONDS},", call[:120])
+        self.assertIn(
+            "--timeout 120", (root / "startup.sh").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(m.RECONCILIATION_BUDGET_SECONDS, 100)
+        self.assertEqual(m.READ_RESERVE_SECONDS, 21)
+        self.assertEqual(m.WRITE_RESERVE_SECONDS, 65)
+        self.assertLess(m.RECONCILIATION_BUDGET_SECONDS, m.FUNCTION_TIMEOUT_SECONDS)
+        self.assertLess(m.FUNCTION_TIMEOUT_SECONDS, 120)
+        self.assertGreater(m.RECONCILIATION_BUDGET_SECONDS - m.WRITE_RESERVE_SECONDS, 0)
 
     def test_scheduled_run_uses_the_contract_arguments(self):
         """§6.2 30-day window, §9.8 never --include-partial, never a dry run."""

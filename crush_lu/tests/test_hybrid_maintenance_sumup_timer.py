@@ -82,7 +82,17 @@ def app(monkeypatch):
 class _Posts(list):
     """Recorded POSTs, plus the response the next one gets."""
 
-    response = FakeResponse(202, {"status": "ok"})
+    response = FakeResponse(
+        202,
+        {
+            "status": "ok",
+            "checked": 3,
+            "reconciled": 0,
+            "partial": 0,
+            "errors": 0,
+            "unchecked": 0,
+        },
+    )
 
     def respond_with(self, response):
         self.response = response
@@ -155,6 +165,81 @@ def test_server_error_fails_the_invocation(app, posts, monkeypatch):
     posts.respond_with(FakeResponse(500, {"error": "internal_error"}))
     with pytest.raises(requests.exceptions.HTTPError):
         app.sumup_reconciliation(FakeTimer())
+
+
+def _counters(**overrides):
+    body = {
+        "status": "ok",
+        "timestamp": "2026-09-23T02:18:00+00:00",
+        "checked": 5,
+        "reconciled": 0,
+        "partial": 0,
+        "errors": 0,
+        "unchecked": 0,
+    }
+    body.update(overrides)
+    return body
+
+
+def test_sweep_errors_fail_the_invocation(app, posts, monkeypatch, caplog):
+    """Codex 4079912167: a total SumUp outage answers 202 - it must still fail."""
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(
+        FakeResponse(202, _counters(errors=5, pii="member@example.com CRUSH-REF"))
+    )
+    with caplog.at_level(logging.INFO), pytest.raises(RuntimeError, match="errors=5"):
+        app.sumup_reconciliation(FakeTimer())
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "member@example.com" not in logged
+    assert "CRUSH-REF" not in logged
+
+
+def test_unchecked_rows_warn_without_failing(app, posts, monkeypatch, caplog):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(unchecked=4)))
+    with caplog.at_level(logging.WARNING):
+        app.sumup_reconciliation(FakeTimer())
+    assert any(
+        r.levelno == logging.WARNING and "unchecked=4" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_partial_refunds_warn_without_failing(app, posts, monkeypatch, caplog):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(partial=1)))
+    with caplog.at_level(logging.WARNING):
+        app.sumup_reconciliation(FakeTimer())
+    assert any(
+        r.levelno == logging.WARNING and "partial=1" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_clean_run_logs_counts_at_info(app, posts, monkeypatch, caplog):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(reconciled=1)))
+    with caplog.at_level(logging.INFO):
+        app.sumup_reconciliation(FakeTimer())
+    assert any(
+        r.levelno == logging.INFO and "reconciled=1" in r.getMessage()
+        for r in caplog.records
+    )
+    assert not any(r.levelno >= logging.WARNING for r in caplog.records)
+
+
+def test_202_without_counters_fails(app, posts, monkeypatch):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, {"status": "ok"}))
+    with pytest.raises(RuntimeError, match="expected counters"):
+        app.sumup_reconciliation(FakeTimer())
+
+
+def test_other_timers_ignore_the_202_body(app, posts, monkeypatch):
+    """The counter check is SumUpReconciliation's alone."""
+    monkeypatch.setenv("DJANGO_ECHO_SYNC_URL", URL)
+    posts.respond_with(FakeResponse(202, {"errors": 9}))
+    app.echo_lu_sync(FakeTimer())  # must not raise
 
 
 def test_timer_source_never_mentions_refund_issuing():

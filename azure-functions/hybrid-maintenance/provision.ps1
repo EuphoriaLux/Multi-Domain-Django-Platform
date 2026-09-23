@@ -149,7 +149,13 @@ $settings = @(
     "DJANGO_EVENT_RECAPS_URL=https://$DJANGO_HOST/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL=https://$DJANGO_HOST/api/admin/event-feedback/",
     "DJANGO_ECHO_SYNC_URL=https://$DJANGO_HOST/api/admin/echo-sync/",
-    "DJANGO_SUMUP_RECONCILIATION_URL=https://$DJANGO_HOST/api/admin/sumup-reconciliation/",
+    # The SumUpReconciliation timer's URL is deliberately NOT set here. The
+    # timer ships dormant while its URL is unset, and the route only exists on
+    # production after the slot swap that ships it, so setting it from a re-run
+    # before that swap would make the timer 404 nightly. Set it BY HAND after
+    # that swap — the variable name and the command are in function_app.py's
+    # module docstring. (Kept out of this file entirely, name included, so
+    # test_function_app_env_drift.py can prove it stays out.)
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
 if (-not [string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {

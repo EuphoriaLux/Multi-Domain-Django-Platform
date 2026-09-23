@@ -40,8 +40,12 @@ Environment Variables Required:
     - DJANGO_ECHO_SYNC_URL: e.g. https://crush.lu/api/admin/echo-sync/
     - DJANGO_SUMUP_RECONCILIATION_URL: e.g. https://crush.lu/api/admin/sumup-reconciliation/
       (the one exception to "unset raises": SumUpReconciliation ships dormant,
-      so while this is unset it logs a WARNING and returns. Set it only after
-      the slot swap that puts the route on production.)
+      so while this is unset it logs a WARNING and returns. Deliberately NOT in
+      provision.sh / provision.ps1 — set it BY HAND, and only after the slot
+      swap that puts the route on production; set earlier, the timer 404s:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_SUMUP_RECONCILIATION_URL=https://crush.lu/api/admin/sumup-reconciliation/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -67,7 +71,7 @@ def _call_admin_endpoint(
     url_env_var: str,
     timeout: int = 60,
     dormant_if_unset: bool = False,
-) -> None:
+):
     """Shared body: POST to a Django admin endpoint with bearer auth.
 
     Raises so Azure Functions marks the invocation as Failed on any
@@ -166,6 +170,9 @@ def _call_admin_endpoint(
                 )
             else:
                 logging.info("%s: %s body=%s", name, response.status_code, body)
+        # Returned for callers that need to read the body (SumUpReconciliation);
+        # every other timer ignores it. None when a gate above skipped the call.
+        return response
 
     except requests.exceptions.Timeout:
         logging.error("%s: request timed out", name)
@@ -494,9 +501,15 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     Three gates, each logged: HYBRID_MAINTENANCE_ENABLED here (INFO skip),
     DJANGO_SUMUP_RECONCILIATION_URL here (WARNING "DORMANT" while unset), and
     SUMUP_RECONCILIATION_ENABLED on the Django side (200 skipped → WARNING
-    "SKIPPED"). A real run answers 202 with checked/reconciled/partial/errors
-    counters. Idempotent: only PAID rows are selected and each write re-checks
-    the row under a lock.
+    "SKIPPED"). A real run answers 202 with checked/reconciled/partial/errors/
+    unchecked counters. Idempotent: only PAID rows are selected and each write
+    re-checks the row under a lock.
+
+    Unlike the other timers, a 202 is not taken as success on its own: the
+    sweep catches every SumUp failure per row, so a total SumUp outage still
+    answers 202. ``errors > 0`` therefore FAILS this invocation, which is what
+    trips the timer-failure alert. ``partial`` and ``unchecked`` need a human
+    but are not failures, so they log at WARNING. Only the counts are logged.
 
     Contract: ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
     """
@@ -504,11 +517,52 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("SumUpReconciliation: timer past due at %s", ts)
     logging.info("SumUpReconciliation: starting at %s", ts)
-    # The Django side stops starting new rows after 80 s; each row is at most
-    # two SumUp reads of 10 s, so 110 s covers the tail.
-    _call_admin_endpoint(
+    # The Django side holds a 100 s hard deadline, worst-case timeouts of its
+    # SumUp reads and post-commit emails included (crush_lu/api_admin_sumup.py),
+    # so 110 s covers it.
+    response = _call_admin_endpoint(
         "SumUpReconciliation",
         "DJANGO_SUMUP_RECONCILIATION_URL",
         timeout=110,
         dormant_if_unset=True,
     )
+    _check_sumup_reconciliation_counters(response)
+
+
+_SUMUP_COUNTERS = ("checked", "reconciled", "partial", "errors", "unchecked")
+
+
+def _check_sumup_reconciliation_counters(response) -> None:
+    """Fail the invocation when the sweep reported errors.
+
+    Logs the counters only — never the rest of the body.
+    """
+    if response is None or response.status_code != 202:
+        return  # gated off, or the 200 "skipped" the helper already logged
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or not all(
+        isinstance(body.get(key), int) for key in _SUMUP_COUNTERS
+    ):
+        raise RuntimeError(
+            "SumUpReconciliation: 202 without the expected counters "
+            f"({', '.join(_SUMUP_COUNTERS)}) — cannot tell whether the sweep ran"
+        )
+    counts = {key: body[key] for key in _SUMUP_COUNTERS}
+    summary = " ".join(f"{key}={value}" for key, value in counts.items())
+    if counts["errors"] > 0:
+        logging.error("SumUpReconciliation: sweep reported errors — %s", summary)
+        raise RuntimeError(
+            f"SumUpReconciliation: {counts['errors']} row(s) could not be "
+            f"checked or written — {summary}"
+        )
+    if counts["unchecked"] > 0 or counts["partial"] > 0:
+        logging.warning(
+            "SumUpReconciliation: needs attention (unchecked rows are left "
+            "for the next run; partial refunds need a human) — %s",
+            summary,
+        )
+    else:
+        logging.info("SumUpReconciliation: %s", summary)

@@ -331,6 +331,8 @@ class Command(BaseCommand):
         reference=None,
         batch_delay=0.05,
         budget_seconds=None,
+        read_reserve_seconds=0.0,
+        write_reserve_seconds=0.0,
     ) -> dict:
         """Run one sweep and return its counters.
 
@@ -343,6 +345,19 @@ class Command(BaseCommand):
         queryset is newest-first), so a sweep that exhausts its budget every
         run never reaches them — a non-zero ``unchecked`` is a WARNING, not
         a backlog that drains by itself.
+
+        ``budget_seconds`` is a hard deadline for the whole sweep, including
+        what a write sets off after it commits. Two reserves keep it one:
+
+        * ``read_reserve_seconds`` — worst case to read one row from SumUp.
+          A row is only started if its reads can finish before the deadline.
+        * ``write_reserve_seconds`` — worst case for one reconciliation,
+          including its ``on_commit`` work (a cancelled registration promotes
+          the waitlist and emails synchronously after commit). A detected
+          full refund is only written if that can finish before the deadline;
+          otherwise the row is left PAID, counted ``unchecked``, and the sweep
+          stops — never a committed promotion whose email the caller's
+          timeout then cuts off.
         """
         delay = batch_delay
         started = time.monotonic()
@@ -420,11 +435,14 @@ class Command(BaseCommand):
         partial_count = 0
         unchecked = 0
 
-        for tx_obj in qs:
-            if (
+        def _over_budget(reserve):
+            return (
                 budget_seconds is not None
-                and time.monotonic() - started >= budget_seconds
-            ):
+                and time.monotonic() - started + reserve >= budget_seconds
+            )
+
+        for tx_obj in qs:
+            if _over_budget(read_reserve_seconds):
                 unchecked = total_count - checked
                 logger.warning(
                     "SumUp reconciliation stopped at its %ss budget: %s of %s "
@@ -656,8 +674,29 @@ class Command(BaseCommand):
                 # propagate out of this loop and kill the run. Worse, the
                 # queryset is ordered with no per-run offset, so one poisoned
                 # row would abort every future sweep at the same place.
+                if not dry_run and _over_budget(write_reserve_seconds):
+                    # Not enough time left to commit this refund AND finish
+                    # what the commit sets off. Leave it PAID for the next run
+                    # and stop: a later row could only hit the same wall.
+                    checked -= 1
+                    unchecked = total_count - checked
+                    logger.warning(
+                        "SumUp reconciliation deferred a detected refund on %s "
+                        "(checkout %s): too little of the %ss budget left to "
+                        "write it safely. %s of %s transaction(s) left "
+                        "unchecked until the next run.",
+                        tx_obj.transaction_reference,
+                        tx_obj.sumup_checkout_id,
+                        budget_seconds,
+                        unchecked,
+                        total_count,
+                    )
+                    break
+
                 try:
-                    self._reconcile_refunded(tx_obj, remote_data, dry_run=dry_run)
+                    transitioned = self._reconcile_refunded(
+                        tx_obj, remote_data, dry_run=dry_run
+                    )
                 except Exception as exc:
                     errors_count += 1
                     logger.exception(
@@ -674,7 +713,10 @@ class Command(BaseCommand):
                     )
                     continue
 
-                refunded_count += 1
+                # False when an overlapping run got there first: it waited on
+                # the row lock, found the row no longer PAID and did nothing.
+                if transitioned:
+                    refunded_count += 1
             elif not quiet:
                 self.stdout.write(
                     f"✓ {tx_obj.transaction_reference} ({tx_obj.sumup_checkout_id}): still PAID"
@@ -701,9 +743,13 @@ class Command(BaseCommand):
             "unchecked": unchecked,
         }
 
-    def _reconcile_refunded(self, tx_obj, remote_data, dry_run=False):
+    def _reconcile_refunded(self, tx_obj, remote_data, dry_run=False) -> bool:
         """Apply external refund adjustments across PaymentTransaction, EventRegistration,
-        CrushCredit, and PremiumMembership under atomic lock order."""
+        CrushCredit, and PremiumMembership under atomic lock order.
+
+        Returns True when this call moved the row PAID -> REFUNDED (or, in a
+        dry run, would have), False when the row was no longer PAID under the
+        lock — i.e. an overlapping run already reconciled it."""
         ref = tx_obj.transaction_reference
         cid = tx_obj.sumup_checkout_id
 
@@ -713,7 +759,7 @@ class Command(BaseCommand):
                     f"[DRY RUN] External refund detected on {ref} (checkout {cid}). Would reconcile to REFUNDED."
                 )
             )
-            return
+            return True
 
         # LOCK ORDER: PaymentTransaction FIRST, then EventRegistration / CrushProfile / CrushCredit
         with transaction.atomic():
@@ -728,7 +774,7 @@ class Command(BaseCommand):
                     ref,
                     locked_tx.status if locked_tx else "None",
                 )
-                return
+                return False
 
             locked_tx.status = PaymentTransaction.Status.REFUNDED
             locked_tx.raw_response = remote_data
@@ -874,3 +920,4 @@ class Command(BaseCommand):
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"
             )
         )
+        return True

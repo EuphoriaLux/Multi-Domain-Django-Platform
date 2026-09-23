@@ -44,6 +44,15 @@ PROVISION_PS1 = FUNCTION_APP_DIR / "provision.ps1"
 PROVISION_SH = FUNCTION_APP_DIR / "provision.sh"
 LOCAL_SETTINGS_EXAMPLE = FUNCTION_APP_DIR / "local.settings.json.example"
 
+# URLs the provisioning scripts must NOT set. Only for a timer that ships
+# dormant (``dormant_if_unset=True``) before its Django route reaches
+# production: a provisioning re-run in that gap would set the URL early and
+# the timer would 404. Such a URL is set by hand after the swap, so it is still
+# required in the docstring and local.settings.json.example, and the tests
+# below prove each entry really is dormant-capable and really is absent from
+# both scripts. Every other timer keeps the full check.
+DEFERRED_URLS = {"DJANGO_SUMUP_RECONCILIATION_URL"}
+
 
 def _declared_env_vars() -> set[str]:
     """Every `url_env_var` passed to `_call_admin_endpoint`, via the AST.
@@ -66,6 +75,27 @@ def _declared_env_vars() -> set[str]:
         for kw in node.keywords:
             if kw.arg == "url_env_var" and isinstance(kw.value, ast.Constant):
                 found.add(kw.value.value)
+    return found
+
+
+def _dormant_env_vars() -> set[str]:
+    """`url_env_var`s whose `_call_admin_endpoint` call passes dormant_if_unset=True."""
+    tree = ast.parse(FUNCTION_APP_PY.read_text(encoding="utf-8"))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+        if name != "_call_admin_endpoint" or len(node.args) < 2:
+            continue
+        dormant = any(
+            kw.arg == "dormant_if_unset"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value is True
+            for kw in node.keywords
+        )
+        if dormant and isinstance(node.args[1], ast.Constant):
+            found.add(node.args[1].value)
     return found
 
 
@@ -106,12 +136,34 @@ def test_every_timer_env_var_is_documented(declared):
 )
 def test_provisioning_sources_cover_every_timer_env_var(declared, path):
     """Re-provisioning must not silently recreate the gap it is meant to fix."""
-    missing = declared - _env_vars_in(path)
+    expected = declared if path == LOCAL_SETTINGS_EXAMPLE else declared - DEFERRED_URLS
+    missing = expected - _env_vars_in(path)
     assert not missing, (
         f"{path.name} does not set these timer env vars: {sorted(missing)}. "
         "Provisioning from it would leave those timers reporting Success "
         "while doing nothing."
     )
+
+
+def test_deferred_urls_are_dormant_timers_kept_out_of_provisioning(declared):
+    """The allow-list above cannot become a way to skip the check.
+
+    Each deferred URL must belong to a real timer that ships dormant, and must
+    not appear in either provisioning script at all — a script that sets it
+    re-opens the 404 gap the deferral exists to close.
+    """
+    assert DEFERRED_URLS <= declared, sorted(DEFERRED_URLS - declared)
+    not_dormant = DEFERRED_URLS - _dormant_env_vars()
+    assert not not_dormant, (
+        f"{sorted(not_dormant)} are deferred but their timer does not pass "
+        "dormant_if_unset=True — an unset URL would fail it every run."
+    )
+    for path in (PROVISION_PS1, PROVISION_SH):
+        present = DEFERRED_URLS & _env_vars_in(path)
+        assert not present, (
+            f"{path.name} sets {sorted(present)}, which must be set by hand only "
+            "after the slot swap that ships its route."
+        )
 
 
 def test_provisioning_sources_declare_no_unknown_env_vars(declared):
