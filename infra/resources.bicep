@@ -386,8 +386,8 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 // file listed 28. The list below is now live minus six junk entries that
 // pin nothing ('host', 'password', 'port', 'sslmode', 'user' and a copy of
 // APPLICATIONINSIGHTS_CONNECTION_STRING with a trailing space — fragments of
-// a pasted connection string, unset on both slots), PLUS the three ECHO_LU_*
-// names flagged below, which are NOT yet pinned live. The three
+// a pasted connection string, unset on both slots). The three ECHO_LU_*
+// listing defaults were pinned live on 2026-09-23 (92 names now). The three
 // XDT_MicrosoftApplicationInsights_{BaseExtensions,Mode,PreemptSdk} entries
 // this file used to carry were dropped: live does not pin them and neither
 // slot sets them.
@@ -490,12 +490,10 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'IOS_NATIVE_COMMERCE_ENABLED'
       'ANDROID_NATIVE_COMMERCE_ENABLED'
       'IOS_APNS_USE_SANDBOX'
-      // echo.lu listing defaults. ⚠️ NOT PINNED LIVE as of 2026-09-22: staging
-      // sets all three (to non-default values, incl. a 'draft' create status)
-      // and production sets none, so the next swap moves staging's values
-      // into production while ECHO_LU_SYNC_ENABLED stays on there. Listed
-      // here as the intended state; pin them live (or unset them on staging)
-      // before the next swap.
+      // echo.lu listing defaults. Staging sets all three (to non-default
+      // values, incl. a 'draft' create status) and production sets none;
+      // unpinned, a swap would move staging's values into production while
+      // ECHO_LU_SYNC_ENABLED stays on there. Pinned live 2026-09-23.
       'ECHO_LU_CREATE_STATUS'
       'ECHO_LU_DEFAULT_AUDIENCES'
       'ECHO_LU_DEFAULT_FORMATS'
