@@ -797,3 +797,77 @@ class TestCreateQuizNightEventWithoutAnOwner:
         """No autouse fixture here: the database has no users at all."""
         with pytest.raises(CommandError, match="No superuser or staff user"):
             call_command("create_quiz_night_event", pack="media-love")
+
+
+# ============================================================================
+# CARIBOU PACK
+# ============================================================================
+
+
+class TestCaribouPack:
+    """A coach's English question sheet, ten rounds, translated to DE and FR.
+
+    Mostly free-text rounds the host scores by hand, one A/B/C/D round, a song
+    round the host plays live and a film-poster round whose images a coach
+    uploads. These tests guard that shape.
+    """
+
+    def test_pack_is_registered(self):
+        assert "caribou-quiz" in PACKS
+        assert "caribou-quiz" in pack_names()
+
+    def test_pack_shape_is_ten_by_six(self):
+        rounds = PACKS["caribou-quiz"]
+        assert len(rounds) == 10
+        assert [len(r["questions"]) for r in rounds] == [6] * 10
+
+    def test_only_the_food_round_is_multiple_choice(self):
+        for index, r in enumerate(PACKS["caribou-quiz"]):
+            expected = "multiple_choice" if index == 3 else "open_ended"
+            assert {q["type"] for q in r["questions"]} == {expected}, r["title_en"]
+
+    def test_food_round_answers_match_the_flagged_option(self):
+        """The reveal reads correct_answer_*; a drift from the flagged option
+        would show players one answer and score another."""
+        for q in PACKS["caribou-quiz"][3]["questions"]:
+            for lang in ("en", "de", "fr"):
+                assert len(q[f"choices_{lang}"]) == 4
+                flagged = [c["text"] for c in q[f"choices_{lang}"] if c["is_correct"]]
+                assert len(flagged) == 1
+                assert q[f"correct_answer_{lang}"].startswith(flagged[0])
+
+    def test_food_round_does_not_leak_the_answer_slot(self):
+        slots = {
+            next(i for i, c in enumerate(q["choices_en"]) if c["is_correct"])
+            for q in PACKS["caribou-quiz"][3]["questions"]
+        }
+        assert slots == {0, 1, 2, 3}
+
+    def test_only_the_poster_round_carries_media(self):
+        """Songs are played by the host; no unverified embed URL is seeded."""
+        for index, r in enumerate(PACKS["caribou-quiz"]):
+            for q in r["questions"]:
+                media = q.get("media")
+                if index == 4:
+                    assert media["kind"] == "image"
+                    assert media["upload"].startswith("caribou-")
+                    assert media["description"].strip()
+                else:
+                    assert not media
+
+    def test_seeding_reports_the_six_posters_as_pending_uploads(self, quiz_event):
+        result = populate_quiz(quiz_event, pack="caribou-quiz")
+        assert result.rounds_created == 10
+        assert result.questions_created == 60
+        assert len(result.pending_uploads) == 6
+        assert QuizQuestion.objects.filter(media_kind="none").count() == 60
+
+    def test_seeded_questions_pass_model_validation(self, quiz_event):
+        populate_quiz(quiz_event, pack="caribou-quiz")
+        for question in QuizQuestion.objects.all():
+            question.clean()
+
+    def test_seeds_through_the_management_command(self, quiz_event):
+        call_command("generate_crush_quiz", quiz_id=quiz_event.pk, pack="caribou-quiz")
+        assert quiz_event.rounds.count() == 10
+        assert QuizQuestion.objects.count() == 60
