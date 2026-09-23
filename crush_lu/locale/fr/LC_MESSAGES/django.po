@@ -42370,3 +42370,13 @@ msgid ""
 msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"Your payment for this event has been refunded to the payment method you "
+"used, so your registration has been cancelled and your seat released."
+msgstr ""
+"Votre paiement pour cet événement a été remboursé sur le moyen de paiement "
+"que vous avez utilisé ; votre inscription a donc été annulée et votre place "
+"libérée."
+

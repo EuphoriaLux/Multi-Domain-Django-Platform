@@ -3857,6 +3857,9 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 cancelled,
                 credits,
                 awaiting_resale=awaiting_resale,
+                # Set by reconcile_sumup_payments when the seat was cancelled
+                # because its payment was refunded outside Django.
+                cash_refunded=getattr(instance, "_external_cash_refund", False),
             )
 
         if not promoted:

@@ -1100,6 +1100,7 @@ def _send_member_cancellation_safely(
     *,
     awaiting_resale=False,
     recipient_user=None,
+    cash_refunded=False,
 ):
     """Tell a cancelled member when credit is issued or remains conditional."""
     from .email_helpers import send_event_cancellation_confirmation
@@ -1112,6 +1113,7 @@ def _send_member_cancellation_safely(
             None,
             credits,
             awaiting_resale=awaiting_resale,
+            cash_refunded=cash_refunded,
         )
     except Exception as exc:
         logger.error(

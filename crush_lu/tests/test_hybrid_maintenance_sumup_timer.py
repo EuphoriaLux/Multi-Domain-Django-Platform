@@ -170,7 +170,7 @@ def test_server_error_fails_the_invocation(app, posts, monkeypatch):
 def _counters(**overrides):
     body = {
         "status": "ok",
-        "timestamp": "2026-09-23T02:18:00+00:00",
+        "timestamp": "2026-09-23T02:34:00+00:00",
         "checked": 5,
         "reconciled": 0,
         "partial": 0,
@@ -240,6 +240,50 @@ def test_other_timers_ignore_the_202_body(app, posts, monkeypatch):
     monkeypatch.setenv("DJANGO_ECHO_SYNC_URL", URL)
     posts.respond_with(FakeResponse(202, {"errors": 9}))
     app.echo_lu_sync(FakeTimer())  # must not raise
+
+
+def test_non_202_success_other_than_the_skip_fails(app, posts, monkeypatch):
+    """Codex 4080044207: only the exact flag-off skip may pass as a non-202."""
+    monkeypatch.setenv(URL_VAR, URL)
+    for response in (
+        FakeResponse(200, {"status": "ok"}),
+        FakeResponse(200, {"skipped": True, "reason": "x", "checked": 1}),
+        FakeResponse(200, {"skipped": "yes", "reason": "x"}),
+        FakeResponse(204, None),
+    ):
+        posts.respond_with(response)
+        with pytest.raises(RuntimeError, match="unexpected"):
+            app.sumup_reconciliation(FakeTimer())
+
+
+def test_non_json_2xx_fails(app, posts, monkeypatch):
+    class NotJson(FakeResponse):
+        def json(self):
+            raise ValueError("not json")
+
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(NotJson(200, "<html>"))
+    with pytest.raises(RuntimeError, match="unexpected"):
+        app.sumup_reconciliation(FakeTimer())
+
+
+def test_exact_skip_payload_passes(app, posts, monkeypatch):
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(
+        FakeResponse(
+            200, {"skipped": True, "reason": "SUMUP_RECONCILIATION_ENABLED is off"}
+        )
+    )
+    app.sumup_reconciliation(FakeTimer())  # must not raise
+
+
+def test_schedule_is_0234_utc():
+    """Codex 4080044200: clear of the :32 campaign tick's 110 s tail."""
+    import re
+
+    src = MODULE_PATH.read_text(encoding="utf-8")
+    block = src[src.index('@app.function_name(name="SumUpReconciliation")') :]
+    assert re.search(r'schedule="0 34 2 \* \* \*"', block[:1200])
 
 
 def test_timer_source_never_mentions_refund_issuing():

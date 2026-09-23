@@ -940,7 +940,7 @@ def send_event_payment_pending_notification(registration, request=None):
 
 
 def send_event_cancellation_confirmation(
-    user, event, request, credits=None, *, awaiting_resale=False
+    user, event, request, credits=None, *, awaiting_resale=False, cash_refunded=False
 ):
     """
     Send confirmation email for event cancellation.
@@ -973,6 +973,9 @@ def send_event_cancellation_confirmation(
         "credit_total": sum(credit.amount_cents for credit in credits) / 100,
         "credit_issued": bool(credits),
         "awaiting_resale": awaiting_resale,
+        # The payment was refunded to the member's card outside Django (SumUp
+        # dashboard / terminal, reconciled by reconcile_sumup_payments).
+        "cash_refunded": cash_refunded,
         "LANGUAGE_CODE": lang,
         "social_links": get_social_links(),
         **base_urls,

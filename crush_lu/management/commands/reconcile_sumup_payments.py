@@ -333,6 +333,7 @@ class Command(BaseCommand):
         budget_seconds=None,
         read_reserve_seconds=0.0,
         write_reserve_seconds=0.0,
+        max_writes=None,
     ) -> dict:
         """Run one sweep and return its counters.
 
@@ -358,6 +359,11 @@ class Command(BaseCommand):
           otherwise the row is left PAID, counted ``unchecked``, and the sweep
           stops — never a committed promotion whose email the caller's
           timeout then cuts off.
+
+        ``max_writes`` stops the sweep after that many refund writes (the CLI
+        passes None: unlimited). The scheduled endpoint allows ONE, because a
+        write's post-commit chain can be long (see api_admin_sumup); the rest
+        of the window is counted ``unchecked`` and read by the next run.
         """
         delay = batch_delay
         started = time.monotonic()
@@ -693,6 +699,7 @@ class Command(BaseCommand):
                     )
                     break
 
+                write_attempted = not dry_run
                 try:
                     transitioned = self._reconcile_refunded(
                         tx_obj, remote_data, dry_run=dry_run
@@ -711,12 +718,34 @@ class Command(BaseCommand):
                             f"({tx_obj.sumup_checkout_id}): {exc}"
                         )
                     )
+                    # An exception can come from an on_commit callback AFTER
+                    # the write committed, so a raised write still used up
+                    # this run's write allowance.
+                    if max_writes is not None and write_attempted:
+                        unchecked = total_count - checked
+                        break
                     continue
 
                 # False when an overlapping run got there first: it waited on
                 # the row lock, found the row no longer PAID and did nothing.
                 if transitioned:
                     refunded_count += 1
+                    if (
+                        max_writes is not None
+                        and write_attempted
+                        and refunded_count >= max_writes
+                    ):
+                        unchecked = total_count - checked
+                        if unchecked:
+                            logger.warning(
+                                "SumUp reconciliation stopped after %s refund "
+                                "write(s), its per-run limit: %s of %s "
+                                "transaction(s) left unchecked until the next run.",
+                                refunded_count,
+                                unchecked,
+                                total_count,
+                            )
+                        break
             elif not quiet:
                 self.stdout.write(
                     f"✓ {tx_obj.transaction_reference} ({tx_obj.sumup_checkout_id}): still PAID"
@@ -796,6 +825,11 @@ class Command(BaseCommand):
                     reg.payment_confirmed = False
                     reg.payment_date = None
                     update_fields = ["payment_confirmed", "payment_date"]
+                    # Read by the cancellation signal's member email: without
+                    # it the member is told "No payment was recorded … no
+                    # Crush Credit is due", which is false — they paid and
+                    # were refunded in cash.
+                    reg._external_cash_refund = True
 
                     # If the registration was confirmed and hasn't attended yet, cancel it.
                     # Saving status='cancelled' invokes promote_waitlist_on_cancellation automatically.

@@ -17,6 +17,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
@@ -383,9 +384,13 @@ class SumUpReconciliationEndpointTests(TestCase):
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
             user=self.user,
         )
+        # Newest first: make the failing row the one the sweep reads first.
+        PaymentTransaction.objects.filter(pk=other.pk).update(
+            created_at=timezone.now() + timedelta(seconds=5)
+        )
 
         def by_id(checkout_id):
-            if checkout_id == "chk_t2_1":
+            if checkout_id == "chk_t2_2":
                 raise SumUpError("boom")
             return {"id": checkout_id, "status": "REFUNDED"}
 
@@ -399,8 +404,10 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(
             (body["checked"], body["errors"], body["reconciled"]), (2, 1, 1)
         )
+        self.payment.refresh_from_db()
         other.refresh_from_db()
-        self.assertEqual(other.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(other.status, PaymentTransaction.Status.PAID)
 
     def test_history_prefetch_failure_does_not_500(self):
         """Case 8: the history prefetch raising is logged, not fatal."""
@@ -519,12 +526,171 @@ class SumUpReconciliationEndpointTests(TestCase):
             "--timeout 120", (root / "startup.sh").read_text(encoding="utf-8")
         )
 
+        google_src = (root / "crush_lu" / "wallet" / "google_api.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            f"GOOGLE_WALLET_HTTP_TIMEOUT = {m.GOOGLE_WALLET_TIMEOUT_SECONDS}.0",
+            google_src,
+        )
+        ticket_src = (
+            root / "crush_lu" / "wallet" / "google_event_ticket_api.py"
+        ).read_text(encoding="utf-8")
+        patch_fn = ticket_src[ticket_src.index("def _patch_ticket_state") :]
+        self.assertIn(
+            f"httpx.Client(timeout={m.GOOGLE_WALLET_TIMEOUT_SECONDS}.0)", patch_fn
+        )
+        apns_src = (root / "crush_lu" / "wallet" / "passkit_apns.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            f"httpx.Client(http2=True, timeout={m.APNS_TIMEOUT_SECONDS}.0)", apns_src
+        )
+
+        # The post-commit chain of one event refund, and the fact that it
+        # does NOT fit the deadline on its own — pinned so the comment in
+        # api_admin_sumup cannot drift into false comfort.
+        self.assertEqual(m.POST_COMMIT_BOUNDED_WORST_SECONDS, 240)
+        self.assertEqual(m.POST_COMMIT_APNS_PER_DEVICE_SECONDS, 40)
+        self.assertGreater(
+            m.POST_COMMIT_BOUNDED_WORST_SECONDS, m.RECONCILIATION_BUDGET_SECONDS
+        )
+        self.assertEqual(m.MAX_WRITES_PER_RUN, 1)
+
         self.assertEqual(m.RECONCILIATION_BUDGET_SECONDS, 100)
         self.assertEqual(m.READ_RESERVE_SECONDS, 21)
         self.assertEqual(m.WRITE_RESERVE_SECONDS, 65)
         self.assertLess(m.RECONCILIATION_BUDGET_SECONDS, m.FUNCTION_TIMEOUT_SECONDS)
         self.assertLess(m.FUNCTION_TIMEOUT_SECONDS, 120)
         self.assertGreater(m.RECONCILIATION_BUDGET_SECONDS - m.WRITE_RESERVE_SECONDS, 0)
+
+    def _second_refundable_payment(self):
+        other_user = User.objects.create_user(
+            username="t2_other", email="t2_other@test.crush.lu", password="x" * 12
+        )
+        reg = EventRegistration.objects.create(
+            event=self.event,
+            user=other_user,
+            status="confirmed",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
+        return PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-T2-second",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="chk_t2_2",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=other_user,
+            event_registration=reg,
+            event=self.event,
+        )
+
+    def test_one_refund_write_per_run(self):
+        """Codex 4080044185 (a): a second refund waits for the next run."""
+        second = self._second_refundable_payment()
+
+        def refunded(checkout_id):
+            return {"id": checkout_id, "status": "REFUNDED"}
+
+        def run():
+            with (
+                override_settings(SUMUP_RECONCILIATION_ENABLED=True),
+                patch(GET_CHECKOUT, side_effect=refunded),
+                patch(GET_HISTORY, return_value={"items": []}),
+            ):
+                return self._post().json()
+
+        first = run()
+        self.assertEqual(
+            (first["checked"], first["reconciled"], first["unchecked"]), (1, 1, 1)
+        )
+        second_run = run()
+        self.assertEqual(
+            (second_run["checked"], second_run["reconciled"], second_run["unchecked"]),
+            (1, 1, 0),
+        )
+        self.payment.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(second.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_cli_keeps_writing_every_refund(self):
+        """The one-write limit is the endpoint's; the CLI is unchanged."""
+        from django.core.management import call_command
+
+        self._second_refundable_payment()
+        with (
+            patch(GET_CHECKOUT, side_effect=lambda c: {"id": c, "status": "REFUNDED"}),
+            patch(GET_HISTORY, return_value={"items": []}),
+        ):
+            call_command("reconcile_sumup_payments", quiet=True)
+        self.assertEqual(
+            PaymentTransaction.objects.filter(
+                status=PaymentTransaction.Status.REFUNDED
+            ).count(),
+            2,
+        )
+
+    # -- the refunded member's email (Codex 4080044193) -------------------
+
+    def _mails_to(self, address):
+        return [m for m in mail.outbox if address in m.to]
+
+    def test_refunded_member_gets_one_honest_email(self):
+        waiter = User.objects.create_user(
+            username="t2_wait", email="t2_wait@test.crush.lu", password="x" * 12
+        )
+        EventRegistration.objects.create(
+            event=self.event, user=waiter, status="waitlist"
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._run(FULL_REFUND)
+        self.assertEqual(resp.json()["reconciled"], 1)
+
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        body = mine[0].body
+        self.assertIn("has been refunded to the payment method you used", body)
+        self.assertNotIn("No payment was recorded", body)
+        self.assertNotIn("Crush Credit to your account", body)
+        # The promotion still happens and is announced to the promoted member.
+        self.assertEqual(len(self._mails_to(waiter.email)), 1)
+
+        mail.outbox.clear()
+        with self.captureOnCommitCallbacks(execute=True):
+            again = self._run(FULL_REFUND)
+        self.assertEqual(again.json()["reconciled"], 0)
+        self.assertEqual(mail.outbox, [])
+
+    def test_dry_run_sends_nothing(self):
+        from django.core.management import call_command
+
+        with (
+            patch(GET_CHECKOUT, return_value=FULL_REFUND),
+            patch(GET_HISTORY, return_value={"items": []}),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            call_command("reconcile_sumup_payments", dry_run=True, quiet=True)
+        self.assertEqual(mail.outbox, [])
+
+    def test_refund_sentence_is_translated(self):
+        from django.utils import translation
+        from django.utils.translation import gettext
+
+        msgid = (
+            "Your payment for this event has been refunded to the payment method "
+            "you used, so your registration has been cancelled and your seat "
+            "released."
+        )
+        with translation.override("de"):
+            de = gettext(msgid)
+        with translation.override("fr"):
+            fr = gettext(msgid)
+        self.assertIn("du bezahlt hast", de)
+        self.assertIn("vous avez utilisé", fr)
 
     def test_scheduled_run_uses_the_contract_arguments(self):
         """§6.2 30-day window, §9.8 never --include-partial, never a dry run."""
@@ -542,6 +708,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertIs(kwargs["include_partial"], False)
         self.assertIs(kwargs["dry_run"], False)
         self.assertNotIn("batch_delay", kwargs)
+        self.assertEqual(kwargs["max_writes"], 1)
         self.assertIsNotNone(kwargs["budget_seconds"])
 
     # -- §6.4 history cap --------------------------------------------------

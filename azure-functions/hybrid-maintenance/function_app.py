@@ -482,11 +482,16 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
 
 @app.function_name(name="SumUpReconciliation")
 @app.timer_trigger(
-    # Daily at 02:18 UTC. Off-peak, and clear of every other trigger on this
-    # app — invites (:x0), campaigns (:x2/:x7), echo (:05), SLA (:15), recaps
-    # (:25), reminders (:35), lead reminders (:45), feedback (:55) — and of the
-    # finops app's 03:00 sync and 04:00–06:40 retail-price window.
-    schedule="0 18 2 * * *",
+    # Daily at 02:34 UTC. What runs in hour 02 on this app: invites :x0,
+    # campaigns :x2/:x7 (5 min apart, so no minute is 3 clear of both), echo
+    # :05, SLA :15, recaps :25, lead reminders :45 (reminders :35 and feedback
+    # :55 only run 09-20). :34 is 4 after the :30 invites, 3 before the :37
+    # campaign tick and 6 before :40; the :32 campaign tick is capped by its own
+    # 110 s timeout (ends by 02:33:50) and this sweep by its 100 s deadline
+    # (ends by ~02:35:45), so neither overlaps another trigger. :39 was
+    # rejected: it would run into the :40 invites. Also clear of the finops
+    # app's 03:00 sync and 04:00-06:40 retail-price window.
+    schedule="0 34 2 * * *",
     arg_name="timer",
     run_on_startup=False,
     use_monitor=True,
@@ -537,12 +542,28 @@ def _check_sumup_reconciliation_counters(response) -> None:
 
     Logs the counters only — never the rest of the body.
     """
-    if response is None or response.status_code != 202:
-        return  # gated off, or the 200 "skipped" the helper already logged
+    if response is None:
+        return  # a gate on this side skipped the call; already logged
     try:
         body = response.json()
     except ValueError:
         body = None
+    if response.status_code != 202:
+        # The only other success the endpoint sends is its flag-off skip,
+        # exactly {"skipped": true, "reason": "<flag> is off"}. Anything else
+        # (a 204, an HTML page from a proxy, a changed contract) is not proof
+        # of anything, so it fails rather than reading as a quiet skip.
+        if (
+            isinstance(body, dict)
+            and set(body) == {"skipped", "reason"}
+            and body["skipped"] is True
+            and isinstance(body["reason"], str)
+        ):
+            return
+        raise RuntimeError(
+            f"SumUpReconciliation: unexpected {response.status_code} response "
+            "— neither the 202 counters nor the flag-off skip"
+        )
     if not isinstance(body, dict) or not all(
         isinstance(body.get(key), int) for key in _SUMUP_COUNTERS
     ):

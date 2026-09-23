@@ -43,20 +43,46 @@ logger = logging.getLogger(__name__)
 # refund happened, so it must stay at the command's 30-day default.
 RECONCILIATION_DAYS = 30
 
-# Time budget (contract §6.3). The whole request — including what a write sets
-# off after it commits — must end before the SumUpReconciliation Function's
-# 110 s HTTP timeout (function_app.py), which is itself under gunicorn's
-# --timeout 120 (startup.sh). Nothing retries a request cut off mid-flight, so
-# the budget is a worst case built from the real timeouts, not an average:
+# Time budget (contract §6.3). The request must end before the
+# SumUpReconciliation Function's 110 s HTTP timeout (function_app.py), itself
+# under gunicorn's --timeout 120 (startup.sh). Nothing retries a request cut off
+# mid-flight.
 #
-#   SumUpClient.get_checkout / get_transactions_history: timeout=10 each
-#     (crush_lu/services/sumup.py), and a row makes at most two reads.
-#   GraphEmailBackend sendMail: timeout=30 (azureproject/graph_email_backend.py).
-#     Reconciling a confirmed registration cancels it; the waitlist signal then
-#     runs synchronously on commit and can send two emails — the cancelled
-#     member's confirmation and the promoted member's seat email.
+# Reads: SumUpClient.get_checkout / get_transactions_history, timeout=10 each
+# (crush_lu/services/sumup.py); a row makes at most two.
 #
-# Both source timeouts are pinned by a test so this cannot drift silently.
+# Writes: ONE per invocation (MAX_WRITES_PER_RUN). Reconciling a confirmed
+# registration saves it as `cancelled`, and every callback below then runs
+# SYNCHRONOUSLY on commit, inside this request. R = the refunded member,
+# P = the waitlisted member promoted into the freed seat; N = Apple Wallet
+# devices registered for one serial.
+#
+#   callback                                            source                              worst case
+#   promote_waitlist_on_cancellation -> R's email       signals.py:3722 -> views_payments   30 (graph_email_backend.py:130)
+#   promote_waitlist_on_cancellation -> P's seat email  signals.py:3871                     30
+#   R member pass, Google: token + PATCH                signals.py:3926 -> :185             30 + 30 (google_api.py:31, :385)
+#   R member pass, Apple: APNs, no deadline passed      signals.py:3926 -> :127             10 x N (passkit_apns.py:128)
+#   R event ticket, Google expire: token + PATCH        signals.py:3982                     30 + 30 (google_event_ticket_api.py:248)
+#   R event ticket, Apple: APNs, no deadline passed     signals.py:4086                     10 x N
+#   P's candidate.save() (views_events.py:303): member pass Google + Apple,
+#     event ticket Apple (validity flips)               signals.py:3926 / :4086             60 + 20 x N
+#   curated speed-dating event whose group degrades:
+#     repair_degraded_event_groups (SumUp checkout
+#     closes, remedy emails per payer)                  signals.py:3905                     unbounded
+#   premium row instead: cancel_active -> profile.save
+#     -> stale Outlook contact delete (prod only)       signals.py:4338                     ~25 (graph_contacts.py:78, :82)
+#
+# Bounded part for an event refund: 240 s, plus 40 s per Apple device — 280 s
+# with one device each. THAT IS OVER THE 100 s DEADLINE ON ITS OWN, so no
+# write threshold can make it safe. What is done instead:
+#   * at most one write per run, so a slow tail can only ever hit one refund;
+#   * the write is started only while the two emails (the part that fires for
+#     every member, wallet or not) still fit: WRITE_RESERVE_SECONDS.
+# Residual risk, accepted: if the wallet calls all hang to their timeouts, the
+# request is cut off mid-tail. The refund itself is committed and durable;
+# each callback catches its own errors; Apple passes recover on Wallet's next
+# poll (the update tag is advanced first); a Google ticket left `active` and
+# an unsent email are NOT retried. The numbers are pinned by a test.
 FUNCTION_TIMEOUT_SECONDS = 110
 DEADLINE_MARGIN_SECONDS = 10
 SUMUP_READ_TIMEOUT_SECONDS = 10
@@ -64,12 +90,23 @@ SUMUP_READS_PER_ROW = 2
 GRAPH_SEND_TIMEOUT_SECONDS = 30
 EMAILS_PER_RECONCILED_ROW = 2
 WRITE_MARGIN_SECONDS = 5  # locks, row writes, credit void, MSAL token
+MAX_WRITES_PER_RUN = 1
+
+GOOGLE_WALLET_TIMEOUT_SECONDS = 30  # token and PATCH alike
+APNS_TIMEOUT_SECONDS = 10  # per device
+# 240 s: emails 2x30 + R pass (30+30) + R ticket (30+30) + P pass (30+30).
+POST_COMMIT_BOUNDED_WORST_SECONDS = (
+    GRAPH_SEND_TIMEOUT_SECONDS * EMAILS_PER_RECONCILED_ROW
+    + GOOGLE_WALLET_TIMEOUT_SECONDS * 2 * 3
+)
+# 40 s per device: R pass, R ticket, P pass, P ticket.
+POST_COMMIT_APNS_PER_DEVICE_SECONDS = APNS_TIMEOUT_SECONDS * 4
 
 # 100 s: the hard deadline for the sweep.
 RECONCILIATION_BUDGET_SECONDS = FUNCTION_TIMEOUT_SECONDS - DEADLINE_MARGIN_SECONDS
 # 21 s: a row is started only while elapsed < 79 s.
 READ_RESERVE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * SUMUP_READS_PER_ROW + 1
-# 65 s: a detected refund is written only while elapsed < 35 s.
+# 65 s: the one write is started only while elapsed < 35 s.
 WRITE_RESERVE_SECONDS = (
     GRAPH_SEND_TIMEOUT_SECONDS * EMAILS_PER_RECONCILED_ROW + WRITE_MARGIN_SECONDS
 )
@@ -113,6 +150,7 @@ def sumup_reconciliation_endpoint(request):
             budget_seconds=RECONCILIATION_BUDGET_SECONDS,
             read_reserve_seconds=READ_RESERVE_SECONDS,
             write_reserve_seconds=WRITE_RESERVE_SECONDS,
+            max_writes=MAX_WRITES_PER_RUN,
         )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] Unhandled error")
