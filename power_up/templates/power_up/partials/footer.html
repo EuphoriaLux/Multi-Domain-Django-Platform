@@ -1,110 +1,31 @@
-{% load i18n %}
-{% load static %}
+{% load static i18n %}
 <footer class="bg-gray-900 text-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <!-- Brand -->
-            <div class="col-span-1 md:col-span-2">
-                <div class="mb-4">
-                    <img src="{% static 'power_up/profiles/linkedin_logo.png' %}"
-                         alt="Power-Up"
-                         class="h-12 w-auto brightness-0 invert">
-                </div>
-                <p class="text-gray-400 max-w-md">
-                    {% trans "Building Luxembourg's digital future through innovative platforms that connect people and create value." %}
-                </p>
-            </div>
-
-            <!-- Navigation -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-                    {% trans "Company" %}
-                </h3>
-                <ul class="space-y-3">
-                    <li>
-                        <a href="{% url 'power_up:about' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
-                            {% trans "About" %}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'power_up:solutions' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
-                            {% trans "Solutions" %}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'power_up:platforms' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
-                            {% trans "Platforms" %}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'power_up:investors' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
-                            {% trans "Investors" %}
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{% url 'power_up:contact' %}" class="text-gray-400 hover:text-white transition-colors duration-200">
-                            {% trans "Contact" %}
-                        </a>
-                    </li>
+                <img src="{% static 'power_up/profiles/linkedin_logo.png' %}" alt="Power-Up" class="h-12 w-auto brightness-0 invert mb-4">
+                <p class="text-gray-400 max-w-sm">{% trans "Custom business software for Luxembourg organizations, with a focus on Microsoft Azure." %}</p>
+            </div>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">{% trans "Explore" %}</h2>
+                <ul class="space-y-3 text-gray-400">
+                    <li><a href="{% url 'power_up:services' %}" class="hover:text-white">{% trans "Services" %}</a></li>
+                    <li><a href="{% url 'power_up:work' %}" class="hover:text-white">{% trans "Work" %}</a></li>
+                    <li><a href="{% url 'power_up:approach' %}" class="hover:text-white">{% trans "Approach" %}</a></li>
+                    <li><a href="{% url 'power_up:solutions' %}" class="hover:text-white">{% trans "Event solutions" %}</a></li>
+                    <li><a href="{% url 'power_up:about' %}" class="hover:text-white">{% trans "About" %}</a></li>
                 </ul>
             </div>
-
-            <!-- Platforms -->
             <div>
-                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-                    {% trans "Our Platforms" %}
-                </h3>
-                <ul class="space-y-3">
-                    <li>
-                        <a href="https://crush.lu" target="_blank" rel="noopener noreferrer"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            Crush.lu
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://vinsdelux.com" target="_blank" rel="noopener noreferrer"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            VinsDelux
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://entreprinder.lu" target="_blank" rel="noopener noreferrer"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            Entreprinder
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/finops/"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            FinOps Hub
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://tableau.lu" target="_blank" rel="noopener noreferrer"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            Tableau.lu
-                        </a>
-                    </li>
-                    <li>
-                        <a href="https://delegations.lu" target="_blank" rel="noopener noreferrer"
-                           class="text-gray-400 hover:text-white transition-colors duration-200">
-                            Delegations.lu
-                        </a>
-                    </li>
-                </ul>
+                <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">{% trans "Get in touch" %}</h2>
+                <a href="{% url 'power_up:contact' %}" class="text-gray-400 hover:text-white block mb-3">{% trans "Discuss your project" %}</a>
+                <a href="mailto:hello@power-up.lu" class="text-gray-400 hover:text-white block mb-3">hello@power-up.lu</a>
+                <a href="{% url 'power_up:investors' %}" class="text-gray-400 hover:text-white block">{% trans "Partnerships" %}</a>
             </div>
         </div>
-
-        <!-- Bottom bar -->
-        <div class="mt-12 pt-8 border-t border-gray-800">
-            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                <p class="text-gray-400 text-sm">
-                    &copy; {% now "Y" %} Power-Up. {% trans "All rights reserved." %}
-                </p>
-                <p class="text-gray-500 text-sm">
-                    {% trans "Made in Luxembourg" %} 🇱🇺
-                </p>
-            </div>
+        <div class="mt-12 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between gap-3 text-sm text-gray-400">
+            <p>&copy; {% now "Y" %} Power-Up. {% trans "All rights reserved." %}</p>
+            <p>{% trans "Made in Luxembourg" %} 🇱🇺</p>
         </div>
     </div>
 </footer>
