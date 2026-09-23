@@ -153,7 +153,7 @@ def pending_profile_submission(transactional_db, coach_user_with_permissions):
         gender='F',
         location='Luxembourg City',
         bio='Test bio for review',
-        phone_number='+352****6789',
+        phone_number='+352123456789',
         is_approved=False,
         is_active=True
     )
@@ -233,7 +233,7 @@ def phone_verified_profile(transactional_db, coach_user_with_permissions):
         gender='M',
         location='Esch-sur-Alzette',
         bio='Phone verified user',
-        phone_number='+352****4321',
+        phone_number='+352987654321',
         phone_verified=True,
         is_approved=False
     )
@@ -409,7 +409,7 @@ class TestAccountMetadataDisplay:
         card = summary_card(page)
         expect(card).to_contain_text('years old')
         expect(card).to_contain_text('Luxembourg City')
-        expect(card).to_contain_text('+352****6789')
+        expect(card).to_contain_text('+352123456789')
 
     def test_account_age_displayed(self, authenticated_coach_page, pending_profile_submission):
         """Test account age (Joined X ago) is displayed."""
@@ -452,7 +452,7 @@ class TestAccountMetadataDisplay:
             gender='M',
             location='Luxembourg',
             bio='LinkedIn user bio',
-            phone_number='+352****2333',
+            phone_number='+352111222333',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -542,7 +542,7 @@ class TestDifferentAccountTypes:
             gender='F',
             location='Luxembourg',
             bio='New user',
-            phone_number='+352****6777',
+            phone_number='+352555666777',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -573,7 +573,7 @@ class TestDifferentAccountTypes:
             gender='M',
             location='Luxembourg',
             bio='Older account',
-            phone_number='+352****9000',
+            phone_number='+352888999000',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -623,7 +623,7 @@ class TestDifferentAccountTypes:
             gender='F',
             location='Luxembourg',
             bio='Never logged in',
-            phone_number='+352****3222',
+            phone_number='+352444333222',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(
@@ -928,7 +928,7 @@ class TestEdgeCases:
             gender='M',
             location='Luxembourg',
             bio='No login user',
-            phone_number='+352****8999',
+            phone_number='+352777888999',
             is_approved=False
         )
         submission = ProfileSubmission.objects.create(

@@ -265,8 +265,14 @@ class TestGiftClaimNewUser:
             # Should be on signup page
             assert '/signup' in page.url or '/register' in page.url or '/accounts/' in page.url
 
-    def test_claim_after_signup_creates_journey(self, page: Page, live_server_url, pending_gift, db):
-        """After signup, claiming a gift should create the journey."""
+    def test_unverified_signup_cannot_claim_gift(self, page: Page, live_server_url, pending_gift, db):
+        """A fresh signup whose email is not yet confirmed cannot claim the gift.
+
+        Under ACCOUNT_EMAIL_VERIFICATION="mandatory" the claim is gated behind
+        login, so the gift must stay pending and unowned. This is NOT coverage
+        of the successful new-user claim (that needs the email link confirmed
+        first and remains uncovered).
+        """
         import uuid
 
         # Navigate to gift landing
@@ -342,7 +348,8 @@ class TestGiftClaimNewUser:
         # enforcing authentication, or auto-claimed for an unverified
         # account, these assertions fail. Promoting this to an end-to-end
         # "claim succeeds" test requires confirming the email link first and
-        # is tracked separately — see docs/testing/playwright-coverage-matrix.md
+        # is tracked separately — see
+        # ai-memory-hub/runbooks/crush-playwright-coverage-matrix.md
         # Section 5 Row 5, which flagged this exact test as previously
         # asserting nothing.
         from crush_lu.models import JourneyGift

@@ -2,7 +2,7 @@
 Playwright tests for FinOps dashboard filtering functionality
 Tests charge type filtering, period selection, and edge cases
 """
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -215,9 +215,12 @@ class TestFinOpsDashboardFiltering:
 
         # Check URL still has charge_type=all (preserved via the hidden
         # input in the Period form)
-        current_url = staff_page.url
-        assert 'charge_type=all' in current_url or 'charge_type=' not in current_url
-        # Note: If charge_type not in URL, it defaults to 'payg', which is expected behavior
+        # A missing charge_type would silently revert the dashboard to the
+        # default 'payg', which is exactly the regression this guards.
+        query = parse_qs(urlsplit(staff_page.url).query)
+        assert query.get('charge_type') == ['all'], (
+            f"charge_type=all must persist across the period submit; got {staff_page.url!r}"
+        )
 
     def test_clear_filters_button(self, staff_page: Page, powerup_url):
         """Test that Clear button resets all filters"""
