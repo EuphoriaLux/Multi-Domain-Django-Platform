@@ -1,0 +1,34 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <p class="text-sm font-semibold uppercase tracking-widest text-orange-100 mb-4">{% trans "Services" %}</p>
+        <h1 class="text-4xl sm:text-5xl font-bold max-w-4xl mb-6">{% trans "Software that fits your business" %}</h1>
+        <p class="text-xl text-orange-100 max-w-3xl">{% trans "From a focused workflow tool to a customer-facing platform, we build around the job your software needs to do." %}</p>
+    </div>
+</section>
+<section class="section">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+        <article class="grid grid-cols-1 lg:grid-cols-2 gap-8 border-b border-gray-200 pb-16">
+            <div><p class="text-powerup-orange font-semibold mb-3">01</p><h2 class="text-3xl font-bold mb-4">{% trans "Custom applications and portals" %}</h2></div>
+            <div><p class="text-lg text-gray-600 mb-5">{% trans "Give staff, customers or partners one clear place to complete their work. We design the data, permissions and interfaces around the real process." %}</p><p class="text-gray-600">{% trans "Examples: booking and intake, customer self-service, internal operations and reporting." %}</p></div>
+        </article>
+        <article class="grid grid-cols-1 lg:grid-cols-2 gap-8 border-b border-gray-200 pb-16">
+            <div><p class="text-powerup-orange font-semibold mb-3">02</p><h2 class="text-3xl font-bold mb-4">{% trans "Azure architecture and delivery" %}</h2></div>
+            <div><p class="text-lg text-gray-600 mb-5">{% trans "We use Microsoft Azure when it supports the needs of the application and your existing environment. Architecture decisions cover deployment, identity, data, monitoring and cost." %}</p><p class="text-gray-600">{% trans "Experience includes Azure App Service, PostgreSQL, Blob Storage, Functions, monitoring and Microsoft Entra ID." %}</p></div>
+        </article>
+        <article class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div><p class="text-powerup-orange font-semibold mb-3">03</p><h2 class="text-3xl font-bold mb-4">{% trans "Integrations and automation" %}</h2></div>
+            <div><p class="text-lg text-gray-600 mb-5">{% trans "Connect the systems you already use and reduce repeated manual steps. We define the data flow, handle failures visibly and give your team a maintainable result." %}</p><p class="text-gray-600">{% trans "Examples: APIs, scheduled imports, notifications and operational dashboards." %}</p></div>
+        </article>
+    </div>
+</section>
+<section class="section bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+        <div><h2 class="text-3xl font-bold mb-4">{% trans "Start with the problem" %}</h2><p class="text-lg text-gray-600">{% trans "You do not need a finished specification. Tell us what is slowing your team down and which tools are involved; we can shape a first scope together." %}</p></div>
+        <div class="lg:text-right"><a href="{% url 'power_up:contact' %}" class="btn-primary">{% trans "Discuss your project" %}</a></div>
+    </div>
+</section>
+{% endblock %}

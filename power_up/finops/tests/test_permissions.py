@@ -99,6 +99,11 @@ class TestDashboardRequiresStaff:
         # @staff_member_required redirects to the admin login (302).
         assert client.get(url).status_code in (302, 403), url
 
+    def test_anonymous_uses_power_up_admin_login(self, client):
+        response = client.get("/finops/")
+        assert response.status_code == 302
+        assert response["Location"] == "/power-admin/login/?next=/finops/"
+
     @pytest.mark.parametrize("url", DASHBOARD_URLS)
     def test_regular_user_is_denied(self, client, regular_user, url):
         client.force_login(regular_user)

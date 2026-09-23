@@ -2,7 +2,7 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 msgid ""
 msgstr ""
@@ -590,8 +590,8 @@ msgstr ""
 msgid ""
 "In a country where everyone seems to know everyone, we recognized the need "
 "for platforms that respect privacy while fostering genuine connections. "
-"Whether it's dating, wine appreciation, or professional networking, we build "
-"with Luxembourg's values at heart."
+"Whether it's dating, wine appreciation, or professional networking, we build"
+" with Luxembourg's values at heart."
 msgstr ""
 
 #: .\power_up\templates\power_up\about.html:35
@@ -693,8 +693,8 @@ msgstr ""
 
 #: .\power_up\templates\power_up\contact.html:29
 msgid ""
-"Whether you're interested in partnership opportunities, have questions about "
-"our platforms, or just want to say hello - we're here to help."
+"Whether you're interested in partnership opportunities, have questions about"
+" our platforms, or just want to say hello - we're here to help."
 msgstr ""
 
 #: .\power_up\templates\power_up\contact.html:41
@@ -807,8 +807,8 @@ msgstr ""
 
 #: .\power_up\templates\power_up\home.html:51
 msgid ""
-"Every platform we build serves Luxembourg's unique communities with care and "
-"understanding."
+"Every platform we build serves Luxembourg's unique communities with care and"
+" understanding."
 msgstr ""
 
 #: .\power_up\templates\power_up\home.html:62
@@ -827,7 +827,8 @@ msgstr ""
 
 #: .\power_up\templates\power_up\home.html:77
 msgid ""
-"We combine proven technology with creative solutions tailored to local needs."
+"We combine proven technology with creative solutions tailored to local "
+"needs."
 msgstr ""
 
 #: .\power_up\templates\power_up\home.html:89
@@ -872,9 +873,9 @@ msgstr ""
 
 #: .\power_up\templates\power_up\investors.html:32
 msgid ""
-"Yet despite its wealth, Luxembourg has been underserved by homegrown digital "
-"platforms. Most residents rely on platforms designed for larger markets that "
-"don't understand local nuances."
+"Yet despite its wealth, Luxembourg has been underserved by homegrown digital"
+" platforms. Most residents rely on platforms designed for larger markets "
+"that don't understand local nuances."
 msgstr ""
 
 #: .\power_up\templates\power_up\investors.html:35
@@ -1098,8 +1099,8 @@ msgstr ""
 
 #: .\power_up\views.py:75
 msgid ""
-"Get in touch with Power-Up. Contact information for investors, partners, and "
-"general inquiries."
+"Get in touch with Power-Up. Contact information for investors, partners, and"
+" general inquiries."
 msgstr ""
 
 msgid "For venues, event agencies and companies"
@@ -1296,3 +1297,641 @@ msgid ""
 "Ticketing, quiz nights and speed dating for venues, event agencies and "
 "companies in Luxembourg, run on technology proven live on Crush.lu."
 msgstr ""
+
+msgid ""
+"A Luxembourg software studio building useful applications for real work."
+msgstr ""
+"A Luxembourg software studio building useful applications for real work."
+
+msgid "A brief description of your challenge is enough to begin."
+msgstr "A brief description of your challenge is enough to begin."
+
+msgid "A clear path from problem to working software"
+msgstr "A clear path from problem to working software"
+
+msgid ""
+"A clear process from the first conversation to a useful, maintainable "
+"application."
+msgstr ""
+"A clear process from the first conversation to a useful, maintainable "
+"application."
+
+msgid "A concept showcase for vineyard plot adoption in Luxembourg."
+msgstr "A concept showcase for vineyard plot adoption in Luxembourg."
+
+msgid ""
+"A live platform combining event registration, member verification and "
+"operational tools."
+msgstr ""
+"A live platform combining event registration, member verification and "
+"operational tools."
+
+msgid ""
+"A multilingual service website with appointment requests, travel-zone "
+"pricing and a staff booking workflow."
+msgstr ""
+"A multilingual service website with appointment requests, travel-zone "
+"pricing and a staff booking workflow."
+
+msgid ""
+"A networking site for Luxembourg entrepreneurs, currently at an early stage."
+msgstr ""
+"A networking site for Luxembourg entrepreneurs, currently at an early stage."
+
+msgid ""
+"A restricted staff portal for events, requests and announcements with "
+"Microsoft sign-in."
+msgstr ""
+"A restricted staff portal for events, requests and announcements with "
+"Microsoft sign-in."
+
+msgid "AI art gallery"
+msgstr "AI art gallery"
+
+msgid "Agree on scope"
+msgstr "Agree on scope"
+
+msgid "An AI art gallery site presenting a collection that is coming soon."
+msgstr "An AI art gallery site presenting a collection that is coming soon."
+
+msgid "An internal tool for importing and reviewing Azure cost data."
+msgstr "An internal tool for importing and reviewing Azure cost data."
+
+msgid ""
+"An internal tool for importing and reviewing Azure cost data. It illustrates"
+" data pipelines and operational reporting; the dashboard is not a public "
+"product."
+msgstr ""
+"An internal tool for importing and reviewing Azure cost data. It illustrates"
+" data pipelines and operational reporting; the dashboard is not a public "
+"product."
+
+msgid "Approach"
+msgstr "Approach"
+
+msgid "Azure architecture and delivery"
+msgstr "Azure architecture and delivery"
+
+msgid "Build"
+msgstr "Build"
+
+msgid "Build and review"
+msgstr "Build and review"
+
+msgid "Build responsibly"
+msgstr "Build responsibly"
+
+msgid "Built around the work, not a template"
+msgstr "Built around the work, not a template"
+
+msgid "Client delivery"
+msgstr "Client delivery"
+
+msgid "Client delivery · Live"
+msgstr "Client delivery · Live"
+
+msgid "Coming soon"
+msgstr "Coming soon"
+
+msgid "Concept"
+msgstr "Concept"
+
+msgid ""
+"Connect existing tools and automate repeatable work so information moves "
+"where it is needed."
+msgstr ""
+"Connect existing tools and automate repeatable work so information moves "
+"where it is needed."
+
+msgid ""
+"Connect the systems you already use and reduce repeated manual steps. We "
+"define the data flow, handle failures visibly and give your team a "
+"maintainable result."
+msgstr ""
+"Connect the systems you already use and reduce repeated manual steps. We "
+"define the data flow, handle failures visibly and give your team a "
+"maintainable result."
+
+msgid "Cost data imports and reporting"
+msgstr "Cost data imports and reporting"
+
+msgid "Cost-data ingestion and reporting built for internal Azure operations."
+msgstr ""
+"Cost-data ingestion and reporting built for internal Azure operations."
+
+msgid "Custom Software Development in Luxembourg | Power-Up"
+msgstr "Custom Software Development in Luxembourg | Power-Up"
+
+msgid "Custom Software and Azure Services | Power-Up"
+msgstr "Custom Software and Azure Services | Power-Up"
+
+msgid "Custom applications and portals"
+msgstr "Custom applications and portals"
+
+msgid ""
+"Custom applications, business portals, Azure architecture and workflow "
+"integrations for Luxembourg organizations."
+msgstr ""
+"Custom applications, business portals, Azure architecture and workflow "
+"integrations for Luxembourg organizations."
+
+msgid ""
+"Custom business software for Luxembourg organizations, with a focus on "
+"Microsoft Azure."
+msgstr ""
+"Custom business software for Luxembourg organizations, with a focus on "
+"Microsoft Azure."
+
+msgid "Custom business software, built for the way you work."
+msgstr "Custom business software, built for the way you work."
+
+msgid "Deliver useful software in reviewable steps."
+msgstr "Deliver useful software in reviewable steps."
+
+msgid ""
+"Design, deploy and operate applications on Azure with attention to access, "
+"reliability and ongoing cost."
+msgstr ""
+"Design, deploy and operate applications on Azure with attention to access, "
+"reliability and ongoing cost."
+
+msgid ""
+"Different kinds of work, clearly labelled: client delivery, our own "
+"products, internal tools and concepts."
+msgstr ""
+"Different kinds of work, clearly labelled: client delivery, our own "
+"products, internal tools and concepts."
+
+msgid "Discuss Your Software Project | Power-Up"
+msgstr "Discuss Your Software Project | Power-Up"
+
+msgid "Discuss software delivery and strategic partnerships with Power-Up."
+msgstr "Discuss software delivery and strategic partnerships with Power-Up."
+
+msgid "Discuss your project"
+msgstr "Discuss your project"
+
+msgid "Email Power-Up"
+msgstr "Email Power-Up"
+
+msgid ""
+"Email us about your business problem, the tools you use today and your "
+"preferred timeline. We will reply with a practical next step."
+msgstr ""
+"Email us about your business problem, the tools you use today and your "
+"preferred timeline. We will reply with a practical next step."
+
+msgid "Entrepreneur networking"
+msgstr "Entrepreneur networking"
+
+msgid "Event solutions"
+msgstr "Event solutions"
+
+msgid ""
+"Examples of client delivery, an owned product and an internal Azure tool."
+msgstr ""
+"Examples of client delivery, an owned product and an internal Azure tool."
+
+msgid ""
+"Examples: APIs, scheduled imports, notifications and operational dashboards."
+msgstr ""
+"Examples: APIs, scheduled imports, notifications and operational dashboards."
+
+msgid ""
+"Examples: booking and intake, customer self-service, internal operations and"
+" reporting."
+msgstr ""
+"Examples: booking and intake, customer self-service, internal operations and"
+" reporting."
+
+msgid ""
+"Experience includes Azure App Service, PostgreSQL, Blob Storage, Functions, "
+"monitoring and Microsoft Entra ID."
+msgstr ""
+"Experience includes Azure App Service, PostgreSQL, Blob Storage, Functions, "
+"monitoring and Microsoft Entra ID."
+
+msgid "Explore"
+msgstr "Explore"
+
+msgid ""
+"Explore Power-Up's client delivery, owned products and internal Azure tools,"
+" with clear project status."
+msgstr ""
+"Explore Power-Up's client delivery, owned products and internal Azure tools,"
+" with clear project status."
+
+msgid ""
+"Explore Power-Up's client work, owned products, internal tools and concepts "
+"with their current status."
+msgstr ""
+"Explore Power-Up's client work, owned products, internal tools and concepts "
+"with their current status."
+
+msgid "Explore our services"
+msgstr "Explore our services"
+
+msgid ""
+"For a Luxembourg tree-care business, we built a multilingual website and "
+"appointment workflow. Customers can request an on-site visit; the system "
+"handles travel-zone pricing and urgent requests."
+msgstr ""
+"For a Luxembourg tree-care business, we built a multilingual website and "
+"appointment workflow. Customers can request an on-site visit; the system "
+"handles travel-zone pricing and urgent requests."
+
+msgid ""
+"For event solutions, see our dedicated offer. For partnerships or press, use"
+" the same email address and include a clear subject."
+msgstr ""
+"For event solutions, see our dedicated offer. For partnerships or press, use"
+" the same email address and include a clear subject."
+
+msgid ""
+"From a focused workflow tool to a customer-facing platform, we build around "
+"the job your software needs to do."
+msgstr ""
+"From a focused workflow tool to a customer-facing platform, we build around "
+"the job your software needs to do."
+
+msgid "Get in touch"
+msgstr "Get in touch"
+
+msgid ""
+"Give staff, customers or partners one clear place to complete their work. We"
+" design the data, permissions and interfaces around the real process."
+msgstr ""
+"Give staff, customers or partners one clear place to complete their work. We"
+" design the data, permissions and interfaces around the real process."
+
+msgid "Have a project in mind?"
+msgstr "Have a project in mind?"
+
+msgid "Have a similar challenge?"
+msgstr "Have a similar challenge?"
+
+msgid "Helpful details to include"
+msgstr "Helpful details to include"
+
+msgid ""
+"If you have a business software challenge, a complementary service or a "
+"relevant collaboration idea, tell us what you are trying to achieve."
+msgstr ""
+"If you have a business software challenge, a complementary service or a "
+"relevant collaboration idea, tell us what you are trying to achieve."
+
+msgid "Integrations and automation"
+msgstr "Integrations and automation"
+
+msgid "Internal tool"
+msgstr "Internal tool"
+
+msgid "Internal tool · Restricted access"
+msgstr "Internal tool · Restricted access"
+
+msgid "Launch and support"
+msgstr "Launch and support"
+
+msgid "Launch, monitor and improve what matters."
+msgstr "Launch, monitor and improve what matters."
+
+msgid "Luxembourg software studio · Microsoft Azure focus"
+msgstr "Luxembourg software studio · Microsoft Azure focus"
+
+msgid "Main navigation"
+msgstr "Main navigation"
+
+msgid "Managed service · Available"
+msgstr "Managed service · Available"
+
+msgid "Map the problem and existing systems."
+msgstr "Map the problem and existing systems."
+
+msgid ""
+"Meet Power-Up, a Luxembourg software studio focused on custom business "
+"applications and Microsoft Azure."
+msgstr ""
+"Meet Power-Up, a Luxembourg software studio focused on custom business "
+"applications and Microsoft Azure."
+
+msgid ""
+"Microsoft Azure is a core part of our delivery experience. We choose "
+"services according to your requirements, existing systems and operating "
+"costs."
+msgstr ""
+"Microsoft Azure is a core part of our delivery experience. We choose "
+"services according to your requirements, existing systems and operating "
+"costs."
+
+msgid "Need technology for a live event?"
+msgstr "Need technology for a live event?"
+
+msgid "Other enquiries"
+msgstr "Other enquiries"
+
+msgid "Other projects and concepts"
+msgstr "Other projects and concepts"
+
+msgid "Our Software Delivery Approach | Power-Up"
+msgstr "Our Software Delivery Approach | Power-Up"
+
+msgid ""
+"Our experience includes multilingual applications, identity and access, "
+"event operations, booking flows and Azure-hosted services. Each project "
+"starts with the problem to solve and the people who will use the result."
+msgstr ""
+"Our experience includes multilingual applications, identity and access, "
+"event operations, booking flows and Azure-hosted services. Each project "
+"starts with the problem to solve and the people who will use the result."
+
+msgid ""
+"Our own event and dating platform combines registration, identity checks, "
+"event operations, member experiences and mobile applications."
+msgstr ""
+"Our own event and dating platform combines registration, identity checks, "
+"event operations, member experiences and mobile applications."
+
+msgid "Owned product"
+msgstr "Owned product"
+
+msgid "Owned product · Live"
+msgstr "Owned product · Live"
+
+msgid "Owned project · Early stage"
+msgstr "Owned project · Early stage"
+
+msgid "Partnerships"
+msgstr "Partnerships"
+
+msgid "Partnerships | Power-Up"
+msgstr "Partnerships | Power-Up"
+
+msgid ""
+"Please do not email passwords, customer records or other sensitive data in "
+"an initial enquiry."
+msgstr ""
+"Please do not email passwords, customer records or other sensitive data in "
+"an initial enquiry."
+
+msgid ""
+"Power-Up builds custom business software, portals and workflow tools for "
+"Luxembourg organizations, with a focus on Microsoft Azure."
+msgstr ""
+"Power-Up builds custom business software, portals and workflow tools for "
+"Luxembourg organizations, with a focus on Microsoft Azure."
+
+msgid "Power-Up home"
+msgstr "Power-Up home"
+
+msgid ""
+"Power-Up works across business software, portals and digital products. We "
+"combine product thinking with hands-on engineering, from the first workflow "
+"discussion through launch and operation."
+msgstr ""
+"Power-Up works across business software, portals and digital products. We "
+"combine product thinking with hands-on engineering, from the first workflow "
+"discussion through launch and operation."
+
+msgid ""
+"Replace scattered spreadsheets and manual handoffs with a tool designed for "
+"your team and customers."
+msgstr ""
+"Replace scattered spreadsheets and manual handoffs with a tool designed for "
+"your team and customers."
+
+msgid "Restricted portal"
+msgstr "Restricted portal"
+
+msgid "Reviewable releases make progress and decisions visible."
+msgstr "Reviewable releases make progress and decisions visible."
+
+msgid "Run"
+msgstr "Run"
+
+msgid ""
+"See how Power-Up discovers, builds, launches and supports custom business "
+"software."
+msgstr ""
+"See how Power-Up discovers, builds, launches and supports custom business "
+"software."
+
+msgid "See selected work"
+msgstr "See selected work"
+
+msgid "Selected Software Work | Power-Up"
+msgstr "Selected Software Work | Power-Up"
+
+msgid "Selected work"
+msgstr "Selected work"
+
+msgid "Services"
+msgstr "Services"
+
+msgid ""
+"Share your business problem, current tools and desired timeline. We will "
+"help you define a sensible next step."
+msgstr ""
+"Share your business problem, current tools and desired timeline. We will "
+"help you define a sensible next step."
+
+msgid "Show the work"
+msgstr "Show the work"
+
+msgid ""
+"Software shaped around your processes, your people and the systems you "
+"already use."
+msgstr ""
+"Software shaped around your processes, your people and the systems you "
+"already use."
+
+msgid "Software that fits your business"
+msgstr "Software that fits your business"
+
+msgid "Staff access with Microsoft sign-in"
+msgstr "Staff access with Microsoft sign-in"
+
+msgid "Staff management portal"
+msgstr "Staff management portal"
+
+msgid "Start the conversation"
+msgstr "Start the conversation"
+
+msgid "Start with a conversation"
+msgstr "Start with a conversation"
+
+msgid "Start with the problem"
+msgstr "Start with the problem"
+
+msgid "Systems it may need to connect"
+msgstr "Systems it may need to connect"
+
+msgid "Tell Power-Up about your business software project in Luxembourg."
+msgstr "Tell Power-Up about your business software project in Luxembourg."
+
+msgid "Tell us what you need to build"
+msgstr "Tell us what you need to build"
+
+msgid ""
+"Tell us what your organization needs to improve. A short description is "
+"enough to begin."
+msgstr ""
+"Tell us what your organization needs to improve. A short description is "
+"enough to begin."
+
+msgid ""
+"Tell us what your team needs to do better. We can discuss a practical first "
+"step."
+msgstr ""
+"Tell us what your team needs to do better. We can discuss a practical first "
+"step."
+
+msgid "The task or process you want to improve"
+msgstr "The task or process you want to improve"
+
+msgid ""
+"These sites show ideas at different stages. A concept is not a launched "
+"customer product."
+msgstr ""
+"These sites show ideas at different stages. A concept is not a launched "
+"customer product."
+
+msgid "Toggle menu"
+msgstr "Toggle menu"
+
+msgid "Understand"
+msgstr "Understand"
+
+msgid "Understand first"
+msgstr "Understand first"
+
+msgid "Understand the work"
+msgstr "Understand the work"
+
+msgid "View our work"
+msgstr "View our work"
+
+msgid "Vineyard adoption concept"
+msgstr "Vineyard adoption concept"
+
+msgid "Visit Arborist.lu"
+msgstr "Visit Arborist.lu"
+
+msgid "Visit Crush.lu"
+msgstr "Visit Crush.lu"
+
+msgid "Visit site"
+msgstr "Visit site"
+
+msgid ""
+"We also run ticketing, quiz and speed-dating events using tools proven on "
+"Crush.lu."
+msgstr ""
+"We also run ticketing, quiz and speed-dating events using tools proven on "
+"Crush.lu."
+
+msgid ""
+"We consider privacy, access, reliability and maintenance as part of the "
+"product."
+msgstr ""
+"We consider privacy, access, reliability and maintenance as part of the "
+"product."
+
+msgid ""
+"We deliver in reviewable steps, test the important workflows and adjust with"
+" your feedback before launch."
+msgstr ""
+"We deliver in reviewable steps, test the important workflows and adjust with"
+" your feedback before launch."
+
+msgid ""
+"We design and develop secure web applications, portals and workflow tools "
+"for Luxembourg organizations, using Microsoft Azure where it fits your "
+"systems and goals."
+msgstr ""
+"We design and develop secure web applications, portals and workflow tools "
+"for Luxembourg organizations, using Microsoft Azure where it fits your "
+"systems and goals."
+
+msgid ""
+"We discuss the people, current systems, constraints and measurable problem. "
+"Then we identify the smallest useful first release."
+msgstr ""
+"We discuss the people, current systems, constraints and measurable problem. "
+"Then we identify the smallest useful first release."
+
+msgid ""
+"We make the deliverables, dependencies and open decisions visible before "
+"development starts. Architecture follows the need, including whether Azure "
+"is the right fit."
+msgstr ""
+"We make the deliverables, dependencies and open decisions visible before "
+"development starts. Architecture follows the need, including whether Azure "
+"is the right fit."
+
+msgid "We map the workflow and constraints before choosing technology."
+msgstr "We map the workflow and constraints before choosing technology."
+
+msgid ""
+"We plan deployment, access, monitoring and handover so the software can be "
+"operated and improved after release."
+msgstr ""
+"We plan deployment, access, monitoring and handover so the software can be "
+"operated and improved after release."
+
+msgid ""
+"We run ticketing, quiz nights and speed-dating events for venues, agencies "
+"and organizations using tools developed for Crush.lu."
+msgstr ""
+"We run ticketing, quiz nights and speed-dating events for venues, agencies "
+"and organizations using tools developed for Crush.lu."
+
+msgid ""
+"We start with the workflow and the people who use it, agree on a practical "
+"scope, then build and launch in reviewable steps."
+msgstr ""
+"We start with the workflow and the people who use it, agree on a practical "
+"scope, then build and launch in reviewable steps."
+
+msgid ""
+"We use Microsoft Azure when it supports the needs of the application and "
+"your existing environment. Architecture decisions cover deployment, "
+"identity, data, monitoring and cost."
+msgstr ""
+"We use Microsoft Azure when it supports the needs of the application and "
+"your existing environment. Architecture decisions cover deployment, "
+"identity, data, monitoring and cost."
+
+msgid ""
+"We work with organizations that need practical digital tools and partners "
+"who can help deliver them."
+msgstr ""
+"We work with organizations that need practical digital tools and partners "
+"who can help deliver them."
+
+msgid "Web platform · Operations · Mobile"
+msgstr "Web platform · Operations · Mobile"
+
+msgid "Website · Booking · Staff workflow"
+msgstr "Website · Booking · Staff workflow"
+
+msgid "What we build"
+msgstr "What we build"
+
+msgid "Who will use the software"
+msgstr "Who will use the software"
+
+msgid "Work"
+msgstr "Work"
+
+msgid "Work with Power-Up"
+msgstr "Work with Power-Up"
+
+msgid ""
+"You do not need a finished specification. Tell us what is slowing your team "
+"down and which tools are involved; we can shape a first scope together."
+msgstr ""
+"You do not need a finished specification. Tell us what is slowing your team "
+"down and which tools are involved; we can shape a first scope together."
+
+msgid "Your desired timing"
+msgstr "Your desired timing"

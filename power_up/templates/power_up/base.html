@@ -21,16 +21,16 @@
     <meta name="msapplication-TileColor" content="#fe4901">
 
     <!-- Tailwind CSS (compiled locally, no CDN) -->
-    <link rel="stylesheet" href="{% static 'power_up/css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static 'power_up/css/tailwind.css' %}?v=agency-20260923">
 
     <!-- SEO Meta Tags -->
-    <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}{% endblock %}">
+    <meta name="description" content="{% block meta_description %}{{ meta_description|default:"Custom business software for Luxembourg organizations, with a focus on Microsoft Azure." }}{% endblock %}">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://power-up.lu{{ request.path }}">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:title" content="{% block og_title %}{{ page_title|default:"Power-Up" }}{% endblock %}">
-    <meta property="og:description" content="{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}">
+    <meta property="og:description" content="{{ meta_description|default:"Custom business software for Luxembourg organizations, with a focus on Microsoft Azure." }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://power-up.lu{{ request.path }}">
     <meta property="og:site_name" content="Power-Up">
@@ -42,7 +42,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ page_title|default:"Power-Up" }}">
-    <meta name="twitter:description" content="{{ meta_description|default:"Power-Up builds digital platforms for Luxembourg's future." }}">
+    <meta name="twitter:description" content="{{ meta_description|default:"Custom business software for Luxembourg organizations, with a focus on Microsoft Azure." }}">
     <meta name="twitter:image" content="https://power-up.lu{% static 'power_up/social/twitter_card.jpg' %}">
 
     {% block extra_head %}{% endblock %}

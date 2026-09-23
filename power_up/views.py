@@ -1,9 +1,4 @@
-"""
-Views for Power-Up corporate/investor site.
-
-All views are simple template renders - no forms, no authentication.
-This is a static marketing site for investors and partners.
-"""
+"""Public Power-Up agency pages. All views are static template renders."""
 
 from django.shortcuts import render
 from django.utils.translation import gettext_lazy as _
@@ -15,27 +10,62 @@ from .solutions import SOLUTIONS
 
 @require_GET
 def home(request):
-    """Landing page with hero, mission, and portfolio preview."""
+    """Landing page for prospective software clients."""
     context = {
-        "platforms": PLATFORMS,
-        "solutions": SOLUTIONS,
-        "page_title": _("Power-Up - Building Luxembourg's Digital Future"),
+        "page_title": _("Custom Software Development in Luxembourg | Power-Up"),
         "meta_description": _(
-            "Power-Up builds digital platforms for Luxembourg. "
-            "Discover our portfolio: Crush.lu, VinsDelux, and Entreprinder."
+            "Power-Up builds custom business software, portals and workflow tools "
+            "for Luxembourg organizations, with a focus on Microsoft Azure."
         ),
     }
     return render(request, "power_up/home.html", context)
 
 
 @require_GET
+def services(request):
+    """Custom software and Azure services."""
+    return render(request, "power_up/services.html", {
+        "page_title": _("Custom Software and Azure Services | Power-Up"),
+        "meta_description": _(
+            "Custom applications, business portals, Azure architecture and "
+            "workflow integrations for Luxembourg organizations."
+        ),
+    })
+
+
+@require_GET
+def work(request):
+    """Selected work with explicit ownership and maturity labels."""
+    return render(request, "power_up/work.html", {
+        "page_title": _("Selected Software Work | Power-Up"),
+        "meta_description": _(
+            "Explore Power-Up's client delivery, owned products and internal "
+            "Azure tools, with clear project status."
+        ),
+        "platforms": PLATFORMS,
+    })
+
+
+@require_GET
+def approach(request):
+    """How software engagements are scoped and delivered."""
+    return render(request, "power_up/approach.html", {
+        "page_title": _("Our Software Delivery Approach | Power-Up"),
+        "meta_description": _(
+            "See how Power-Up discovers, builds, launches and supports "
+            "custom business software."
+        ),
+    })
+
+
+@require_GET
 def about(request):
-    """Company story, team, and values."""
+    """Company focus and experience."""
     context = {
         "page_title": _("About Power-Up"),
         "meta_description": _(
-            "Learn about Power-Up, the company building Luxembourg's "
-            "digital future through innovative platforms."
+            "Meet Power-Up, a Luxembourg software studio focused on custom "
+            "business applications and Microsoft Azure."
         ),
     }
     return render(request, "power_up/about.html", context)
@@ -59,13 +89,13 @@ def solutions(request):
 
 @require_GET
 def platforms(request):
-    """Portfolio showcase with all platforms."""
+    """Legacy portfolio route, kept for existing links."""
     context = {
         "platforms": PLATFORMS,
         "page_title": _("Our Platforms - Power-Up"),
         "meta_description": _(
-            "Explore Power-Up's portfolio of digital platforms: "
-            "Crush.lu dating, VinsDelux wine adoption, and Entreprinder networking."
+            "Explore Power-Up's client work, owned products, internal tools "
+            "and concepts with their current status."
         ),
     }
     return render(request, "power_up/platforms.html", context)
@@ -73,12 +103,11 @@ def platforms(request):
 
 @require_GET
 def investors(request):
-    """Investment and partnership information."""
+    """Partnership information at the existing URL."""
     context = {
-        "page_title": _("Investors & Partners - Power-Up"),
+        "page_title": _("Partnerships | Power-Up"),
         "meta_description": _(
-            "Partner with Power-Up to build Luxembourg's digital future. "
-            "Investment and partnership opportunities."
+            "Discuss software delivery and strategic partnerships with Power-Up."
         ),
     }
     return render(request, "power_up/investors.html", context)
@@ -86,12 +115,11 @@ def investors(request):
 
 @require_GET
 def contact(request):
-    """Static contact information block."""
+    """Project enquiry contact information."""
     context = {
-        "page_title": _("Contact Us - Power-Up"),
+        "page_title": _("Discuss Your Software Project | Power-Up"),
         "meta_description": _(
-            "Get in touch with Power-Up. Contact information for "
-            "investors, partners, and general inquiries."
+            "Tell Power-Up about your business software project in Luxembourg."
         ),
     }
     return render(request, "power_up/contact.html", context)
