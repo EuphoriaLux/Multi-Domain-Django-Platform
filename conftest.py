@@ -518,8 +518,21 @@ def mock_azure_storage(mocker):
 
 @pytest.fixture
 def sender_user(transactional_db):
-    """Create an authenticated user who will create journey gifts."""
+    """Create an authenticated user who will create journey gifts.
+
+    Grants Crush.lu consent (``UserDataConsent.crushlu_consent_given=True``)
+    up front: ``CrushConsentMiddleware`` deny-by-defaults every authenticated
+    Crush.lu request that isn't on its exempt-path allowlist, and
+    ``/journey/gift/create/`` is not exempt. Without this the fixture's user
+    gets redirected to ``/consent/confirm/`` on first navigation and every
+    downstream form-field assertion times out waiting for a field that's on
+    a different page — reproduced directly via the
+    ``consent_middleware.py:120`` log line before this fix. Matches the
+    "prefer API setup through supported application interfaces" QA
+    convention used elsewhere in this file (see ``staff_page`` above).
+    """
     from allauth.account.models import EmailAddress
+    from crush_lu.models import UserDataConsent
 
     user = _user_model().objects.create_user(
         username='sender@example.com',
@@ -535,13 +548,21 @@ def sender_user(transactional_db):
         verified=True,
         primary=True
     )
+    UserDataConsent.objects.update_or_create(
+        user=user,
+        defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+    )
     return user
 
 
 @pytest.fixture
 def recipient_user(transactional_db):
-    """Create a user who will claim a journey gift."""
+    """Create a user who will claim a journey gift.
+
+    Grants Crush.lu consent up front — see ``sender_user`` above for why.
+    """
     from allauth.account.models import EmailAddress
+    from crush_lu.models import UserDataConsent
 
     user = _user_model().objects.create_user(
         username='recipient@example.com',
@@ -556,6 +577,10 @@ def recipient_user(transactional_db):
         email=user.email,
         verified=True,
         primary=True
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user,
+        defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
     )
     return user
 
