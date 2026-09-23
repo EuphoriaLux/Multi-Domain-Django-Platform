@@ -20,6 +20,8 @@ PLATFORMS = [
         "url": "https://crush.lu",
         "icon": "heart",
         "status": "live",
+        "status_label": _("Owned product · Live"),
+        "group": "featured",
         "launched": "2025",
         "highlights": [
             _("Event-based matchmaking"),
@@ -32,100 +34,75 @@ PLATFORMS = [
         "slug": "vinsdelux",
         "name": "VinsDelux",
         "tagline": _("Adopt a vineyard plot in Luxembourg"),
-        "description": _(
-            "Premium wine e-commerce with a unique twist - adopt your own "
-            "vineyard plot and receive wines from your personal vines. "
-            "Experience Luxembourg's Moselle wine culture firsthand."
-        ),
+        "description": _("A concept showcase for vineyard plot adoption in Luxembourg."),
         "url": "https://vinsdelux.com",
         "icon": "sparkles",
-        "status": "live",
+        "status": "concept",
+        "status_label": _("Concept"),
+        "group": "other",
         "launched": "2024",
         "highlights": [
-            _("Plot adoption program"),
-            _("Luxembourg Moselle wines"),
-            _("Vineyard visit experiences"),
-            _("Direct from producers"),
+            _("Vineyard adoption concept"),
         ],
     },
     {
         "slug": "entreprinder",
         "name": "Entreprinder",
         "tagline": _("Entrepreneur networking for Luxembourg"),
-        "description": _(
-            "Connect with fellow entrepreneurs using smart matching. "
-            "Find co-founders, mentors, and business partners in "
-            "Luxembourg's growing startup ecosystem."
-        ),
+        "description": _("A networking site for Luxembourg entrepreneurs, currently at an early stage."),
         "url": "https://entreprinder.lu",
         "icon": "users",
-        "status": "live",
+        "status": "prototype",
+        "status_label": _("Owned project · Early stage"),
+        "group": "other",
         "launched": "2024",
         "highlights": [
-            _("Smart matching algorithm"),
-            _("LinkedIn integration"),
-            _("Local business focus"),
-            _("Startup ecosystem"),
+            _("Entrepreneur networking"),
         ],
     },
     {
         "slug": "finops-hub",
         "name": "FinOps Hub",
         "tagline": _("Azure cost management & analytics"),
-        "description": _(
-            "Comprehensive Azure cost management dashboard for enterprises. "
-            "Track cloud spending, analyze trends, and optimize costs across "
-            "all your Azure subscriptions in real-time."
-        ),
+        "description": _("An internal tool for importing and reviewing Azure cost data."),
         "url": "/finops/",
         "icon": "chart",
-        "status": "live",
+        "status": "internal",
+        "status_label": _("Internal tool · Restricted access"),
+        "group": "featured",
         "launched": "2025",
         "highlights": [
-            _("Multi-subscription tracking"),
-            _("Cost trend analysis"),
-            _("Service-level breakdown"),
-            _("Automated daily sync"),
+            _("Cost data imports and reporting"),
         ],
     },
     {
         "slug": "tableau-lu",
         "name": "Tableau.lu",
         "tagline": _("AI-generated art e-commerce"),
-        "description": _(
-            "Discover unique artwork created by artificial intelligence. "
-            "Each piece is one of a kind, designed to evoke emotion and "
-            "transform your space with museum-quality prints."
-        ),
+        "description": _("An AI art gallery site presenting a collection that is coming soon."),
         "url": "https://tableau.lu",
         "icon": "palette",
-        "status": "live",
+        "status": "coming-soon",
+        "status_label": _("Coming soon"),
+        "group": "other",
         "launched": "2025",
         "highlights": [
-            _("Unique AI-generated artwork"),
-            _("Museum-quality prints"),
-            _("One-of-a-kind pieces"),
-            _("Accessible art pricing"),
+            _("AI art gallery"),
         ],
     },
     {
         "slug": "delegations-lu",
         "name": "Delegations.lu",
-        "tagline": _("Delegating people made simple"),
-        "description": _(
-            "A national platform supporting companies and workers in managing "
-            "delegation assignments. Get guidance, coordination, and administrative "
-            "clarity for cross-border and national delegation processes."
-        ),
+        "tagline": _("Staff management portal"),
+        "description": _("A restricted staff portal for events, requests and announcements with Microsoft sign-in."),
         "url": "https://delegations.lu",
         "icon": "clipboard",
-        "status": "live",
+        "status": "restricted",
+        "status_label": _("Restricted portal"),
+        "group": "other",
         "launched": "2025",
         "highlights": [
-            _("Delegation coordination"),
-            _("Compliance guidance"),
-            _("Employee helppoint"),
-            _("Cross-border support"),
+            _("Staff access with Microsoft sign-in"),
         ],
     },
 ]

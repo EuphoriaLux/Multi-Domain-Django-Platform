@@ -36,7 +36,7 @@ def _build_json_config(page, **kwargs):
     return json.dumps(config, cls=DjangoJSONEncoder)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def dashboard(request):
     """Main FinOps dashboard with cost overview and filtering"""
     subscription_filter = request.GET.get('subscription')
@@ -270,7 +270,7 @@ def dashboard(request):
     return render(request, 'finops/dashboard.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def subscription_view(request):
     """Multi-subscription cost comparison view"""
     date_info = resolve_date_range(request.GET)
@@ -306,7 +306,7 @@ def subscription_view(request):
     return render(request, 'finops/subscription_view.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def service_breakdown(request):
     """Service-level cost breakdown"""
     date_info = resolve_date_range(request.GET)
@@ -358,7 +358,7 @@ def service_breakdown(request):
     return render(request, 'finops/service_breakdown.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def resource_explorer(request):
     """Resource-level cost explorer"""
     date_info = resolve_date_range(request.GET)
@@ -420,7 +420,7 @@ def resource_explorer(request):
     return render(request, 'finops/resource_explorer.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def trigger_import(request):
     """Admin page to manually trigger cost data import"""
     if request.method == 'POST':
@@ -443,7 +443,7 @@ def trigger_import(request):
     return render(request, 'finops/import.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def update_subscription_id(request, export_id):
     """Update subscription ID for an incomplete export"""
     export = get_object_or_404(CostExport, id=export_id)
@@ -469,7 +469,7 @@ def update_subscription_id(request, export_id):
     return render(request, 'finops/update_subscription_id.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def faq(request):
     """FAQ page explaining data flow, updates, and Azure export configuration"""
     latest_export = CostExport.objects.filter(
@@ -490,7 +490,7 @@ def faq(request):
     return render(request, 'finops/faq.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def anomalies_view(request):
     """Cost anomalies dashboard"""
     days = int(request.GET.get('days', 30))
@@ -525,7 +525,7 @@ def anomalies_view(request):
     return render(request, 'finops/anomalies.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def forecast_view(request):
     """Cost forecast dashboard"""
     from power_up.finops.models import CostForecast
@@ -605,7 +605,7 @@ def forecast_view(request):
     return render(request, 'finops/forecast.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def comparison_view(request):
     """Month-over-month cost comparison"""
     # Get available months
@@ -718,7 +718,7 @@ def comparison_view(request):
     return render(request, 'finops/comparison.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url="/power-admin/login/")
 def resource_group_view(request):
     """Resource group cost breakdown"""
     date_info = resolve_date_range(request.GET)
