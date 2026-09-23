@@ -398,7 +398,9 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 // feature flags) on both slots. No workflow deploys this file today.
 //
 // Keep pinning new sticky settings with the CLI, then mirror the name here:
-//   az webapp config appsettings set -g <rg> -n <app> --slot staging //     --settings NAME=value --slot-settings NAME
+// (--slot-settings both sets the value and marks the name slot-sticky)
+//   az webapp config appsettings set -g <rg> -n <app> --slot staging \
+//     --slot-settings NAME=value
 resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
   parent: web
   name: 'slotConfigNames'
