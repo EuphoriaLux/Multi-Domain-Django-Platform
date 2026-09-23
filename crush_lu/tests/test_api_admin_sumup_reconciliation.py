@@ -437,7 +437,10 @@ class SumUpReconciliationEndpointTests(TestCase):
         """Case 9."""
         resp = self._run(FULL_REFUND)
         body = resp.json()
-        self.assertEqual(set(body), {"status", "timestamp"} | COUNTER_KEYS)
+        self.assertEqual(
+            set(body),
+            {"status", "timestamp", "cursor_resumed", "wrapped"} | COUNTER_KEYS,
+        )
         raw = resp.content.decode()
         for secret in (
             self.user.email,
@@ -455,7 +458,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         line = next(m for m in logs.output if "checked=" in m)
         self.assertIn(
             "in_window=1 checked=1 reconciled=0 refunded_superseded=0 partial=0 "
-            "errors=0 unchecked=0",
+            "errors=0 unchecked=0 cursor_resumed=False wrapped=True",
             line,
         )
         self.assertNotIn(self.payment.transaction_reference, line)
@@ -1069,6 +1072,110 @@ class SumUpReconciliationEndpointTests(TestCase):
         later.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(later.status, PaymentTransaction.Status.PAID)
+
+    # -- resume cursor (Codex 4080651811) ----------------------------------
+
+    def _three_paid_rows(self):
+        """Rows 1/2/3, oldest first, that all stay PAID."""
+        self._age(self.payment, 25)
+        second = self._new_payment("CRUSH-T2-row2", "chk_row2")
+        self._age(second, 15)
+        third = self._new_payment("CRUSH-T2-row3", "chk_row3")
+        self._age(third, 5)
+        return {c: STILL_PAID for c in ("chk_t2_1", "chk_row2", "chk_row3")}
+
+    def _one_row_run(self, payloads):
+        """A run whose budget allows exactly one row: the clock reads 0 at
+        the start and for the first row, then is past any deadline."""
+        import itertools
+
+        clock = patch(
+            f"{CMD}.time",
+            **{
+                "monotonic.side_effect": itertools.chain(
+                    [0, 0], itertools.repeat(10**6)
+                )
+            },
+        )
+        with clock:
+            return self._run_by_id(payloads)
+
+    def test_bounded_runs_walk_the_window_and_wrap(self):
+        payloads = self._three_paid_rows()
+        seen = []
+        flags = []
+        for _ in range(4):
+            body, order = self._one_row_run(payloads)
+            seen.append(order)
+            flags.append((body["cursor_resumed"], body["wrapped"]))
+        self.assertEqual(seen, [["chk_t2_1"], ["chk_row2"], ["chk_row3"], ["chk_t2_1"]])
+        self.assertEqual(
+            flags, [(False, False), (True, False), (True, True), (False, False)]
+        )
+
+    def test_a_cursor_older_than_the_window_is_ignored(self):
+        from crush_lu import api_admin_sumup
+
+        payloads = self._three_paid_rows()
+        cache.set(
+            api_admin_sumup.CURSOR_CACHE_KEY,
+            {"t": (timezone.now() - timedelta(days=40)).isoformat(), "pk": 1},
+        )
+        body, order = self._one_row_run(payloads)
+        self.assertEqual(order, ["chk_t2_1"])
+        self.assertIs(body["cursor_resumed"], False)
+
+    def test_an_unreadable_cursor_is_ignored(self):
+        from crush_lu import api_admin_sumup
+
+        payloads = self._three_paid_rows()
+        cache.set(api_admin_sumup.CURSOR_CACHE_KEY, {"t": "not a date", "pk": "x"})
+        with self.assertLogs("crush_lu.api_admin_sumup", level=logging.WARNING):
+            _, order = self._one_row_run(payloads)
+        self.assertEqual(order, ["chk_t2_1"])
+
+    def test_a_cache_failure_falls_back_to_oldest_first(self):
+        payloads = self._three_paid_rows()
+        broken = patch("crush_lu.api_admin_sumup.cache")
+        with broken as fake_cache:
+            fake_cache.get.side_effect = ConnectionError("redis down")
+            fake_cache.set.side_effect = ConnectionError("redis down")
+            fake_cache.delete.side_effect = ConnectionError("redis down")
+            with self.assertLogs("crush_lu.api_admin_sumup", level=logging.WARNING):
+                body, order = self._one_row_run(payloads)
+        self.assertEqual(order, ["chk_t2_1"])
+        self.assertEqual((body["errors"], body["cursor_resumed"]), (0, False))
+
+    def test_a_deferred_refund_does_not_move_the_cursor_past_it(self):
+        """A refund left for lack of time is still owed: next run reads it."""
+        from crush_lu import api_admin_sumup
+
+        payloads = self._three_paid_rows()
+        payloads["chk_t2_1"] = FULL_REFUND
+        with patch.object(api_admin_sumup, "WRITE_RESERVE_SECONDS", 10_000):
+            body, order = self._run_by_id(payloads)
+        self.assertEqual(order, ["chk_t2_1"])
+        self.assertEqual(body["unchecked"], 3)
+        self.assertIsNone(cache.get(api_admin_sumup.CURSOR_CACHE_KEY))
+        _, order2 = self._run_by_id(payloads)
+        self.assertEqual(order2[0], "chk_t2_1")
+
+    def test_the_cli_ignores_the_cursor(self):
+        from django.core.management import call_command
+
+        from crush_lu import api_admin_sumup
+
+        payloads = self._three_paid_rows()
+        cache.set(
+            api_admin_sumup.CURSOR_CACHE_KEY,
+            {"t": timezone.now().isoformat(), "pk": 10**9},
+        )
+        with (
+            patch(GET_CHECKOUT, side_effect=lambda c: payloads[c]) as get_checkout,
+            patch(GET_HISTORY, return_value={"items": []}),
+        ):
+            call_command("reconcile_sumup_payments", quiet=True)
+        self.assertEqual(get_checkout.call_count, 3)
 
     def test_single_payment_refund_is_unchanged(self):
         body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})

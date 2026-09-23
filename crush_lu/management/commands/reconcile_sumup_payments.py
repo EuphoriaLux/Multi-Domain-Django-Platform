@@ -388,6 +388,7 @@ class Command(BaseCommand):
         write_reserve_seconds=0.0,
         max_writes=None,
         oldest_first=False,
+        resume_after=None,
     ) -> dict:
         """Run one sweep and return its counters.
 
@@ -406,6 +407,14 @@ class Command(BaseCommand):
         run cut short leaves the NEWEST rows for later — they stay in the
         window for weeks — rather than the oldest ones, which are about to age
         out. The CLI keeps newest-first.
+
+        ``resume_after`` — ``(paid_or_created, pk)`` of the last row a
+        previous oldest-first run READ — starts this run strictly after it, so
+        consecutive bounded runs walk the whole window instead of re-reading
+        the same oldest rows. When nothing is left after it, the run starts
+        from the oldest row again. The caller owns storing it: the result
+        carries ``last_read`` (None if no row was read) and ``reached_end``
+        (every row the run could see was read — the pass is complete).
 
         ``budget_seconds`` is a hard deadline for the whole sweep, including
         what a write sets off after it commits. Two reserves keep it one:
@@ -457,6 +466,22 @@ class Command(BaseCommand):
             qs = qs.order_by(Coalesce(F("paid_at"), F("created_at")).asc(), "pk")
         else:
             qs = qs.order_by("-created_at")
+        window_count = qs.count()
+
+        cursor_resumed = False
+        if resume_after is not None and oldest_first:
+            after_moment, after_pk = resume_after
+            after_cursor = qs.annotate(
+                cursor_key=Coalesce(F("paid_at"), F("created_at"))
+            ).filter(
+                Q(cursor_key__gt=after_moment)
+                | Q(cursor_key=after_moment, pk__gt=after_pk)
+            )
+            if after_cursor.exists():
+                qs = after_cursor
+                cursor_resumed = True
+            # else: the previous pass already read the last row — start over
+            # from the oldest.
         total_count = qs.count()
 
         if not quiet:
@@ -469,13 +494,16 @@ class Command(BaseCommand):
             if not quiet:
                 self.stdout.write("No matching PAID transactions found.")
             return {
-                "in_window": 0,
+                "in_window": window_count,
                 "checked": 0,
                 "reconciled": 0,
                 "refunded_superseded": 0,
                 "partial": 0,
                 "errors": 0,
                 "unchecked": 0,
+                "cursor_resumed": cursor_resumed,
+                "reached_end": True,
+                "last_read": None,
             }
 
         client = SumUpClient()
@@ -510,6 +538,8 @@ class Command(BaseCommand):
         partial_count = 0
         superseded_count = 0
         unchecked = 0
+        last_read = None
+        previous_read = None
 
         def _over_budget(reserve):
             return (
@@ -531,6 +561,13 @@ class Command(BaseCommand):
                 )
                 break
             checked += 1
+            previous_read = last_read
+            last_read = (
+                getattr(tx_obj, "paid_or_created", None)
+                or tx_obj.paid_at
+                or tx_obj.created_at,
+                tx_obj.pk,
+            )
             if delay > 0 and checked > 1:
                 time.sleep(delay)
 
@@ -757,6 +794,9 @@ class Command(BaseCommand):
                     # what the commit sets off. Leave it PAID for the next run
                     # and stop: a later row could only hit the same wall.
                     checked -= 1
+                    # Not counted as read: the refund it carries is still owed,
+                    # so a resume cursor must not move past it.
+                    last_read = previous_read
                     unchecked = total_count - checked
                     logger.warning(
                         "SumUp reconciliation deferred a detected refund on "
@@ -862,13 +902,17 @@ class Command(BaseCommand):
             self.stdout.write(summary_msg)
 
         return {
-            "in_window": total_count,
+            "in_window": window_count,
             "checked": checked,
             "reconciled": refunded_count,
             "refunded_superseded": superseded_count,
             "partial": partial_count,
             "errors": errors_count,
             "unchecked": unchecked,
+            "cursor_resumed": cursor_resumed,
+            # Every row this run could see was read (no break left any).
+            "reached_end": unchecked == 0,
+            "last_read": last_read,
         }
 
     @staticmethod

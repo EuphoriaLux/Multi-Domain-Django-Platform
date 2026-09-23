@@ -26,7 +26,10 @@ from __future__ import annotations
 import logging
 from io import StringIO
 
+from datetime import datetime, timedelta
+
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -123,6 +126,68 @@ COUNTER_KEYS = (
     "unchecked",
 )
 
+# Resume cursor (Codex 4080651811). Bounded oldest-first runs that leave the
+# rows they read PAID would otherwise re-read the same oldest rows every
+# night. The cursor is the (paid-or-created moment, pk) of the last row READ;
+# the next run starts strictly after it, and a run that reaches the end of the
+# window clears it so the following one wraps to the oldest again. Kept in the
+# Django cache (Redis in production), so it needs no migration; losing it only
+# means one run starts from the oldest row — never a failed run.
+CURSOR_CACHE_KEY = "sumup_reconcile:cursor"
+CURSOR_TTL_SECONDS = 7 * 24 * 60 * 60
+
+
+def _load_cursor():
+    """The stored cursor, or None (missing, unreadable, aged out, cache down)."""
+    try:
+        raw = cache.get(CURSOR_CACHE_KEY)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "[sumup_reconciliation] cursor unavailable (%s); starting from the "
+            "oldest row",
+            type(exc).__name__,
+        )
+        return None
+    if not raw:
+        return None
+    try:
+        moment = datetime.fromisoformat(raw["t"])
+        pk = int(raw["pk"])
+    except (KeyError, TypeError, ValueError):
+        logger.warning(
+            "[sumup_reconciliation] unreadable cursor ignored; starting from the "
+            "oldest row"
+        )
+        return None
+    if timezone.is_naive(moment):
+        return None
+    if moment < timezone.now() - timedelta(days=RECONCILIATION_DAYS):
+        # The row it points at has aged out of the window; any row after it
+        # is still in the window, but starting over is simpler and safe.
+        logger.info("[sumup_reconciliation] cursor older than the window ignored")
+        return None
+    return moment, pk
+
+
+def _store_cursor(counters):
+    """Advance past the last row read, or clear the cursor after a full pass."""
+    try:
+        if counters.get("reached_end"):
+            cache.delete(CURSOR_CACHE_KEY)
+        elif counters.get("last_read") is not None:
+            moment, pk = counters["last_read"]
+            cache.set(
+                CURSOR_CACHE_KEY,
+                {"t": moment.isoformat(), "pk": pk},
+                CURSOR_TTL_SECONDS,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "[sumup_reconciliation] could not store the cursor (%s); the next "
+            "run starts from the oldest row",
+            type(exc).__name__,
+        )
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -165,13 +230,19 @@ def sumup_reconciliation_endpoint(request):
             # newest rows, which stay in the 30-day window for weeks, rather
             # than the oldest, which are about to age out unchecked.
             oldest_first=True,
+            resume_after=_load_cursor(),
         )
     except Exception:  # noqa: BLE001
         logger.exception("[sumup_reconciliation] Unhandled error")
         return JsonResponse({"error": "internal_error"}, status=500)
 
+    _store_cursor(counters)
+
     body = {"status": "ok", "timestamp": started.isoformat()}
     body.update({key: counters[key] for key in COUNTER_KEYS})
+    body["cursor_resumed"] = bool(counters.get("cursor_resumed"))
+    # This run finished the pass; the next one starts from the oldest row.
+    body["wrapped"] = bool(counters.get("reached_end"))
     # One structured line, queryable in App Insights without a database.
     # Counts only — no references, emails or payloads (contract §7.3).
     needs_attention = (
@@ -183,6 +254,8 @@ def sumup_reconciliation_endpoint(request):
     logger.log(
         logging.WARNING if needs_attention else logging.INFO,
         "[sumup_reconciliation] %s",
-        " ".join(f"{key}={body[key]}" for key in COUNTER_KEYS),
+        " ".join(
+            f"{key}={body[key]}" for key in (*COUNTER_KEYS, "cursor_resumed", "wrapped")
+        ),
     )
     return JsonResponse(body, status=202)
