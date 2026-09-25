@@ -16,9 +16,12 @@ Optional:
   name            Input name. Omit for JS-only switches that never submit
                   (the push-preference switches save through fetch()).
   id              Input id. The wrapping <label> already names the input, so
-                  only pass one when something else must point at it. With
-                  `help`, the help line gets <id>_help and the input's
-                  aria-describedby references it.
+                  only pass one when something else must point at it. With an
+                  id the title gets <id>_label and the input is
+                  aria-labelledby it, so the accessible name is the title
+                  alone; `help` then gets <id>_help and becomes the
+                  aria-describedby description (read once, not twice).
+                  Without an id the label names the input with title + help.
   value           Input value (browsers submit "on" when omitted).
   checked         Truthy renders the switch on.
   disabled        Truthy disables the input and dims the row.
@@ -49,11 +52,11 @@ keeps its tone colour because peer-checked:* out-specifies the dark: variant.
 {% endcomment %}
 <label{% if id %} for="{{ id }}"{% endif %} class="{% if inline %}inline-flex items-center{% else %}flex items-start{% endif %} {% if disabled %}cursor-not-allowed opacity-60{% else %}cursor-pointer{% endif %}">
     <span class="relative shrink-0{% if not inline %} mt-0.5{% endif %}">
-        <input type="checkbox" role="switch" class="sr-only peer{% if input_class %} {{ input_class }}{% endif %}"{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if value %} value="{{ value }}"{% endif %}{% if subscription_id %} data-subscription-id="{{ subscription_id }}"{% endif %}{% if pref_key %} data-pref-key="{{ pref_key }}"{% endif %}{% if x_checked %} :checked="{{ x_checked }}"{% endif %}{% if x_change %} @change="{{ x_change }}"{% endif %}{% if id and help and not inline %} aria-describedby="{{ id }}_help"{% endif %}{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}>
+        <input type="checkbox" role="switch" class="sr-only peer{% if input_class %} {{ input_class }}{% endif %}"{% if id %} id="{{ id }}"{% endif %}{% if name %} name="{{ name }}"{% endif %}{% if value %} value="{{ value }}"{% endif %}{% if subscription_id %} data-subscription-id="{{ subscription_id }}"{% endif %}{% if pref_key %} data-pref-key="{{ pref_key }}"{% endif %}{% if x_checked %} :checked="{{ x_checked }}"{% endif %}{% if x_change %} @change="{{ x_change }}"{% endif %}{% if id %} aria-labelledby="{{ id }}_label"{% if help and not inline %} aria-describedby="{{ id }}_help"{% endif %}{% endif %}{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}>
         <span aria-hidden="true" class="block w-11 h-6 rounded-full bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-4 {% if tone == 'red' %}peer-focus:ring-red-100 peer-checked:bg-red-500{% elif tone == 'green' %}peer-focus:ring-green-100 peer-checked:bg-green-600{% else %}peer-focus:ring-purple-100 peer-checked:bg-purple-600{% endif %} after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></span>
     </span>
     <span class="ml-3{% if inline %} text-sm{% else %} flex-1{% endif %}">
-        <strong class="{% if tone == 'red' %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ label }}</strong>
+        <strong{% if id %} id="{{ id }}_label"{% endif %} class="{% if tone == 'red' %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ label }}</strong>
         {% if help and not inline %}<span{% if id %} id="{{ id }}_help"{% endif %} class="block text-sm text-gray-500 dark:text-gray-400">{{ help }}</span>{% endif %}
     </span>
 </label>

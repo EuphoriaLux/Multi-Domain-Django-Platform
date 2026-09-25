@@ -21,7 +21,8 @@ from pathlib import Path
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import RequestFactory, TestCase
+from django.template import Context, Template
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone, translation
 
 from crush_lu.context_processors import crush_user_context
@@ -266,17 +267,68 @@ class AccountSettingsToggleComponentTests(TestCase):
             self.assertIn("peer-checked:bg-purple-600", tracks[index])
 
     def test_permission_denied_boxes_have_dark_mode_classes(self):
-        source = (
-            REPO_ROOT / "crush_lu/templates/crush_lu/account_settings.html"
-        ).read_text(encoding="utf-8")
-        blocks = source.split('<template x-if="showPermissionDenied">')[1:]
-        self.assertEqual(len(blocks), 2)  # member push + coach push
-        for block in blocks:
-            box = block.split("</template>", 1)[0]
-            self.assertIn("dark:bg-amber-900/20", box)
-            self.assertIn("dark:border-amber-700", box)
-            self.assertIn("dark:text-amber-200", box)
-            self.assertIn("dark:text-amber-300", box)
+        # Both settings surfaces show the same "Notifications blocked" box:
+        # /account/settings/ and Edit profile > Account > Notifications.
+        for template in (
+            "account_settings.html",
+            "partials/edit_account_notifications.html",
+        ):
+            source = (REPO_ROOT / "crush_lu/templates/crush_lu" / template).read_text(
+                encoding="utf-8"
+            )
+            blocks = source.split('<template x-if="showPermissionDenied">')[1:]
+            self.assertEqual(len(blocks), 2)  # member push + coach push
+            for block in blocks:
+                box = block.split("</template>", 1)[0]
+                with self.subTest(template=template):
+                    self.assertIn("dark:bg-amber-900/20", box)
+                    self.assertIn("dark:border-amber-700", box)
+                    self.assertIn("dark:text-amber-400", box)
+                    self.assertIn("dark:text-amber-200", box)
+                    self.assertIn("dark:text-amber-300", box)
+
+
+class ToggleComponentAccessibleNameTests(SimpleTestCase):
+    """With an ``id``, the help line is the description, not part of the name."""
+
+    def _render(self, **params):
+        with_params = " ".join(f'{key}="{value}"' for key, value in params.items())
+        template = Template(
+            '{% include "crush_lu/components/toggle.html" with ' + with_params + " %}"
+        )
+        return template.render(Context({}))
+
+    def _by_id(self, tags, element_id):
+        return next(
+            (tag, attrs) for tag, attrs in tags if attrs.get("id") == element_id
+        )
+
+    def test_id_splits_name_and_description(self):
+        html = self._render(
+            id="t1",
+            name="email_profile_updates",
+            label="Profile Updates",
+            help="Emails about profile approval",
+        )
+        tags = _tags(html)
+        switch = _switch_inputs(html)[0]
+        self.assertEqual(switch["aria-labelledby"], "t1_label")
+        self.assertEqual(switch["aria-describedby"], "t1_help")
+        self.assertEqual(self._by_id(tags, "t1_label")[0], "strong")
+        self.assertEqual(self._by_id(tags, "t1_help")[0], "span")
+        # The name element holds the title only; the help text lives in the
+        # description element, so a screen reader speaks it once.
+        self.assertIn('<strong id="t1_label"', html)
+        label_markup = html.split('id="t1_label"', 1)[1].split("</strong>", 1)[0]
+        self.assertIn("Profile Updates", label_markup)
+        self.assertNotIn("Emails about profile approval", label_markup)
+
+    def test_without_id_the_wrapping_label_names_the_switch(self):
+        html = self._render(name="email_marketing", label="Marketing", help="Offers")
+        switch = _switch_inputs(html)[0]
+        self.assertNotIn("aria-labelledby", switch)
+        self.assertNotIn("aria-describedby", switch)
+        self.assertTrue(html.lstrip().startswith("<label"))
 
 
 def _first(tags, tag_name, css_class):
@@ -355,9 +407,25 @@ class MobileTopBarBellTests(TestCase):
         self.assertEqual(header["data-notification-count"], "2")
 
     def test_marking_all_read_clears_the_badge(self):
-        Notification.objects.filter(user=self.user).update(read_at=timezone.now())
+        header = _first(self._tags(), "header", "top-bar-mobile")
+        self.assertEqual(header["data-notification-count"], "2")
+        response = self.client.post(
+            "/api/notifications/mark-all-read/",
+            HTTP_HOST="crush.lu",
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(response.json(), {"ok": True, "updated": 2})
         header = _first(self._tags(), "header", "top-bar-mobile")
         self.assertEqual(header["data-notification-count"], "0")
+
+    def test_notification_centre_counts_through_the_same_helper(self):
+        """The centre's "N unread" header reads the helper both bells use."""
+        response = self.client.get("/en/notifications/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["unread_count"], 2)
+        with mock.patch.object(Notification, "unread_count_for", return_value=7):
+            response = self.client.get("/en/notifications/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.context["unread_count"], 7)
 
     def test_bell_label_is_translated(self):
         for lang, label, unread in (
@@ -413,3 +481,21 @@ class ToggleComponentDocsTests(TestCase):
             "components/toggle.html" in style,
             "STYLE.md §4 must document components/toggle.html",
         )
+
+    def test_style_guide_names_the_legacy_peer_toggle(self):
+        """The partial isn't the only switch yet — the doc must not claim so."""
+        style = (REPO_ROOT / "crush_lu/STYLE.md").read_text(encoding="utf-8")
+        legacy = (
+            REPO_ROOT
+            / "crush_lu/templates/crush_lu/partials/edit_account_notifications.html"
+        ).read_text(encoding="utf-8")
+        if "peer-toggle" in legacy:
+            self.assertFalse(
+                "Every on/off setting goes through the toggle partial" in style,
+                "STYLE.md overclaims: edit_account_notifications.html still "
+                "uses .peer-toggle",
+            )
+            self.assertTrue(
+                "`.peer-toggle`" in style,
+                "STYLE.md must name the legacy .peer-toggle primitive",
+            )

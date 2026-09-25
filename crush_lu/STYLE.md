@@ -203,10 +203,16 @@ Reach for these before composing inline:
 
 ### Toggle switches
 
-Every on/off setting goes through the toggle partial — don't paste the
+New on/off settings go through the toggle partial — don't paste the
 `w-11 h-6 … after:content-['']` track inline. The copies this replaced had a
 `dark:bg-gray-800` track, so the OFF state vanished on dark cards; the partial
 owns the `dark:bg-gray-600` fix in one place.
+
+One legacy primitive remains: `partials/edit_account_notifications.html`
+still builds its switches on the `.peer-toggle` / `.peer-toggle-purple` /
+`.peer-toggle-red` CSS classes (`tailwind-input.css`). Its dark OFF track is
+already gray-600, so it isn't broken — but don't use `.peer-toggle` in new
+code; that page moves onto the partial in its own change.
 
 ```django
 {% include "crush_lu/components/toggle.html" with name="email_marketing" checked=email_prefs.email_marketing label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
