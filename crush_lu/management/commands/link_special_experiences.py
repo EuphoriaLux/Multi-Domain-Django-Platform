@@ -7,11 +7,15 @@ private journey. Access now requires ``linked_user``; this command is the
 one-time migration path for the legacy experiences that were never linked.
 
 Usage:
-    # Preview: print what would be linked, change nothing. Review every
-    # WOULD LINK line: a unique name match is not proof of identity.
-    python manage.py link_special_experiences --dry-run
+    # Report: list every name match, change nothing. A unique match prints
+    # as NEEDS APPROVAL with the exact --approve pair to pass once verified.
+    python manage.py link_special_experiences
 
-    # Link only the pairs you verified, one --approve per WOULD LINK line
+    # Preview exactly what a real run with these approvals would do,
+    # including its abort, saving nothing
+    python manage.py link_special_experiences --dry-run --approve 12:345
+
+    # Link only the pairs you verified, one --approve per NEEDS APPROVAL line
     python manage.py link_special_experiences --approve 12:345 --approve 13:678
 
     # Afterwards (read-only): list journey/advent progress and QR tokens held
@@ -29,12 +33,17 @@ Rules:
       passed as --approve EXPERIENCE_ID:USER_ID; otherwise NEEDS APPROVAL.
       A unique name match is not proof of identity (the intended recipient
       may never have signed up), so nothing is linked without a person
-      checking it. An --approve that is not a unique match aborts the run.
+      checking it.
     - Two or more candidates -> AMBIGUOUS (never linked; link it by hand in
       the admin). None -> UNMATCHED.
     - A user can only be linked to one experience (``unique_linked_user``), so
       a candidate already linked to another experience is SKIPPED, and the
       skipped experience's journeys are listed with how to move them.
+    - Approvals are all-or-nothing. An --approve pair that is not an unlinked
+      experience's single matching active user, or whose user is already
+      linked elsewhere, is REJECTED and the run aborts with nothing linked
+      (the transaction rolls back). --dry-run applies the same rule, so it
+      previews that abort too.
 """
 
 from django.contrib.auth import get_user_model
@@ -54,20 +63,24 @@ from crush_lu.models import (
 class Command(BaseCommand):
     help = (
         "One-time migration path for legacy SpecialUserExperience rows that "
-        "relied on first+last name matching: links each active, unlinked "
-        "experience to the single active user with the same first and last "
-        "name (case-insensitive, whitespace-trimmed), for the pairs passed "
-        "as --approve EXPERIENCE_ID:USER_ID. Ambiguous (2+ users), "
-        "unmatched and inactive experiences are reported and never linked. "
-        "Use --dry-run first, review every WOULD LINK line and approve the "
-        "ones you verified; run --report-stale afterwards."
+        "relied on first+last name matching. Reports each active, unlinked "
+        "experience's single active user with the same first and last name "
+        "(case-insensitive, whitespace-trimmed) as NEEDS APPROVAL, and links "
+        "only the pairs passed as --approve EXPERIENCE_ID:USER_ID. Ambiguous "
+        "(2+ users), unmatched and inactive experiences are reported and never "
+        "linked. --dry-run previews a run with the same approvals, including "
+        "its abort; run --report-stale afterwards."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Print what would be linked without changing anything.",
+            help=(
+                "Print what the real run would do with the same --approve "
+                "pairs (WOULD LINK / NEEDS APPROVAL / REJECTED) without "
+                "changing anything."
+            ),
         )
         parser.add_argument(
             "--approve",
@@ -76,9 +89,10 @@ class Command(BaseCommand):
             metavar="EXPERIENCE_ID:USER_ID",
             help=(
                 "Link this experience to this user (repeatable, or "
-                "comma-separated). Only a pair that is still the experience's "
-                "single matching active user is linked; any other pair aborts "
-                "the run. Copy the pairs from the --dry-run WOULD LINK lines."
+                "comma-separated). Only a pair that is the experience's single "
+                "matching active user, not linked elsewhere, is linked; any "
+                "other pair is REJECTED and aborts the run, also under "
+                "--dry-run. Copy the pairs from the NEEDS APPROVAL lines."
             ),
         )
         parser.add_argument(
@@ -108,16 +122,32 @@ class Command(BaseCommand):
             "skipped": 0,
             "needs_approval": 0,
         }
+        # LINKED / WOULD LINK lines are held back until the run is known to
+        # commit: a green LINKED line for a row the abort then rolls back
+        # would read as linked to anyone scanning stdout.
+        linked_lines = []
         with transaction.atomic():
-            used = self._link_all(dry_run, approvals, counts)
+            used = self._link_all(dry_run, approvals, counts, linked_lines)
             rejected = sorted(approvals - used)
-            if rejected and not dry_run:
-                # Roll back everything: a mistyped pair must not half-apply.
+            if rejected:
+                for exp_pk, user_pk in rejected:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f"REJECTED  --approve {exp_pk}:{user_pk}: not an "
+                            "unlinked experience's single matching active user, "
+                            "or that user is already linked to another "
+                            "experience (see the lines above)"
+                        )
+                    )
+                prefix = "Dry run: the real run would abort. " if dry_run else ""
+                # Raising inside atomic() rolls back every row saved above.
                 raise CommandError(
-                    "Nothing was linked. These --approve pairs are not an "
-                    "unlinked experience's single matching active user: "
-                    + ", ".join(f"{exp}:{user}" for exp, user in rejected)
+                    f"{prefix}Nothing was linked: {len(rejected)} --approve "
+                    "pair(s) rejected (see the REJECTED lines)."
                 )
+
+        for line in linked_lines:
+            self.stdout.write(line)
 
         verb = "would link" if dry_run else "linked"
         self.stdout.write(
@@ -128,22 +158,15 @@ class Command(BaseCommand):
         if counts["needs_approval"]:
             self.stdout.write(
                 self.style.WARNING(
-                    "Not linked without approval: check each NEEDS APPROVAL "
-                    "line and re-run with --approve EXPERIENCE_ID:USER_ID for "
-                    "the ones that are the right person."
+                    "Not linked without approval: a unique name match is not "
+                    "proof of identity (the intended recipient may never have "
+                    "signed up). Check each NEEDS APPROVAL line and re-run with "
+                    "--approve EXPERIENCE_ID:USER_ID for the ones that are the "
+                    "right person."
                 )
             )
         if dry_run:
             self.stdout.write("Dry run: nothing was changed.")
-            if counts["linked"]:
-                self.stdout.write(
-                    self.style.WARNING(
-                        "Review every WOULD LINK line before the real run: a "
-                        "unique name match is not proof of identity (the "
-                        "intended recipient may never have signed up). The "
-                        "real run links only the pairs you pass as --approve."
-                    )
-                )
         if counts["ambiguous"]:
             self.stdout.write(
                 self.style.WARNING(
@@ -152,8 +175,11 @@ class Command(BaseCommand):
                 )
             )
 
-    def _link_all(self, dry_run, approvals, counts):
-        """Returns the --approve pairs that matched a unique candidate."""
+    def _link_all(self, dry_run, approvals, counts, linked_lines):
+        """Link the approved pairs and report every other experience.
+
+        Returns the --approve pairs that were linked (or would be). The same
+        branches run with and without --dry-run; only the save differs."""
         User = get_user_model()
         # Users claimed during this run: linked_user is unique per user.
         claimed = {}
@@ -238,17 +264,6 @@ class Command(BaseCommand):
                 continue
 
             pair = (exp.pk, user.pk)
-            if dry_run:
-                claimed[user.pk] = exp.pk
-                counts["linked"] += 1
-                if pair in approvals:
-                    used.add(pair)
-                self.stdout.write(
-                    f"WOULD LINK {label} -> user {_describe(user)}"
-                    f" (approve with --approve {exp.pk}:{user.pk})"
-                )
-                continue
-
             if pair not in approvals:
                 counts["needs_approval"] += 1
                 self.stdout.write(
@@ -262,9 +277,13 @@ class Command(BaseCommand):
             used.add(pair)
             claimed[user.pk] = exp.pk
             counts["linked"] += 1
+            if dry_run:
+                linked_lines.append(f"WOULD LINK {label} -> user {_describe(user)}")
+                continue
+
             exp.linked_user = user
             exp.save(update_fields=["linked_user", "updated_at"])
-            self.stdout.write(
+            linked_lines.append(
                 self.style.SUCCESS(f"LINKED    {label} -> user {_describe(user)}")
             )
         return used
@@ -359,7 +378,12 @@ def _describe(user):
 
 
 def _parse_approvals(values):
-    """``["12:34", "13:35,14:36"]`` -> ``{(12, 34), (13, 35), (14, 36)}``."""
+    """``["12:34", "13:35,14:36"]`` -> ``{(12, 34), (13, 35), (14, 36)}``.
+
+    Anything that is not two ASCII-decimal ids around a colon is a
+    CommandError, never a traceback: ``str.isdecimal`` rejects what ``int``
+    would not parse the same way (superscripts, signs, underscores), and the
+    ``int`` call is still guarded for its own limits (digit-count cap)."""
     pairs = set()
     for value in values:
         for item in value.split(","):
@@ -367,9 +391,15 @@ def _parse_approvals(values):
             if not item:
                 continue
             exp_id, sep, user_id = item.partition(":")
-            if not sep or not exp_id.strip().isdigit() or not user_id.strip().isdigit():
+            exp_id, user_id = exp_id.strip(), user_id.strip()
+            if not (sep and exp_id.isdecimal() and user_id.isdecimal()):
                 raise CommandError(
                     f"--approve expects EXPERIENCE_ID:USER_ID, got {item!r}"
                 )
-            pairs.add((int(exp_id), int(user_id)))
+            try:
+                pairs.add((int(exp_id), int(user_id)))
+            except ValueError as exc:
+                raise CommandError(
+                    f"--approve expects EXPERIENCE_ID:USER_ID, got {item!r}: {exc}"
+                ) from None
     return pairs

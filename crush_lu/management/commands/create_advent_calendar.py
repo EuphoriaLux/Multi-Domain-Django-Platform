@@ -27,10 +27,14 @@ Usage:
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from crush_lu.models import (
-    SpecialUserExperience, JourneyConfiguration,
+    JourneyConfiguration,
     AdventCalendar, AdventDoor, AdventDoorContent, QRCodeToken
 )
 import uuid
+from crush_lu.management.commands._special_experience import (
+    add_experience_id_argument,
+    resolve_experience,
+)
 
 
 # Default door configuration for 24 days
@@ -102,6 +106,7 @@ class Command(BaseCommand):
             required=True,
             help='Last name of the special user'
         )
+        add_experience_id_argument(parser)
         parser.add_argument(
             '--year',
             type=int,
@@ -144,10 +149,14 @@ class Command(BaseCommand):
             f'\nCreating Advent Calendar for {first_name} {last_name} ({year})...\n'
         ))
 
-        # 1. Get or create Special User Experience
-        special_exp, created = SpecialUserExperience.objects.get_or_create(
+        # 1. Get or create Special User Experience. Never a namesake's LINKED
+        # row by name (pass --experience-id to target one on purpose).
+        special_exp, created = resolve_experience(
+            self,
             first_name=first_name,
             last_name=last_name,
+            experience_id=options.get('experience_id'),
+            update_existing=False,
             defaults={
                 'is_active': True,
                 'custom_welcome_title': f'Welcome, {first_name}!',

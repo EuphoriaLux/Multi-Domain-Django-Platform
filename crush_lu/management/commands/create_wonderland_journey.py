@@ -19,10 +19,14 @@ import os
 from django.core.management.base import BaseCommand
 from django.core.files import File
 from crush_lu.models import (
-    SpecialUserExperience, JourneyConfiguration, JourneyChapter,
+    JourneyConfiguration, JourneyChapter,
     JourneyChallenge, JourneyReward
 )
 from crush_lu.journey_translations import JOURNEY_CONTENT
+from crush_lu.management.commands._special_experience import (
+    add_experience_id_argument,
+    resolve_experience,
+)
 from datetime import date
 
 
@@ -42,6 +46,7 @@ class Command(BaseCommand):
             required=True,
             help='Last name of the special user'
         )
+        add_experience_id_argument(parser)
         parser.add_argument(
             '--date-met',
             type=str,
@@ -187,12 +192,17 @@ class Command(BaseCommand):
         ))
         self.stdout.write('Populating all languages: EN, DE, FR\n')
 
-        # 1. Create or update Special User Experience (with all language fields)
-        # Using update_or_create ensures translated fields are properly populated
-        # even for existing records (get_or_create ignores defaults for existing records)
-        special_exp, created = SpecialUserExperience.objects.update_or_create(
+        # 1. Create or update Special User Experience (with all language fields).
+        # The lookup never reuses a namesake's LINKED row by name (that would
+        # hand this journey to the wrong account and overwrite theirs); pass
+        # --experience-id to target a linked row on purpose. Defaults are
+        # applied to a reused row too, so translated fields stay populated.
+        special_exp, created = resolve_experience(
+            self,
             first_name=first_name,
             last_name=last_name,
+            experience_id=options.get('experience_id'),
+            update_existing=True,
             defaults={
                 'is_active': True,
                 # English
