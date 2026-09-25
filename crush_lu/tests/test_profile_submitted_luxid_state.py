@@ -6,9 +6,12 @@
     ``luxid_connect_url``, which is also empty when LuxID simply isn't
     configured on the site (no SocialApp) or the lookup failed — so members
     who never touched LuxID were told it was connected.
+    Only a *pending* profile is "processing": a rejected member who linked
+    LuxID renders the same page and must not be told that either.
   - When LuxID is unavailable for the member (not linked AND nothing to
     connect), the options partial collapses the LuxID card to a one-line note
-    and "Come to an event" is the single highlighted path.
+    and "Come to an event" is the single highlighted path, under a section
+    heading that still fits one path (no skipped heading level).
   - The partial's behaviour only changes through explicit include flags, so an
     include that passes none keeps the two-card layout.
 """
@@ -25,7 +28,7 @@ from django.test import Client, TestCase, override_settings
 
 from allauth.socialaccount.models import SocialAccount, SocialApp
 
-from crush_lu.models import CrushProfile
+from crush_lu.models import CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
@@ -35,6 +38,8 @@ CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 PROFILE_SUBMITTED_PATH = "/en/profile-submitted/"
 
 BANNER_TEXT = "LuxID connected"
+PROCESSING_TEXT = "Your profile verification is processing."
+COLLAPSED_HEADING = "How verification works"
 UNAVAILABLE_TEXT = "Not available right now — come to an event to get verified instead."
 
 LUXID_CARD = 'data-verification-option="luxid"'
@@ -47,6 +52,30 @@ def _event_card_tag(html):
     match = re.search(r"<div " + re.escape(EVENT_CARD) + r'[^>]*class="([^"]*)"', html)
     assert match, "event option card not rendered"
     return match.group(1)
+
+
+def _headings(html):
+    """(level, text) of every h1-h6 on the page, in document order."""
+    return [
+        (int(level), re.sub(r"<[^>]+>|\s+", " ", text).strip())
+        for level, text in re.findall(r"<h([1-6])\b[^>]*>(.*?)</h\1>", html, re.S)
+    ]
+
+
+def _assert_no_skipped_heading_level(testcase, html):
+    """Going deeper, the page content's outline (its h2 through the options
+    partial's Premium teaser) may only step down one level at a time. The
+    shell's own headings (install prompt, cookie dialog) are left out."""
+    start = html.index("<h2")
+    headings = _headings(html[start : html.index("Discover Premium", start)])
+    testcase.assertTrue(headings, "no headings rendered")
+    for (prev_level, prev_text), (level, text) in zip(headings, headings[1:]):
+        testcase.assertLessEqual(
+            level,
+            prev_level + 1,
+            f"heading outline skips a level: h{prev_level} {prev_text!r} -> "
+            f"h{level} {text!r}",
+        )
 
 
 def _options_html(html):
@@ -120,7 +149,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertFalse(response.context["has_luxid_account"])
         self.assertIsNone(response.context["luxid_connect_url"])
         self.assertNotContains(response, BANNER_TEXT)
-        self.assertNotContains(response, "Your profile verification is processing.")
+        self.assertNotContains(response, PROCESSING_TEXT)
 
     def test_unavailable_luxid_collapses_the_card(self):
         response = self._get()
@@ -139,6 +168,31 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertLess(html.index(EVENT_CARD), html.index(LUXID_COLLAPSED))
         self.assertIn(UNAVAILABLE_TEXT, options)
 
+    def test_collapsed_state_keeps_a_section_heading(self):
+        """Dropping "Two ways to get verified" must not leave the event card's
+        h4 hanging straight under the page h2."""
+        html = self._get().content.decode()
+
+        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
+        self.assertLess(html.index(COLLAPSED_HEADING), html.index(EVENT_CARD))
+        _assert_no_skipped_heading_level(self, html)
+
+    def test_collapsed_heading_frames_the_premium_submission_state(self):
+        """On the Premium coach-review states there is no "now get verified"
+        hero above the options, so the collapsed card still needs a heading."""
+        ProfileSubmission.objects.create(profile=self.profile, status="pending")
+
+        response = self._get()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context["submission"])
+        self.assertTrue(response.context["luxid_unavailable"])
+        html = response.content.decode()
+        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
+        self.assertLess(html.index(COLLAPSED_HEADING), html.index(EVENT_CARD))
+        self.assertNotIn("Two ways to get verified", html)
+        _assert_no_skipped_heading_level(self, html)
+
     def test_unavailable_luxid_highlights_the_event_path(self):
         html = self._get().content.decode()
 
@@ -156,6 +210,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertNotContains(response, "LuxID verbunden")
         self.assertContains(response, LUXID_COLLAPSED)
         self.assertContains(response, "Verifizierung mit LuxID")
+        self.assertContains(response, "So funktioniert die Verifizierung")
 
     # -- LuxID available, not linked ------------------------------------------
 
@@ -172,6 +227,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertIn(LUXID_CARD, html)
         self.assertNotIn(LUXID_COLLAPSED, html)
         self.assertIn("Two ways to get verified", html)
+        self.assertNotIn(COLLAPSED_HEADING, html)
         self.assertIn("Connect LuxID", html)
         self.assertNotIn("border-2", _event_card_tag(html).split())
 
@@ -193,7 +249,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertTrue(response.context["has_luxid_account"])
         self.assertEqual(response.context["profile"].verification_status, "pending")
         self.assertFalse(response.context["luxid_unavailable"])
-        self.assertContains(response, "Your profile verification is processing.")
+        self.assertContains(response, PROCESSING_TEXT)
         html = response.content.decode()
         options = _options_html(html)
         # The LuxID card agrees with the banner instead of calling LuxID
@@ -202,6 +258,22 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertNotIn(LUXID_COLLAPSED, html)
         self.assertIn(BANNER_TEXT, options)
         self.assertNotIn(UNAVAILABLE_TEXT, options)
+
+    def test_rejected_member_with_luxid_is_not_told_verification_is_processing(
+        self,
+    ):
+        """A rejected profile is not redirected and the lazy fix-up skips it,
+        so the page renders — but nothing about it is "processing"."""
+        self._link_luxid()
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+
+        response = self._get()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["has_luxid_account"])
+        self.assertEqual(response.context["profile"].verification_status, "rejected")
+        self.assertNotContains(response, PROCESSING_TEXT)
 
     def test_verified_member_with_luxid_never_sees_the_banner(self):
         """Verified members are sent to the dashboard before anything renders."""
@@ -229,6 +301,7 @@ class TestVerificationOptionsFlags(_SiteMixin, TestCase):
         self.assertIn(LUXID_CARD, html)
         self.assertNotIn(LUXID_COLLAPSED, html)
         self.assertIn("Two ways to get verified", html)
+        self.assertNotIn(COLLAPSED_HEADING, html)
         self.assertIn(UNAVAILABLE_TEXT, html)
         self.assertNotIn(BANNER_TEXT, html)
         self.assertNotIn("border-2", _event_card_tag(html).split())
@@ -239,6 +312,7 @@ class TestVerificationOptionsFlags(_SiteMixin, TestCase):
         self.assertNotIn(LUXID_CARD, html)
         self.assertIn(LUXID_COLLAPSED, html)
         self.assertNotIn("Two ways to get verified", html)
+        self.assertIn((3, COLLAPSED_HEADING), _headings(html))
         self.assertIn("border-2", _event_card_tag(html).split())
 
     def test_connected_flag_marks_the_luxid_card_connected(self):

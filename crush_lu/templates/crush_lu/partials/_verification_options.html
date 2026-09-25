@@ -9,8 +9,9 @@
     luxid_connected — the member already linked LuxID: the LuxID card says so
       instead of offering (or apologising for) the connect button.
     collapse_luxid — LuxID is unavailable for this member (not linked AND no
-      connect URL): the LuxID card collapses to a one-line note and
-      "Come to an event" becomes the single highlighted path.
+      connect URL): the LuxID card collapses to a one-line note,
+      "Come to an event" becomes the single highlighted path and the
+      "Two ways to get verified" heading becomes "How verification works".
 {% endcomment %}
 <div class="flex justify-center px-4 pb-10">
   <div class="w-full max-w-3xl">
@@ -39,7 +40,14 @@
       </div>
     </div>
     {% else %}
-    {% if not collapse_luxid %}
+    {% if collapse_luxid %}
+    {# One path left, so "two ways … pick whichever" would be false. A plain section heading still frames the card (the Premium submission states have no hero above it) and keeps the h2 → h3 → h4 outline. #}
+    <div class="mb-4 text-center">
+      <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+        {% trans "How verification works" %}
+      </h3>
+    </div>
+    {% else %}
     <div class="mb-4 text-center">
       <h3 class="text-lg font-bold text-gray-900 dark:text-white">
         {% trans "Two ways to get verified" %}
