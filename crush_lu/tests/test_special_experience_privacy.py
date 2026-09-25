@@ -595,6 +595,42 @@ class AdminPrivacyTests(NamesakeFixtureMixin, TestCase):
         self.assertEqual(messages[0][0], django_messages.SUCCESS)
         self.assertNotIn("Linked user", messages[0][1])
 
+    def _generate_wonderland(self, experience):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.special import SpecialUserExperienceAdmin
+
+        request = RequestFactory().post("/crush-admin/", {})
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        model_admin = SpecialUserExperienceAdmin(
+            SpecialUserExperience, crush_admin_site
+        )
+        model_admin._create_wonderland_journey(request, experience)
+        return [(m.level, str(m)) for m in request._messages]
+
+    def test_admin_unlinked_wonderland_warns_that_nobody_can_open_it(self):
+        self.experience.linked_user = None
+        self.experience.save()
+
+        messages = self._generate_wonderland(self.experience)
+
+        self.assertTrue(
+            JourneyConfiguration.objects.filter(
+                special_experience=self.experience, journey_type="wonderland"
+            ).exists()
+        )
+        self.assertEqual(len(messages), 1)
+        level, text = messages[0]
+        self.assertEqual(level, django_messages.WARNING)
+        self.assertIn("nobody can open this journey yet", text)
+        self.assertIn("Set 'Linked user' on this experience", text)
+
+    def test_admin_linked_wonderland_is_a_success(self):
+        messages = self._generate_wonderland(self.experience)
+
+        self.assertEqual(messages[0][0], django_messages.SUCCESS)
+        self.assertNotIn("Linked user", messages[0][1])
+
     def test_admin_qr_tokens_go_to_linked_user(self):
         messages = self._generate_advent(self.experience)
 
@@ -865,6 +901,20 @@ class ResolveExperienceTests(TestCase):
         self.assertFalse(created)
         unlinked.refresh_from_db()
         self.assertTrue(unlinked.vip_badge)
+
+    def test_experience_id_reactivates_an_inactive_target(self):
+        owner = _make_user("owner@example.com")
+        linked = SpecialUserExperience.objects.create(
+            first_name="Lena", last_name="Schmit", linked_user=owner, is_active=False
+        )
+
+        (experience, created), output = self._resolve(experience_id=linked.pk)
+
+        self.assertFalse(created)
+        linked.refresh_from_db()
+        self.assertTrue(linked.is_active)
+        self.assertEqual(SpecialUserExperience.active_for_user(owner), linked)
+        self.assertIn("was inactive and has been reactivated", output)
 
     def test_experience_id_wins_over_the_name(self):
         owner = _make_user("owner@example.com")

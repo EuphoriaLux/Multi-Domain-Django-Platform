@@ -456,17 +456,31 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
                 f"deactivated account (move its journeys by hand)"
             )
 
-    # QRCodeToken (unique_together: door, user)
+    # QRCodeToken (unique_together: door, user). A token redeems only for
+    # its own user, so one left on the deactivated duplicate is dead. When
+    # both accounts hold a token for a door, the keeper ends up with the one
+    # they can still scan: theirs if it is still valid or already redeemed,
+    # otherwise (expired) the duplicate's valid one.
     for token in QRCodeToken.objects.filter(user=duplicate_user):
-        if QRCodeToken.objects.filter(user=keeper_user, door=token.door).exists():
-            log.append(
-                f"Kept duplicate's QR token for door #{token.door_id} "
-                f"(keeper already has one)"
-            )
-        else:
+        existing = QRCodeToken.objects.filter(user=keeper_user, door=token.door).first()
+        if existing is None:
             token.user = keeper_user
             token.save(update_fields=["user"])
             log.append(f"Moved QR token for door #{token.door_id} to keeper")
+        elif not existing.is_used and not existing.is_valid() and token.is_valid():
+            existing.delete()
+            token.user = keeper_user
+            token.save(update_fields=["user"])
+            log.append(
+                f"Replaced keeper's expired QR token for door #{token.door_id} "
+                f"with duplicate's valid one"
+            )
+        else:
+            token.delete()
+            log.append(
+                f"Deleted duplicate's QR token for door #{token.door_id} "
+                f"(keeper's own token is kept)"
+            )
 
     # AdventProgress (unique_together: user, calendar). The advent views
     # get_or_create the keeper's row, so a row left on the deactivated

@@ -573,7 +573,30 @@ class TestMergeSpecialExperience:
         assert duplicate_exp.linked_user == duplicate_user
         assert any(line.startswith("CONFLICT: keeper already has") for line in log)
 
-    def test_keeps_duplicate_qr_token_when_keeper_has_one_for_the_door(
+    def test_keeps_keepers_valid_qr_token_and_drops_the_duplicates(
+        self, keeper_user, duplicate_user
+    ):
+        """A token redeems only for its own user, so the duplicate's copy
+        would be dead on the deactivated account: it is deleted, not left."""
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        keeper_token = QRCodeToken.objects.create(door=door, user=keeper_user)
+        duplicate_token = QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        assert not QRCodeToken.objects.filter(pk=duplicate_token.pk).exists()
+        assert list(QRCodeToken.objects.filter(door=door)) == [keeper_token]
+        assert any(
+            line.startswith(f"Deleted duplicate's QR token for door #{door.pk}")
+            for line in log
+        )
+
+    def test_replaces_keepers_expired_qr_token_with_duplicates_valid_one(
         self, keeper_user, duplicate_user
     ):
         from crush_lu.models import QRCodeToken, SpecialUserExperience
@@ -582,14 +605,41 @@ class TestMergeSpecialExperience:
             first_name="Keeper", last_name="User", linked_user=keeper_user
         )
         door = _advent_door(experience)
-        QRCodeToken.objects.create(door=door, user=keeper_user)
+        expired = QRCodeToken.objects.create(
+            door=door,
+            user=keeper_user,
+            expires_at=timezone.now() - timedelta(days=1),
+        )
         duplicate_token = QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        assert not QRCodeToken.objects.filter(pk=expired.pk).exists()
+        duplicate_token.refresh_from_db()
+        assert duplicate_token.user == keeper_user
+        assert duplicate_token.is_valid()
+        assert any(
+            line.startswith(f"Replaced keeper's expired QR token for door #{door.pk}")
+            for line in log
+        )
+
+    def test_keeps_keepers_redeemed_qr_token(self, keeper_user, duplicate_user):
+        """An already scanned door stays scanned: the duplicate's fresh token
+        must not reopen it."""
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        redeemed = QRCodeToken.objects.create(
+            door=door, user=keeper_user, is_used=True, used_at=timezone.now()
+        )
+        QRCodeToken.objects.create(door=door, user=duplicate_user)
 
         merge_accounts(keeper_user, duplicate_user)
 
-        duplicate_token.refresh_from_db()
-        assert duplicate_token.user == duplicate_user
-        assert QRCodeToken.objects.filter(door=door, user=keeper_user).count() == 1
+        assert list(QRCodeToken.objects.filter(door=door)) == [redeemed]
 
 
 class TestMergeAdventProgress:

@@ -132,11 +132,21 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             # Create all chapters using the command's methods
             command.create_all_chapters(journey, parsed_date, location_met, special_exp.first_name)
 
-            django_messages.success(
-                request,
+            success_msg = (
                 f"Successfully generated Wonderland Journey for {special_exp.first_name} {special_exp.last_name}! "
                 f"Journey includes 6 chapters with all challenges and rewards."
             )
+            notify = django_messages.success
+            if special_exp.linked_user_id is None:
+                # Access is granted by linked_user only: until it is set,
+                # nobody can open this journey.
+                success_msg += (
+                    " Note: no user account is linked to this experience, so"
+                    " nobody can open this journey yet. Set 'Linked user' on"
+                    " this experience."
+                )
+                notify = django_messages.warning
+            notify(request, success_msg)
 
         except Exception as e:
             import traceback

@@ -40,7 +40,9 @@ def resolve_experience(
     name that are linked to an account are listed with the ``--experience-id``
     to pass if the journey is meant for that account, and left untouched.
     ``defaults`` are applied on create and, with ``update_existing``, on the
-    reused row too (``update_or_create`` semantics).
+    reused row too (``update_or_create`` semantics). An explicitly targeted
+    row is always reactivated: ``active_for_user`` ignores an inactive
+    experience, so a journey built on one could not be opened by anyone.
     """
     if experience_id is not None:
         try:
@@ -51,6 +53,15 @@ def resolve_experience(
             ) from None
         if update_existing:
             _apply(experience, defaults)
+        if not experience.is_active:
+            experience.is_active = True
+            experience.save(update_fields=["is_active", "updated_at"])
+            command.stdout.write(
+                command.style.WARNING(
+                    f"[!] Experience #{experience.pk} was inactive and has been"
+                    " reactivated so its linked user can open this journey."
+                )
+            )
         return experience, False
 
     linked_rows = (
