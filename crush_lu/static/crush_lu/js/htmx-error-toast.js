@@ -24,11 +24,15 @@
  *        decorators answer a bare 429 and queue "Too many attempts" as a
  *        Django message that only a full page load would show, so the toast
  *        says it now instead of inviting retries that stay blocked;
- *      - "queued" copy for a sendError on a POST the service worker holds
- *        for background sync (see queuedByServiceWorker below): the request
- *        is not lost, it replays once the member is back online, so the
- *        member must NOT be told to try again -- a second submit would queue
- *        an identical POST (a chat message would be sent twice);
+ *      - "queued" copy for a sendError on a POST the service worker has
+ *        confirmed it stored for background sync (sw-workbox.js posts a
+ *        {type: "crush-queued", url} message to the page right after the
+ *        queue write succeeds; the page waits QUEUE_ACK_WAIT_MS for it):
+ *        the request is not lost, it replays once the member is back
+ *        online, so the member must NOT be told to try again -- a second
+ *        submit would queue an identical POST (a chat message would be
+ *        sent twice). No confirmation (no worker, IndexedDB write failed,
+ *        route not queueable) means the plain "network" copy;
  *      - "network" copy for every other sendError/timeout.
  *
  * htmx itself re-enables hx-disabled-elt elements and removes .htmx-request
@@ -92,6 +96,8 @@
     // a POST whose path starts with none of these is held in the "crush-queue"
     // background-sync queue when the network fails, and replayed for up to
     // 24 h. test_htmx_error_toast.py checks that the two lists stay equal.
+    // Eligibility alone never earns the "queued" copy: the worker has to
+    // confirm the write (see queuedAcks below).
     var QUEUE_EXCLUDED_PREFIXES = [
         "/api/",
         "/admin/",
@@ -102,24 +108,49 @@
         "/signup",
     ];
 
-    function queuedByServiceWorker(detail) {
+    // How long a sendError waits for the worker's "crush-queued" message.
+    // The worker posts it before it rejects the fetch, but message delivery
+    // is asynchronous, so the ack can land after htmx:sendError.
+    var QUEUE_ACK_WAIT_MS = 300;
+
+    // Absolute request URL -> time the worker confirmed it queued that URL.
+    var queuedAcks = {};
+    if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
+        navigator.serviceWorker.addEventListener("message", function (evt) {
+            var data = evt.data;
+            if (data && data.type === "crush-queued" && data.url) {
+                queuedAcks[data.url] = Date.now();
+            }
+        });
+    }
+
+    // The absolute URL of a failed request the worker may have queued, or
+    // null when it cannot have been (no controlling worker, not a POST,
+    // excluded path).
+    function queueEligibleUrl(detail) {
         var sw = navigator.serviceWorker;
-        if (!sw || !sw.controller) return false; // no worker: nothing queued it
+        if (!sw || !sw.controller) return null; // no worker: nothing queued it
         var config = detail.requestConfig || {};
-        if (String(config.verb || "").toLowerCase() !== "post") return false;
+        if (String(config.verb || "").toLowerCase() !== "post") return null;
         var path =
             (detail.pathInfo && detail.pathInfo.finalRequestPath) ||
             config.path ||
             "";
+        var url;
         try {
-            path = new URL(path, window.location.href).pathname;
+            url = new URL(path, window.location.href);
         } catch (e) {
-            return false;
+            return null;
         }
         for (var i = 0; i < QUEUE_EXCLUDED_PREFIXES.length; i++) {
-            if (path.indexOf(QUEUE_EXCLUDED_PREFIXES[i]) === 0) return false;
+            if (url.pathname.indexOf(QUEUE_EXCLUDED_PREFIXES[i]) === 0) return null;
         }
-        return true;
+        return url.href;
+    }
+
+    function ackedRecently(url, since) {
+        var at = queuedAcks[url];
+        return typeof at === "number" && at >= since;
     }
 
     function toastOptedOut(elt) {
@@ -218,16 +249,26 @@
             restoreFocus(elt);
             if (toastOptedOut(elt)) return;
             if (kind === "server" && serverSentToast(detail.xhr)) return;
+            // Per event: `kind` is the handler's base kind and must not be
+            // reassigned, or one 429 would classify every later failure.
             if (kind === "server" && detail.xhr && detail.xhr.status === 429) {
-                kind = "rate-limited";
-            } else if (
-                kind === "network" &&
-                evt.type === "htmx:sendError" &&
-                queuedByServiceWorker(detail)
-            ) {
-                kind = "queued";
+                showToast("rate-limited");
+                return;
             }
-            showToast(kind);
+            var url =
+                kind === "network" && evt.type === "htmx:sendError"
+                    ? queueEligibleUrl(detail)
+                    : null;
+            if (!url) {
+                showToast(kind);
+                return;
+            }
+            // Wait for the worker to confirm the queue write; without the
+            // confirmation the request may be lost, so say "network".
+            var since = Date.now() - QUEUE_ACK_WAIT_MS;
+            setTimeout(function () {
+                showToast(ackedRecently(url, since) ? "queued" : "network");
+            }, QUEUE_ACK_WAIT_MS);
         };
     }
 

@@ -22,6 +22,7 @@ from playwright.sync_api import expect
 
 pytestmark = [pytest.mark.playwright, pytest.mark.django_db(transaction=True)]
 
+RATE_LIMITED_DE = "Zu viele Versuche. Bitte versuche es später erneut."
 SERVER_ERROR_DE = "Ein Fehler ist aufgetreten. Bitte versuche es erneut."
 NETWORK_ERROR_DE = (
     "Netzwerkfehler. Bitte überprüfe deine Verbindung und versuche es erneut."
@@ -142,6 +143,8 @@ def test_failed_registration_submit_reenables_button_and_shows_toast(
         posts.append(failure["mode"])
         if failure["mode"] == "network":
             return route.abort("internetdisconnected")
+        if failure["mode"] == "429":
+            return route.fulfill(status=429, content_type="text/html", body="slow")
         return route.fulfill(status=500, content_type="text/html", body="boom")
 
     page.route(f"**/events/{upcoming_event.id}/register/", fail_post)
@@ -198,7 +201,20 @@ def test_failed_registration_submit_reenables_button_and_shows_toast(
     expect(submit).to_be_focused()
     expect(network_toast).to_have_count(1)
 
+    # 5. A 429 gets the rate-limit copy, and the kind is per event: the 500
+    # right after it is reported as a server error again, not as rate-limited.
+    failure["mode"] = "429"
+    page.keyboard.press("Enter")
+    rate_limited_toast = toasts.filter(has_text=RATE_LIMITED_DE)
+    expect(rate_limited_toast).to_have_count(1)
+    expect(submit).to_be_enabled()
+    failure["mode"] = "500"
+    page.keyboard.press("Enter")
+    page.wait_for_function("() => window.__htmxFailures >= 6")
+    expect(toasts.filter(has_text=SERVER_ERROR_DE)).to_have_count(1)
+    expect(rate_limited_toast).to_have_count(1)
+
     # Every submit really went out as an HTMX post (the button was not simply
     # dead), and none registered anyone.
-    assert posts == ["500", "network", "network", "network"]
+    assert posts == ["500", "network", "network", "network", "429", "500"]
     assert not EventRegistration.objects.filter(event=upcoming_event).exists()

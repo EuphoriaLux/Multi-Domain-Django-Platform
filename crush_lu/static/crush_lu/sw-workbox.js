@@ -1,5 +1,10 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
+// Version: v32 - Tell the page when a POST really was stored in the background-
+//                sync queue ({type: "crush-queued", url} to every window client,
+//                posted only after the queue write succeeded), so
+//                htmx-error-toast.js promises a replay only for a request the
+//                worker holds. A failed IndexedDB write gets the plain copy.
 // Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
 //                cache. The admin is mounted at /crush-admin/, not /admin/, so
 //                every exclusion list written against /admin/ missed it. The
@@ -571,12 +576,29 @@ if (workbox) {
         },
     );
 
+    // Runs after bgSyncPlugin's fetchDidFail. Workbox awaits the plugins'
+    // fetchDidFail callbacks in order and stops at the first that throws, so
+    // this one only runs once the queue write succeeded. The page
+    // (htmx-error-toast.js) shows "will sync once online" only for a URL it
+    // hears about here; otherwise it says "network error".
+    const queuedAckPlugin = {
+        fetchDidFail: async ({ request }) => {
+            const windows = await self.clients.matchAll({
+                type: "window",
+                includeUncontrolled: false,
+            });
+            for (const client of windows) {
+                client.postMessage({ type: "crush-queued", url: request.url });
+            }
+        },
+    };
+
     // Use background sync for POST requests (event registrations, etc.)
     workbox.routing.registerRoute(
         ({ url, request }) =>
             request.method === "POST" && isQueueablePost(url.pathname),
         new workbox.strategies.NetworkOnly({
-            plugins: [bgSyncPlugin],
+            plugins: [bgSyncPlugin, queuedAckPlugin],
         }),
         "POST",
     );

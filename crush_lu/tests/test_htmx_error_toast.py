@@ -207,6 +207,29 @@ def test_queued_copy_mirrors_the_service_worker_queue_rule():
     assert handler_prefixes == sw_prefixes
 
 
+def test_queued_copy_needs_the_workers_confirmation():
+    """Eligibility is not proof the request was stored: the worker posts
+    "crush-queued" only after bgSyncPlugin's queue write succeeded (Workbox
+    awaits fetchDidFail callbacks in order and stops at the first throw), and
+    the page shows the "will sync" copy only for a URL it heard about."""
+    sw = _static("sw-workbox.js")
+    route = sw[sw.index("workbox.routing.registerRoute(") :]
+    route = route[: route.index('"POST",')]
+    assert "plugins: [bgSyncPlugin, queuedAckPlugin]" in route
+    ack = sw[
+        sw.index("const queuedAckPlugin") : sw.index("workbox.routing.registerRoute(")
+    ]
+    assert 'type: "crush-queued"' in ack and "fetchDidFail" in ack
+
+    handler = _static("js/htmx-error-toast.js")
+    assert 'data.type === "crush-queued"' in handler
+    on_failure = handler[handler.index("function onFailure(") :]
+    assert 'ackedRecently(url, since) ? "queued" : "network"' in on_failure
+    # The base kind is a closure variable shared by every event; a per-event
+    # reassignment would make one 429 classify every later failure.
+    assert "kind = " not in on_failure.replace("var kind", "").replace("kind === ", "")
+
+
 def test_dismissed_toast_leaves_the_store_before_its_exit_animation():
     """The dedupe in htmx-error-toast.js reads Alpine.store("toasts").items;
     removeToast() must drop the item when dismissal begins, not 300 ms later,
