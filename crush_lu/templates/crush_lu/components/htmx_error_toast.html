@@ -1,0 +1,14 @@
+{% load i18n %}
+{% comment %}
+Translated copy for the global HTMX failure toast (crush_lu/js/htmx-error-toast.js).
+Rendered once by crush_lu/base.html in the page language, so the script never
+hardcodes English:
+  data-network  htmx:sendError / htmx:timeout (the request got no answer)
+  data-server   htmx:responseError (a 4xx/5xx the page does not swap)
+To keep an element (or a whole subtree) from raising the toast, put
+data-htmx-error-toast="off" on it or an ancestor; the script still resets its
+Alpine isSubmitting state. See the script header for the full contract.
+{% endcomment %}
+<div id="htmx-error-toast-messages" hidden
+     data-network="{% trans "Network error. Please check your connection and try again." %}"
+     data-server="{% trans "An error occurred. Please try again." %}"></div>

@@ -448,11 +448,15 @@
                        Message list — polls for the other side's replies. connection-chat.js
                        pauses the poll while the tab is hidden and keeps the scroll pinned
                        to the newest message unless the reader scrolled up.
+                       data-htmx-error-toast="off": a failed background poll just retries
+                       on the next tick, so it must not raise the global error toast every
+                       20 s while offline. The compose form below still gets it.
                     {% endcomment %}
                     <div id="messages-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto"
                          hx-get="{% url 'crush_lu:connection_messages' connection.id %}"
                          hx-trigger="every 20s, chat:refresh"
-                         hx-swap="innerHTML">
+                         hx-swap="innerHTML"
+                         data-htmx-error-toast="off">
                         {% include "crush_lu/_connection_messages_list.html" %}
                     </div>
 

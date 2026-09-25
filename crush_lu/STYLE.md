@@ -325,6 +325,23 @@ Pick the toast store for any NEW notification surface. Only call
 `messages.success/error/warning(...)` if you genuinely want the
 top-of-page banner treatment, and prefer the toast store if you don't.
 
+### Failed HTMX requests
+
+`crush_lu/static/crush_lu/js/htmx-error-toast.js` (loaded by `base.html`)
+handles every `htmx:responseError` / `htmx:sendError` / `htmx:timeout`:
+it shows one translated error toast (copy rendered by
+`components/htmx_error_toast.html`) and sets `isSubmitting` back to
+`false` on the Alpine component around the requesting element. So:
+
+- Name your "submit in flight" flag `isSubmitting` and bind the button's
+  `:disabled` / label to it — a failed request then recovers on its own.
+- Don't add a per-page error toast for HTMX failures. If a page reports
+  the failure itself, or the request is a background poll that simply
+  retries, put `data-htmx-error-toast="off"` on the element or an
+  ancestor (the flag reset still runs).
+- An error response that sends its own `HX-Trigger: {"showToast": …}`
+  (`view_utils.toast_response`) shows that message instead of the generic one.
+
 ### Pending consolidation
 
 When the team is ready to make the toast store the single notification
