@@ -852,6 +852,7 @@ class PrivilegeAuditTests(TestCase):
             3,
             [("pg_catalog", "lo_import", "text")],
             ["lo_compat_privileges"],
+            [("column", "crush_lu_eventregistration.status")],
         )
         joined = " | ".join(violations)
         self.assertNotIn("connect to database postgres", joined)  # allowlisted
@@ -877,6 +878,8 @@ class PrivilegeAuditTests(TestCase):
             "can read system relation pg_catalog.pg_statistic",
             "can EXECUTE pg_catalog.lo_import(text) beyond PUBLIC",
             "can SET or ALTER SYSTEM parameter lo_compat_privileges",
+            # An allowed column, but re-grantable: still excess.
+            "holds a grant option on column crush_lu_eventregistration.status",
         ):
             self.assertIn(expected, joined)
 

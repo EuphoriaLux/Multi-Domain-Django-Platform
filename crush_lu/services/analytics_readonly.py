@@ -304,6 +304,8 @@ PRIVILEGE_AUDIT_SQL = {
         "OR (current_setting('server_version_num')::int >= 170000 "
         "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')), "
         # What PUBLIC itself may read: system catalogs are compared against it.
+        # 'public' names the PUBLIC pseudo-role in every has_*_privilege
+        # function (PostgreSQL docs, "Access Privilege Inquiry Functions").
         "has_table_privilege('public', c.oid, 'SELECT') "
         "OR has_any_column_privilege('public', c.oid, 'SELECT') "
         "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
@@ -316,6 +318,36 @@ PRIVILEGE_AUDIT_SQL = {
         "WHERE n.nspname = 'public' AND c.relname = ANY(%(tables)s) "
         "AND a.attnum > 0 AND NOT a.attisdropped "
         "AND has_column_privilege(%(role)s, c.oid, a.attnum, 'SELECT')"
+    ),
+    # A grant option would let the login re-grant what it holds (an allowed
+    # member-data column to PUBLIC, say) and so bypass the API key. PUBLIC can
+    # never hold a grant option and the login is NOINHERIT with no memberships,
+    # so its own ACL entries are the complete set.
+    "grant_options": (
+        "SELECT 'relation', c.oid::regclass::text FROM pg_class c "
+        "CROSS JOIN LATERAL aclexplode(c.relacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
+        "UNION ALL "
+        "SELECT 'column', c.oid::regclass::text || '.' || quote_ident(at.attname) "
+        "FROM pg_attribute at JOIN pg_class c ON c.oid = at.attrelid "
+        "CROSS JOIN LATERAL aclexplode(at.attacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
+        "UNION ALL "
+        "SELECT 'schema', n.nspname::text FROM pg_namespace n "
+        "CROSS JOIN LATERAL aclexplode(n.nspacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
+        "UNION ALL "
+        "SELECT 'database', d.datname::text FROM pg_database d "
+        "CROSS JOIN LATERAL aclexplode(d.datacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
+        "UNION ALL "
+        "SELECT 'routine', p.oid::regprocedure::text FROM pg_proc p "
+        "CROSS JOIN LATERAL aclexplode(p.proacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
+        "UNION ALL "
+        "SELECT 'large object', l.oid::text FROM pg_largeobject_metadata l "
+        "CROSS JOIN LATERAL aclexplode(l.lomacl) a "
+        "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
     ),
     "sequences": (
         "SELECT n.nspname, c.relname FROM pg_class c "
@@ -446,6 +478,7 @@ def privilege_violations(
     owned_objects=0,
     routines=(),
     parameters=(),
+    grant_options=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -464,6 +497,8 @@ def privilege_violations(
         violations.append(f"can EXECUTE {schema}.{routine}({arguments}) beyond PUBLIC")
     for parameter in parameters:
         violations.append(f"can SET or ALTER SYSTEM parameter {parameter}")
+    for kind, name in grant_options:
+        violations.append(f"holds a grant option on {kind} {name}")
     for schema, sequence in sequences:
         violations.append(f"can use sequence {schema}.{sequence}")
     if database_create:
@@ -543,6 +578,7 @@ def audit_role(cursor, role: str) -> list:
         results["owned_objects"][0][0] if results["owned_objects"] else 0,
         results["privileged_routines"],
         parameters,
+        results["grant_options"],
     )
 
 
