@@ -1,12 +1,15 @@
-Crush.lu helps people in Luxembourg meet through real events, verified profiles, and coach-supported introductions.
+Meet people in Luxembourg, in person and online. Crush.lu brings local events and member connections together in one app.
 
-Create your profile, discover upcoming events, manage your connections, and use privacy controls from one mobile app. Crush.lu is designed for safer, more intentional dating: less endless swiping, more real-world context, and clear account controls.
+Explore upcoming events, create your profile, and stay in touch with the people you meet. Crush Connect offers a more thoughtful way to discover members and build a connection, with access based on your profile and verification status.
 
-Key features:
-- Event-based dating in Luxembourg
-- Profile verification and safer onboarding
-- Crush Connect discovery with coach-supported introductions
-- Notifications for events, connections, and profile updates
-- Privacy, account, and data deletion controls
+With Crush.lu you can:
+• Discover and book local events
+• Create and manage your profile
+• Complete the available verification steps
+• Explore eligible Crush Connect features and manage your connections
+• Receive updates about events and your account
+• Adjust privacy settings and request account deletion
 
-For support, visit https://crush.lu/en/support/
+Some connection features require verification, event participation, or an invitation. Availability can vary by account. Crush.lu is for adults aged 18 and over.
+
+Need help? Visit https://crush.lu/en/support/
