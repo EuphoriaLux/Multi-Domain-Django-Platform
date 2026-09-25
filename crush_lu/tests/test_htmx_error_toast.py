@@ -213,13 +213,12 @@ def test_queued_copy_needs_the_workers_confirmation():
     awaits fetchDidFail callbacks in order and stops at the first throw), and
     the page shows the "will sync" copy only for a URL it heard about."""
     sw = _static("sw-workbox.js")
-    route = sw[sw.index("workbox.routing.registerRoute(") :]
-    route = route[: route.index('"POST",')]
-    assert "plugins: [bgSyncPlugin, queuedAckPlugin]" in route
-    ack = sw[
-        sw.index("const queuedAckPlugin") : sw.index("workbox.routing.registerRoute(")
-    ]
+    ack_start = sw.index("const queuedAckPlugin")
+    ack = sw[ack_start : sw.index("workbox.routing.registerRoute(", ack_start)]
     assert 'type: "crush-queued"' in ack and "fetchDidFail" in ack
+    post_route = sw[ack_start:]
+    post_route = post_route[: post_route.index('"POST",')]
+    assert "plugins: [bgSyncPlugin, queuedAckPlugin]" in post_route
 
     handler = _static("js/htmx-error-toast.js")
     assert 'data.type === "crush-queued"' in handler
