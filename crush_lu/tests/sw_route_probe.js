@@ -350,6 +350,33 @@ const probes = [
         destination: "document",
         informational: true,
     },
+    {
+        // A full account deletion POST calls logout() and redirects home
+        // (views_account.gdpr_data_management), never visiting /logout.
+        name: "gdpr_delete_post_navigation",
+        url: "https://crush.lu/en/account/gdpr/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Same view behind the legacy URL.
+        name: "legacy_account_delete_post_navigation",
+        url: "https://crush.lu/de/account/delete/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Guards the POST-only rule: opening the GDPR page keeps tickets.
+        name: "gdpr_page_navigation",
+        url: "https://crush.lu/fr/account/gdpr/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
 ];
 
 const results = probes.map((probe) => {

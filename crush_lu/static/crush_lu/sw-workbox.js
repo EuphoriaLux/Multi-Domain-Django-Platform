@@ -29,6 +29,11 @@ const SESSION_SWITCH_PATHS = [
     /^\/(en|de|fr)\/invite\/[^/]+\/accept\/$/,
 ];
 
+// views_account.gdpr_data_management: a full account deletion POST calls
+// logout() and redirects home, never reaching /logout. Only the POST counts:
+// merely opening the GDPR page must not drop an upcoming ticket.
+const ACCOUNT_DELETION_POST_PATHS = [/^\/(en|de|fr)\/account\/(gdpr|delete)\/$/];
+
 function isSessionBoundaryNavigation(request, url) {
     if (request.mode !== "navigate") return false;
     const path = url.pathname;
@@ -36,7 +41,9 @@ function isSessionBoundaryNavigation(request, url) {
         path.includes("/login") ||
         path.includes("/logout") ||
         path.includes("/signup") ||
-        SESSION_SWITCH_PATHS.some((pattern) => pattern.test(path))
+        SESSION_SWITCH_PATHS.some((pattern) => pattern.test(path)) ||
+        (request.method === "POST" &&
+            ACCOUNT_DELETION_POST_PATHS.some((pattern) => pattern.test(path)))
     );
 }
 
@@ -435,9 +442,12 @@ if (workbox) {
                 // until the door must still be served, so this has to outlast
                 // any booking-to-event gap; a year bounds retention without
                 // guessing one. Copies of past events are harmless: the
-                // check-in API enforces its own window.
+                // check-in API enforces its own window. Eviction is LRU and
+                // each language is its own URL, so maxEntries must cover every
+                // ticket a member could still need (many events x en/de/fr),
+                // or an early-booked ticket is evicted before its event.
                 new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 10,
+                    maxEntries: 50,
                     maxAgeSeconds: 365 * 24 * 60 * 60,
                 }),
                 new workbox.cacheableResponse.CacheableResponsePlugin({

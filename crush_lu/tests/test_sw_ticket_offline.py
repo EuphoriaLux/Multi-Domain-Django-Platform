@@ -83,7 +83,14 @@ def test_offline_ticket_outlives_the_booking_window():
         "last fetched online, so one booked further ahead than that and opened "
         "offline at the door shows the offline page instead of the QR."
     )
-    assert expiration.get("maxEntries"), "the ticket cache must stay bounded"
+    max_entries = expiration.get("maxEntries")
+    assert max_entries, "the ticket cache must stay bounded"
+    # Eviction is LRU and en/de/fr are separate URLs: ten upcoming events in
+    # all three languages must fit, or an early-booked ticket is evicted.
+    assert max_entries >= 30, (
+        f"{TICKET_CACHE!r} keeps only {max_entries} tickets, so opening newer "
+        "ones evicts a ticket booked early before its event."
+    )
 
 
 def test_ticket_route_does_not_swallow_other_event_pages():
@@ -101,6 +108,8 @@ def test_ticket_route_does_not_swallow_other_event_pages():
         "signup_navigation",
         "native_auth_complete_navigation",
         "invite_accept_post_navigation",
+        "gdpr_delete_post_navigation",
+        "legacy_account_delete_post_navigation",
     ],
 )
 def test_session_boundaries_purge_offline_tickets(probe_name):
@@ -114,5 +123,9 @@ def test_session_boundaries_purge_offline_tickets(probe_name):
 def test_ordinary_navigation_keeps_offline_tickets():
     """Guards the purge: browsing must not throw the offline ticket away."""
     results = _run_sw_route_probe()
-    for name in ("ordinary_page_navigation", "ticket_navigation_en"):
+    for name in (
+        "ordinary_page_navigation",
+        "ticket_navigation_en",
+        "gdpr_page_navigation",
+    ):
         assert results[name]["purgedCaches"] == [], results[name]
