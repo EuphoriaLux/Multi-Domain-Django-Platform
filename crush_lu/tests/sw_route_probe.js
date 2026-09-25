@@ -33,6 +33,13 @@ function strategyName(name) {
     };
 }
 
+/** The ExpirationPlugin options a caching strategy was built with, if any. */
+function expirationOf(handler) {
+    const plugins = (handler && handler.__opts && handler.__opts.plugins) || [];
+    const plugin = plugins.find((p) => p && p.__expiration);
+    return plugin ? plugin.__expiration : null;
+}
+
 // Any workbox.<ns>.<Thing> we don't model explicitly becomes a no-op constructor.
 function lenientNamespace(extra = {}) {
     return new Proxy(extra, {
@@ -64,6 +71,7 @@ const workbox = {
                 // Which cache a caching strategy writes to: two NetworkFirst
                 // routes differ only here (e.g. crush-tickets vs crush-pages).
                 cacheName: (handler && handler.__opts && handler.__opts.cacheName) || null,
+                expiration: expirationOf(handler),
                 method: method || "GET",
             });
         },
@@ -85,7 +93,12 @@ const workbox = {
         cleanupOutdatedCaches: () => {},
         createHandlerBoundToURL: () => () => {},
     }),
-    expiration: lenientNamespace(),
+    expiration: lenientNamespace({
+        // Recorded so a probe can see how long a route's cache keeps entries.
+        ExpirationPlugin: function (opts) {
+            this.__expiration = opts || {};
+        },
+    }),
     cacheableResponse: lenientNamespace(),
     // Captured rather than stubbed away: the route predicate only governs what
     // ENTERS the queue, so the replay loop has to be probed on its own.
@@ -310,6 +323,33 @@ const probes = [
         destination: "document",
         informational: true,
     },
+    {
+        name: "signup_navigation",
+        url: "https://crush.lu/de/signup/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // The native app's WebView redeems its one-time code here and is
+        // signed in as that code's user (native_auth.complete_native_auth)
+        // without ever visiting a /login page.
+        name: "native_auth_complete_navigation",
+        url: "https://crush.lu/api/mobile/android/auth/complete/abc123/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Accepting a guest invitation creates the guest's account and signs
+        // it in on this POST (views_invitations.invitation_accept).
+        name: "invite_accept_post_navigation",
+        url: "https://crush.lu/en/invite/0b6f3c52-8a4e-4f7e-9f7a-2d7c1e4b9a10/accept/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -335,6 +375,7 @@ const results = probes.map((probe) => {
         claimedByEarlyListener: early,
         matchedRoute: strategy,
         matchedCacheName: route ? route.cacheName : null,
+        matchedExpiration: route ? route.expiration : null,
         purgedCaches,
         claimed,
         informational: !!probe.informational,

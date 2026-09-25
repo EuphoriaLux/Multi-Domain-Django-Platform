@@ -2,7 +2,8 @@
 // Production-ready PWA implementation using local Workbox library
 // Version: v32 - Event tickets (/<lang>/events/<id>/ticket/) get their own
 //                NetworkFirst cache so the QR opens offline at the venue door,
-//                purged on every sign-in/sign-out/sign-up navigation.
+//                purged on every navigation that can switch the signed-in
+//                account (sign-in/out/up, native-app handoff, guest invite).
 // Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
 //                cache. The admin is mounted at /crush-admin/, not /admin/, so
 //                every exclusion list written against /admin/ missed it. The
@@ -15,6 +16,29 @@
 // account would be served offline to the next account on the same device.
 const TICKET_CACHE = "crush-tickets";
 const TICKET_PATH = /^\/(en|de|fr)\/events\/\d+\/ticket\/$/;
+
+// Navigations that can put a different account (or none) on this device, and
+// so must drop TICKET_CACHE. These are the login()/logout() call sites a
+// navigation reaches on crush.lu: the Crush and allauth sign-in, sign-out and
+// sign-up pages and the social callbacks (all contain /login, /logout or
+// /signup), plus the two that sign an account in under another name.
+const SESSION_SWITCH_PATHS = [
+    // native_auth.complete_native_auth: the app WebView redeems a one-time code.
+    /^\/api\/mobile\/(ios|android)\/auth\/complete\//,
+    // views_invitations.invitation_accept: signs the new guest account in.
+    /^\/(en|de|fr)\/invite\/[^/]+\/accept\/$/,
+];
+
+function isSessionBoundaryNavigation(request, url) {
+    if (request.mode !== "navigate") return false;
+    const path = url.pathname;
+    return (
+        path.includes("/login") ||
+        path.includes("/logout") ||
+        path.includes("/signup") ||
+        SESSION_SWITCH_PATHS.some((pattern) => pattern.test(path))
+    );
+}
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -51,6 +75,14 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
+    // Switching accounts changes whose ticket this device may show: drop the
+    // offline ticket copies (see TICKET_CACHE). waitUntil keeps the worker
+    // alive for the delete without claiming the request, so the auth bypass
+    // below and the routes further down still apply unchanged.
+    if (isSessionBoundaryNavigation(event.request, url)) {
+        event.waitUntil(caches.delete(TICKET_CACHE));
+    }
+
     // TRUE HARD BYPASS: OAuth and auth-related URLs
     const isAuthUrl =
         url.pathname.startsWith("/accounts/") || // All OAuth/auth routes
@@ -70,16 +102,6 @@ self.addEventListener("fetch", (event) => {
     // ASWebAuthenticationSession never sees its callback and the auth sheet hangs
     // on a cached page after a successful login (2026-07-19).
     if (isAuthUrl) {
-        // Signing in, out or up changes whose ticket this device may show:
-        // drop the offline ticket copies (see TICKET_CACHE). waitUntil keeps
-        // the worker alive for the delete without claiming the request.
-        const isSessionBoundary =
-            url.pathname.includes("/login") ||
-            url.pathname.includes("/logout") ||
-            url.pathname.includes("/signup");
-        if (event.request.mode === "navigate" && isSessionBoundary) {
-            event.waitUntil(caches.delete(TICKET_CACHE));
-        }
         // Navigation requests (page loads): let the browser handle them completely.
         // Safari/WebKit may not process Set-Cookie headers (including CSRF cookies)
         // from responses that pass through event.respondWith(fetch()), so we must
@@ -398,7 +420,8 @@ if (workbox) {
     // The QR is server-rendered SVG inside the HTML, so the cached page is a
     // complete, scannable ticket. networkTimeoutSeconds covers venue "lie-fi"
     // (connected, no throughput), where a plain NetworkFirst would hang at the
-    // door instead of falling back. Purged on sign-in/out (fetch listener above).
+    // door instead of falling back. Purged whenever the signed-in account can
+    // change (isSessionBoundaryNavigation, fetch listener above).
     workbox.routing.registerRoute(
         ({ request, url }) =>
             request.mode === "navigate" && TICKET_PATH.test(url.pathname),
@@ -406,9 +429,16 @@ if (workbox) {
             cacheName: TICKET_CACHE,
             networkTimeoutSeconds: 5,
             plugins: [
+                // maxAgeSeconds counts from the cached copy's Date header,
+                // i.e. the last time the ticket was fetched online, not from
+                // the event. A ticket opened once at booking and not again
+                // until the door must still be served, so this has to outlast
+                // any booking-to-event gap; a year bounds retention without
+                // guessing one. Copies of past events are harmless: the
+                // check-in API enforces its own window.
                 new workbox.expiration.ExpirationPlugin({
                     maxEntries: 10,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days: booking -> event night
+                    maxAgeSeconds: 365 * 24 * 60 * 60,
                 }),
                 new workbox.cacheableResponse.CacheableResponsePlugin({
                     statuses: [200], // never a login redirect or a 404

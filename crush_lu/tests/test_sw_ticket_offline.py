@@ -10,8 +10,10 @@ own cache that survives from booking to event night.
 
 That cache holds a signed check-in URL, and the ticket URL is keyed by event,
 not by user: without a purge, the next account signed in on the same device
-would be shown the previous account's QR when offline. Session-boundary
-navigations (sign-in, sign-out, sign-up) therefore delete it.
+would be shown the previous account's QR when offline. Every navigation that
+can switch the signed-in account therefore deletes it: sign-in, sign-out and
+sign-up, the native app's WebView code redemption, and the guest-invitation
+accept form, which signs the new guest in without a /login page.
 
 These run the real routing table through the Node probe (sw_route_probe.js),
 for the reason given in test_mobile_auth_handoff_chain.py: a source-string
@@ -66,6 +68,24 @@ def test_ticket_navigations_use_their_own_network_first_cache(probe_name):
     )
 
 
+def test_offline_ticket_outlives_the_booking_window():
+    """
+    Workbox's maxAgeSeconds counts from the cached copy's Date header — the
+    last time the ticket was fetched online — not from the event. A ticket
+    opened once at booking and not again until the door must still be served,
+    or the attendee gets the offline page instead of the QR.
+    """
+    expiration = _run_sw_route_probe()["ticket_navigation_en"]["matchedExpiration"]
+    assert expiration is not None, "the ticket cache has no expiration policy"
+    max_age = expiration.get("maxAgeSeconds")
+    assert max_age is None or max_age >= 180 * 24 * 60 * 60, (
+        f"{TICKET_CACHE!r} drops a ticket {max_age // 86400} days after it was "
+        "last fetched online, so one booked further ahead than that and opened "
+        "offline at the door shows the offline page instead of the QR."
+    )
+    assert expiration.get("maxEntries"), "the ticket cache must stay bounded"
+
+
 def test_ticket_route_does_not_swallow_other_event_pages():
     """Guards the pattern: the event page itself stays in the generic cache."""
     probe = _run_sw_route_probe()["event_detail_navigation"]
@@ -73,7 +93,16 @@ def test_ticket_route_does_not_swallow_other_event_pages():
     assert probe["matchedCacheName"] == "crush-pages"
 
 
-@pytest.mark.parametrize("probe_name", ["logout_navigation", "login_navigation"])
+@pytest.mark.parametrize(
+    "probe_name",
+    [
+        "logout_navigation",
+        "login_navigation",
+        "signup_navigation",
+        "native_auth_complete_navigation",
+        "invite_accept_post_navigation",
+    ],
+)
 def test_session_boundaries_purge_offline_tickets(probe_name):
     probe = _run_sw_route_probe()[probe_name]
     assert TICKET_CACHE in probe["purgedCaches"], (
