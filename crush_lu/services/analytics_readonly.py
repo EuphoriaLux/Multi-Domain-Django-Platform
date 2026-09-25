@@ -337,6 +337,11 @@ PRIVILEGE_AUDIT_SQL = {
         "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
         "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
     ),
+    "other_databases": (
+        "SELECT datname FROM pg_database WHERE NOT datistemplate "
+        "AND datname <> current_database() "
+        "AND has_database_privilege(%(role)s, datname, 'CONNECT')"
+    ),
     "memberships": (
         "SELECT g.rolname FROM pg_auth_members m "
         "JOIN pg_roles g ON g.oid = m.roleid "
@@ -371,6 +376,8 @@ def privilege_violations(
     memberships=(),
     definer_functions=(),
     sequences=(),
+    other_databases=(),
+    allowed_databases=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -387,6 +394,13 @@ def privilege_violations(
         violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
     for schema, sequence in sequences:
         violations.append(f"can use sequence {schema}.{sequence}")
+    for database in other_databases:
+        if database not in allowed_databases:
+            violations.append(
+                f"can connect to database {database} (revoke PUBLIC CONNECT there, "
+                "or add it to ANALYTICS_ALLOWED_OTHER_DATABASES if it holds no "
+                "member data)"
+            )
     for schema, relation, table_select, any_column_select, can_write in relations:
         name = f"{schema}.{relation}"
         if can_write:
@@ -418,6 +432,8 @@ def audit_role(cursor, role: str) -> list:
         [row[0] for row in results["memberships"]],
         results["definer_functions"],
         results["sequences"],
+        [row[0] for row in results["other_databases"]],
+        getattr(settings, "ANALYTICS_ALLOWED_OTHER_DATABASES", ()),
     )
 
 
@@ -636,18 +652,20 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
 def _is_panel_audit_row(row: dict) -> bool:
     """A coach-panel verification's audit-trail row, not a member submission.
 
-    views_coach._record_panel_verification writes an approved row, coach set,
-    reviewed at its own creation instant, for members verified without ever
-    submitting. A real submission starts pending and a coach reviews it later,
-    so "approved by a coach within two seconds of submission" marks the audit
-    row without reading its free-text notes.
+    views_coach._record_panel_verification captures `now` before its checks
+    and writes it as reviewed_at on an approved, coach-set row created later,
+    so submitted_at (auto_now_add at insert) is never earlier than reviewed_at.
+    A real submission is reviewed after it was submitted (a revision re-submit
+    resets submitted_at but also reopens the row as pending). The direction of
+    the two timestamps, not their distance, marks the audit row, without
+    reading its free-text notes.
     """
     return (
         row["status"] == "approved"
         and row["coach_id"] is not None
         and row["reviewed_at"] is not None
         and row["submitted_at"] is not None
-        and abs(row["reviewed_at"] - row["submitted_at"]) <= timedelta(seconds=2)
+        and row["reviewed_at"] <= row["submitted_at"]
     )
 
 
@@ -1355,7 +1373,11 @@ def retention(start: date, end: date) -> dict:
     )
     gaps = []
     for dates in in_window.values():
-        gaps.extend((b - a).days for a, b in zip(dates, dates[1:]))
+        # Calendar days in Europe/Luxembourg, as documented: flooring a UTC
+        # timedelta loses a day across the spring daylight-saving change.
+        gaps.extend(
+            (_local_date(b) - _local_date(a)).days for a, b in zip(dates, dates[1:])
+        )
     first_timers = sum(1 for uid in in_window if history[uid][0] >= low)
     mature_cutoff = timezone.now() - timedelta(days=90)
     mature = [

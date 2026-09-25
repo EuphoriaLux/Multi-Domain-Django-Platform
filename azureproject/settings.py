@@ -64,6 +64,17 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 ANALYTICS_API_KEY = os.getenv("ANALYTICS_API_KEY", "")
 ANALYTICS_PSEUDONYM_KEY = os.getenv("ANALYTICS_PSEUDONYM_KEY", "")
 ANALYTICS_DB_ALIAS = "analytics"
+# Other databases on the server the analytics login may still reach through
+# PUBLIC's default CONNECT (which cannot be revoked for one role alone). Only
+# databases holding no member data belong here; the default is Azure's own.
+# Both setup_analytics_role and the 10-minute runtime audit enforce it.
+ANALYTICS_ALLOWED_OTHER_DATABASES = [
+    name.strip()
+    for name in os.getenv(
+        "ANALYTICS_ALLOWED_OTHER_DATABASES", "postgres,azure_sys,azure_maintenance"
+    ).split(",")
+    if name.strip()
+]
 
 # Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
 # the new pipeline is dormant until explicitly enabled per environment. Works

@@ -104,14 +104,6 @@ class Command(BaseCommand):
             help="Print the role's current privileges and exit.",
         )
         parser.add_argument(
-            "--allow-connect-to",
-            default="",
-            help=(
-                "Comma list of OTHER databases the role may still reach through "
-                "PUBLIC's default CONNECT (only ones holding no member data)."
-            ),
-        )
-        parser.add_argument(
             "--keep-password",
             action="store_true",
             help="Refresh grants and settings without changing the password (role must exist).",
@@ -184,10 +176,9 @@ class Command(BaseCommand):
                 cursor.execute(statement)
             # What the role can EFFECTIVELY do (PUBLIC grants included) must be
             # exactly the allowlist; otherwise roll everything back.
+            # Includes other reachable databases, checked against the
+            # durable ANALYTICS_ALLOWED_OTHER_DATABASES setting.
             violations = audit_role(cursor, ROLE)
-            violations += self._other_database_access(
-                cursor, options.get("allow_connect_to", "")
-            )
             if violations:
                 details = "\n  ".join(violations)
                 raise CommandError(
@@ -198,29 +189,6 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"{ROLE} is configured. Current privileges:")
         )
         self._audit(connection)
-
-    def _other_database_access(self, cursor, allowed_csv):
-        """Other databases the role can CONNECT to (normally via PUBLIC).
-
-        audit_role() only sees the current database, and PUBLIC's default
-        CONNECT cannot be revoked for one role alone. So every other reachable
-        database must be hardened (REVOKE CONNECT ... FROM PUBLIC, after
-        checking which logins use it) or explicitly acknowledged as holding no
-        member data with --allow-connect-to.
-        """
-        allowed = {name.strip() for name in allowed_csv.split(",") if name.strip()}
-        cursor.execute(
-            "SELECT datname FROM pg_database WHERE NOT datistemplate "
-            "AND datname <> current_database() "
-            "AND has_database_privilege(%s, datname, 'CONNECT') ORDER BY 1",
-            [ROLE],
-        )
-        return [
-            f"can connect to database {name} (harden it, or acknowledge it with "
-            f"--allow-connect-to if it holds no member data)"
-            for (name,) in cursor.fetchall()
-            if name not in allowed
-        ]
 
     def _revoke_everything(self, cursor):
         """Reset the role to zero privileges before applying the allowlist.

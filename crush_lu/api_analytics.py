@@ -234,6 +234,18 @@ TOOLS = {
 }
 
 
+def _database_failure(tool, exc):
+    """JSON 503/504 for a database error, never an uncaught 500."""
+    if isinstance(exc, OperationalError) and (
+        "statement timeout" in str(exc) or "canceling statement" in str(exc)
+    ):
+        return _error("query exceeded the 10 s limit; narrow the date range", 504)
+    logger.exception("Analytics tool %s failed", tool)
+    if isinstance(exc, OperationalError):
+        return _error("database unavailable", 503)
+    return _error("database error", 500)
+
+
 def _error(message, status):
     response = JsonResponse({"error": message}, status=status)
     response["Cache-Control"] = "no-store"
@@ -271,6 +283,8 @@ def _serve(request, tool):
         analytics._alias()
     except analytics.NotConfigured:
         return _error("analytics database login failed its privilege audit", 503)
+    except DatabaseError as exc:
+        return _database_failure(tool, exc)
 
     public_params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
     # A non-secret fingerprint of the pseudonym key namespaces the cache, so
@@ -294,16 +308,8 @@ def _serve(request, tool):
         except analytics.NotConfigured:
             # The runtime privilege audit refused the DB login (details logged).
             return _error("analytics database login failed its privilege audit", 503)
-        except OperationalError as exc:
-            if "statement timeout" in str(exc) or "canceling statement" in str(exc):
-                return _error(
-                    "query exceeded the 10 s limit; narrow the date range", 504
-                )
-            logger.exception("Analytics tool %s failed", tool)
-            return _error("database unavailable", 503)
-        except DatabaseError:
-            logger.exception("Analytics tool %s failed", tool)
-            return _error("database error", 500)
+        except DatabaseError as exc:
+            return _database_failure(tool, exc)
         payload = {
             "tool": tool,
             "params": public_params,

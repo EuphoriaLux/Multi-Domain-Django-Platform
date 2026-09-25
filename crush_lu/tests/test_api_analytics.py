@@ -15,7 +15,7 @@ Run with: pytest crush_lu/tests/test_api_analytics.py -v
 
 import json
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 from unittest import mock, skipUnless
@@ -442,16 +442,25 @@ class ToolTests(AnalyticsFixture):
         # A coach verified dave from the panel without a submission: the
         # audit-trail row (approved, coach set, reviewed on creation) must not
         # count. carol's real submission (pending, no reviewer yet) does.
+        # The panel captures `now` before its checks, so even a slow path
+        # leaves reviewed_at BEFORE the row's own submitted_at.
         ProfileSubmission.objects.create(
             profile=self.dave.crushprofile,
             coach=self.coach,
             status="approved",
-            reviewed_at=timezone.now(),
+            reviewed_at=timezone.now() - timedelta(seconds=10),
         )
         ProfileSubmission.objects.create(
             profile=self.carol.crushprofile, status="pending"
         )
-        self.assertEqual(self.data("funnel")["totals"]["submitted"], 1)
+        # A real submission approved very quickly still counts.
+        quick = ProfileSubmission.objects.create(
+            profile=self.bob.crushprofile, coach=self.coach, status="approved"
+        )
+        ProfileSubmission.objects.filter(pk=quick.pk).update(
+            reviewed_at=quick.submitted_at + timedelta(seconds=1)
+        )
+        self.assertEqual(self.data("funnel")["totals"]["submitted"], 2)
 
     def test_funnel_counts_only_real_members(self):
         totals = self.data("funnel")["totals"]
@@ -501,6 +510,28 @@ class ToolTests(AnalyticsFixture):
             "first_timers_returned_within_90d"
         ]
         self.assertEqual((returned["eligible"], returned["returned"]), (1, 0))
+
+    def test_retention_gaps_are_local_calendar_days_across_dst(self):
+        import zoneinfo
+
+        lux = zoneinfo.ZoneInfo("Europe/Luxembourg")
+        gina = _make_member("gina@crush.lu", "F", date(1990, 4, 4))
+        for day in (25, 32):  # 2026-03-25 and 2026-04-01, across 2026-03-29
+            when = datetime(2026, 3, 1, 20, 0, tzinfo=lux) + timedelta(days=day - 1)
+            event = MeetupEvent.objects.create(
+                title=f"DST {day}",
+                description="event",
+                event_type="speed_dating",
+                date_time=when,
+                registration_deadline=when - timedelta(days=1),
+                location="Luxembourg",
+                address="1 Test St",
+                registration_fee=Decimal("15.00"),
+                max_participants=20,
+            )
+            EventRegistration.objects.create(event=event, user=gina, status="attended")
+        retention = self.data("retention", **{"from": "2026-03-01", "to": "2026-04-30"})
+        self.assertEqual(retention["median_days_between_events"], 7)
 
     def test_members_page_is_limited_but_counts_all_matches(self):
         data = self.data("members", limit="1")
@@ -657,6 +688,18 @@ class HardeningTests(AnalyticsFixture):
         ):
             self.assertEqual(self.get("events").status_code, 503)
 
+    def test_database_failure_during_the_audit_is_a_json_503(self):
+        from django.db import OperationalError
+
+        with mock.patch.object(
+            analytics,
+            "_assert_least_privilege",
+            side_effect=OperationalError("too many connections for role"),
+        ):
+            response = self.get("events")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"], "database unavailable")
+
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
         self.assertEqual(response.status_code, 400)
@@ -693,8 +736,11 @@ class PrivilegeAuditTests(TestCase):
             ["azure_pg_admin"],
             [("public", "unsafe_export")],
             [("public", "crush_lu_meetupevent_id_seq")],
+            ["postgres", "pythonapp_staging"],
+            ["postgres"],
         )
         joined = " | ".join(violations)
+        self.assertNotIn("database postgres", joined)  # allowlisted
         for expected in (
             "elevated attribute",
             "table-level SELECT on public.auth_user",
@@ -706,6 +752,7 @@ class PrivilegeAuditTests(TestCase):
             "member of role azure_pg_admin",
             "can execute SECURITY DEFINER public.unsafe_export",
             "can use sequence public.crush_lu_meetupevent_id_seq",
+            "can connect to database pythonapp_staging",
         ):
             self.assertIn(expected, joined)
 
@@ -817,12 +864,7 @@ class SetupRoleCommandTests(TestCase):
 
     def test_dry_run_prints_exactly_the_allowlist(self):
         out = StringIO()
-        call_command(
-            "setup_analytics_role",
-            dry_run=True,
-            allow_connect_to="postgres,azure_sys",
-            stdout=out,
-        )
+        call_command("setup_analytics_role", dry_run=True, stdout=out)
         sql = out.getvalue()
         for table in analytics.GRANTS:
             self.assertIn(f'ON public."{table}" TO "crush_analytics_ro"', sql)
