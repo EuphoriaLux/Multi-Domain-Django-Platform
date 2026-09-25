@@ -167,7 +167,19 @@ class AnalyticsFixture(TestCase):
             event=cls.night, user=cls.qa, status="attended"
         )
 
-        for user, reg in ((cls.alice, cls.alice_reg), (cls.staff, staff_reg)):
+        # Unrestricted events accept guests without a profile: not members.
+        cls.guest = User.objects.create_user(
+            username="guest@crush.lu", email="guest@crush.lu", password="x"
+        )
+        guest_reg = EventRegistration.objects.create(
+            event=cls.night, user=cls.guest, status="attended"
+        )
+
+        for user, reg in (
+            (cls.alice, cls.alice_reg),
+            (cls.staff, staff_reg),
+            (cls.guest, guest_reg),
+        ):
             PaymentTransaction.objects.create(
                 provider=PaymentTransaction.Provider.SUMUP,
                 amount=Decimal("15.00"),
@@ -233,6 +245,20 @@ class AnalyticsFixture(TestCase):
 
 @override_settings(**CONFIGURED)
 class AccessTests(AnalyticsFixture):
+    def test_non_ascii_bearer_is_unauthorized_not_a_crash(self):
+        response = self.client.get(f"{BASE}events/", HTTP_AUTHORIZATION="Bearer é")
+        self.assertEqual(response.status_code, 401)
+
+    def test_out_of_range_dates_are_400_not_a_crash(self):
+        for params in (
+            {"to": "0001-01-01"},
+            {"to": "9999-12-31"},
+            {"from": "1999-12-31"},
+        ):
+            with self.subTest(params=params):
+                self.assertEqual(self.get("events", **params).status_code, 400)
+        self.assertEqual(self.get("members", signup_to="9999-12-31").status_code, 400)
+
     def test_missing_bearer_is_unauthorized(self):
         self.assertEqual(self.client.get(f"{BASE}events/").status_code, 401)
 
@@ -350,8 +376,8 @@ class ToolTests(AnalyticsFixture):
         self.assertEqual(night["paid_revenue_eur"], 15.0)  # staff's payment excluded
         self.assertEqual(night["credit_redeemed_eur"], 5.0)
         self.assertEqual(
-            night["excluded_account_registrations"], 2
-        )  # staff + test account
+            night["excluded_account_registrations"], 3
+        )  # staff + test account + profile-less guest
 
     def test_event_detail_rows_are_pseudonymized(self):
         rows = self.data("event_detail", event_id=str(self.night.id))["registrations"]
@@ -381,7 +407,7 @@ class ToolTests(AnalyticsFixture):
             sum(r["amount_eur"] for r in data["paid_event_revenue_by_paid_at"]), 15.0
         )
         self.assertEqual(
-            data["excluded_accounts"], {"transactions": 1, "amount_eur": 15.0}
+            data["excluded_accounts"], {"transactions": 2, "amount_eur": 30.0}
         )
         self.assertEqual(data["credits_redeemed"], {"count": 1, "amount_eur": 5.0})
         self.assertEqual(data["premium"]["active_now"], 1)
@@ -466,21 +492,49 @@ class DisclosureControlTests(AnalyticsFixture):
         )
 
     def test_member_rows_cannot_rebuild_a_suppressed_cell(self):
-        rows = self.data("members")["members"]
-        self.assertEqual(len(rows), 4)
-        for row in rows:
-            self.assertEqual(
-                (row["gender"], row["age_band"], row["canton"]),
-                ("suppressed", "suppressed", "suppressed"),
-            )
-        # Filters match the generalized values, so they cannot count the cell.
-        self.assertEqual(self.data("members", gender="F")["total_matching"], 0)
+        # Four real members are below the floor of 5: no count, no rows.
+        whole = self.data("members")
+        self.assertTrue(whole["suppressed"])
+        self.assertEqual(whole["members"], [])
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 3):
+            cache.clear()
+            rows = self.data("members")["members"]
+            self.assertEqual(len(rows), 4)
+            for row in rows:  # no gender reaches 3, so nothing is retained
+                self.assertEqual(
+                    (row["gender"], row["age_band"], row["canton"]),
+                    ("suppressed", "suppressed", "suppressed"),
+                )
+            # Filters match the generalized values, so they cannot count the cell.
+            cache.clear()
+            self.assertEqual(self.data("members", gender="F")["total_matching"], 0)
         detail = self.data("event_detail", event_id=str(self.night.id))
         for row in detail["registrations"]:
             self.assertEqual(
                 (row["gender"], row["age_band"], row["canton"]),
                 ("suppressed", "suppressed", "suppressed"),
             )
+
+    def test_unknown_locations_are_reported_as_other(self):
+        self.assertEqual(analytics.canton_code("canton-esch"), "canton-esch")
+        self.assertEqual(analytics.canton_code("canton-bereldange"), "other")
+        self.assertEqual(analytics.canton_code("Rue de la Gare 12"), "other")
+        self.assertIsNone(analytics.canton_code(""))
+
+    def test_floor_applies_to_the_final_filtered_population(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
+            # gender F is retained (2 members), but only carol is pending.
+            data = self.data("members", gender="F", verification_status="pending")
+        self.assertTrue(data["suppressed"])
+        self.assertIsNone(data["total_matching"])
+        self.assertEqual(data["members"], [])
+
+    def test_profile_less_guests_are_never_member_rows(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 1):
+            detail = self.data("event_detail", event_id=str(self.night.id))
+        members = {r["member"] for r in detail["registrations"]}
+        self.assertNotIn(analytics.pseudonym(self.guest.id), members)
+        self.assertEqual(len(members), 3)
 
     def test_generalization_drops_canton_then_age_before_gender(self):
         with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):

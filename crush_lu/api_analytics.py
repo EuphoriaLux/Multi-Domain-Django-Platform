@@ -47,7 +47,11 @@ def authenticate_analytics_request(request) -> bool:
     expected = getattr(settings, "ANALYTICS_API_KEY", "")
     if not expected:
         return False
-    return secrets.compare_digest(auth_header[len("Bearer ") :], expected)
+    # Compare bytes: the str form of compare_digest raises TypeError on any
+    # non-ASCII input, which would turn a malformed header into a 500.
+    return secrets.compare_digest(
+        auth_header[len("Bearer ") :].encode(), expected.encode()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -67,10 +71,17 @@ class Params:
         if not raw:
             return default
         try:
-            return date.fromisoformat(raw)
+            value = date.fromisoformat(raw)
         except ValueError:
             self.errors.append(f"{name} must be YYYY-MM-DD")
             return default
+        if not analytics.MIN_DATE <= value <= analytics.MAX_DATE:
+            # Bounded before any inclusive-window arithmetic can overflow.
+            self.errors.append(
+                f"{name} must be between {analytics.MIN_DATE} and {analytics.MAX_DATE}"
+            )
+            return default
+        return value
 
     def range(self):
         # Both endpoints are inclusive (the service's window runs to the end of
@@ -131,12 +142,7 @@ CANTONS = {value for value, _ in analytics.MeetupEvent.CANTON_CHOICES}
 VERIFICATION_STATUSES = {"incomplete", "pending", "verified", "rejected"}
 GENDERS = {"M", "F", "NB", "O", "P"}
 AGE_BAND_LABELS = {label for _, _, label in analytics.AGE_BANDS}
-LOCATION_CODES = {
-    "canton-capellen", "canton-clervaux", "canton-diekirch", "canton-echternach",
-    "canton-esch", "canton-grevenmacher", "canton-luxembourg", "canton-mersch",
-    "canton-redange", "canton-remich", "canton-vianden", "canton-wiltz",
-    "border-belgium", "border-germany", "border-france",
-}  # fmt: skip
+LOCATION_CODES = analytics.LOCATION_CODES
 
 
 def _parse_definitions(p):

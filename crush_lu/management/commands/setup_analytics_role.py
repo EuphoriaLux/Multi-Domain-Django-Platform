@@ -194,13 +194,14 @@ class Command(BaseCommand):
             "SELECT (SELECT count(*) FROM pg_class WHERE relowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_namespace WHERE nspowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_proc WHERE proowner = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_database WHERE datdba = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_default_acl d, aclexplode(d.defaclacl) a"
             "    WHERE a.grantee = %(o)s::regrole OR d.defaclrole = %(o)s::regrole)",
             {"o": ROLE},
         )
         if cursor.fetchone()[0]:
             raise CommandError(
-                f"{ROLE} owns objects or has default privileges; resolve that by hand "
+                f"{ROLE} owns objects or a database, or has default privileges; resolve that by hand "
                 "(REASSIGN OWNED / ALTER DEFAULT PRIVILEGES) before re-running."
             )
         cursor.execute(

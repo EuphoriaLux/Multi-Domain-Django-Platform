@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import re
 from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -227,7 +226,19 @@ MAX_MEMBER_ROWS = 2000
 DEFAULT_MEMBER_ROWS = 500
 MAX_KPI_WEEKS = 52
 
-_LOCATION_CODE = re.compile(r"^(canton|border)-[a-z]+$")
+# The profile form's LOCATION_CHOICES. The model field is free text (and
+# editable in the admin), so anything else is reported as "other", never
+# verbatim: a stray value could be a finer location than a canton.
+LOCATION_CODES = frozenset(
+    {
+        "canton-capellen", "canton-clervaux", "canton-diekirch", "canton-echternach",
+        "canton-esch", "canton-grevenmacher", "canton-luxembourg", "canton-mersch",
+        "canton-redange", "canton-remich", "canton-vianden", "canton-wiltz",
+        "border-belgium", "border-germany", "border-france",
+    }
+)  # fmt: skip
+MIN_DATE = date(2000, 1, 1)
+MAX_DATE = date(2100, 12, 31)
 _ATTENDED = Q(status="attended") | Q(checked_in_at__isnull=False)
 
 # Seeded / QA accounts (see crush_lu/management/commands/create_connect_test_users).
@@ -241,9 +252,10 @@ _TEST_USERNAME = (
 REAL_MEMBER_RULE = (
     "A real member has a CrushProfile and is not staff, not superuser, not banned "
     "(UserDataConsent.crushlu_banned), and not a test account (email domain in "
-    "TEST_EMAIL_DOMAINS or a seeded QA username). Every tool except kpi_weekly "
-    "counts real members only; excluded accounts are reported separately where "
-    "they touch money or seats."
+    "TEST_EMAIL_DOMAINS or a seeded QA username). Guests who registered without a "
+    "profile are not members. Every tool except kpi_weekly counts real members "
+    "only; excluded accounts (including profile-less guests) are reported "
+    "separately where they touch money or seats."
 )
 
 
@@ -295,7 +307,7 @@ def age_band(dob: date | None, on: date) -> str | None:
 def canton_code(location: str | None) -> str | None:
     if not location:
         return None
-    return location if _LOCATION_CODE.match(location) else "other"
+    return location if location in LOCATION_CODES else "other"
 
 
 def _local_date(value: datetime | None) -> date | None:
@@ -348,6 +360,13 @@ def _test_account_user_ids() -> set[int]:
         .order_by()
         .values_list("id", flat=True)
     )
+
+
+def _with_profile(alias: str):
+    """Users with a CrushProfile, as a subquery: the first half of the
+    real-member rule. Guests may register for unrestricted events without a
+    profile (views_events.event_register); they are not members."""
+    return CrushProfile.objects.using(alias).order_by().values("user_id")
 
 
 def excluded_user_ids(alias: str) -> set[int]:
@@ -510,7 +529,9 @@ def definitions() -> dict:
             "age_band and canton are generalized over the whole real-member population: "
             f"a value reads '{SUPPRESSED}' when fewer than {SUPPRESSION_FLOOR} members "
             "share it (canton first, then age band, then gender), and member filters "
-            "match these generalized values. age_band is the current age band."
+            "match these generalized values. age_band is the current age band. A "
+            f"members call whose filters leave 1-{SUPPRESSION_FLOOR - 1} matches returns "
+            "no count and no rows (suppressed: true)."
         ),
         "limits": {
             "max_range_days": MAX_RANGE_DAYS,
@@ -716,6 +737,7 @@ def events(
         for row in PaymentTransaction.objects.using(alias)
         .paid_event_registrations()
         .filter(event_id__in=event_ids)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values("event_id")
@@ -725,6 +747,7 @@ def events(
         row["event_registration__event_id"]: row
         for row in CreditRedemption.objects.using(alias)
         .filter(event_registration__event_id__in=event_ids)
+        .filter(event_registration__user_id__in=_with_profile(alias))
         .exclude(event_registration__user_id__in=excluded)
         .order_by()
         .values("event_registration__event_id")
@@ -741,7 +764,7 @@ def events(
     )
     for reg in registrations:
         stats = per_event[reg["event_id"]]
-        if reg["user_id"] in excluded:
+        if reg["user_id"] in excluded or reg["user_id"] not in genders:
             stats["excluded"] += 1
             continue
         stats["by_status"][reg["status"]] += 1
@@ -813,6 +836,7 @@ def event_detail(event_id: int) -> dict:
     registrations = list(
         EventRegistration.objects.using(alias)
         .filter(event_id=event_id)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by("registered_at", "id")
         .values(
@@ -887,8 +911,14 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
         lambda: {"count": 0, "amount": Decimal("0")}
     )
     excluded_totals = {"count": 0, "amount": Decimal("0")}
+    with_profile = set(
+        CrushProfile.objects.using(alias)
+        .filter(user_id__in={tx["user_id"] for tx in txs if tx["user_id"]})
+        .order_by()
+        .values_list("user_id", flat=True)
+    )
     for tx in txs:
-        if tx["user_id"] in excluded:
+        if tx["user_id"] in excluded or tx["user_id"] not in with_profile:
             excluded_totals["count"] += 1
             excluded_totals["amount"] += tx["amount"] or 0
             continue
@@ -911,6 +941,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
             Q(paid_at__gte=low, paid_at__lt=high)
             | Q(paid_at__isnull=True, created_at__gte=low, created_at__lt=high)
         )
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values("paid_at", "created_at", "amount")
@@ -923,6 +954,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
     for credit in (
         CrushCredit.objects.using(alias)
         .filter(issued_at__gte=low, issued_at__lt=high)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values("reason", "status", "amount_cents")
@@ -934,6 +966,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
     redeemed = (
         CreditRedemption.objects.using(alias)
         .filter(redeemed_at__gte=low, redeemed_at__lt=high)
+        .filter(credit__user_id__in=_with_profile(alias))
         .exclude(credit__user_id__in=excluded)
         .order_by()
         .aggregate(n=Count("id"), cents=Sum("amount_cents"))
@@ -942,6 +975,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
         dict(
             PremiumMembership.objects.using(alias)
             .filter(created_at__gte=low, created_at__lt=high)
+            .filter(user_id__in=_with_profile(alias))
             .exclude(user_id__in=excluded)
             .order_by()
             .values("status")
@@ -952,6 +986,7 @@ def payments(start: date, end: date, grain: str = "month") -> dict:
     premium_active_now = (
         PremiumMembership.objects.using(alias)
         .filter(status="active")
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .count()
@@ -1003,6 +1038,7 @@ def connect(start: date, end: date) -> dict:
     low, high = _window(start, end)
     memberships = list(
         CrushConnectMembership.objects.using(alias)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values(
@@ -1026,6 +1062,7 @@ def connect(start: date, end: date) -> dict:
     sessions = dict(
         ConnectWeekSession.objects.using(alias)
         .filter(started_at__gte=low, started_at__lt=high)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values("status")
@@ -1035,7 +1072,9 @@ def connect(start: date, end: date) -> dict:
     requests = list(
         ConnectWeeklyRequest.objects.using(alias)
         .filter(sent_at__gte=low, sent_at__lt=high)
+        .filter(requester_id__in=_with_profile(alias))
         .exclude(requester_id__in=excluded)
+        .filter(recipient_id__in=_with_profile(alias))
         .exclude(recipient_id__in=excluded)
         .order_by()
         .values("status", "sent_at", "responded_at")
@@ -1095,6 +1134,7 @@ def retention(start: date, end: date) -> dict:
     attendee_ids = set(
         EventRegistration.objects.using(alias)
         .filter(_ATTENDED, event__date_time__gte=low, event__date_time__lt=high)
+        .filter(user_id__in=_with_profile(alias))
         .exclude(user_id__in=excluded)
         .order_by()
         .values_list("user_id", flat=True)
@@ -1214,9 +1254,7 @@ def members(
     quasi = _generalized_quasi_identifiers(population)
     low = high = None
     if signup_from or signup_to:
-        low, high = _window(
-            signup_from or date(2000, 1, 1), signup_to or timezone.localdate()
-        )
+        low, high = _window(signup_from or MIN_DATE, signup_to or timezone.localdate())
 
     def keep(p):
         qi = quasi[p["user_id"]]
@@ -1244,6 +1282,17 @@ def members(
         profiles = [p for p in profiles if (p["user_id"] in attended_all) == attended]
 
     total = len(profiles)
+    if 0 < total < SUPPRESSION_FLOOR:
+        # The floor applies to the final filtered population too: stacking
+        # non-demographic filters (status, signup window, LuxID, attendance)
+        # on a retained cell must not single out fewer than the floor.
+        return {
+            "total_matching": None,
+            "returned": 0,
+            "truncated": False,
+            "suppressed": True,
+            "members": [],
+        }
     page = profiles[:limit]
     user_ids = [p["user_id"] for p in page]
     luxid_ids = _luxid_user_ids(alias, user_ids)
@@ -1294,5 +1343,6 @@ def members(
         "total_matching": total,
         "returned": len(rows),
         "truncated": total > len(rows),
+        "suppressed": False,
         "members": rows,
     }
