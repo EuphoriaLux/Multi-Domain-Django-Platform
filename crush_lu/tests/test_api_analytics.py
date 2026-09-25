@@ -721,6 +721,17 @@ class HardeningTests(AnalyticsFixture):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["error"], "database unavailable")
 
+    def test_rate_limit_key_ignores_the_azure_client_port(self):
+        from crush_lu.api_analytics import _client_ip_key
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+        keys = {
+            _client_ip_key(factory.get("/", HTTP_X_FORWARDED_FOR=f"203.0.113.7:{port}"))
+            for port in (50123, 50124)
+        }
+        self.assertEqual(keys, {"203.0.113.7"})
+
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
         self.assertEqual(response.status_code, 400)
@@ -839,6 +850,8 @@ class PrivilegeAuditTests(TestCase):
             2,
             True,
             3,
+            [("pg_catalog", "lo_import", "text")],
+            ["lo_compat_privileges"],
         )
         joined = " | ".join(violations)
         self.assertNotIn("connect to database postgres", joined)  # allowlisted
@@ -862,8 +875,43 @@ class PrivilegeAuditTests(TestCase):
             "can read system relation pg_catalog.pg_authid",
             "can read system relation pg_toast.pg_toast_16385",
             "can read system relation pg_catalog.pg_statistic",
+            "can EXECUTE pg_catalog.lo_import(text) beyond PUBLIC",
+            "can SET or ALTER SYSTEM parameter lo_compat_privileges",
         ):
             self.assertIn(expected, joined)
+
+    def _audit_with(self, version, parameter_rows):
+        class FakeCursor:
+            def __init__(self):
+                self.executed = []
+                self.last = ""
+
+            def execute(self, sql, params=None):
+                self.executed.append(sql)
+                self.last = sql
+
+            def fetchone(self):
+                return (str(version),)
+
+            def fetchall(self):
+                if self.last == analytics.PARAMETER_AUDIT_SQL:
+                    return parameter_rows
+                return []
+
+        cursor = FakeCursor()
+        return analytics.audit_role(cursor, "crush_analytics_ro"), cursor.executed
+
+    def test_parameter_privileges_are_audited_from_postgres_15(self):
+        violations, executed = self._audit_with(170011, [("lo_compat_privileges",)])
+        self.assertIn(analytics.PARAMETER_AUDIT_SQL, executed)
+        self.assertEqual(
+            violations, ["can SET or ALTER SYSTEM parameter lo_compat_privileges"]
+        )
+
+    def test_parameter_audit_is_skipped_before_postgres_15(self):
+        violations, executed = self._audit_with(140010, [("lo_compat_privileges",)])
+        self.assertNotIn(analytics.PARAMETER_AUDIT_SQL, executed)
+        self.assertEqual(violations, [])
 
 
 @override_settings(**CONFIGURED)
@@ -920,6 +968,28 @@ class SqlColumnAuditTests(AnalyticsFixture):
         analytics.retention(start, today)
         analytics.demographics(list(analytics.GROUPABLE_DIMENSIONS))
         analytics.members(luxid=False, attended=True, age_band_filter="30-34")
+        for granularity in ("day", "month"):
+            analytics.funnel(start, today, granularity)
+            analytics.payments(start, today, granularity)
+        analytics.members(
+            signup_from=start,
+            signup_to=today,
+            verification_status="verified",
+            gender="F",
+            canton="canton-luxembourg",
+            luxid=True,
+            attended=False,
+        )
+
+    def _read_columns(self, captured_queries):
+        read = set()
+        for query in captured_queries:
+            sql = query["sql"]
+            aliases = {alias: table for table, alias in self.ALIAS_DEF.findall(sql)}
+            for quoted, bare, column in self.COLUMN_REF.findall(sql):
+                name = quoted or bare
+                read.add((aliases.get(name, name), column))
+        return read
 
     def _violations(self, captured_queries):
         violations = set()
@@ -946,6 +1016,23 @@ class SqlColumnAuditTests(AnalyticsFixture):
                 self._run_everything()
         self.assertGreater(len(ctx.captured_queries), 20)
         self.assertEqual(self._violations(ctx.captured_queries), set())
+
+    def test_every_granted_column_is_read(self):
+        # The reverse direction: a grant no query needs only widens what leaked
+        # credentials expose. Primary keys, and the title translations
+        # modeltranslation picks by active language, are exempt.
+        with mock.patch.object(analytics, "_test_account_user_ids", return_value=set()):
+            with CaptureQueriesContext(connection) as ctx:
+                self._run_everything()
+        read = self._read_columns(ctx.captured_queries)
+        exempt = {"id", "title", "title_en", "title_de", "title_fr"}
+        unread = {
+            f"{table}.{column}"
+            for table, columns in analytics.GRANTS.items()
+            for column in columns
+            if column not in exempt and (table, column) not in read
+        }
+        self.assertEqual(unread, set())
 
     def test_audit_catches_an_ungranted_column(self):
         # Guard against a parser regression that silently matches nothing.

@@ -66,8 +66,10 @@ logger = logging.getLogger(__name__)
 # tokens, IPs, free text, SumUp ids or payloads, or GDPR Art. 9-adjacent fields
 # (preferred_genders, Connect lifestyle answers).
 # ---------------------------------------------------------------------------
+# Exactly the columns the generated SQL reads (SqlColumnAuditTests checks
+# both directions), so leaked credentials expose nothing no tool needs.
 GRANTS: dict[str, tuple[str, ...]] = {
-    "auth_user": ("id", "is_staff", "is_superuser", "is_active", "date_joined"),
+    "auth_user": ("id", "is_staff", "is_superuser"),
     "crush_lu_crushprofile": (
         "id",
         "user_id",
@@ -79,19 +81,13 @@ GRANTS: dict[str, tuple[str, ...]] = {
         # Legacy step marker, still set to "submitted" by the self-serve path,
         # which creates no ProfileSubmission row.
         "completion_status",
-        "is_approved",
-        "is_active",
-        "approved_at",
         "phone_verified",
         "created_at",
-        "membership_tier",
     ),
     "crush_lu_userdataconsent": (
         "id",
         "user_id",
-        "crushlu_consent_given",
         "crushlu_banned",
-        "marketing_consent",
     ),
     "crush_lu_profilesubmission": (
         "id",
@@ -118,13 +114,9 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "max_participants_f",
         "max_participants_nb",
         "reserved_premium_seats",
-        "min_age",
-        "max_age",
         "registration_mode",
-        "profile_requirement",
         "is_published",
         "is_cancelled",
-        "created_at",
     ),
     "crush_lu_eventregistration": (
         "id",
@@ -132,22 +124,17 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "user_id",
         "status",
         "registered_at",
-        "cancelled_at",
         "payment_confirmed",
-        "payment_date",
         "checked_in_at",
     ),
     "crush_lu_paymenttransaction": (
         "id",
         "user_id",
         "event_id",
-        "event_registration_id",
-        "premium_membership_id",
         "provider",
         "status",
         "purpose",
         "amount",
-        "currency",
         "created_at",
         "paid_at",
     ),
@@ -158,7 +145,6 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "status",
         "amount_cents",
         "issued_at",
-        "expires_at",
     ),
     "crush_lu_creditredemption": (
         "id",
@@ -171,8 +157,6 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "id",
         "user_id",
         "status",
-        "payment_confirmed",
-        "payment_date",
         "created_at",
     ),
     "crush_lu_crushconnectmembership": (
@@ -190,11 +174,9 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "user_id",
         "status",
         "started_at",
-        "completed_at",
     ),
     "crush_lu_connectweeklyrequest": (
         "id",
-        "session_id",
         "requester_id",
         "recipient_id",
         "status",
@@ -398,12 +380,41 @@ PRIVILEGE_AUDIT_SQL = {
         "AND has_schema_privilege(%(role)s, n.oid, 'USAGE') "
         "AND has_function_privilege(%(role)s, p.oid, 'EXECUTE')"
     ),
+    # Routines authorize through their EXECUTE ACL, not table rights: any
+    # routine the login can run that PUBLIC cannot (a granted lo_import or
+    # pg_read_file, say) is excess, in every schema including pg_catalog.
+    "privileged_routines": (
+        "SELECT n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) "
+        "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE has_function_privilege(%(role)s, p.oid, 'EXECUTE') "
+        "AND NOT has_function_privilege('public', p.oid, 'EXECUTE')"
+    ),
     "schemas_with_create": (
         "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
         "AND nspname <> 'information_schema' "
         "AND has_schema_privilege(%(role)s, oid, 'CREATE')"
     ),
 }
+
+
+# Parameters whose SET widens what the login can read. SET on one of these is
+# a violation even when it comes through PUBLIC: the audit session only sees
+# its own value, so the login could pass the audit and SET it elsewhere.
+SENSITIVE_PARAMETERS = ("lo_compat_privileges",)
+
+# PostgreSQL 15+ (pg_parameter_acl, has_parameter_privilege); audit_role skips
+# it on older servers, where only superusers could SET these at all. Any
+# ALTER SYSTEM right, and SET on a parameter beyond what PUBLIC holds, is also
+# excess.
+PARAMETER_AUDIT_SQL = (
+    "SELECT parname FROM (SELECT parname FROM pg_parameter_acl "
+    "UNION SELECT unnest(%(sensitive)s::text[])) p "
+    "WHERE has_parameter_privilege(%(role)s, parname, 'ALTER SYSTEM') "
+    "OR (has_parameter_privilege(%(role)s, parname, 'SET') "
+    "AND (parname = ANY(%(sensitive)s::text[]) "
+    "OR NOT has_parameter_privilege('public', parname, 'SET'))) "
+    "ORDER BY parname"
+)
 
 
 # Catalogs that hold password verifiers, data samples, credentials or large
@@ -433,6 +444,8 @@ def privilege_violations(
     large_objects=0,
     database_temp=False,
     owned_objects=0,
+    routines=(),
+    parameters=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -447,6 +460,10 @@ def privilege_violations(
         violations.append(f"member of role {group}")
     for schema, function in definer_functions:
         violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
+    for schema, routine, arguments in routines:
+        violations.append(f"can EXECUTE {schema}.{routine}({arguments}) beyond PUBLIC")
+    for parameter in parameters:
+        violations.append(f"can SET or ALTER SYSTEM parameter {parameter}")
     for schema, sequence in sequences:
         violations.append(f"can use sequence {schema}.{sequence}")
     if database_create:
@@ -502,6 +519,13 @@ def audit_role(cursor, role: str) -> list:
     for key, sql in PRIVILEGE_AUDIT_SQL.items():
         cursor.execute(sql, params)
         results[key] = cursor.fetchall()
+    parameters = []
+    cursor.execute("SHOW server_version_num")
+    if int(cursor.fetchone()[0]) >= 150000:
+        cursor.execute(
+            PARAMETER_AUDIT_SQL, {**params, "sensitive": list(SENSITIVE_PARAMETERS)}
+        )
+        parameters = [row[0] for row in cursor.fetchall()]
     elevated = bool(results["elevated"] and results["elevated"][0][0])
     return privilege_violations(
         elevated,
@@ -517,6 +541,8 @@ def audit_role(cursor, role: str) -> list:
         results["large_objects"][0][0] if results["large_objects"] else 0,
         bool(results["database_create"] and results["database_create"][0][1]),
         results["owned_objects"][0][0] if results["owned_objects"] else 0,
+        results["privileged_routines"],
+        parameters,
     )
 
 
@@ -886,7 +912,9 @@ def definitions() -> dict:
                 "no_show",
             ],
             "verification_status": ["incomplete", "pending", "verified", "rejected"],
-            "gender": ["M", "F", "NB", "O", "P"],
+            # demographics() reports a member without a stored gender as
+            # "unknown".
+            "gender": ["M", "F", "NB", "O", "P", UNKNOWN],
         },
         "tools": {
             "definitions": "this document",
@@ -1552,11 +1580,11 @@ def demographics(group_by: list[str], verification_status: str | None = None) ->
 
     def value(p, dim):
         if dim == "gender":
-            return p["gender"] or "unknown"
+            return p["gender"] or UNKNOWN
         if dim == "age_band":
-            return age_band(p["date_of_birth"], today) or "unknown"
+            return age_band(p["date_of_birth"], today) or UNKNOWN
         if dim == "canton":
-            return canton_code(p["location"]) or "unknown"
+            return canton_code(p["location"]) or UNKNOWN
         if dim == "verification_status":
             return p["verification_status"]
         return p["user_id"] in luxid

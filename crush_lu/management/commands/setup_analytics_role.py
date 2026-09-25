@@ -200,7 +200,7 @@ class Command(BaseCommand):
         Reads the catalogs directly (every schema, not just public) so a
         pre-existing role cannot keep access beyond GRANTS: role memberships
         (a NOINHERIT member could still SET ROLE), relation and column ACLs,
-        schema, database and function privileges. Ownership and default
+        schema, database, routine, large-object and parameter privileges. Ownership and default
         privileges cannot be revoked away, so they abort the run instead.
         """
         r = _qn(ROLE)
@@ -275,7 +275,8 @@ class Command(BaseCommand):
             [ROLE],
         )
         for (signature,) in cursor.fetchall():
-            cursor.execute(f"REVOKE ALL ON FUNCTION {signature} FROM {r}")
+            # ROUTINE covers functions, procedures and aggregates alike.
+            cursor.execute(f"REVOKE ALL ON ROUTINE {signature} FROM {r}")
         cursor.execute(
             "SELECT DISTINCT l.oid FROM pg_largeobject_metadata l "
             "CROSS JOIN LATERAL aclexplode(l.lomacl) a WHERE a.grantee = %s::regrole",
@@ -283,6 +284,17 @@ class Command(BaseCommand):
         )
         for (large_object,) in cursor.fetchall():
             cursor.execute(f"REVOKE ALL ON LARGE OBJECT {int(large_object)} FROM {r}")
+        cursor.execute("SHOW server_version_num")
+        if int(cursor.fetchone()[0]) >= 150000:  # parameter ACLs exist from 15
+            cursor.execute(
+                "SELECT DISTINCT p.parname FROM pg_parameter_acl p "
+                "CROSS JOIN LATERAL aclexplode(p.paracl) a "
+                "WHERE a.grantee = %s::regrole",
+                [ROLE],
+            )
+            for (parameter,) in cursor.fetchall():
+                name = ".".join(_qn(part) for part in parameter.split("."))
+                cursor.execute(f"REVOKE ALL ON PARAMETER {name} FROM {r}")
 
     def _audit(self, connection):
         with connection.cursor() as cursor:

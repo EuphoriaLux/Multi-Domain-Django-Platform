@@ -29,6 +29,7 @@ from django.utils import timezone, translation
 from django.views.decorators.http import require_GET
 
 from crush_lu.decorators import ratelimit
+from crush_lu.oauth_statekit import get_client_ip
 from crush_lu.services import analytics_readonly as analytics
 
 logger = logging.getLogger(__name__)
@@ -272,8 +273,14 @@ def analytics_tool(request, tool):
     return _serve(request, tool)
 
 
+def _client_ip_key(request) -> str:
+    """Azure's X-Forwarded-For is IP:PORT; key on the address alone, or every
+    new connection would start a fresh counter."""
+    return get_client_ip(request) or "unknown"
+
+
 @require_GET
-@ratelimit(key="ip", rate="60/m", method="GET", block=True)
+@ratelimit(key=_client_ip_key, rate="60/m", method="GET", block=True)
 def _serve(request, tool):
     if not authenticate_analytics_request(request):
         logger.warning("Unauthorized analytics API call for tool=%s", tool)
