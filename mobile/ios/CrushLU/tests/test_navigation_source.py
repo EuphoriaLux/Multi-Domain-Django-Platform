@@ -78,11 +78,11 @@ class IOSNavigationSourceTests(unittest.TestCase):
 
         self.assertNotIn("= webView.url", web_view)
 
-    def test_release_metadata_targets_testflight_build_5(self):
+    def test_release_metadata_targets_testflight_build_4(self):
         project = (Path(__file__).parents[1] / "project.yml").read_text(encoding="utf-8")
 
         self.assertIn('MARKETING_VERSION: "1.0.2"', project)
-        self.assertIn('CURRENT_PROJECT_VERSION: "7"', project)
+        self.assertIn('CURRENT_PROJECT_VERSION: "4"', project)
 
 
 if __name__ == "__main__":

@@ -6,11 +6,14 @@ plugins {
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
 val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
-// Targeted at staging (test.crush.lu) to validate Crush Cache GPS navigation
-// in real conditions via Google Play internal track before production rollout.
+require(env in setOf("production", "staging", "local")) {
+    "Unknown CRUSH_ENV '$env'"
+}
 val baseUrl = when (env) {
+    "production" -> "https://crush.lu"
+    "staging" -> "https://test.crush.lu"
     "local" -> "http://10.0.2.2:8000"
-    else -> "https://test.crush.lu"
+    else -> error("Unknown CRUSH_ENV '$env'")
 }
 
 val isStaging = (env == "staging")
@@ -26,8 +29,14 @@ val authScheme = when {
     else -> "crushlu"
 }
 val hostName = when {
+    isStaging -> "test.crush.lu"
     isLocal -> "10.0.2.2"
-    else -> "test.crush.lu"
+    else -> "crush.lu"
+}
+
+// Fail configuration if the public Play identity could load the test site.
+check(env != "production" || (baseUrl == "https://crush.lu" && hostName == "crush.lu")) {
+    "Production Android releases must target crush.lu"
 }
 
 android {

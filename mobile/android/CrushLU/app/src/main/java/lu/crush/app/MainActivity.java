@@ -299,6 +299,8 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED
+                        || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED) {
                     callback.invoke(origin, true, false);
                     return;
@@ -343,7 +345,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (requestCode == LOCATION_PERMISSION_REQUEST && pendingGeolocationCallback != null) {
-            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            // Android 12+ lets users grant approximate location without precise GPS.
+            boolean granted = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED
+                    || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED;
             pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
             pendingGeolocationCallback = null;
             pendingGeolocationOrigin = null;
