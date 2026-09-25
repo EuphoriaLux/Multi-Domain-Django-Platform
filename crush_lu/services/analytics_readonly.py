@@ -327,6 +327,11 @@ PRIVILEGE_AUDIT_SQL = {
         "AND a.attnum > 0 AND NOT a.attisdropped "
         "AND has_column_privilege(%(role)s, c.oid, a.attnum, 'SELECT')"
     ),
+    "memberships": (
+        "SELECT g.rolname FROM pg_auth_members m "
+        "JOIN pg_roles g ON g.oid = m.roleid "
+        "JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = %(role)s"
+    ),
     "schemas_with_create": (
         "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
         "AND nspname <> 'information_schema' "
@@ -335,11 +340,20 @@ PRIVILEGE_AUDIT_SQL = {
 }
 
 
-def privilege_violations(elevated, relations, columns, schemas_with_create) -> list:
-    """Everything the role can effectively do beyond GRANTS (pure; testable)."""
+def privilege_violations(
+    elevated, relations, columns, schemas_with_create, memberships=()
+) -> list:
+    """Everything the role can effectively do beyond GRANTS (pure; testable).
+
+    Any role membership is a violation: the login is NOINHERIT, so
+    has_*_privilege does not see a member role's rights, yet the login could
+    SET ROLE to use them.
+    """
     violations = []
     if elevated:
         violations.append("role has an elevated attribute")
+    for group in memberships:
+        violations.append(f"member of role {group}")
     for schema, relation, table_select, any_column_select, can_write in relations:
         name = f"{schema}.{relation}"
         if can_write:
@@ -368,6 +382,7 @@ def audit_role(cursor, role: str) -> list:
         results["relations"],
         results["columns"],
         [row[0] for row in results["schemas_with_create"]],
+        [row[0] for row in results["memberships"]],
     )
 
 
@@ -673,7 +688,8 @@ def definitions() -> dict:
         },
         "enums": {
             "event_type": [value for value, _ in MeetupEvent.EVENT_TYPE_CHOICES],
-            "canton": [value for value, _ in MeetupEvent.CANTON_CHOICES],
+            "event_canton": [value for value, _ in MeetupEvent.CANTON_CHOICES],
+            "member_canton": sorted(LOCATION_CODES) + ["other"],
             "registration_status": [
                 "applied",
                 "pending",
@@ -690,13 +706,13 @@ def definitions() -> dict:
             "definitions": "this document",
             "kpi_weekly": "weeks (1-52, default 12)",
             "funnel": "from, to (YYYY-MM-DD), grain=week|month: signup cohorts and how far they got",
-            "events": "from, to, event_type?, canton?: per-event fill, gender mix, check-ins, revenue",
+            "events": "from, to, event_type?, canton? (enums.event_canton): per-event fill, gender mix, check-ins, revenue",
             "event_detail": "event_id: the event plus one pseudonymized row per registration",
             "payments": "from, to, grain: money by purpose/provider/status, credits, Premium",
             "connect": "from, to: Crush Connect onboarding, weekly sessions and requests",
             "retention": "from, to: repeat attendance of members who attended events in the window",
             "demographics": "group_by (comma list of gender,age_band,canton,verification_status,luxid), verification_status?",
-            "members": "signup_from?, signup_to?, verification_status?, gender?, age_band?, canton?, luxid?, attended?, limit? (<=2000)",
+            "members": "signup_from?, signup_to?, verification_status?, gender?, age_band?, canton? (enums.member_canton), luxid?, attended?, limit? (<=2000)",
         },
     }
 
@@ -812,25 +828,33 @@ def events(
     if canton:
         qs = qs.filter(canton=canton)
     event_rows = list(
-        qs.order_by("date_time", "id").values(
-            "id",
-            "title",
-            "event_type",
-            "canton",
-            "date_time",
-            "registration_fee",
-            "max_participants",
-            "max_participants_m",
-            "max_participants_f",
-            "max_participants_nb",
-            "reserved_premium_seats",
-            "registration_mode",
-            "is_published",
-            "is_cancelled",
-        )[: MAX_EVENTS + 1]
+        qs.order_by("date_time", "id").values(*EVENT_FIELDS)[: MAX_EVENTS + 1]
     )
     truncated = len(event_rows) > MAX_EVENTS
-    event_rows = event_rows[:MAX_EVENTS]
+    out = _summarize_events(alias, excluded, event_rows[:MAX_EVENTS])
+    return {"count": len(out), "truncated": truncated, "events": out}
+
+
+EVENT_FIELDS = (
+    "id",
+    "title",
+    "event_type",
+    "canton",
+    "date_time",
+    "registration_fee",
+    "max_participants",
+    "max_participants_m",
+    "max_participants_f",
+    "max_participants_nb",
+    "reserved_premium_seats",
+    "registration_mode",
+    "is_published",
+    "is_cancelled",
+)
+
+
+def _summarize_events(alias: str, excluded: set[int], event_rows: list[dict]) -> list:
+    """Per-event stats for exactly these rows (shared by events/event_detail)."""
     event_ids = [e["id"] for e in event_rows]
 
     registrations = list(
@@ -927,7 +951,7 @@ def events(
                 "excluded_account_registrations": stats["excluded"],
             }
         )
-    return {"count": len(out), "truncated": truncated, "events": out}
+    return out
 
 
 def event_detail(event_id: int) -> dict:
@@ -937,14 +961,13 @@ def event_detail(event_id: int) -> dict:
         MeetupEvent.objects.using(alias)
         .filter(id=event_id)
         .order_by()
-        .values("id", "date_time")
+        .values(*EVENT_FIELDS)
         .first()
     )
     if not event:
         raise NotFound(f"event {event_id} does not exist")
-    day = _local_date(event["date_time"])
-    summary = events(day, day)["events"]
-    summary = next((e for e in summary if e["event_id"] == event_id), None)
+    # Built for this event alone, never searched for in a capped day list.
+    summary = _summarize_events(alias, excluded, [event])[0]
 
     registrations = list(
         EventRegistration.objects.using(alias)
@@ -974,19 +997,20 @@ def event_detail(event_id: int) -> dict:
         .annotate(n=Count("id"))
         .values_list("user_id", "n")
     )
-    paid_users = set(
-        PaymentTransaction.objects.using(alias)
-        .paid_event_registrations()
-        .filter(event_id=event_id)
-        .order_by()
-        .values_list("user_id", flat=True)
-    )
-    credit_regs = set(
+    # Payment flags describe the registration's CURRENT cycle. A cancelled paid
+    # seat keeps its immutable transaction and redemption while its row is
+    # reused on re-signup, so the ledger alone would report a new pending cycle
+    # as paid: payment_confirmed is the cycle marker (set on payment, cleared
+    # on cancellation), and a redemption counts only if it follows the
+    # registered_at that re-registration resets.
+    redemptions: dict[int, list] = defaultdict(list)
+    for row in (
         CreditRedemption.objects.using(alias)
         .filter(event_registration__event_id=event_id)
         .order_by()
-        .values_list("event_registration_id", flat=True)
-    )
+        .values("event_registration_id", "redeemed_at")
+    ):
+        redemptions[row["event_registration_id"]].append(row["redeemed_at"])
     rows = []
     for reg in registrations:
         uid = reg["user_id"]
@@ -998,8 +1022,12 @@ def event_detail(event_id: int) -> dict:
                 "status": reg["status"],
                 "registered_day": _day(reg["registered_at"]),
                 "checked_in": bool(reg["status"] == "attended" or reg["checked_in_at"]),
-                "paid": uid in paid_users or bool(reg["payment_confirmed"]),
-                "paid_with_credit": reg["id"] in credit_regs,
+                "paid": bool(reg["payment_confirmed"]),
+                "paid_with_credit": bool(reg["payment_confirmed"])
+                and any(
+                    redeemed_at >= reg["registered_at"]
+                    for redeemed_at in redemptions.get(reg["id"], [])
+                ),
                 "gender": member_qi["gender"],
                 "age_band": member_qi["age_band"],
                 "canton": member_qi["canton"],

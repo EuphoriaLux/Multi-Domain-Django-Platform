@@ -142,7 +142,8 @@ CANTONS = {value for value, _ in analytics.MeetupEvent.CANTON_CHOICES}
 VERIFICATION_STATUSES = {"incomplete", "pending", "verified", "rejected"}
 GENDERS = {"M", "F", "NB", "O", "P"}
 AGE_BAND_LABELS = {label for _, _, label in analytics.AGE_BANDS}
-LOCATION_CODES = analytics.LOCATION_CODES
+# Profile region codes, plus "other" for stored values outside the list.
+MEMBER_CANTONS = analytics.LOCATION_CODES | {"other"}
 
 
 def _parse_definitions(p):
@@ -210,7 +211,7 @@ def _parse_members(p):
         "verification_status": p.choice("verification_status", VERIFICATION_STATUSES),
         "gender": p.choice("gender", GENDERS),
         "age_band_filter": p.choice("age_band", AGE_BAND_LABELS),
-        "canton": p.choice("canton", LOCATION_CODES),
+        "canton": p.choice("canton", MEMBER_CANTONS),
         "luxid": p.bool("luxid"),
         "attended": p.bool("attended"),
         "limit": p.int(

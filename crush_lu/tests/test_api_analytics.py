@@ -210,6 +210,9 @@ class AnalyticsFixture(TestCase):
         CreditRedemption.objects.create(
             credit=staff_credit, event_registration=staff_reg, amount_cents=700
         )
+        EventRegistration.objects.filter(
+            pk__in=[cls.alice_reg.pk, cls.bob_reg.pk]
+        ).update(payment_confirmed=True)
         CrushConnectMembership.objects.create(
             user=cls.alice,
             onboarding_started_at=timezone.now(),
@@ -391,6 +394,48 @@ class ToolTests(AnalyticsFixture):
         bob = by_member[analytics.pseudonym(self.bob.id)]
         self.assertTrue(bob["paid_with_credit"])
         self.assertTrue(bob["first_event"])
+
+    def test_payment_flags_follow_the_current_registration_cycle(self):
+        # carol paid with credit once, cancelled (payment_confirmed cleared) and
+        # re-registered on the same row (registered_at reset): the historical
+        # ledger must not make the new pending cycle look paid.
+        carol_reg = EventRegistration.objects.get(event=self.night, user=self.carol)
+        old_credit = CrushCredit.objects.create(
+            user=self.carol,
+            amount_cents=1500,
+            reason=CrushCredit.Reason.GOODWILL,
+            expires_at=timezone.now() + timedelta(days=300),
+        )
+        redemption = CreditRedemption.objects.create(
+            credit=old_credit, event_registration=carol_reg, amount_cents=1500
+        )
+        CreditRedemption.objects.filter(pk=redemption.pk).update(
+            redeemed_at=timezone.now() - timedelta(days=5)
+        )
+        EventRegistration.objects.filter(pk=carol_reg.pk).update(
+            status="pending", payment_confirmed=False, registered_at=timezone.now()
+        )
+        rows = self.data("event_detail", event_id=str(self.night.id))["registrations"]
+        carol = next(
+            r for r in rows if r["member"] == analytics.pseudonym(self.carol.id)
+        )
+        self.assertFalse(carol["paid"])
+        self.assertFalse(carol["paid_with_credit"])
+
+    def test_event_detail_summary_ignores_the_event_list_cap(self):
+        with mock.patch.object(analytics, "MAX_EVENTS", 0):
+            detail = self.data("event_detail", event_id=str(self.night.id))
+        self.assertEqual(detail["event"]["event_id"], self.night.id)
+        self.assertEqual(detail["event"]["seat_holders"], 2)
+
+    def test_definitions_publish_separate_canton_enums(self):
+        enums = self.data("definitions")["enums"]
+        self.assertIn("Luxembourg", enums["event_canton"])
+        self.assertIn("canton-luxembourg", enums["member_canton"])
+        self.assertIn("other", enums["member_canton"])
+        self.assertNotIn("canton", enums)
+        for value in ("canton-luxembourg", "other"):
+            self.assertEqual(self.get("members", canton=value).status_code, 200)
 
     def test_funnel_counts_only_real_members(self):
         totals = self.data("funnel")["totals"]
@@ -616,7 +661,7 @@ class PrivilegeAuditTests(TestCase):
         ]
         columns = [("auth_user", "email")]
         violations = analytics.privilege_violations(
-            True, relations, columns, ["public"]
+            True, relations, columns, ["public"], ["azure_pg_admin"]
         )
         joined = " | ".join(violations)
         for expected in (
@@ -627,6 +672,7 @@ class PrivilegeAuditTests(TestCase):
             "can read reporting.crush_lu_meetupevent",
             "can read public.auth_user.email",
             "can CREATE in schema public",
+            "member of role azure_pg_admin",
         ):
             self.assertIn(expected, joined)
 
