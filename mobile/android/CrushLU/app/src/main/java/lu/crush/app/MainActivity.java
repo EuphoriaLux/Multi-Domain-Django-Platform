@@ -651,7 +651,9 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
         String normalized = host.toLowerCase(Locale.ROOT);
-        if (!normalized.equals(BASE_HOST) && !normalized.endsWith("." + BASE_HOST)) {
+        // Keep release builds inside their configured site. In particular,
+        // test.crush.lu must open externally from the production app.
+        if (!normalized.equals(BASE_HOST) && !normalized.equals("www." + BASE_HOST)) {
             return false;
         }
         // getHost() drops the port, so match that too — an origin is host *and*
