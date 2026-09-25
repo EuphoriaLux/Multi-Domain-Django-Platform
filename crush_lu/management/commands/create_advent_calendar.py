@@ -23,6 +23,8 @@ Usage:
         --welcome "24 days of surprises, just for you!"
 """
 
+from datetime import date
+
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -155,7 +157,7 @@ class Command(BaseCommand):
                 'custom_welcome_title': f'Welcome, {first_name}!',
                 'custom_welcome_message': 'Your December adventure awaits...',
                 'custom_theme_color': '#c41e3a',  # Christmas red
-                'animation_style': 'snowflakes',
+                'animation_style': 'stars',
                 'vip_badge': True,
                 'auto_approve_profile': True,
                 'skip_waitlist': True,
@@ -204,15 +206,15 @@ class Command(BaseCommand):
             journey=journey,
             calendar_title=custom_title or f"{first_name}'s Magical December",
             year=year,
-            welcome_message=custom_welcome or (
+            start_date=date(year, 12, 1),
+            end_date=date(year, 12, 24),
+            calendar_description=custom_welcome or (
                 f"Welcome to your personal Advent Calendar, {first_name}! "
                 f"Each day in December unlocks a new surprise, just for you. "
                 f"Some doors hide poems, some hide memories, and some hide "
                 f"clues to physical gifts waiting to be discovered..."
             ),
-            theme_color='#c41e3a',  # Christmas red
-            timezone='Europe/Luxembourg',
-            unlock_hour=0,  # Midnight unlock
+            timezone_name='Europe/Luxembourg',  # Doors unlock at local midnight
         )
         self.stdout.write(f'[+] Created Advent Calendar: "{calendar.calendar_title}"')
 
@@ -233,7 +235,7 @@ class Command(BaseCommand):
             # Create empty content placeholder
             AdventDoorContent.objects.create(
                 door=door,
-                primary_text=f"Content for Day {config['day']} - {config['type'].title()}",
+                title=f"Content for Day {config['day']} - {config['type'].title()}",
             )
 
         self.stdout.write(f'[+] Created {doors_created} doors with content placeholders')
@@ -318,8 +320,6 @@ class Command(BaseCommand):
 
         self.stdout.write(f'[+] Generated {tokens_created} QR tokens for {user.username}')
 
-        # Offer to export QR codes
         self.stdout.write(self.style.SUCCESS(
-            f'\nTo generate printable QR codes, use the admin panel or run:\n'
-            f'  python manage.py export_advent_qr_codes --calendar-id {calendar.id}'
+            '\nQR code URLs for printing are listed in the admin under QR Code Tokens.'
         ))

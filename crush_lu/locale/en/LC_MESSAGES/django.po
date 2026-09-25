@@ -28119,3 +28119,11 @@ msgstr ""
 #: views_coach.py
 msgid "This member's photo changed. Reload and check the new one."
 msgstr ""
+
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr ""
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr ""
