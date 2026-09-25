@@ -85,6 +85,15 @@ Uses Django 6.0's native `TASKS` framework — but **production runs on the defa
 - **Click tracking**: `/c/<token>/` (language-neutral) records `CampaignClick` (no IP/UA — deliberate GDPR data minimization) and 302s to the UTM-tagged destination; recipient attribution via signed `?r=`. Campaign email links are rewritten at send time — **unsubscribe links must stay direct**.
 - WhatsApp templates follow the OTP convention: one Meta template name, per-language variants (en/de/fr) selected by recipient language; body params `{{1}}`–`{{5}}` support `{first_name}`/`{last_name}`/`{email}` merge tokens.
 
+### Crush Data MCP (read-only analytics API)
+
+`GET /api/analytics/<tool>/` (`crush_lu/api_analytics.py`, Bearer `ANALYTICS_API_KEY`, language-neutral) serves pseudonymized, read-only production analytics to AI agents through the local stdio server `C:\GitHub\crush-data-mcp`. Spec: `ai-memory-hub/specs/2026-09-25-crush-data-mcp.md`.
+- **Dark unless configured:** 404 unless `ANALYTICS_API_KEY`, `ANALYTICS_PSEUDONYM_KEY` and the `analytics` DB alias all exist. `production.py` defines that alias only from `ANALYTICS_DB_USER` / `ANALYTICS_DB_PASSWORD`. All four are slot-sticky on the production slot only.
+- **Credentials must stay plain app settings, never a second PostgreSQL connection string.** `production.py` takes the *first* `POSTGRESQLCONNSTR_*` it sees as `default`.
+- **The DB login `crush_analytics_ro` holds only the column grants in `analytics_readonly.GRANTS`.** `manage.py setup_analytics_role` applies them, and adding a column there is a privacy decision.
+- **Never load model instances in `crush_lu/services/analytics_readonly.py`.** Use `.values()` with an explicit `.order_by()`, and only granted columns. SQLite has no grants, so a stray `.get()` passes every test and fails in production with a permission error. `SqlColumnAuditTests` parses every captured statement against `GRANTS`.
+- **modeltranslation rewrites `.values("title")` to `title_<lang>`.** That rewrite is why the translation columns are granted too.
+
 ### i18n
 
 EN/DE/FR via `i18n_patterns` (language-prefixed URLs like `/fr/…`) **plus** `django-modeltranslation` for translatable model fields (admin gets per-language tabs — `modeltranslation` must be first in `INSTALLED_APPS`). Admin panels are forced to English and live *outside* `i18n_patterns`; `AdminLanguagePrefixRedirectMiddleware` strips accidental `/fr/admin/` prefixes. `manage.py check_translations` reports missing/fuzzy strings.

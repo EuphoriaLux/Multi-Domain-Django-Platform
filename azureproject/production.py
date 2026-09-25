@@ -293,6 +293,33 @@ DATABASES = {
     }
 }
 
+# Read-only login for the Crush Data MCP (crush_lu/services/analytics_readonly.py).
+# Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+# Credentials come from two plain app settings, NOT a second PostgreSQL
+# connection string: the block above takes the FIRST POSTGRESQLCONNSTR_* it
+# finds, so another one could silently become the app's main connection.
+# crush_analytics_ro is created by `manage.py setup_analytics_role`; its role
+# settings already force read-only and a 10 s statement timeout, repeated here.
+_analytics_db_user = os.getenv("ANALYTICS_DB_USER", "")
+_analytics_db_password = os.getenv("ANALYTICS_DB_PASSWORD", "")
+if _analytics_db_user and _analytics_db_password:
+    DATABASES["analytics"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": conn_str_params["dbname"],
+        "HOST": conn_str_params["host"],
+        "USER": _analytics_db_user,
+        "PASSWORD": _analytics_db_password,
+        "CONN_MAX_AGE": 0,
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {
+            "sslmode": "require",
+            "connect_timeout": 5,
+            "application_name": "crush_data_mcp",
+            "options": "-c default_transaction_read_only=on -c statement_timeout=10000",
+        },
+        "TEST": {"MIRROR": "default"},
+    }
+
 # ============================================================================
 # CACHE CONFIGURATION
 # ============================================================================
