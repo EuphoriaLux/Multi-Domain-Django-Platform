@@ -26,8 +26,14 @@
  *        says it now instead of inviting retries that stay blocked;
  *      - "queued" copy for a sendError on a POST the service worker has
  *        confirmed it stored for background sync (sw-workbox.js posts a
- *        {type: "crush-queued", url} message to the page right after the
- *        queue write succeeds; the page waits QUEUE_ACK_WAIT_MS for it):
+ *        {type: "crush-queued", requestId, url} message to the ONE client
+ *        that issued the fetch right after the queue write succeeds; the
+ *        page waits QUEUE_ACK_WAIT_MS for it, and keeps the form's
+ *        isSubmitting flag up until then so a resubmit cannot slip in and
+ *        queue a duplicate). Every htmx request carries an
+ *        X-Crush-Request-Id header (set in htmx:configRequest) so the
+ *        acknowledgement is matched to that request, not to a URL two
+ *        tabs or two quick submits may share:
  *        the request is not lost, it replays once the member is back
  *        online, so the member must NOT be told to try again -- a second
  *        submit would queue an identical POST (a chat message would be
@@ -119,7 +125,19 @@
     // is asynchronous, so the ack can land after htmx:sendError.
     var QUEUE_ACK_WAIT_MS = 300;
 
-    // Absolute request URL -> time the worker confirmed it queued that URL.
+    // Every htmx request gets its own id, echoed back in the worker's
+    // acknowledgement, so an ack is matched to the request it belongs to.
+    var REQUEST_ID_HEADER = "X-Crush-Request-Id";
+    var requestSeq = 0;
+    document.addEventListener("htmx:configRequest", function (evt) {
+        var headers = evt.detail && evt.detail.headers;
+        if (!headers) return;
+        requestSeq += 1;
+        headers[REQUEST_ID_HEADER] = "r" + requestSeq + "-" + Date.now();
+    });
+
+    // Request id (or, for a worker that sends none, absolute URL) -> time
+    // the worker confirmed it queued that request.
     var queuedAcks = {};
     // Whether the CONTROLLING worker acknowledges queue writes. null until a
     // worker answers the capability question; a worker from before v32
@@ -142,8 +160,8 @@
         navigator.serviceWorker.addEventListener("message", function (evt) {
             var data = evt.data;
             if (!data) return;
-            if (data.type === "crush-queued" && data.url) {
-                queuedAcks[data.url] = Date.now();
+            if (data.type === "crush-queued" && (data.requestId || data.url)) {
+                queuedAcks[data.requestId || data.url] = Date.now();
             } else if (data.type === "crush-capabilities") {
                 workerQueuedAck = data.queuedAck === true;
             }
@@ -181,8 +199,13 @@
         return url.href;
     }
 
-    function ackedRecently(url, since) {
-        var at = queuedAcks[url];
+    function requestIdOf(detail) {
+        var headers = detail.requestConfig && detail.requestConfig.headers;
+        return (headers && headers[REQUEST_ID_HEADER]) || null;
+    }
+
+    function ackedRecently(key, since) {
+        var at = queuedAcks[key];
         return typeof at === "number" && at >= since;
     }
 
@@ -280,14 +303,26 @@
         return function (evt) {
             var detail = evt.detail || {};
             var elt = detail.elt || evt.target;
-            resetSubmitState(elt);
-            restoreFocus(elt);
-            if (toastOptedOut(elt)) return;
-            if (kind === "server" && serverSentToast(detail.xhr)) return;
+            // The toast, then the form: isSubmitting stays up until the copy
+            // is known, so a member cannot resubmit into the ack wait and
+            // queue a duplicate of a request the worker already holds.
+            var finish = function (copy) {
+                if (copy) showToast(copy);
+                resetSubmitState(elt);
+                restoreFocus(elt);
+            };
+            if (toastOptedOut(elt)) {
+                finish(null);
+                return;
+            }
+            if (kind === "server" && serverSentToast(detail.xhr)) {
+                finish(null);
+                return;
+            }
             // Per event: `kind` is the handler's base kind and must not be
             // reassigned, or one 429 would classify every later failure.
             if (kind === "server" && detail.xhr && detail.xhr.status === 429) {
-                showToast("rate-limited");
+                finish("rate-limited");
                 return;
             }
             var url =
@@ -295,7 +330,7 @@
                     ? queueEligibleUrl(detail)
                     : null;
             if (!url) {
-                showToast(kind);
+                finish(kind);
                 return;
             }
             // Wait for the worker to confirm the queue write. Without it:
@@ -303,15 +338,16 @@
             // request, so "network" (retry) is right; an older worker has
             // most likely stored it silently, so "interrupted" (no retry
             // prompt, no replay promise).
+            var key = requestIdOf(detail) || url;
             var since = Date.now() - QUEUE_ACK_WAIT_MS;
             setTimeout(function () {
                 var copy = "network";
-                if (ackedRecently(url, since)) {
+                if (ackedRecently(key, since)) {
                     copy = "queued";
                 } else if (workerQueuedAck !== true) {
                     copy = "interrupted";
                 }
-                showToast(copy);
+                finish(copy);
             }, QUEUE_ACK_WAIT_MS);
         };
     }

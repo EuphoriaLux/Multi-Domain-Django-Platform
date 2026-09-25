@@ -227,12 +227,26 @@ def test_queued_copy_needs_the_workers_confirmation():
     handler = _static("js/htmx-error-toast.js")
     assert 'data.type === "crush-queued"' in handler
     on_failure = handler[handler.index("function onFailure(") :]
-    assert "ackedRecently(url, since)" in on_failure
+    assert "ackedRecently(key, since)" in on_failure
     # Missing ack + a worker that acknowledges = the write failed = "network";
     # missing ack + an older worker (never answers the capability question)
     # = queued silently = "interrupted", never "network".
     assert "workerQueuedAck !== true" in on_failure
     assert 'copy = "interrupted"' in on_failure
+    # The ack goes to the client that issued the fetch, never to every tab,
+    # and carries the page's request id so it is matched to that request.
+    assert "self.clients.get(clientId)" in ack and "matchAll" not in ack
+    assert 'requestId: request.headers.get("X-Crush-Request-Id")' in ack
+    assert 'headers[REQUEST_ID_HEADER] = "r"' in handler
+    assert "var key = requestIdOf(detail) || url;" in on_failure
+    # The form's isSubmitting flag is released only once the copy is known:
+    # every reset goes through finish(), and the ack wait calls it last.
+    assert on_failure.count("resetSubmitState(elt)") == 1
+    finish = on_failure[on_failure.index("var finish = function") :]
+    finish = finish[: finish.index("};")]
+    assert "resetSubmitState(elt)" in finish and "restoreFocus(elt)" in finish
+    timeout = on_failure[on_failure.index("setTimeout(function () {") :]
+    assert "finish(copy);" in timeout[: timeout.index("}, QUEUE_ACK_WAIT_MS);")]
     assert 'data.type === "crush-capabilities?" && event.source' in sw
     assert 'postMessage({ type: "crush-capabilities", queuedAck: true })' in sw
     assert 'postMessage({ type: "crush-capabilities?" })' in handler

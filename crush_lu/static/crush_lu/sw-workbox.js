@@ -1,8 +1,8 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
 // Version: v33 - Tell the page when a POST really was stored in the background-
-//                sync queue ({type: "crush-queued", url} to every window client,
-//                posted only after the queue write succeeded), so
+//                sync queue ({type: "crush-queued", requestId, url} to the one
+//                client that sent it, posted only after the queue write succeeded), so
 //                htmx-error-toast.js promises a replay only for a request the
 //                worker holds. A failed IndexedDB write gets the plain copy.
 //                Answers {type: "crush-capabilities?"} so the page can tell
@@ -668,17 +668,22 @@ if (workbox) {
     // Runs after bgSyncPlugin's fetchDidFail. Workbox awaits the plugins'
     // fetchDidFail callbacks in order and stops at the first that throws, so
     // this one only runs once the queue write succeeded. The page
-    // (htmx-error-toast.js) shows "will sync once online" only for a URL it
-    // hears about here; otherwise it says "network error".
+    // (htmx-error-toast.js) shows "will sync once online" only for a request
+    // it hears about here; otherwise it says "network error". Posted to the
+    // ONE client that issued the fetch (event.clientId), never broadcast: two
+    // tabs posting the same URL must not consume each other's confirmation.
+    // The request id the page put in X-Crush-Request-Id is echoed back so the
+    // page matches the ack to that request, not to a URL it may reuse.
     const queuedAckPlugin = {
-        fetchDidFail: async ({ request }) => {
-            const windows = await self.clients.matchAll({
-                type: "window",
-                includeUncontrolled: false,
+        fetchDidFail: async ({ request, event }) => {
+            const clientId = event && event.clientId;
+            const client = clientId ? await self.clients.get(clientId) : null;
+            if (!client) return;
+            client.postMessage({
+                type: "crush-queued",
+                requestId: request.headers.get("X-Crush-Request-Id"),
+                url: request.url,
             });
-            for (const client of windows) {
-                client.postMessage({ type: "crush-queued", url: request.url });
-            }
         },
     };
 
