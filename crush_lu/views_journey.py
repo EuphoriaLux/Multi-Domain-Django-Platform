@@ -8,7 +8,6 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import get_language, gettext as _
-from django.db.models import Q
 from .decorators import crush_login_required
 from .models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
@@ -29,14 +28,8 @@ def journey_selector(request):
 
     from .models import SpecialUserExperience
 
-    # Find special experience for this user (direct link OR name match)
-    special_experience = SpecialUserExperience.objects.filter(
-        Q(is_active=True) &
-        (
-            Q(linked_user=request.user) |  # Direct link (from gifts)
-            (Q(first_name__iexact=request.user.first_name) & Q(last_name__iexact=request.user.last_name))  # Name match (legacy)
-        )
-    ).first()
+    # Only a direct linked_user link grants access (never a name match)
+    special_experience = SpecialUserExperience.active_for_user(request.user)
 
     if not special_experience:
         messages.warning(request, _('No special journey found for your account.'))
@@ -127,14 +120,8 @@ def journey_map_wonderland(request):
         # Get the user's special experience journey
         from .models import SpecialUserExperience
 
-        # Try to find special experience for this user (direct link OR name match)
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(is_active=True) &
-            (
-                Q(linked_user=request.user) |  # Direct link (from gifts)
-                (Q(first_name__iexact=request.user.first_name) & Q(last_name__iexact=request.user.last_name))  # Name match (legacy)
-            )
-        ).first()
+        # Only a direct linked_user link grants access (never a name match)
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         logger.info(f"Special experience found: {special_experience is not None}")
 

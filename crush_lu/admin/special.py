@@ -254,14 +254,9 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             qr_count = 0
             if generate_qr:
                 from crush_lu.models import QRCodeToken
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
 
-                # Try to find the user
-                user = User.objects.filter(
-                    first_name__iexact=special_exp.first_name,
-                    last_name__iexact=special_exp.last_name
-                ).first()
+                # Tokens go to the linked account only, never a name match
+                user = special_exp.linked_user
 
                 if user:
                     for door in calendar.doors.filter(qr_mode__in=['required', 'bonus']):
@@ -276,12 +271,21 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 f"Successfully generated Advent Calendar for {special_exp.first_name} {special_exp.last_name}! "
                 f"Created {doors_created} doors."
             )
+            notify = django_messages.success
             if generate_qr and qr_count > 0:
                 success_msg += f" Generated {qr_count} QR tokens."
             elif generate_qr and qr_count == 0:
-                success_msg += " Note: QR tokens not created - user account not found."
+                # Surface the missing link: the doors exist but nobody can
+                # scan them until the experience is linked to an account.
+                success_msg += (
+                    " Note: QR tokens not created - no user account is linked to"
+                    " this experience. Set 'Linked user' (or run"
+                    " link_special_experiences), then add the tokens under"
+                    " QR Code Tokens."
+                )
+                notify = django_messages.warning
 
-            django_messages.success(request, success_msg)
+            notify(request, success_msg)
 
         except Exception as e:
             import traceback
@@ -294,7 +298,12 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
     fieldsets = (
         ('👤 User Matching', {
             'fields': ('first_name', 'last_name', 'linked_user', 'is_active'),
-            'description': 'Match by linked_user (gift system) OR first+last name (legacy). linked_user takes priority.'
+            'description': (
+                "Only the linked user gets this experience; first+last name are"
+                " labels and never grant access. Link legacy name-only"
+                " experiences with manage.py link_special_experiences or by"
+                " setting Linked user."
+            ),
         }),
         ('🎨 Custom Welcome Experience', {
             'fields': (
@@ -341,7 +350,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 obj.linked_user.id,
                 obj.linked_user.email or obj.linked_user.username
             )
-        return mark_safe('<span style="color: #999;">Name match</span>')
+        return mark_safe('<span style="color: #999;">Not linked (no access)</span>')
     get_linked_user_display.short_description = 'Linked User'
     get_linked_user_display.admin_order_field = 'linked_user'
 

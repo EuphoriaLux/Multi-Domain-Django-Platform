@@ -8,7 +8,6 @@ Extends the Journey system to provide a 24-door December experience.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
-from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 import json
@@ -32,12 +31,8 @@ def advent_calendar_view(request):
     logger.info(f"Advent calendar view for user: {request.user.username}")
 
     try:
-        # Find user's special experience by name matching
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
-        ).first()
+        # Only a direct linked_user link grants access (never a name match)
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
             messages.warning(request, _('No special experience found for your account.'))
@@ -137,11 +132,7 @@ def advent_door_view(request, door_number):
             return redirect('crush_lu:advent_calendar')
 
         # Get user's special experience
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
-        ).first()
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
             messages.warning(request, _('No special experience found.'))
@@ -296,11 +287,7 @@ def advent_qr_scanner(request):
     """
     try:
         # Get user's special experience
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
-        ).first()
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
             return redirect('crush_lu:home')
@@ -335,11 +322,7 @@ def get_advent_status(request):
     Returns JSON with progress and available doors.
     """
     try:
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
-        ).first()
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
             return JsonResponse({'success': False, 'error': 'No experience found'}, status=404)
@@ -383,11 +366,7 @@ def open_door_api(request):
         if not door_number or door_number < 1 or door_number > 24:
             return JsonResponse({'success': False, 'error': 'Invalid door number'}, status=400)
 
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(first_name__iexact=request.user.first_name) &
-            Q(last_name__iexact=request.user.last_name) &
-            Q(is_active=True)
-        ).first()
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if not special_experience:
             return JsonResponse({'success': False, 'error': 'No experience found'}, status=404)
