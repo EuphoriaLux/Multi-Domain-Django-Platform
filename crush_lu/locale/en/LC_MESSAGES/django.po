@@ -28119,3 +28119,8 @@ msgstr ""
 #: views_coach.py
 msgid "This member's photo changed. Reload and check the new one."
 msgstr ""
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr ""

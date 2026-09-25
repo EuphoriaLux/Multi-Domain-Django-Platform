@@ -20,6 +20,7 @@ from .models import (
     EventRegistration,
     CrushSpark,
     MeetupEvent,
+    Notification,
 )
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
@@ -39,6 +40,7 @@ _SAFE_NAV_DEFAULTS = {
     "email_verified": True,
     "connection_count": 0,
     "pending_requests_count": 0,
+    "unread_notifications_count": 0,
     "actionable_sparks_count": 0,
     "profile_completion_step": 0,
     "profile_step_label": _("Get started"),
@@ -163,6 +165,13 @@ def crush_user_context(request):
 
         context["connection_count"] = connection_count
         context["pending_requests_count"] = pending_requests_count
+
+        # Unread in-app notifications — the bells' badge. Same helper the
+        # desktop bell's /api/notifications/ uses, so the mobile top bar's
+        # server-rendered badge starts at the number the dropdown reports.
+        context["unread_notifications_count"] = Notification.unread_count_for(
+            request.user
+        )
 
         # Sparks needing action (approved by coach, waiting for journey creation)
         actionable_sparks_count = CrushSpark.objects.filter(

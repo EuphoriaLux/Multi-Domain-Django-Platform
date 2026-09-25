@@ -3,8 +3,13 @@
 {# Slim mobile top bar - hidden on desktop (lg:+) #}
 {# Shows logo on tab roots, back arrow + title on drill-down pages #}
 {# Page title is read from <meta name="mobile-page-title"> set in base.html block #}
+{# Bell badge = unread in-app notifications (same helper as /api/notifications/) #}
+{# and follows the desktop notificationBell's "notif-unread-count" broadcasts #}
 <header class="top-bar-mobile" x-data="topBarMobile"
-        data-notification-count="{{ pending_requests_count|default:0 }}">
+        x-on:notif-unread-count.window="syncNotificationCount"
+        data-notification-count="{{ unread_notifications_count|default:0 }}"
+        data-i18n-notifications="{% trans 'Notifications' %}"
+        data-i18n-unread-notifications="{% trans 'Unread notifications: {count}' %}">
 
     {# Left: Logo (tab roots) or Back button (drill-down pages) #}
     <div x-show="showLogo">
@@ -34,11 +39,13 @@
     {# Right: Notification bell #}
     <div class="top-bar-mobile-actions">
         {% if user.is_authenticated %}
-        <a href="{% url 'crush_lu:my_connections' %}" class="top-bar-mobile-bell">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+        <a href="{% url 'crush_lu:notifications' %}" class="top-bar-mobile-bell"
+           aria-label="{% trans 'Notifications' %}"
+           x-bind:aria-label="bellAriaLabel">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
             </svg>
-            <span class="top-bar-mobile-bell-badge" x-show="hasNotifications" x-text="notificationCount" x-cloak></span>
+            <span class="top-bar-mobile-bell-badge" aria-hidden="true" x-show="hasNotifications" x-text="notificationBadgeText" x-cloak></span>
         </a>
         <button type="button"
                 @click="toggleDrawer"

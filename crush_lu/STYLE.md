@@ -199,6 +199,25 @@ Reach for these before composing inline:
 | `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
 | `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
 | `components/htmx_spinner.html` | The shared `<span class="htmx-indicator">` + loading icon. Pair with a sibling `<span class="htmx-hide-on-request">` carrying the resting label. |
+| `components/toggle.html` | On/off switch: a real `role="switch"` checkbox + painted track, wrapped in its `<label>`. `tone` = `purple` (default) / `green` / `red` (destructive; also reddens the label), `inline` for the compact one-line row. |
+
+### Toggle switches
+
+Every on/off setting goes through the toggle partial — don't paste the
+`w-11 h-6 … after:content-['']` track inline. The copies this replaced had a
+`dark:bg-gray-800` track, so the OFF state vanished on dark cards; the partial
+owns the `dark:bg-gray-600` fix in one place.
+
+```django
+{% include "crush_lu/components/toggle.html" with name="email_marketing" checked=email_prefs.email_marketing label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
+{% include "crush_lu/components/toggle.html" with checked=sub.notify_new_messages input_class="push-pref-toggle" subscription_id=sub.id pref_key="newMessages" label=_("New Messages") %}
+```
+
+Beyond `name` / `checked` / `label` / `help` it takes `id`, `value`,
+`disabled`, `input_class` (JS hook classes only, never styling), the
+`pref_key` / `subscription_id` data attributes the push-preference
+components read, and `x_checked` / `x_change` for a bare-name Alpine binding
+(CSP build). Full contract in the partial's docstring.
 
 ### Status-badge mapping (connections)
 

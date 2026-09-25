@@ -46,7 +46,7 @@ def api_notifications_list(request):
         return HttpResponseNotAllowed(["GET"])
 
     qs = Notification.objects.filter(user=request.user)
-    unread_count = qs.filter(read_at__isnull=True).count()
+    unread_count = Notification.unread_count_for(request.user)
     items = list(qs[:20])
     return JsonResponse(
         {
