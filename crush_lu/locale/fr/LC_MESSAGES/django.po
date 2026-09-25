@@ -42370,3 +42370,11 @@ msgid ""
 msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
+
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr "Code QR pour l'enregistrement à l'événement"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr "Numéro de billet"

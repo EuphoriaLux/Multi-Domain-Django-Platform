@@ -59,11 +59,21 @@ def pytest_collection_modifyitems(session, config, items):
         for item in module_items:
             # add_marker(usefixtures(...)) alone is too late here: an item's
             # fixture closure is already computed by collection time, and
-            # adding the marker doesn't retroactively recompute it. Append to
+            # adding the marker doesn't retroactively recompute it. Edit
             # fixturenames directly (the marker stays too, for introspection).
+            #
+            # Insert at the FRONT, never append: pytest fills fixtures in
+            # fixturenames order, and that list is already scope-sorted, so
+            # an appended name is set up after every function-scoped fixture
+            # of the module's first test. The snapshot then captured the
+            # users/profiles those fixtures had just created, and the replay
+            # broke their foreign keys once the flush removed the parents
+            # (t_2eb7f76b). Its own dependencies (``django_db_setup``,
+            # ``django_db_blocker``) still resolve on demand from position 0.
+            # The ``not in`` guard matters: parametrized items share a list.
             item.add_marker(pytest.mark.usefixtures("_restore_migration_seeded_rows"))
             if "_restore_migration_seeded_rows" not in item.fixturenames:
-                item.fixturenames.append("_restore_migration_seeded_rows")
+                item.fixturenames.insert(0, "_restore_migration_seeded_rows")
 
 
 @pytest.fixture(scope="module")
@@ -76,8 +86,13 @@ def _restore_migration_seeded_rows(django_db_setup, django_db_blocker):
     on the way in, replay them on the way out. Attached to a module only via
     ``pytest_collection_modifyitems`` above, never requested directly.
 
-    Three details here are load-bearing:
+    Four details here are load-bearing:
     - **module scope** — see above;
+    - **set up before the test's own fixtures** — the hook above inserts it
+      at the front of ``fixturenames``, so the snapshot is taken before any
+      fixture (or ``TestCase`` transaction) has written rows. Appending it
+      instead snapshots the first test's fixture data too, and the replay
+      then fails on foreign keys (t_2eb7f76b);
     - **deferred constraint checks** on replay — ``Trait.opposite`` is
       self-referential, so no single insertion order satisfies every FK;
     - **sequence reset after replay** — replaying explicit pks leaves the
@@ -113,7 +128,8 @@ def _restore_migration_seeded_rows(django_db_setup, django_db_blocker):
     with django_db_blocker.unblock():
         # A pristine test DB holds nothing but migration-seeded rows here:
         # every preceding test is a plain TestCase and rolled its own data
-        # back.
+        # back, and this fixture runs before the current test's fixtures
+        # (see the hook above).
         snapshot = serializers.serialize(
             "json",
             [obj for model in models for obj in model._base_manager.all()],
