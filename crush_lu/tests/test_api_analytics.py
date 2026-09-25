@@ -566,6 +566,72 @@ class DisclosureControlTests(AnalyticsFixture):
 
 
 @override_settings(**CONFIGURED)
+class HardeningTests(AnalyticsFixture):
+    def test_failed_privilege_audit_is_a_503_not_data(self):
+        with mock.patch.object(
+            analytics,
+            "_assert_least_privilege",
+            side_effect=analytics.NotConfigured("exceeds"),
+        ):
+            response = self.get("events")
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("data", response.json())
+
+    def test_rotating_the_pseudonym_key_never_serves_cached_old_pseudonyms(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 1):
+            before = self.data("event_detail", event_id=str(self.night.id))
+            with override_settings(ANALYTICS_PSEUDONYM_KEY="rotated-key"):
+                after = self.data("event_detail", event_id=str(self.night.id))
+        old = {r["member"] for r in before["registrations"]}
+        new = {r["member"] for r in after["registrations"]}
+        self.assertTrue(old)
+        self.assertFalse(old & new)
+
+    def test_reversed_signup_window_is_400(self):
+        response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
+        self.assertEqual(response.status_code, 400)
+
+
+class PrivilegeAuditTests(TestCase):
+    """The pure evaluation behind the runtime and setup-command audits."""
+
+    CLEAN_RELATIONS = [
+        ("public", "crush_lu_eventregistration", False, True, False),
+        ("public", "django_session", False, False, False),
+    ]
+
+    def test_exactly_the_allowlist_is_clean(self):
+        columns = [("crush_lu_eventregistration", "status")]
+        self.assertEqual(
+            analytics.privilege_violations(False, self.CLEAN_RELATIONS, columns, []),
+            [],
+        )
+
+    def test_everything_beyond_the_allowlist_is_reported(self):
+        relations = [
+            ("public", "auth_user", True, True, False),  # table-level SELECT
+            ("public", "django_session", False, True, False),  # e.g. via PUBLIC
+            ("public", "crush_lu_eventregistration", False, True, True),  # write
+            ("reporting", "crush_lu_meetupevent", False, True, False),  # other schema
+        ]
+        columns = [("auth_user", "email")]
+        violations = analytics.privilege_violations(
+            True, relations, columns, ["public"]
+        )
+        joined = " | ".join(violations)
+        for expected in (
+            "elevated attribute",
+            "table-level SELECT on public.auth_user",
+            "can read public.django_session",
+            "can write public.crush_lu_eventregistration",
+            "can read reporting.crush_lu_meetupevent",
+            "can read public.auth_user.email",
+            "can CREATE in schema public",
+        ):
+            self.assertIn(expected, joined)
+
+
+@override_settings(**CONFIGURED)
 class SensitiveKeyTests(AnalyticsFixture):
     """No tool may return an identifier, whatever the parameters."""
 

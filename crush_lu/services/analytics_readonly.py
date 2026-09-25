@@ -27,13 +27,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 from collections import Counter, defaultdict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from functools import lru_cache
 from statistics import median
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import connections
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
@@ -54,6 +57,7 @@ from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest, ConnectWee
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # The database boundary. Column-level SELECT grants for crush_analytics_ro in
@@ -283,7 +287,107 @@ def is_configured() -> bool:
 def _alias() -> str:
     if not is_configured():
         raise NotConfigured("analytics is not configured")
-    return settings.ANALYTICS_DB_ALIAS
+    alias = settings.ANALYTICS_DB_ALIAS
+    # Re-verified at most every 10 minutes per worker; a failure is never cached.
+    _assert_least_privilege(alias, int(timezone.now().timestamp() // 600))
+    return alias
+
+
+# ---------------------------------------------------------------------------
+# Effective-privilege audit. GRANTS is only a boundary if the login really
+# holds nothing else: not table-level SELECT, not writes, not CREATE, not an
+# elevated attribute, and not privileges reaching it through PUBLIC or a
+# membership. has_*_privilege() resolves all of those, so the audit asks
+# PostgreSQL what the role can effectively do rather than reading its ACLs.
+# Used at request time (below) and by `manage.py setup_analytics_role`.
+# ---------------------------------------------------------------------------
+
+PRIVILEGE_AUDIT_SQL = {
+    "elevated": (
+        "SELECT rolsuper OR rolcreaterole OR rolcreatedb OR rolbypassrls "
+        "OR rolreplication FROM pg_roles WHERE rolname = %(role)s"
+    ),
+    "relations": (
+        "SELECT n.nspname, c.relname, "
+        "has_table_privilege(%(role)s, c.oid, 'SELECT'), "
+        "has_any_column_privilege(%(role)s, c.oid, 'SELECT'), "
+        "has_table_privilege(%(role)s, c.oid, "
+        "'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
+        "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,UPDATE,REFERENCES') "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') "
+        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
+        "AND n.nspname NOT LIKE 'pg_toast%%'"
+    ),
+    "columns": (
+        "SELECT c.relname, a.attname FROM pg_attribute a "
+        "JOIN pg_class c ON c.oid = a.attrelid "
+        "JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE n.nspname = 'public' AND c.relname = ANY(%(tables)s) "
+        "AND a.attnum > 0 AND NOT a.attisdropped "
+        "AND has_column_privilege(%(role)s, c.oid, a.attnum, 'SELECT')"
+    ),
+    "schemas_with_create": (
+        "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
+        "AND nspname <> 'information_schema' "
+        "AND has_schema_privilege(%(role)s, oid, 'CREATE')"
+    ),
+}
+
+
+def privilege_violations(elevated, relations, columns, schemas_with_create) -> list:
+    """Everything the role can effectively do beyond GRANTS (pure; testable)."""
+    violations = []
+    if elevated:
+        violations.append("role has an elevated attribute")
+    for schema, relation, table_select, any_column_select, can_write in relations:
+        name = f"{schema}.{relation}"
+        if can_write:
+            violations.append(f"can write {name}")
+        if table_select:
+            violations.append(f"table-level SELECT on {name}")
+        if any_column_select and (schema != "public" or relation not in GRANTS):
+            violations.append(f"can read {name}")
+    for relation, column in columns:
+        if column not in GRANTS.get(relation, ()):
+            violations.append(f"can read public.{relation}.{column}")
+    for schema in schemas_with_create:
+        violations.append(f"can CREATE in schema {schema}")
+    return violations
+
+
+def audit_role(cursor, role: str) -> list:
+    params = {"role": role, "tables": list(GRANTS)}
+    results = {}
+    for key, sql in PRIVILEGE_AUDIT_SQL.items():
+        cursor.execute(sql, params)
+        results[key] = cursor.fetchall()
+    elevated = bool(results["elevated"] and results["elevated"][0][0])
+    return privilege_violations(
+        elevated,
+        results["relations"],
+        results["columns"],
+        [row[0] for row in results["schemas_with_create"]],
+    )
+
+
+@lru_cache(maxsize=8)
+def _assert_least_privilege(alias: str, _ttl_bucket: int) -> bool:
+    connection = connections[alias]
+    # Tests point the alias at the SQLite test DB ("default"); production pins
+    # "analytics", which settings never let be anything else.
+    if connection.vendor != "postgresql" or alias == "default":
+        return True
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT current_user")
+        role = cursor.fetchone()[0]
+        violations = audit_role(cursor, role)
+    if violations:
+        logger.error(
+            "Analytics login %s exceeds its allowlist: %s", role, "; ".join(violations)
+        )
+        raise NotConfigured("analytics database login exceeds its allowlist")
+    return True
 
 
 def pseudonym(user_id: int) -> str:
@@ -522,17 +626,25 @@ def definitions() -> dict:
         "real_member_rule": REAL_MEMBER_RULE,
         "timezone": "Dates and buckets use Europe/Luxembourg; weeks start on Monday.",
         "age_bands": [label for _, _, label in AGE_BANDS],
+        "privacy_model": (
+            "Pseudonymized, not anonymous (decision D2 in the spec): member-level rows "
+            "are personal data. The controls target linkage through the classical "
+            "quasi-identifiers an outsider could know, gender, age band and canton; "
+            "the other row fields (verification status, LuxID, activity, dates) are the "
+            "analytic payload and are visible per pseudonym by design."
+        ),
         "suppression": (
             f"In demographics, a cell crossing two or more of {list(DEMOGRAPHIC_DIMENSIONS)} "
             f"with fewer than {SUPPRESSION_FLOOR} members is left out entirely (labels "
             "included) and counted in suppressed_cells; a filtered population below the "
-            "floor is withheld whole (suppressed: true). In member-level rows (members, event_detail) gender, "
-            "age_band and canton are generalized over the whole real-member population: "
-            f"a value reads '{SUPPRESSED}' when fewer than {SUPPRESSION_FLOOR} members "
-            "share it (canton first, then age band, then gender), and member filters "
-            "match these generalized values. age_band is the current age band. A "
-            f"members call whose filters leave 1-{SUPPRESSION_FLOOR - 1} matches returns "
-            "no count and no rows (suppressed: true)."
+            "floor is withheld whole (suppressed: true). In member-level rows (members, "
+            "event_detail) gender, age_band and canton are generalized over the whole "
+            f"real-member population: a value reads '{SUPPRESSED}' when fewer than "
+            f"{SUPPRESSION_FLOOR} members share it (canton first, then age band, then "
+            "gender), and member filters match these generalized values. age_band is the "
+            f"current age band. As a guardrail, a members call whose filters leave 1-"
+            f"{SUPPRESSION_FLOOR - 1} matches returns no rows; it is not a guarantee, "
+            "since the non-demographic fields are visible in unfiltered rows."
         ),
         "limits": {
             "max_range_days": MAX_RANGE_DAYS,

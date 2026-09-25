@@ -22,7 +22,7 @@ import getpass
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
 
-from crush_lu.services.analytics_readonly import GRANTS
+from crush_lu.services.analytics_readonly import GRANTS, audit_role
 
 ROLE = "crush_analytics_ro"
 ROLE_SETTINGS = (
@@ -174,6 +174,14 @@ class Command(BaseCommand):
             self._revoke_everything(cursor)
             for statement in grant_statements(database=database):
                 cursor.execute(statement)
+            # What the role can EFFECTIVELY do (PUBLIC grants included) must be
+            # exactly the allowlist; otherwise roll everything back.
+            violations = audit_role(cursor, ROLE)
+            if violations:
+                details = "\n  ".join(violations)
+                raise CommandError(
+                    f"{ROLE} would exceed its allowlist; nothing was changed:\n  {details}"
+                )
 
         self.stdout.write(
             self.style.SUCCESS(f"{ROLE} is configured. Current privileges:")
@@ -275,3 +283,10 @@ class Command(BaseCommand):
                 self.stdout.write(f"-- {label}")
                 for row in rows:
                     self.stdout.write("   " + " | ".join(str(v) for v in row))
+            violations = audit_role(cursor, ROLE)
+            self.stdout.write("-- effective privileges beyond the allowlist")
+            self.stdout.write(
+                "   none"
+                if not violations
+                else "\n".join(f"   {v}" for v in violations)
+            )

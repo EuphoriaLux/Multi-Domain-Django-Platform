@@ -201,9 +201,12 @@ def _parse_demographics(p):
 
 
 def _parse_members(p):
+    signup_from, signup_to = p.date("signup_from"), p.date("signup_to")
+    if signup_from and signup_to and signup_from > signup_to:
+        p.errors.append("signup_from must be on or before signup_to")
     return {
-        "signup_from": p.date("signup_from"),
-        "signup_to": p.date("signup_to"),
+        "signup_from": signup_from,
+        "signup_to": signup_to,
         "verification_status": p.choice("verification_status", VERIFICATION_STATUSES),
         "gender": p.choice("gender", GENDERS),
         "age_band_filter": p.choice("age_band", AGE_BAND_LABELS),
@@ -262,8 +265,13 @@ def _serve(request, tool):
         return _error("; ".join(params.errors), 400)
 
     public_params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
+    # A non-secret fingerprint of the pseudonym key namespaces the cache, so
+    # rotating the key never serves old pseudonyms beside new ones.
+    key_fingerprint = hashlib.sha256(
+        settings.ANALYTICS_PSEUDONYM_KEY.encode()
+    ).hexdigest()[:8]
     cache_key = (
-        CACHE_PREFIX
+        f"{CACHE_PREFIX}{key_fingerprint}:"
         + hashlib.sha256(
             f"{tool}:{json.dumps(public_params, sort_keys=True)}".encode()
         ).hexdigest()
@@ -275,6 +283,9 @@ def _serve(request, tool):
                 data = handler(**kwargs)
         except analytics.NotFound:
             return _error("not found", 404)
+        except analytics.NotConfigured:
+            # The runtime privilege audit refused the DB login (details logged).
+            return _error("analytics database login failed its privilege audit", 503)
         except OperationalError as exc:
             if "statement timeout" in str(exc) or "canceling statement" in str(exc):
                 return _error(
