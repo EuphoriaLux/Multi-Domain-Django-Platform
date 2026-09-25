@@ -26,7 +26,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.test import Client, TestCase, override_settings
 
-from allauth.socialaccount.models import SocialAccount, SocialApp
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 
 from crush_lu.models import CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
@@ -258,6 +258,42 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertNotIn(LUXID_COLLAPSED, html)
         self.assertIn(BANNER_TEXT, options)
         self.assertNotIn(UNAVAILABLE_TEXT, options)
+
+    def test_luxid_linked_through_another_sites_oidc_app_still_counts(self):
+        """The LuxID OIDC app can be bound to a different Site than the one
+        serving the page. The member's link is still theirs: the banner shows
+        and the card is not collapsed as "not available"."""
+        other_site, _ = Site.objects.get_or_create(
+            domain="other-site.example", defaults={"name": "Other site"}
+        )
+        app = SocialApp.objects.create(
+            provider="openid_connect",
+            provider_id="luxid",
+            name="LuxID (OIDC)",
+            client_id="test",
+            secret="test",
+        )
+        app.sites.set([other_site])
+        account = SocialAccount.objects.create(
+            user=self.user, provider="openid_connect", uid="lux-oidc-other-site"
+        )
+        SocialToken.objects.create(app=app, account=account, token="t")
+
+        with patch(
+            "crush_lu.signals._execute_luxid_direct_verify",
+            side_effect=Exception("verify service down"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                response = self._get()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["has_luxid_account"])
+        self.assertIsNone(response.context["luxid_connect_url"])
+        self.assertFalse(response.context["luxid_unavailable"])
+        self.assertContains(response, PROCESSING_TEXT)
+        html = response.content.decode()
+        self.assertIn(LUXID_CARD, html)
+        self.assertNotIn(LUXID_COLLAPSED, html)
 
     def test_rejected_member_with_luxid_is_not_told_verification_is_processing(
         self,
