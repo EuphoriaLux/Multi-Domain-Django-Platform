@@ -42236,3 +42236,11 @@ msgid ""
 msgstr ""
 "Nach Deinem letzten Tag hast Du 24 Stunden, um auf alle zurückzublicken — "
 "darunter eine Person, die aus unserer Sicht besonders gut zu Dir passt"
+
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr "QR-Code für den Event-Check-in"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr "Ticketnummer"
