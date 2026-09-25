@@ -530,7 +530,9 @@ class CoachCuratedGroupsPanelTests(TestCase):
         self.assertEqual(card["degraded_from"], "provisional")
         self.assertEqual(card["active_count"], 5)
         released = [m for m in card["members"] if m["released"]]
-        self.assertEqual([m["registration_id"] for m in released], [dropped.pk])
+        self.assertEqual(
+            [m["registration_id"] for m in released], [dropped.registration_id]
+        )
         # Active members come first; the released one closes the list.
         self.assertTrue(card["members"][-1]["released"])
         self.assertContains(response, "line-through")
@@ -538,7 +540,7 @@ class CoachCuratedGroupsPanelTests(TestCase):
         # The released member holds no place: they are listed as left out.
         self.assertEqual(
             [p["registration_id"] for p in panel["left_out"]["eligible"]],
-            [dropped.pk],
+            [dropped.registration_id],
         )
 
     def test_degraded_after_round_one_started_is_audit_only(self):
