@@ -14,6 +14,7 @@ Run with: pytest crush_lu/tests/test_api_analytics.py -v
 """
 
 import json
+from collections import Counter
 import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -703,6 +704,66 @@ class HardeningTests(AnalyticsFixture):
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
         self.assertEqual(response.status_code, 400)
+
+
+class GeneralizationTests(TestCase):
+    """_generalized_quasi_identifiers: every output tuple covers >= floor members."""
+
+    @staticmethod
+    def _profile(uid, gender, age, location):
+        today = timezone.localdate()
+        return {
+            "user_id": uid,
+            "gender": gender,
+            "date_of_birth": date(today.year - age, 1, 1),
+            "location": location,
+        }
+
+    def _assert_k_anonymous(self, profiles, floor):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", floor):
+            out = analytics._generalized_quasi_identifiers(profiles)
+        self.assertEqual(set(out), {p["user_id"] for p in profiles})
+        classes = Counter(tuple(v.values()) for v in out.values())
+        if len(profiles) >= floor:
+            self.assertTrue(all(n >= floor for n in classes.values()), classes)
+        return out
+
+    def test_a_small_sibling_cell_is_pooled_with_a_retained_one(self):
+        # Five F/25-29/Luxembourg and one F/25-29/Vianden: the Vianden member
+        # must not become the only F/25-29/suppressed row.
+        profiles = [self._profile(i, "F", 27, "canton-luxembourg") for i in range(5)]
+        profiles.append(self._profile(99, "F", 27, "canton-vianden"))
+        out = self._assert_k_anonymous(profiles, 5)
+        self.assertEqual({v["canton"] for v in out.values()}, {"suppressed"})
+        self.assertEqual({v["age_band"] for v in out.values()}, {"25-29"})
+
+    def test_retained_cells_stay_detailed_when_the_bucket_is_big_enough(self):
+        profiles = [self._profile(i, "M", 33, "canton-esch") for i in range(5)]
+        profiles += [
+            self._profile(10 + i, "M", 33, f"canton-{c}")
+            for i, c in enumerate(["vianden", "wiltz", "remich", "mersch", "redange"])
+        ]
+        out = self._assert_k_anonymous(profiles, 5)
+        self.assertEqual(out[0]["canton"], "canton-esch")
+        self.assertEqual(out[10]["canton"], "suppressed")
+
+    def test_invariant_holds_on_varied_populations(self):
+        import random
+
+        cantons = sorted(analytics.LOCATION_CODES) + ["", "somewhere"]
+        for seed in range(25):
+            rng = random.Random(seed)
+            profiles = [
+                self._profile(
+                    i,
+                    rng.choice(["M", "F", "NB", None]),
+                    rng.randint(18, 70),
+                    rng.choice(cantons),
+                )
+                for i in range(rng.randint(5, 400))
+            ]
+            with self.subTest(seed=seed):
+                self._assert_k_anonymous(profiles, 5)
 
 
 class PrivilegeAuditTests(TestCase):

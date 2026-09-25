@@ -632,12 +632,20 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
     count, and list, a cell that demographics() hides. So every member-level
     output (members, event_detail) carries these three values generalized over
     the WHOLE real-member population, never a filtered subset, so a member
-    always generalizes the same way. A value becomes "suppressed" when fewer
-    than SUPPRESSION_FLOOR members share it: canton first, then age band, then
-    gender. Member filters match the generalized values, so no filter can
-    single out a group smaller than the floor on these dimensions.
+    always generalizes the same way. Member filters match the generalized
+    values.
+
+    Generalization is top-down (gender, then age band within a gender, then
+    canton within a gender+age group). At each level, groups smaller than
+    SUPPRESSION_FLOOR are pooled into that level's "suppressed" bucket; if the
+    bucket itself would end up non-empty but under the floor, the smallest
+    retained sibling groups are folded in until it reaches the floor. So every
+    distinct output (gender, age_band, canton) tuple covers at least
+    SUPPRESSION_FLOOR members: a lone member can never be the only one whose
+    canton reads "suppressed" next to a detailed sibling cell.
     """
     today = timezone.localdate()
+    floor = SUPPRESSION_FLOOR
     raw = {
         p["user_id"]: (
             p["gender"] or None,
@@ -646,28 +654,47 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
         )
         for p in profiles
     }
-    triples = Counter(raw.values())
-    pairs = Counter(value[:2] for value in raw.values())
-    genders = Counter(value[0] for value in raw.values())
-    floor = SUPPRESSION_FLOOR
+
+    def split(uids, level):
+        groups = defaultdict(list)
+        for uid in uids:
+            groups[raw[uid][level]].append(uid)
+        retained = {k: v for k, v in groups.items() if len(v) >= floor}
+        bucket = [uid for k, v in groups.items() if len(v) < floor for uid in v]
+        # Fold the smallest retained siblings into a non-empty, sub-floor bucket.
+        # Keys are compared as strings so None (unknown) sorts deterministically.
+        while bucket and len(bucket) < floor and retained:
+            smallest = min(retained, key=lambda k: (len(retained[k]), str(k)))
+            bucket.extend(retained.pop(smallest))
+        return retained, bucket
+
     generalized = {}
-    for uid, (gender, band, canton) in raw.items():
-        if triples[(gender, band, canton)] >= floor:
-            generalized[uid] = {"gender": gender, "age_band": band, "canton": canton}
-        elif pairs[(gender, band)] >= floor:
-            generalized[uid] = {
-                "gender": gender,
-                "age_band": band,
-                "canton": SUPPRESSED,
-            }
-        elif genders[gender] >= floor:
+    genders, top_bucket = split(list(raw), 0)
+    for uid in top_bucket:
+        generalized[uid] = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
+    for gender, gender_uids in genders.items():
+        bands, gender_bucket = split(gender_uids, 1)
+        for uid in gender_bucket:
             generalized[uid] = {
                 "gender": gender,
                 "age_band": SUPPRESSED,
                 "canton": SUPPRESSED,
             }
-        else:
-            generalized[uid] = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
+        for band, band_uids in bands.items():
+            cantons, band_bucket = split(band_uids, 2)
+            for uid in band_bucket:
+                generalized[uid] = {
+                    "gender": gender,
+                    "age_band": band,
+                    "canton": SUPPRESSED,
+                }
+            for canton, canton_uids in cantons.items():
+                for uid in canton_uids:
+                    generalized[uid] = {
+                        "gender": gender,
+                        "age_band": band,
+                        "canton": canton,
+                    }
     return generalized
 
 
