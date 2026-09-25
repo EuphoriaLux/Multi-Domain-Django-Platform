@@ -274,13 +274,20 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             notify = django_messages.success
             if generate_qr and qr_count > 0:
                 success_msg += f" Generated {qr_count} QR tokens."
-            elif generate_qr and qr_count == 0:
-                # Surface the missing link: the doors exist but nobody can
-                # scan them until the experience is linked to an account.
+            if special_exp.linked_user_id is None:
+                # Access is granted by linked_user only: until it is set,
+                # nobody can open this calendar, whether or not QR tokens
+                # were requested (and if they were, none were created).
                 success_msg += (
-                    " Note: QR tokens not created - no user account is linked to"
-                    " this experience. Set 'Linked user' on this experience, then"
-                    " add the tokens under QR Code Tokens."
+                    " Note: no user account is linked to this experience, so"
+                    " nobody can open this calendar yet"
+                    + (" and QR tokens were not created" if generate_qr else "")
+                    + ". Set 'Linked user' on this experience"
+                    + (
+                        ", then add the tokens under QR Code Tokens."
+                        if generate_qr
+                        else "."
+                    )
                 )
                 notify = django_messages.warning
 

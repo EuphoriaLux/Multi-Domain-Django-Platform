@@ -540,14 +540,14 @@ class AdminPrivacyTests(NamesakeFixtureMixin, TestCase):
             "Owner Journey", str(model_admin.get_journey_progress(owner_profile))
         )
 
-    def _generate_advent(self, experience):
+    def _generate_advent(self, experience, generate_qr=True):
         from crush_lu.admin import crush_admin_site
         from crush_lu.admin.special import SpecialUserExperienceAdmin
 
-        request = RequestFactory().post(
-            "/crush-admin/",
-            {"advent_year": "2026", "generate_qr_tokens": "on"},
-        )
+        data = {"advent_year": "2026"}
+        if generate_qr:
+            data["generate_qr_tokens"] = "on"
+        request = RequestFactory().post("/crush-admin/", data)
         request.session = {}
         request._messages = FallbackStorage(request)
         model_admin = SpecialUserExperienceAdmin(
@@ -570,6 +570,30 @@ class AdminPrivacyTests(NamesakeFixtureMixin, TestCase):
         self.assertIn("Set 'Linked user' on this experience", text)
         # The global one-time migration is not the fix for one experience.
         self.assertNotIn("link_special_experiences", text)
+
+    def test_admin_unlinked_calendar_warns_without_qr_generation(self):
+        """The warning must not depend on the QR checkbox: without it the
+        generator used to report plain success for a calendar nobody can open."""
+        self.experience.linked_user = None
+        self.experience.save()
+
+        messages = self._generate_advent(self.experience, generate_qr=False)
+
+        self.assertEqual(len(messages), 1)
+        level, text = messages[0]
+        self.assertEqual(level, django_messages.WARNING)
+        self.assertIn("no user account is linked", text)
+        self.assertIn("nobody can open this calendar yet", text)
+        self.assertIn("Set 'Linked user' on this experience", text)
+        self.assertNotIn("QR", text)
+        self.assertNotIn("link_special_experiences", text)
+
+    def test_admin_linked_calendar_without_qr_is_a_success(self):
+        messages = self._generate_advent(self.experience, generate_qr=False)
+
+        self.assertFalse(QRCodeToken.objects.exists())
+        self.assertEqual(messages[0][0], django_messages.SUCCESS)
+        self.assertNotIn("Linked user", messages[0][1])
 
     def test_admin_qr_tokens_go_to_linked_user(self):
         messages = self._generate_advent(self.experience)
