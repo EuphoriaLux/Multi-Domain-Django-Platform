@@ -20,6 +20,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import RequestFactory, TestCase, override_settings
 
 from crush_lu.models import (
@@ -673,12 +674,78 @@ class LinkSpecialExperiencesCommandTests(TestCase):
             first_name="anna ", last_name="MULLER"
         )
 
-        output = self._run()
+        output = self._run("--approve", f"{exp.pk}:{user.pk}")
 
         exp.refresh_from_db()
         self.assertEqual(exp.linked_user, user)
         self.assertIn(f"LINKED    experience #{exp.pk}", output)
-        self.assertIn("Summary: linked=1 ambiguous=0 unmatched=0 skipped=0", output)
+        self.assertIn(
+            "Summary: linked=1 ambiguous=0 unmatched=0 skipped=0 needs_approval=0",
+            output,
+        )
+
+    def test_unique_match_is_not_linked_without_approval(self):
+        """A unique name match is not proof of identity: if the intended
+        recipient never signed up, the only namesake would get the journey."""
+        user = _make_user("anna@example.com", first="Anna", last="Muller")
+        exp = SpecialUserExperience.objects.create(
+            first_name="Anna", last_name="Muller"
+        )
+
+        output = self._run()
+
+        exp.refresh_from_db()
+        self.assertIsNone(exp.linked_user)
+        self.assertIsNone(SpecialUserExperience.active_for_user(user))
+        self.assertIn(
+            f"NEEDS APPROVAL experience #{exp.pk} (Anna Muller) -> user #{user.pk}",
+            output,
+        )
+        self.assertIn(f"--approve {exp.pk}:{user.pk}", output)
+        self.assertIn(
+            "linked=0 ambiguous=0 unmatched=0 skipped=0 needs_approval=1", output
+        )
+
+    def test_approval_for_another_user_aborts_and_links_nothing(self):
+        user = _make_user("anna@example.com", first="Anna", last="Muller")
+        other = _make_user("other@example.com", first="Someone", last="Else")
+        exp = SpecialUserExperience.objects.create(
+            first_name="Anna", last_name="Muller"
+        )
+        second_user = _make_user("marc@example.com", first="Marc", last="Weber")
+        second = SpecialUserExperience.objects.create(
+            first_name="Marc", last_name="Weber"
+        )
+
+        with self.assertRaisesMessage(CommandError, "Nothing was linked") as ctx:
+            self._run(
+                "--approve",
+                f"{exp.pk}:{other.pk},{second.pk}:{second_user.pk}",
+            )
+
+        self.assertIn(f"{exp.pk}:{other.pk}", str(ctx.exception))
+        self.assertNotIn(f"{second.pk}:{second_user.pk}", str(ctx.exception))
+        exp.refresh_from_db()
+        second.refresh_from_db()
+        self.assertIsNone(exp.linked_user)
+        # The valid pair in the same run is rolled back too.
+        self.assertIsNone(second.linked_user)
+        self.assertIsNone(SpecialUserExperience.active_for_user(user))
+
+    def test_approval_cannot_link_an_ambiguous_match(self):
+        first = _make_user("one@example.com", first="Marc", last="Weber")
+        _make_user("two@example.com", first="marc", last="weber")
+        exp = SpecialUserExperience.objects.create(first_name="Marc", last_name="Weber")
+
+        with self.assertRaisesMessage(CommandError, "Nothing was linked"):
+            self._run("--approve", f"{exp.pk}:{first.pk}")
+
+        exp.refresh_from_db()
+        self.assertIsNone(exp.linked_user)
+
+    def test_malformed_approval_is_rejected(self):
+        with self.assertRaisesMessage(CommandError, "EXPERIENCE_ID:USER_ID"):
+            self._run("--approve", "12-34")
 
     def test_ambiguous_match_is_reported_and_not_linked(self):
         first = _make_user("one@example.com", first="Marc", last="Weber")
@@ -708,6 +775,7 @@ class LinkSpecialExperiencesCommandTests(TestCase):
             f"WOULD LINK experience #{exp.pk} (Anna Muller) -> user #{user.pk}",
             output,
         )
+        self.assertIn(f"(approve with --approve {exp.pk}:{user.pk})", output)
         self.assertIn("Summary: would link=1", output)
         self.assertIn("Dry run: nothing was changed.", output)
 
@@ -755,7 +823,7 @@ class LinkSpecialExperiencesCommandTests(TestCase):
             first_name="ANNA", last_name="MULLER"
         )
 
-        output = self._run()
+        output = self._run("--approve", f"{first.pk}:{user.pk}")
 
         first.refresh_from_db()
         second.refresh_from_db()
