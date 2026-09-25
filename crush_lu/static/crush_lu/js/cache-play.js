@@ -226,6 +226,11 @@ document.addEventListener("alpine:init", function () {
                 if (this.audioUnlocking) return;
                 this.audioUnlocking = true;
                 var self = this;
+                if (this.compassNeedsPermission) {
+                    this.enableCompass();
+                } else if (!this._compassAttached) {
+                    this.attachCompass();
+                }
                 var preloadDeadline = new Promise(function (resolve) {
                     setTimeout(function () { resolve(null); }, 2000);
                 });
@@ -841,7 +846,7 @@ document.addEventListener("alpine:init", function () {
 
             enableCompass: function () {
                 var self = this;
-                if (typeof DeviceOrientationEvent.requestPermission !== "function") {
+                if (typeof DeviceOrientationEvent === "undefined" || typeof DeviceOrientationEvent.requestPermission !== "function") {
                     this.compassNeedsPermission = false;
                     this.attachCompass();
                     return;
@@ -942,7 +947,7 @@ document.addEventListener("alpine:init", function () {
                 };
 
                 var handler = function (e) {
-                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
                         self._lastCompassAt = Date.now();
                         updateHeading(e.webkitCompassHeading);
                     } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
@@ -974,6 +979,15 @@ document.addEventListener("alpine:init", function () {
                         }
                     }, true);
                 } catch (err) {}
+
+                // Native CoreLocation bridge hook for iOS WKWebView wrapper
+                window.__crushHeadingUpdate = function (deg) {
+                    if (typeof deg === "number" && !isNaN(deg) && deg >= 0) {
+                        self._lastCompassAt = Date.now();
+                        self.hasAbsoluteHeading = true;
+                        updateHeading(deg);
+                    }
+                };
 
                 // Support Web Sensor API AbsoluteOrientationSensor (used in modern Chrome DevTools emulation)
                 if (typeof AbsoluteOrientationSensor !== "undefined") {

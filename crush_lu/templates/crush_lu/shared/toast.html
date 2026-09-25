@@ -9,10 +9,12 @@ Usage in templates:
 {% endcomment %}
 
 <!-- Toast Container - bottom snackbar on mobile (above the tab bar for members),
-     top-right stack on desktop. Managed by toast-component.js -->
+     top-right stack on desktop. Managed by toast-component.js
+     bottom-0 is guest-only: a utility beats the components-layer `bottom`
+     that .toast-above-nav sets in tailwind-input.css. -->
 <div
     id="toast-container"
-    class="fixed z-[60] flex flex-col gap-2 pointer-events-none inset-x-0 bottom-0 items-center px-4 lg:inset-x-auto lg:bottom-auto lg:top-4 lg:right-4 lg:items-end lg:px-0{% if user.is_authenticated %} toast-above-nav{% endif %}"
+    class="fixed z-[60] flex flex-col gap-2 pointer-events-none inset-x-0 items-center px-4 lg:inset-x-auto lg:bottom-auto lg:top-4 lg:right-4 lg:items-end lg:px-0{% if user.is_authenticated %} toast-above-nav{% else %} bottom-0{% endif %}"
     aria-live="polite"
     aria-atomic="true"
     role="status">

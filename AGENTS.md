@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Claude Code, Codex, Gemini) when working with code in this repository. It is the single source of truth — a local, gitignored `CLAUDE.md` only imports it with `@AGENTS.md`.
 
 ## What this is
 
@@ -127,10 +127,6 @@ These failures pass every local check and surface only later. Read them before p
 python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
 ```
 
-```bash
-python -c "import re,io; f='crush_lu/locale/fr/LC_MESSAGES/django.po'; print(sum(1 for l in io.open(f,encoding='utf-8') if l.startswith('msgstr ') and re.search(r'\b(tu|ton|tes|toi)\b', l)))"
-```
-
-**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. **In tests, use literal paths** — `reverse()` resolves against the default urlconf, not the one the host override selects. **In templates, keep `{% url %}`**: it resolves against the request's own urlconf, and it is what this codebase does everywhere (20+ call sites for `crush_lu:event_list` alone). Do *not* hardcode template paths — user-facing routes sit inside `i18n_patterns(..., prefix_default_language=True)` (`azureproject/urls_crush.py:1141`), so a literal `/events/` 404s and a literal `/en/events/` pins DE and FR readers to English. The real template hazard is narrower: a name missing from the *active* host's urlconf raises `NoReverseMatch`, which 500s the whole page — so a template shared across hosts must only reference names that exist in each.
+**`reverse("crush_lu:…")` builds `/crush/…` paths** that 404 under `HTTP_HOST=crush.lu`, because middleware swaps the urlconf per host. **In tests, use literal paths** — `reverse()` resolves against the default urlconf, not the one the host override selects. **In templates, keep `{% url %}`**: it resolves against the request's own urlconf, and it is what this codebase does everywhere (20+ call sites for `crush_lu:event_list` alone). Do *not* hardcode template paths — user-facing routes sit inside `i18n_patterns(..., prefix_default_language=True)` (the single `i18n_patterns(` block in `azureproject/urls_crush.py`), so a literal `/events/` 404s and a literal `/en/events/` pins DE and FR readers to English. The real template hazard is narrower: a name missing from the *active* host's urlconf raises `NoReverseMatch`, which 500s the whole page — so a template shared across hosts must only reference names that exist in each.
 
 **A fresh worktree has no `.env`.** `pytest` fails with `ImproperlyConfigured` until the root `.env` is copied in.
