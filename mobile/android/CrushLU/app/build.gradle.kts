@@ -6,10 +6,14 @@ plugins {
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
 val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
+require(env in setOf("production", "staging", "local")) {
+    "Unknown CRUSH_ENV '$env'"
+}
 val baseUrl = when (env) {
+    "production" -> "https://crush.lu"
     "staging" -> "https://test.crush.lu"
     "local" -> "http://10.0.2.2:8000"
-    else -> "https://crush.lu"
+    else -> error("Unknown CRUSH_ENV '$env'")
 }
 
 val isStaging = (env == "staging")
@@ -30,9 +34,14 @@ val hostName = when {
     else -> "crush.lu"
 }
 
+// Fail configuration if the public Play identity could load the test site.
+check(env != "production" || (baseUrl == "https://crush.lu" && hostName == "crush.lu")) {
+    "Production Android releases must target crush.lu"
+}
+
 android {
     namespace = "lu.crush.app"
-    compileSdk = 35
+    compileSdk = 36
 
     buildFeatures {
         buildConfig = true
@@ -48,7 +57,7 @@ android {
             applicationIdSuffix = ".local"
         }
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // CI (android-release.yml) passes -PCRUSH_VERSION_CODE=<seconds since
         // 2024-01-01>, a monotonic value computed at run time under a serialized
         // concurrency group so Play always sees increasing codes. The literal
