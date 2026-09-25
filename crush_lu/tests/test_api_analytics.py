@@ -463,6 +463,15 @@ class ToolTests(AnalyticsFixture):
         )
         self.assertEqual(self.data("funnel")["totals"]["submitted"], 2)
 
+    def test_self_serve_submission_counts_without_a_row(self):
+        # The self-serve path marks the profile and writes no ProfileSubmission.
+        CrushProfile.objects.filter(user=self.alice).update(
+            completion_status="submitted"
+        )
+        # alice (completion_status) + carol (verification pending); bob and
+        # dave never submitted.
+        self.assertEqual(self.data("funnel")["totals"]["submitted"], 2)
+
     def test_funnel_counts_only_real_members(self):
         totals = self.data("funnel")["totals"]
         self.assertEqual(totals["signups"], 4)
@@ -652,6 +661,9 @@ class DisclosureControlTests(AnalyticsFixture):
         enums = self.data("definitions")["enums"]
         for key in ("member_gender", "member_age_band", "member_canton"):
             self.assertIn("suppressed", enums[key])
+            self.assertIn("unknown", enums[key])
+        for param in ("gender", "age_band", "canton"):
+            self.assertEqual(self.get("members", **{param: "unknown"}).status_code, 200)
 
     def test_generalization_drops_canton_then_age_before_gender(self):
         with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
@@ -755,6 +767,17 @@ class GeneralizationTests(TestCase):
         self.assertEqual(out[0]["canton"], "canton-esch")
         self.assertEqual(out[10]["canton"], "suppressed")
 
+    def test_missing_values_are_the_filterable_unknown_token(self):
+        profiles = [
+            {"user_id": i, "gender": "", "date_of_birth": None, "location": ""}
+            for i in range(5)
+        ]
+        out = self._assert_k_anonymous(profiles, 5)
+        self.assertEqual(
+            {tuple(v.values()) for v in out.values()},
+            {("unknown", "unknown", "unknown")},
+        )
+
     def test_invariant_holds_on_varied_populations(self):
         import random
 
@@ -810,7 +833,7 @@ class PrivilegeAuditTests(TestCase):
             ["azure_pg_admin"],
             [("public", "unsafe_export")],
             [("public", "crush_lu_meetupevent_id_seq")],
-            ["postgres", "pythonapp_staging"],
+            [("postgres", True), ("pythonapp_staging", False)],
             ["postgres"],
             True,
             2,
@@ -818,7 +841,7 @@ class PrivilegeAuditTests(TestCase):
             3,
         )
         joined = " | ".join(violations)
-        self.assertNotIn("database postgres", joined)  # allowlisted
+        self.assertNotIn("connect to database postgres", joined)  # allowlisted
         for expected in (
             "elevated attribute",
             "table-level SELECT on public.auth_user",
@@ -831,6 +854,7 @@ class PrivilegeAuditTests(TestCase):
             "can execute SECURITY DEFINER public.unsafe_export",
             "can use sequence public.crush_lu_meetupevent_id_seq",
             "can connect to database pythonapp_staging",
+            "can CREATE in database postgres",
             "can CREATE in the current database",
             "can access 2 large object(s)",
             "can create TEMPORARY tables in the current database",

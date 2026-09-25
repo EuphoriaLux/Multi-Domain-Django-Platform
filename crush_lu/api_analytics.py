@@ -143,11 +143,19 @@ VERIFICATION_STATUSES = {"incomplete", "pending", "verified", "rejected"}
 GENDERS = {"M", "F", "NB", "O", "P"}
 AGE_BAND_LABELS = {label for _, _, label in analytics.AGE_BANDS}
 # Profile region codes, plus "other" for stored values outside the list.
-MEMBER_CANTONS = analytics.LOCATION_CODES | {"other", analytics.SUPPRESSED}
+MEMBER_CANTONS = analytics.LOCATION_CODES | {
+    "other",
+    analytics.UNKNOWN,
+    analytics.SUPPRESSED,
+}
 # Member rows carry generalized values, so filters must be able to select the
 # pooled "suppressed" groups as well.
-MEMBER_GENDERS = GENDERS | {analytics.SUPPRESSED}
-MEMBER_AGE_BANDS = AGE_BAND_LABELS | {analytics.SUPPRESSED}
+MEMBER_GENDERS = GENDERS | {analytics.UNKNOWN, analytics.SUPPRESSED}
+MEMBER_AGE_BANDS = AGE_BAND_LABELS | {
+    "under-18",
+    analytics.UNKNOWN,
+    analytics.SUPPRESSED,
+}
 
 
 def _parse_definitions(p):

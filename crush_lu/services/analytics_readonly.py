@@ -76,6 +76,9 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "location",  # canton-* / border-* codes
         "verification_status",
         "verification_method",
+        # Legacy step marker, still set to "submitted" by the self-serve path,
+        # which creates no ProfileSubmission row.
+        "completion_status",
         "is_approved",
         "is_active",
         "approved_at",
@@ -222,6 +225,7 @@ AGE_BANDS = (
 )
 SUPPRESSION_FLOOR = 5
 SUPPRESSED = "suppressed"
+UNKNOWN = "unknown"
 DEMOGRAPHIC_DIMENSIONS = ("gender", "age_band", "canton")
 GROUPABLE_DIMENSIONS = DEMOGRAPHIC_DIMENSIONS + ("verification_status", "luxid")
 MAX_RANGE_DAYS = 400
@@ -364,8 +368,15 @@ PRIVILEGE_AUDIT_SQL = {
         "OR EXISTS (SELECT 1 FROM aclexplode(l.lomacl) a "
         "WHERE a.grantee = 0 OR a.grantee = %(role)s::regrole)"
     ),
+    # CONNECT elsewhere must be allowlisted, and CREATE there is excess even
+    # when it is. TEMPORARY there is not audited: the allowlisted databases are
+    # Azure-managed (azure_sys and azure_maintenance are owned by azuresu, so no
+    # login of ours can change their ACLs), temp tables there cannot read member
+    # data, and these credentials sit beside the admin password in the same
+    # App Service settings.
     "other_databases": (
-        "SELECT datname FROM pg_database WHERE NOT datistemplate "
+        "SELECT datname, has_database_privilege(%(role)s, datname, 'CREATE') "
+        "FROM pg_database WHERE NOT datistemplate "
         "AND datname <> current_database() "
         "AND has_database_privilege(%(role)s, datname, 'CONNECT')"
     ),
@@ -446,7 +457,12 @@ def privilege_violations(
         violations.append(f"owns {owned_objects} object(s)")
     if large_objects:
         violations.append(f"can access {large_objects} large object(s)")
-    for database in other_databases:
+    for entry in other_databases:
+        database, can_create = (
+            entry if isinstance(entry, (tuple, list)) else (entry, False)
+        )
+        if can_create:
+            violations.append(f"can CREATE in database {database}")
         if database not in allowed_databases:
             violations.append(
                 f"can connect to database {database} (revoke PUBLIC CONNECT there, "
@@ -495,7 +511,7 @@ def audit_role(cursor, role: str) -> list:
         [row[0] for row in results["memberships"]],
         results["definer_functions"],
         results["sequences"],
-        [row[0] for row in results["other_databases"]],
+        results["other_databases"],
         getattr(settings, "ANALYTICS_ALLOWED_OTHER_DATABASES", ()),
         bool(results["database_create"] and results["database_create"][0][0]),
         results["large_objects"][0][0] if results["large_objects"] else 0,
@@ -663,6 +679,7 @@ def _real_member_profiles(alias: str, excluded: set[int], **filters) -> list[dic
             "location",
             "verification_status",
             "verification_method",
+            "completion_status",
             "phone_verified",
             "created_at",
         )
@@ -691,11 +708,12 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
     """
     today = timezone.localdate()
     floor = SUPPRESSION_FLOOR
+    # Missing values are a real, filterable group: "unknown", never null.
     raw = {
         p["user_id"]: (
-            p["gender"] or None,
-            age_band(p["date_of_birth"], today),
-            canton_code(p["location"]),
+            p["gender"] or UNKNOWN,
+            age_band(p["date_of_birth"], today) or UNKNOWN,
+            canton_code(p["location"]) or UNKNOWN,
         )
         for p in profiles
     }
@@ -854,9 +872,10 @@ def definitions() -> dict:
         "enums": {
             "event_type": [value for value, _ in MeetupEvent.EVENT_TYPE_CHOICES],
             "event_canton": [value for value, _ in MeetupEvent.CANTON_CHOICES],
-            "member_canton": sorted(LOCATION_CODES) + ["other", SUPPRESSED],
-            "member_gender": ["M", "F", "NB", "O", "P", SUPPRESSED],
-            "member_age_band": [label for _, _, label in AGE_BANDS] + [SUPPRESSED],
+            "member_canton": sorted(LOCATION_CODES) + ["other", UNKNOWN, SUPPRESSED],
+            "member_gender": ["M", "F", "NB", "O", "P", UNKNOWN, SUPPRESSED],
+            "member_age_band": [label for _, _, label in AGE_BANDS]
+            + ["under-18", UNKNOWN, SUPPRESSED],
             "registration_status": [
                 "applied",
                 "pending",
@@ -921,7 +940,18 @@ def funnel(start: date, end: date, grain: str = "week") -> dict:
         alias, excluded, created_at__gte=low, created_at__lt=high
     )
     user_ids = [p["user_id"] for p in profiles]
+    # Submitted = the member submitted their profile: the self-serve path sets
+    # completion_status="submitted" / verification_status="pending" and writes
+    # no ProfileSubmission; the paid coach path writes a row. Coach-panel audit
+    # rows are not submissions, so a member verified from the panel without
+    # ever submitting counts as verified but not submitted (the stages are
+    # flags, not a strictly nested funnel).
     submitted = {
+        p["id"]
+        for p in profiles
+        if p["completion_status"] == "submitted"
+        or p["verification_status"] in ("pending", "rejected")
+    } | {
         row["profile_id"]
         for row in ProfileSubmission.objects.using(alias)
         .filter(profile_id__in=[p["id"] for p in profiles])
@@ -971,7 +1001,11 @@ def funnel(start: date, end: date, grain: str = "week") -> dict:
         totals.update(row)
     return {
         "grain": grain,
-        "cohort_basis": "CrushProfile.created_at; stages count what the cohort has reached as of now",
+        "cohort_basis": (
+            "CrushProfile.created_at; stages count what the cohort has reached as of "
+            "now. Stages are independent flags: a member a coach verified from the "
+            "panel without submitting counts as verified but not submitted."
+        ),
         "stages": list(stages),
         "cohorts": [
             {
