@@ -48,7 +48,7 @@ production, so it must never be hardcoded here.
                     {% endif %}
                 </div>
 
-                <div class="mb-6">
+                <div class="mb-2">
                     <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                     <input type="password"
                            class="w-full px-4 py-3 border {% if form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
@@ -56,6 +56,13 @@ production, so it must never be hardcoded here.
                     {% if form.password.errors %}
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password.errors.0 }}</p>
                     {% endif %}
+                </div>
+
+                {# Same link, msgid and styling as the tabbed crush_lu/auth.html login panel. #}
+                <div class="mb-6 text-right">
+                    <a href="{% url 'account_reset_password' %}" class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
+                        {% trans "Forgot your password?" %}
+                    </a>
                 </div>
 
                 {# Hidden redirect field #}

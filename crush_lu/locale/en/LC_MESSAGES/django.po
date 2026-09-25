@@ -28151,4 +28151,10 @@ msgid ""
 "These cookies may be set through our site by our advertising partners. They "
 "may be used to build a profile of your interests and show you relevant "
 "adverts on other sites."
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr ""
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
 msgstr ""

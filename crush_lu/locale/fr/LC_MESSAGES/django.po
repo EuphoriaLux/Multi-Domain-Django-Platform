@@ -42412,3 +42412,10 @@ msgstr ""
 "Ces cookies peuvent être définis via notre site par nos partenaires "
 "publicitaires. Ils peuvent être utilisés pour créer un profil de vos intérêts"
 " et vous montrer des publicités pertinentes sur d'autres sites."
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr "Code QR pour l'enregistrement à l'événement"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr "Numéro de billet"

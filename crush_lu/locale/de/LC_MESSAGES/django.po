@@ -14964,7 +14964,7 @@ msgstr ""
 
 #: templates/crush_lu/auth.html:58
 msgid "Sign up"
-msgstr "anmelden"
+msgstr "Registrieren"
 
 #: templates/crush_lu/auth.html:87
 msgid "Verified instantly — no SMS code, no waiting"
@@ -26263,7 +26263,7 @@ msgstr ""
 
 #: templates/crush_lu/event_detail.html:767
 msgid "sign up"
-msgstr "anmelden"
+msgstr "registrieren"
 
 #: templates/crush_lu/event_detail.html:767
 msgid "to register for this event."
@@ -33745,7 +33745,7 @@ msgstr ""
 
 #: templates/crush_lu/signup.html:6
 msgid "Sign Up - Crush.lu"
-msgstr "Anmelden – Crush.lu"
+msgstr "Registrieren – Crush.lu"
 
 #: templates/crush_lu/signup.html:17
 msgid "Join Crush.lu"
@@ -33757,7 +33757,7 @@ msgstr "Erstelle dein Konto, um neue Menschen kennenzulernen"
 
 #: templates/crush_lu/signup.html:37
 msgid "Sign up with Google"
-msgstr "Mit Google anmelden"
+msgstr "Mit Google registrieren"
 
 #: templates/crush_lu/signup.html:48
 msgid "Sign up with Facebook"
@@ -42278,3 +42278,10 @@ msgstr ""
 "Diese Cookies können über unsere Website von unseren Werbepartnern gesetzt "
 "werden. Sie können verwendet werden, um ein Profil deiner Interessen zu "
 "erstellen und dir relevante Werbung auf anderen Websites zu zeigen."
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr "QR-Code für den Event-Check-in"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr "Ticketnummer"
