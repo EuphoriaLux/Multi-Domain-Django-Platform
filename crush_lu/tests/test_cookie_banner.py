@@ -86,6 +86,17 @@ def _js_function_body(script, name):
     return match.group(1)
 
 
+def _css_declarations(html):
+    """Map each selector in the partial's <style> to its declarations."""
+    css = html[html.index("<style>") : html.index("</style>")]
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = {}
+    for selectors, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        for selector in selectors.split(","):
+            rules.setdefault(selector.strip(), []).append(" ".join(body.split()))
+    return rules
+
+
 def _assert_optional_categories_unchecked(tags):
     tag, analytics = tags["cookie-analytics"]
     assert tag == "input" and analytics.get("type") == "checkbox"
@@ -204,6 +215,25 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertNotIn("Ihr Erlebnis", crush)
         self.assertIn(DE_FORMAL_BANNER, generic)
         self.assertNotIn("dein Erlebnis", generic)
+
+    def test_crush_dark_button_text_uses_the_brand_token(self):
+        # On the #1e293b dark surface the canonical dark .btn-link (3.52:1) and
+        # .btn-crush-outline (4.47:1) miss WCAG AA 4.5:1; var(--crush-purple)
+        # (#A78BFA in dark) is 5.38:1. Resting state only: hover stays canonical.
+        crush = _css_declarations(
+            render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        )
+        generic = _css_declarations(render_to_string(BANNER_TEMPLATE, {}))
+        text_only = "html.dark .cookie-banner--crush .btn-link:not(:hover)"
+        outlined = [
+            "html.dark .cookie-banner--crush .btn-crush-outline:not(:hover)",
+            "html.dark .cookie-modal--crush .btn-crush-outline:not(:hover)",
+        ]
+        for selector in [text_only, *outlined]:
+            self.assertIn("color: var(--crush-purple);", crush.get(selector, []))
+            self.assertNotIn(selector, generic)
+        for selector in outlined:
+            self.assertIn("border-color: var(--crush-purple);", crush.get(selector, []))
 
     def test_settings_modal_reflects_stored_consent(self):
         script = render_to_string(BANNER_TEMPLATE, {})

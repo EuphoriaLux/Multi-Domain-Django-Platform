@@ -498,6 +498,21 @@ html.dark .cookie-banner.cookie-banner--crush {
     background-color: var(--crush-purple);
 }
 
+/* Dark mode: the banner and modal sit on #1e293b, where the canonical dark
+   .btn-link (purple-400, 3.5:1) and .btn-crush-outline (--crush-purple-light,
+   4.47:1) miss WCAG AA 4.5:1 for their 14px labels; var(--crush-purple) is 5.4:1.
+   Resting state only, so hover keeps the canonical colours. */
+html.dark .cookie-banner--crush .btn-link:not(:hover),
+html.dark .cookie-banner--crush .btn-crush-outline:not(:hover),
+html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
+    color: var(--crush-purple);
+}
+
+html.dark .cookie-banner--crush .btn-crush-outline:not(:hover),
+html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
+    border-color: var(--crush-purple);
+}
+
 /* crush's mobile touch-target rule (label:has(input[type=checkbox]) { min-height: 44px })
    stretches the 50x26 switch into a blob, and the flex header squeezes it; pin it. */
 #cookie-settings-modal.cookie-modal--crush .cookie-toggle {
