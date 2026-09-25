@@ -42370,3 +42370,45 @@ msgid ""
 msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"We use cookies to enhance your experience. Analytics cookies help us "
+"understand how you use our site. You can accept all cookies or customize your"
+" preferences."
+msgstr ""
+"Nous utilisons des cookies pour améliorer votre expérience. Les cookies "
+"d'analyse nous aident à comprendre comment vous utilisez notre site. Vous "
+"pouvez accepter tous les cookies ou personnaliser vos préférences."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies are necessary for the website to function and cannot be "
+"switched off. They are usually only set in response to actions made by you "
+"such as logging in or filling in forms."
+msgstr ""
+"Ces cookies sont nécessaires au fonctionnement du site web et ne peuvent pas "
+"être désactivés. Ils sont généralement définis uniquement en réponse à vos "
+"actions, comme la connexion ou le remplissage de formulaires."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies may be set through our site by our advertising partners. They "
+"may be used to build a profile of your interests and show you relevant "
+"adverts on other sites."
+msgstr ""
+"Ces cookies peuvent être définis via notre site par nos partenaires "
+"publicitaires. Ils peuvent être utilisés pour créer un profil de vos intérêts"
+" et vous montrer des publicités pertinentes sur d'autres sites."

@@ -42236,3 +42236,45 @@ msgid ""
 msgstr ""
 "Nach Deinem letzten Tag hast Du 24 Stunden, um auf alle zurückzublicken — "
 "darunter eine Person, die aus unserer Sicht besonders gut zu Dir passt"
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"We use cookies to enhance your experience. Analytics cookies help us "
+"understand how you use our site. You can accept all cookies or customize your"
+" preferences."
+msgstr ""
+"Wir verwenden Cookies, um dein Erlebnis zu verbessern. Analyse-Cookies helfen"
+" uns zu verstehen, wie du unsere Website nutzt. Du kannst alle Cookies "
+"akzeptieren oder deine Einstellungen anpassen."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies are necessary for the website to function and cannot be "
+"switched off. They are usually only set in response to actions made by you "
+"such as logging in or filling in forms."
+msgstr ""
+"Diese Cookies sind für die Funktion der Website erforderlich und können nicht"
+" deaktiviert werden. Sie werden normalerweise nur als Reaktion auf deine "
+"Aktionen gesetzt, etwa wenn du dich anmeldest oder ein Formular ausfüllst."
+
+#. Crush.lu variant of the shared cookie banner
+#. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
+#. informal "du" of the rest of Crush.lu.
+#: ../core/templates/includes/cookie_banner.html
+msgctxt "crush cookie banner"
+msgid ""
+"These cookies may be set through our site by our advertising partners. They "
+"may be used to build a profile of your interests and show you relevant "
+"adverts on other sites."
+msgstr ""
+"Diese Cookies können über unsere Website von unseren Werbepartnern gesetzt "
+"werden. Sie können verwendet werden, um ein Profil deiner Interessen zu "
+"erstellen und dir relevante Werbung auf anderen Websites zu zeigen."

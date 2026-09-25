@@ -2,15 +2,33 @@
 
 {# Cookie Consent Banner - GDPR Compliant #}
 {# Include this at the bottom of your base template, before </body> #}
+{# Optional categories (analytics, marketing) are unchecked by default — GDPR/ePrivacy require an opt-in, #}
+{# so no box may be pre-ticked; the script ticks them only to reflect a choice already stored. #}
+{# cookie_banner_variant="crush" (passed by crush_lu/base.html only) renders the Crush.lu STYLE.md §2 buttons, #}
+{# var(--crush-purple) accents and the informal-"du" DE copy (msgctxt "crush cookie banner" in crush_lu/locale). #}
+{# Without it the partial renders the generic .btn markup and formal core/locale copy the other sites use. #}
 
-<div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
+<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush{% endif %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
             <p id="cookie-banner-title" class="cookie-banner-title">{% trans "Cookie Settings" %}</p>
             <p id="cookie-banner-description">
-                {% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}
+                {% if cookie_banner_variant == "crush" %}{% translate "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." context "crush cookie banner" %}{% else %}{% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}{% endif %}
             </p>
         </div>
+        {% if cookie_banner_variant == "crush" %}
+        <div class="cookie-banner-actions">
+            <button type="button" class="btn-crush-outline btn-sm" id="cookie-btn-decline">
+                {% trans "Decline All" %}
+            </button>
+            <button type="button" class="btn-crush-solid btn-sm" id="cookie-btn-accept">
+                {% trans "Accept All" %}
+            </button>
+            <button type="button" class="btn-link" id="cookie-btn-customize">
+                {% trans "Customize" %}
+            </button>
+        </div>
+        {% else %}
         <div class="cookie-banner-actions">
             <button type="button" class="btn btn-outline-secondary btn-sm" id="cookie-btn-customize">
                 {% trans "Customize" %}
@@ -22,11 +40,12 @@
                 {% trans "Accept All" %}
             </button>
         </div>
+        {% endif %}
     </div>
 </div>
 
 {# Cookie Settings Modal #}
-<div id="cookie-settings-modal" class="cookie-modal" role="dialog" aria-labelledby="cookie-settings-title" style="display: none;">
+<div id="cookie-settings-modal" class="cookie-modal{% if cookie_banner_variant == "crush" %} cookie-modal--crush{% endif %}" role="dialog" aria-labelledby="cookie-settings-title" style="display: none;">
     <div class="cookie-modal-content">
         <div class="cookie-modal-header">
             <h4 id="cookie-settings-title">{% trans "Cookie Preferences" %}</h4>
@@ -45,14 +64,14 @@
                     </div>
                 </div>
                 <p class="cookie-group-description">
-                    {% trans "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." %}
+                    {% if cookie_banner_variant == "crush" %}{% translate "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." context "crush cookie banner" %}{% else %}{% trans "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." %}{% endif %}
                 </p>
             </div>
 
             <div class="cookie-group">
                 <div class="cookie-group-header">
                     <label class="cookie-toggle">
-                        <input type="checkbox" id="cookie-analytics" checked>
+                        <input type="checkbox" id="cookie-analytics">
                         <span class="cookie-toggle-slider"></span>
                     </label>
                     <div class="cookie-group-info">
@@ -75,13 +94,18 @@
                     </div>
                 </div>
                 <p class="cookie-group-description">
-                    {% trans "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." %}
+                    {% if cookie_banner_variant == "crush" %}{% translate "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." context "crush cookie banner" %}{% else %}{% trans "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." %}{% endif %}
                 </p>
             </div>
         </div>
         <div class="cookie-modal-footer">
+            {% if cookie_banner_variant == "crush" %}
+            <button type="button" class="btn-crush-outline btn-sm" id="cookie-btn-cancel">{% trans "Cancel" %}</button>
+            <button type="button" class="btn-crush-solid btn-sm" id="cookie-btn-save">{% trans "Save Preferences" %}</button>
+            {% else %}
             <button type="button" class="btn btn-secondary" id="cookie-btn-cancel">{% trans "Cancel" %}</button>
             <button type="button" class="btn btn-primary" id="cookie-btn-save">{% trans "Save Preferences" %}</button>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -294,6 +318,7 @@ html.dark .cookie-banner-text p {
     cursor: not-allowed;
 }
 
+{% if cookie_banner_variant != "crush" %}
 /* Button Styles (replaces Bootstrap classes) */
 .cookie-banner .btn,
 .cookie-modal .btn {
@@ -354,6 +379,7 @@ html.dark .cookie-banner-text p {
     color: #374151;
     border-color: #9ca3af;
 }
+{% endif %}
 
 /* Badge Styles */
 .cookie-modal .badge {
@@ -400,6 +426,7 @@ html.dark .cookie-group-info strong {
     color: #f1f5f9;
 }
 
+{% if cookie_banner_variant != "crush" %}
 /* Dark mode: buttons */
 html.dark .cookie-banner .btn-primary,
 html.dark .cookie-modal .btn-primary {
@@ -435,6 +462,7 @@ html.dark .cookie-banner .btn-outline-secondary:hover {
     color: #e2e8f0;
     border-color: #64748b;
 }
+{% endif %}
 
 html.dark .cookie-modal .bg-secondary {
     background: #475569;
@@ -456,6 +484,76 @@ html.dark .cookie-modal .bg-secondary {
         padding-left: 0;
     }
 }
+{% if cookie_banner_variant == "crush" %}
+/* Crush.lu variant. The buttons carry the canonical crush_lu/STYLE.md §2 classes
+   (.btn-crush-solid / .btn-crush-outline / .btn-link from tailwind.css), which is
+   why the generic .btn rules above are not emitted for this variant. Accents use
+   var(--crush-purple), declared for light and dark in crush_lu/base.html. */
+.cookie-banner.cookie-banner--crush,
+html.dark .cookie-banner.cookie-banner--crush {
+    border-top-color: var(--crush-purple);
+}
+
+.cookie-modal--crush .cookie-toggle input:checked + .cookie-toggle-slider {
+    background-color: var(--crush-purple);
+}
+
+/* crush's mobile touch-target rule (label:has(input[type=checkbox]) { min-height: 44px })
+   stretches the 50x26 switch into a blob, and the flex header squeezes it; pin it. */
+#cookie-settings-modal.cookie-modal--crush .cookie-toggle {
+    flex-shrink: 0;
+    min-height: 0;
+}
+
+/* Accept and Decline carry equal weight: same .btn-sm padding, same width (two
+   equal grid tracks) and the same 2px border box (.btn-crush-outline draws a 2px
+   border, so the solid button gets a transparent one). */
+.cookie-banner--crush .cookie-banner-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: center;
+}
+
+.cookie-banner--crush .btn-crush-solid,
+.cookie-modal--crush .btn-crush-solid {
+    border: 2px solid transparent;
+}
+
+.cookie-banner--crush .cookie-banner-actions button,
+.cookie-modal--crush .cookie-modal-footer button {
+    text-align: center;
+    cursor: pointer;
+}
+
+.cookie-banner--crush .btn-link {
+    font-size: 0.875rem;
+}
+
+/* Long DE/FR labels ("Einstellungen speichern") must not break inside the pill:
+   keep each label on one line and let the pair wrap onto two rows instead. */
+.cookie-modal--crush .cookie-modal-footer {
+    flex-wrap: wrap;
+}
+
+.cookie-modal--crush .cookie-modal-footer button {
+    white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+    .cookie-banner--crush .cookie-banner-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cookie-banner--crush .cookie-banner-actions .btn-link {
+        grid-column: 1 / -1;
+        justify-self: center;
+    }
+
+    .cookie-modal--crush .cookie-modal-footer button {
+        flex: 1 1 auto;
+    }
+}
+{% endif %}
 </style>
 
 <script nonce="{{ csp_nonce }}">
@@ -561,7 +659,20 @@ html.dark .cookie-modal .bg-secondary {
         updateGoogleConsent(consent);
     }
 
+    // Optional categories start unchecked (no pre-ticked boxes under GDPR/ePrivacy).
+    // When a choice is already stored, show that choice instead; anything that is
+    // not a stored consent object (no cookie, legacy string value) leaves them off.
+    function reflectStoredConsent() {
+        const consent = getCookie(COOKIE_NAME);
+        const stored = (consent && typeof consent === 'object') ? consent : {};
+        const analytics = document.getElementById('cookie-analytics');
+        const marketing = document.getElementById('cookie-marketing');
+        if (analytics) analytics.checked = stored.analytics === true;
+        if (marketing) marketing.checked = stored.marketing === true;
+    }
+
     function showCookieSettings() {
+        reflectStoredConsent();
         document.getElementById('cookie-settings-modal').style.display = 'flex';
     }
 
