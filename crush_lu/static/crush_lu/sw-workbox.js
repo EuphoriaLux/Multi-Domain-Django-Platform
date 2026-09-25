@@ -1,17 +1,58 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v32 - Tell the page when a POST really was stored in the background-
+// Version: v33 - Tell the page when a POST really was stored in the background-
 //                sync queue ({type: "crush-queued", url} to every window client,
 //                posted only after the queue write succeeded), so
 //                htmx-error-toast.js promises a replay only for a request the
 //                worker holds. A failed IndexedDB write gets the plain copy.
 //                Answers {type: "crush-capabilities?"} so the page can tell
 //                this worker from an older one that queues without saying so.
+// Version: v32 - Event tickets (/<lang>/events/<id>/ticket/) get their own
+//                NetworkFirst cache so the QR opens offline at the venue door,
+//                purged on every navigation that can switch the signed-in
+//                account (sign-in/out/up, native-app handoff, guest invite).
 // Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
 //                cache. The admin is mounted at /crush-admin/, not /admin/, so
 //                every exclusion list written against /admin/ missed it. The
 //                queue is also drained through the same list, so entries an
 //                older worker already stored are dropped rather than replayed.
+
+// Offline event tickets. Declared up here because the hard-bypass listener
+// below purges this cache, and it runs before Workbox is even imported.
+// The ticket URL is keyed by event, not by user, so a copy left behind by one
+// account would be served offline to the next account on the same device.
+const TICKET_CACHE = "crush-tickets";
+const TICKET_PATH = /^\/(en|de|fr)\/events\/\d+\/ticket\/$/;
+
+// Navigations that can put a different account (or none) on this device, and
+// so must drop TICKET_CACHE. These are the login()/logout() call sites a
+// navigation reaches on crush.lu: the Crush and allauth sign-in, sign-out and
+// sign-up pages and the social callbacks (all contain /login, /logout or
+// /signup), plus the two that sign an account in under another name.
+const SESSION_SWITCH_PATHS = [
+    // native_auth.complete_native_auth: the app WebView redeems a one-time code.
+    /^\/api\/mobile\/(ios|android)\/auth\/complete\//,
+    // views_invitations.invitation_accept: signs the new guest account in.
+    /^\/(en|de|fr)\/invite\/[^/]+\/accept\/$/,
+];
+
+// views_account.gdpr_data_management: a full account deletion POST calls
+// logout() and redirects home, never reaching /logout. Only the POST counts:
+// merely opening the GDPR page must not drop an upcoming ticket.
+const ACCOUNT_DELETION_POST_PATHS = [/^\/(en|de|fr)\/account\/(gdpr|delete)\/$/];
+
+function isSessionBoundaryNavigation(request, url) {
+    if (request.mode !== "navigate") return false;
+    const path = url.pathname;
+    return (
+        path.includes("/login") ||
+        path.includes("/logout") ||
+        path.includes("/signup") ||
+        SESSION_SWITCH_PATHS.some((pattern) => pattern.test(path)) ||
+        (request.method === "POST" &&
+            ACCOUNT_DELETION_POST_PATHS.some((pattern) => pattern.test(path)))
+    );
+}
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -46,6 +87,14 @@ self.addEventListener("fetch", (event) => {
     if (url.origin !== self.location.origin) {
         // Don't intercept cross-origin requests at all - let browser handle them
         return;
+    }
+
+    // Switching accounts changes whose ticket this device may show: drop the
+    // offline ticket copies (see TICKET_CACHE). waitUntil keeps the worker
+    // alive for the delete without claiming the request, so the auth bypass
+    // below and the routes further down still apply unchanged.
+    if (isSessionBoundaryNavigation(event.request, url)) {
+        event.waitUntil(caches.delete(TICKET_CACHE));
     }
 
     // TRUE HARD BYPASS: OAuth and auth-related URLs
@@ -376,6 +425,44 @@ if (workbox) {
                 url.pathname.startsWith("/api/mobile/")
             ),
         new workbox.strategies.NetworkOnly(),
+    );
+
+    // Strategy 3b: Network First for event tickets, in their own cache.
+    // MUST be registered BEFORE Strategy 4, which would otherwise claim these
+    // navigations into "crush-pages" — shared with every page, capped at 50
+    // entries and 24 hours, so the ticket was usually gone by event night.
+    // The QR is server-rendered SVG inside the HTML, so the cached page is a
+    // complete, scannable ticket. networkTimeoutSeconds covers venue "lie-fi"
+    // (connected, no throughput), where a plain NetworkFirst would hang at the
+    // door instead of falling back. Purged whenever the signed-in account can
+    // change (isSessionBoundaryNavigation, fetch listener above).
+    workbox.routing.registerRoute(
+        ({ request, url }) =>
+            request.mode === "navigate" && TICKET_PATH.test(url.pathname),
+        new workbox.strategies.NetworkFirst({
+            cacheName: TICKET_CACHE,
+            networkTimeoutSeconds: 5,
+            plugins: [
+                // maxAgeSeconds counts from the cached copy's Date header,
+                // i.e. the last time the ticket was fetched online, not from
+                // the event. A ticket opened once at booking and not again
+                // until the door must still be served, so this has to outlast
+                // any booking-to-event gap; a year bounds retention without
+                // guessing one. Copies of past events are harmless: the
+                // check-in API enforces its own window. Eviction is LRU and
+                // each language is its own URL, so maxEntries must cover every
+                // ticket a member could still need (many events x en/de/fr),
+                // or an early-booked ticket is evicted before its event.
+                new workbox.expiration.ExpirationPlugin({
+                    maxEntries: 50,
+                    maxAgeSeconds: 365 * 24 * 60 * 60,
+                }),
+                new workbox.cacheableResponse.CacheableResponsePlugin({
+                    statuses: [200], // never a login redirect or a 404
+                }),
+                new ServerUnreachablePlugin(),
+            ],
+        }),
     );
 
     // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
