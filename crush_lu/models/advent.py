@@ -5,6 +5,8 @@ This module contains all models for the Advent Calendar feature,
 which extends the Journey system to provide a 24-door December experience.
 """
 import uuid
+from zoneinfo import ZoneInfo
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -78,18 +80,18 @@ class AdventCalendar(models.Model):
     def __str__(self):
         return f"{self.calendar_title} ({self.year}) - {self.journey.special_experience}"
 
+    def _local_now(self):
+        """Current time in the calendar's own timezone"""
+        return timezone.localtime(timezone.now(), ZoneInfo(self.timezone_name))
+
     def is_december(self):
         """Check if we're currently in December of the calendar year"""
-        import pytz
-        tz = pytz.timezone(self.timezone_name)
-        now = timezone.now().astimezone(tz)
+        now = self._local_now()
         return now.year == self.year and now.month == 12
 
     def get_current_day(self):
         """Get the current day in December (1-31) or None if not December"""
-        import pytz
-        tz = pytz.timezone(self.timezone_name)
-        now = timezone.now().astimezone(tz)
+        now = self._local_now()
         if now.year == self.year and now.month == 12:
             return now.day
         return None
@@ -107,10 +109,7 @@ class AdventCalendar(models.Model):
         if door_number < 1 or door_number > 24:
             return False
 
-        import pytz
-        tz = pytz.timezone(self.timezone_name)
-        now = timezone.now().astimezone(tz)
-        current_date = now.date()
+        current_date = self._local_now().date()
 
         # Must be December of the correct year
         if current_date.year != self.year or current_date.month != 12:
