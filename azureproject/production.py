@@ -324,7 +324,12 @@ if _analytics_db_user == "crush_analytics_ro" and _analytics_db_password:
             "sslmode": "require",
             "connect_timeout": 5,
             "application_name": "crush_data_mcp",
-            "options": "-c default_transaction_read_only=on -c statement_timeout=10000",
+            # Connection options beat any role or database default, so a stray
+            # stored search_path cannot hide the unqualified ORM tables.
+            "options": (
+                "-c default_transaction_read_only=on -c statement_timeout=10000 "
+                "-c search_path=public"
+            ),
         },
         "TEST": {"MIRROR": "default"},
     }

@@ -1136,6 +1136,14 @@ class SetupRoleCommandTests(TestCase):
         self.assertIn('REVOKE TEMPORARY ON DATABASE "pythonapp" FROM PUBLIC', sql)
         self.assertIn("NOBYPASSRLS", sql)
         self.assertIn("default_transaction_read_only = 'on'", sql)
+        # Stale stored settings are reset before the hardening ones are set.
+        self.assertLess(
+            sql.index('ALTER ROLE "crush_analytics_ro" RESET ALL'),
+            sql.index("default_transaction_read_only = 'on'"),
+        )
+        self.assertIn(
+            'ALTER ROLE "crush_analytics_ro" IN DATABASE "pythonapp" RESET ALL', sql
+        )
         self.assertNotIn('"email"', sql)
         self.assertNotIn('"username"', sql)
 

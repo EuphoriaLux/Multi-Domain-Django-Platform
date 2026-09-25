@@ -58,8 +58,14 @@ def grant_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]
     ]
 
 
-def role_statements(role: str = ROLE) -> list[str]:
-    """Role creation and hardening (no password, no grants)."""
+def role_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]:
+    """Role creation and hardening (no password, no grants).
+
+    Any stored per-role setting is reset first, both role-wide and for this
+    database: a stale one (search_path = '', say) would pass the privilege
+    audit, which names every catalog object explicitly, and then break every
+    unqualified ORM query.
+    """
     r = _qn(role)
     return [
         (
@@ -70,6 +76,8 @@ def role_statements(role: str = ROLE) -> list[str]:
             f"ALTER ROLE {r} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
             "NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 3"
         ),
+        f"ALTER ROLE {r} RESET ALL",
+        f"ALTER ROLE {r} IN DATABASE {_qn(database)} RESET ALL",
         *[f"ALTER ROLE {r} SET {name} = '{value}'" for name, value in ROLE_SETTINGS],
     ]
 
@@ -171,7 +179,7 @@ class Command(BaseCommand):
             del password
 
         with transaction.atomic(using="default"), connection.cursor() as cursor:
-            for statement in role_statements():
+            for statement in role_statements(database=database):
                 cursor.execute(statement)
             if verifier:
                 cursor.execute(f"ALTER ROLE {_qn(ROLE)} PASSWORD %s", [verifier])
