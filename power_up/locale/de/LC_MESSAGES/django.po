@@ -1553,3 +1553,658 @@ msgstr ""
 "Ticketing, Quizabende und Speed-Dating für Locations, Eventagenturen und "
 "Unternehmen in Luxemburg – mit Technologie, die sich live auf Crush.lu "
 "bewährt hat."
+
+msgid ""
+"A Luxembourg software studio building useful applications for real work."
+msgstr ""
+"Ein Luxemburger Softwarestudio, das nützliche Anwendungen für den "
+"Arbeitsalltag entwickelt."
+
+msgid "A brief description of your challenge is enough to begin."
+msgstr "Eine kurze Beschreibung Ihrer Herausforderung reicht für den Anfang."
+
+msgid "A clear path from problem to working software"
+msgstr "Vom Problem zur einsatzfähigen Software – mit einem klaren Weg"
+
+msgid ""
+"A clear process from the first conversation to a useful, maintainable "
+"application."
+msgstr ""
+"Ein klarer Prozess vom ersten Gespräch bis zu einer nützlichen, wartbaren "
+"Anwendung."
+
+msgid "A concept showcase for vineyard plot adoption in Luxembourg."
+msgstr ""
+"Eine Konzeptpräsentation zur Adoption von Weinbergsparzellen in Luxemburg."
+
+msgid ""
+"A live platform combining event registration, member verification and "
+"operational tools."
+msgstr ""
+"Eine aktive Plattform für Eventanmeldung, Mitgliederprüfung und operative "
+"Abläufe."
+
+msgid ""
+"A multilingual service website with appointment requests, travel-zone "
+"pricing and a staff booking workflow."
+msgstr ""
+"Eine mehrsprachige Servicewebsite mit Terminanfragen, Anfahrtspreisen nach "
+"Zone und Buchungsverwaltung."
+
+msgid ""
+"A networking site for Luxembourg entrepreneurs, currently at an early stage."
+msgstr ""
+"Eine Netzwerkseite für Unternehmer in Luxemburg, derzeit noch in einem "
+"frühen Stadium."
+
+msgid ""
+"A restricted staff portal for events, requests and announcements with "
+"Microsoft sign-in."
+msgstr ""
+"Ein zugangsbeschränktes Mitarbeiterportal für Veranstaltungen, Anfragen und "
+"Mitteilungen mit Microsoft-Anmeldung."
+
+msgid "AI art gallery"
+msgstr "KI-Kunstgalerie"
+
+msgid "Agree on scope"
+msgstr "Umfang festlegen"
+
+msgid "An AI art gallery site presenting a collection that is coming soon."
+msgstr "Eine KI-Kunstgalerie, deren Sammlung noch in Vorbereitung ist."
+
+msgid "An internal tool for importing and reviewing Azure cost data."
+msgstr ""
+"Ein internes Tool zum Importieren und Auswerten von Azure-Kostendaten."
+
+msgid ""
+"An internal tool for importing and reviewing Azure cost data. It illustrates"
+" data pipelines and operational reporting; the dashboard is not a public "
+"product."
+msgstr ""
+"Ein internes Tool zum Importieren und Auswerten von Azure-Kostendaten. Es "
+"zeigt Datenpipelines und operative Berichte; das Dashboard ist kein "
+"öffentliches Produkt."
+
+msgid "Approach"
+msgstr "Vorgehen"
+
+msgid "Azure architecture and delivery"
+msgstr "Azure-Architektur und Bereitstellung"
+
+msgid "Build"
+msgstr "Entwickeln"
+
+msgid "Build and review"
+msgstr "Entwickeln und prüfen"
+
+msgid "Build responsibly"
+msgstr "Verantwortungsvoll entwickeln"
+
+msgid "Built around the work, not a template"
+msgstr "Für echte Arbeitsabläufe entwickelt, nicht nach Vorlage"
+
+msgid "Client delivery"
+msgstr "Kundenprojekt"
+
+msgid "Client delivery · Live"
+msgstr "Kundenprojekt · Im Einsatz"
+
+msgid "Coming soon"
+msgstr "Demnächst verfügbar"
+
+msgid "Concept"
+msgstr "Konzept"
+
+msgid ""
+"Connect existing tools and automate repeatable work so information moves "
+"where it is needed."
+msgstr ""
+"Verbinden Sie bestehende Tools und automatisieren Sie wiederkehrende "
+"Aufgaben, damit Informationen dort ankommen, wo sie gebraucht werden."
+
+msgid ""
+"Connect the systems you already use and reduce repeated manual steps. We "
+"define the data flow, handle failures visibly and give your team a "
+"maintainable result."
+msgstr ""
+"Verbinden Sie Ihre bestehenden Systeme und reduzieren Sie wiederkehrende "
+"manuelle Schritte. Wir definieren Datenflüsse, machen Fehler sichtbar und "
+"liefern eine wartbare Lösung."
+
+msgid "Cost data imports and reporting"
+msgstr "Import und Auswertung von Kostendaten"
+
+msgid "Cost-data ingestion and reporting built for internal Azure operations."
+msgstr "Import von Kostendaten und Berichte für den internen Azure-Betrieb."
+
+msgid "Custom Software Development in Luxembourg | Power-Up"
+msgstr "Individuelle Softwareentwicklung in Luxemburg — Power-Up"
+
+msgid "Custom Software and Azure Services | Power-Up"
+msgstr "Individuelle Software und Azure-Services — Power-Up"
+
+msgid "Custom applications and portals"
+msgstr "Individuelle Anwendungen und Portale"
+
+msgid ""
+"Custom applications, business portals, Azure architecture and workflow "
+"integrations for Luxembourg organizations."
+msgstr ""
+"Individuelle Anwendungen, Unternehmensportale, Azure-Architektur und "
+"Prozessintegrationen für Organisationen in Luxemburg."
+
+msgid ""
+"Custom business software for Luxembourg organizations, with a focus on "
+"Microsoft Azure."
+msgstr ""
+"Individuelle Unternehmenssoftware für Organisationen in Luxemburg mit "
+"Schwerpunkt Microsoft Azure."
+
+msgid "Custom business software, built for the way you work."
+msgstr "Maßgeschneiderte Software für Ihre Arbeitsabläufe."
+
+msgid "Deliver useful software in reviewable steps."
+msgstr "Nützliche Software in überprüfbaren Schritten liefern."
+
+msgid ""
+"Design, deploy and operate applications on Azure with attention to access, "
+"reliability and ongoing cost."
+msgstr ""
+"Anwendungen auf Azure entwerfen, bereitstellen und betreiben – mit Blick auf"
+" Zugriffe, Zuverlässigkeit und laufende Kosten."
+
+msgid ""
+"Different kinds of work, clearly labelled: client delivery, our own "
+"products, internal tools and concepts."
+msgstr ""
+"Unterschiedliche Arbeiten, klar gekennzeichnet: Kundenprojekte, eigene "
+"Produkte, interne Tools und Konzepte."
+
+msgid "Discuss Your Software Project | Power-Up"
+msgstr "Sprechen wir über Ihr Softwareprojekt — Power-Up"
+
+msgid "Discuss software delivery and strategic partnerships with Power-Up."
+msgstr ""
+"Sprechen Sie mit Power-Up über Softwareentwicklung und strategische "
+"Partnerschaften."
+
+msgid "Discuss your project"
+msgstr "Projekt besprechen"
+
+msgid "Email Power-Up"
+msgstr "E-Mail an Power-Up senden"
+
+msgid ""
+"Email us about your business problem, the tools you use today and your "
+"preferred timeline. We will reply with a practical next step."
+msgstr ""
+"Beschreiben Sie uns Ihr Geschäftsproblem, Ihre aktuellen Tools und Ihren "
+"gewünschten Zeitplan. Wir antworten mit einem sinnvollen nächsten Schritt."
+
+msgid "Entrepreneur networking"
+msgstr "Unternehmernetzwerk"
+
+msgid "Event solutions"
+msgstr "Eventlösungen"
+
+msgid ""
+"Examples of client delivery, an owned product and an internal Azure tool."
+msgstr ""
+"Beispiele für ein Kundenprojekt, ein eigenes Produkt und ein internes Azure-"
+"Tool."
+
+msgid ""
+"Examples: APIs, scheduled imports, notifications and operational dashboards."
+msgstr ""
+"Beispiele: APIs, geplante Datenimporte, Benachrichtigungen und operative "
+"Dashboards."
+
+msgid ""
+"Examples: booking and intake, customer self-service, internal operations and"
+" reporting."
+msgstr ""
+"Beispiele: Buchungen und Anfragen, Kunden-Self-Service, interne Abläufe und "
+"Berichte."
+
+msgid ""
+"Experience includes Azure App Service, PostgreSQL, Blob Storage, Functions, "
+"monitoring and Microsoft Entra ID."
+msgstr ""
+"Unsere Erfahrung umfasst Azure App Service, PostgreSQL, Blob Storage, "
+"Functions, Monitoring und Microsoft Entra ID."
+
+msgid "Explore"
+msgstr "Entdecken"
+
+msgid ""
+"Explore Power-Up's client delivery, owned products and internal Azure tools,"
+" with clear project status."
+msgstr ""
+"Entdecken Sie Kundenprojekte, eigene Produkte und interne Azure-Tools von "
+"Power-Up mit klar ausgewiesenem Projektstatus."
+
+msgid ""
+"Explore Power-Up's client work, owned products, internal tools and concepts "
+"with their current status."
+msgstr ""
+"Entdecken Sie Kundenprojekte, eigene Produkte, interne Tools und Konzepte "
+"von Power-Up mit ihrem aktuellen Status."
+
+msgid "Explore our services"
+msgstr "Unsere Leistungen entdecken"
+
+msgid ""
+"For a Luxembourg tree-care business, we built a multilingual website and "
+"appointment workflow. Customers can request an on-site visit; the system "
+"handles travel-zone pricing and urgent requests."
+msgstr ""
+"Für einen Luxemburger Baumpflegebetrieb haben wir eine mehrsprachige Website"
+" und einen Buchungsablauf entwickelt. Kunden können einen Vor-Ort-Termin "
+"anfragen; das System verwaltet Anfahrtspreise und dringende Anfragen."
+
+msgid ""
+"For event solutions, see our dedicated offer. For partnerships or press, use"
+" the same email address and include a clear subject."
+msgstr ""
+"Für Eventlösungen finden Sie unser gesondertes Angebot. Für Partnerschaften "
+"oder Presseanfragen verwenden Sie dieselbe E-Mail-Adresse mit einem "
+"eindeutigen Betreff."
+
+msgid ""
+"From a focused workflow tool to a customer-facing platform, we build around "
+"the job your software needs to do."
+msgstr ""
+"Vom gezielten Workflow-Tool bis zur kundenorientierten Plattform: Wir "
+"entwickeln rund um die Aufgabe, die Ihre Software erfüllen soll."
+
+msgid "Get in touch"
+msgstr "Kontakt aufnehmen"
+
+msgid ""
+"Give staff, customers or partners one clear place to complete their work. We"
+" design the data, permissions and interfaces around the real process."
+msgstr ""
+"Geben Sie Mitarbeitenden, Kunden oder Partnern einen klaren Ort für ihre "
+"Aufgaben. Wir gestalten Daten, Berechtigungen und Oberflächen passend zum "
+"tatsächlichen Ablauf."
+
+msgid "Have a project in mind?"
+msgstr "Sie haben ein Projekt im Sinn?"
+
+msgid "Have a similar challenge?"
+msgstr "Sie stehen vor einer ähnlichen Herausforderung?"
+
+msgid "Helpful details to include"
+msgstr "Hilfreiche Angaben"
+
+msgid ""
+"If you have a business software challenge, a complementary service or a "
+"relevant collaboration idea, tell us what you are trying to achieve."
+msgstr ""
+"Wenn Sie eine Softwareherausforderung, eine ergänzende Dienstleistung oder "
+"eine passende Kooperationsidee haben, erzählen Sie uns, was Sie erreichen "
+"möchten."
+
+msgid "Integrations and automation"
+msgstr "Integrationen und Automatisierung"
+
+msgid "Internal tool"
+msgstr "Internes Tool"
+
+msgid "Internal tool · Restricted access"
+msgstr "Internes Tool · Eingeschränkter Zugang"
+
+msgid "Launch and support"
+msgstr "Einführung und Betreuung"
+
+msgid "Launch, monitor and improve what matters."
+msgstr "Starten, überwachen und das Wesentliche verbessern."
+
+msgid "Luxembourg software studio · Microsoft Azure focus"
+msgstr "Luxemburger Softwarestudio · Schwerpunkt Microsoft Azure"
+
+msgid "Main navigation"
+msgstr "Hauptnavigation"
+
+msgid "Managed service · Available"
+msgstr "Betreuter Service · Verfügbar"
+
+msgid "Map the problem and existing systems."
+msgstr "Das Problem und die bestehenden Systeme erfassen."
+
+msgid ""
+"Meet Power-Up, a Luxembourg software studio focused on custom business "
+"applications and Microsoft Azure."
+msgstr ""
+"Lernen Sie Power-Up kennen, ein Luxemburger Softwarestudio mit Schwerpunkt "
+"auf individueller Unternehmenssoftware und Microsoft Azure."
+
+msgid ""
+"Microsoft Azure is a core part of our delivery experience. We choose "
+"services according to your requirements, existing systems and operating "
+"costs."
+msgstr ""
+"Microsoft Azure gehört zu unserer Umsetzungserfahrung. Wir wählen Dienste "
+"nach Ihren Anforderungen, bestehenden Systemen und Betriebskosten aus."
+
+msgid "Need technology for a live event?"
+msgstr "Sie brauchen Technik für ein Live-Event?"
+
+msgid "Other enquiries"
+msgstr "Weitere Anfragen"
+
+msgid "Other projects and concepts"
+msgstr "Weitere Projekte und Konzepte"
+
+msgid "Our Software Delivery Approach | Power-Up"
+msgstr "Unser Vorgehen bei der Softwareentwicklung — Power-Up"
+
+msgid ""
+"Our experience includes multilingual applications, identity and access, "
+"event operations, booking flows and Azure-hosted services. Each project "
+"starts with the problem to solve and the people who will use the result."
+msgstr ""
+"Unsere Erfahrung umfasst mehrsprachige Anwendungen, Identitäts- und "
+"Zugriffsverwaltung, Eventabläufe, Buchungsprozesse und Azure-gehostete "
+"Dienste. Jedes Projekt beginnt mit dem Problem und den Menschen, die die "
+"Lösung nutzen werden."
+
+msgid ""
+"Our own event and dating platform combines registration, identity checks, "
+"event operations, member experiences and mobile applications."
+msgstr ""
+"Unsere eigene Event- und Datingplattform verbindet Anmeldung, "
+"Identitätsprüfung, Eventbetrieb, Mitgliedererlebnis und mobile Anwendungen."
+
+msgid "Owned product"
+msgstr "Eigenes Produkt"
+
+msgid "Owned product · Live"
+msgstr "Eigenes Produkt · Im Einsatz"
+
+msgid "Owned project · Early stage"
+msgstr "Eigenes Projekt · Frühe Phase"
+
+msgid "Partnerships"
+msgstr "Partnerschaften"
+
+msgid "Partnerships | Power-Up"
+msgstr "Partnerschaften — Power-Up"
+
+msgid ""
+"Please do not email passwords, customer records or other sensitive data in "
+"an initial enquiry."
+msgstr ""
+"Bitte senden Sie bei einer ersten Anfrage keine Passwörter, Kundendaten oder"
+" andere sensible Informationen per E-Mail."
+
+msgid ""
+"Power-Up builds custom business software, portals and workflow tools for "
+"Luxembourg organizations, with a focus on Microsoft Azure."
+msgstr ""
+"Power-Up entwickelt individuelle Unternehmenssoftware, Portale und Workflow-"
+"Tools für Organisationen in Luxemburg mit Schwerpunkt Microsoft Azure."
+
+msgid "Power-Up home"
+msgstr "Power-Up Startseite"
+
+msgid ""
+"Power-Up works across business software, portals and digital products. We "
+"combine product thinking with hands-on engineering, from the first workflow "
+"discussion through launch and operation."
+msgstr ""
+"Power-Up entwickelt Unternehmenssoftware, Portale und digitale Produkte. Wir"
+" verbinden Produktdenken mit praktischer Entwicklung – vom ersten Gespräch "
+"über Abläufe bis zu Einführung und Betrieb."
+
+msgid ""
+"Replace scattered spreadsheets and manual handoffs with a tool designed for "
+"your team and customers."
+msgstr ""
+"Ersetzen Sie verstreute Tabellen und manuelle Übergaben durch ein Tool für "
+"Ihr Team und Ihre Kunden."
+
+msgid "Restricted portal"
+msgstr "Portal mit eingeschränktem Zugang"
+
+msgid "Reviewable releases make progress and decisions visible."
+msgstr ""
+"Überprüfbare Releases machen Fortschritte und Entscheidungen sichtbar."
+
+msgid "Run"
+msgstr "Betreiben"
+
+msgid ""
+"See how Power-Up discovers, builds, launches and supports custom business "
+"software."
+msgstr ""
+"Erfahren Sie, wie Power-Up individuelle Unternehmenssoftware plant, "
+"entwickelt, einführt und betreut."
+
+msgid "See selected work"
+msgstr "Ausgewählte Arbeiten ansehen"
+
+msgid "Selected Software Work | Power-Up"
+msgstr "Ausgewählte Softwareprojekte — Power-Up"
+
+msgid "Selected work"
+msgstr "Ausgewählte Arbeiten"
+
+msgid "Services"
+msgstr "Leistungen"
+
+msgid ""
+"Share your business problem, current tools and desired timeline. We will "
+"help you define a sensible next step."
+msgstr ""
+"Beschreiben Sie Ihr Geschäftsproblem, Ihre aktuellen Tools und Ihren "
+"gewünschten Zeitplan. Wir helfen Ihnen, einen sinnvollen nächsten Schritt "
+"festzulegen."
+
+msgid "Show the work"
+msgstr "Arbeit sichtbar machen"
+
+msgid ""
+"Software shaped around your processes, your people and the systems you "
+"already use."
+msgstr ""
+"Software, die zu Ihren Abläufen, Ihren Mitarbeitenden und Ihren vorhandenen "
+"Systemen passt."
+
+msgid "Software that fits your business"
+msgstr "Software, die zu Ihrem Unternehmen passt"
+
+msgid "Staff access with Microsoft sign-in"
+msgstr "Mitarbeiterzugang mit Microsoft-Anmeldung"
+
+msgid "Staff management portal"
+msgstr "Mitarbeiterportal"
+
+msgid "Start the conversation"
+msgstr "Lassen Sie uns sprechen"
+
+msgid "Start with a conversation"
+msgstr "Beginnen wir mit einem Gespräch"
+
+msgid "Start with the problem"
+msgstr "Mit dem Problem beginnen"
+
+msgid "Systems it may need to connect"
+msgstr "Systeme, die möglicherweise angebunden werden sollen"
+
+msgid "Tell Power-Up about your business software project in Luxembourg."
+msgstr "Erzählen Sie Power-Up von Ihrem Softwareprojekt in Luxemburg."
+
+msgid "Tell us what you need to build"
+msgstr "Erzählen Sie uns, was Sie entwickeln möchten"
+
+msgid ""
+"Tell us what your organization needs to improve. A short description is "
+"enough to begin."
+msgstr ""
+"Sagen Sie uns, was Ihre Organisation verbessern möchte. Eine kurze "
+"Beschreibung reicht für den Anfang."
+
+msgid ""
+"Tell us what your team needs to do better. We can discuss a practical first "
+"step."
+msgstr ""
+"Sagen Sie uns, was Ihr Team besser machen möchte. Wir besprechen einen "
+"praktikablen ersten Schritt."
+
+msgid "The task or process you want to improve"
+msgstr "Die Aufgabe oder der Prozess, den Sie verbessern möchten"
+
+msgid ""
+"These sites show ideas at different stages. A concept is not a launched "
+"customer product."
+msgstr ""
+"Diese Websites zeigen Ideen in unterschiedlichen Phasen. Ein Konzept ist "
+"kein eingeführtes Kundenprodukt."
+
+msgid "Toggle menu"
+msgstr "Menü öffnen"
+
+msgid "Understand"
+msgstr "Verstehen"
+
+msgid "Understand first"
+msgstr "Zuerst verstehen"
+
+msgid "Understand the work"
+msgstr "Den Arbeitsablauf verstehen"
+
+msgid "View our work"
+msgstr "Unsere Arbeiten ansehen"
+
+msgid "Vineyard adoption concept"
+msgstr "Konzept zur Adoption einer Weinbergsparzelle"
+
+msgid "Visit Arborist.lu"
+msgstr "Arborist.lu besuchen"
+
+msgid "Visit Crush.lu"
+msgstr "Crush.lu besuchen"
+
+msgid "Visit site"
+msgstr "Website besuchen"
+
+msgid ""
+"We also run ticketing, quiz and speed-dating events using tools proven on "
+"Crush.lu."
+msgstr ""
+"Wir organisieren auch Events mit Ticketverkauf, Quizabende und Speed-Dating "
+"mit Tools, die sich auf Crush.lu bewährt haben."
+
+msgid ""
+"We consider privacy, access, reliability and maintenance as part of the "
+"product."
+msgstr ""
+"Wir berücksichtigen Datenschutz, Zugriffe, Zuverlässigkeit und Wartung von "
+"Anfang an."
+
+msgid ""
+"We deliver in reviewable steps, test the important workflows and adjust with"
+" your feedback before launch."
+msgstr ""
+"Wir liefern in überprüfbaren Schritten, testen die wichtigen Abläufe und "
+"passen die Lösung vor dem Start anhand Ihres Feedbacks an."
+
+msgid ""
+"We design and develop secure web applications, portals and workflow tools "
+"for Luxembourg organizations, using Microsoft Azure where it fits your "
+"systems and goals."
+msgstr ""
+"Wir entwerfen und entwickeln sichere Webanwendungen, Portale und Workflow-"
+"Tools für Organisationen in Luxemburg und setzen Microsoft Azure ein, wenn "
+"es zu Ihren Systemen und Zielen passt."
+
+msgid ""
+"We discuss the people, current systems, constraints and measurable problem. "
+"Then we identify the smallest useful first release."
+msgstr ""
+"Wir besprechen die Nutzer, aktuelle Systeme, Rahmenbedingungen und das "
+"messbare Problem. Dann bestimmen wir die kleinste nützliche erste Version."
+
+msgid ""
+"We make the deliverables, dependencies and open decisions visible before "
+"development starts. Architecture follows the need, including whether Azure "
+"is the right fit."
+msgstr ""
+"Wir machen Lieferumfang, Abhängigkeiten und offene Entscheidungen vor "
+"Entwicklungsbeginn sichtbar. Die Architektur folgt dem Bedarf, "
+"einschließlich der Frage, ob Azure passt."
+
+msgid "We map the workflow and constraints before choosing technology."
+msgstr ""
+"Wir erfassen den Ablauf und seine Rahmenbedingungen, bevor wir Technologie "
+"auswählen."
+
+msgid ""
+"We plan deployment, access, monitoring and handover so the software can be "
+"operated and improved after release."
+msgstr ""
+"Wir planen Bereitstellung, Zugriffe, Monitoring und Übergabe, damit die "
+"Software nach dem Start betrieben und verbessert werden kann."
+
+msgid ""
+"We run ticketing, quiz nights and speed-dating events for venues, agencies "
+"and organizations using tools developed for Crush.lu."
+msgstr ""
+"Wir betreiben Ticketverkauf, Quizabende und Speed-Dating für "
+"Veranstaltungsorte, Agenturen und Organisationen mit Tools, die für Crush.lu"
+" entwickelt wurden."
+
+msgid ""
+"We start with the workflow and the people who use it, agree on a practical "
+"scope, then build and launch in reviewable steps."
+msgstr ""
+"Wir beginnen mit dem Ablauf und den Menschen, die ihn nutzen, vereinbaren "
+"einen praktikablen Umfang und entwickeln und starten dann in überprüfbaren "
+"Schritten."
+
+msgid ""
+"We use Microsoft Azure when it supports the needs of the application and "
+"your existing environment. Architecture decisions cover deployment, "
+"identity, data, monitoring and cost."
+msgstr ""
+"Wir setzen Microsoft Azure ein, wenn es die Anforderungen der Anwendung und "
+"Ihre bestehende Umgebung unterstützt. Architekturentscheidungen umfassen "
+"Bereitstellung, Identität, Daten, Monitoring und Kosten."
+
+msgid ""
+"We work with organizations that need practical digital tools and partners "
+"who can help deliver them."
+msgstr ""
+"Wir arbeiten mit Organisationen, die praktische digitale Tools benötigen, "
+"und mit Partnern, die bei deren Umsetzung helfen können."
+
+msgid "Web platform · Operations · Mobile"
+msgstr "Webplattform · Betrieb · Mobil"
+
+msgid "Website · Booking · Staff workflow"
+msgstr "Website · Buchungen · Mitarbeiterabläufe"
+
+msgid "What we build"
+msgstr "Was wir entwickeln"
+
+msgid "Who will use the software"
+msgstr "Wer die Software nutzen wird"
+
+msgid "Work"
+msgstr "Arbeiten"
+
+msgid "Work with Power-Up"
+msgstr "Mit Power-Up zusammenarbeiten"
+
+msgid ""
+"You do not need a finished specification. Tell us what is slowing your team "
+"down and which tools are involved; we can shape a first scope together."
+msgstr ""
+"Sie brauchen noch kein fertiges Lastenheft. Erzählen Sie uns, was Ihr Team "
+"ausbremst und welche Tools beteiligt sind; gemeinsam können wir einen ersten"
+" Umfang festlegen."
+
+msgid "Your desired timing"
+msgstr "Ihr gewünschter Zeitplan"

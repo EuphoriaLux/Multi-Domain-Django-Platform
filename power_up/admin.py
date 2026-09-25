@@ -19,6 +19,13 @@ class PowerUpAdminSite(admin.AdminSite):
     index_title = "Corporate Site Management"
     index_template = "admin/power_up_index.html"
 
+    def has_permission(self, request):
+        # Superusers get in without is_staff, as on the crush.lu admin: the
+        # platform bar offers this panel to every superuser, and the signal
+        # that grants coaches is_staff deliberately skips superusers.
+        user = request.user
+        return user.is_active and (user.is_staff or user.is_superuser)
+
     def each_context(self, request):
         context = super().each_context(request)
         context["crm_dashboard_url"] = "/crm/"

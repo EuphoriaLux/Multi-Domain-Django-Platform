@@ -2,182 +2,37 @@
 {% load i18n %}
 
 {% block content %}
-<!-- Hero Section -->
 <section class="hero-gradient text-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div class="text-center max-w-3xl mx-auto">
-            <h1 class="text-4xl sm:text-5xl font-bold mb-6">
-                {% trans "Contact Us" %}
-            </h1>
-            <p class="text-xl text-orange-100">
-                {% trans "We'd love to hear from you. Get in touch with our team." %}
-            </p>
-        </div>
+        <h1 class="text-4xl sm:text-5xl font-bold mb-6">{% trans "Discuss your project" %}</h1>
+        <p class="text-xl text-orange-100 max-w-3xl">{% trans "Tell us what your organization needs to improve. A short description is enough to begin." %}</p>
     </div>
 </section>
-
-<!-- Contact Information -->
 <section class="section">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <!-- Contact Details -->
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">
-                    {% trans "Get in Touch" %}
-                </h2>
-                <p class="text-gray-600 mb-8">
-                    {% trans "Whether you're interested in partnership opportunities, have questions about our platforms, or just want to say hello - we're here to help." %}
-                </p>
-
-                <div class="space-y-6">
-                    <!-- Email -->
-                    <div class="flex items-start space-x-4">
-                        <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">{% trans "Email" %}</h3>
-                            <p class="text-gray-600">
-                                <a href="mailto:hello@power-up.lu" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    hello@power-up.lu
-                                </a>
-                            </p>
-                            <p class="text-sm text-gray-500 mt-1">
-                                {% trans "We typically respond within 24 hours." %}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Location -->
-                    <div class="flex items-start space-x-4">
-                        <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">{% trans "Location" %}</h3>
-                            <p class="text-gray-600">
-                                {% trans "Luxembourg City, Luxembourg" %}
-                            </p>
-                            <p class="text-sm text-gray-500 mt-1">
-                                {% trans "Heart of Europe" %} 🇱🇺
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Business Hours -->
-                    <div class="flex items-start space-x-4">
-                        <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-powerup-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900">{% trans "Business Hours" %}</h3>
-                            <p class="text-gray-600">
-                                {% trans "Monday - Friday: 9:00 - 18:00 CET" %}
-                            </p>
-                            <p class="text-sm text-gray-500 mt-1">
-                                {% trans "Closed on Luxembourg public holidays." %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contact Categories -->
-            <div class="bg-gray-50 rounded-2xl p-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">
-                    {% trans "How Can We Help?" %}
-                </h2>
-
-                <div class="space-y-6">
-                    <!-- Investors -->
-                    <div class="bg-white rounded-xl p-6 shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                            {% trans "Investors & Partners" %}
-                        </h3>
-                        <p class="text-gray-600 mb-3">
-                            {% trans "Interested in investment or partnership opportunities?" %}
-                        </p>
-                        <a href="mailto:investors@power-up.lu" class="text-powerup-orange hover:text-powerup-orange-dark font-medium">
-                            investors@power-up.lu
-                        </a>
-                    </div>
-
-                    <!-- Press -->
-                    <div class="bg-white rounded-xl p-6 shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                            {% trans "Press & Media" %}
-                        </h3>
-                        <p class="text-gray-600 mb-3">
-                            {% trans "Working on a story about Luxembourg's tech scene?" %}
-                        </p>
-                        <a href="mailto:press@power-up.lu" class="text-powerup-orange hover:text-powerup-orange-dark font-medium">
-                            press@power-up.lu
-                        </a>
-                    </div>
-
-                    <!-- Platform Support -->
-                    <div class="bg-white rounded-xl p-6 shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                            {% trans "Platform Support" %}
-                        </h3>
-                        <p class="text-gray-600 mb-3">
-                            {% trans "Need help with one of our platforms? Visit the platform directly:" %}
-                        </p>
-                        <ul class="space-y-1 text-sm text-gray-600">
-                            <li>
-                                <a href="https://crush.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    Crush.lu
-                                </a>
-                            </li>
-                            <li>
-                                <a href="https://vinsdelux.com" target="_blank" rel="noopener noreferrer" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    VinsDelux
-                                </a>
-                            </li>
-                            <li>
-                                <a href="https://entreprinder.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    Entreprinder
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/finops/" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    FinOps Hub
-                                </a>
-                            </li>
-                            <li>
-                                <a href="https://tableau.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    Tableau.lu
-                                </a>
-                            </li>
-                            <li>
-                                <a href="https://delegations.lu" target="_blank" rel="noopener noreferrer" class="text-powerup-orange hover:text-powerup-orange-dark">
-                                    Delegations.lu
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div>
+            <h2 class="text-3xl font-bold mb-5">{% trans "Start the conversation" %}</h2>
+            <p class="text-lg text-gray-600 mb-8">{% trans "Email us about your business problem, the tools you use today and your preferred timeline. We will reply with a practical next step." %}</p>
+            <a href="mailto:hello@power-up.lu?subject=Software%20project%20enquiry" class="btn-primary">{% trans "Email Power-Up" %}</a>
+            <p class="mt-6 text-gray-600"><a href="mailto:hello@power-up.lu" class="text-powerup-orange hover:underline">hello@power-up.lu</a></p>
         </div>
+        <aside class="bg-gray-50 rounded-2xl p-8">
+            <h2 class="text-2xl font-bold mb-5">{% trans "Helpful details to include" %}</h2>
+            <ul class="space-y-4 text-gray-700 list-disc pl-5">
+                <li>{% trans "The task or process you want to improve" %}</li>
+                <li>{% trans "Who will use the software" %}</li>
+                <li>{% trans "Systems it may need to connect" %}</li>
+                <li>{% trans "Your desired timing" %}</li>
+            </ul>
+            <p class="text-sm text-gray-500 mt-7">{% trans "Please do not email passwords, customer records or other sensitive data in an initial enquiry." %}</p>
+        </aside>
     </div>
 </section>
-
-<!-- Social Proof -->
 <section class="section bg-gray-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 class="text-2xl font-bold text-gray-900 mb-4">
-            {% trans "Part of Luxembourg's Tech Ecosystem" %}
-        </h2>
-        <p class="text-gray-600 max-w-2xl mx-auto">
-            {% trans "We're proud to be building in Luxembourg alongside a vibrant community of innovators, startups, and tech enthusiasts." %}
-        </p>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold mb-4">{% trans "Other enquiries" %}</h2>
+        <p class="text-gray-600">{% trans "For event solutions, see our dedicated offer. For partnerships or press, use the same email address and include a clear subject." %}</p>
+        <a href="{% url 'power_up:solutions' %}" class="text-powerup-orange font-semibold hover:underline inline-block mt-4">{% trans "Explore event solutions" %} →</a>
     </div>
 </section>
 {% endblock %}

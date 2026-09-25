@@ -1,0 +1,38 @@
+{% extends "power_up/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <h1 class="text-4xl sm:text-5xl font-bold mb-6">{% trans "How we work" %}</h1>
+        <p class="text-xl text-orange-100 max-w-3xl">{% trans "A clear process from the first conversation to a useful, maintainable application." %}</p>
+    </div>
+</section>
+<section class="section">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <article class="grid grid-cols-1 md:grid-cols-4 gap-6 border-b border-gray-200 pb-12">
+            <p class="text-powerup-orange text-2xl font-bold">01</p>
+            <div class="md:col-span-3"><h2 class="text-3xl font-bold mb-4">{% trans "Understand the work" %}</h2><p class="text-lg text-gray-600">{% trans "We discuss the people, current systems, constraints and measurable problem. Then we identify the smallest useful first release." %}</p></div>
+        </article>
+        <article class="grid grid-cols-1 md:grid-cols-4 gap-6 border-b border-gray-200 pb-12">
+            <p class="text-powerup-orange text-2xl font-bold">02</p>
+            <div class="md:col-span-3"><h2 class="text-3xl font-bold mb-4">{% trans "Agree on scope" %}</h2><p class="text-lg text-gray-600">{% trans "We make the deliverables, dependencies and open decisions visible before development starts. Architecture follows the need, including whether Azure is the right fit." %}</p></div>
+        </article>
+        <article class="grid grid-cols-1 md:grid-cols-4 gap-6 border-b border-gray-200 pb-12">
+            <p class="text-powerup-orange text-2xl font-bold">03</p>
+            <div class="md:col-span-3"><h2 class="text-3xl font-bold mb-4">{% trans "Build and review" %}</h2><p class="text-lg text-gray-600">{% trans "We deliver in reviewable steps, test the important workflows and adjust with your feedback before launch." %}</p></div>
+        </article>
+        <article class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <p class="text-powerup-orange text-2xl font-bold">04</p>
+            <div class="md:col-span-3"><h2 class="text-3xl font-bold mb-4">{% trans "Launch and support" %}</h2><p class="text-lg text-gray-600">{% trans "We plan deployment, access, monitoring and handover so the software can be operated and improved after release." %}</p></div>
+        </article>
+    </div>
+</section>
+<section class="section bg-gray-50 text-center">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold mb-4">{% trans "Start with a conversation" %}</h2>
+        <p class="text-lg text-gray-600 mb-8">{% trans "A brief description of your challenge is enough to begin." %}</p>
+        <a href="{% url 'power_up:contact' %}" class="btn-primary">{% trans "Discuss your project" %}</a>
+    </div>
+</section>
+{% endblock %}

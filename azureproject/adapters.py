@@ -8,10 +8,109 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+import base64
+import json
 import os
 import logging
 
+from azureproject.domains import get_domain_config
+
 logger = logging.getLogger(__name__)
+
+
+def _email_domain(email):
+    """Lower-cased domain part of an email address, or "" if there isn't one.
+
+    str.rpartition returns the whole string when the separator is absent, so
+    the "@" has to be checked -- otherwise two addresses that are not
+    addresses at all would compare as sharing a domain.
+    """
+    local, at, domain = (email or "").strip().lower().rpartition("@")
+    return domain if at and local else ""
+
+
+def _microsoft_email_is_tenant_owned(extra_data, email):
+    """
+    Whether Microsoft vouches that this login's tenant owns ``email``'s domain.
+
+    allauth's Microsoft provider takes the account's email from the Graph
+    ``/me`` profile: ``mail`` first, ``userPrincipalName`` as the fallback
+    (``MicrosoftGraphProvider.extract_common_fields``). The two are not equally
+    trustworthy:
+
+    * ``mail`` is an ordinary writable directory attribute. Any administrator
+      of any Entra tenant -- and anyone may create one for free -- can PATCH a
+      user's ``mail`` to an address they do not control. That is the "nOAuth"
+      pattern (MSRC, June 2023).
+    * ``userPrincipalName`` can only use a domain the tenant has verified with
+      Microsoft, or the tenant's own ``*.onmicrosoft.com``. So the UPN's domain
+      is the one domain this login proves its tenant owns.
+
+    A ``mail`` on that same domain is therefore as good as the UPN (the common
+    corporate shape: UPN ``t.scheuer@contoso.com``, mail ``tom@contoso.com``).
+    A ``mail`` on any other domain is an unproven claim.
+
+    Personal Microsoft accounts pass: Graph reports the MSA's own address as
+    both ``mail`` and ``userPrincipalName``, so the domains match.
+
+    Guest (B2B) accounts do not: their UPN is the invited address mangled into
+    the *inviting* tenant's domain (``victim_gmail.com#EXT#@evil.onmicrosoft.com``),
+    which proves nothing about the invited address.
+
+    Note that Microsoft's own mitigation for this -- dropping unverified
+    ``email`` claims from tokens, and the ``xms_edov`` claim -- applies to
+    tokens. It does not apply to the Graph profile this provider reads, so it
+    does not protect us.
+    """
+    upn = ((extra_data or {}).get("userPrincipalName") or "").strip().lower()
+    if not upn or "#ext#" in upn:
+        return False
+    upn_domain = _email_domain(upn)
+    return bool(upn_domain) and upn_domain == _email_domain(email)
+
+
+def _is_power_up_domain(request):
+    """power-up.lu, powerup.lu and the portal: staff-only, no public members."""
+    if not request:
+        return False
+    config = get_domain_config(request.get_host())
+    return bool(config) and config.get("app") == "power_up"
+
+
+# Multi-tenant authorities: any tenant (or none) can sign in through them.
+_MICROSOFT_SHARED_AUTHORITIES = {"common", "organizations", "consumers"}
+
+
+def _microsoft_tenant_id(sociallogin):
+    """The Entra tenant a Microsoft login is bound to, or None.
+
+    allauth's extra_data is the Graph /me profile, which carries no tenant, so
+    ``extra_data.get("tid")`` is always None. Two sources are used instead:
+
+    1. The tenant the SocialApp pins its authority to (``settings.tenant``).
+       allauth builds the authorize and token endpoints from it, so Microsoft
+       itself only signs in users of that tenant. This is the stable source
+       and what power-up.lu's app should be configured with.
+    2. Failing that, the "tid" claim of the access token. For a work account
+       today that is a JWT, but Graph token format is not a client contract;
+       an opaque or encrypted token yields None, and callers refuse.
+    """
+    token = getattr(sociallogin, "token", None)
+    app_settings = getattr(getattr(token, "app", None), "settings", None) or {}
+    pinned = app_settings.get("tenant") if isinstance(app_settings, dict) else None
+    if isinstance(pinned, str) and pinned.lower() not in _MICROSOFT_SHARED_AUTHORITIES:
+        return pinned
+
+    parts = (getattr(token, "token", "") or "").split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        padded = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(padded))
+    except ValueError:
+        return None
+    tid = claims.get("tid") if isinstance(claims, dict) else None
+    return tid if isinstance(tid, str) else None
 
 
 def _is_oauth_callback(request):
@@ -212,13 +311,52 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                 f"userPrincipalName={extra.get('userPrincipalName')}"
             )
 
+            if _is_power_up_domain(request):
+                # Power-Up has no public members, so every Microsoft login
+                # there is a staff login and must come from the company
+                # tenant. Unlike the crush.lu check below this does not depend
+                # on the ?next= target, and it fails closed: no tenant claim
+                # (a personal account) or no configured tenant is a refusal.
+                allowed_tenant = os.environ.get("GRAPH_TENANT_ID")
+                user_tenant = _microsoft_tenant_id(sociallogin)
+                if not allowed_tenant or user_tenant != allowed_tenant:
+                    logger.warning(
+                        "[OAUTH-ADAPTER] Power-Up Microsoft login rejected: "
+                        "tenant=%s, configured=%s",
+                        user_tenant,
+                        bool(allowed_tenant),
+                    )
+                    raise ImmediateHttpResponse(
+                        HttpResponseForbidden(
+                            "Access denied. Only Microsoft accounts from the "
+                            "Power-Up organization can sign in here."
+                        )
+                    )
+
+            # SOCIALACCOUNT_PROVIDERS["microsoft"]["VERIFIED_EMAIL"] tells
+            # allauth to stamp every address this provider reports as verified
+            # (allauth's Provider.cleanup_email_addresses, "Force verified
+            # emails"). That is only true of addresses on a domain the tenant
+            # owns; for the rest it would write a claim we cannot back, which
+            # then blocks the real owner from registering the address here.
+            for address in sociallogin.email_addresses:
+                if address.verified and not _microsoft_email_is_tenant_owned(
+                    extra, address.email
+                ):
+                    address.verified = False
+                    logger.info(
+                        "[OAUTH-ADAPTER] Microsoft address on unverified domain "
+                        "%s recorded as unverified",
+                        _email_domain(address.email),
+                    )
+
             # Tenant validation for ADMIN PANEL access only
             # Consumers on crush.lu can use any Microsoft account
             # But admin panel requires users from the enterprise tenant
             next_url = request.session.get("next") or request.GET.get("next", "")
             is_admin_login = "/admin/" in next_url or "/crush-admin/" in next_url
 
-            if is_admin_login:
+            if is_admin_login and not _is_power_up_domain(request):
                 allowed_tenant = os.environ.get("GRAPH_TENANT_ID")
                 if allowed_tenant:
                     # Get tenant ID from token (stored in extra_data by allauth)
@@ -245,6 +383,58 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             request.session["oauth_provider"] = sociallogin.account.provider
             # Log success without session data (avoid clear-text logging)
             logger.debug("OAuth login successful")
+
+    def authenticate_by_email(self, sociallogin):
+        """
+        Gate allauth's "sign in as the user who already owns this email".
+
+        With SOCIALACCOUNT_EMAIL_AUTHENTICATION(_AUTO_CONNECT) on, a social
+        login whose email matches an existing account signs straight into that
+        account and is permanently linked to it, without the account's owner
+        doing anything. That is a good experience and a sharp edge, so the
+        match has to be trustworthy in both directions:
+
+        1. The provider must actually vouch for the address. For Microsoft it
+           may not -- see _microsoft_email_is_tenant_owned() -- so a Microsoft
+           email on a domain its tenant hasn't proven it owns claims nothing.
+        2. The account being claimed must not be a privileged one. Staff and
+           superusers reach /crush-admin/ and /power-admin/, so their accounts
+           are linked deliberately (sign in, then Account Connections), never
+           by a first-time OAuth callback. Staff who already linked a provider
+           are unaffected: allauth matches them on the stored social account
+           and never reaches this method.
+
+        Refusing here is not a refusal to sign in. The login falls through to
+        allauth's normal signup path, where ACCOUNT_UNIQUE_EMAIL stops a second
+        account being created for an address already in use.
+        """
+        match = super().authenticate_by_email(sociallogin)
+        if not match:
+            return match
+        user, email = match
+
+        provider = sociallogin.account.provider
+        if provider == "microsoft" and not _microsoft_email_is_tenant_owned(
+            sociallogin.account.extra_data, email
+        ):
+            logger.warning(
+                "[OAUTH-ADAPTER] Refused email auto-connect: Microsoft login "
+                "presented %s, which its tenant has not verified (uid=%s)",
+                _email_domain(email),
+                sociallogin.account.uid,
+            )
+            return None
+
+        if user.is_staff or user.is_superuser:
+            logger.warning(
+                "[OAUTH-ADAPTER] Refused email auto-connect into privileged "
+                "account: provider=%s, user_id=%s",
+                provider,
+                user.pk,
+            )
+            return None
+
+        return match
 
     def on_authentication_error(
         self, request, provider_id, error=None, exception=None, extra_context=None

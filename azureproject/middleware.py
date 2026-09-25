@@ -211,7 +211,16 @@ def csrf_failure_view(request, reason=""):
     - CSRF cookie presence
     - Session cookie presence
     - User agent
+    - Content type, content length, and whether an X-CSRFToken header was
+      sent (presence only). Together they tell "a form body Django could not
+      read" apart from "a script POST that carried no token at all" (iOS
+      Safari "CSRF token missing" reports, 2026-09).
+
+    Never log the body, the token value, or any other user-supplied field.
+    Keep this one f-string: PIIMaskingFilter wipes %-style args containing "@".
     """
+    content_type = request.META.get("CONTENT_TYPE") or "None"
+    content_length = request.META.get("CONTENT_LENGTH") or "None"
     logger.error(
         f"[CSRF FAILURE] path={request.path}, method={request.method}, "
         f"reason={reason}, "
@@ -219,8 +228,11 @@ def csrf_failure_view(request, reason=""):
         f"referer={request.META.get('HTTP_REFERER', 'None')}, "
         f"has_csrf_cookie={'csrftoken' in request.COOKIES}, "
         f"has_session={'sessionid' in request.COOKIES}, "
+        f"has_csrf_header={settings.CSRF_HEADER_NAME in request.META}, "
+        f"content_type={content_type[:100]}, "
+        f"content_length={content_length[:20]}, "
         f"host={request.get_host()}, "
-        f"user_agent={request.META.get('HTTP_USER_AGENT', 'None')[:100]}"
+        f"user_agent={request.META.get('HTTP_USER_AGENT', 'None')[:160]}"
     )
 
     return HttpResponseForbidden(

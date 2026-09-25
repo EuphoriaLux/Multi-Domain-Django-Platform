@@ -542,3 +542,86 @@ class TestPasswordReset(SiteTestCase):
         # Verify password was actually changed
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(new_password))
+
+
+class TestCsrfFailureViewLogging(TestCase):
+    """The CSRF failure log line must separate the two iOS hypotheses.
+
+    Prod shows ``CSRF token missing`` from iOS Safari with a cookie and a
+    session present. ``content_type``/``content_length`` say whether a form
+    body arrived (and Django failed to read it); ``has_csrf_header`` says
+    whether a script sent the header. The token value itself must never be
+    logged.
+    """
+
+    TOKEN = "notarealtokenvalue0123456789abcdef"
+
+    def setUp(self):
+        cache.clear()
+
+    def _log_line(self, **extra):
+        from django.test import RequestFactory
+
+        from azureproject.middleware import csrf_failure_view
+
+        request = RequestFactory().post(
+            "/de/coach/events/21/checkin/",
+            data="field=value",
+            content_type="multipart/form-data; boundary=xyz",
+            HTTP_USER_AGENT="U" * 300,
+            **extra,
+        )
+        with self.assertLogs("azureproject.middleware", level="ERROR") as logs:
+            response = csrf_failure_view(request, reason="CSRF token missing.")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(len(logs.output), 1)
+        return logs.output[0]
+
+    def test_logs_content_type_length_and_header_presence(self):
+        line = self._log_line(HTTP_X_CSRFTOKEN=self.TOKEN)
+        self.assertIn("path=/de/coach/events/21/checkin/", line)
+        self.assertIn("content_type=multipart/form-data; boundary=xyz", line)
+        self.assertIn("content_length=11", line)
+        self.assertIn("has_csrf_header=True", line)
+        self.assertNotIn(self.TOKEN, line)
+
+    def test_header_absent_is_false(self):
+        line = self._log_line()
+        self.assertIn("has_csrf_header=False", line)
+
+    def test_token_cookie_and_body_are_never_logged(self):
+        from django.test import RequestFactory
+
+        from azureproject.middleware import csrf_failure_view
+
+        factory = RequestFactory()
+        factory.cookies["csrftoken"] = self.TOKEN
+        request = factory.post(
+            "/en/create-profile/",
+            data={"csrfmiddlewaretoken": self.TOKEN, "secret_field": "bodyvalue"},
+        )
+        with self.assertLogs("azureproject.middleware", level="ERROR") as logs:
+            csrf_failure_view(request, reason="CSRF token missing.")
+        line = logs.output[0]
+        self.assertIn("has_csrf_cookie=True", line)
+        self.assertNotIn(self.TOKEN, line)
+        self.assertNotIn("bodyvalue", line)
+        self.assertNotIn("secret_field", line)
+
+    def test_user_agent_truncated_at_160(self):
+        line = self._log_line()
+        self.assertIn("user_agent=" + "U" * 160, line)
+        self.assertNotIn("U" * 161, line)
+
+    def test_missing_content_headers_render_as_none(self):
+        from django.test import RequestFactory
+
+        from azureproject.middleware import csrf_failure_view
+
+        request = RequestFactory().get("/en/")
+        request.META.pop("CONTENT_TYPE", None)
+        request.META.pop("CONTENT_LENGTH", None)
+        with self.assertLogs("azureproject.middleware", level="ERROR") as logs:
+            csrf_failure_view(request, reason="CSRF token missing.")
+        self.assertIn("content_type=None", logs.output[0])
+        self.assertIn("content_length=None", logs.output[0])

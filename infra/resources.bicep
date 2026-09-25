@@ -380,20 +380,27 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 // These settings won't swap when swapping deployment slots
 // This ensures staging and production maintain their own isolated resources
 //
-// ⚠️ DANGER — THIS RESOURCE IS BADLY OUT OF SYNC WITH THE LIVE APP SERVICE.
-// A PUT here REPLACES slotConfigNames wholesale; it does not merge. As of
-// 2026-07-09 the live resource pins 73 appSettingNames, this file lists ~26,
-// and the live connectionStringNames is ['pythonappConnection'] — NOT the
-// 'AZURE_POSTGRESQL_CONNECTIONSTRING' that used to be listed below (no
-// connection string by that name exists on either slot). Deploying this file
-// as-is would un-stick the database connection string and ~50 app settings,
-// so the NEXT swap would push staging's Postgres database (pythonapp_staging),
-// its ADMIN_API_KEY and its Wallet/WhatsApp secrets into production.
+// ⚠️ DANGER — A PUT here REPLACES slotConfigNames wholesale; it does not merge.
+// Reconciled against the live resource on 2026-09-22 (read-only ARM GET of
+// sites/<app>/config/slotConfigNames): live pinned 89 appSettingNames, this
+// file listed 28. The list below is now live minus six junk entries that
+// pin nothing ('host', 'password', 'port', 'sslmode', 'user' and a copy of
+// APPLICATIONINSIGHTS_CONNECTION_STRING with a trailing space — fragments of
+// a pasted connection string, unset on both slots). The three ECHO_LU_*
+// listing defaults were pinned live on 2026-09-23 (92 names now). The three
+// XDT_MicrosoftApplicationInsights_{BaseExtensions,Mode,PreemptSdk} entries
+// this file used to carry were dropped: live does not pin them and neither
+// slot sets them.
 //
-// Until this list is reconciled against the live resource, pin new sticky
-// settings with the CLI instead of deploying this file:
+// Aligning this list does NOT make resources.bicep safe to deploy: the
+// webAppSettings / stagingAppSettings 'config/appsettings' resources above
+// are full-replace too, and would wipe every portal-managed setting (secrets,
+// feature flags) on both slots. No workflow deploys this file today.
+//
+// Keep pinning new sticky settings with the CLI, then mirror the name here:
+// (--slot-settings both sets the value and marks the name slot-sticky)
 //   az webapp config appsettings set -g <rg> -n <app> --slot staging \
-//     --settings NAME=value --slot-settings NAME
+//     --slot-settings NAME=value
 resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
   parent: web
   name: 'slotConfigNames'
@@ -448,16 +455,91 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'DiagnosticServices_EXTENSION_VERSION'
       'InstrumentationEngine_EXTENSION_VERSION'
       'SnapshotDebugger_EXTENSION_VERSION'
-      'XDT_MicrosoftApplicationInsights_BaseExtensions'
-      'XDT_MicrosoftApplicationInsights_Mode'
-      'XDT_MicrosoftApplicationInsights_PreemptSdk'
+      'APPINSIGHTS_INSTRUMENTATIONKEY'
+      'APPLICATIONINSIGHTS_CONFIGURATION_CONTENT'
+      'XDT_MicrosoftApplicationInsightsJava'
+      'XDT_MicrosoftApplicationInsights_NodeJS'
+      // Telemetry - staging samples 1.0, production 0.1
+      'TELEMETRY_SAMPLING_RATE'
+      'ENABLE_LIVE_METRICS'
+      'OTEL_SERVICE_NAME'
+      // Build / runtime switches that differ per slot
+      'ORYX_DISABLE_OUTPUT_TAR_FILE'
+      'ORYX_DISABLE_PIP_CACHE'
+      'DISABLE_COLLECSTATIC'
+      'DJANGO_DEBUG'
+      'FLASK_DEBUG'
+      // Database (legacy name, unset on both slots; the real pin is the
+      // pythonappConnection connection string below)
+      'AZURE_POSTGRESQL_CONNECTIONSTRING'
+      // Storage - each slot has its own containers (staging: *-staging)
+      'AZURE_CONTAINER_NAME'
+      'AZURE_PRIVATE_CONTAINER_NAME'
+      'AZURE_CRUSH_MEDIA_CONTAINER'
+      'AZURE_CRUSH_PRIVATE_CONTAINER'
+      'AZURE_ENTREPRINDER_MEDIA_CONTAINER'
+      'AZURE_POWERUP_MEDIA_CONTAINER'
+      'AZURE_SHARED_MEDIA_CONTAINER'
+      'AZURE_VINSDELUX_MEDIA_CONTAINER'
+      'AZURE_CDN_DOMAIN'
+      // More per-slot feature flags (see the phase-flag note above)
+      'CRUSH_CACHE_ENABLED'
+      'CRUSH_EVENT_LOBBY_ENABLED'
+      'OUTLOOK_CONTACT_SYNC_ENABLED'
+      'ECHO_LU_SYNC_ENABLED'
+      // Native-app flags: unset on both slots today, pinned ahead of use so
+      // the first per-slot value cannot ride a swap.
+      'IOS_NATIVE_COMMERCE_ENABLED'
+      'ANDROID_NATIVE_COMMERCE_ENABLED'
+      'IOS_APNS_USE_SANDBOX'
+      // echo.lu listing defaults. Staging sets all three (to non-default
+      // values, incl. a 'draft' create status) and production sets none;
+      // unpinned, a swap would move staging's values into production while
+      // ECHO_LU_SYNC_ENABLED stays on there. Pinned live 2026-09-23.
+      'ECHO_LU_CREATE_STATUS'
+      'ECHO_LU_DEFAULT_AUDIENCES'
+      'ECHO_LU_DEFAULT_FORMATS'
+      // Credentials that differ per slot or exist on one slot only
+      'SUMUP_API_KEY'
+      'SUMUP_MERCHANT_CODE'
+      'ECHO_LU_API_KEY'
+      'SECRET_SYNC_TOKEN'
+      'HEALTH_CHECK_SECRET_TOKEN'
+      'GOOGLE_INDEXING_KEY_JSON'
+      'ANTHROPIC_API_KEY'
+      'BUFFER_API_KEY'
+      'AZURE_TRANSLATOR_KEY'
+      'AZURE_TRANSLATOR_REGION'
+      'FB_PIXEL_CRUSH_LU'
+      'ANDROID_APP_SHA256_CERT_FINGERPRINTS'
+      // Sign in with Apple (unset on both slots today)
+      'APPLE_CLIENT_ID'
+      'APPLE_KEY_ID'
+      'APPLE_PRIVATE_KEY'
+      'APPLE_TEAM_ID'
+      // WhatsApp (Meta) - per-slot WABA and tokens
+      'META_PHONE_NUMBER_ID'
+      'META_WABA_ID'
+      'META_WHATSAPP_ACCESS_TOKEN'
+      'META_WHATSAPP_APP_SECRET'
+      'META_WHATSAPP_VERIFY_TOKEN'
+      // Apple Wallet - per-slot certs and PassKit service root
+      'WALLET_APPLE_CERT_BASE64'
+      'WALLET_APPLE_KEY_BASE64'
+      'WALLET_APPLE_KEY_PASSWORD'
+      'WALLET_APPLE_ORGANIZATION_NAME'
+      'WALLET_APPLE_PASS_TYPE_IDENTIFIER'
+      'WALLET_APPLE_TEAM_IDENTIFIER'
+      'WALLET_APPLE_WEB_SERVICE_URL'
+      'WALLET_APPLE_WWDR_CERT_BASE64'
     ]
     // CRITICAL: Database isolation - prevents staging database from swapping to production.
-    // 'pythonappConnection' is the name actually used by both slots (prod →
-    // pythonapp, staging → pythonapp_staging) and is what the live resource
-    // pins. 'AZURE_POSTGRESQL_CONNECTIONSTRING' is kept only because it was
-    // listed here historically; no connection string by that name exists, so it
-    // is an inert orphan. Removing the first entry would un-isolate the database.
+    // 'pythonappConnection' is the name both slots use live (prod → pythonapp,
+    // staging → pythonapp_staging) and the only name the live resource pins.
+    // 'AZURE_POSTGRESQL_CONNECTIONSTRING' does not exist live, but THIS file's
+    // own webAppConnectionStrings / stagingConnectionStrings resources define
+    // the database under that key — so if this file were ever deployed, it is
+    // the name that must be pinned. Keep both; a pin on an absent name is inert.
     connectionStringNames: [
       'pythonappConnection'
       'AZURE_POSTGRESQL_CONNECTIONSTRING'
