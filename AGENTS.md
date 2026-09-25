@@ -92,7 +92,8 @@ Uses Django 6.0's native `TASKS` framework — but **production runs on the defa
 - **Credentials must stay plain app settings, never a second PostgreSQL connection string.** `production.py` takes the *first* `POSTGRESQLCONNSTR_*` it sees as `default`.
 - **The DB login `crush_analytics_ro` holds only the column grants in `analytics_readonly.GRANTS`.** `manage.py setup_analytics_role` applies them, and adding a column there is a privacy decision.
 - **Never load model instances in `crush_lu/services/analytics_readonly.py`.** Use `.values()` with an explicit `.order_by()`, and only granted columns. SQLite has no grants, so a stray `.get()` passes every test and fails in production with a permission error. `SqlColumnAuditTests` parses every captured statement against `GRANTS`.
-- **modeltranslation rewrites `.values("title")` to `title_<lang>`.** That rewrite is why the translation columns are granted too.
+- **modeltranslation rewrites `.values("title")` to `title_<lang>`.** That rewrite is why the translation columns are granted too. The API also pins English, so cached titles never mix languages.
+- **Member-level rows (`members`, `event_detail`) carry gender, age band and canton generalized over the whole real-member population** (`_generalized_quasi_identifiers`), and member filters match those generalized values. Otherwise a filtered `members` call would list a cell that `demographics` suppresses.
 
 ### i18n
 

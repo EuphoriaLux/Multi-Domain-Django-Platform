@@ -217,6 +217,7 @@ AGE_BANDS = (
     (50, 200, "50+"),
 )
 SUPPRESSION_FLOOR = 5
+SUPPRESSED = "suppressed"
 DEMOGRAPHIC_DIMENSIONS = ("gender", "age_band", "canton")
 GROUPABLE_DIMENSIONS = DEMOGRAPHIC_DIMENSIONS + ("verification_status", "luxid")
 MAX_RANGE_DAYS = 400
@@ -252,10 +253,6 @@ class NotConfigured(Exception):
 
 class NotFound(Exception):
     """The requested object does not exist."""
-
-
-class ParamError(ValueError):
-    """A request parameter is missing, malformed or out of bounds."""
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +413,53 @@ def _real_member_profiles(alias: str, excluded: set[int], **filters) -> list[dic
     )
 
 
+def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
+    """k-anonymity generalization of gender / age band / canton for member rows.
+
+    Pseudonymized rows would otherwise defeat the demographics suppression: a
+    filter such as gender=F & age_band=18-24 & canton=canton-vianden would
+    count, and list, a cell that demographics() hides. So every member-level
+    output (members, event_detail) carries these three values generalized over
+    the WHOLE real-member population, never a filtered subset, so a member
+    always generalizes the same way. A value becomes "suppressed" when fewer
+    than SUPPRESSION_FLOOR members share it: canton first, then age band, then
+    gender. Member filters match the generalized values, so no filter can
+    single out a group smaller than the floor on these dimensions.
+    """
+    today = timezone.localdate()
+    raw = {
+        p["user_id"]: (
+            p["gender"] or None,
+            age_band(p["date_of_birth"], today),
+            canton_code(p["location"]),
+        )
+        for p in profiles
+    }
+    triples = Counter(raw.values())
+    pairs = Counter(value[:2] for value in raw.values())
+    genders = Counter(value[0] for value in raw.values())
+    floor = SUPPRESSION_FLOOR
+    generalized = {}
+    for uid, (gender, band, canton) in raw.items():
+        if triples[(gender, band, canton)] >= floor:
+            generalized[uid] = {"gender": gender, "age_band": band, "canton": canton}
+        elif pairs[(gender, band)] >= floor:
+            generalized[uid] = {
+                "gender": gender,
+                "age_band": band,
+                "canton": SUPPRESSED,
+            }
+        elif genders[gender] >= floor:
+            generalized[uid] = {
+                "gender": gender,
+                "age_band": SUPPRESSED,
+                "canton": SUPPRESSED,
+            }
+        else:
+            generalized[uid] = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
+    return generalized
+
+
 def _attended_user_ids(alias: str, user_ids) -> set[int]:
     return set(
         EventRegistration.objects.using(alias)
@@ -462,7 +506,11 @@ def definitions() -> dict:
         "suppression": (
             f"In demographics, a cell crossing two or more of {list(DEMOGRAPHIC_DIMENSIONS)} "
             f"with fewer than {SUPPRESSION_FLOOR} members is returned as null and counted "
-            "in suppressed_cells."
+            "in suppressed_cells. In member-level rows (members, event_detail) gender, "
+            "age_band and canton are generalized over the whole real-member population: "
+            f"a value reads '{SUPPRESSED}' when fewer than {SUPPRESSION_FLOOR} members "
+            "share it (canton first, then age band, then gender), and member filters "
+            "match these generalized values. age_band is the current age band."
         ),
         "limits": {
             "max_range_days": MAX_RANGE_DAYS,
@@ -677,6 +725,7 @@ def events(
         row["event_registration__event_id"]: row
         for row in CreditRedemption.objects.using(alias)
         .filter(event_registration__event_id__in=event_ids)
+        .exclude(event_registration__user_id__in=excluded)
         .order_by()
         .values("event_registration__event_id")
         .annotate(n=Count("id"), cents=Sum("amount_cents"))
@@ -776,13 +825,8 @@ def event_detail(event_id: int) -> dict:
         )
     )
     user_ids = [r["user_id"] for r in registrations]
-    profiles = {
-        row["user_id"]: row
-        for row in CrushProfile.objects.using(alias)
-        .filter(user_id__in=user_ids)
-        .order_by()
-        .values("user_id", "gender", "date_of_birth")
-    }
+    quasi = _generalized_quasi_identifiers(_real_member_profiles(alias, excluded))
+    unknown_member = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
     prior = dict(
         EventRegistration.objects.using(alias)
         .filter(
@@ -809,7 +853,7 @@ def event_detail(event_id: int) -> dict:
     rows = []
     for reg in registrations:
         uid = reg["user_id"]
-        profile = profiles.get(uid, {})
+        member_qi = quasi.get(uid, unknown_member)
         prior_count = prior.get(uid, 0)
         rows.append(
             {
@@ -819,8 +863,8 @@ def event_detail(event_id: int) -> dict:
                 "checked_in": bool(reg["status"] == "attended" or reg["checked_in_at"]),
                 "paid": uid in paid_users or bool(reg["payment_confirmed"]),
                 "paid_with_credit": reg["id"] in credit_regs,
-                "gender": profile.get("gender"),
-                "age_band": age_band(profile.get("date_of_birth"), day),
+                "gender": member_qi["gender"],
+                "age_band": member_qi["age_band"],
                 "prior_events_attended": prior_count,
                 "first_event": prior_count == 0,
             }
@@ -1045,10 +1089,19 @@ def retention(start: date, end: date) -> dict:
     alias = _alias()
     excluded = excluded_user_ids(alias)
     low, high = _window(start, end)
+    # Bound the work by the window first: who attended in it, then only their
+    # history (needed for first-timer and return-within-90-days checks).
+    attendee_ids = set(
+        EventRegistration.objects.using(alias)
+        .filter(_ATTENDED, event__date_time__gte=low, event__date_time__lt=high)
+        .exclude(user_id__in=excluded)
+        .order_by()
+        .values_list("user_id", flat=True)
+        .distinct()
+    )
     attended = list(
         EventRegistration.objects.using(alias)
-        .filter(_ATTENDED)
-        .exclude(user_id__in=excluded)
+        .filter(_ATTENDED, user_id__in=attendee_ids)
         .order_by("event__date_time")
         .values("user_id", "event__date_time")
     )
@@ -1153,26 +1206,30 @@ def members(
 ) -> dict:
     alias = _alias()
     excluded = excluded_user_ids(alias)
-    filters: dict = {}
+    # Generalize over the whole population first, then filter on the
+    # generalized values (see _generalized_quasi_identifiers).
+    population = _real_member_profiles(alias, excluded)
+    quasi = _generalized_quasi_identifiers(population)
+    low = high = None
     if signup_from or signup_to:
         low, high = _window(
             signup_from or date(2000, 1, 1), signup_to or timezone.localdate()
         )
-        filters.update(created_at__gte=low, created_at__lt=high)
-    if verification_status:
-        filters["verification_status"] = verification_status
-    if gender:
-        filters["gender"] = gender
-    if canton:
-        filters["location"] = canton
-    profiles = _real_member_profiles(alias, excluded, **filters)
-    today = timezone.localdate()
-    if age_band_filter:
-        profiles = [
-            p
-            for p in profiles
-            if age_band(p["date_of_birth"], today) == age_band_filter
-        ]
+
+    def keep(p):
+        qi = quasi[p["user_id"]]
+        return (
+            (low is None or low <= p["created_at"] < high)
+            and (
+                not verification_status
+                or p["verification_status"] == verification_status
+            )
+            and (not gender or qi["gender"] == gender)
+            and (not age_band_filter or qi["age_band"] == age_band_filter)
+            and (not canton or qi["canton"] == canton)
+        )
+
+    profiles = [p for p in population if keep(p)]
 
     user_ids = [p["user_id"] for p in profiles]
     luxid_ids = _luxid_user_ids(alias, user_ids)
@@ -1214,9 +1271,7 @@ def members(
             {
                 "member": pseudonym(uid),
                 "signup_week": _bucket(_local_date(p["created_at"]), "week"),
-                "gender": p["gender"] or None,
-                "age_band": age_band(p["date_of_birth"], today),
-                "canton": canton_code(p["location"]),
+                **quasi[uid],
                 "verification_status": p["verification_status"],
                 "verification_method": p["verification_method"] or None,
                 "phone_verified": bool(p["phone_verified"]),

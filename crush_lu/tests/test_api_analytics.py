@@ -188,6 +188,16 @@ class AnalyticsFixture(TestCase):
         CreditRedemption.objects.create(
             credit=credit, event_registration=cls.bob_reg, amount_cents=500
         )
+        # An excluded account's redemption must not reach any credit total.
+        staff_credit = CrushCredit.objects.create(
+            user=cls.staff,
+            amount_cents=700,
+            reason=CrushCredit.Reason.GOODWILL,
+            expires_at=timezone.now() + timedelta(days=300),
+        )
+        CreditRedemption.objects.create(
+            credit=staff_credit, event_registration=staff_reg, amount_cents=700
+        )
         CrushConnectMembership.objects.create(
             user=cls.alice,
             onboarding_started_at=timezone.now(),
@@ -262,6 +272,14 @@ class AccessTests(AnalyticsFixture):
     def test_responses_are_not_cacheable_by_intermediaries(self):
         self.assertEqual(self.get("definitions")["Cache-Control"], "no-store")
 
+    def test_language_is_pinned_so_cached_titles_never_mix(self):
+        MeetupEvent.objects.filter(pk=self.night.pk).update(title_fr="Soirée rapide")
+        response = self.client.get(f"{BASE}events/", HTTP_ACCEPT_LANGUAGE="fr", **AUTH)
+        self.assertEqual(response.json()["language"], "en")
+        titles = {e["title"] for e in response.json()["data"]["events"]}
+        self.assertIn("Speed Night", titles)
+        self.assertNotIn("Soirée rapide", titles)
+
 
 class DarkUnlessConfiguredTests(AnalyticsFixture):
     def test_without_keys_the_endpoint_does_not_exist(self):
@@ -275,9 +293,33 @@ class DarkUnlessConfiguredTests(AnalyticsFixture):
         with override_settings(**{**CONFIGURED, "ANALYTICS_DB_ALIAS": "analytics"}):
             self.assertEqual(self.get("events").status_code, 404)
 
+    def test_dark_route_is_404_for_any_method_and_rate(self):
+        # The dark gate runs before the method check and the rate limiter, so
+        # nothing distinguishes the route from one that does not exist.
+        with override_settings(
+            ROOT_URLCONF="azureproject.urls_crush", ANALYTICS_API_KEY=""
+        ):
+            self.assertEqual(self.client.post(f"{BASE}events/").status_code, 404)
+            statuses = {
+                self.client.get(f"{BASE}events/").status_code for _ in range(65)
+            }
+        self.assertEqual(statuses, {404})
+
 
 @override_settings(**CONFIGURED)
 class ToolTests(AnalyticsFixture):
+    """Computations, with the suppression floor at 1 so raw values show.
+
+    The fixture's four members would otherwise all generalize to
+    "suppressed"; DisclosureControlTests covers the real floor.
+    """
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(analytics, "SUPPRESSION_FLOOR", 1)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_events_count_real_members_and_report_excluded_seats(self):
         events = {e["title"]: e for e in self.data("events")["events"]}
         night = events["Speed Night"]
@@ -339,17 +381,6 @@ class ToolTests(AnalyticsFixture):
         self.assertEqual(retention["events_attended_in_window"], {"2": 1})
         self.assertEqual(retention["median_days_between_events"], 30)
 
-    def test_demographics_suppresses_small_cross_tab_cells(self):
-        crossed = self.data("demographics", group_by="gender,age_band")
-        self.assertEqual(crossed["total_members"], 4)
-        self.assertTrue(
-            all(c["suppressed"] and c["members"] is None for c in crossed["cells"])
-        )
-        single = self.data("demographics", group_by="gender")
-        self.assertEqual(
-            {c["gender"]: c["members"] for c in single["cells"]}, {"F": 2, "M": 2}
-        )
-
     def test_members_rows_have_a_fixed_shape(self):
         data = self.data("members")
         self.assertEqual(data["total_matching"], 4)
@@ -375,6 +406,47 @@ class ToolTests(AnalyticsFixture):
         self.assertRegex(first, r"^[0-9a-f]{16}$")
         with override_settings(ANALYTICS_PSEUDONYM_KEY="another-key"):
             self.assertNotEqual(first, analytics.pseudonym(self.alice.id))
+
+
+@override_settings(**CONFIGURED)
+class DisclosureControlTests(AnalyticsFixture):
+    """The real floor (5). Four real members make every small cell visible."""
+
+    def test_demographics_suppresses_small_cross_tab_cells(self):
+        crossed = self.data("demographics", group_by="gender,age_band")
+        self.assertEqual(crossed["total_members"], 4)
+        self.assertTrue(
+            all(c["suppressed"] and c["members"] is None for c in crossed["cells"])
+        )
+        single = self.data("demographics", group_by="gender")
+        self.assertEqual(
+            {c["gender"]: c["members"] for c in single["cells"]}, {"F": 2, "M": 2}
+        )
+
+    def test_member_rows_cannot_rebuild_a_suppressed_cell(self):
+        rows = self.data("members")["members"]
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            self.assertEqual(
+                (row["gender"], row["age_band"], row["canton"]),
+                ("suppressed", "suppressed", "suppressed"),
+            )
+        # Filters match the generalized values, so they cannot count the cell.
+        self.assertEqual(self.data("members", gender="F")["total_matching"], 0)
+        detail = self.data("event_detail", event_id=str(self.night.id))
+        self.assertEqual({r["gender"] for r in detail["registrations"]}, {"suppressed"})
+
+    def test_generalization_drops_canton_then_age_before_gender(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
+            rows = self.data("members")["members"]
+            self.assertEqual({r["gender"] for r in rows}, {"F", "M"})
+            self.assertEqual({r["age_band"] for r in rows}, {"suppressed"})
+            self.assertEqual({r["canton"] for r in rows}, {"suppressed"})
+            cache.clear()
+            self.assertEqual(self.data("members", gender="F")["total_matching"], 2)
+            self.assertEqual(
+                self.data("members", age_band="30-34")["total_matching"], 0
+            )
 
 
 @override_settings(**CONFIGURED)

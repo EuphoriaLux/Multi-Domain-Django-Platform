@@ -181,24 +181,80 @@ class Command(BaseCommand):
         self._audit(connection)
 
     def _revoke_everything(self, cursor):
-        """Reset to zero: table-level and column-level privileges in public."""
+        """Reset the role to zero privileges before applying the allowlist.
+
+        Reads the catalogs directly (every schema, not just public) so a
+        pre-existing role cannot keep access beyond GRANTS: role memberships
+        (a NOINHERIT member could still SET ROLE), relation and column ACLs,
+        schema, database and function privileges. Ownership and default
+        privileges cannot be revoked away, so they abort the run instead.
+        """
         r = _qn(ROLE)
         cursor.execute(
-            "SELECT DISTINCT table_name FROM information_schema.table_privileges "
-            "WHERE grantee = %s AND table_schema = 'public'",
-            [ROLE],
+            "SELECT (SELECT count(*) FROM pg_class WHERE relowner = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_namespace WHERE nspowner = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_proc WHERE proowner = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_default_acl d, aclexplode(d.defaclacl) a"
+            "    WHERE a.grantee = %(o)s::regrole OR d.defaclrole = %(o)s::regrole)",
+            {"o": ROLE},
         )
-        for (table,) in cursor.fetchall():
-            cursor.execute(f"REVOKE ALL ON public.{_qn(table)} FROM {r}")
+        if cursor.fetchone()[0]:
+            raise CommandError(
+                f"{ROLE} owns objects or has default privileges; resolve that by hand "
+                "(REASSIGN OWNED / ALTER DEFAULT PRIVILEGES) before re-running."
+            )
         cursor.execute(
-            "SELECT table_name, string_agg(DISTINCT column_name, ',') "
-            "FROM information_schema.column_privileges "
-            "WHERE grantee = %s AND table_schema = 'public' GROUP BY 1",
+            "SELECT g.rolname FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid "
+            "WHERE m.member = %s::regrole",
             [ROLE],
         )
-        for table, columns in cursor.fetchall():
+        for (group,) in cursor.fetchall():
+            cursor.execute(f"REVOKE {_qn(group)} FROM {r}")
+        cursor.execute(
+            "SELECT DISTINCT n.nspname, c.relname, c.relkind FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE a.grantee = %s::regrole",
+            [ROLE],
+        )
+        for schema, relation, kind in cursor.fetchall():
+            keyword = "SEQUENCE" if kind == "S" else "TABLE"
+            cursor.execute(
+                f"REVOKE ALL ON {keyword} {_qn(schema)}.{_qn(relation)} FROM {r}"
+            )
+        cursor.execute(
+            "SELECT n.nspname, c.relname, string_agg(DISTINCT at.attname, ',') "
+            "FROM pg_attribute at JOIN pg_class c ON c.oid = at.attrelid "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE a.grantee = %s::regrole "
+            "GROUP BY 1, 2",
+            [ROLE],
+        )
+        for schema, relation, columns in cursor.fetchall():
             cols = ", ".join(_qn(c) for c in columns.split(","))
-            cursor.execute(f"REVOKE ALL ({cols}) ON public.{_qn(table)} FROM {r}")
+            cursor.execute(
+                f"REVOKE ALL ({cols}) ON {_qn(schema)}.{_qn(relation)} FROM {r}"
+            )
+        cursor.execute(
+            "SELECT DISTINCT n.nspname FROM pg_namespace n "
+            "CROSS JOIN LATERAL aclexplode(n.nspacl) a WHERE a.grantee = %s::regrole",
+            [ROLE],
+        )
+        for (schema,) in cursor.fetchall():
+            cursor.execute(f"REVOKE ALL ON SCHEMA {_qn(schema)} FROM {r}")
+        cursor.execute(
+            "SELECT DISTINCT d.datname FROM pg_database d "
+            "CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE a.grantee = %s::regrole",
+            [ROLE],
+        )
+        for (database,) in cursor.fetchall():
+            cursor.execute(f"REVOKE ALL ON DATABASE {_qn(database)} FROM {r}")
+        cursor.execute(
+            "SELECT DISTINCT p.oid::regprocedure::text FROM pg_proc p "
+            "CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE a.grantee = %s::regrole",
+            [ROLE],
+        )
+        for (signature,) in cursor.fetchall():
+            cursor.execute(f"REVOKE ALL ON FUNCTION {signature} FROM {r}")
 
     def _audit(self, connection):
         with connection.cursor() as cursor:

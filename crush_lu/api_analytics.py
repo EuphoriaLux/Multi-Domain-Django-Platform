@@ -7,9 +7,10 @@ each tool to AI agents. All data logic lives in
 
 Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
 
-The endpoint is dark (404) until the analytics keys and DB alias exist, which
-is only ever on the production slot. It never writes, it takes only GET, and
-every parameter is parsed into a bounded value before reaching a query.
+The endpoint is dark (404, whatever the method or request rate) until the
+analytics keys and DB alias exist, which is only ever on the production slot.
+It never writes, it takes only GET, and every parameter is parsed into a
+bounded value before reaching a query.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError, OperationalError
 from django.http import Http404, JsonResponse
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.views.decorators.http import require_GET
 
 from crush_lu.decorators import ratelimit
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 
 CACHE_SECONDS = 300
 CACHE_PREFIX = "crush-analytics:v1:"
+# modeltranslation reads the active language's column (title_<lang>); the API
+# pins one language so a cached payload is identical for every caller.
+API_LANGUAGE = "en"
 
 
 def authenticate_analytics_request(request) -> bool:
@@ -47,68 +51,75 @@ def authenticate_analytics_request(request) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Parameter parsing: every value is validated and bounded here.
+# Parameter parsing: every value is validated and bounded here. Problems are
+# collected as plain messages (no exceptions), so nothing but these fixed
+# strings can ever reach a response body.
 # ---------------------------------------------------------------------------
 
 
-def _date(params, name, default=None):
-    raw = params.get(name)
-    if not raw:
-        return default
-    try:
-        return date.fromisoformat(raw)
-    except ValueError:
-        raise analytics.ParamError(f"{name} must be YYYY-MM-DD")
+class Params:
+    def __init__(self, query):
+        self.query = query
+        self.errors: list[str] = []
 
+    def date(self, name, default=None):
+        raw = self.query.get(name)
+        if not raw:
+            return default
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            self.errors.append(f"{name} must be YYYY-MM-DD")
+            return default
 
-def _range(params):
-    today = timezone.localdate()
-    end = _date(params, "to", today)
-    start = _date(params, "from", end - timedelta(days=analytics.DEFAULT_RANGE_DAYS))
-    if start > end:
-        raise analytics.ParamError("from must be on or before to")
-    if (end - start).days > analytics.MAX_RANGE_DAYS:
-        raise analytics.ParamError(
-            f"date range is limited to {analytics.MAX_RANGE_DAYS} days"
-        )
-    return start, end
+    def range(self):
+        today = timezone.localdate()
+        end = self.date("to", today)
+        start = self.date("from", end - timedelta(days=analytics.DEFAULT_RANGE_DAYS))
+        if start > end:
+            self.errors.append("from must be on or before to")
+        elif (end - start).days > analytics.MAX_RANGE_DAYS:
+            self.errors.append(
+                f"date range is limited to {analytics.MAX_RANGE_DAYS} days"
+            )
+        return start, end
 
+    def int(self, name, default, low, high):
+        raw = self.query.get(name)
+        if raw in (None, ""):
+            return default
+        try:
+            value = int(raw)
+        except ValueError:
+            self.errors.append(f"{name} must be an integer")
+            return default
+        if not low <= value <= high:
+            self.errors.append(f"{name} must be between {low} and {high}")
+            return default
+        return value
 
-def _int(params, name, default, low, high):
-    raw = params.get(name)
-    if raw in (None, ""):
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        raise analytics.ParamError(f"{name} must be an integer")
-    if not low <= value <= high:
-        raise analytics.ParamError(f"{name} must be between {low} and {high}")
-    return value
+    def choice(self, name, allowed):
+        raw = self.query.get(name)
+        if not raw:
+            return None
+        if raw not in allowed:
+            self.errors.append(f"{name} must be one of {sorted(allowed)}")
+            return None
+        return raw
 
-
-def _choice(params, name, allowed):
-    raw = params.get(name)
-    if not raw:
+    def bool(self, name):
+        raw = self.query.get(name)
+        if raw in (None, ""):
+            return None
+        if raw.lower() in ("true", "1", "yes"):
+            return True
+        if raw.lower() in ("false", "0", "no"):
+            return False
+        self.errors.append(f"{name} must be true or false")
         return None
-    if raw not in allowed:
-        raise analytics.ParamError(f"{name} must be one of {sorted(allowed)}")
-    return raw
 
-
-def _bool(params, name):
-    raw = params.get(name)
-    if raw in (None, ""):
-        return None
-    if raw.lower() in ("true", "1", "yes"):
-        return True
-    if raw.lower() in ("false", "0", "no"):
-        return False
-    raise analytics.ParamError(f"{name} must be true or false")
-
-
-def _grain(params, default):
-    return _choice(params, "grain", {"week", "month"}) or default
+    def grain(self, default):
+        return self.choice("grain", {"week", "month"}) or default
 
 
 EVENT_TYPES = {value for value, _ in analytics.MeetupEvent.EVENT_TYPE_CHOICES}
@@ -124,75 +135,73 @@ LOCATION_CODES = {
 }  # fmt: skip
 
 
-def _parse_definitions(params):
+def _parse_definitions(p):
     return {}
 
 
-def _parse_kpi_weekly(params):
-    return {"weeks": _int(params, "weeks", 12, 1, analytics.MAX_KPI_WEEKS)}
+def _parse_kpi_weekly(p):
+    return {"weeks": p.int("weeks", 12, 1, analytics.MAX_KPI_WEEKS)}
 
 
-def _parse_funnel(params):
-    start, end = _range(params)
-    return {"start": start, "end": end, "grain": _grain(params, "week")}
+def _parse_funnel(p):
+    start, end = p.range()
+    return {"start": start, "end": end, "grain": p.grain("week")}
 
 
-def _parse_events(params):
-    start, end = _range(params)
+def _parse_events(p):
+    start, end = p.range()
     return {
         "start": start,
         "end": end,
-        "event_type": _choice(params, "event_type", EVENT_TYPES),
-        "canton": _choice(params, "canton", CANTONS),
+        "event_type": p.choice("event_type", EVENT_TYPES),
+        "canton": p.choice("canton", CANTONS),
     }
 
 
-def _parse_event_detail(params):
-    if not params.get("event_id"):
-        raise analytics.ParamError("event_id is required")
-    return {"event_id": _int(params, "event_id", None, 1, 2**31 - 1)}
+def _parse_event_detail(p):
+    event_id = p.int("event_id", None, 1, 2**31 - 1)
+    if event_id is None and not p.errors:
+        p.errors.append("event_id is required")
+    return {"event_id": event_id}
 
 
-def _parse_payments(params):
-    start, end = _range(params)
-    return {"start": start, "end": end, "grain": _grain(params, "month")}
+def _parse_payments(p):
+    start, end = p.range()
+    return {"start": start, "end": end, "grain": p.grain("month")}
 
 
-def _parse_window(params):
-    start, end = _range(params)
+def _parse_window(p):
+    start, end = p.range()
     return {"start": start, "end": end}
 
 
-def _parse_demographics(params):
-    raw = params.get("group_by") or "gender,age_band"
+def _parse_demographics(p):
+    raw = p.query.get("group_by") or "gender,age_band"
     group_by = [part.strip() for part in raw.split(",") if part.strip()]
     unknown = [d for d in group_by if d not in analytics.GROUPABLE_DIMENSIONS]
     if not group_by or unknown or len(set(group_by)) != len(group_by):
-        raise analytics.ParamError(
-            f"group_by must be a comma list of distinct {list(analytics.GROUPABLE_DIMENSIONS)}"
+        p.errors.append(
+            "group_by must be a comma list of distinct "
+            f"{list(analytics.GROUPABLE_DIMENSIONS)}"
         )
     return {
         "group_by": group_by,
-        "verification_status": _choice(
-            params, "verification_status", VERIFICATION_STATUSES
-        ),
+        "verification_status": p.choice("verification_status", VERIFICATION_STATUSES),
     }
 
 
-def _parse_members(params):
+def _parse_members(p):
     return {
-        "signup_from": _date(params, "signup_from"),
-        "signup_to": _date(params, "signup_to"),
-        "verification_status": _choice(
-            params, "verification_status", VERIFICATION_STATUSES
-        ),
-        "gender": _choice(params, "gender", GENDERS),
-        "age_band_filter": _choice(params, "age_band", AGE_BAND_LABELS),
-        "canton": _choice(params, "canton", LOCATION_CODES),
-        "luxid": _bool(params, "luxid"),
-        "attended": _bool(params, "attended"),
-        "limit": _int(
-            params, "limit", analytics.DEFAULT_MEMBER_ROWS, 1, analytics.MAX_MEMBER_ROWS
+        "signup_from": p.date("signup_from"),
+        "signup_to": p.date("signup_to"),
+        "verification_status": p.choice("verification_status", VERIFICATION_STATUSES),
+        "gender": p.choice("gender", GENDERS),
+        "age_band_filter": p.choice("age_band", AGE_BAND_LABELS),
+        "canton": p.choice("canton", LOCATION_CODES),
+        "luxid": p.bool("luxid"),
+        "attended": p.bool("attended"),
+        "limit": p.int(
+            "limit", analytics.DEFAULT_MEMBER_ROWS, 1, analytics.MAX_MEMBER_ROWS
         ),
     }
 
@@ -217,11 +226,17 @@ def _error(message, status):
     return response
 
 
-@require_GET
-@ratelimit(key="ip", rate="60/m", method="GET", block=True)
 def analytics_tool(request, tool):
+    """Dark gate first: an unconfigured host answers 404 before the method
+    check or the rate limiter could reveal that the route exists."""
     if not analytics.is_configured():
         raise Http404
+    return _serve(request, tool)
+
+
+@require_GET
+@ratelimit(key="ip", rate="60/m", method="GET", block=True)
+def _serve(request, tool):
     if not authenticate_analytics_request(request):
         logger.warning("Unauthorized analytics API call for tool=%s", tool)
         return _error("Unauthorized", 401)
@@ -231,24 +246,25 @@ def analytics_tool(request, tool):
         )
 
     handler, parse = TOOLS[tool]
-    try:
-        kwargs = parse(request.GET)
-    except analytics.ParamError as exc:
-        return _error(str(exc), 400)
+    params = Params(request.GET)
+    kwargs = parse(params)
+    if params.errors:
+        return _error("; ".join(params.errors), 400)
 
-    params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
+    public_params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
     cache_key = (
         CACHE_PREFIX
         + hashlib.sha256(
-            f"{tool}:{json.dumps(params, sort_keys=True)}".encode()
+            f"{tool}:{json.dumps(public_params, sort_keys=True)}".encode()
         ).hexdigest()
     )
     payload = cache.get(cache_key)
     if payload is None:
         try:
-            data = handler(**kwargs)
-        except analytics.NotFound as exc:
-            return _error(str(exc), 404)
+            with translation.override(API_LANGUAGE):
+                data = handler(**kwargs)
+        except analytics.NotFound:
+            return _error("not found", 404)
         except OperationalError as exc:
             if "statement timeout" in str(exc) or "canceling statement" in str(exc):
                 return _error(
@@ -261,8 +277,9 @@ def analytics_tool(request, tool):
             return _error("database error", 500)
         payload = {
             "tool": tool,
-            "params": params,
+            "params": public_params,
             "generated_at": timezone.now().isoformat(),
+            "language": API_LANGUAGE,
             "data": data,
         }
         cache.set(cache_key, payload, CACHE_SECONDS)
