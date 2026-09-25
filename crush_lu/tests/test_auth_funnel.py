@@ -69,6 +69,16 @@ def test_compiled_german_catalog_says_registrieren():
         assert translation.gettext("Login") == "Anmelden"
 
 
+def _input_tag(html, field_id):
+    match = re.search(rf'<input\b[^>]*\bid="{field_id}"[^>]*>', html)
+    assert match, f"#{field_id} is missing from the page"
+    return match.group(0)
+
+
+def _has_autofocus(html, field_id):
+    return re.search(r"\sautofocus\b", _input_tag(html, field_id)) is not None
+
+
 def _unverified_user(email):
     user = User.objects.create_user(
         username=email, email=email, password="Str0ng-pass-2026!"
@@ -176,12 +186,65 @@ class EmailConfirmationFlowTests(TestCase):
         )
         self.assertEqual(tabs, [("Login", "Anmelden"), ("Signup", "Registrieren")])
 
+    def test_crush_confirmation_focuses_the_password_field(self):
+        """The email is already filled in, so the cursor waits in the password."""
+        client, response = self._confirm("crush.lu", "focus@example.com")
+        html = client.get(response.url).content.decode()
+        self.assertTrue(_has_autofocus(html, "id_password"))
+        self.assertFalse(_has_autofocus(html, "id_login"))
+
     def test_other_domain_confirmation_is_unchanged(self):
         for host in ("entreprinder.lu", "power-up.lu"):
             with self.subTest(host=host):
                 _client, response = self._confirm(host, f"user@{host}")
                 self.assertEqual(response.status_code, 302)
                 self.assertEqual(response.url, "/accounts/login/")
+
+
+class TabbedLoginPageTests(TestCase):
+    """The tabbed /<lang>/login/ page (crush_lu/auth.html) around the landing."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_plain_visit_keeps_focus_on_the_email_field(self):
+        html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
+        self.assertTrue(_has_autofocus(html, "id_login"))
+        self.assertFalse(_has_autofocus(html, "id_password"))
+
+    def test_failed_login_keeps_focus_on_the_email_field(self):
+        """A bound form also carries the email; only the prefill moves focus."""
+        response = Client(HTTP_HOST="crush.lu").post(
+            "/en/login/", {"login": "nobody@example.com", "password": "wrong"}
+        )
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('value="nobody@example.com"', html)
+        self.assertTrue(_has_autofocus(html, "id_login"))
+        self.assertFalse(_has_autofocus(html, "id_password"))
+
+    def test_tabs_shrink_below_sm_so_the_german_labels_fit(self):
+        """
+        "Anmelden | Registrieren" at text-lg needs more than the 230px pill a
+        320px phone leaves (measured in Chromium: 24px past the border). Below
+        `sm` the tabs drop to text-base and px-1, which fits EN/DE/FR at 320px;
+        from `sm` up they keep text-lg and px-6.
+        """
+        html = (
+            Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="de")
+            .get("/de/login/")
+            .content.decode()
+        )
+        classes = re.findall(
+            r'@click="set(?:Login|Signup)"\s+x-bind:class="\w+"\s+class="([^"]*)"',
+            html,
+        )
+        self.assertEqual(len(classes), 2)
+        for class_attr in classes:
+            tokens = class_attr.split()
+            for token in ("px-1", "sm:px-6", "text-base", "sm:text-lg"):
+                self.assertIn(token, tokens)
+            self.assertNotIn("text-lg", tokens)
 
 
 class CrushAllauthLoginPageTests(TestCase):

@@ -48,13 +48,13 @@
                         <button type="button"
                                 @click="setLogin"
                                 x-bind:class="loginTabClass"
-                                class="flex-1 py-3 px-2 sm:px-6 rounded-full font-bold text-lg transition-all duration-300">
+                                class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
                             {% trans "Login" %}
                         </button>
                         <button type="button"
                                 @click="setSignup"
                                 x-bind:class="signupTabClass"
-                                class="flex-1 py-3 px-2 sm:px-6 rounded-full font-bold text-lg transition-all duration-300">
+                                class="flex-1 py-3 px-1 sm:px-6 rounded-full font-bold text-base sm:text-lg transition-all duration-300">
                             {% trans "Sign up" %}
                         </button>
                     </div>
@@ -161,11 +161,16 @@
                                 </div>
                             {% endif %}
 
+                            {% comment %}
+                              An unbound form only carries a login value when
+                              UnifiedAuthView prefilled it after email
+                              confirmation, so focus the empty password field.
+                            {% endcomment %}
                             <div class="mb-4">
                                 <label for="id_login" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                                 <input type="email" class="w-full px-4 py-3 border {% if login_form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                        id="id_login" name="login"
-                                       value="{{ login_form.login.value|default:'' }}" required autofocus
+                                       value="{{ login_form.login.value|default:'' }}" required{% if login_form.is_bound or not login_form.login.value %} autofocus{% endif %}
                                        placeholder="your@email.com">
                                 {% if login_form.login.errors %}
                                     <p class="mt-1 text-sm text-red-600">{{ login_form.login.errors.0 }}</p>
@@ -176,7 +181,7 @@
                                 <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                                 <div class="relative">
                                     <input type="password" class="w-full px-4 py-3 pr-12 border {% if login_form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                                           id="id_password" name="password" required>
+                                           id="id_password" name="password" required{% if not login_form.is_bound and login_form.login.value %} autofocus{% endif %}>
                                     <button type="button"
                                             class="password-toggle absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                                             data-target="id_password"
