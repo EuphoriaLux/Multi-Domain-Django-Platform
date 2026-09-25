@@ -66,12 +66,14 @@ ANALYTICS_PSEUDONYM_KEY = os.getenv("ANALYTICS_PSEUDONYM_KEY", "")
 ANALYTICS_DB_ALIAS = "analytics"
 # Other databases on the server the analytics login may still reach through
 # PUBLIC's default CONNECT (which cannot be revoked for one role alone). Only
-# databases holding no member data belong here; the default is Azure's own.
+# databases holding no member data belong here; the default is Azure's own
+# plus template1, PostgreSQL's empty template for new databases.
 # Both setup_analytics_role and the 10-minute runtime audit enforce it.
 ANALYTICS_ALLOWED_OTHER_DATABASES = [
     name.strip()
     for name in os.getenv(
-        "ANALYTICS_ALLOWED_OTHER_DATABASES", "postgres,azure_sys,azure_maintenance"
+        "ANALYTICS_ALLOWED_OTHER_DATABASES",
+        "postgres,azure_sys,azure_maintenance,template1",
     ).split(",")
     if name.strip()
 ]

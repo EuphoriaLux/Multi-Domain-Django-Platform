@@ -404,14 +404,17 @@ PRIVILEGE_AUDIT_SQL = {
         "WHERE a.grantee = 0 OR a.grantee = %(role)s::regrole)"
     ),
     # CONNECT elsewhere must be allowlisted, and CREATE there is excess even
-    # when it is. TEMPORARY there is not audited: the allowlisted databases are
-    # Azure-managed (azure_sys and azure_maintenance are owned by azuresu, so no
-    # login of ours can change their ACLs), temp tables there cannot read member
-    # data, and these credentials sit beside the admin password in the same
-    # App Service settings.
+    # when it is. Template databases count too (template1 is connectable by
+    # default, and a copy of app data could be marked as a template): only
+    # datallowconn, which nobody can bypass, rules a database out. TEMPORARY
+    # there is not audited: the allowlisted databases are Azure-managed or
+    # empty templates (azure_sys and azure_maintenance are owned by azuresu,
+    # so no login of ours can change their ACLs), temp tables there cannot read
+    # member data, and these credentials sit beside the admin password in the
+    # same App Service settings.
     "other_databases": (
         "SELECT datname, has_database_privilege(%(role)s, datname, 'CREATE') "
-        "FROM pg_database WHERE NOT datistemplate "
+        "FROM pg_database WHERE datallowconn "
         "AND datname <> current_database() "
         "AND has_database_privilege(%(role)s, datname, 'CONNECT')"
     ),

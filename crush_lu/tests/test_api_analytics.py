@@ -1135,6 +1135,7 @@ class SetupRoleCommandTests(TestCase):
         self.assertIn('GRANT USAGE ON SCHEMA public TO "crush_analytics_ro"', sql)
         self.assertIn('REVOKE TEMPORARY ON DATABASE "pythonapp" FROM PUBLIC', sql)
         self.assertIn("NOBYPASSRLS", sql)
+        self.assertIn("VALID UNTIL 'infinity'", sql)
         self.assertIn("default_transaction_read_only = 'on'", sql)
         # Stale stored settings are reset before the hardening ones are set.
         self.assertLess(

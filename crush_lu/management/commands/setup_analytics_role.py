@@ -74,7 +74,10 @@ def role_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]:
         ),
         (
             f"ALTER ROLE {r} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
-            "NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 3"
+            "NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 3 "
+            # A stale password deadline would lock the login out after a
+            # clean audit (which runs as the admin connection).
+            "VALID UNTIL 'infinity'"
         ),
         f"ALTER ROLE {r} RESET ALL",
         f"ALTER ROLE {r} IN DATABASE {_qn(database)} RESET ALL",
@@ -85,7 +88,8 @@ def role_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]:
 AUDIT_SQL = {
     "role": (
         "SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, "
-        "rolbypassrls, rolinherit, rolconnlimit, rolconfig FROM pg_roles WHERE rolname = %s"
+        "rolbypassrls, rolinherit, rolconnlimit, rolvaliduntil, rolconfig "
+        "FROM pg_roles WHERE rolname = %s"
     ),
     "memberships": (
         "SELECT g.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
