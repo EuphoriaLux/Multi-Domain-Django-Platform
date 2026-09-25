@@ -437,6 +437,7 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'ANALYTICS_PSEUDONYM_KEY'
       'ANALYTICS_DB_USER'
       'ANALYTICS_DB_PASSWORD'
+      'ANALYTICS_ALLOWED_OTHER_DATABASES'
       'CRUSH_CONNECT_LAUNCHED'
       // BETA phase: opens the candidate track while receivers stay tester-gated.
       'CRUSH_CONNECT_CANDIDATE_OPEN'

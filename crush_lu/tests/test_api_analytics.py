@@ -738,6 +738,8 @@ class PrivilegeAuditTests(TestCase):
             [("public", "crush_lu_meetupevent_id_seq")],
             ["postgres", "pythonapp_staging"],
             ["postgres"],
+            True,
+            2,
         )
         joined = " | ".join(violations)
         self.assertNotIn("database postgres", joined)  # allowlisted
@@ -753,6 +755,8 @@ class PrivilegeAuditTests(TestCase):
             "can execute SECURITY DEFINER public.unsafe_export",
             "can use sequence public.crush_lu_meetupevent_id_seq",
             "can connect to database pythonapp_staging",
+            "can CREATE in the current database",
+            "can access 2 large object(s)",
         ):
             self.assertIn(expected, joined)
 

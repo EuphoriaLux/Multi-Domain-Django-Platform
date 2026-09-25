@@ -337,6 +337,20 @@ PRIVILEGE_AUDIT_SQL = {
         "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
         "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
     ),
+    # CREATE on this database (which ownership implies) would let the login
+    # create a schema of its own; existing-schema CREATE is checked below.
+    "database_create": (
+        "SELECT has_database_privilege(%(role)s, current_database(), 'CREATE')"
+    ),
+    # Large objects sit outside pg_class: owned, granted (directly or to
+    # PUBLIC, grantee 0) or opened to everyone by lo_compat_privileges.
+    "large_objects": (
+        "SELECT count(*) FROM pg_largeobject_metadata l "
+        "WHERE l.lomowner = %(role)s::regrole "
+        "OR current_setting('lo_compat_privileges') = 'on' "
+        "OR EXISTS (SELECT 1 FROM aclexplode(l.lomacl) a "
+        "WHERE a.grantee = 0 OR a.grantee = %(role)s::regrole)"
+    ),
     "other_databases": (
         "SELECT datname FROM pg_database WHERE NOT datistemplate "
         "AND datname <> current_database() "
@@ -378,6 +392,8 @@ def privilege_violations(
     sequences=(),
     other_databases=(),
     allowed_databases=(),
+    database_create=False,
+    large_objects=0,
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -394,6 +410,10 @@ def privilege_violations(
         violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
     for schema, sequence in sequences:
         violations.append(f"can use sequence {schema}.{sequence}")
+    if database_create:
+        violations.append("can CREATE in the current database")
+    if large_objects:
+        violations.append(f"can access {large_objects} large object(s)")
     for database in other_databases:
         if database not in allowed_databases:
             violations.append(
@@ -434,6 +454,8 @@ def audit_role(cursor, role: str) -> list:
         results["sequences"],
         [row[0] for row in results["other_databases"]],
         getattr(settings, "ANALYTICS_ALLOWED_OTHER_DATABASES", ()),
+        bool(results["database_create"] and results["database_create"][0][0]),
+        results["large_objects"][0][0] if results["large_objects"] else 0,
     )
 
 
