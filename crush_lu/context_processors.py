@@ -305,7 +305,7 @@ def crush_user_context(request):
             context["special_experience"] = special_experience
 
             # Check if journey is already started
-            journey_progress = JourneyProgress.objects.filter(user=request.user).first()
+            journey_progress = JourneyProgress.accessible_to(request.user).first()
             context["journey_started"] = journey_progress is not None
             if journey_progress:
                 context["journey_progress"] = journey_progress

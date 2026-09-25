@@ -7,6 +7,7 @@ get their VIP session on login and even an auto-approved profile. Access now
 requires ``linked_user``; ``link_special_experiences`` links the legacy rows.
 """
 
+import json
 from datetime import date
 from io import StringIO
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from django.contrib import messages as django_messages
 from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.backends.db import SessionStore
+from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.test import RequestFactory, TestCase, override_settings
@@ -23,9 +25,14 @@ from django.test import RequestFactory, TestCase, override_settings
 from crush_lu.models import (
     AdventCalendar,
     AdventDoor,
+    AdventProgress,
+    ChapterProgress,
     CrushProfile,
+    JourneyChallenge,
+    JourneyChapter,
     JourneyConfiguration,
     JourneyProgress,
+    JourneyReward,
     QRCodeToken,
     SpecialUserExperience,
     UserDataConsent,
@@ -143,6 +150,161 @@ class JourneyViewPrivacyTests(NamesakeFixtureMixin, TestCase):
         )
 
 
+class StaleJourneyProgressTests(NamesakeFixtureMixin, TestCase):
+    """A namesake who opened the owner's journey through the old name match
+    still has a JourneyProgress row on it; that row must not keep granting
+    the chapters, rewards, certificate or journey API."""
+
+    def setUp(self):
+        super().setUp()
+        self.journey = JourneyConfiguration.objects.create(
+            special_experience=self.experience,
+            journey_type="wonderland",
+            journey_name="Owner Journey",
+            is_active=True,
+        )
+        self.chapter = JourneyChapter.objects.create(
+            journey=self.journey,
+            chapter_number=1,
+            title="OWNER-PRIVATE-CHAPTER",
+            theme="Mystery",
+            story_introduction="OWNER-PRIVATE-STORY",
+            completion_message="Done",
+        )
+        self.challenge = JourneyChallenge.objects.create(
+            chapter=self.chapter,
+            challenge_order=1,
+            challenge_type="riddle",
+            question="OWNER-PRIVATE-QUESTION",
+            correct_answer="yes",
+            hint_1="OWNER-PRIVATE-HINT",
+        )
+        self.reward = JourneyReward.objects.create(
+            chapter=self.chapter,
+            reward_type="poem",
+            title="OWNER-PRIVATE-REWARD",
+            message="OWNER-PRIVATE-POEM",
+        )
+        # Left behind by the old name match: completed, with the chapter done.
+        self.stale = JourneyProgress.objects.create(
+            user=self.namesake,
+            journey=self.journey,
+            is_completed=True,
+            total_points=500,
+        )
+        ChapterProgress.objects.create(
+            journey_progress=self.stale, chapter=self.chapter, is_completed=True
+        )
+
+    def _post_json(self, path, payload):
+        return self.client.post(
+            path,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+
+    def test_stale_progress_opens_no_journey_page(self):
+        self.client.force_login(self.namesake)
+
+        for path in (
+            "/en/journey/chapter/1/",
+            f"/en/journey/chapter/1/challenge/{self.challenge.pk}/",
+            f"/en/journey/reward/{self.reward.pk}/",
+            "/en/journey/certificate/",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path, HTTP_HOST=HOST)
+
+                self.assertEqual(response.status_code, 302)
+                self.assertNotIn(b"OWNER-PRIVATE", response.content)
+
+    def test_stale_progress_is_denied_by_the_journey_api(self):
+        self.client.force_login(self.namesake)
+
+        responses = {
+            "progress": self.client.get("/en/api/journey/progress/", HTTP_HOST=HOST),
+            "reward-progress": self.client.get(
+                f"/api/journey/reward-progress/{self.reward.pk}/", HTTP_HOST=HOST
+            ),
+            "save-state": self._post_json(
+                "/en/api/journey/save-state/", {"time_increment": 30}
+            ),
+            "unlock-hint": self._post_json(
+                "/en/api/journey/unlock-hint/",
+                {"challenge_id": self.challenge.pk, "hint_number": 1},
+            ),
+            "submit-challenge": self._post_json(
+                "/en/api/journey/submit-challenge/",
+                {"challenge_id": self.challenge.pk, "answer": "yes"},
+            ),
+            "unlock-puzzle-piece": self._post_json(
+                "/api/journey/unlock-puzzle-piece/",
+                {"reward_id": self.reward.pk, "piece_index": 0},
+            ),
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            responses["final-response"] = self._post_json(
+                "/en/api/journey/final-response/", {"response": "yes"}
+            )
+
+        for name, response in responses.items():
+            with self.subTest(endpoint=name):
+                self.assertEqual(response.status_code, 404)
+                self.assertFalse(response.json()["success"])
+                self.assertNotIn(b"OWNER-PRIVATE", response.content)
+                self.assertNotIn(b"Owner Journey", response.content)
+        self.assertEqual(len(mail.outbox), 0)
+        self.stale.refresh_from_db()
+        self.assertEqual(self.stale.total_time_seconds, 0)
+        self.assertEqual(self.stale.total_points, 500)
+        self.assertEqual(self.stale.final_response, "")
+
+    def test_linked_owner_still_plays_the_journey(self):
+        JourneyProgress.objects.create(user=self.owner, journey=self.journey)
+        self.client.force_login(self.owner)
+
+        chapter = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
+        progress = self.client.get("/en/api/journey/progress/", HTTP_HOST=HOST)
+
+        self.assertEqual(chapter.status_code, 200)
+        self.assertContains(chapter, "OWNER-PRIVATE-STORY")
+        self.assertEqual(progress.status_code, 200)
+        self.assertEqual(progress.json()["data"]["journey_name"], "Owner Journey")
+
+    def test_owner_with_an_older_stale_row_gets_their_own_journey(self):
+        """``.first()`` must not pick a stale row on someone else's journey."""
+        other_owner = _make_user("other@example.com", first="Tom", last="Other")
+        other_exp = SpecialUserExperience.objects.create(
+            first_name="Tom", last_name="Other", linked_user=other_owner
+        )
+        other_journey = JourneyConfiguration.objects.create(
+            special_experience=other_exp,
+            journey_type="wonderland",
+            journey_name="Other Journey",
+        )
+        # Lower pk than the owner's own row, so an unscoped .first() finds it.
+        JourneyProgress.objects.create(user=self.owner, journey=other_journey)
+        own = JourneyProgress.objects.create(user=self.owner, journey=self.journey)
+        self.client.force_login(self.owner)
+
+        progress = self.client.get("/en/api/journey/progress/", HTTP_HOST=HOST)
+
+        self.assertEqual(progress.json()["data"]["journey_name"], "Owner Journey")
+        self.assertEqual(list(JourneyProgress.accessible_to(self.owner)), [own])
+
+    def test_inactive_experience_closes_its_progress(self):
+        JourneyProgress.objects.create(user=self.owner, journey=self.journey)
+        self.experience.is_active = False
+        self.experience.save()
+        self.client.force_login(self.owner)
+
+        response = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn(b"OWNER-PRIVATE", response.content)
+
+
 class AdventViewPrivacyTests(NamesakeFixtureMixin, TestCase):
     def setUp(self):
         super().setUp()
@@ -242,6 +404,22 @@ class ContextProcessorPrivacyTests(NamesakeFixtureMixin, TestCase):
 
         self.assertTrue(context["has_special_journey"])
         self.assertEqual(context["special_experience"], self.experience)
+
+    def test_journey_progress_ignores_a_stale_row_on_someone_elses_journey(self):
+        other_owner = _make_user("other@example.com", first="Tom", last="Other")
+        other_journey = JourneyConfiguration.objects.create(
+            special_experience=SpecialUserExperience.objects.create(
+                first_name="Tom", last_name="Other", linked_user=other_owner
+            ),
+            journey_type="wonderland",
+        )
+        JourneyProgress.objects.create(user=self.owner, journey=other_journey)
+
+        context = self._context_for(self.owner)
+
+        self.assertTrue(context["has_special_journey"])
+        self.assertFalse(context["journey_started"])
+        self.assertNotIn("journey_progress", context)
 
 
 class LoginSignalPrivacyTests(TestCase):
@@ -359,6 +537,9 @@ class AdminPrivacyTests(NamesakeFixtureMixin, TestCase):
         level, text = messages[0]
         self.assertEqual(level, django_messages.WARNING)
         self.assertIn("no user account is linked", text)
+        self.assertIn("Set 'Linked user' on this experience", text)
+        # The global one-time migration is not the fix for one experience.
+        self.assertNotIn("link_special_experiences", text)
 
     def test_admin_qr_tokens_go_to_linked_user(self):
         messages = self._generate_advent(self.experience)
@@ -367,6 +548,34 @@ class AdminPrivacyTests(NamesakeFixtureMixin, TestCase):
         self.assertTrue(tokens.exists())
         self.assertEqual(set(tokens.values_list("user_id", flat=True)), {self.owner.pk})
         self.assertEqual(messages[0][0], django_messages.SUCCESS)
+
+    def test_admin_form_says_names_never_grant_access(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.special import SpecialUserExperienceAdmin
+
+        admin_user = User.objects.create_superuser(
+            "admin@example.com", "admin@example.com", "testpass123"
+        )
+        request = RequestFactory().get("/crush-admin/")
+        request.user = admin_user
+        model_admin = SpecialUserExperienceAdmin(
+            SpecialUserExperience, crush_admin_site
+        )
+
+        fields = model_admin.get_form(request)().fields
+        titles = [title for title, _options in model_admin.get_fieldsets(request)]
+
+        self.assertEqual(
+            fields["first_name"].help_text, "Label only - does not grant access."
+        )
+        self.assertEqual(
+            fields["last_name"].help_text, "Label only - does not grant access."
+        )
+        self.assertIn("required for access", fields["linked_user"].help_text)
+        for field in ("first_name", "last_name", "linked_user"):
+            self.assertNotIn("match", str(fields[field].help_text).lower())
+        self.assertIn("👤 Linked account", titles)
+        self.assertNotIn("👤 User Matching", titles)
 
 
 class CreateAdventCalendarQrTests(NamesakeFixtureMixin, TestCase):
@@ -398,6 +607,7 @@ class CreateAdventCalendarQrTests(NamesakeFixtureMixin, TestCase):
 
         self.assertFalse(QRCodeToken.objects.exists())
         self.assertIn("No user account is linked", output)
+        self.assertNotIn("link_special_experiences", output)
 
     def test_tokens_go_to_linked_user(self):
         self._generate(self.experience)
@@ -406,6 +616,45 @@ class CreateAdventCalendarQrTests(NamesakeFixtureMixin, TestCase):
             list(QRCodeToken.objects.values_list("user_id", flat=True)),
             [self.owner.pk],
         )
+
+
+class CreateWonderlandJourneyWarningTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
+    def _run(self):
+        out = StringIO()
+        call_command(
+            "create_wonderland_journey",
+            "--first-name",
+            "Lena",
+            "--last-name",
+            "Schmit",
+            stdout=out,
+        )
+        return out.getvalue()
+
+    def test_unlinked_journey_warns_that_nobody_can_open_it(self):
+        output = self._run()
+
+        self.assertTrue(
+            JourneyConfiguration.objects.filter(
+                special_experience__first_name="Lena",
+                special_experience__linked_user__isnull=True,
+            ).exists()
+        )
+        self.assertIn("No user account is linked", output)
+        self.assertIn("nobody can open this journey", output)
+
+    def test_linked_experience_gets_no_warning(self):
+        owner = _make_user("owner@example.com")
+        SpecialUserExperience.objects.create(
+            first_name="Lena", last_name="Schmit", linked_user=owner
+        )
+
+        output = self._run()
+
+        self.assertNotIn("No user account is linked", output)
 
 
 class LinkSpecialExperiencesCommandTests(TestCase):
@@ -535,3 +784,110 @@ class LinkSpecialExperiencesCommandTests(TestCase):
             SpecialUserExperience.objects.filter(linked_user=namesake).exists()
         )
         self.assertIn(f"AMBIGUOUS experience #{legacy.pk}", output)
+
+    def test_dry_run_asks_to_review_each_would_link_line(self):
+        _make_user("anna@example.com", first="Anna", last="Muller")
+        SpecialUserExperience.objects.create(first_name="Anna", last_name="Muller")
+
+        output = self._run("--dry-run")
+
+        self.assertIn("Review every WOULD LINK line before the real run", output)
+
+    def test_skips_inactive_experience(self):
+        """Linking a disabled experience would let a later gift claim reuse
+        and reactivate it (unique_linked_user)."""
+        user = _make_user("marco@example.com", first="Marco", last="Webber")
+        disabled = SpecialUserExperience.objects.create(
+            first_name="Marco", last_name="Webber", is_active=False
+        )
+
+        output = self._run()
+
+        disabled.refresh_from_db()
+        self.assertIsNone(disabled.linked_user)
+        self.assertIsNone(SpecialUserExperience.active_for_user(user))
+        self.assertIn(
+            f"SKIPPED   experience #{disabled.pk} (Marco Webber): inactive", output
+        )
+        self.assertIn("linked=0 ambiguous=0 unmatched=0 skipped=1", output)
+
+    def test_already_linked_skip_explains_how_to_keep_its_journeys(self):
+        user = _make_user("marie@example.com", first="Marie", last="Dupont")
+        gift = SpecialUserExperience.objects.create(
+            first_name="Marie", last_name="Dupont", linked_user=user
+        )
+        JourneyConfiguration.objects.create(
+            special_experience=gift, journey_type="wonderland"
+        )
+        legacy = SpecialUserExperience.objects.create(
+            first_name="Marie", last_name="Dupont"
+        )
+        advent = JourneyConfiguration.objects.create(
+            special_experience=legacy, journey_type="advent_calendar"
+        )
+        clash = JourneyConfiguration.objects.create(
+            special_experience=legacy, journey_type="wonderland"
+        )
+
+        output = self._run()
+
+        self.assertIn(f"already linked to experience #{gift.pk}", output)
+        self.assertIn(
+            f"journey #{advent.pk} (advent_calendar) is unreachable: to keep it,"
+            f" move it to experience #{gift.pk} in the admin",
+            output,
+        )
+        self.assertIn(
+            f"journey #{clash.pk} (wonderland) is unreachable: experience"
+            f" #{gift.pk} already has a wonderland journey, so it cannot be moved",
+            output,
+        )
+
+    def test_report_stale_lists_rows_not_held_by_the_linked_user(self):
+        owner = _make_user("owner@example.com", first="Lena", last="Schmit")
+        namesake = _make_user("namesake@example.com", first="Lena", last="Schmit")
+        experience = SpecialUserExperience.objects.create(
+            first_name="Lena", last_name="Schmit", linked_user=owner
+        )
+        wonderland = JourneyConfiguration.objects.create(
+            special_experience=experience, journey_type="wonderland"
+        )
+        JourneyProgress.objects.create(user=owner, journey=wonderland)
+        stale_journey = JourneyProgress.objects.create(
+            user=namesake, journey=wonderland
+        )
+        calendar = AdventCalendar.objects.create(
+            journey=JourneyConfiguration.objects.create(
+                special_experience=experience, journey_type="advent_calendar"
+            ),
+            year=2026,
+            start_date=date(2026, 12, 1),
+            end_date=date(2026, 12, 24),
+        )
+        door = AdventDoor.objects.create(calendar=calendar, door_number=1)
+        stale_advent = AdventProgress.objects.create(user=namesake, calendar=calendar)
+        QRCodeToken.objects.create(door=door, user=owner)
+        stale_token = QRCodeToken.objects.create(door=door, user=namesake)
+        # An unlinked legacy row the report must NOT link.
+        legacy = SpecialUserExperience.objects.create(
+            first_name="Solo", last_name="Person"
+        )
+        _make_user("solo@example.com", first="Solo", last="Person")
+
+        output = self._run("--report-stale")
+
+        described = f"user #{namesake.pk} <namesake@example.com> on experience"
+        self.assertIn(
+            f"STALE     JourneyProgress #{stale_journey.pk}: {described}", output
+        )
+        self.assertIn(
+            f"STALE     AdventProgress #{stale_advent.pk}: {described}", output
+        )
+        self.assertIn(f"STALE     QRCodeToken #{stale_token.pk}: {described}", output)
+        self.assertNotIn("<owner@example.com> on experience", output)
+        self.assertIn(
+            "Stale rows: JourneyProgress=1 AdventProgress=1 QRCodeToken=1", output
+        )
+        legacy.refresh_from_db()
+        self.assertIsNone(legacy.linked_user)
+        self.assertEqual(JourneyProgress.objects.count(), 2)

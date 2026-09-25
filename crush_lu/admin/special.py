@@ -279,9 +279,8 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 # scan them until the experience is linked to an account.
                 success_msg += (
                     " Note: QR tokens not created - no user account is linked to"
-                    " this experience. Set 'Linked user' (or run"
-                    " link_special_experiences), then add the tokens under"
-                    " QR Code Tokens."
+                    " this experience. Set 'Linked user' on this experience, then"
+                    " add the tokens under QR Code Tokens."
                 )
                 notify = django_messages.warning
 
@@ -296,13 +295,12 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(reverse('crush_admin:crush_lu_specialuserexperience_changelist'))
 
     fieldsets = (
-        ('👤 User Matching', {
+        ('👤 Linked account', {
             'fields': ('first_name', 'last_name', 'linked_user', 'is_active'),
             'description': (
                 "Only the linked user gets this experience; first+last name are"
-                " labels and never grant access. Link legacy name-only"
-                " experiences with manage.py link_special_experiences or by"
-                " setting Linked user."
+                " labels and never grant access. Set Linked user to give"
+                " someone access."
             ),
         }),
         ('🎨 Custom Welcome Experience', {
@@ -340,6 +338,22 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
+    # The model help_texts still describe the retired name matching, and
+    # changing them needs a migration, so the admin form overrides them.
+    FIELD_HELP_TEXTS = {
+        "first_name": "Label only - does not grant access.",
+        "last_name": "Label only - does not grant access.",
+        "linked_user": (
+            "The account that receives this experience (required for access)."
+        ),
+    }
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if formfield is not None and db_field.name in self.FIELD_HELP_TEXTS:
+            formfield.help_text = self.FIELD_HELP_TEXTS[db_field.name]
+        return formfield
 
     def get_linked_user_display(self, obj):
         """Display the linked user if set"""

@@ -302,9 +302,8 @@ class Command(BaseCommand):
                 self.style.WARNING(
                     "[!] No user account is linked to the Special User Experience"
                     f" for {special_exp.first_name} {special_exp.last_name}."
-                    " QR tokens were not created: set 'Linked user' in the admin"
-                    " (or run link_special_experiences), then add the tokens"
-                    " under QR Code Tokens."
+                    " QR tokens were not created: set 'Linked user' in the admin,"
+                    " then add the tokens under QR Code Tokens."
                 )
             )
             return

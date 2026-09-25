@@ -67,9 +67,11 @@ def submit_challenge(request):
         sanitized_answer = sanitize_answer_for_storage(user_answer, challenge.challenge_type)
 
         # Get user's chapter progress
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             return JsonResponse({
@@ -223,7 +225,7 @@ def unlock_hint(request):
             }, status=400)
 
         # Get the challenge - must belong to user's journey
-        journey_progress = JourneyProgress.objects.filter(user=request.user).first()
+        journey_progress = JourneyProgress.accessible_to(request.user).first()
         if not journey_progress:
             return JsonResponse({
                 'success': False,
@@ -318,9 +320,11 @@ def get_progress(request):
     Used for progress bars, stats display, etc.
     """
     try:
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             return JsonResponse({
@@ -372,9 +376,7 @@ def save_state(request):
         # Ensure time_increment is an integer
         time_increment = int(data.get('time_increment', 0))  # Seconds since last save
 
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).first()
+        journey_progress = JourneyProgress.accessible_to(request.user).first()
 
         if not journey_progress:
             return JsonResponse({
@@ -419,9 +421,11 @@ def record_final_response(request):
                 'message': _('Invalid response choice')
             }, status=400)
 
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey__special_experience').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey__special_experience")
+            .first()
+        )
 
         if not journey_progress:
             return JsonResponse({
@@ -523,9 +527,11 @@ def unlock_puzzle_piece(request):
             }, status=400)
 
         # Get user's journey progress
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             return JsonResponse({
@@ -614,9 +620,7 @@ def get_reward_progress(request, reward_id):
     """
     try:
         # Get user's journey progress
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).first()
+        journey_progress = JourneyProgress.accessible_to(request.user).first()
 
         if not journey_progress:
             return JsonResponse({

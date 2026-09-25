@@ -218,9 +218,11 @@ def chapter_view(request, chapter_number):
     """
     try:
         # Get user's journey
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             messages.warning(request, _('No active journey found.'))
@@ -467,9 +469,11 @@ def challenge_view(request, chapter_number, challenge_id):
     """
     try:
         # Get user's journey
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             messages.warning(request, _('No active journey found.'))
@@ -549,9 +553,7 @@ def reward_view(request, reward_id):
     """
     try:
         # Get the user's journey progress first
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user
-        ).first()
+        journey_progress = JourneyProgress.accessible_to(request.user).first()
 
         if not journey_progress:
             messages.warning(request, _('No active journey found.'))
@@ -616,10 +618,12 @@ def certificate_view(request):
     """
     try:
         # Get user's journey progress
-        journey_progress = JourneyProgress.objects.filter(
-            user=request.user,
-            is_completed=True
-        ).select_related('journey').first()
+        journey_progress = (
+            JourneyProgress.accessible_to(request.user)
+            .filter(is_completed=True)
+            .select_related("journey")
+            .first()
+        )
 
         if not journey_progress:
             messages.warning(request, _('Complete the journey to unlock your certificate.'))

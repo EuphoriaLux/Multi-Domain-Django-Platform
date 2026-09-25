@@ -511,6 +511,87 @@ class TestMergeConnections:
         assert conns.first().status == "accepted"  # Keeper's original status preserved
 
 
+def _advent_door(experience, door_number=1):
+    from crush_lu.models import AdventCalendar, AdventDoor, JourneyConfiguration
+
+    journey = JourneyConfiguration.objects.create(
+        special_experience=experience,
+        journey_type="advent_calendar",
+        journey_name="Advent",
+    )
+    calendar = AdventCalendar.objects.create(
+        journey=journey,
+        year=2026,
+        start_date=date(2026, 12, 1),
+        end_date=date(2026, 12, 24),
+    )
+    return AdventDoor.objects.create(calendar=calendar, door_number=door_number)
+
+
+class TestMergeSpecialExperience:
+    """Special journeys are granted by linked_user only (finding 7-02), so
+    the link must follow the keeper or the merge cuts them off."""
+
+    def test_moves_special_experience_and_qr_token_to_keeper(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=duplicate_user
+        )
+        token = QRCodeToken.objects.create(
+            door=_advent_door(experience), user=duplicate_user
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        experience.refresh_from_db()
+        token.refresh_from_db()
+        assert experience.linked_user == keeper_user
+        assert SpecialUserExperience.active_for_user(keeper_user) == experience
+        assert token.user == keeper_user
+        assert f"Moved special experience #{experience.pk} to keeper" in log
+
+    def test_keeps_duplicate_experience_when_keeper_has_one(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import SpecialUserExperience
+
+        keeper_exp = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        duplicate_exp = SpecialUserExperience.objects.create(
+            first_name="Duplicate", last_name="User", linked_user=duplicate_user
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        keeper_exp.refresh_from_db()
+        duplicate_exp.refresh_from_db()
+        assert keeper_exp.linked_user == keeper_user
+        assert duplicate_exp.linked_user == duplicate_user
+        assert any(line.startswith("CONFLICT: keeper already has") for line in log)
+
+    def test_keeps_duplicate_qr_token_when_keeper_has_one_for_the_door(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        QRCodeToken.objects.create(door=door, user=keeper_user)
+        duplicate_token = QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        merge_accounts(keeper_user, duplicate_user)
+
+        duplicate_token.refresh_from_db()
+        assert duplicate_token.user == duplicate_user
+        assert QRCodeToken.objects.filter(door=door, user=keeper_user).count() == 1
+
+
 class TestMergeAtomicity:
     def test_merge_is_atomic(self, keeper_user, duplicate_user):
         """If an error occurs mid-merge, nothing should be committed."""

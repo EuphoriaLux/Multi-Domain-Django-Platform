@@ -262,6 +262,16 @@ class Command(BaseCommand):
             'Ready to use - language switches automatically based on URL!\n'
         ))
 
+        # Access is granted by linked_user only; the name is just a label.
+        if special_exp.linked_user_id is None:
+            self.stdout.write(
+                self.style.WARNING(
+                    "[!] No user account is linked to the Special User Experience"
+                    f" for {first_name} {last_name}: nobody can open this journey"
+                    " until you set 'Linked user' in the admin."
+                )
+            )
+
     def create_all_chapters(self, journey, date_met, location_met, first_name, media_options=None):
         """Create all 6 chapters with their challenges and rewards"""
         if media_options is None:
