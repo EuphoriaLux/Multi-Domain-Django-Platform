@@ -1,5 +1,5 @@
 """
-Global HTMX failure toast (UX review finding 4-04).
+Global HTMX failure toast.
 
 A failed hx-post used to be silent, and the event registration button stayed
 on "Processing..." for good. crush_lu/base.html now renders the toast copy
@@ -15,6 +15,7 @@ the script reads.
 
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 
 import pytest
 from django.core.cache import cache
@@ -25,19 +26,44 @@ from django.utils.translation import gettext
 
 NETWORK_MSGID = "Network error. Please check your connection and try again."
 SERVER_MSGID = "An error occurred. Please try again."
+RATE_LIMITED_MSGID = "Too many attempts. Please try again later."
+QUEUED_MSGID = (
+    "Once you're back online, your event registrations and messages will sync "
+    "automatically!"
+)
+MSGIDS = {
+    "network": NETWORK_MSGID,
+    "server": SERVER_MSGID,
+    "rate-limited": RATE_LIMITED_MSGID,
+    "queued": QUEUED_MSGID,
+}
 
-# (network, server) per language. DE uses the informal "du" and FR the formal
-# "vous", like the neighbouring error strings in the crush_lu catalogs.
+# Copy per language. DE uses the informal "du" and FR the formal "vous", like
+# the neighbouring error strings in the crush_lu catalogs. Every msgid already
+# existed in the catalogs (the 429 one is @ratelimit's, the queued one is the
+# offline page's), so this feature adds no translation.
 EXPECTED_COPY = {
-    "en": (NETWORK_MSGID, SERVER_MSGID),
-    "de": (
-        "Netzwerkfehler. Bitte überprüfe deine Verbindung und versuche es erneut.",
-        "Ein Fehler ist aufgetreten. Bitte versuche es erneut.",
-    ),
-    "fr": (
-        "Erreur réseau. Vérifiez votre connexion et réessayez.",
-        "Une erreur s'est produite. Veuillez réessayer.",
-    ),
+    "en": dict(MSGIDS),
+    "de": {
+        "network": (
+            "Netzwerkfehler. Bitte überprüfe deine Verbindung und versuche es erneut."
+        ),
+        "server": "Ein Fehler ist aufgetreten. Bitte versuche es erneut.",
+        "rate-limited": "Zu viele Versuche. Bitte versuche es später erneut.",
+        "queued": (
+            "Sobald du wieder online bist, werden deine Event-Anmeldungen und "
+            "Nachrichten automatisch synchronisiert!"
+        ),
+    },
+    "fr": {
+        "network": "Erreur réseau. Vérifiez votre connexion et réessayez.",
+        "server": "Une erreur s'est produite. Veuillez réessayer.",
+        "rate-limited": "Trop de tentatives. Veuillez réessayer plus tard.",
+        "queued": (
+            "Une fois de retour en ligne, vos inscriptions aux événements et vos "
+            "messages seront synchronisés automatiquement !"
+        ),
+    },
 }
 
 HANDLER_SCRIPT_RE = re.compile(
@@ -106,10 +132,7 @@ def _clear_cache():
 
 def _rendered_copy(content):
     _tag, attrs, _ancestors = _element_by_id(content, "htmx-error-toast-messages")
-    return attrs, {
-        "network": attrs.get("data-network"),
-        "server": attrs.get("data-server"),
-    }
+    return attrs, {kind: attrs.get(f"data-{kind}") for kind in MSGIDS}
 
 
 @pytest.mark.django_db
@@ -119,8 +142,7 @@ def test_base_renders_htmx_error_copy_in_page_language(client, lang):
 
     assert response.status_code == 200
     attrs, copy = _rendered_copy(response.content.decode())
-    network, server = EXPECTED_COPY[lang]
-    assert copy == {"network": network, "server": server}
+    assert copy == EXPECTED_COPY[lang]
     # A data carrier, not visible UI.
     assert "hidden" in attrs
 
@@ -149,13 +171,50 @@ def test_htmx_error_copy_survives_quotes_in_a_translation(monkeypatch):
         render_to_string("crush_lu/components/htmx_error_toast.html")
     )
 
-    assert copy == {"network": tricky, "server": SERVER_MSGID}
+    assert copy == {**MSGIDS, "network": tricky}
 
 
 @pytest.mark.parametrize("lang", ["de", "fr"])
 def test_htmx_error_copy_is_translated_in_the_catalog(lang):
     with translation.override(lang):
-        assert (gettext(NETWORK_MSGID), gettext(SERVER_MSGID)) == EXPECTED_COPY[lang]
+        assert {kind: gettext(msgid) for kind, msgid in MSGIDS.items()} == (
+            EXPECTED_COPY[lang]
+        )
+
+
+def _static(name):
+    path = Path(__file__).resolve().parents[1] / "static" / "crush_lu" / name
+    return path.read_text(encoding="utf-8")
+
+
+def test_queued_copy_mirrors_the_service_worker_queue_rule():
+    """htmx-error-toast.js decides "this POST was queued for background sync"
+    with a copy of sw-workbox.js's isQueueablePost() exclusions. If the two
+    lists drift, a member is either told a lost request will replay, or told
+    to retry a request that is already queued (and sends it twice)."""
+    sw = _static("sw-workbox.js")
+    body = sw[sw.index("function isQueueablePost(") :]
+    body = body[: body.index("\n    }\n")]
+    sw_prefixes = re.findall(r'!pathname\.startsWith\("([^"]+)"\)', body)
+
+    handler = _static("js/htmx-error-toast.js")
+    start = handler.index("var QUEUE_EXCLUDED_PREFIXES = [")
+    handler_prefixes = re.findall(
+        r'"([^"]+)"', handler[start : handler.index("];", start)]
+    )
+
+    assert sw_prefixes, "isQueueablePost() exclusions not found in sw-workbox.js"
+    assert handler_prefixes == sw_prefixes
+
+
+def test_dismissed_toast_leaves_the_store_before_its_exit_animation():
+    """The dedupe in htmx-error-toast.js reads Alpine.store("toasts").items;
+    removeToast() must drop the item when dismissal begins, not 300 ms later,
+    or a dismiss-retry-fail within that window shows nothing."""
+    src = _static("js/toast-component.js")
+    body = src[src.index("function removeToast(") :]
+    body = body[: body.index("function addToast(")]
+    assert body.index('Alpine.store("toasts").remove(id)') < body.index("setTimeout(")
 
 
 @pytest.mark.django_db

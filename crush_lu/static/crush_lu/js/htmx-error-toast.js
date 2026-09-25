@@ -5,7 +5,8 @@
  * nothing when the request never gets an answer, so without this a failed
  * hx-post is silent: the page just sits there, and a form whose Alpine
  * component flipped `isSubmitting` on submit stays on "Processing..." with a
- * disabled button for good (event registration, UX review finding 4-04).
+ * disabled button for good (the event registration form was the reported
+ * case).
  *
  * On htmx:responseError, htmx:sendError and htmx:timeout this:
  *   1. resets the Alpine submit flag(s) in SUBMIT_FLAGS on the component
@@ -17,9 +18,18 @@
  *      control inside the requesting element, and only if nothing has taken
  *      focus since: focus the member moved elsewhere stays there, and a
  *      button that never had focus (a tap in iOS Safari) is not focused;
- *   3. shows ONE translated error toast through Alpine.store("toasts") -- the
- *      "network" copy for sendError/timeout, the "server" copy for
- *      responseError.
+ *   3. shows ONE translated toast through Alpine.store("toasts"):
+ *      - "server" copy for responseError;
+ *      - "rate-limited" copy for a 429 responseError: the @ratelimit
+ *        decorators answer a bare 429 and queue "Too many attempts" as a
+ *        Django message that only a full page load would show, so the toast
+ *        says it now instead of inviting retries that stay blocked;
+ *      - "queued" copy for a sendError on a POST the service worker holds
+ *        for background sync (see queuedByServiceWorker below): the request
+ *        is not lost, it replays once the member is back online, so the
+ *        member must NOT be told to try again -- a second submit would queue
+ *        an identical POST (a chat message would be sent twice);
+ *      - "network" copy for every other sendError/timeout.
  *
  * htmx itself re-enables hx-disabled-elt elements and removes .htmx-request
  * from indicators on all three paths (before sendError/timeout fire, right
@@ -76,6 +86,40 @@
     function copyFor(kind) {
         var el = document.getElementById("htmx-error-toast-messages");
         return el ? el.getAttribute("data-" + kind) : null;
+    }
+
+    // Mirror of isQueueablePost() in crush_lu/static/crush_lu/sw-workbox.js:
+    // a POST whose path starts with none of these is held in the "crush-queue"
+    // background-sync queue when the network fails, and replayed for up to
+    // 24 h. test_htmx_error_toast.py checks that the two lists stay equal.
+    var QUEUE_EXCLUDED_PREFIXES = [
+        "/api/",
+        "/admin/",
+        "/crush-admin/",
+        "/login",
+        "/logout",
+        "/accounts/",
+        "/signup",
+    ];
+
+    function queuedByServiceWorker(detail) {
+        var sw = navigator.serviceWorker;
+        if (!sw || !sw.controller) return false; // no worker: nothing queued it
+        var config = detail.requestConfig || {};
+        if (String(config.verb || "").toLowerCase() !== "post") return false;
+        var path =
+            (detail.pathInfo && detail.pathInfo.finalRequestPath) ||
+            config.path ||
+            "";
+        try {
+            path = new URL(path, window.location.href).pathname;
+        } catch (e) {
+            return false;
+        }
+        for (var i = 0; i < QUEUE_EXCLUDED_PREFIXES.length; i++) {
+            if (path.indexOf(QUEUE_EXCLUDED_PREFIXES[i]) === 0) return false;
+        }
+        return true;
     }
 
     function toastOptedOut(elt) {
@@ -158,10 +202,12 @@
         if (!message || !Alpine || typeof Alpine.store !== "function") return;
         var store = Alpine.store("toasts");
         if (!store || typeof store.add !== "function") return;
-        // The store drops a toast when it is dismissed, expires or is pushed
-        // out, so only a toast that is still up suppresses a repeat.
+        // The store drops a toast the moment it is dismissed, expires or is
+        // pushed out (before its exit animation ends), so only a toast that
+        // is still up suppresses a repeat.
         if (isShowing(store, message)) return;
-        store.add({ type: "error", message: message });
+        // A queued request is not an error: the member has nothing to do.
+        store.add({ type: kind === "queued" ? "info" : "error", message: message });
     }
 
     function onFailure(kind) {
@@ -172,6 +218,15 @@
             restoreFocus(elt);
             if (toastOptedOut(elt)) return;
             if (kind === "server" && serverSentToast(detail.xhr)) return;
+            if (kind === "server" && detail.xhr && detail.xhr.status === 429) {
+                kind = "rate-limited";
+            } else if (
+                kind === "network" &&
+                evt.type === "htmx:sendError" &&
+                queuedByServiceWorker(detail)
+            ) {
+                kind = "queued";
+            }
             showToast(kind);
         };
     }

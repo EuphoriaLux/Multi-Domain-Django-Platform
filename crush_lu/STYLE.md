@@ -329,10 +329,15 @@ top-of-page banner treatment, and prefer the toast store if you don't.
 
 `crush_lu/static/crush_lu/js/htmx-error-toast.js` (loaded by `base.html`)
 handles every `htmx:responseError` / `htmx:sendError` / `htmx:timeout`:
-it shows one translated error toast (copy rendered by
+it shows one translated toast (copy rendered by
 `components/htmx_error_toast.html`), sets `isSubmitting` back to
 `false` on the Alpine component around the requesting element, and hands
 keyboard focus back to the submit button if disabling it dropped focus.
+The copy depends on the failure: a 429 says "Too many attempts" (the
+`@ratelimit` decorators' own message only shows on a full page load), a
+network failure on a POST the service worker queued for background sync
+says it will sync once online (no "try again": a second submit would queue
+a duplicate), everything else gets the generic server or network copy.
 An identical toast that is still on screen is not stacked again. So:
 
 - Name your "submit in flight" flag `isSubmitting` and bind the button's

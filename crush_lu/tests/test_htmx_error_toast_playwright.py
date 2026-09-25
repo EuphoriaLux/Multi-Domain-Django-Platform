@@ -1,6 +1,5 @@
 """
-Playwright: a failed HTMX event-registration submit recovers and says so
-(UX review finding 4-04).
+Playwright: a failed HTMX event-registration submit recovers and says so.
 
 Before the global handler (crush_lu/static/crush_lu/js/htmx-error-toast.js),
 a 5xx or a dropped connection on the registration hx-post left the button
@@ -172,14 +171,22 @@ def test_failed_registration_submit_reenables_button_and_shows_toast(
     expect(resting_label).to_be_visible()
 
     # 3. A keyboard user closes that toast and retries straight away; it fails
-    # again. A dismissed toast no longer counts as showing, so the failure is
-    # reported again, and focus is back on the button (disabling it had
-    # dropped focus to <body>).
+    # again. A dismissed toast no longer counts as showing -- from the moment
+    # the dismiss starts, not 300 ms later when its exit animation ends -- so
+    # the failure is reported again, and focus is back on the button
+    # (disabling it had dropped focus to <body>). No wait between the click
+    # and the retry: that window is exactly where the dedupe used to swallow
+    # the second toast.
+    # Pin the old node by id: `network_toast.first` would re-resolve to the
+    # fresh toast once it exists.
+    old_toast = page.locator(
+        f'[data-toast-id="{network_toast.first.get_attribute("data-toast-id")}"]'
+    )
     network_toast.locator("button").click()
-    expect(network_toast).to_have_count(0)
     submit.focus()
     page.keyboard.press("Enter")
-    expect(network_toast).to_have_count(1)
+    expect(old_toast).to_have_count(0)  # the old node has finished leaving
+    expect(network_toast).to_have_count(1)  # ...and a fresh one is up
     expect(network_toast).to_be_visible()
     expect(submit).to_be_enabled()
     expect(submit).to_be_focused()
