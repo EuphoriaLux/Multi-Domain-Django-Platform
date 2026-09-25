@@ -195,13 +195,16 @@ class Command(BaseCommand):
             " + (SELECT count(*) FROM pg_namespace WHERE nspowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_proc WHERE proowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_database WHERE datdba = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_largeobject_metadata"
+            "    WHERE lomowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_default_acl d, aclexplode(d.defaclacl) a"
             "    WHERE a.grantee = %(o)s::regrole OR d.defaclrole = %(o)s::regrole)",
             {"o": ROLE},
         )
         if cursor.fetchone()[0]:
             raise CommandError(
-                f"{ROLE} owns objects or a database, or has default privileges; resolve that by hand "
+                f"{ROLE} owns objects, a database or a large object, or has default "
+                "privileges; resolve that by hand "
                 "(REASSIGN OWNED / ALTER DEFAULT PRIVILEGES) before re-running."
             )
         cursor.execute(
@@ -256,6 +259,13 @@ class Command(BaseCommand):
         )
         for (signature,) in cursor.fetchall():
             cursor.execute(f"REVOKE ALL ON FUNCTION {signature} FROM {r}")
+        cursor.execute(
+            "SELECT DISTINCT l.oid FROM pg_largeobject_metadata l "
+            "CROSS JOIN LATERAL aclexplode(l.lomacl) a WHERE a.grantee = %s::regrole",
+            [ROLE],
+        )
+        for (large_object,) in cursor.fetchall():
+            cursor.execute(f"REVOKE ALL ON LARGE OBJECT {int(large_object)} FROM {r}")
 
     def _audit(self, connection):
         with connection.cursor() as cursor:

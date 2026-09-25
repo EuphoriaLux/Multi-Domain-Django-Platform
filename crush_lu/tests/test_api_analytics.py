@@ -480,16 +480,32 @@ class ToolTests(AnalyticsFixture):
 class DisclosureControlTests(AnalyticsFixture):
     """The real floor (5). Four real members make every small cell visible."""
 
-    def test_demographics_suppresses_small_cross_tab_cells(self):
-        crossed = self.data("demographics", group_by="gender,age_band")
-        self.assertEqual(crossed["total_members"], 4)
-        self.assertTrue(
-            all(c["suppressed"] and c["members"] is None for c in crossed["cells"])
-        )
-        single = self.data("demographics", group_by="gender")
-        self.assertEqual(
-            {c["gender"]: c["members"] for c in single["cells"]}, {"F": 2, "M": 2}
-        )
+    def test_demographics_withholds_a_population_below_the_floor(self):
+        # Four real members are below the floor of 5: no total, no cells.
+        whole = self.data("demographics", group_by="gender")
+        self.assertTrue(whole["suppressed"])
+        self.assertIsNone(whole["total_members"])
+        self.assertEqual(whole["cells"], [])
+
+    def test_demographics_drops_small_cross_tab_cells_with_their_labels(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 3):
+            crossed = self.data("demographics", group_by="gender,age_band")
+            self.assertEqual(crossed["total_members"], 4)
+            self.assertEqual(crossed["cells"], [])  # every cell has 1 member
+            self.assertEqual(crossed["suppressed_cells"], 4)
+            single = self.data("demographics", group_by="gender")
+            self.assertEqual(
+                {c["gender"]: c["members"] for c in single["cells"]}, {"F": 2, "M": 2}
+            )
+            # One pending member: the filtered population is withheld whole.
+            pending = self.data(
+                "demographics",
+                group_by="gender,age_band",
+                verification_status="pending",
+            )
+            self.assertTrue(pending["suppressed"])
+            self.assertIsNone(pending["total_members"])
+            self.assertEqual(pending["cells"], [])
 
     def test_member_rows_cannot_rebuild_a_suppressed_cell(self):
         # Four real members are below the floor of 5: no count, no rows.

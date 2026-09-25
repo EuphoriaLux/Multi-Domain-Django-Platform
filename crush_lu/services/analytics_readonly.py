@@ -524,8 +524,9 @@ def definitions() -> dict:
         "age_bands": [label for _, _, label in AGE_BANDS],
         "suppression": (
             f"In demographics, a cell crossing two or more of {list(DEMOGRAPHIC_DIMENSIONS)} "
-            f"with fewer than {SUPPRESSION_FLOOR} members is returned as null and counted "
-            "in suppressed_cells. In member-level rows (members, event_detail) gender, "
+            f"with fewer than {SUPPRESSION_FLOOR} members is left out entirely (labels "
+            "included) and counted in suppressed_cells; a filtered population below the "
+            "floor is withheld whole (suppressed: true). In member-level rows (members, event_detail) gender, "
             "age_band and canton are generalized over the whole real-member population: "
             f"a value reads '{SUPPRESSED}' when fewer than {SUPPRESSION_FLOOR} members "
             "share it (canton first, then age band, then gender), and member filters "
@@ -1213,23 +1214,33 @@ def demographics(group_by: list[str], verification_status: str | None = None) ->
             return p["verification_status"]
         return p["user_id"] in luxid
 
+    total = len(profiles)
+    if 0 < total < SUPPRESSION_FLOOR:
+        # A filtered population below the floor is withheld whole: its total
+        # and any cell label would describe fewer than SUPPRESSION_FLOOR people.
+        return {
+            "group_by": group_by,
+            "verification_status": verification_status,
+            "total_members": None,
+            "suppressed": True,
+            "suppressed_cells": None,
+            "cells": [],
+        }
     counts = Counter(tuple(value(p, d) for d in group_by) for p in profiles)
     suppress = sum(d in DEMOGRAPHIC_DIMENSIONS for d in group_by) >= 2
     cells, suppressed = [], 0
     for key, n in sorted(counts.items(), key=lambda kv: [str(x) for x in kv[0]]):
-        hidden = suppress and n < SUPPRESSION_FLOOR
-        suppressed += hidden
-        cells.append(
-            {
-                **dict(zip(group_by, key)),
-                "members": None if hidden else n,
-                "suppressed": hidden,
-            }
-        )
+        if suppress and n < SUPPRESSION_FLOOR:
+            # Dropped entirely: even the labels of a small cell say that
+            # someone with that combination exists.
+            suppressed += 1
+            continue
+        cells.append({**dict(zip(group_by, key)), "members": n})
     return {
         "group_by": group_by,
         "verification_status": verification_status,
-        "total_members": len(profiles),
+        "total_members": total,
+        "suppressed": False,
         "suppressed_cells": suppressed,
         "cells": cells,
     }
