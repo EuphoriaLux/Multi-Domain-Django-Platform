@@ -732,6 +732,20 @@ class HardeningTests(AnalyticsFixture):
         }
         self.assertEqual(keys, {"203.0.113.7"})
 
+    def test_rate_limit_counts_per_ip_across_ports(self):
+        from crush_lu import api_analytics
+
+        with mock.patch.object(api_analytics, "RATE_LIMIT_PER_MINUTE", 2):
+            statuses = [
+                self.client.get(
+                    f"{BASE}definitions/",
+                    HTTP_X_FORWARDED_FOR=f"203.0.113.9:{port}",
+                    **AUTH,
+                ).status_code
+                for port in (50001, 50002, 50003)
+            ]
+        self.assertEqual(statuses, [200, 200, 429])
+
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
         self.assertEqual(response.status_code, 400)
@@ -818,8 +832,14 @@ class PrivilegeAuditTests(TestCase):
         ("pg_catalog", "pg_class", True, True, False, True),
     ]
 
+    ALL_GRANTED = [
+        (relation, column)
+        for relation, columns in analytics.GRANTS.items()
+        for column in columns
+    ]
+
     def test_exactly_the_allowlist_is_clean(self):
-        columns = [("crush_lu_eventregistration", "status")]
+        columns = self.ALL_GRANTED
         self.assertEqual(
             analytics.privilege_violations(False, self.CLEAN_RELATIONS, columns, []),
             [],
@@ -850,7 +870,10 @@ class PrivilegeAuditTests(TestCase):
             2,
             True,
             3,
-            [("pg_catalog", "lo_import", "text")],
+            [
+                ("pg_catalog", "lo_import", "text", False),
+                ("pg_catalog", "pg_read_file", "text", True),
+            ],
             ["lo_compat_privileges"],
             [("column", "crush_lu_eventregistration.status")],
         )
@@ -877,11 +900,23 @@ class PrivilegeAuditTests(TestCase):
             "can read system relation pg_toast.pg_toast_16385",
             "can read system relation pg_catalog.pg_statistic",
             "can EXECUTE pg_catalog.lo_import(text) beyond PUBLIC",
+            "can EXECUTE pg_catalog.pg_read_file(text) through a PUBLIC grant it "
+            "does not have by default",
             "can SET or ALTER SYSTEM parameter lo_compat_privileges",
             # An allowed column, but re-grantable: still excess.
             "holds a grant option on column crush_lu_eventregistration.status",
         ):
             self.assertIn(expected, joined)
+
+    def test_a_missing_required_column_is_reported(self):
+        columns = [c for c in self.ALL_GRANTED if c != ("auth_user", "is_staff")]
+        self.assertEqual(
+            analytics.privilege_violations(False, self.CLEAN_RELATIONS, columns, []),
+            [
+                "lacks SELECT on public.auth_user.is_staff "
+                "(re-run setup_analytics_role)"
+            ],
+        )
 
     def _audit_with(self, version, parameter_rows):
         class FakeCursor:
@@ -899,6 +934,8 @@ class PrivilegeAuditTests(TestCase):
             def fetchall(self):
                 if self.last == analytics.PARAMETER_AUDIT_SQL:
                     return parameter_rows
+                if self.last == analytics.PRIVILEGE_AUDIT_SQL["columns"]:
+                    return list(PrivilegeAuditTests.ALL_GRANTED)
                 return []
 
         cursor = FakeCursor()

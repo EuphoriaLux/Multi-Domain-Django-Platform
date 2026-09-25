@@ -412,14 +412,25 @@ PRIVILEGE_AUDIT_SQL = {
         "AND has_schema_privilege(%(role)s, n.oid, 'USAGE') "
         "AND has_function_privilege(%(role)s, p.oid, 'EXECUTE')"
     ),
-    # Routines authorize through their EXECUTE ACL, not table rights: any
-    # routine the login can run that PUBLIC cannot (a granted lo_import or
-    # pg_read_file, say) is excess, in every schema including pg_catalog.
+    # Routines authorize through their EXECUTE ACL, not table rights. In every
+    # schema, including pg_catalog, it is excess when the login can run a
+    # routine that PUBLIC cannot (a direct grant), or one that is restricted
+    # by default, even through a later grant to PUBLIC. "Restricted by default"
+    # comes from pg_init_privs, which initdb and extension scripts write and a
+    # later GRANT never changes: an entry there whose ACL gives PUBLIC no
+    # EXECUTE (lo_import, pg_read_file, ...). The last column says whether
+    # the routine is reached through PUBLIC.
     "privileged_routines": (
-        "SELECT n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) "
+        "SELECT n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), "
+        "has_function_privilege('public', p.oid, 'EXECUTE') "
         "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "LEFT JOIN pg_init_privs i ON i.objoid = p.oid "
+        "AND i.classoid = 'pg_proc'::regclass AND i.objsubid = 0 "
         "WHERE has_function_privilege(%(role)s, p.oid, 'EXECUTE') "
-        "AND NOT has_function_privilege('public', p.oid, 'EXECUTE')"
+        "AND (NOT has_function_privilege('public', p.oid, 'EXECUTE') "
+        "OR (i.initprivs IS NOT NULL AND NOT EXISTS ("
+        "SELECT 1 FROM aclexplode(i.initprivs) d "
+        "WHERE d.grantee = 0 AND d.privilege_type = 'EXECUTE')))"
     ),
     "schemas_with_create": (
         "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
@@ -480,7 +491,8 @@ def privilege_violations(
     parameters=(),
     grant_options=(),
 ) -> list:
-    """Everything the role can effectively do beyond GRANTS (pure; testable).
+    """Everything the role can effectively do beyond GRANTS, and any GRANTS
+    column it can no longer read (pure; testable).
 
     Any role membership is a violation: the login is NOINHERIT, so
     has_*_privilege does not see a member role's rights, yet the login could
@@ -493,8 +505,15 @@ def privilege_violations(
         violations.append(f"member of role {group}")
     for schema, function in definer_functions:
         violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
-    for schema, routine, arguments in routines:
-        violations.append(f"can EXECUTE {schema}.{routine}({arguments}) beyond PUBLIC")
+    for row in routines:
+        schema, routine, arguments = row[:3]
+        via_public = row[3] if len(row) > 3 else False
+        how = (
+            "through a PUBLIC grant it does not have by default"
+            if via_public
+            else "beyond PUBLIC"
+        )
+        violations.append(f"can EXECUTE {schema}.{routine}({arguments}) {how}")
     for parameter in parameters:
         violations.append(f"can SET or ALTER SYSTEM parameter {parameter}")
     for kind, name in grant_options:
@@ -543,6 +562,16 @@ def privilege_violations(
     for relation, column in columns:
         if column not in GRANTS.get(relation, ()):
             violations.append(f"can read public.{relation}.{column}")
+    # A required grant that went missing would otherwise surface later as a
+    # permission error inside whichever tool reads it.
+    readable = set(map(tuple, columns))
+    for relation, required in GRANTS.items():
+        for column in required:
+            if (relation, column) not in readable:
+                violations.append(
+                    f"lacks SELECT on public.{relation}.{column} "
+                    "(re-run setup_analytics_role)"
+                )
     for schema in schemas_with_create:
         violations.append(f"can CREATE in schema {schema}")
     return violations

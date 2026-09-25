@@ -19,6 +19,7 @@ import hashlib
 import json
 import logging
 import secrets
+import time
 from datetime import date, timedelta
 
 from django.conf import settings
@@ -28,7 +29,6 @@ from django.http import Http404, JsonResponse
 from django.utils import timezone, translation
 from django.views.decorators.http import require_GET
 
-from crush_lu.decorators import ratelimit
 from crush_lu.oauth_statekit import get_client_ip
 from crush_lu.services import analytics_readonly as analytics
 
@@ -273,15 +273,41 @@ def analytics_tool(request, tool):
     return _serve(request, tool)
 
 
+RATE_LIMIT_PER_MINUTE = 60
+
+
 def _client_ip_key(request) -> str:
     """Azure's X-Forwarded-For is IP:PORT; key on the address alone, or every
     new connection would start a fresh counter."""
     return get_client_ip(request) or "unknown"
 
 
+def _over_rate_limit(request) -> bool:
+    """A fixed one-minute window per client IP, counted atomically.
+
+    add() creates the window's counter only if it is absent and incr() returns
+    the new count, so concurrent requests never see the same value. (The shared
+    crush_lu.decorators.ratelimit reads, then sets, so a burst can slip past.)
+    A cache outage fails open, as that decorator does.
+    """
+    key = f"analytics-rl:{_client_ip_key(request)}:{int(time.time() // 60)}"
+    try:
+        cache.add(key, 0, timeout=120)
+        try:
+            count = cache.incr(key)
+        except ValueError:  # evicted between add() and incr()
+            cache.add(key, 1, timeout=120)
+            count = 1
+    except Exception:
+        logger.warning("Analytics rate limiter unavailable", exc_info=True)
+        return False
+    return count > RATE_LIMIT_PER_MINUTE
+
+
 @require_GET
-@ratelimit(key=_client_ip_key, rate="60/m", method="GET", block=True)
 def _serve(request, tool):
+    if _over_rate_limit(request):
+        return _error("Too many requests", 429)
     if not authenticate_analytics_request(request):
         logger.warning("Unauthorized analytics API call for tool=%s", tool)
         return _error("Unauthorized", 401)
