@@ -358,6 +358,35 @@ class AdventViewPrivacyTests(NamesakeFixtureMixin, TestCase):
         )
         self.assertEqual(opened.status_code, 404)
 
+    def test_namesake_cannot_redeem_a_stale_token_on_the_owners_calendar(self):
+        """A QR token issued to a namesake under the old name match must not
+        redeem on, or create progress for, the owner's calendar."""
+        door = AdventDoor.objects.get(calendar=self.calendar, door_number=1)
+        stale = QRCodeToken.objects.create(door=door, user=self.namesake)
+        self.client.force_login(self.namesake)
+
+        response = self.client.get(f"/en/advent/qr/{stale.token}/", HTTP_HOST=HOST)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("This QR code is not for you.", _messages(response))
+        stale.refresh_from_db()
+        self.assertFalse(stale.is_used)
+        self.assertFalse(AdventProgress.objects.filter(calendar=self.calendar).exists())
+
+    def test_linked_user_redeems_their_own_token(self):
+        door = AdventDoor.objects.get(calendar=self.calendar, door_number=1)
+        token = QRCodeToken.objects.create(door=door, user=self.owner)
+        self.client.force_login(self.owner)
+
+        response = self.client.get(f"/en/advent/qr/{token.token}/", HTTP_HOST=HOST)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("This QR code is not for you.", _messages(response))
+        token.refresh_from_db()
+        self.assertTrue(token.is_used)
+        progress = AdventProgress.objects.get(user=self.owner, calendar=self.calendar)
+        self.assertEqual(progress.qr_scans, [1])
+
     def test_linked_user_advent_view_renders(self):
         self.client.force_login(self.owner)
 

@@ -239,6 +239,15 @@ def scan_qr_code(request, token):
             messages.error(request, _('This QR code is not for you.'))
             return redirect('crush_lu:advent_calendar')
 
+        # ...and that this user holds the calendar's experience. A legacy
+        # token issued to a name-matched namesake must not redeem a gift on,
+        # or create progress for, someone else's calendar.
+        special_experience = SpecialUserExperience.active_for_user(request.user)
+        calendar_experience_id = qr_token.door.calendar.journey.special_experience_id
+        if special_experience is None or special_experience.pk != calendar_experience_id:
+            messages.error(request, _('This QR code is not for you.'))
+            return redirect('crush_lu:advent_calendar')
+
         # Check if token is valid (not used, not expired)
         if not qr_token.is_valid():
             if qr_token.is_used:
