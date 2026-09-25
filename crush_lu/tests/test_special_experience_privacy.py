@@ -619,6 +619,48 @@ class CreateAdventCalendarQrTests(NamesakeFixtureMixin, TestCase):
         )
 
 
+class CreateAdventCalendarLinkWarningTests(NamesakeFixtureMixin, TestCase):
+    """The missing-link warning must not depend on --generate-qr: the
+    documented default invocation would otherwise create a calendar nobody
+    can open and report success. Tested through the command's helpers, like
+    the QR tests above, because the full command still crashes on main
+    (AdventCalendar kwargs); #1029 repairs that path."""
+
+    def _command(self):
+        from crush_lu.management.commands.create_advent_calendar import Command
+
+        out = StringIO()
+        return Command(stdout=out), out
+
+    def test_unlinked_experience_warns_and_leads_the_next_steps(self):
+        self.experience.linked_user = None
+        self.experience.save()
+        command, out = self._command()
+
+        unlinked = command._warn_if_unlinked(self.experience)
+        steps = command._next_steps(unlinked, generate_qr=False)
+
+        self.assertTrue(unlinked)
+        output = out.getvalue()
+        self.assertIn("No user account is linked", output)
+        self.assertIn("nobody can open this calendar", output)
+        self.assertNotIn("link_special_experiences", output)
+        self.assertTrue(steps[0].startswith("Set 'Linked user'"))
+        self.assertEqual(steps[-1], "Run with --generate-qr to create QR codes")
+
+    def test_linked_experience_gets_no_warning(self):
+        command, out = self._command()
+
+        unlinked = command._warn_if_unlinked(self.experience)
+        steps = command._next_steps(unlinked, generate_qr=True)
+
+        self.assertFalse(unlinked)
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(steps[0], "Add personalized content via Django Admin")
+        self.assertEqual(steps[-1], "Print QR codes for physical gifts")
+        self.assertFalse(any("Linked user" in step for step in steps))
+
+
 class CreateWonderlandJourneyWarningTests(TestCase):
     def setUp(self):
         cache.clear()

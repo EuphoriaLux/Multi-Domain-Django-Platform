@@ -592,6 +592,113 @@ class TestMergeSpecialExperience:
         assert QRCodeToken.objects.filter(door=door, user=keeper_user).count() == 1
 
 
+class TestMergeAdventProgress:
+    """The advent views get_or_create the keeper's AdventProgress, so a row
+    left on the deactivated duplicate reads as every door closed again."""
+
+    def _calendar(self, experience):
+        return _advent_door(experience).calendar
+
+    def test_moves_duplicate_progress_when_keeper_has_none(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=duplicate_user
+        )
+        calendar = self._calendar(experience)
+        progress = AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[1, 2, 6],
+            qr_scans=[6],
+            last_door_opened=6,
+            last_opened_at=timezone.now(),
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        progress.refresh_from_db()
+        assert progress.user == keeper_user
+        assert progress.doors_opened == [1, 2, 6]
+        assert progress.qr_scans == [6]
+        assert not AdventProgress.objects.filter(user=duplicate_user).exists()
+        assert f"Moved advent progress for calendar #{calendar.pk} to keeper" in log
+
+    def test_folds_duplicate_progress_into_keepers_row(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        calendar = self._calendar(experience)
+        earlier = timezone.now() - timedelta(days=2)
+        later = timezone.now()
+        keeper_progress = AdventProgress.objects.create(
+            user=keeper_user,
+            calendar=calendar,
+            doors_opened=[1, 2],
+            qr_scans=[],
+            last_door_opened=2,
+            last_opened_at=earlier,
+        )
+        AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[2, 3, 6],
+            qr_scans=[6],
+            last_door_opened=6,
+            last_opened_at=later,
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        keeper_progress.refresh_from_db()
+        assert keeper_progress.doors_opened == [1, 2, 3, 6]
+        assert keeper_progress.qr_scans == [6]
+        assert keeper_progress.last_door_opened == 6
+        assert keeper_progress.last_opened_at == later
+        assert AdventProgress.objects.filter(calendar=calendar).count() == 1
+        assert not AdventProgress.objects.filter(user=duplicate_user).exists()
+        assert any(
+            line.startswith(f"Merged advent progress for calendar #{calendar.pk}")
+            for line in log
+        )
+
+    def test_keeper_keeps_its_own_latest_door_when_newer(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        calendar = self._calendar(experience)
+        keeper_progress = AdventProgress.objects.create(
+            user=keeper_user,
+            calendar=calendar,
+            doors_opened=[5],
+            last_door_opened=5,
+            last_opened_at=timezone.now(),
+        )
+        AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[1],
+            last_door_opened=1,
+            last_opened_at=timezone.now() - timedelta(days=1),
+        )
+
+        merge_accounts(keeper_user, duplicate_user)
+
+        keeper_progress.refresh_from_db()
+        assert keeper_progress.doors_opened == [1, 5]
+        assert keeper_progress.last_door_opened == 5
+
+
 class TestMergeAtomicity:
     def test_merge_is_atomic(self, keeper_user, duplicate_user):
         """If an error occurs mid-merge, nothing should be committed."""

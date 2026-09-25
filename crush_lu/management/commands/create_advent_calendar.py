@@ -165,6 +165,8 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f'[=] Found existing Special User Experience for {first_name}')
 
+        unlinked = self._warn_if_unlinked(special_exp)
+
         # 2. Check for existing advent calendar journey
         existing_journey = JourneyConfiguration.objects.filter(
             special_experience=special_exp,
@@ -251,13 +253,8 @@ class Command(BaseCommand):
         self.stdout.write(f'QR Bonus Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "bonus")}')
         self.stdout.write('')
         self.stdout.write('Next steps:')
-        self.stdout.write('1. Add personalized content via Django Admin')
-        self.stdout.write('2. Upload photos, audio, video files')
-        self.stdout.write('3. Configure challenge questions')
-        if generate_qr:
-            self.stdout.write('4. Print QR codes for physical gifts')
-        else:
-            self.stdout.write('4. Run with --generate-qr to create QR codes')
+        for number, step in enumerate(self._next_steps(unlinked, generate_qr), 1):
+            self.stdout.write(f'{number}. {step}')
         self.stdout.write('')
 
     def _get_door_color(self, day: int) -> str:
@@ -288,6 +285,38 @@ class Command(BaseCommand):
             'countdown': 'bi-stars',
         }
         return icons.get(content_type, 'bi-star')
+
+    def _warn_if_unlinked(self, special_exp):
+        """Warn when nobody can open the calendar; return True if so.
+
+        Access is granted by linked_user only, never by name, so this runs
+        on every invocation, not only with --generate-qr.
+        """
+        if special_exp.linked_user_id is not None:
+            return False
+        self.stdout.write(self.style.WARNING(
+            '[!] No user account is linked to the Special User Experience'
+            f' for {special_exp.first_name} {special_exp.last_name}:'
+            " nobody can open this calendar until 'Linked user' is set in"
+            ' the admin (Special User Experience -> Linked account).'
+        ))
+        return True
+
+    def _next_steps(self, unlinked, generate_qr):
+        steps = []
+        if unlinked:
+            steps.append(
+                "Set 'Linked user' on the Special User Experience in the admin"
+                ' - nobody can open the calendar until then'
+            )
+        steps += [
+            'Add personalized content via Django Admin',
+            'Upload photos, audio, video files',
+            'Configure challenge questions',
+            'Print QR codes for physical gifts' if generate_qr
+            else 'Run with --generate-qr to create QR codes',
+        ]
+        return steps
 
     def _generate_qr_tokens(self, calendar, special_exp):
         """Generate QR tokens for doors that need them.
