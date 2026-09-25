@@ -265,6 +265,13 @@ def _serve(request, tool):
     if params.errors:
         return _error("; ".join(params.errors), 400)
 
+    # The privilege audit runs before any payload is read or returned, cached
+    # or not, so an excessive grant yields the 503 on schedule.
+    try:
+        analytics._alias()
+    except analytics.NotConfigured:
+        return _error("analytics database login failed its privilege audit", 503)
+
     public_params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
     # A non-secret fingerprint of the pseudonym key namespaces the cache, so
     # rotating the key never serves old pseudonyms beside new ones.

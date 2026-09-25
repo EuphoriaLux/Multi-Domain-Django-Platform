@@ -93,6 +93,7 @@ GRANTS: dict[str, tuple[str, ...]] = {
     "crush_lu_profilesubmission": (
         "id",
         "profile_id",
+        "coach_id",
         "status",
         "submitted_at",
         "reviewed_at",
@@ -314,6 +315,8 @@ PRIVILEGE_AUDIT_SQL = {
         "has_table_privilege(%(role)s, c.oid, "
         "'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
         "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,UPDATE,REFERENCES') "
+        "OR (current_setting('server_version_num')::int >= 170000 "
+        "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')) "
         "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
         "WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') "
         "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
@@ -326,6 +329,13 @@ PRIVILEGE_AUDIT_SQL = {
         "WHERE n.nspname = 'public' AND c.relname = ANY(%(tables)s) "
         "AND a.attnum > 0 AND NOT a.attisdropped "
         "AND has_column_privilege(%(role)s, c.oid, a.attnum, 'SELECT')"
+    ),
+    "sequences": (
+        "SELECT n.nspname, c.relname FROM pg_class c "
+        "JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE c.relkind = 'S' "
+        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
+        "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
     ),
     "memberships": (
         "SELECT g.rolname FROM pg_auth_members m "
@@ -360,6 +370,7 @@ def privilege_violations(
     schemas_with_create,
     memberships=(),
     definer_functions=(),
+    sequences=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -374,6 +385,8 @@ def privilege_violations(
         violations.append(f"member of role {group}")
     for schema, function in definer_functions:
         violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
+    for schema, sequence in sequences:
+        violations.append(f"can use sequence {schema}.{sequence}")
     for schema, relation, table_select, any_column_select, can_write in relations:
         name = f"{schema}.{relation}"
         if can_write:
@@ -404,6 +417,7 @@ def audit_role(cursor, role: str) -> list:
         [row[0] for row in results["schemas_with_create"]],
         [row[0] for row in results["memberships"]],
         results["definer_functions"],
+        results["sequences"],
     )
 
 
@@ -619,6 +633,24 @@ def _generalized_quasi_identifiers(profiles: list[dict]) -> dict[int, dict]:
     return generalized
 
 
+def _is_panel_audit_row(row: dict) -> bool:
+    """A coach-panel verification's audit-trail row, not a member submission.
+
+    views_coach._record_panel_verification writes an approved row, coach set,
+    reviewed at its own creation instant, for members verified without ever
+    submitting. A real submission starts pending and a coach reviews it later,
+    so "approved by a coach within two seconds of submission" marks the audit
+    row without reading its free-text notes.
+    """
+    return (
+        row["status"] == "approved"
+        and row["coach_id"] is not None
+        and row["reviewed_at"] is not None
+        and row["submitted_at"] is not None
+        and abs(row["reviewed_at"] - row["submitted_at"]) <= timedelta(seconds=2)
+    )
+
+
 def _attended_user_ids(alias: str, user_ids) -> set[int]:
     return set(
         EventRegistration.objects.using(alias)
@@ -775,12 +807,14 @@ def funnel(start: date, end: date, grain: str = "week") -> dict:
         alias, excluded, created_at__gte=low, created_at__lt=high
     )
     user_ids = [p["user_id"] for p in profiles]
-    submitted = set(
-        ProfileSubmission.objects.using(alias)
+    submitted = {
+        row["profile_id"]
+        for row in ProfileSubmission.objects.using(alias)
         .filter(profile_id__in=[p["id"] for p in profiles])
         .order_by()
-        .values_list("profile_id", flat=True)
-    )
+        .values("profile_id", "coach_id", "status", "submitted_at", "reviewed_at")
+        if not _is_panel_audit_row(row)
+    }
     luxid = _luxid_user_ids(alias, user_ids)
     attended = _attended_user_ids(alias, user_ids)
     paid_event = _paid_event_user_ids(alias, user_ids)

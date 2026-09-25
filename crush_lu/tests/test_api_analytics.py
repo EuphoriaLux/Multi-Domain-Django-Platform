@@ -39,6 +39,7 @@ from crush_lu.models import (
     MeetupEvent,
     PaymentTransaction,
     PremiumMembership,
+    ProfileSubmission,
     UserDataConsent,
     WeeklyMetricsSnapshot,
 )
@@ -221,7 +222,7 @@ class AnalyticsFixture(TestCase):
         coach_user = User.objects.create_user(
             username="coach@crush.lu", email="coach@crush.lu", password="x"
         )
-        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        cls.coach = coach = CrushCoach.objects.create(user=coach_user, is_active=True)
         PremiumMembership.objects.create(user=cls.bob, coach=coach, status="active")
         for weeks_ago, signups in ((2, 3), (1, 5)):
             start = timezone.localdate() - timedelta(
@@ -437,6 +438,21 @@ class ToolTests(AnalyticsFixture):
         for value in ("canton-luxembourg", "other"):
             self.assertEqual(self.get("members", canton=value).status_code, 200)
 
+    def test_panel_verification_audit_rows_are_not_submissions(self):
+        # A coach verified dave from the panel without a submission: the
+        # audit-trail row (approved, coach set, reviewed on creation) must not
+        # count. carol's real submission (pending, no reviewer yet) does.
+        ProfileSubmission.objects.create(
+            profile=self.dave.crushprofile,
+            coach=self.coach,
+            status="approved",
+            reviewed_at=timezone.now(),
+        )
+        ProfileSubmission.objects.create(
+            profile=self.carol.crushprofile, status="pending"
+        )
+        self.assertEqual(self.data("funnel")["totals"]["submitted"], 1)
+
     def test_funnel_counts_only_real_members(self):
         totals = self.data("funnel")["totals"]
         self.assertEqual(totals["signups"], 4)
@@ -632,6 +648,15 @@ class HardeningTests(AnalyticsFixture):
         self.assertTrue(old)
         self.assertFalse(old & new)
 
+    def test_privilege_audit_runs_before_a_cached_payload_is_served(self):
+        self.assertEqual(self.get("events").status_code, 200)  # now cached
+        with mock.patch.object(
+            analytics,
+            "_assert_least_privilege",
+            side_effect=analytics.NotConfigured("exceeds"),
+        ):
+            self.assertEqual(self.get("events").status_code, 503)
+
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
         self.assertEqual(response.status_code, 400)
@@ -667,6 +692,7 @@ class PrivilegeAuditTests(TestCase):
             ["public"],
             ["azure_pg_admin"],
             [("public", "unsafe_export")],
+            [("public", "crush_lu_meetupevent_id_seq")],
         )
         joined = " | ".join(violations)
         for expected in (
@@ -679,6 +705,7 @@ class PrivilegeAuditTests(TestCase):
             "can CREATE in schema public",
             "member of role azure_pg_admin",
             "can execute SECURITY DEFINER public.unsafe_export",
+            "can use sequence public.crush_lu_meetupevent_id_seq",
         ):
             self.assertIn(expected, joined)
 
@@ -790,7 +817,12 @@ class SetupRoleCommandTests(TestCase):
 
     def test_dry_run_prints_exactly_the_allowlist(self):
         out = StringIO()
-        call_command("setup_analytics_role", dry_run=True, stdout=out)
+        call_command(
+            "setup_analytics_role",
+            dry_run=True,
+            allow_connect_to="postgres,azure_sys",
+            stdout=out,
+        )
         sql = out.getvalue()
         for table in analytics.GRANTS:
             self.assertIn(f'ON public."{table}" TO "crush_analytics_ro"', sql)
