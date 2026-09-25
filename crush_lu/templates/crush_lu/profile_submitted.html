@@ -43,7 +43,8 @@
             </div>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
-            {% if not luxid_connect_url %}
+            {# Gate on the LuxID link itself: an empty luxid_connect_url also means "LuxID not configured / lookup failed", which must not read as "connected". #}
+            {% if has_luxid_account and profile.verification_status != 'verified' %}
             <div class="mb-4 rounded-2xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 px-6 py-5 text-left">
                 <div class="flex items-center gap-3">
                     {% include "shared/icons/check-circle.html" with class="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" %}
@@ -861,5 +862,5 @@
 </div>
 
 {# The two ways to get verified (event / LuxID) plus the Premium teaser #}
-{% include "crush_lu/partials/_verification_options.html" %}
+{% include "crush_lu/partials/_verification_options.html" with luxid_connected=has_luxid_account collapse_luxid=luxid_unavailable %}
 {% endblock %}

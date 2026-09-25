@@ -2358,6 +2358,10 @@ def profile_submitted(request):
         "submission": submission,
         "has_luxid_account": has_luxid_account,
         "luxid_connect_url": luxid_connect_url,
+        # Not linked and nothing to connect (no LuxID app on this site, or the
+        # lookup failed): the options partial collapses the LuxID card so the
+        # event path is the single highlighted one.
+        "luxid_unavailable": not has_luxid_account and not luxid_connect_url,
         # Submission-dependent (None when no submission)
         "coach_contact_phone": coach_contact_phone,
         "coach_phone_available": coach_phone_available,
