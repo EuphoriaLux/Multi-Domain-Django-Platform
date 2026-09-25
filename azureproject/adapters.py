@@ -914,3 +914,37 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             return "/login/"
         # Default Allauth login URL for other domains
         return "/accounts/login/"
+
+    def get_email_verification_redirect_url(self, email_address):
+        """
+        Send anonymous Crush.lu members to the tabbed /<lang>/login/ page
+        after they confirm their email.
+
+        The global ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL points at
+        allauth's /accounts/login/, which every domain mounts. On Crush.lu that
+        is a second, bare login page without the email prefill or a
+        "Forgot your password?" link. The Crush tabbed page (UnifiedAuthView)
+        pops the address that the email_confirmed handler in
+        crush_lu/signals.py stashed in this same session, so the member only
+        has to type their password.
+
+        The confirm URL is language-neutral, so LocaleMiddleware has already
+        activated the language from the cookie / Accept-Language; it is checked
+        against LANGUAGES before it reaches the redirect. Authenticated users
+        and every other domain keep allauth's behaviour.
+        """
+        request = self.request
+        if (
+            request is not None
+            and not request.user.is_authenticated
+            and _is_crush_domain(request)
+        ):
+            from django.conf import settings
+            from django.utils import translation
+
+            supported = {code for code, _name in settings.LANGUAGES}
+            lang = translation.get_language()
+            if lang not in supported:
+                lang = settings.LANGUAGE_CODE
+            return f"/{lang}/login/"
+        return super().get_email_verification_redirect_url(email_address)
