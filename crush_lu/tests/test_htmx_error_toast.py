@@ -248,6 +248,21 @@ def test_queued_copy_needs_the_workers_confirmation():
     timeout = on_failure[on_failure.index("setTimeout(function () {") :]
     assert "finish(copy);" in timeout[: timeout.index("}, QUEUE_ACK_WAIT_MS);")]
     assert 'data.type === "crush-capabilities?" && event.source' in sw
+    # Storage is not replay: the worker holds the Queue itself and drains it
+    # on the page's "online" request, so a promise to sync holds even where
+    # the Background Sync API is missing or its registration failed.
+    assert 'new workbox.backgroundSync.Queue("crush-queue"' in sw
+    assert "BackgroundSyncPlugin(" not in sw
+    assert 'data.type === "crush-drain-queue"' in sw and "drainQueue(crushQueue)" in sw
+    assert 'window.addEventListener("online"' in handler
+    assert 'postMessage({ type: "crush-drain-queue" })' in handler
+    # Forms without isSubmitting/hx-disabled-elt: the submit control is held
+    # from beforeRequest until success or until finish() classifies the
+    # failure, so a second click cannot queue a duplicate POST.
+    assert 'document.addEventListener("htmx:beforeRequest"' in handler
+    assert "holdSubmitters(detail.elt || evt.target)" in handler
+    assert "if (detail.successful) releaseHeld(detail.elt || evt.target)" in handler
+    assert "releaseHeld(elt)" in finish
     assert 'postMessage({ type: "crush-capabilities", queuedAck: true })' in sw
     assert 'postMessage({ type: "crush-capabilities?" })' in handler
     assert 'addEventListener(\n            "controllerchange"' in handler or (

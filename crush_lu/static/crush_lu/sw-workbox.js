@@ -6,7 +6,10 @@
 //                htmx-error-toast.js promises a replay only for a request the
 //                worker holds. A failed IndexedDB write gets the plain copy.
 //                Answers {type: "crush-capabilities?"} so the page can tell
-//                this worker from an older one that queues without saying so.
+//                this worker from an older one that queues without saying so,
+//                and drains the queue on {type: "crush-drain-queue"} (sent when
+//                a page comes back online) since Background Sync is not
+//                everywhere.
 // Version: v32 - Event tickets (/<lang>/events/<id>/ticket/) get their own
 //                NetworkFirst cache so the QR opens offline at the venue door,
 //                purged on every navigation that can switch the signed-in
@@ -641,29 +644,41 @@ if (workbox) {
         );
     }
 
-    const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin(
-        "crush-queue",
-        {
-            maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
-            onSync: async ({ queue }) => {
-                let entry;
-                while ((entry = await queue.shiftRequest())) {
-                    // Discard, don't replay: an entry an earlier worker
-                    // queued predates the exclusions above, and shifting it
-                    // out without fetching is what actually removes it.
-                    if (!isQueueablePost(new URL(entry.request.url).pathname)) {
-                        continue;
-                    }
-                    try {
-                        await fetch(entry.request);
-                    } catch (error) {
-                        await queue.unshiftRequest(entry);
-                        throw error;
-                    }
-                }
-            },
+    // Replay the queue: the Background Sync handler, the worker-start
+    // fallback Workbox uses where the Sync API is missing, and the
+    // "crush-drain-queue" message a page sends when it regains connectivity
+    // (below) all run this.
+    async function drainQueue(queue) {
+        let entry;
+        while ((entry = await queue.shiftRequest())) {
+            // Discard, don't replay: an entry an earlier worker
+            // queued predates the exclusions above, and shifting it
+            // out without fetching is what actually removes it.
+            if (!isQueueablePost(new URL(entry.request.url).pathname)) {
+                continue;
+            }
+            try {
+                await fetch(entry.request);
+            } catch (error) {
+                await queue.unshiftRequest(entry);
+                throw error;
+            }
+        }
+    }
+
+    // Same queue name and store as the BackgroundSyncPlugin this replaces
+    // (entries an older worker stored are still drained), held directly so
+    // a page can ask for a drain.
+    const crushQueue = new workbox.backgroundSync.Queue("crush-queue", {
+        maxRetentionTime: 24 * 60, // Retry for up to 24 hours (in minutes)
+        onSync: ({ queue }) => drainQueue(queue),
+    });
+    // What BackgroundSyncPlugin.fetchDidFail does: store the failed request.
+    const bgSyncPlugin = {
+        fetchDidFail: async ({ request }) => {
+            await crushQueue.pushRequest({ request });
         },
-    );
+    };
 
     // Runs after bgSyncPlugin's fetchDidFail. Workbox awaits the plugins'
     // fetchDidFail callbacks in order and stops at the first that throws, so
@@ -683,6 +698,9 @@ if (workbox) {
                 type: "crush-queued",
                 requestId: request.headers.get("X-Crush-Request-Id"),
                 url: request.url,
+                // How the replay is triggered: the Sync API, or the page's
+                // "online" drain request plus the worker-start fallback.
+                replay: "sync" in self.registration ? "sync" : "drain",
             });
         },
     };
@@ -862,6 +880,12 @@ if (workbox) {
         // a missing acknowledgement as "the request was not queued".
         if (event.data && event.data.type === "crush-capabilities?" && event.source) {
             event.source.postMessage({ type: "crush-capabilities", queuedAck: true });
+        }
+        // A page regained connectivity: replay now rather than waiting for a
+        // Sync event that may never come (no Sync API, registration failed)
+        // or for the next worker start.
+        if (event.data && event.data.type === "crush-drain-queue") {
+            event.waitUntil(drainQueue(crushQueue).catch(() => {}));
         }
     });
 } else {

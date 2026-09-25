@@ -8,6 +8,17 @@
  * disabled button for good (the event registration form was the reported
  * case).
  *
+ * On every htmx POST this also disables the submit control(s) inside the
+ * requesting element from htmx:beforeRequest until the request succeeds
+ * (htmx:afterRequest) or its failure is classified below, whether or not
+ * the form follows the isSubmitting convention or sets hx-disabled-elt: a
+ * second click during the request or during the queue-ack wait would store
+ * a second non-idempotent POST for replay (chat message, registration).
+ * And when the page comes back online it asks the worker to drain the
+ * background-sync queue ({type: "crush-drain-queue"}), so a queued request
+ * replays even where the Background Sync API is missing or its
+ * registration failed.
+ *
  * On htmx:responseError, htmx:sendError and htmx:timeout this:
  *   1. resets the Alpine submit flag(s) in SUBMIT_FLAGS on the component
  *      scope around the requesting element, so every form that follows the
@@ -144,6 +155,51 @@
     // never answers, so null also means "old worker, no ack will ever come".
     var workerQueuedAck = null;
 
+    // Submit controls disabled by the generic hold (never ones that were
+    // already disabled, e.g. by an isSubmitting binding or hx-disabled-elt).
+    var HELD_ATTR = "data-crush-held";
+
+    function submitControls(elt) {
+        var controls = [];
+        if (!elt || typeof elt.querySelectorAll !== "function") return controls;
+        if (elt.matches && elt.matches('button, input[type="submit"]')) {
+            controls.push(elt);
+        }
+        var found = elt.querySelectorAll(
+            'button:not([type]), button[type="submit"], input[type="submit"]',
+        );
+        for (var i = 0; i < found.length; i++) controls.push(found[i]);
+        return controls;
+    }
+
+    function holdSubmitters(elt) {
+        submitControls(elt).forEach(function (control) {
+            if (control.disabled) return;
+            control.disabled = true;
+            control.setAttribute(HELD_ATTR, "1");
+        });
+    }
+
+    function releaseHeld(elt) {
+        submitControls(elt).forEach(function (control) {
+            if (!control.hasAttribute(HELD_ATTR)) return;
+            control.removeAttribute(HELD_ATTR);
+            control.disabled = false;
+        });
+    }
+
+    document.addEventListener("htmx:beforeRequest", function (evt) {
+        var detail = evt.detail || {};
+        var config = detail.requestConfig || {};
+        if (String(config.verb || "").toLowerCase() !== "post") return;
+        holdSubmitters(detail.elt || evt.target);
+    });
+    document.addEventListener("htmx:afterRequest", function (evt) {
+        var detail = evt.detail || {};
+        // A failure is released by finish() once its copy is known.
+        if (detail.successful) releaseHeld(detail.elt || evt.target);
+    });
+
     function askWorkerCapabilities() {
         var sw = navigator.serviceWorker;
         workerQueuedAck = null;
@@ -173,6 +229,19 @@
             askWorkerCapabilities,
         );
         askWorkerCapabilities();
+        // Background Sync is not everywhere (and its registration can fail);
+        // the worker's own fallback only drains on worker start. Ask for a
+        // drain whenever this page regains connectivity.
+        window.addEventListener("online", function () {
+            var sw = navigator.serviceWorker;
+            if (sw && sw.controller) {
+                try {
+                    sw.controller.postMessage({ type: "crush-drain-queue" });
+                } catch (e) {
+                    // no worker to ask
+                }
+            }
+        });
     }
 
     // The absolute URL of a failed request the worker may have queued, or
@@ -309,6 +378,7 @@
             var finish = function (copy) {
                 if (copy) showToast(copy);
                 resetSubmitState(elt);
+                releaseHeld(elt);
                 restoreFocus(elt);
             };
             if (toastOptedOut(elt)) {
