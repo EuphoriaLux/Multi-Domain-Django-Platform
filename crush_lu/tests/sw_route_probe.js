@@ -23,6 +23,7 @@ const source = fs.readFileSync(swPath, "utf8");
 
 const routes = [];
 const fetchListeners = [];
+const deletedCaches = [];
 let backgroundSync = null;
 
 function strategyName(name) {
@@ -60,6 +61,9 @@ const workbox = {
             routes.push({
                 match,
                 strategy: (handler && handler.__strategy) || "unknown",
+                // Which cache a caching strategy writes to: two NetworkFirst
+                // routes differ only here (e.g. crush-tickets vs crush-pages).
+                cacheName: (handler && handler.__opts && handler.__opts.cacheName) || null,
                 method: method || "GET",
             });
         },
@@ -103,7 +107,15 @@ const self = {
     clients: { matchAll: async () => [], claim: async () => {}, openWindow: async () => {} },
     registration: { showNotification: async () => {}, scope: "https://crush.lu/" },
     skipWaiting: () => {},
-    caches: { open: async () => ({ match: async () => null, put: async () => {} }) },
+    caches: {
+        open: async () => ({ match: async () => null, put: async () => {} }),
+        keys: async () => [],
+        // Recorded so a probe can see which caches a request purges.
+        delete: async (name) => {
+            deletedCaches.push(name);
+            return true;
+        },
+    },
     __WB_DISABLE_DEV_LOGS: true,
 };
 
@@ -159,7 +171,7 @@ function matchingRoute(request) {
         } catch (e) {
             hit = false;
         }
-        if (hit) return route.strategy;
+        if (hit) return route;
     }
     return null;
 }
@@ -239,6 +251,65 @@ const probes = [
         destination: "",
         mustBeClaimed: true,
     },
+    {
+        // The ticket is what an attendee opens at the venue door, often with
+        // no signal. It needs its own cache: "crush-pages" is shared with
+        // every page and expires after 24h.
+        name: "ticket_navigation_en",
+        url: "https://crush.lu/en/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        name: "ticket_navigation_de",
+        url: "https://crush.lu/de/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        name: "ticket_navigation_fr",
+        url: "https://crush.lu/fr/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        // The ticket route must not swallow its neighbours.
+        name: "event_detail_navigation",
+        url: "https://crush.lu/en/events/29/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-pages",
+    },
+    {
+        // Session boundaries purge the offline tickets: the ticket URL is
+        // keyed by event, not user, so the next account on the device would
+        // otherwise be shown the previous account's QR offline. Asserted on
+        // `purgedCaches` by the tests; claiming is informational here (the
+        // NetworkOnly auth route claims these, as with the OAuth probe above).
+        name: "logout_navigation",
+        url: "https://crush.lu/en/logout/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        name: "login_navigation",
+        url: "https://crush.lu/fr/login/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -249,23 +320,30 @@ const results = probes.map((probe) => {
         method: probe.method || "GET",
         headers: { get: () => "" },
     };
+    deletedCaches.length = 0;
     const early = earlyListenerClaims(request);
+    const purgedCaches = deletedCaches.slice();
     const route = early ? null : matchingRoute(request);
+    const strategy = route ? route.strategy : null;
     const claimed = early || route !== null;
-    const strategyOk = !probe.mustMatchStrategy || route === probe.mustMatchStrategy;
+    const strategyOk = !probe.mustMatchStrategy || strategy === probe.mustMatchStrategy;
+    const cacheOk = !probe.mustMatchCache || (route && route.cacheName) === probe.mustMatchCache;
     return {
         name: probe.name,
         url: probe.url,
         method: request.method,
         claimedByEarlyListener: early,
-        matchedRoute: route,
+        matchedRoute: strategy,
+        matchedCacheName: route ? route.cacheName : null,
+        purgedCaches,
         claimed,
         informational: !!probe.informational,
         mustBeClaimed: probe.informational ? null : probe.mustBeClaimed,
         mustMatchStrategy: probe.mustMatchStrategy || null,
+        mustMatchCache: probe.mustMatchCache || null,
         ok: probe.informational
             ? true
-            : claimed === probe.mustBeClaimed && strategyOk,
+            : claimed === probe.mustBeClaimed && strategyOk && cacheOk,
     };
 });
 

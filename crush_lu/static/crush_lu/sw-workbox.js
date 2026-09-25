@@ -1,10 +1,20 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
+// Version: v32 - Event tickets (/<lang>/events/<id>/ticket/) get their own
+//                NetworkFirst cache so the QR opens offline at the venue door,
+//                purged on every sign-in/sign-out/sign-up navigation.
 // Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
 //                cache. The admin is mounted at /crush-admin/, not /admin/, so
 //                every exclusion list written against /admin/ missed it. The
 //                queue is also drained through the same list, so entries an
 //                older worker already stored are dropped rather than replayed.
+
+// Offline event tickets. Declared up here because the hard-bypass listener
+// below purges this cache, and it runs before Workbox is even imported.
+// The ticket URL is keyed by event, not by user, so a copy left behind by one
+// account would be served offline to the next account on the same device.
+const TICKET_CACHE = "crush-tickets";
+const TICKET_PATH = /^\/(en|de|fr)\/events\/\d+\/ticket\/$/;
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -60,6 +70,16 @@ self.addEventListener("fetch", (event) => {
     // ASWebAuthenticationSession never sees its callback and the auth sheet hangs
     // on a cached page after a successful login (2026-07-19).
     if (isAuthUrl) {
+        // Signing in, out or up changes whose ticket this device may show:
+        // drop the offline ticket copies (see TICKET_CACHE). waitUntil keeps
+        // the worker alive for the delete without claiming the request.
+        const isSessionBoundary =
+            url.pathname.includes("/login") ||
+            url.pathname.includes("/logout") ||
+            url.pathname.includes("/signup");
+        if (event.request.mode === "navigate" && isSessionBoundary) {
+            event.waitUntil(caches.delete(TICKET_CACHE));
+        }
         // Navigation requests (page loads): let the browser handle them completely.
         // Safari/WebKit may not process Set-Cookie headers (including CSRF cookies)
         // from responses that pass through event.respondWith(fetch()), so we must
@@ -369,6 +389,33 @@ if (workbox) {
                 url.pathname.startsWith("/api/mobile/")
             ),
         new workbox.strategies.NetworkOnly(),
+    );
+
+    // Strategy 3b: Network First for event tickets, in their own cache.
+    // MUST be registered BEFORE Strategy 4, which would otherwise claim these
+    // navigations into "crush-pages" — shared with every page, capped at 50
+    // entries and 24 hours, so the ticket was usually gone by event night.
+    // The QR is server-rendered SVG inside the HTML, so the cached page is a
+    // complete, scannable ticket. networkTimeoutSeconds covers venue "lie-fi"
+    // (connected, no throughput), where a plain NetworkFirst would hang at the
+    // door instead of falling back. Purged on sign-in/out (fetch listener above).
+    workbox.routing.registerRoute(
+        ({ request, url }) =>
+            request.mode === "navigate" && TICKET_PATH.test(url.pathname),
+        new workbox.strategies.NetworkFirst({
+            cacheName: TICKET_CACHE,
+            networkTimeoutSeconds: 5,
+            plugins: [
+                new workbox.expiration.ExpirationPlugin({
+                    maxEntries: 10,
+                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days: booking -> event night
+                }),
+                new workbox.cacheableResponse.CacheableResponsePlugin({
+                    statuses: [200], // never a login redirect or a 404
+                }),
+                new ServerUnreachablePlugin(),
+            ],
+        }),
     );
 
     // Strategy 4: Network First for HTML pages (always fresh, fallback to cache)
