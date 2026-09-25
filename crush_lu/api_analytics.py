@@ -301,6 +301,10 @@ def _over_rate_limit(request) -> bool:
     except Exception:
         logger.warning("Analytics rate limiter unavailable", exc_info=True)
         return False
+    if not isinstance(count, int):
+        # django-redis runs with IGNORE_EXCEPTIONS: an outage returns None.
+        logger.warning("Analytics rate limiter unavailable (no count)")
+        return False
     return count > RATE_LIMIT_PER_MINUTE
 
 

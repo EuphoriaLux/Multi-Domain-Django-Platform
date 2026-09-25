@@ -231,6 +231,23 @@ class Command(BaseCommand):
         )
         for (group,) in cursor.fetchall():
             cursor.execute(f"REVOKE {_qn(group)} FROM {r}")
+        cursor.execute("SHOW server_version_num")
+        version = int(cursor.fetchone()[0])
+        # Roles that could use this login's privileges through membership.
+        cursor.execute(
+            "SELECT r.rolname, r.rolname = current_user FROM pg_auth_members m "
+            "JOIN pg_roles r ON r.oid = m.member WHERE m.roleid = %s::regrole"
+            + (" AND (m.inherit_option OR m.set_option)" if version >= 160000 else ""),
+            [ROLE],
+        )
+        for member, is_self in cursor.fetchall():
+            if is_self and version >= 160000:
+                # Keep ADMIN OPTION: from PostgreSQL 16 a CREATEROLE login may
+                # only alter roles it administers, and this command alters it.
+                cursor.execute(f"REVOKE INHERIT OPTION FOR {r} FROM {_qn(member)}")
+                cursor.execute(f"REVOKE SET OPTION FOR {r} FROM {_qn(member)}")
+            else:
+                cursor.execute(f"REVOKE {r} FROM {_qn(member)}")
         cursor.execute(
             "SELECT DISTINCT n.nspname, c.relname, c.relkind FROM pg_class c "
             "JOIN pg_namespace n ON n.oid = c.relnamespace "
@@ -284,8 +301,7 @@ class Command(BaseCommand):
         )
         for (large_object,) in cursor.fetchall():
             cursor.execute(f"REVOKE ALL ON LARGE OBJECT {int(large_object)} FROM {r}")
-        cursor.execute("SHOW server_version_num")
-        if int(cursor.fetchone()[0]) >= 150000:  # parameter ACLs exist from 15
+        if version >= 150000:  # parameter ACLs exist from 15
             cursor.execute(
                 "SELECT DISTINCT p.parname FROM pg_parameter_acl p "
                 "CROSS JOIN LATERAL aclexplode(p.paracl) a "

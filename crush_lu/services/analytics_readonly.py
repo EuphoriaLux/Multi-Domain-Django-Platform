@@ -365,13 +365,34 @@ PRIVILEGE_AUDIT_SQL = {
         "has_database_privilege(%(role)s, current_database(), 'TEMPORARY')"
     ),
     # Ownership of anything (types, domains, operators, ... not only relations)
-    # in this database or of shared objects, from the dependency register.
+    # in ANY database of the cluster or of shared objects, from the shared
+    # dependency register: the login can reach other databases too.
     "owned_objects": (
         "SELECT count(*) FROM pg_shdepend "
         "WHERE refclassid = 'pg_authid'::regclass "
-        "AND refobjid = %(role)s::regrole AND deptype = 'o' "
-        "AND dbid IN (0, (SELECT oid FROM pg_database "
-        "WHERE datname = current_database()))"
+        "AND refobjid = %(role)s::regrole AND deptype = 'o'"
+    ),
+    # The login must keep USAGE on public, or every column grant is unusable.
+    "public_usage": ("SELECT has_schema_privilege(%(role)s, 'public', 'USAGE')"),
+    # Catalog columns the login can read that PUBLIC could not read by default.
+    # Defaults come from pg_init_privs (written by initdb, never by a later
+    # GRANT), at relation or column level (pg_subscription is column-granted).
+    # information_schema is created after initdb records them, so it is
+    # compared with PUBLIC's live grants in "relations" instead.
+    "system_columns": (
+        "SELECT n.nspname, c.relname, string_agg(a.attname, ',' ORDER BY a.attnum) "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid = c.oid "
+        "AND a.attnum > 0 AND NOT a.attisdropped "
+        "WHERE (n.nspname = 'pg_catalog' OR n.nspname LIKE 'pg_toast%%') "
+        "AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 't') "
+        "AND has_column_privilege(%(role)s, c.oid, a.attnum, 'SELECT') "
+        "AND NOT EXISTS (SELECT 1 FROM pg_init_privs i "
+        "CROSS JOIN LATERAL aclexplode(i.initprivs) d "
+        "WHERE i.classoid = 'pg_class'::regclass AND i.objoid = c.oid "
+        "AND i.objsubid IN (0, a.attnum) "
+        "AND d.grantee = 0 AND d.privilege_type = 'SELECT') "
+        "GROUP BY 1, 2"
     ),
     # Large objects sit outside pg_class: owned, granted (directly or to
     # PUBLIC, grantee 0) or opened to everyone by lo_compat_privileges.
@@ -440,6 +461,19 @@ PRIVILEGE_AUDIT_SQL = {
 }
 
 
+# Roles that can use the login's privileges: members of it that inherit its
+# rights or may SET ROLE to it. From PostgreSQL 16 a membership carries its own
+# options; one with ADMIN OPTION only (what CREATE ROLE gives a non-superuser
+# creator, such as the app's admin login) manages the role but cannot use it.
+ROLE_MEMBERS_SQL = (
+    "SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
+    "WHERE m.roleid = %(role)s::regrole AND (m.inherit_option OR m.set_option)"
+)
+ROLE_MEMBERS_SQL_BEFORE_16 = (
+    "SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
+    "WHERE m.roleid = %(role)s::regrole"
+)
+
 # Parameters whose SET widens what the login can read. SET on one of these is
 # a violation even when it comes through PUBLIC: the audit session only sees
 # its own value, so the login could pass the audit and SET it elsewhere.
@@ -490,6 +524,9 @@ def privilege_violations(
     routines=(),
     parameters=(),
     grant_options=(),
+    role_members=(),
+    public_usage=True,
+    system_columns=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS, and any GRANTS
     column it can no longer read (pure; testable).
@@ -518,6 +555,15 @@ def privilege_violations(
         violations.append(f"can SET or ALTER SYSTEM parameter {parameter}")
     for kind, name in grant_options:
         violations.append(f"holds a grant option on {kind} {name}")
+    for member in role_members:
+        violations.append(f"role {member} can use this login's privileges")
+    if not public_usage:
+        violations.append("lacks USAGE on schema public (re-run setup_analytics_role)")
+    for schema, relation, attributes in system_columns:
+        violations.append(
+            f"can read {schema}.{relation} ({attributes}), "
+            "which PUBLIC cannot by default"
+        )
     for schema, sequence in sequences:
         violations.append(f"can use sequence {schema}.{sequence}")
     if database_create:
@@ -585,11 +631,16 @@ def audit_role(cursor, role: str) -> list:
         results[key] = cursor.fetchall()
     parameters = []
     cursor.execute("SHOW server_version_num")
-    if int(cursor.fetchone()[0]) >= 150000:
+    version = int(cursor.fetchone()[0])
+    if version >= 150000:
         cursor.execute(
             PARAMETER_AUDIT_SQL, {**params, "sensitive": list(SENSITIVE_PARAMETERS)}
         )
         parameters = [row[0] for row in cursor.fetchall()]
+    cursor.execute(
+        ROLE_MEMBERS_SQL if version >= 160000 else ROLE_MEMBERS_SQL_BEFORE_16, params
+    )
+    role_members = [row[0] for row in cursor.fetchall()]
     elevated = bool(results["elevated"] and results["elevated"][0][0])
     return privilege_violations(
         elevated,
@@ -608,6 +659,9 @@ def audit_role(cursor, role: str) -> list:
         results["privileged_routines"],
         parameters,
         results["grant_options"],
+        role_members,
+        bool(results["public_usage"] and results["public_usage"][0][0]),
+        results["system_columns"],
     )
 
 
@@ -952,6 +1006,11 @@ def definitions() -> dict:
                 "payment method, not new revenue, and are reported separately."
             ),
             "verified": "CrushProfile.verification_status == 'verified'",
+            "seat_holders_by_gender": (
+                "Seat holders per gender as member rows show it: generalized over "
+                "the whole real-member population, small groups pooled as "
+                "'suppressed'."
+            ),
             "luxid_linked": "a LuxID social account (native or LuxID OIDC app) is connected",
             "connect_onboarded": "CrushConnectMembership.onboarded_at is set",
             "premium_active": "a PremiumMembership with status 'active'",
@@ -1149,21 +1208,27 @@ EVENT_FIELDS = (
 )
 
 
-def _summarize_events(alias: str, excluded: set[int], event_rows: list[dict]) -> list:
-    """Per-event stats for exactly these rows (shared by events/event_detail)."""
+def _summarize_events(
+    alias: str,
+    excluded: set[int],
+    event_rows: list[dict],
+    quasi: dict[int, dict] | None = None,
+) -> list:
+    """Per-event stats for exactly these rows (shared by events/event_detail).
+
+    Seat holders are counted by their GENERALIZED gender, as member rows show
+    it: a raw count beside event_detail's rows (say NB: 1 next to a single
+    "suppressed" row) would map the raw value back to a pseudonym.
+    """
     event_ids = [e["id"] for e in event_rows]
+    if quasi is None:
+        quasi = _generalized_quasi_identifiers(_real_member_profiles(alias, excluded))
 
     registrations = list(
         EventRegistration.objects.using(alias)
         .filter(event_id__in=event_ids)
         .order_by()
         .values("event_id", "user_id", "status", "checked_in_at")
-    )
-    genders = dict(
-        CrushProfile.objects.using(alias)
-        .filter(user_id__in={r["user_id"] for r in registrations})
-        .order_by()
-        .values_list("user_id", "gender")
     )
     revenue = {
         row["event_id"]: row
@@ -1197,12 +1262,13 @@ def _summarize_events(alias: str, excluded: set[int], event_rows: list[dict]) ->
     )
     for reg in registrations:
         stats = per_event[reg["event_id"]]
-        if reg["user_id"] in excluded or reg["user_id"] not in genders:
+        # Not in quasi: no profile, or not a real member.
+        if reg["user_id"] in excluded or reg["user_id"] not in quasi:
             stats["excluded"] += 1
             continue
         stats["by_status"][reg["status"]] += 1
         if reg["status"] in SEAT_HOLDING_STATUSES:
-            stats["by_gender"][genders.get(reg["user_id"]) or "unknown"] += 1
+            stats["by_gender"][quasi[reg["user_id"]]["gender"]] += 1
         if reg["status"] == "attended" or reg["checked_in_at"]:
             stats["checked_in"] += 1
 
@@ -1262,8 +1328,9 @@ def event_detail(event_id: int) -> dict:
     )
     if not event:
         raise NotFound(f"event {event_id} does not exist")
+    quasi = _generalized_quasi_identifiers(_real_member_profiles(alias, excluded))
     # Built for this event alone, never searched for in a capped day list.
-    summary = _summarize_events(alias, excluded, [event])[0]
+    summary = _summarize_events(alias, excluded, [event], quasi)[0]
 
     registrations = list(
         EventRegistration.objects.using(alias)
@@ -1281,7 +1348,6 @@ def event_detail(event_id: int) -> dict:
         )
     )
     user_ids = [r["user_id"] for r in registrations]
-    quasi = _generalized_quasi_identifiers(_real_member_profiles(alias, excluded))
     unknown_member = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
     prior = dict(
         EventRegistration.objects.using(alias)

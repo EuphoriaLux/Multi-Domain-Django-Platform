@@ -632,6 +632,9 @@ class DisclosureControlTests(AnalyticsFixture):
                 (row["gender"], row["age_band"], row["canton"]),
                 ("suppressed", "suppressed", "suppressed"),
             )
+        # The summary counts the same generalized genders, so no raw value
+        # sits beside the rows.
+        self.assertEqual(detail["event"]["seat_holders_by_gender"], {"suppressed": 2})
 
     def test_unknown_locations_are_reported_as_other(self):
         self.assertEqual(analytics.canton_code("canton-esch"), "canton-esch")
@@ -745,6 +748,12 @@ class HardeningTests(AnalyticsFixture):
                 for port in (50001, 50002, 50003)
             ]
         self.assertEqual(statuses, [200, 200, 429])
+
+    def test_rate_limiter_fails_open_when_redis_swallows_an_outage(self):
+        from crush_lu import api_analytics
+
+        with mock.patch.object(api_analytics.cache, "incr", return_value=None):
+            self.assertEqual(self.get("definitions").status_code, 200)
 
     def test_reversed_signup_window_is_400(self):
         response = self.get("members", signup_from="2026-09-01", signup_to="2026-08-01")
@@ -876,6 +885,9 @@ class PrivilegeAuditTests(TestCase):
             ],
             ["lo_compat_privileges"],
             [("column", "crush_lu_eventregistration.status")],
+            ["reporting_login"],
+            False,
+            [("pg_catalog", "pg_subscription", "subconninfo")],
         )
         joined = " | ".join(violations)
         self.assertNotIn("connect to database postgres", joined)  # allowlisted
@@ -905,6 +917,10 @@ class PrivilegeAuditTests(TestCase):
             "can SET or ALTER SYSTEM parameter lo_compat_privileges",
             # An allowed column, but re-grantable: still excess.
             "holds a grant option on column crush_lu_eventregistration.status",
+            "role reporting_login can use this login's privileges",
+            "lacks USAGE on schema public",
+            "can read pg_catalog.pg_subscription (subconninfo), which PUBLIC cannot "
+            "by default",
         ):
             self.assertIn(expected, joined)
 
@@ -936,6 +952,8 @@ class PrivilegeAuditTests(TestCase):
                     return parameter_rows
                 if self.last == analytics.PRIVILEGE_AUDIT_SQL["columns"]:
                     return list(PrivilegeAuditTests.ALL_GRANTED)
+                if self.last == analytics.PRIVILEGE_AUDIT_SQL["public_usage"]:
+                    return [(True,)]
                 return []
 
         cursor = FakeCursor()
@@ -947,6 +965,12 @@ class PrivilegeAuditTests(TestCase):
         self.assertEqual(
             violations, ["can SET or ALTER SYSTEM parameter lo_compat_privileges"]
         )
+
+    def test_role_members_use_the_option_aware_query_from_postgres_16(self):
+        _, executed = self._audit_with(170011, [])
+        self.assertIn(analytics.ROLE_MEMBERS_SQL, executed)
+        _, executed = self._audit_with(150010, [])
+        self.assertIn(analytics.ROLE_MEMBERS_SQL_BEFORE_16, executed)
 
     def test_parameter_audit_is_skipped_before_postgres_15(self):
         violations, executed = self._audit_with(140010, [("lo_compat_privileges",)])
