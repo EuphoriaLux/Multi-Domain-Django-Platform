@@ -332,6 +332,19 @@ PRIVILEGE_AUDIT_SQL = {
         "JOIN pg_roles g ON g.oid = m.roleid "
         "JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = %(role)s"
     ),
+    # EXECUTE reaches every login through PUBLIC by default. Invoker-rights
+    # functions run with the caller's own (read-only, allowlisted) rights, so
+    # only SECURITY DEFINER functions, which run as their owner, can reach
+    # beyond GRANTS. System schemas are excluded.
+    "definer_functions": (
+        "SELECT n.nspname, p.proname FROM pg_proc p "
+        "JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE p.prosecdef "
+        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
+        "AND n.nspname NOT LIKE 'pg_%%' "
+        "AND has_schema_privilege(%(role)s, n.oid, 'USAGE') "
+        "AND has_function_privilege(%(role)s, p.oid, 'EXECUTE')"
+    ),
     "schemas_with_create": (
         "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
         "AND nspname <> 'information_schema' "
@@ -341,7 +354,12 @@ PRIVILEGE_AUDIT_SQL = {
 
 
 def privilege_violations(
-    elevated, relations, columns, schemas_with_create, memberships=()
+    elevated,
+    relations,
+    columns,
+    schemas_with_create,
+    memberships=(),
+    definer_functions=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -354,6 +372,8 @@ def privilege_violations(
         violations.append("role has an elevated attribute")
     for group in memberships:
         violations.append(f"member of role {group}")
+    for schema, function in definer_functions:
+        violations.append(f"can execute SECURITY DEFINER {schema}.{function}")
     for schema, relation, table_select, any_column_select, can_write in relations:
         name = f"{schema}.{relation}"
         if can_write:
@@ -383,6 +403,7 @@ def audit_role(cursor, role: str) -> list:
         results["columns"],
         [row[0] for row in results["schemas_with_create"]],
         [row[0] for row in results["memberships"]],
+        results["definer_functions"],
     )
 
 

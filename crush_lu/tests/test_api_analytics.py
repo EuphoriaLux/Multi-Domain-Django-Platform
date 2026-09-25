@@ -661,7 +661,12 @@ class PrivilegeAuditTests(TestCase):
         ]
         columns = [("auth_user", "email")]
         violations = analytics.privilege_violations(
-            True, relations, columns, ["public"], ["azure_pg_admin"]
+            True,
+            relations,
+            columns,
+            ["public"],
+            ["azure_pg_admin"],
+            [("public", "unsafe_export")],
         )
         joined = " | ".join(violations)
         for expected in (
@@ -673,6 +678,7 @@ class PrivilegeAuditTests(TestCase):
             "can read public.auth_user.email",
             "can CREATE in schema public",
             "member of role azure_pg_admin",
+            "can execute SECURITY DEFINER public.unsafe_export",
         ):
             self.assertIn(expected, joined)
 
