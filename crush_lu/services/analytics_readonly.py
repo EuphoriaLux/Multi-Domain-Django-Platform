@@ -316,11 +316,12 @@ PRIVILEGE_AUDIT_SQL = {
         "'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
         "OR has_any_column_privilege(%(role)s, c.oid, 'INSERT,UPDATE,REFERENCES') "
         "OR (current_setting('server_version_num')::int >= 170000 "
-        "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')) "
+        "AND has_table_privilege(%(role)s, c.oid, 'MAINTAIN')), "
+        # What PUBLIC itself may read: system catalogs are compared against it.
+        "has_table_privilege('public', c.oid, 'SELECT') "
+        "OR has_any_column_privilege('public', c.oid, 'SELECT') "
         "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') "
-        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
-        "AND n.nspname NOT LIKE 'pg_toast%%'"
+        "WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f', 't')"
     ),
     "columns": (
         "SELECT c.relname, a.attname FROM pg_attribute a "
@@ -339,8 +340,20 @@ PRIVILEGE_AUDIT_SQL = {
     ),
     # CREATE on this database (which ownership implies) would let the login
     # create a schema of its own; existing-schema CREATE is checked below.
+    # TEMPORARY would let it create and fill temp tables despite read-only
+    # defaults; setup revokes PUBLIC's default TEMPORARY on this database.
     "database_create": (
-        "SELECT has_database_privilege(%(role)s, current_database(), 'CREATE')"
+        "SELECT has_database_privilege(%(role)s, current_database(), 'CREATE'), "
+        "has_database_privilege(%(role)s, current_database(), 'TEMPORARY')"
+    ),
+    # Ownership of anything (types, domains, operators, ... not only relations)
+    # in this database or of shared objects, from the dependency register.
+    "owned_objects": (
+        "SELECT count(*) FROM pg_shdepend "
+        "WHERE refclassid = 'pg_authid'::regclass "
+        "AND refobjid = %(role)s::regrole AND deptype = 'o' "
+        "AND dbid IN (0, (SELECT oid FROM pg_database "
+        "WHERE datname = current_database()))"
     ),
     # Large objects sit outside pg_class: owned, granted (directly or to
     # PUBLIC, grantee 0) or opened to everyone by lo_compat_privileges.
@@ -382,6 +395,19 @@ PRIVILEGE_AUDIT_SQL = {
 }
 
 
+# Catalogs that hold password verifiers, data samples, credentials or large
+# object contents: readable by the analytics login is always a violation.
+SENSITIVE_CATALOGS = frozenset(
+    {"pg_authid", "pg_shadow", "pg_statistic", "pg_user_mapping", "pg_largeobject"}
+)
+
+
+def _is_system_schema(schema: str) -> bool:
+    return schema in ("pg_catalog", "information_schema") or schema.startswith(
+        "pg_toast"
+    )
+
+
 def privilege_violations(
     elevated,
     relations,
@@ -394,6 +420,8 @@ def privilege_violations(
     allowed_databases=(),
     database_create=False,
     large_objects=0,
+    database_temp=False,
+    owned_objects=0,
 ) -> list:
     """Everything the role can effectively do beyond GRANTS (pure; testable).
 
@@ -412,6 +440,10 @@ def privilege_violations(
         violations.append(f"can use sequence {schema}.{sequence}")
     if database_create:
         violations.append("can CREATE in the current database")
+    if database_temp:
+        violations.append("can create TEMPORARY tables in the current database")
+    if owned_objects:
+        violations.append(f"owns {owned_objects} object(s)")
     if large_objects:
         violations.append(f"can access {large_objects} large object(s)")
     for database in other_databases:
@@ -421,10 +453,21 @@ def privilege_violations(
                 "or add it to ANALYTICS_ALLOWED_OTHER_DATABASES if it holds no "
                 "member data)"
             )
-    for schema, relation, table_select, any_column_select, can_write in relations:
+    for row in relations:
+        schema, relation, table_select, any_column_select, can_write = row[:5]
+        public_can_read = row[5] if len(row) > 5 else False
         name = f"{schema}.{relation}"
         if can_write:
             violations.append(f"can write {name}")
+        if _is_system_schema(schema):
+            # PUBLIC's default catalog access is harmless; anything beyond it,
+            # and any access at all to a catalog holding secrets or data
+            # samples, is not.
+            if any_column_select and (
+                not public_can_read or relation in SENSITIVE_CATALOGS
+            ):
+                violations.append(f"can read system relation {name}")
+            continue
         if table_select:
             violations.append(f"table-level SELECT on {name}")
         if any_column_select and (schema != "public" or relation not in GRANTS):
@@ -456,6 +499,8 @@ def audit_role(cursor, role: str) -> list:
         getattr(settings, "ANALYTICS_ALLOWED_OTHER_DATABASES", ()),
         bool(results["database_create"] and results["database_create"][0][0]),
         results["large_objects"][0][0] if results["large_objects"] else 0,
+        bool(results["database_create"] and results["database_create"][0][1]),
+        results["owned_objects"][0][0] if results["owned_objects"] else 0,
     )
 
 
@@ -809,7 +854,9 @@ def definitions() -> dict:
         "enums": {
             "event_type": [value for value, _ in MeetupEvent.EVENT_TYPE_CHOICES],
             "event_canton": [value for value, _ in MeetupEvent.CANTON_CHOICES],
-            "member_canton": sorted(LOCATION_CODES) + ["other"],
+            "member_canton": sorted(LOCATION_CODES) + ["other", SUPPRESSED],
+            "member_gender": ["M", "F", "NB", "O", "P", SUPPRESSED],
+            "member_age_band": [label for _, _, label in AGE_BANDS] + [SUPPRESSED],
             "registration_status": [
                 "applied",
                 "pending",

@@ -645,6 +645,14 @@ class DisclosureControlTests(AnalyticsFixture):
         self.assertNotIn(analytics.pseudonym(self.guest.id), members)
         self.assertEqual(len(members), 3)
 
+    def test_suppressed_groups_can_be_filtered(self):
+        with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 3):
+            data = self.data("members", gender="suppressed")
+        self.assertEqual(data["total_matching"], 4)
+        enums = self.data("definitions")["enums"]
+        for key in ("member_gender", "member_age_band", "member_canton"):
+            self.assertIn("suppressed", enums[key])
+
     def test_generalization_drops_canton_then_age_before_gender(self):
         with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
             rows = self.data("members")["members"]
@@ -770,8 +778,10 @@ class PrivilegeAuditTests(TestCase):
     """The pure evaluation behind the runtime and setup-command audits."""
 
     CLEAN_RELATIONS = [
-        ("public", "crush_lu_eventregistration", False, True, False),
-        ("public", "django_session", False, False, False),
+        ("public", "crush_lu_eventregistration", False, True, False, False),
+        ("public", "django_session", False, False, False, False),
+        # PUBLIC's default catalog access is not a violation.
+        ("pg_catalog", "pg_class", True, True, False, True),
     ]
 
     def test_exactly_the_allowlist_is_clean(self):
@@ -783,10 +793,13 @@ class PrivilegeAuditTests(TestCase):
 
     def test_everything_beyond_the_allowlist_is_reported(self):
         relations = [
-            ("public", "auth_user", True, True, False),  # table-level SELECT
-            ("public", "django_session", False, True, False),  # e.g. via PUBLIC
-            ("public", "crush_lu_eventregistration", False, True, True),  # write
-            ("reporting", "crush_lu_meetupevent", False, True, False),  # other schema
+            ("public", "auth_user", True, True, False, False),  # table-level SELECT
+            ("public", "django_session", False, True, False, True),  # e.g. via PUBLIC
+            ("public", "crush_lu_eventregistration", False, True, True, False),  # write
+            ("reporting", "crush_lu_meetupevent", False, True, False, False),
+            ("pg_catalog", "pg_authid", True, True, False, False),  # beyond PUBLIC
+            ("pg_toast", "pg_toast_16385", True, True, False, False),
+            ("pg_catalog", "pg_statistic", True, True, False, True),  # sensitive
         ]
         columns = [("auth_user", "email")]
         violations = analytics.privilege_violations(
@@ -801,6 +814,8 @@ class PrivilegeAuditTests(TestCase):
             ["postgres"],
             True,
             2,
+            True,
+            3,
         )
         joined = " | ".join(violations)
         self.assertNotIn("database postgres", joined)  # allowlisted
@@ -818,6 +833,11 @@ class PrivilegeAuditTests(TestCase):
             "can connect to database pythonapp_staging",
             "can CREATE in the current database",
             "can access 2 large object(s)",
+            "can create TEMPORARY tables in the current database",
+            "owns 3 object(s)",
+            "can read system relation pg_catalog.pg_authid",
+            "can read system relation pg_toast.pg_toast_16385",
+            "can read system relation pg_catalog.pg_statistic",
         ):
             self.assertIn(expected, joined)
 
@@ -938,6 +958,7 @@ class SetupRoleCommandTests(TestCase):
             'GRANT CONNECT ON DATABASE "pythonapp" TO "crush_analytics_ro"', sql
         )
         self.assertIn('GRANT USAGE ON SCHEMA public TO "crush_analytics_ro"', sql)
+        self.assertIn('REVOKE TEMPORARY ON DATABASE "pythonapp" FROM PUBLIC', sql)
         self.assertIn("NOBYPASSRLS", sql)
         self.assertIn("default_transaction_read_only = 'on'", sql)
         self.assertNotIn('"email"', sql)

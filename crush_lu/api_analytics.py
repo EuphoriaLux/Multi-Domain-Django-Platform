@@ -143,7 +143,11 @@ VERIFICATION_STATUSES = {"incomplete", "pending", "verified", "rejected"}
 GENDERS = {"M", "F", "NB", "O", "P"}
 AGE_BAND_LABELS = {label for _, _, label in analytics.AGE_BANDS}
 # Profile region codes, plus "other" for stored values outside the list.
-MEMBER_CANTONS = analytics.LOCATION_CODES | {"other"}
+MEMBER_CANTONS = analytics.LOCATION_CODES | {"other", analytics.SUPPRESSED}
+# Member rows carry generalized values, so filters must be able to select the
+# pooled "suppressed" groups as well.
+MEMBER_GENDERS = GENDERS | {analytics.SUPPRESSED}
+MEMBER_AGE_BANDS = AGE_BAND_LABELS | {analytics.SUPPRESSED}
 
 
 def _parse_definitions(p):
@@ -209,8 +213,8 @@ def _parse_members(p):
         "signup_from": signup_from,
         "signup_to": signup_to,
         "verification_status": p.choice("verification_status", VERIFICATION_STATUSES),
-        "gender": p.choice("gender", GENDERS),
-        "age_band_filter": p.choice("age_band", AGE_BAND_LABELS),
+        "gender": p.choice("gender", MEMBER_GENDERS),
+        "age_band_filter": p.choice("age_band", MEMBER_AGE_BANDS),
         "canton": p.choice("canton", MEMBER_CANTONS),
         "luxid": p.bool("luxid"),
         "attended": p.bool("attended"),

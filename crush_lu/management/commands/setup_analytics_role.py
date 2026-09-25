@@ -46,6 +46,10 @@ def grant_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]
     r = _qn(role)
     return [
         f"GRANT CONNECT ON DATABASE {_qn(database)} TO {r}",
+        # PUBLIC's default TEMPORARY would let the login create and fill temp
+        # tables despite its read-only defaults. The app's own login owns the
+        # database and keeps TEMPORARY as owner.
+        f"REVOKE TEMPORARY ON DATABASE {_qn(database)} FROM PUBLIC",
         f"GRANT USAGE ON SCHEMA public TO {r}",
         *[
             f"GRANT SELECT ({', '.join(_qn(c) for c in columns)}) ON public.{_qn(table)} TO {r}"
@@ -205,6 +209,9 @@ class Command(BaseCommand):
             " + (SELECT count(*) FROM pg_namespace WHERE nspowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_proc WHERE proowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_database WHERE datdba = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_type WHERE typowner = %(o)s::regrole)"
+            " + (SELECT count(*) FROM pg_shdepend WHERE deptype = 'o'"
+            "    AND refclassid = 'pg_authid'::regclass AND refobjid = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_largeobject_metadata"
             "    WHERE lomowner = %(o)s::regrole)"
             " + (SELECT count(*) FROM pg_default_acl d, aclexplode(d.defaclacl) a"
