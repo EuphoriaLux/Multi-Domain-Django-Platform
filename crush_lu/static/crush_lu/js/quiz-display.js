@@ -764,6 +764,10 @@ document.addEventListener("alpine:init", function () {
                 if (data.is_bonus !== undefined) {
                     this.isBonusRound = data.is_bonus;
                 }
+                // The table grid still holds the previous round's seating, and
+                // polling is stopped while the WebSocket is up — refetch now so
+                // the room sees where to move, not where it just sat.
+                this.fetchDisplayData();
 
                 // After rotation, show leaderboard briefly then wait for next question
                 if (this.leaderboardTables.length > 0) {
@@ -812,6 +816,9 @@ document.addEventListener("alpine:init", function () {
 
             startPolling: function () {
                 var self = this;
+                // onclose and the 1.5 s startup fallback can both get here;
+                // a second interval would orphan the first for the page's life.
+                if (this._pollInterval) return;
                 this.fetchDisplayData();
                 // Poll every 5 seconds for responsive updates
                 this._pollInterval = setInterval(function () {
@@ -859,6 +866,7 @@ document.addEventListener("alpine:init", function () {
 
                         // Handle question data from polling (fallback when no WebSocket)
                         if (data.question && !self.connected) {
+                            var prevQuestionId = self.questionId;
                             self.questionId = data.question.id || null;
                             self.questionText = _localized(data.question, "text");
                             self.questionType =
@@ -901,8 +909,14 @@ document.addEventListener("alpine:init", function () {
                                     self.countdownTotal = data.time_per_question || 30;
                                     self.countdown = 0; // No timer sync via polling
                                 }
+                                // Re-render only for a new question: render
+                                // rebuilds the embed, which restarted a clip
+                                // from 0 on every 5 s poll.
+                                var mediaStale =
+                                    self.screen !== "question" ||
+                                    self.questionId !== prevQuestionId;
                                 self.screen = "question";
-                                self._renderMedia();
+                                if (mediaStale) self._renderMedia();
                             }
                         } else if (
                             !data.question &&

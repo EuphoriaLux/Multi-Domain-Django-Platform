@@ -324,13 +324,12 @@ Configuration in `pyproject.toml` (88 character line length).
 
 ## Additional Resources
 
-- **Detailed Architecture**: See [CLAUDE.md](CLAUDE.md) for comprehensive documentation including:
-  - Model relationships and data flow
-  - Alpine.js CSP compliance patterns
-  - Storage architecture (public vs private)
-  - Email backend configuration
+- **Detailed Architecture**: See [AGENTS.md](AGENTS.md) for the cross-cutting architecture, including:
+  - Multi-domain routing and load-bearing middleware order
+  - Settings split, storage backends (public vs private) and auth
+  - Background tasks and multi-channel campaigns
   - Internationalization (i18n) system
-  - Troubleshooting guides
+  - Traps that pass every local check but fail in production
 
 ## Recently Shipped Features
 

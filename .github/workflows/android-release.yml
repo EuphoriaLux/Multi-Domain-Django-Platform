@@ -2,18 +2,6 @@ name: Android Release Build
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to target (production or staging)'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - staging
-  push:
-    tags:
-      - 'v*'
 
 concurrency:
   # Run releases one at a time. Combined with the execution-time versionCode
@@ -29,8 +17,15 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      CRUSH_ENV: ${{ inputs.environment || 'production' }}
+      CRUSH_ENV: production
     steps:
+      - name: Require the main branch for Play uploads
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Android Play releases must run from main, not $GITHUB_REF"
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -64,6 +59,7 @@ jobs:
         run: |
           cat <<EOF > mobile/android/CrushLU/gradle.properties
           android.useAndroidX=true
+          android.suppressUnsupportedCompileSdk=36
           CRUSH_UPLOAD_STORE_FILE=keystores/crush-lu-upload.jks
           CRUSH_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           CRUSH_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
@@ -74,7 +70,7 @@ jobs:
         working-directory: mobile/android/CrushLU
         run: |
           chmod +x ./gradlew
-          ./gradlew bundleRelease -PCRUSH_ENV=$CRUSH_ENV -PCRUSH_VERSION_CODE=${{ steps.versioncode.outputs.value }}
+          ./gradlew bundleRelease -PCRUSH_ENV=production -PCRUSH_VERSION_CODE=${{ steps.versioncode.outputs.value }}
 
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
@@ -86,7 +82,6 @@ jobs:
       - name: Upload to Google Play Store (Internal Track)
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON }}
-        if: ${{ env.SERVICE_ACCOUNT_JSON != '' && env.CRUSH_ENV == 'production' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT_JSON }}

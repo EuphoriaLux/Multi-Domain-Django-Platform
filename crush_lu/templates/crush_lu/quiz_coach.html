@@ -17,6 +17,7 @@
          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
          data-table-count="{{ tables.count }}"
          data-table-members="{{ table_members_json }}"
+         data-round-number="{{ round_number }}"
          data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}","connected":"{% trans "WebSocket connected" %}","disconnected":"{% trans "Disconnected" %}","roundComplete":"{% trans "Round Complete!" %}","loadingMedia":"{% trans "Loading media" %}","previewReady":"{% trans "Preview loaded here" %}","mediaUnavailable":"{% trans "Media unavailable" %}","mediaLabel":"{% trans "Quiz media" %}","dissolveTable":"{% trans "Dissolve table" %}","confirmDissolve":"{% trans "Confirm — dissolve?" %}","consolidatePlan":"{% trans "Reduce {from} → {to} tables. The moves below will run on confirm." %}","consolidateNoOp":"{% trans "Tables are already consolidated." %}","consolidateMove":"{% trans "{name}: Table {from} → Table {to} ({role})" %}","consolidateFailed":"{% trans "Consolidation failed." %}","consolidateSuccess":"{% trans "Tables consolidated." %}"}'>
 
         {# --- Header --- #}
