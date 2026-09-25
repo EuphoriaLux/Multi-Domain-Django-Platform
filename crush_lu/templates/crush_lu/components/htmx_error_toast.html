@@ -7,8 +7,12 @@ hardcodes English:
   data-server        htmx:responseError (a 4xx/5xx the page does not swap)
   data-rate-limited  a 429 responseError (@ratelimit answers a bare 429; its
                      Django message would only show on a full page load)
-  data-queued        a sendError on a POST the service worker queued for
-                     background sync: it replays once online, so no "try again"
+  data-queued        a sendError on a POST the service worker confirmed it
+                     queued for background sync: it replays once online, so no
+                     "try again"
+  data-interrupted   the same, but the controlling worker predates the
+                     acknowledgement protocol (v32): it queues silently, so
+                     neither "try again" nor a replay promise
 To keep an element (or a whole subtree) from raising the toast, put
 data-htmx-error-toast="off" on it or an ancestor; the script still resets its
 Alpine isSubmitting state. See the script header for the full contract.
@@ -20,8 +24,10 @@ force_escape.
 {% trans "An error occurred. Please try again." as server_copy %}
 {% trans "Too many attempts. Please try again later." as rate_limited_copy %}
 {% trans "Once you're back online, your event registrations and messages will sync automatically!" as queued_copy %}
+{% trans "Connection interrupted. Retrying…" as interrupted_copy %}
 <div id="htmx-error-toast-messages" hidden
      data-network="{{ network_copy|force_escape }}"
      data-server="{{ server_copy|force_escape }}"
      data-rate-limited="{{ rate_limited_copy|force_escape }}"
-     data-queued="{{ queued_copy|force_escape }}"></div>
+     data-queued="{{ queued_copy|force_escape }}"
+     data-interrupted="{{ interrupted_copy|force_escape }}"></div>

@@ -31,11 +31,13 @@ QUEUED_MSGID = (
     "Once you're back online, your event registrations and messages will sync "
     "automatically!"
 )
+INTERRUPTED_MSGID = "Connection interrupted. Retrying…"
 MSGIDS = {
     "network": NETWORK_MSGID,
     "server": SERVER_MSGID,
     "rate-limited": RATE_LIMITED_MSGID,
     "queued": QUEUED_MSGID,
+    "interrupted": INTERRUPTED_MSGID,
 }
 
 # Copy per language. DE uses the informal "du" and FR the formal "vous", like
@@ -54,6 +56,7 @@ EXPECTED_COPY = {
             "Sobald du wieder online bist, werden deine Event-Anmeldungen und "
             "Nachrichten automatisch synchronisiert!"
         ),
+        "interrupted": "Verbindung unterbrochen. Neuer Versuch…",
     },
     "fr": {
         "network": "Erreur réseau. Vérifiez votre connexion et réessayez.",
@@ -63,6 +66,7 @@ EXPECTED_COPY = {
             "Une fois de retour en ligne, vos inscriptions aux événements et vos "
             "messages seront synchronisés automatiquement !"
         ),
+        "interrupted": "Connexion interrompue. Nouvelle tentative…",
     },
 }
 
@@ -223,7 +227,18 @@ def test_queued_copy_needs_the_workers_confirmation():
     handler = _static("js/htmx-error-toast.js")
     assert 'data.type === "crush-queued"' in handler
     on_failure = handler[handler.index("function onFailure(") :]
-    assert 'ackedRecently(url, since) ? "queued" : "network"' in on_failure
+    assert "ackedRecently(url, since)" in on_failure
+    # Missing ack + a worker that acknowledges = the write failed = "network";
+    # missing ack + an older worker (never answers the capability question)
+    # = queued silently = "interrupted", never "network".
+    assert "workerQueuedAck !== true" in on_failure
+    assert 'copy = "interrupted"' in on_failure
+    assert 'data.type === "crush-capabilities?" && event.source' in sw
+    assert 'postMessage({ type: "crush-capabilities", queuedAck: true })' in sw
+    assert 'postMessage({ type: "crush-capabilities?" })' in handler
+    assert 'addEventListener(\n            "controllerchange"' in handler or (
+        '"controllerchange"' in handler
+    )
     # The base kind is a closure variable shared by every event; a per-event
     # reassignment would make one 429 classify every later failure.
     assert "kind = " not in on_failure.replace("var kind", "").replace("kind === ", "")

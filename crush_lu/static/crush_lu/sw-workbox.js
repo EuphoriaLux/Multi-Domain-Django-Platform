@@ -5,6 +5,8 @@
 //                posted only after the queue write succeeded), so
 //                htmx-error-toast.js promises a replay only for a request the
 //                worker holds. A failed IndexedDB write gets the plain copy.
+//                Answers {type: "crush-capabilities?"} so the page can tell
+//                this worker from an older one that queues without saying so.
 // Version: v31 - Keep /crush-admin/ off the background-sync queue and out of the
 //                cache. The admin is mounted at /crush-admin/, not /admin/, so
 //                every exclusion list written against /admin/ missed it. The
@@ -761,6 +763,13 @@ if (workbox) {
     self.addEventListener("message", (event) => {
         if (event.data && event.data.type === "SKIP_WAITING") {
             self.skipWaiting();
+        }
+        // Capability handshake for htmx-error-toast.js: only a worker that
+        // answers this posts "crush-queued" acknowledgements. A page still
+        // controlled by an older worker gets no answer and knows not to read
+        // a missing acknowledgement as "the request was not queued".
+        if (event.data && event.data.type === "crush-capabilities?" && event.source) {
+            event.source.postMessage({ type: "crush-capabilities", queuedAck: true });
         }
     });
 } else {

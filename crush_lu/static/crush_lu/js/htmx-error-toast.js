@@ -31,8 +31,14 @@
  *        the request is not lost, it replays once the member is back
  *        online, so the member must NOT be told to try again -- a second
  *        submit would queue an identical POST (a chat message would be
- *        sent twice). No confirmation (no worker, IndexedDB write failed,
- *        route not queueable) means the plain "network" copy;
+ *        sent twice). No confirmation from a worker that speaks this
+ *        protocol (it answered {type: "crush-capabilities?"} with
+ *        queuedAck: true) means the IndexedDB write failed, so the plain
+ *        "network" copy is right. No confirmation from an OLDER worker
+ *        (a v31 worker keeps controlling the page until the member taps
+ *        "Update Now" in pwa-update.js) proves nothing: it queues the same
+ *        POSTs but never acknowledges, so the "interrupted" copy is shown
+ *        instead -- it neither promises a replay nor invites a resend;
  *      - "network" copy for every other sendError/timeout.
  *
  * htmx itself re-enables hx-disabled-elt elements and removes .htmx-request
@@ -115,13 +121,40 @@
 
     // Absolute request URL -> time the worker confirmed it queued that URL.
     var queuedAcks = {};
+    // Whether the CONTROLLING worker acknowledges queue writes. null until a
+    // worker answers the capability question; a worker from before v32
+    // never answers, so null also means "old worker, no ack will ever come".
+    var workerQueuedAck = null;
+
+    function askWorkerCapabilities() {
+        var sw = navigator.serviceWorker;
+        workerQueuedAck = null;
+        if (sw && sw.controller && typeof sw.controller.postMessage === "function") {
+            try {
+                sw.controller.postMessage({ type: "crush-capabilities?" });
+            } catch (e) {
+                // no handshake: treated as an old worker
+            }
+        }
+    }
+
     if (navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
         navigator.serviceWorker.addEventListener("message", function (evt) {
             var data = evt.data;
-            if (data && data.type === "crush-queued" && data.url) {
+            if (!data) return;
+            if (data.type === "crush-queued" && data.url) {
                 queuedAcks[data.url] = Date.now();
+            } else if (data.type === "crush-capabilities") {
+                workerQueuedAck = data.queuedAck === true;
             }
         });
+        // A new worker taking over mid-page (pwa-update.js "Update Now")
+        // answers for itself.
+        navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            askWorkerCapabilities,
+        );
+        askWorkerCapabilities();
     }
 
     // The absolute URL of a failed request the worker may have queued, or
@@ -237,8 +270,10 @@
         // pushed out (before its exit animation ends), so only a toast that
         // is still up suppresses a repeat.
         if (isShowing(store, message)) return;
-        // A queued request is not an error: the member has nothing to do.
-        store.add({ type: kind === "queued" ? "info" : "error", message: message });
+        // A queued or still-retrying request is not an error: the member
+        // has nothing to do.
+        var info = kind === "queued" || kind === "interrupted";
+        store.add({ type: info ? "info" : "error", message: message });
     }
 
     function onFailure(kind) {
@@ -263,11 +298,20 @@
                 showToast(kind);
                 return;
             }
-            // Wait for the worker to confirm the queue write; without the
-            // confirmation the request may be lost, so say "network".
+            // Wait for the worker to confirm the queue write. Without it:
+            // a worker that acknowledges writes (v32+) failed to store the
+            // request, so "network" (retry) is right; an older worker has
+            // most likely stored it silently, so "interrupted" (no retry
+            // prompt, no replay promise).
             var since = Date.now() - QUEUE_ACK_WAIT_MS;
             setTimeout(function () {
-                showToast(ackedRecently(url, since) ? "queued" : "network");
+                var copy = "network";
+                if (ackedRecently(url, since)) {
+                    copy = "queued";
+                } else if (workerQueuedAck !== true) {
+                    copy = "interrupted";
+                }
+                showToast(copy);
             }, QUEUE_ACK_WAIT_MS);
         };
     }
