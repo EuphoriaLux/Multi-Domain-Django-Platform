@@ -11,7 +11,13 @@
  *   1. resets the Alpine submit flag(s) in SUBMIT_FLAGS on the component
  *      scope around the requesting element, so every form that follows the
  *      `isSubmitting` convention gets its button and resting label back;
- *   2. shows ONE translated error toast through Alpine.store("toasts") -- the
+ *   2. gives focus back to the button that had it once it is enabled again,
+ *      when disabling it for the request dropped focus to <body> (a keyboard
+ *      user would otherwise have to find the way back to retry). Only for a
+ *      control inside the requesting element, and only if nothing has taken
+ *      focus since: focus the member moved elsewhere stays there, and a
+ *      button that never had focus (a tap in iOS Safari) is not focused;
+ *   3. shows ONE translated error toast through Alpine.store("toasts") -- the
  *      "network" copy for sendError/timeout, the "server" copy for
  *      responseError.
  *
@@ -23,15 +29,19 @@
  * crush_lu/components/htmx_error_toast.html; nothing user-facing is
  * hardcoded here.
  *
- * No toast (the state reset still runs) when:
+ * No toast (the state and focus reset still run) when:
  *   - the requesting element or an ancestor has data-htmx-error-toast="off"
  *     (pages that report the failure themselves, background polls that simply
  *     retry on the next tick);
  *   - the error response carries its own HX-Trigger showToast
- *     (view_utils.toast_response): toast-component.js already shows that more
- *     specific message;
- *   - the same message was shown moments ago (several requests failing
- *     together, e.g. while offline).
+ *     (view_utils.toast_response): toast-component.js shows that message
+ *     instead. Known issue: toast-component.js currently shows such a
+ *     message twice (htmx 2 also re-dispatches it as `show-toast`), so fix
+ *     that before a view adopts toast_response;
+ *   - the same message is still on screen (several requests failing
+ *     together, e.g. while offline). Once the member dismisses it, or it
+ *     expires or is pushed out by newer toasts, the next failure shows it
+ *     again.
  * A response that an htmx:beforeSwap handler turns into a non-error
  * (detail.isError = false) never reaches here: htmx only raises
  * htmx:responseError while isError is still true.
@@ -41,10 +51,27 @@
 
     // Alpine state properties that mean "a submit is in flight".
     var SUBMIT_FLAGS = ["isSubmitting"];
-    var DEDUPE_MS = 3000;
 
-    var lastMessage = null;
-    var lastShownAt = 0;
+    // The control whose focus fell to nothing because it was disabled (the
+    // :disabled / hx-disabled-elt of an in-flight request); cleared as soon
+    // as anything takes focus.
+    var droppedFocus = null;
+    document.addEventListener(
+        "focusout",
+        function (evt) {
+            if (!evt.relatedTarget && evt.target && evt.target.disabled === true) {
+                droppedFocus = evt.target;
+            }
+        },
+        true,
+    );
+    document.addEventListener(
+        "focusin",
+        function () {
+            droppedFocus = null;
+        },
+        true,
+    );
 
     function copyFor(kind) {
         var el = document.getElementById("htmx-error-toast-messages");
@@ -98,16 +125,42 @@
         });
     }
 
+    function restoreFocus(elt) {
+        var control = droppedFocus;
+        if (!control || !elt || typeof elt.contains !== "function") return;
+        if (!elt.contains(control)) return; // not this request's control
+        // Next task: by then Alpine has re-rendered the reset flag (a
+        // microtask) and htmx has re-enabled hx-disabled-elt.
+        setTimeout(function () {
+            if (droppedFocus !== control) return; // something took focus
+            var active = document.activeElement;
+            if (active && active !== document.body) return;
+            if (!control.isConnected || control.disabled) return;
+            try {
+                control.focus({ preventScroll: true });
+            } catch (e) {
+                // unfocusable: nothing to restore
+            }
+        }, 0);
+    }
+
+    function isShowing(store, message) {
+        var items = store.items || [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i] && items[i].message === message) return true;
+        }
+        return false;
+    }
+
     function showToast(kind) {
         var message = copyFor(kind);
         var Alpine = window.Alpine;
         if (!message || !Alpine || typeof Alpine.store !== "function") return;
-        var now = Date.now();
-        if (message === lastMessage && now - lastShownAt < DEDUPE_MS) return;
         var store = Alpine.store("toasts");
         if (!store || typeof store.add !== "function") return;
-        lastMessage = message;
-        lastShownAt = now;
+        // The store drops a toast when it is dismissed, expires or is pushed
+        // out, so only a toast that is still up suppresses a repeat.
+        if (isShowing(store, message)) return;
         store.add({ type: "error", message: message });
     }
 
@@ -116,6 +169,7 @@
             var detail = evt.detail || {};
             var elt = detail.elt || evt.target;
             resetSubmitState(elt);
+            restoreFocus(elt);
             if (toastOptedOut(elt)) return;
             if (kind === "server" && serverSentToast(detail.xhr)) return;
             showToast(kind);

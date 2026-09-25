@@ -330,17 +330,22 @@ top-of-page banner treatment, and prefer the toast store if you don't.
 `crush_lu/static/crush_lu/js/htmx-error-toast.js` (loaded by `base.html`)
 handles every `htmx:responseError` / `htmx:sendError` / `htmx:timeout`:
 it shows one translated error toast (copy rendered by
-`components/htmx_error_toast.html`) and sets `isSubmitting` back to
-`false` on the Alpine component around the requesting element. So:
+`components/htmx_error_toast.html`), sets `isSubmitting` back to
+`false` on the Alpine component around the requesting element, and hands
+keyboard focus back to the submit button if disabling it dropped focus.
+An identical toast that is still on screen is not stacked again. So:
 
 - Name your "submit in flight" flag `isSubmitting` and bind the button's
   `:disabled` / label to it — a failed request then recovers on its own.
 - Don't add a per-page error toast for HTMX failures. If a page reports
   the failure itself, or the request is a background poll that simply
   retries, put `data-htmx-error-toast="off"` on the element or an
-  ancestor (the flag reset still runs).
+  ancestor (the flag and focus reset still run).
 - An error response that sends its own `HX-Trigger: {"showToast": …}`
-  (`view_utils.toast_response`) shows that message instead of the generic one.
+  (`view_utils.toast_response`) suppresses the generic toast. Known issue:
+  `toast-component.js` currently shows such a message **twice** (htmx 2
+  also re-dispatches it as `show-toast`), so fix that before a view adopts
+  `toast_response`.
 
 ### Pending consolidation
 

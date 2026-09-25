@@ -8,7 +8,12 @@ hardcodes English:
 To keep an element (or a whole subtree) from raising the toast, put
 data-htmx-error-toast="off" on it or an ancestor; the script still resets its
 Alpine isSubmitting state. See the script header for the full contract.
+The trans tag marks a literal's translation safe, so it would reach the
+attribute unescaped (a '"' in a msgstr would cut it short): hence "as" +
+force_escape.
 {% endcomment %}
+{% trans "Network error. Please check your connection and try again." as network_copy %}
+{% trans "An error occurred. Please try again." as server_copy %}
 <div id="htmx-error-toast-messages" hidden
-     data-network="{% trans "Network error. Please check your connection and try again." %}"
-     data-server="{% trans "An error occurred. Please try again." %}"></div>
+     data-network="{{ network_copy|force_escape }}"
+     data-server="{{ server_copy|force_escape }}"></div>
