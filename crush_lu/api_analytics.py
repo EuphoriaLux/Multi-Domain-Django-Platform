@@ -73,12 +73,16 @@ class Params:
             return default
 
     def range(self):
+        # Both endpoints are inclusive (the service's window runs to the end of
+        # `to`), so a window spans (end - start).days + 1 calendar days.
         today = timezone.localdate()
         end = self.date("to", today)
-        start = self.date("from", end - timedelta(days=analytics.DEFAULT_RANGE_DAYS))
+        start = self.date(
+            "from", end - timedelta(days=analytics.DEFAULT_RANGE_DAYS - 1)
+        )
         if start > end:
             self.errors.append("from must be on or before to")
-        elif (end - start).days > analytics.MAX_RANGE_DAYS:
+        elif (end - start).days + 1 > analytics.MAX_RANGE_DAYS:
             self.errors.append(
                 f"date range is limited to {analytics.MAX_RANGE_DAYS} days"
             )

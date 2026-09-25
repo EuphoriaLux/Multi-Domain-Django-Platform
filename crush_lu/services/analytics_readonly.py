@@ -865,6 +865,7 @@ def event_detail(event_id: int) -> dict:
                 "paid_with_credit": reg["id"] in credit_regs,
                 "gender": member_qi["gender"],
                 "age_band": member_qi["age_band"],
+                "canton": member_qi["canton"],
                 "prior_events_attended": prior_count,
                 "first_event": prior_count == 0,
             }
@@ -1129,7 +1130,8 @@ def retention(start: date, end: date) -> dict:
     returned = sum(
         1
         for uid in mature
-        if len(history[uid]) > 1 and (history[uid][1] - history[uid][0]).days <= 90
+        if len(history[uid]) > 1
+        and history[uid][1] - history[uid][0] <= timedelta(days=90)
     )
     return {
         "attendees": len(in_window),
@@ -1231,7 +1233,19 @@ def members(
 
     profiles = [p for p in population if keep(p)]
 
-    user_ids = [p["user_id"] for p in profiles]
+    # The two remaining filters need only id sets over the matches; the
+    # per-member activity below is fetched for the returned page alone, so a
+    # small `limit` never loads the whole attendance/payment history.
+    if luxid is not None:
+        luxid_all = _luxid_user_ids(alias, [p["user_id"] for p in profiles])
+        profiles = [p for p in profiles if (p["user_id"] in luxid_all) == luxid]
+    if attended is not None:
+        attended_all = _attended_user_ids(alias, [p["user_id"] for p in profiles])
+        profiles = [p for p in profiles if (p["user_id"] in attended_all) == attended]
+
+    total = len(profiles)
+    page = profiles[:limit]
+    user_ids = [p["user_id"] for p in page]
     luxid_ids = _luxid_user_ids(alias, user_ids)
     attended_dates: dict[int, list[datetime]] = defaultdict(list)
     for row in (
@@ -1255,16 +1269,8 @@ def members(
         CrushConnectMembership, alias, user_ids, onboarded_at__isnull=False
     )
 
-    if luxid is not None:
-        profiles = [p for p in profiles if (p["user_id"] in luxid_ids) == luxid]
-    if attended is not None:
-        profiles = [
-            p for p in profiles if bool(attended_dates.get(p["user_id"])) == attended
-        ]
-
-    total = len(profiles)
     rows = []
-    for p in profiles[:limit]:
+    for p in page:
         uid = p["user_id"]
         dates = attended_dates.get(uid, [])
         rows.append(

@@ -266,6 +266,18 @@ class AccessTests(AnalyticsFixture):
         self.assertEqual(self.get("demographics", group_by="email").status_code, 400)
         self.assertEqual(self.get("event_detail").status_code, 400)
 
+    def test_range_limit_counts_both_endpoints(self):
+        today = timezone.localdate()
+        exact = (today - timedelta(days=analytics.MAX_RANGE_DAYS - 1)).isoformat()
+        over = (today - timedelta(days=analytics.MAX_RANGE_DAYS)).isoformat()
+        self.assertEqual(self.get("events", **{"from": exact}).status_code, 200)
+        self.assertEqual(self.get("events", **{"from": over}).status_code, 400)
+        default_from = self.get("events").json()["params"]["start"]
+        self.assertEqual(
+            default_from,
+            (today - timedelta(days=analytics.DEFAULT_RANGE_DAYS - 1)).isoformat(),
+        )
+
     def test_missing_event_is_404(self):
         self.assertEqual(self.get("event_detail", event_id="999999").status_code, 404)
 
@@ -381,6 +393,36 @@ class ToolTests(AnalyticsFixture):
         self.assertEqual(retention["events_attended_in_window"], {"2": 1})
         self.assertEqual(retention["median_days_between_events"], 30)
 
+    def test_return_within_90_days_compares_the_full_interval(self):
+        frank = _make_member("frank@crush.lu", "M", date(1991, 2, 2))
+        first = _event("Old Night", days_ago=200)
+        second = MeetupEvent.objects.create(
+            title="Late Return",
+            description="event",
+            event_type="speed_dating",
+            date_time=first.date_time + timedelta(days=90, hours=12),
+            registration_deadline=first.date_time,
+            location="Luxembourg",
+            address="1 Test St",
+            registration_fee=Decimal("15.00"),
+            max_participants=20,
+        )
+        for event in (first, second):
+            EventRegistration.objects.create(event=event, user=frank, status="attended")
+        start = (timezone.localdate() - timedelta(days=250)).isoformat()
+        returned = self.data("retention", **{"from": start})[
+            "first_timers_returned_within_90d"
+        ]
+        self.assertEqual((returned["eligible"], returned["returned"]), (1, 0))
+
+    def test_members_page_is_limited_but_counts_all_matches(self):
+        data = self.data("members", limit="1")
+        self.assertEqual((data["total_matching"], data["returned"]), (4, 1))
+        self.assertTrue(data["truncated"])
+        attended_only = self.data("members", attended="true", limit="1")
+        self.assertEqual(attended_only["total_matching"], 1)
+        self.assertEqual(attended_only["members"][0]["events_attended"], 2)
+
     def test_members_rows_have_a_fixed_shape(self):
         data = self.data("members")
         self.assertEqual(data["total_matching"], 4)
@@ -434,7 +476,11 @@ class DisclosureControlTests(AnalyticsFixture):
         # Filters match the generalized values, so they cannot count the cell.
         self.assertEqual(self.data("members", gender="F")["total_matching"], 0)
         detail = self.data("event_detail", event_id=str(self.night.id))
-        self.assertEqual({r["gender"] for r in detail["registrations"]}, {"suppressed"})
+        for row in detail["registrations"]:
+            self.assertEqual(
+                (row["gender"], row["age_band"], row["canton"]),
+                ("suppressed", "suppressed", "suppressed"),
+            )
 
     def test_generalization_drops_canton_then_age_before_gender(self):
         with mock.patch.object(analytics, "SUPPRESSION_FLOOR", 2):
