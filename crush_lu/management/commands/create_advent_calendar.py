@@ -242,7 +242,7 @@ class Command(BaseCommand):
 
         # 6. Generate QR tokens if requested
         if generate_qr:
-            self._generate_qr_tokens(calendar, special_exp, first_name, last_name)
+            self._generate_qr_tokens(calendar, first_name, last_name)
 
         # Summary
         self.stdout.write('\n' + '=' * 50)
@@ -293,10 +293,10 @@ class Command(BaseCommand):
         }
         return icons.get(content_type, 'bi-star')
 
-    def _generate_qr_tokens(self, calendar, special_exp, first_name, last_name):
+    def _generate_qr_tokens(self, calendar, first_name, last_name):
         """Generate QR tokens for doors that need them."""
-        # Prefer the directly linked user, fall back to name matching
-        user = special_exp.linked_user or User.objects.filter(
+        # Find user by name matching
+        user = User.objects.filter(
             first_name__iexact=first_name,
             last_name__iexact=last_name
         ).first()

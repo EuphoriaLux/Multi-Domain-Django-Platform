@@ -165,6 +165,11 @@ class CreateAdventCalendarCommandTests(TestCase):
             first_name="Marie",
             last_name="Dupont",
         )
+        # QR tokens go to the experience's linked user; the command reuses
+        # this experience because first and last name match.
+        SpecialUserExperience.objects.create(
+            first_name="Marie", last_name="Dupont", linked_user=user
+        )
 
         call_command(
             "create_advent_calendar",
