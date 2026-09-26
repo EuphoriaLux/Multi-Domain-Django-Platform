@@ -431,8 +431,9 @@ class FacebookPixelConsentTests(SimpleTestCase):
         once the visitor has withdrawn marketing since the render."""
         html = self._render(True)
 
-        guard = "if (!%s) {" % MARKETING_DECLINED_JS
+        guard = "if (!(%s ||" % MARKETING_DECLINED_JS
         self.assertIn(guard, html)
+        self.assertIn("crush_consent_version_marketing", html)
         self.assertLess(html.index(guard), html.index("fbevents.js"))
         self.assertLess(html.index(guard), html.index("fbq('init', '123456')"))
         closing = html.index("}", html.index("fbq('track', 'PageView');"))
@@ -551,8 +552,9 @@ class AppInsightsConsentTests(SimpleTestCase):
         withdrawn analytics since the render."""
         html = self._render({"cookie_consent_analytics": "accept"})
 
-        guard = "if (!%s) {" % ANALYTICS_DECLINED_JS
+        guard = "if (!(%s ||" % ANALYTICS_DECLINED_JS
         self.assertIn(guard, html)
+        self.assertIn("crush_consent_version_analytics", html)
         self.assertLess(html.index(guard), html.index("!(function (cfg)"))
         self.assertLess(html.index(guard), html.index("InstrumentationKey=abc"))
         # The placeholder only loads the SDK on a grant: it stays as it was.
@@ -940,19 +942,16 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
         )
 
         self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
-        updates = (
-            "if (%s) gtag('consent', 'update', {'analytics_storage': 'denied'});"
-            % ANALYTICS_DECLINED_JS,
-            "if (%s) gtag('consent', 'update', {'ad_storage': 'denied', "
-            "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
-            % MARKETING_DECLINED_JS,
+        guards = (
+            "if (%s ||" % ANALYTICS_DECLINED_JS,
+            "if (%s ||" % MARKETING_DECLINED_JS,
         )
-        for update in updates:
-            self.assertIn(update, rendered)
+        for guard in guards:
+            self.assertIn(guard, rendered)
             self.assertLess(
-                rendered.index("gtag('consent', 'default'"), rendered.index(update)
+                rendered.index("gtag('consent', 'default'"), rendered.index(guard)
             )
-            self.assertLess(rendered.index(update), rendered.index("gtag('config'"))
+            self.assertLess(rendered.index(guard), rendered.index("gtag('config'"))
 
     def test_only_a_granted_group_gets_the_refusal_check(self):
         """A denied default has nothing to take back: a live acceptance never

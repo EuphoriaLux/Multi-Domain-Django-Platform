@@ -115,6 +115,12 @@ def test_already_queued_admin_posts_are_dropped_not_replayed():
     )
 
 
+def test_already_queued_consent_posts_are_dropped_not_replayed():
+    replay = _run_replay_probe()
+    assert not [url for url in replay["replayed"] if "/cookies/" in url]
+    assert replay["drained"]
+
+
 def test_dropped_entries_are_removed_from_the_queue():
     """Skipping an entry has to shift it OUT. Left in place it would be retried
     on every subsequent sync, forever."""

@@ -92,6 +92,17 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
+    // A consent change makes cached ordinary pages' rendered tracker state
+    // stale. Keep offline tickets: deleting them here would lose the QR code
+    // a member may need at the door.
+    if (
+        event.request.method === "POST" &&
+        (url.pathname === "/cookies/accept/" ||
+            url.pathname === "/cookies/decline/")
+    ) {
+        event.waitUntil(caches.delete("crush-pages"));
+    }
+
     // Switching accounts changes whose ticket this device may show: drop the
     // offline ticket copies (see TICKET_CACHE). waitUntil keeps the worker
     // alive for the delete without claiming the request, so the auth bypass
@@ -640,6 +651,7 @@ if (workbox) {
             !pathname.startsWith("/login") &&
             !pathname.startsWith("/logout") &&
             !pathname.startsWith("/accounts/") &&
+            !pathname.startsWith("/cookies/") &&
             !pathname.startsWith("/signup")
         );
     }

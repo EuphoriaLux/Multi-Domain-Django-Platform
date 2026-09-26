@@ -695,6 +695,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // cookies above carry the choice too, and the server reads them first,
     // so a save is honoured even if this never completes.
     const NATIVE_STATUS_URL = '/cookies/status/';
+    // Each native response rewrites the library's whole consent cookie. Keep
+    // saves from separate modal interactions in order as well as the two
+    // requests within one save, so an older accept cannot follow a decline.
+    let nativeConsentQueue = Promise.resolve();
 
     function postNativeChoice(url, csrftoken, groups) {
         if (!groups.length) return Promise.resolve();
@@ -715,7 +719,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
 
     function syncNativeConsent(consent) {
         if (typeof fetch !== 'function') return;
-        fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
+        nativeConsentQueue = nativeConsentQueue.catch(function() {
+            // A failed save must not stop the next choice from reaching the server.
+        }).then(function() {
+            return fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
             .then(function(response) { return response.ok ? response.json() : null; })
             .then(function(status) {
                 if (!status || !status.csrftoken) return;
@@ -733,6 +740,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
                     });
             })
             .catch(function() { /* the readable cookies still carry the choice */ });
+        });
     }
 
     // Keep the server-rendered state (data-consent-state) in step with a
@@ -818,6 +826,24 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     function serverVersions() {
         const state = serverState();
         return state && state.versions && typeof state.versions === 'object' ? state.versions : {};
+    }
+
+    // Remember the newest group versions seen on an online page. A kept
+    // ticket may later contain an older rendered grant; its tracker guards
+    // can compare against these versions while leaving the offline QR intact.
+    function rememberServerVersions() {
+        const versions = serverVersions();
+        ['analytics', 'marketing'].forEach(function(group) {
+            const version = versions[group];
+            if (!version) return;
+            try {
+                const key = 'crush_consent_version_' + group;
+                const known = localStorage.getItem(key);
+                if (!known || Date.parse(version) > Date.parse(known)) {
+                    localStorage.setItem(key, version);
+                }
+            } catch (e) { /* storage can be unavailable in private mode */ }
+        });
     }
 
     // The stored choice as {analytics, marketing}: the server's view first,
@@ -967,6 +993,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     document.addEventListener('DOMContentLoaded', function() {
         // Bind event listeners
         bindButtonEvents();
+        rememberServerVersions();
 
         const stored = choiceOnLoad();
         if (!stored) {
