@@ -296,26 +296,16 @@ def crush_user_context(request):
             # Count pending invitations to review (future feature)
             context["pending_invitations_count"] = 0
 
-        # Check for special journey experience
-        # Prioritize linked_user (gifts), then fall back to name match (legacy)
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(is_active=True)
-            & (
-                Q(linked_user=request.user)  # Direct link (gifts)
-                | Q(
-                    first_name__iexact=request.user.first_name,
-                    last_name__iexact=request.user.last_name,
-                    linked_user__isnull=True,  # Only name-match if no linked_user
-                )
-            )
-        ).first()
+        # Check for special journey experience: only a direct linked_user
+        # link counts (a first/last name match exposed namesakes' journeys)
+        special_experience = SpecialUserExperience.active_for_user(request.user)
 
         if special_experience:
             context["has_special_journey"] = True
             context["special_experience"] = special_experience
 
             # Check if journey is already started
-            journey_progress = JourneyProgress.objects.filter(user=request.user).first()
+            journey_progress = JourneyProgress.accessible_to(request.user).first()
             context["journey_started"] = journey_progress is not None
             if journey_progress:
                 context["journey_progress"] = journey_progress

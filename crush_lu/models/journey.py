@@ -530,6 +530,21 @@ class JourneyProgress(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.journey.journey_name} (Chapter {self.current_chapter})"
 
+    @classmethod
+    def accessible_to(cls, user):
+        """Progress rows ``user`` may still play, oldest first.
+
+        Only rows on a journey whose active experience is linked to ``user``.
+        A row left behind by the old first/last-name match (a namesake who
+        opened someone else's journey) must not keep granting its chapters,
+        rewards, certificate or API.
+        """
+        return cls.objects.filter(
+            user=user,
+            journey__special_experience__linked_user=user,
+            journey__special_experience__is_active=True,
+        ).order_by("pk")
+
     @property
     def completion_percentage(self):
         """Calculate completion percentage"""

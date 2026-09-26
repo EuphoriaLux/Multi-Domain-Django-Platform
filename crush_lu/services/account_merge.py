@@ -47,6 +47,9 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         UserActivity,
         ProfileReminder,
         MeetupEvent,
+        QRCodeToken,
+        SpecialUserExperience,
+        AdventProgress,
     )
     from crush_lu.models.referrals import ReferralCode, ReferralAttribution
 
@@ -430,6 +433,98 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             jp.user = keeper_user
             jp.save(update_fields=["user"])
             log.append(f"Moved journey progress for '{jp.journey}' to keeper")
+
+    # 8b. Special experience and its advent QR tokens. A special journey is
+    # granted by linked_user only (never by name), so leaving the link on the
+    # deactivated duplicate would cut the keeper off from their journey.
+    # linked_user is unique per user: on a conflict keep both, log it.
+    duplicate_exp = SpecialUserExperience.objects.filter(
+        linked_user=duplicate_user
+    ).first()
+    if duplicate_exp:
+        keeper_exp = SpecialUserExperience.objects.filter(
+            linked_user=keeper_user
+        ).first()
+        if keeper_exp is None:
+            duplicate_exp.linked_user = keeper_user
+            duplicate_exp.save(update_fields=["linked_user", "updated_at"])
+            log.append(f"Moved special experience #{duplicate_exp.pk} to keeper")
+        else:
+            log.append(
+                f"CONFLICT: keeper already has special experience "
+                f"#{keeper_exp.pk}; duplicate's #{duplicate_exp.pk} stays on the "
+                f"deactivated account (move its journeys by hand)"
+            )
+
+    # QRCodeToken (unique_together: door, user). A token redeems only for
+    # its own user, so one left on the deactivated duplicate is dead. When
+    # both accounts hold a token for a door, the keeper ends up with the one
+    # they can still scan: theirs if it is still valid or already redeemed,
+    # otherwise (expired) the duplicate's valid one.
+    for token in QRCodeToken.objects.filter(user=duplicate_user):
+        existing = QRCodeToken.objects.filter(user=keeper_user, door=token.door).first()
+        if existing is None:
+            token.user = keeper_user
+            token.save(update_fields=["user"])
+            log.append(f"Moved QR token for door #{token.door_id} to keeper")
+        elif not existing.is_used and not existing.is_valid() and token.is_valid():
+            existing.delete()
+            token.user = keeper_user
+            token.save(update_fields=["user"])
+            log.append(
+                f"Replaced keeper's expired QR token for door #{token.door_id} "
+                f"with duplicate's valid one"
+            )
+        else:
+            token.delete()
+            log.append(
+                f"Deleted duplicate's QR token for door #{token.door_id} "
+                f"(keeper's own token is kept)"
+            )
+
+    # AdventProgress (unique_together: user, calendar). The advent views
+    # get_or_create the keeper's row, so a row left on the deactivated
+    # duplicate would show the keeper every door closed again. Move it, or
+    # fold it into the keeper's row: a door opened on either account stays
+    # opened.
+    for progress in AdventProgress.objects.filter(user=duplicate_user):
+        existing = AdventProgress.objects.filter(
+            user=keeper_user, calendar=progress.calendar
+        ).first()
+        if existing is None:
+            progress.user = keeper_user
+            progress.save(update_fields=["user"])
+            log.append(
+                f"Moved advent progress for calendar #{progress.calendar_id} "
+                f"to keeper"
+            )
+            continue
+        existing.doors_opened = sorted(
+            set(existing.doors_opened or []) | set(progress.doors_opened or [])
+        )
+        existing.qr_scans = sorted(
+            set(existing.qr_scans or []) | set(progress.qr_scans or [])
+        )
+        if progress.last_opened_at and (
+            existing.last_opened_at is None
+            or progress.last_opened_at > existing.last_opened_at
+        ):
+            existing.last_door_opened = progress.last_door_opened
+            existing.last_opened_at = progress.last_opened_at
+        existing.save(
+            update_fields=[
+                "doors_opened",
+                "qr_scans",
+                "last_door_opened",
+                "last_opened_at",
+                "last_visit",
+            ]
+        )
+        progress.delete()
+        log.append(
+            f"Merged advent progress for calendar #{existing.calendar_id} into "
+            f"keeper's ({len(existing.doors_opened)} doors opened)"
+        )
 
     # 9. PushSubscription (unique_together: user, endpoint)
     for sub in PushSubscription.objects.filter(user=duplicate_user):
