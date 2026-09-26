@@ -20,7 +20,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
-from django.test import Client, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
@@ -49,6 +49,38 @@ COUNTER_KEYS = {
 STILL_PAID = {"id": "chk_t2_1", "status": "PAID", "amount": 15.50}
 FULL_REFUND = {"id": "chk_t2_1", "status": "REFUNDED", "amount": 15.50}
 PARTIAL_REFUND = {"id": "chk_t2_1", "status": "PAID", "amount_refunded": "2.00"}
+
+# A retried checkout: a declined attempt and the one that captured. Codes and
+# row shapes as SumUp returned them (test_sumup_payments' CHK_DECLINE reads;
+# test_sumup_reconciliation's 2026-08-31 dashboard refund). No attempt carries
+# a timestamp in any live payload.
+DECLINED_CODE = "TAAA4NSCZGG"
+CAPTURE_CODE = "TAAA4QQ7M99"
+DECLINED_ATTEMPT = {"status": "FAILED", "transaction_code": DECLINED_CODE}
+CAPTURED_ATTEMPT = {
+    "status": "SUCCESSFUL",
+    "transaction_code": CAPTURE_CODE,
+    "amount": 15.5,
+}
+DECLINED_ROW = {
+    "transaction_code": DECLINED_CODE,
+    "type": "PAYMENT",
+    "status": "FAILED",
+    "amount": 15.5,
+}
+CAPTURE_PAYMENT_ROW = {
+    "transaction_code": CAPTURE_CODE,
+    "type": "PAYMENT",
+    "status": "SUCCESSFUL",
+    "amount": 15.5,
+    "refunded_amount": 15.5,
+}
+CAPTURE_REFUND_ROW = {
+    "transaction_code": CAPTURE_CODE,
+    "type": "REFUND",
+    "status": "REFUNDED",
+    "amount": 15.5,
+}
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush", ADMIN_API_KEY=API_KEY)
@@ -1341,8 +1373,81 @@ class SumUpReconciliationEndpointTests(TestCase):
         evidence = stored["reconciliation_history_evidence"]
         self.assertEqual(evidence, history_rows)
 
-    def test_retried_checkout_queries_every_nested_transaction_code(self):
-        """A declined first attempt must not hide the later successful code."""
+    # -- which transaction code is looked up (Codex: retried checkouts) ------
+
+    def _per_code_queries(self, history_calls):
+        """The targeted lookups, in order (the prefetch names no code)."""
+        return [
+            c["transaction_code"] for c in history_calls if c.get("transaction_code")
+        ]
+
+    def _retried_checkout_run(self, attempts, top_level=None):
+        checkout = {"id": "chk_t2_1", "status": "PAID", "amount": 15.5}
+        if top_level:
+            checkout["transaction_code"] = top_level
+        checkout["transactions"] = attempts
+        history_calls = []
+        body, _ = self._run_by_id(
+            {"chk_t2_1": checkout},
+            history_by_code={
+                CAPTURE_CODE: [CAPTURE_REFUND_ROW, CAPTURE_PAYMENT_ROW],
+                DECLINED_CODE: [DECLINED_ROW],
+            },
+            history_calls=history_calls,
+        )
+        return body, self._per_code_queries(history_calls)
+
+    def test_refund_on_the_capture_is_found_when_a_declined_attempt_is_listed_first(
+        self,
+    ):
+        """No top-level code; the declined attempt comes first. Only the
+        capture is asked about, and its refund is reconciled."""
+        body, queried = self._retried_checkout_run(
+            [DECLINED_ATTEMPT, CAPTURED_ATTEMPT]
+        )
+        self.assertEqual(queried, [CAPTURE_CODE])
+        self.assertEqual(body["reconciled"], 1)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_capture_listed_first_is_still_the_only_code_asked_about(self):
+        body, queried = self._retried_checkout_run(
+            [CAPTURED_ATTEMPT, DECLINED_ATTEMPT]
+        )
+        self.assertEqual(queried, [CAPTURE_CODE])
+        self.assertEqual(body["reconciled"], 1)
+
+    def test_a_capture_with_an_unexpected_status_is_not_skipped(self):
+        """FAILED + CANCELLED / status-less: the declined code is dropped, so
+        the other attempt is looked up, never the declined one alone."""
+        for capture in (
+            dict(CAPTURED_ATTEMPT, status="CANCELLED"),
+            {k: v for k, v in CAPTURED_ATTEMPT.items() if k != "status"},
+        ):
+            with self.subTest(status=capture.get("status")):
+                PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+                    status=PaymentTransaction.Status.PAID
+                )
+                body, queried = self._retried_checkout_run(
+                    [DECLINED_ATTEMPT, capture]
+                )
+                self.assertEqual(queried, [CAPTURE_CODE])
+                self.assertEqual(body["reconciled"], 1)
+
+    def test_several_declines_cost_one_history_read(self):
+        """Four declines and a capture: one lookup, not five."""
+        declines = [
+            dict(DECLINED_ATTEMPT, transaction_code=f"TDECLINE{i}") for i in range(4)
+        ]
+        body, queried = self._retried_checkout_run([*declines, CAPTURED_ATTEMPT])
+        self.assertEqual(queried, [CAPTURE_CODE])
+        self.assertEqual((body["reconciled"], body["errors"]), (1, 0))
+
+    def test_a_top_level_code_naming_a_declined_attempt_does_not_hide_the_capture(
+        self,
+    ):
+        """SumUp names the capture at the top level. If a payload ever named a
+        declined attempt there, the SUCCESSFUL sibling is still read."""
         checkout = {
             "id": "chk_t2_1",
             "status": "PAID",
@@ -1370,13 +1475,12 @@ class SumUpReconciliationEndpointTests(TestCase):
             history_by_code={"TX_CAPTURED": [captured_refund]},
             history_calls=history_calls,
         )
-        queried = {
-            call.get("transaction_code")
-            for call in history_calls
-            if call.get("transaction_code")
-        }
-        self.assertEqual(queried, {"TX_DECLINED", "TX_CAPTURED"})
+        self.assertEqual(
+            self._per_code_queries(history_calls), ["TX_DECLINED", "TX_CAPTURED"]
+        )
         self.assertEqual(body["reconciled"], 1)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
 
     # -- refund on a still-PENDING registration: flag, don't cancel ---------
     # Owner decision (Codex thread "Release pending seats after reconciling
@@ -1824,6 +1928,81 @@ class SumUpReconciliationEndpointTests(TestCase):
         with self.assertLogs(CMD, level=logging.WARNING) as logs:
             self._run(STILL_PAID, history={"items": items})
         self.assertTrue(any("full page" in m for m in logs.output))
+
+
+class CapturedTransactionCodeTests(SimpleTestCase):
+    """Which attempt of a checkout captured, and which codes are looked up."""
+
+    def _codes(self, attempts, top_level=None):
+        from crush_lu.management.commands.reconcile_sumup_payments import (
+            captured_transaction_code,
+            history_lookup_codes,
+        )
+
+        data = {"id": "chk", "status": "PAID", "transactions": attempts}
+        if top_level:
+            data["transaction_code"] = top_level
+        return captured_transaction_code(data), history_lookup_codes(data)
+
+    def test_top_level_code_is_the_capture(self):
+        self.assertEqual(
+            self._codes([CAPTURED_ATTEMPT], top_level=CAPTURE_CODE),
+            (CAPTURE_CODE, [CAPTURE_CODE]),
+        )
+
+    def test_declined_then_captured_without_a_top_level_code(self):
+        self.assertEqual(
+            self._codes([DECLINED_ATTEMPT, CAPTURED_ATTEMPT]),
+            (CAPTURE_CODE, [CAPTURE_CODE]),
+        )
+
+    def test_captured_then_declined(self):
+        self.assertEqual(
+            self._codes([CAPTURED_ATTEMPT, DECLINED_ATTEMPT]),
+            (CAPTURE_CODE, [CAPTURE_CODE]),
+        )
+
+    def test_the_last_captured_attempt_wins(self):
+        first = dict(CAPTURED_ATTEMPT, transaction_code="TFIRST")
+        # A double capture: both are looked up, the later one first.
+        self.assertEqual(
+            self._codes([first, CAPTURED_ATTEMPT]),
+            (CAPTURE_CODE, [CAPTURE_CODE, "TFIRST"]),
+        )
+
+    def test_a_declined_attempt_is_never_picked_over_another_attempt(self):
+        cancelled = dict(CAPTURED_ATTEMPT, status="CANCELLED")
+        no_status = {"transaction_code": CAPTURE_CODE}
+        for other in (cancelled, no_status):
+            with self.subTest(other=other):
+                self.assertEqual(
+                    self._codes([DECLINED_ATTEMPT, other]),
+                    (CAPTURE_CODE, [CAPTURE_CODE]),
+                )
+
+    def test_a_top_level_code_is_trusted_but_a_captured_sibling_is_still_read(self):
+        self.assertEqual(
+            self._codes(
+                [DECLINED_ATTEMPT, CAPTURED_ATTEMPT], top_level=DECLINED_CODE
+            ),
+            (DECLINED_CODE, [DECLINED_CODE, CAPTURE_CODE]),
+        )
+
+    def test_only_declined_attempts(self):
+        second = dict(DECLINED_ATTEMPT, transaction_code="TSECOND")
+        self.assertEqual(
+            self._codes([DECLINED_ATTEMPT, second]), ("TSECOND", ["TSECOND"])
+        )
+
+    def test_no_code_anywhere(self):
+        self.assertEqual(self._codes([]), (None, []))
+        self.assertEqual(self._codes([{"status": "SUCCESSFUL"}, "junk"]), (None, []))
+
+    def test_a_non_string_status_does_not_raise(self):
+        odd = dict(CAPTURED_ATTEMPT, status=3)
+        self.assertEqual(
+            self._codes([DECLINED_ATTEMPT, odd]), (CAPTURE_CODE, [CAPTURE_CODE])
+        )
 
 
 class SumUpReconciliationStructureTests(TestCase):

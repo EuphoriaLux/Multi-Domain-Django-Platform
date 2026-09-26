@@ -220,6 +220,79 @@ def collect_history_evidence(evidence_by_code: dict, items) -> dict:
     return evidence_by_code
 
 
+# Nested attempt statuses that mean the attempt took the money.
+_CAPTURED_ATTEMPT_STATUSES = frozenset({"SUCCESSFUL", "PAID", "REFUNDED"})
+# A declined authorization. It moved no money, so it cannot carry a refund.
+_DECLINED_ATTEMPT_STATUS = "FAILED"
+
+
+def _attempt_status(attempt: dict) -> str:
+    return str(attempt.get("status") or "").upper()
+
+
+def _coded_attempts(data: dict) -> list:
+    return [
+        t
+        for t in (data.get("transactions") or [])
+        if isinstance(t, dict) and t.get("transaction_code")
+    ]
+
+
+def captured_transaction_code(data) -> Optional[str]:
+    """The transaction code of the attempt that captured this checkout.
+
+    A checkout can list several attempts: a declined card, then the one that
+    worked. Taking the first nested code, as this command used to, picks the
+    declined attempt on a retry, and its history can never show the refund.
+
+    In order:
+    1. The top-level ``transaction_code``. SumUp documents it as the code of
+       the successful transaction that completed the checkout.
+    2. The LAST nested attempt whose status says it captured (retries are
+       appended, and no live payload carries a per-attempt timestamp).
+    3. Otherwise, drop the declined (FAILED) attempts and take the last
+       remaining one: a capture whose status is missing or unexpected.
+    4. If every attempt was declined, the last one; None when there is none.
+    """
+    if not isinstance(data, dict):
+        return None
+    top_level = data.get("transaction_code")
+    if top_level:
+        return top_level
+    attempts = _coded_attempts(data)
+    for candidates in (
+        [t for t in attempts if _attempt_status(t) in _CAPTURED_ATTEMPT_STATUSES],
+        [t for t in attempts if _attempt_status(t) != _DECLINED_ATTEMPT_STATUS],
+        attempts,
+    ):
+        if candidates:
+            return candidates[-1]["transaction_code"]
+    return None
+
+
+def history_lookup_codes(data) -> list:
+    """The transaction codes whose history is worth asking SumUp about.
+
+    The captured code first, then every other nested code whose attempt was
+    not declined. A declined (FAILED) authorization moved no money, so no
+    refund can be taken against it: querying it only spends the read budget,
+    and a retried checkout can list several. Anything else might have
+    captured — a second SUCCESSFUL attempt, or one with no status — so it is
+    still read. On a normal PAID checkout this is ONE code, which is what
+    ``SUMUP_READS_PER_ROW`` in api_admin_sumup assumes; the sweep reserves
+    time for any extra code before it asks.
+    """
+    captured = captured_transaction_code(data)
+    codes = [captured] if captured else []
+    if isinstance(data, dict):
+        codes.extend(
+            t["transaction_code"]
+            for t in _coded_attempts(data)
+            if _attempt_status(t) != _DECLINED_ATTEMPT_STATUS
+        )
+    return list(dict.fromkeys(codes))
+
+
 def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     """Best available total refunded on this checkout or transaction history.
 
@@ -631,16 +704,15 @@ class Command(BaseCommand):
 
             history_lookup_failed = False
             try:
-                codes = []
-                if remote_data.get("transaction_code"):
-                    codes.append(remote_data["transaction_code"])
-                for item in remote_data.get("transactions") or []:
-                    if isinstance(item, dict) and item.get("transaction_code"):
-                        codes.append(item["transaction_code"])
-                codes = list(dict.fromkeys(codes))
+                # The capture's code first, then any other attempt that was
+                # not declined; never a declined one (history_lookup_codes).
+                # Querying every nested code instead found the capture on a
+                # retried checkout too, but paid 20 s of reserve per declined
+                # attempt, so a checkout with a few declines could never fit
+                # the scheduled run's budget.
                 history_codes = [
                     code
-                    for code in codes
+                    for code in history_lookup_codes(remote_data)
                     if _history_refund_rank(history_map.get(code)) < 2
                 ]
                 if budget_seconds is not None and history_codes:
@@ -667,10 +739,10 @@ class Command(BaseCommand):
                         )
                         continue
 
-                # Gather evidence for EVERY transaction code before classifying.
-                # A retried checkout can list a declined first attempt before
-                # the successful payment, so stopping at the first code misses
-                # external refunds on the transaction that actually captured.
+                # Gather the evidence for those codes BEFORE classifying. A
+                # retried checkout can list a declined first attempt before
+                # the one that captured, which is why the first nested code
+                # is no longer what gets looked up.
                 #
                 # Three gates have stood here, each too weak in its own way,
                 # and each hid money:
