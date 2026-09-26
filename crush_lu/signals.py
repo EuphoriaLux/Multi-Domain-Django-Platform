@@ -1765,9 +1765,13 @@ def store_oauth_result_for_duplicate_handling(sender, request, user, **kwargs):
 @receiver(user_logged_in)
 def check_special_user_experience(sender, request, user, **kwargs):
     """
-    Check if the logged-in user matches a special user experience configuration.
-    If matched, activate the special experience in the session.
+    Check if the logged-in user has a special user experience linked to them.
+    If so, activate the special experience in the session.
     Only processes for crush.lu domain.
+
+    Only a direct ``linked_user`` link counts: matching by first/last name
+    handed namesakes someone else's VIP experience and auto-approved their
+    profile.
     """
     # Only process for crush.lu domain
     try:
@@ -1779,19 +1783,8 @@ def check_special_user_experience(sender, request, user, **kwargs):
         return
 
     try:
-        # Check if there's a matching special experience
-        # Prioritize linked_user (gifts), then fall back to name match (legacy)
-        special_experience = SpecialUserExperience.objects.filter(
-            Q(is_active=True)
-            & (
-                Q(linked_user=user)  # Direct link (gifts)
-                | Q(
-                    first_name__iexact=user.first_name,
-                    last_name__iexact=user.last_name,
-                    linked_user__isnull=True,  # Only name-match if no linked_user
-                )
-            )
-        ).first()
+        # Check if there's a special experience linked to this user
+        special_experience = SpecialUserExperience.active_for_user(user)
 
         if special_experience:
             # Activate special experience in session

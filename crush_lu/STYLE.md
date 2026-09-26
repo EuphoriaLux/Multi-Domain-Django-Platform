@@ -199,6 +199,31 @@ Reach for these before composing inline:
 | `components/form_field.html` | Form field (label + input + errors + help). `{% include "crush_lu/components/form_field.html" with field=form.x %}`. |
 | `components/status_badge.html` | `.badge` with tone + icon + label + optional suffix. Prefer the convenience tag below over hand-rolling. |
 | `components/htmx_spinner.html` | The shared `<span class="htmx-indicator">` + loading icon. Pair with a sibling `<span class="htmx-hide-on-request">` carrying the resting label. |
+| `components/toggle.html` | On/off switch: a real `role="switch"` checkbox + painted track, wrapped in its `<label>`. `tone` = `purple` (default) / `green` / `red` (destructive; also reddens the label), `inline` for the compact one-line row. |
+
+### Toggle switches
+
+New on/off settings go through the toggle partial — don't paste the
+`w-11 h-6 … after:content-['']` track inline. The copies this replaced had a
+`dark:bg-gray-800` track, so the OFF state vanished on dark cards; the partial
+owns the `dark:bg-gray-600` fix in one place.
+
+One legacy primitive remains: `partials/edit_account_notifications.html`
+still builds its switches on the `.peer-toggle` / `.peer-toggle-purple` /
+`.peer-toggle-red` CSS classes (`tailwind-input.css`). Its dark OFF track is
+already gray-600, so it isn't broken — but don't use `.peer-toggle` in new
+code; that page moves onto the partial in its own change.
+
+```django
+{% include "crush_lu/components/toggle.html" with name="email_marketing" checked=email_prefs.email_marketing label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
+{% include "crush_lu/components/toggle.html" with checked=sub.notify_new_messages input_class="push-pref-toggle" subscription_id=sub.id pref_key="newMessages" label=_("New Messages") %}
+```
+
+Beyond `name` / `checked` / `label` / `help` it takes `id`, `value`,
+`disabled`, `input_class` (JS hook classes only, never styling), the
+`pref_key` / `subscription_id` data attributes the push-preference
+components read, and `x_checked` / `x_change` for a bare-name Alpine binding
+(CSP build). Full contract in the partial's docstring.
 
 ### Status-badge mapping (connections)
 
@@ -324,6 +349,39 @@ Two systems exist today; the long-term direction is one.
 Pick the toast store for any NEW notification surface. Only call
 `messages.success/error/warning(...)` if you genuinely want the
 top-of-page banner treatment, and prefer the toast store if you don't.
+
+### Failed HTMX requests
+
+`crush_lu/static/crush_lu/js/htmx-error-toast.js` (loaded by `base.html`)
+handles every `htmx:responseError` / `htmx:sendError` / `htmx:timeout`:
+it shows one translated toast (copy rendered by
+`components/htmx_error_toast.html`), sets `isSubmitting` back to
+`false` on the Alpine component around the requesting element, and hands
+keyboard focus back to the submit button if disabling it dropped focus.
+The copy depends on the failure: a 429 says "Too many attempts" (the
+`@ratelimit` decorators' own message only shows on a full page load), a
+network failure on an event registration or connection message POST the
+service worker confirmed it queued for background sync says it will sync
+once online (no "try again": a second submit would queue a duplicate);
+any other confirmed-queued POST says "Connection interrupted. Retrying…";
+a queueable POST under a worker that never confirmed the store (one that
+predates that confirmation) says "We could not confirm whether this was
+sent. Check before sending it again." (neither promise nor retry prompt);
+everything else gets the generic server or network copy. After a confirmation the page asks the worker to
+drain the queue on a retry schedule, not only on the `online` event.
+An identical toast that is still on screen is not stacked again. So:
+
+- Name your "submit in flight" flag `isSubmitting` and bind the button's
+  `:disabled` / label to it — a failed request then recovers on its own.
+- Don't add a per-page error toast for HTMX failures. If a page reports
+  the failure itself, or the request is a background poll that simply
+  retries, put `data-htmx-error-toast="off"` on the element or an
+  ancestor (the flag and focus reset still run).
+- An error response that sends its own `HX-Trigger: {"showToast": …}`
+  (`view_utils.toast_response`) suppresses the generic toast. Known issue:
+  `toast-component.js` currently shows such a message **twice** (htmx 2
+  also re-dispatches it as `show-toast`), so fix that before a view adopts
+  `toast_response`.
 
 ### Pending consolidation
 

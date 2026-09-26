@@ -2218,6 +2218,13 @@ def profile_submitted(request):
             ).exists()
 
         if not has_luxid_account:
+            # A link through a LuxID OIDC app bound to another Site still
+            # counts: the banner and the collapsed card describe the member's
+            # own link, which has_luxid_connected checks across Sites. The
+            # site-scoped lookups above only decide whether to offer a URL.
+            has_luxid_account = profile.has_luxid_connected
+
+        if not has_luxid_account:
             luxid_connect_url = _luxid_connect_url(
                 _available_providers, oidc_app=_oidc_app
             )
@@ -2358,6 +2365,10 @@ def profile_submitted(request):
         "submission": submission,
         "has_luxid_account": has_luxid_account,
         "luxid_connect_url": luxid_connect_url,
+        # Not linked and nothing to connect (no LuxID app on this site, or the
+        # lookup failed): the options partial collapses the LuxID card so the
+        # event path is the single highlighted one.
+        "luxid_unavailable": not has_luxid_account and not luxid_connect_url,
         # Submission-dependent (None when no submission)
         "coach_contact_phone": coach_contact_phone,
         "coach_phone_available": coach_phone_available,

@@ -132,11 +132,21 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             # Create all chapters using the command's methods
             command.create_all_chapters(journey, parsed_date, location_met, special_exp.first_name)
 
-            django_messages.success(
-                request,
+            success_msg = (
                 f"Successfully generated Wonderland Journey for {special_exp.first_name} {special_exp.last_name}! "
                 f"Journey includes 6 chapters with all challenges and rewards."
             )
+            notify = django_messages.success
+            if special_exp.linked_user_id is None:
+                # Access is granted by linked_user only: until it is set,
+                # nobody can open this journey.
+                success_msg += (
+                    " Note: no user account is linked to this experience, so"
+                    " nobody can open this journey yet. Set 'Linked user' on"
+                    " this experience."
+                )
+                notify = django_messages.warning
+            notify(request, success_msg)
 
         except Exception as e:
             import traceback
@@ -254,14 +264,9 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
             qr_count = 0
             if generate_qr:
                 from crush_lu.models import QRCodeToken
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
 
-                # Try to find the user
-                user = User.objects.filter(
-                    first_name__iexact=special_exp.first_name,
-                    last_name__iexact=special_exp.last_name
-                ).first()
+                # Tokens go to the linked account only, never a name match
+                user = special_exp.linked_user
 
                 if user:
                     for door in calendar.doors.filter(qr_mode__in=['required', 'bonus']):
@@ -276,12 +281,27 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 f"Successfully generated Advent Calendar for {special_exp.first_name} {special_exp.last_name}! "
                 f"Created {doors_created} doors."
             )
+            notify = django_messages.success
             if generate_qr and qr_count > 0:
                 success_msg += f" Generated {qr_count} QR tokens."
-            elif generate_qr and qr_count == 0:
-                success_msg += " Note: QR tokens not created - user account not found."
+            if special_exp.linked_user_id is None:
+                # Access is granted by linked_user only: until it is set,
+                # nobody can open this calendar, whether or not QR tokens
+                # were requested (and if they were, none were created).
+                success_msg += (
+                    " Note: no user account is linked to this experience, so"
+                    " nobody can open this calendar yet"
+                    + (" and QR tokens were not created" if generate_qr else "")
+                    + ". Set 'Linked user' on this experience"
+                    + (
+                        ", then add the tokens under QR Code Tokens."
+                        if generate_qr
+                        else "."
+                    )
+                )
+                notify = django_messages.warning
 
-            django_messages.success(request, success_msg)
+            notify(request, success_msg)
 
         except Exception as e:
             import traceback
@@ -292,9 +312,13 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(reverse('crush_admin:crush_lu_specialuserexperience_changelist'))
 
     fieldsets = (
-        ('👤 User Matching', {
+        ('👤 Linked account', {
             'fields': ('first_name', 'last_name', 'linked_user', 'is_active'),
-            'description': 'Match by linked_user (gift system) OR first+last name (legacy). linked_user takes priority.'
+            'description': (
+                "Only the linked user gets this experience; first+last name are"
+                " labels and never grant access. Set Linked user to give"
+                " someone access."
+            ),
         }),
         ('🎨 Custom Welcome Experience', {
             'fields': (
@@ -332,6 +356,22 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
         }),
     )
 
+    # The model help_texts still describe the retired name matching, and
+    # changing them needs a migration, so the admin form overrides them.
+    FIELD_HELP_TEXTS = {
+        "first_name": "Label only - does not grant access.",
+        "last_name": "Label only - does not grant access.",
+        "linked_user": (
+            "The account that receives this experience (required for access)."
+        ),
+    }
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if formfield is not None and db_field.name in self.FIELD_HELP_TEXTS:
+            formfield.help_text = self.FIELD_HELP_TEXTS[db_field.name]
+        return formfield
+
     def get_linked_user_display(self, obj):
         """Display the linked user if set"""
         if obj.linked_user:
@@ -341,7 +381,7 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 obj.linked_user.id,
                 obj.linked_user.email or obj.linked_user.username
             )
-        return mark_safe('<span style="color: #999;">Name match</span>')
+        return mark_safe('<span style="color: #999;">Not linked (no access)</span>')
     get_linked_user_display.short_description = 'Linked User'
     get_linked_user_display.admin_order_field = 'linked_user'
 

@@ -1,0 +1,38 @@
+{% load i18n %}
+{% comment %}
+Translated copy for the global HTMX failure toast (crush_lu/js/htmx-error-toast.js).
+Rendered once by crush_lu/base.html in the page language, so the script never
+hardcodes English:
+  data-network       htmx:sendError / htmx:timeout (the request got no answer)
+  data-server        htmx:responseError (a 4xx/5xx the page does not swap)
+  data-rate-limited  a 429 responseError (@ratelimit answers a bare 429; its
+                     Django message would only show on a full page load)
+  data-queued        a sendError on an event registration or connection
+                     message POST the service worker confirmed it queued for
+                     background sync: it replays once online, so no "try again"
+  data-interrupted   any other confirmed-queued POST (the copy above would not
+                     name the action): stored, and it will be replayed
+  data-unconfirmed   a queueable POST under a worker that never confirmed the
+                     store (one that predates the acknowledgement protocol, or
+                     no capability answer yet): it may or may not have been
+                     stored, so neither a retry promise nor "try again"
+To keep an element (or a whole subtree) from raising the toast, put
+data-htmx-error-toast="off" on it or an ancestor; the script still resets its
+Alpine isSubmitting state. See the script header for the full contract.
+The trans tag marks a literal's translation safe, so it would reach the
+attribute unescaped (a '"' in a msgstr would cut it short): hence "as" +
+force_escape.
+{% endcomment %}
+{% trans "Network error. Please check your connection and try again." as network_copy %}
+{% trans "An error occurred. Please try again." as server_copy %}
+{% trans "Too many attempts. Please try again later." as rate_limited_copy %}
+{% trans "Once you're back online, your event registrations and messages will sync automatically!" as queued_copy %}
+{% trans "Connection interrupted. Retrying…" as interrupted_copy %}
+{% trans "We could not confirm whether this was sent. Check before sending it again." as unconfirmed_copy %}
+<div id="htmx-error-toast-messages" hidden
+     data-network="{{ network_copy|force_escape }}"
+     data-server="{{ server_copy|force_escape }}"
+     data-rate-limited="{{ rate_limited_copy|force_escape }}"
+     data-queued="{{ queued_copy|force_escape }}"
+     data-interrupted="{{ interrupted_copy|force_escape }}"
+     data-unconfirmed="{{ unconfirmed_copy|force_escape }}"></div>
