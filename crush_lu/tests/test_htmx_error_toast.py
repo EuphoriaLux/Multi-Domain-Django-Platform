@@ -236,11 +236,18 @@ def test_queued_copy_needs_the_workers_confirmation():
     handler = _static("js/htmx-error-toast.js")
     assert 'data.type === "crush-queued"' in handler
     on_failure = handler[handler.index("function onFailure(") :]
-    assert "ackedRecently(key, since)" in on_failure
     # Missing ack + a worker that acknowledges = the write failed = "network";
     # missing ack + an older worker (never answers the capability question)
     # = queued silently = "interrupted", never "network".
-    assert "workerQueuedAck !== true" in on_failure
+    # The capability that counts is the one recorded for the worker that
+    # handled the request; a controller change since means unconfirmed. An ack
+    # keyed by the request id is accepted whatever its age; only the URL
+    # fallback keeps the time bound.
+    assert "meta.generation === controllerGeneration" in on_failure
+    assert "!sameWorker || meta.queuedAck !== true" in on_failure
+    assert "acked(key, !!requestId, since)" in on_failure
+    assert "if (isRequestId) {" in handler and "delete queuedAcks[key];" in handler
+    assert "generation: controllerGeneration," in handler
     # No confirmation from a worker that never answered: storage unknown, so
     # the copy neither promises a retry nor invites a resend.
     assert 'copy = "unconfirmed"' in on_failure
@@ -249,8 +256,8 @@ def test_queued_copy_needs_the_workers_confirmation():
     # and carries the page's request id so it is matched to that request.
     assert "self.clients.get(clientId)" in ack and "matchAll" not in ack
     assert 'requestId: request.headers.get("X-Crush-Request-Id")' in ack
-    assert 'headers[REQUEST_ID_HEADER] = "r"' in handler
-    assert "var key = requestIdOf(detail) || url;" in on_failure
+    assert "headers[REQUEST_ID_HEADER] = id;" in handler
+    assert "var key = requestId || url;" in on_failure
     # The form's isSubmitting flag is released only once the copy is known:
     # every reset goes through finish(), and the ack wait calls it last.
     assert on_failure.count("resetSubmitState(elt)") == 1
@@ -307,7 +314,10 @@ def test_queued_copy_needs_the_workers_confirmation():
     # failure, so a second click cannot queue a duplicate POST.
     assert 'document.addEventListener("htmx:beforeRequest"' in handler
     assert "holdSubmitters(detail.elt || evt.target)" in handler
-    assert "if (detail.successful) releaseHeld(detail.elt || evt.target)" in handler
+    after_request = handler[handler.index('"htmx:afterRequest"') :]
+    after_request = after_request[: after_request.index("});")]
+    assert "if (detail.successful) {" in after_request
+    assert "releaseHeld(detail.elt || evt.target);" in after_request
     assert "releaseHeld(elt)" in finish
     capabilities = sw[sw.index('data.type === "crush-capabilities?"') :]
     capabilities = capabilities[: capabilities.index('"crush-drain-queue"')]

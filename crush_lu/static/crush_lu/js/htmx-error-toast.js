@@ -150,11 +150,22 @@
     // acknowledgement, so an ack is matched to the request it belongs to.
     var REQUEST_ID_HEADER = "X-Crush-Request-Id";
     var requestSeq = 0;
+    // Per request id: which worker generation controlled the page when the
+    // request was sent, and whether THAT worker acknowledges queue writes.
+    // A worker update between the request and its failure (controllerchange)
+    // means the answer on record may describe the wrong worker, so such a
+    // request is classified as unconfirmed.
+    var requestMeta = {};
     document.addEventListener("htmx:configRequest", function (evt) {
         var headers = evt.detail && evt.detail.headers;
         if (!headers) return;
         requestSeq += 1;
-        headers[REQUEST_ID_HEADER] = "r" + requestSeq + "-" + Date.now();
+        var id = "r" + requestSeq + "-" + Date.now();
+        headers[REQUEST_ID_HEADER] = id;
+        requestMeta[id] = {
+            generation: controllerGeneration,
+            queuedAck: workerQueuedAck,
+        };
     });
 
     // Request id (or, for a worker that sends none, absolute URL) -> time
@@ -164,6 +175,9 @@
     // worker answers the capability question; a worker from before v32
     // never answers, so null also means "old worker, no ack will ever come".
     var workerQueuedAck = null;
+    // Bumped on every controllerchange, so a request can tell whether the
+    // worker that handled it is still the one whose capability is on record.
+    var controllerGeneration = 0;
 
     // Submit controls disabled by the generic hold (never ones that were
     // already disabled, e.g. by an isSubmitting binding or hx-disabled-elt).
@@ -207,11 +221,16 @@
     document.addEventListener("htmx:afterRequest", function (evt) {
         var detail = evt.detail || {};
         // A failure is released by finish() once its copy is known.
-        if (detail.successful) releaseHeld(detail.elt || evt.target);
+        if (detail.successful) {
+            releaseHeld(detail.elt || evt.target);
+            var id = requestIdOf(detail);
+            if (id) delete requestMeta[id];
+        }
     });
 
     function askWorkerCapabilities() {
         var sw = navigator.serviceWorker;
+        controllerGeneration += 1;
         workerQueuedAck = null;
         if (sw && sw.controller && typeof sw.controller.postMessage === "function") {
             try {
@@ -344,9 +363,18 @@
         return (headers && headers[REQUEST_ID_HEADER]) || null;
     }
 
-    function ackedRecently(key, since) {
+    // An ack keyed by the request's own id belongs to this request whatever
+    // its age (a backgrounded tab can deliver the error task long after the
+    // ack); the time bound applies only to the URL fallback, which two
+    // requests may share. A consumed request-id ack is dropped.
+    function acked(key, isRequestId, since) {
         var at = queuedAcks[key];
-        return typeof at === "number" && at >= since;
+        if (typeof at !== "number") return false;
+        if (isRequestId) {
+            delete queuedAcks[key];
+            return true;
+        }
+        return at >= since;
     }
 
     function toastOptedOut(elt) {
@@ -479,13 +507,21 @@
             // request, so "network" (retry) is right; an older worker has
             // most likely stored it silently, so "interrupted" (no retry
             // prompt, no replay promise).
-            var key = requestIdOf(detail) || url;
+            var requestId = requestIdOf(detail);
+            var key = requestId || url;
+            var meta = requestId ? requestMeta[requestId] : null;
+            if (requestId) delete requestMeta[requestId];
             var since = Date.now() - QUEUE_ACK_WAIT_MS;
             setTimeout(function () {
                 var copy = "network";
-                if (ackedRecently(key, since)) {
+                // The capability that counts is the one of the worker that
+                // handled THIS request. Unknown, or a controller change since
+                // (a new worker may answer for a request the old one queued
+                // silently), means the store is unconfirmed.
+                var sameWorker = !!meta && meta.generation === controllerGeneration;
+                if (acked(key, !!requestId, since)) {
                     copy = queuedCopyFor(url);
-                } else if (workerQueuedAck !== true) {
+                } else if (!sameWorker || meta.queuedAck !== true) {
                     copy = "unconfirmed";
                 }
                 finish(copy);
