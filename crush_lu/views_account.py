@@ -1314,6 +1314,7 @@ def delete_crushlu_profile_view(request):
     Simplified view for deleting Crush.lu profile only (default action).
     Permanent deletion - user cannot rejoin Crush.lu with this account.
     """
+    from crush_lu.forms_account import DeletionEmailConfirmForm
     from crush_lu.models.profiles import UserDataConsent
 
     profile = CrushProfile.objects.filter(user=request.user).first()
@@ -1363,6 +1364,7 @@ def delete_crushlu_profile_view(request):
     context = {
         "profile": profile,
         "deletion_retry_in_progress": deletion_retry_in_progress,
+        "confirm_form": DeletionEmailConfirmForm(),
     }
     return render(request, "crush_lu/delete_crushlu_profile_confirm.html", context)
 
@@ -1373,9 +1375,10 @@ def gdpr_data_management(request):
     """
     GDPR data management dashboard.
     Shows two deletion options:
-    1. Delete Crush.lu profile only (keeps PowerUp account)
-    2. Delete entire PowerUp account (erases everything)
+    1. Delete Crush.lu profile only (keeps the shared login account)
+    2. Delete the entire login account (erases everything)
     """
+    from crush_lu.forms_account import DeletionEmailConfirmForm
     from crush_lu.models.profiles import UserDataConsent
 
     consent, created = UserDataConsent.objects.get_or_create(
@@ -1401,7 +1404,7 @@ def gdpr_data_management(request):
                 messages.success(
                     request,
                     _(
-                        "Your Crush.lu profile has been deleted. Your PowerUp account remains active."
+                        "Your Crush.lu profile has been deleted. Your login account remains active."
                     ),
                 )
                 return redirect("crush_lu:account_settings")
@@ -1419,7 +1422,7 @@ def gdpr_data_management(request):
                 logout(request)
                 messages.success(
                     request,
-                    _("Your account has been completely deleted from all platforms."),
+                    _("Your account and all your data have been permanently deleted."),
                 )
                 return redirect("crush_lu:home")
             except Exception as e:
@@ -1432,6 +1435,8 @@ def gdpr_data_management(request):
     context = {
         "consent": consent,
         "has_crushlu_profile": hasattr(request.user, "crushprofile"),
+        "profile_confirm_form": DeletionEmailConfirmForm(auto_id="id_profile_%s"),
+        "account_confirm_form": DeletionEmailConfirmForm(auto_id="id_account_%s"),
     }
     return render(request, "crush_lu/gdpr_data_management.html", context)
 

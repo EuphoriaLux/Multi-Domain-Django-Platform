@@ -22,6 +22,10 @@ from .models import UserBlock, UserReport
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+# Session key carrying the just-removed block to the Blocked members page, which
+# offers an "Undo" toast that re-blocks through ``block_user``.
+UNDO_UNBLOCK_SESSION_KEY = "crush_lu_undo_unblock"
+
 
 def _back(request, default="crush_lu:crush_connect_hub"):
     """Redirect target after an action — honour a same-host ?next= / referer.
@@ -81,9 +85,18 @@ def block_user(request, user_id: int):
 @ratelimit(key="user", rate="30/h", method="POST")
 @require_POST
 def unblock_user(request, user_id: int):
-    """Remove a block the current user previously made."""
-    UserBlock.objects.filter(blocker=request.user, blocked_id=user_id).delete()
-    messages.success(request, _("Member unblocked."))
+    """Remove a block the current user previously made.
+
+    The confirmation lives in the Undo toast on the Blocked members page (the
+    block's reason is kept so Undo restores it), not in a messages banner.
+    """
+    block = UserBlock.objects.filter(blocker=request.user, blocked_id=user_id).first()
+    if block is not None:
+        request.session[UNDO_UNBLOCK_SESSION_KEY] = {
+            "user_id": user_id,
+            "reason": block.reason,
+        }
+        block.delete()
     return _back(request, default="crush_lu:blocked_members")
 
 
@@ -154,6 +167,19 @@ def blocked_members(request):
         .select_related("blocked__crushprofile")
         .order_by("-created_at")
     )
+    undo = request.session.pop(UNDO_UNBLOCK_SESSION_KEY, None)
+    undo_member = None
+    if undo:
+        undo_member = User.objects.filter(pk=undo.get("user_id")).first()
+        # Re-blocked meanwhile (other tab): nothing left to undo.
+        if undo_member and blocks.filter(blocked=undo_member).exists():
+            undo_member = None
     return render(
-        request, "crush_lu/moderation/blocked_members.html", {"blocks": blocks}
+        request,
+        "crush_lu/moderation/blocked_members.html",
+        {
+            "blocks": blocks,
+            "undo_member": undo_member,
+            "undo_reason": (undo or {}).get("reason", ""),
+        },
     )

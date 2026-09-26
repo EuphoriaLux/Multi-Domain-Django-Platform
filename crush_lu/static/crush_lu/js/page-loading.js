@@ -163,6 +163,18 @@
                 return;
             }
 
+            // A data-confirm form first asks through the confirm sheet
+            // (confirm-sheet.js cancels this submit); only its confirmed
+            // re-submit, marked data-confirmed="1", navigates.
+            if (
+                form &&
+                form.hasAttribute &&
+                form.hasAttribute("data-confirm") &&
+                form.getAttribute("data-confirmed") !== "1"
+            ) {
+                return;
+            }
+
             // Show overlay for all navigating forms (GET and POST)
             if (form) {
                 showLoadingOverlay();

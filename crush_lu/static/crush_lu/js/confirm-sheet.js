@@ -13,6 +13,9 @@
  * Per-trigger customization on the hx-confirm element:
  *   data-confirm-style="neutral"   brand-purple accept button (default: danger red)
  *   data-confirm-label="..."       accept button label (default: "Confirm")
+ *
+ * Plain POST forms (no HTMX): put data-confirm="Question?" (plus the two
+ * options above) on the <form> itself.
  */
 (function () {
     "use strict";
@@ -98,6 +101,36 @@
             confirmLabel: elt.getAttribute("data-confirm-label") || undefined,
         }).then(function (ok) {
             if (ok) evt.detail.issueRequest(true); // true = skip window.confirm
+        });
+    });
+
+    // Plain (non-HTMX) forms: <form data-confirm="Question?"> asks through the
+    // sheet before submitting (same data-confirm-style / -label options, read
+    // from the form). The browser validates required fields first, because
+    // "submit" only fires for a valid form.
+    document.addEventListener("submit", function (evt) {
+        var form = evt.target;
+        if (!form || !form.hasAttribute || !form.hasAttribute("data-confirm")) {
+            return;
+        }
+        if (form.getAttribute("data-confirmed") === "1") {
+            form.removeAttribute("data-confirmed"); // one pass per confirmation
+            return;
+        }
+        evt.preventDefault();
+        var submitter = evt.submitter || null;
+        openConfirm(form.getAttribute("data-confirm"), {
+            style: form.getAttribute("data-confirm-style") || "danger",
+            confirmLabel: form.getAttribute("data-confirm-label") || undefined,
+        }).then(function (ok) {
+            if (!ok) return;
+            form.setAttribute("data-confirmed", "1");
+            if (typeof form.requestSubmit === "function") {
+                form.requestSubmit(submitter);
+            } else {
+                form.removeAttribute("data-confirmed");
+                form.submit();
+            }
         });
     });
 })();

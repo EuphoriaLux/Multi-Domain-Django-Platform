@@ -438,7 +438,8 @@ urlpatterns = [
     path('account/link-apple/', views.apple_relay_link_prompt, name='apple_link_prompt'),
 
     # GDPR & Account Deletion
-    path('account/delete/', views.gdpr_data_management, name='delete_account'),  # Legacy URL, points to GDPR dashboard
+    # Legacy URL: one meaning per route, so it forwards to the profile deletion page.
+    path('account/delete/', RedirectView.as_view(pattern_name='crush_lu:delete_crushlu_profile', query_string=True), name='delete_account'),
     path('account/delete-profile/', views.delete_crushlu_profile_view, name='delete_crushlu_profile'),  # Default action
     path('account/gdpr/', views.gdpr_data_management, name='gdpr_data_management'),  # Full GDPR options
     path('account/gdpr/export/', views.export_user_data, name='export_user_data'),  # GDPR data export
