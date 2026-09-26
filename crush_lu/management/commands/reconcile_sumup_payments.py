@@ -109,6 +109,9 @@ def _to_decimal(value) -> Decimal:
 # up at all — reported nothing refunded.
 _REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
 
+# How long a premium PENDING sibling still blocks a refund (_blocking_siblings_q).
+PREMIUM_PENDING_BLOCKS_FOR = timedelta(hours=24)
+
 # SumUpClient.get_transactions_history clamps ``limit`` to 100.
 _HISTORY_PREFETCH_LIMIT = 100
 SUMUP_READ_TIMEOUT_SECONDS = 10
@@ -773,7 +776,18 @@ class Command(BaseCommand):
                         + len(history_codes) * delay
                         + 1
                     )
-                    if pre_row_seconds + history_reserve >= budget_seconds:
+                    # Two ways a row can never fit. This run's pre-row work
+                    # plus the lookups; or, in any run, the checkout read that
+                    # revealed the codes (it always precedes them, so its worst
+                    # case counts) plus the lookups. Without the second, a row
+                    # behind a consistently slow checkout read was deferred on
+                    # every pass. The two are not summed: one slow prefetch
+                    # would then turn rows that fit in a normal run into errors.
+                    if (
+                        pre_row_seconds + history_reserve >= budget_seconds
+                        or SUMUP_REQUEST_WORST_CASE_SECONDS + history_reserve
+                        >= budget_seconds
+                    ):
                         # Could not fit even as the first row of a run like
                         # this one. Deferring it would leave it "unchecked"
                         # on every pass — a WARNING nobody acts on — while a
@@ -1177,20 +1191,22 @@ class Command(BaseCommand):
         return list(rows.order_by("pk"))
 
     @staticmethod
-    def _blocking_sibling_statuses(tx):
-        """Sibling payment statuses that block reconciling ``tx``.
+    def _blocking_siblings_q(tx):
+        """Filter for the sibling payments that block reconciling ``tx``.
 
-        Premium checkouts never supersede an older PENDING row: every open of
-        the payment page inserts a fresh one (views_payments
-        create_premium_checkout), so an abandoned attempt stays PENDING
-        forever. Blocking on it would leave a refunded membership active and
-        re-flag it on every pass with no way to clear it. Only a PAID sibling
-        blocks a premium refund; event checkouts supersede their PENDING rows,
-        so there PENDING still blocks.
+        PAID always blocks, and so does PENDING for an event registration,
+        whose checkouts supersede older PENDING rows. Premium checkouts never
+        do: every open of the payment page inserts a fresh row
+        (create_sumup_premium_checkout), so an abandoned attempt would stay
+        PENDING — and block — forever, leaving a refunded membership active.
+        A premium PENDING row therefore blocks only while it is recent enough
+        to be a checkout the member may still be paying.
         """
+        paid = Q(status=PaymentTransaction.Status.PAID)
+        pending = Q(status=PaymentTransaction.Status.PENDING)
         if tx.premium_membership_id and not tx.event_registration_id:
-            return (PaymentTransaction.Status.PAID,)
-        return (PaymentTransaction.Status.PAID, PaymentTransaction.Status.PENDING)
+            pending &= Q(created_at__gte=timezone.now() - PREMIUM_PENDING_BLOCKS_FOR)
+        return paid | pending
 
     def _flag_for_review(self, message):
         """Send a review message to the warning log AND the terminal.
@@ -1326,12 +1342,15 @@ class Command(BaseCommand):
                     f"[DRY RUN] External refund detected on {ref} (checkout {cid}). Would reconcile to REFUNDED."
                 )
             )
-            other_payments = [
-                (row.pk, row.status)
-                for row in self._related_payment_rows(tx_obj)
-                if row.pk != tx_obj.pk
-                and row.status in self._blocking_sibling_statuses(tx_obj)
-            ]
+            other_payments = list(
+                PaymentTransaction.objects.filter(
+                    pk__in=[row.pk for row in self._related_payment_rows(tx_obj)]
+                )
+                .exclude(pk=tx_obj.pk)
+                .filter(self._blocking_siblings_q(tx_obj))
+                .order_by("pk")
+                .values_list("pk", "status")
+            )
             active_claim = bool(
                 tx_obj.event_registration_id
                 and EventCheckoutCreationClaim.objects.filter(
@@ -1403,6 +1422,7 @@ class Command(BaseCommand):
             # order, then check for a checkout-creation claim that could publish
             # a new payment after the sibling-row snapshot.
             active_claim = False
+            locked_event = None
             if locked_tx.event_registration_id:
                 event_id = (
                     EventRegistration.objects.filter(pk=locked_tx.event_registration_id)
@@ -1410,7 +1430,11 @@ class Command(BaseCommand):
                     .first()
                 )
                 if event_id is not None:
-                    MeetupEvent.objects.select_for_update().filter(pk=event_id).first()
+                    locked_event = (
+                        MeetupEvent.objects.select_for_update()
+                        .filter(pk=event_id)
+                        .first()
+                    )
                 EventRegistration.objects.select_for_update().filter(
                     pk=locked_tx.event_registration_id
                 ).first()
@@ -1446,8 +1470,11 @@ class Command(BaseCommand):
             #   this transaction. That is why PENDING blocks exactly like
             #   PAID, and why an ACTIVE/RETIRING checkout-creation claim
             #   blocks too. Narrowing this to PAID would reopen the window.
-            #   Premium is the exception (_blocking_sibling_statuses): its
-            #   checkouts leave abandoned PENDING rows behind forever.
+            #   Premium is the exception (_blocking_siblings_q): its checkouts
+            #   leave abandoned PENDING rows behind, so only a recent one
+            #   blocks. create_sumup_premium_checkout re-checks the
+            #   membership under its lock before inserting, so it cannot add
+            #   a row after this read against a membership cancelled here.
             if locked_tx.event_registration_id:
                 sibling_rows = PaymentTransaction.objects.filter(
                     event_registration_id=locked_tx.event_registration_id
@@ -1460,7 +1487,7 @@ class Command(BaseCommand):
                 sibling_rows = PaymentTransaction.objects.none()
             other_payments = list(
                 sibling_rows.exclude(pk=locked_tx.pk)
-                .filter(status__in=self._blocking_sibling_statuses(locked_tx))
+                .filter(self._blocking_siblings_q(locked_tx))
                 .order_by("pk")
                 .values_list("pk", "status")
             )
@@ -1522,6 +1549,16 @@ class Command(BaseCommand):
                     # were refunded in cash.
                     reg._external_cash_refund = True
                     if reg.status == "cancelled":
+                        already_cancelled_reg_id = reg.pk
+                    elif (
+                        reg.status == "confirmed"
+                        and locked_event is not None
+                        and locked_event.is_cancelled
+                    ):
+                        # The organiser-cancellation action leaves paid seats
+                        # confirmed, and the signal's is_cancelled branch
+                        # sends the member nothing, so this path owes them
+                        # the refund notice too.
                         already_cancelled_reg_id = reg.pk
 
                     # A confirmed seat this payment funded is released.

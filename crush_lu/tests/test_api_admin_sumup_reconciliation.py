@@ -1068,6 +1068,73 @@ class SumUpReconciliationEndpointTests(TestCase):
         self._assert_flagged_for_review(body, logs, old, [new], f"membership {pm.pk}")
         self.assertEqual(self._snapshot(old, new, pm), before)
 
+    def _premium_with_pending_sibling(self, pending_age_hours):
+        coach_user = User.objects.create_user(
+            username="t2_coach_p", email="t2_coach_p@crush.lu", password="x" * 12
+        )
+        coach = CrushCoach.objects.create(
+            user=coach_user, is_active=True, accepting_premium=True
+        )
+        pm = PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="pending"
+        )
+        PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+            status=PaymentTransaction.Status.FAILED
+        )
+        pending = self._new_payment(
+            "CRUSH-PREM-T2-abandoned",
+            "chk_prem_abandoned",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        PaymentTransaction.objects.filter(pk=pending.pk).update(
+            created_at=timezone.now() - timedelta(hours=pending_age_hours)
+        )
+        paid = self._new_payment(
+            "CRUSH-PREM-T2-paid",
+            "chk_prem_paid",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        return pm, pending, paid
+
+    def test_premium_abandoned_pending_checkout_does_not_block(self):
+        """An abandoned premium checkout never leaves PENDING; it must not
+        block the refund forever."""
+        pm, pending, paid = self._premium_with_pending_sibling(pending_age_hours=48)
+        with self.captureOnCommitCallbacks(execute=True):
+            body, _ = self._run_by_id(
+                {"chk_prem_paid": {"id": "chk_prem_paid", "status": "REFUNDED"}}
+            )
+        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 0))
+        paid.refresh_from_db()
+        pm.refresh_from_db()
+        self.assertEqual(paid.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(pm.status, "cancelled")
+
+    def test_premium_recent_pending_checkout_still_blocks(self):
+        pm, pending, paid = self._premium_with_pending_sibling(pending_age_hours=1)
+        body, logs = self._review_run(
+            {"chk_prem_paid": {"id": "chk_prem_paid", "status": "REFUNDED"}}
+        )
+        self._assert_flagged_for_review(
+            body, logs, paid, [pending], f"membership {pm.pk}"
+        )
+
+    def test_confirmed_seat_on_organiser_cancelled_event_gets_the_refund_notice(
+        self,
+    ):
+        """The organiser-cancellation action leaves paid seats confirmed, and
+        the signal's is_cancelled branch emails nobody (Codex 4111774198)."""
+        MeetupEvent.objects.filter(pk=self.event.pk).update(is_cancelled=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self._run(FULL_REFUND)
+        self.assertEqual(resp.json()["reconciled"], 1)
+        mine = self._mails_to(self.user.email)
+        self.assertEqual(len(mine), 1)
+        self.assertIn(self.REFUNDED_SENTENCE, mine[0].body)
+
     def test_a_flagged_row_spends_no_write_and_the_sweep_goes_on(self):
         """Nothing was written, so a later refund is still reconciled in the
         same run; the flagged row counts as read for the cursor."""
@@ -2303,24 +2370,47 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(many.status, PaymentTransaction.Status.PAID)
 
     def test_a_checkout_that_fits_early_in_a_run_is_read_there(self):
-        """Four lookups (4 x 20.05 + 1 s) fit when reached early: not an error,
-        not deferred, all four are read."""
+        """Three lookups (20 s checkout + 3 x 20.05 + 1 s) fit when reached
+        early: not an error, not deferred, all three are read."""
         self._age(self.payment, 20)
         many = self._new_payment("CRUSH-T2-many", "chk_many")
         self._age(many, 5)
         body, read, lookups, _ = self._clocked_run(
-            {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(4)},
+            {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(3)},
             checkout_cost=0.3,
             lookup_cost=0.3,
         )
         self.assertEqual(read, ["chk_t2_1", "chk_many"])
-        self.assertEqual(len(lookups), 4)
+        self.assertEqual(len(lookups), 3)
         self.assertEqual(
             (body["checked"], body["errors"], body["unchecked"]), (2, 0, 0)
         )
 
+    def test_never_fit_counts_the_checkout_read_too(self):
+        """Four lookups fit only if the checkout read is free. With its worst
+        case counted (20 + 4 x 20.05 + 1 s > 100 s) the row is an error for a
+        human, not deferred on every pass behind a slow checkout read
+        (Codex 4111774193)."""
+        self._age(self.payment, 5)
+        many = self._new_payment("CRUSH-T2-many", "chk_many")
+        self._age(many, 20)
+        with self.assertLogs(CMD, level=logging.ERROR) as logs:
+            body, read, lookups, _ = self._clocked_run(
+                {
+                    "chk_many": self._many_capture_codes(4),
+                    "chk_t2_1": dict(STILL_PAID, transaction_code=CAPTURE_CODE),
+                },
+                checkout_cost={"chk_many": 19.5, "chk_t2_1": 0.3},
+                lookup_cost=0.3,
+            )
+        self.assertEqual(lookups, [CAPTURE_CODE])  # none for chk_many
+        self.assertEqual(
+            (body["checked"], body["errors"], body["unchecked"]), (2, 1, 0)
+        )
+        self.assertTrue(any("even as a run's first row" in m for m in logs.output))
+
     def test_a_checkout_reached_too_late_is_deferred_not_an_error(self):
-        """The same four lookups, reached ~30 s into the run: they no longer
+        """The same three lookups, reached ~45 s into the run: they no longer
         fit, but would as a run's first row. Deferred (unchecked) for a later
         pass, without pinning the cursor."""
         from crush_lu import api_admin_sumup
@@ -2330,8 +2420,8 @@ class SumUpReconciliationEndpointTests(TestCase):
         self._age(many, 5)
         with self.assertLogs(CMD, level=logging.WARNING) as logs:
             body, read, lookups, _ = self._clocked_run(
-                {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(4)},
-                checkout_cost={"chk_t2_1": 30.0, "chk_many": 0.3},
+                {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(3)},
+                checkout_cost={"chk_t2_1": 45.0, "chk_many": 0.3},
             )
         self.assertEqual(read, ["chk_t2_1", "chk_many"])
         self.assertEqual(lookups, [])
