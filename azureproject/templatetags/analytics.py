@@ -21,9 +21,11 @@ APPLICATIONINSIGHTS_CONNECTION_STRING based on domain.
 
 import json
 from decimal import Decimal
+from urllib.parse import unquote
 
 from django import template
 from django.middleware.csp import get_nonce
+from django.utils.dateparse import parse_datetime
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -42,26 +44,199 @@ def _json_default(value):
     return str(value)
 
 
-def get_cookie_consent(request, cookie_group):
+BANNER_COOKIE = "cookie_consent"
+FLAG_ACCEPT = "accept"
+FLAG_DECLINE = "decline"
+
+
+def _declined_in_browser_js(cookie_group):
+    """
+    A JS expression: does the browser hold a refusal flag for the group now?
+
+    The tags below decide from the request, and a granted branch emits a
+    tracker that runs on its own. That HTML can be served again later without
+    a request: the crush.lu service worker keeps navigations for offline use
+    (up to a day, a year for event tickets), and a browser restores history
+    entries. A refusal recorded since then (the banner's readable
+    ``cookie_consent_<group>=decline`` flag) must still stop the tracker.
+    It can only while that flag is in the browser: Safari's seven-day cap on
+    script-written cookies can drop a flag the banner's script alone wrote
+    (its POST to /cookies/ never landed), and a clear of cookies that keeps
+    the cached copy drops any flag; that copy's tracker then runs again.
+    On a freshly rendered page the flag never says decline here, because
+    stored_cookie_choice reads it first and the granted branch is not taken.
+    document.cookie separates pairs with "; ", so no whitespace class needed.
+    """
+    return (
+        f"/(?:^|; )cookie_consent_{cookie_group}={FLAG_DECLINE}(?:;|$)/"
+        ".test(document.cookie)"
+    )
+
+
+def _cookie_group_version(cookie_group):
+    """
+    django-cookie-consent's current version of a group, or None if unknown here.
+
+    The library dates a group by its newest cookie (``CookieGroup.get_version``,
+    "" while the group has no cookies) and treats an acceptance recorded before
+    that date as undecided, so adding a cookie to a group asks everyone again.
+    None (no such group, or the lookup failed) means no version to check against.
+    """
+    try:
+        from cookie_consent.cache import get_cookie_group
+
+        group = get_cookie_group(cookie_group)
+    except Exception:
+        return None
+    return group.get_version() if group is not None else None
+
+
+def _stamp_is_current(stamp, reference):
+    """
+    Whether an acceptance dated ``stamp`` still covers a group at ``reference``.
+
+    The library's own rule: the acceptance stands until a cookie is added to
+    the group after it. No reference (the group has no cookies, or is unknown
+    here) leaves nothing to renew; an acceptance with no date at all (a flag
+    written before flags carried one) is older than any cookie.
+    Both sides are ISO 8601 but not the same shape (the banner's script writes
+    ``...123Z``, the library ``...123456+00:00``), so compare parsed datetimes
+    and fall back to the strings only when one side does not parse.
+    """
+    if not reference:
+        return True
+    if not stamp:
+        return False
+    try:
+        stamped, current = parse_datetime(stamp), parse_datetime(reference)
+    except (TypeError, ValueError):
+        stamped = current = None
+    if stamped is not None and current is not None:
+        try:
+            return stamped >= current
+        except TypeError:  # naive against aware
+            pass
+    return stamp >= reference
+
+
+def stored_cookie_choice(request, cookie_group):
+    """
+    The visitor's stored choice for a cookie group: True, False or None.
+
+    A choice can live in three places, checked in this order:
+    1. the banner's per-group flag ``cookie_consent_<group>=accept:<version>``
+       (``decline`` for a refusal; flags written before this carry a bare
+       ``accept``);
+    2. the banner's JSON object in the ``cookie_consent`` cookie
+       (``{"analytics": true, "marketing": false, "timestamp": ...}``);
+    3. django-cookie-consent's own cookie (``group=version|...``, HttpOnly),
+       written by its /cookies/ views.
+    The banner writes 1 and 2 on every save and also posts the choice to the
+    library so 3 follows; when that post did not complete (navigation right
+    after the save, a network error) the banner's copy is the newer one, so
+    it wins. 3 alone is what a visitor who only used the library's own
+    /cookies/ pages has.
+
+    A refusal in any of the three wins over an acceptance in another. The
+    library's /cookies/ forms write only 3, so a visitor who accepted through
+    the banner and later declined there holds an old banner acceptance next
+    to a newer library refusal; nothing records which is newer, so the
+    refusal is honoured. The cost is the reverse case (a banner acceptance
+    whose library post never landed, after a library refusal), which stays
+    declined until the next save: it errs toward not tracking.
+
+    An acceptance only counts while it is current for the group
+    (_stamp_is_current): the flag carries the group version it was given
+    under, the JSON its own date. A stale acceptance is skipped, not turned
+    into a refusal: the next source is consulted, and when every source is
+    stale the visitor is undecided and the banner asks again, which is what
+    the library does with its own cookie. A refusal never goes stale.
+    """
+    reference, looked_up = None, False
+
+    try:
+        from cookie_consent.util import get_cookie_value_from_request
+
+        library = get_cookie_value_from_request(request, cookie_group)
+    except Exception:
+        library = None
+    if library is False:
+        return False
+
+    flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
+    action, _, stamp = flag.partition(":")
+    if action == FLAG_DECLINE:
+        return False
+    if action == FLAG_ACCEPT:
+        reference, looked_up = _cookie_group_version(cookie_group), True
+        if _stamp_is_current(unquote(stamp), reference):
+            return True
+
+    raw = request.COOKIES.get(BANNER_COOKIE, "")
+    if raw:
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = None
+        if isinstance(data, dict) and cookie_group in data:
+            if data[cookie_group] is not True:
+                return False
+            if not looked_up:
+                reference = _cookie_group_version(cookie_group)
+            stamp = data.get("timestamp")
+            if _stamp_is_current(stamp if isinstance(stamp, str) else "", reference):
+                return True
+
+    if library is not None:
+        return library is True
+    return None
+
+
+def get_cookie_consent(request, cookie_group, undecided=True):
     """
     Check if user has consented to a specific cookie group.
 
-    Returns True if:
-    - Cookie consent is accepted for the group
-    - No consent cookie exists (first visit - we'll show banner)
-
-    Returns False if:
-    - User explicitly declined the cookie group
+    Returns True if the group is accepted and False if it was declined.
+    ``undecided`` is the answer while no choice is stored yet (first visit,
+    the banner is showing). Every tag in this module passes False: the GA4
+    Consent Mode defaults, the Facebook Pixel and Application Insights all
+    wait for the banner's answer. The True default is kept for a caller that
+    only wants to know a group was not refused.
     """
-    try:
-        from cookie_consent.util import get_cookie_value_from_request
-        consent = get_cookie_value_from_request(request, cookie_group)
-        # consent is True (accepted), False (declined), or None (not yet decided)
-        # We return True for None to allow GA4 consent mode to handle it
-        return consent is not False
-    except Exception:
-        # If cookie_consent not available, default to allowing analytics
-        return True
+    choice = stored_cookie_choice(request, cookie_group)
+    return undecided if choice is None else choice
+
+
+@register.simple_tag(takes_context=True)
+def cookie_consent_state(context):
+    """
+    The stored choice as the server sees it, as JSON for the cookie banner.
+
+    django-cookie-consent's cookie is HttpOnly, so the banner's script cannot
+    read a choice made through the library's /cookies/ views from
+    document.cookie; it reads this instead (``data-consent-state``). This is
+    also version-checked (stored_cookie_choice) where a readable cookie is
+    not, so the script takes it as the truth whenever it is present and only
+    falls back to document.cookie when the page was rendered without a
+    request (empty output). ``versions`` carries the groups' current versions
+    for the flags a save on this page writes.
+    """
+    request = context.get("request")
+    if request is None:
+        return ""  # rendered without a request: the server has no view to offer
+    state = {"analytics": None, "marketing": None}
+    for group in state:
+        state[group] = stored_cookie_choice(request, group)
+    # Decided only when every optional group holds a choice. A group whose
+    # acceptance went stale (a cookie was added to it) is None here while the
+    # other may still be current: the banner must ask for that group again,
+    # and the modal keeps showing the other group's choice.
+    state["decided"] = all(value is not None for value in state.values())
+    state["versions"] = {
+        group: _cookie_group_version(group) or ""
+        for group in ("analytics", "marketing")
+    }
+    return json.dumps(state)
 
 
 @register.simple_tag(takes_context=True)
@@ -82,12 +257,12 @@ def analytics_head(context):
 
     This tag should be placed near the top of <head> for best performance.
     """
-    ga4_id = context.get('GOOGLE_ANALYTICS_GTAG_PROPERTY_ID')
+    ga4_id = context.get("GOOGLE_ANALYTICS_GTAG_PROPERTY_ID")
 
     if not ga4_id:
-        return ''
+        return ""
 
-    request = context.get('request')
+    request = context.get("request")
 
     # Get CSP nonce from request (if available)
     nonce = get_nonce(request) if request else None
@@ -98,35 +273,59 @@ def analytics_head(context):
     # policy is report-only; the moment SECURE_CSP_REPORT_ONLY becomes SECURE_CSP those
     # scripts get blocked (CSP3 ignores 'unsafe-inline' once a nonce is present) and
     # analytics goes dark. Interpolating the nonce below is what forces generation.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
-    # Check existing consent from cookies
-    # Returns True if consented, False if declined, True if not yet decided
-    # (we default to denied for new visitors per GDPR best practice)
-    has_analytics = get_cookie_consent(request, 'analytics') if request else False
-    has_marketing = get_cookie_consent(request, 'marketing') if request else False
+    # The stored choice as the server sees it (stored_cookie_choice: the
+    # banner's flag, then its JSON, then the library's HttpOnly cookie, each
+    # checked against the group's version). Only a current acceptance grants;
+    # undecided, or no request, is denied until the banner answers. Reading
+    # the library's cookie alone here would let a stale acceptance in it
+    # outrank a newer refusal the banner recorded while its post to the
+    # library was lost, and gtag('config') would send the page view.
+    def granted(group):
+        if request is None:
+            return "denied"
+        return (
+            "granted"
+            if get_cookie_consent(request, group, undecided=False)
+            else "denied"
+        )
 
-    # For first-time visitors (no consent cookie), default to denied
-    # get_cookie_consent returns True for None (not decided), but we want denied
-    try:
-        from cookie_consent.util import get_cookie_value_from_request
-        analytics_value = get_cookie_value_from_request(request, 'analytics')
-        marketing_value = get_cookie_value_from_request(request, 'marketing')
-        # Only grant if explicitly accepted (True), deny for None or False
-        analytics_granted = 'granted' if analytics_value is True else 'denied'
-        marketing_granted = 'granted' if marketing_value is True else 'denied'
-    except Exception:
-        # Fallback: denied by default for GDPR compliance
-        analytics_granted = 'denied'
-        marketing_granted = 'denied'
+    analytics_granted = granted("analytics")
+    marketing_granted = granted("marketing")
+
+    # A granted default is only true for this response. Served again later
+    # (_declined_in_browser_js), the page must not send its page view under a
+    # grant the visitor has withdrawn since: a refusal flag in the browser
+    # turns the group back to denied before gtag('config') below. Consent
+    # commands run in dataLayer order, so this update lands before the page
+    # view. A denied default needs no such check (a live acceptance never
+    # outranks the server's answer).
+    refusal_updates = []
+    if analytics_granted == "granted":
+        refusal_updates.append(
+            f"  if ({_declined_in_browser_js('analytics')}) "
+            "gtag('consent', 'update', {'analytics_storage': 'denied'});"
+        )
+    if marketing_granted == "granted":
+        refusal_updates.append(
+            f"  if ({_declined_in_browser_js('marketing')}) "
+            "gtag('consent', 'update', {'ad_storage': 'denied', "
+            "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
+        )
+    if refusal_updates:
+        refusal_updates.insert(
+            0, "  // A copy of this page served later: a refusal recorded since wins."
+        )
+    refusal_js = "".join("\n" + line for line in refusal_updates)
 
     # Get current language for multi-language tracking
     # This allows GA4 to track page views with language context
-    language_code = context.get('LANGUAGE_CODE', 'en')
+    language_code = context.get("LANGUAGE_CODE", "en")
 
     # Google Consent Mode v2 + GA4 gtag.js
     # CRITICAL: Default consent MUST be set BEFORE gtag.js loads
-    script = f'''<!-- Google Consent Mode v2 + gtag.js -->
+    script = f"""<!-- Google Consent Mode v2 + gtag.js -->
 <script{nonce_attr}>
   window.dataLayer = window.dataLayer || [];
   function gtag(){{dataLayer.push(arguments);}}
@@ -138,7 +337,7 @@ def analytics_head(context):
     'ad_personalization': '{marketing_granted}',
     'analytics_storage': '{analytics_granted}',
     'wait_for_update': 500
-  }});
+  }});{refusal_js}
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"{nonce_attr}></script>
 <script{nonce_attr}>
@@ -148,7 +347,7 @@ def analytics_head(context):
     'custom_map': {{'dimension1': 'content_language'}},
     'content_language': '{language_code}'
   }});
-</script>'''
+</script>"""
 
     return mark_safe(script)
 
@@ -158,25 +357,30 @@ def analytics_body(context):
     """
     Render Facebook Pixel script after <body> opening tag.
 
-    Only loads if user has consented to marketing/analytics cookies.
+    Only loads once the visitor has accepted marketing cookies. An undecided
+    visitor (no consent cookie yet) gets the placeholder that waits for the
+    banner's cookie_consent_updated event: the Pixel has no consent mode of
+    its own, so emitting it earlier would fire PageView before any choice.
     This tag should be placed right after the opening <body> tag.
     """
-    fb_pixel_id = context.get('FACEBOOK_PIXEL_ID')
+    fb_pixel_id = context.get("FACEBOOK_PIXEL_ID")
 
     if not fb_pixel_id:
-        return ''
+        return ""
 
-    request = context.get('request')
-    has_marketing_consent = get_cookie_consent(request, 'marketing') if request else True
+    request = context.get("request")
+    has_marketing_consent = (
+        get_cookie_consent(request, "marketing", undecided=False) if request else False
+    )
 
     # Get CSP nonce from request (if available)
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
     if not has_marketing_consent:
         # Return placeholder that can be activated later
-        return mark_safe(f'''<!-- Facebook Pixel (waiting for consent) -->
+        return mark_safe(f"""<!-- Facebook Pixel (waiting for consent) -->
 <script{nonce_attr}>
   window.fbPixelId = '{fb_pixel_id}';
   document.addEventListener('cookie_consent_updated', function(e) {{
@@ -193,11 +397,20 @@ def analytics_body(context):
       fbq('track', 'PageView');
     }}
   }});
-</script>''')
+</script>""")
 
-    # Full Facebook Pixel implementation
-    script = f'''<!-- Facebook Pixel -->
+    # Full Facebook Pixel implementation. It runs on parse, so a copy of this
+    # page served later (_declined_in_browser_js) would load the Pixel and
+    # send its PageView before the banner's script could revoke anything: a
+    # refusal recorded since then skips it. (The <noscript> image needs no
+    # such check: without script there is no service worker serving copies.)
+    # A skipped copy registers no placeholder listener, so accepting again on
+    # that copy loads nothing until the next freshly rendered page: deliberate,
+    # under-tracking is the safe direction.
+    marketing_declined = _declined_in_browser_js("marketing")
+    script = f"""<!-- Facebook Pixel -->
 <script{nonce_attr}>
+  if (!{marketing_declined}) {{
   !function(f,b,e,v,n,t,s)
   {{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)}};
@@ -208,10 +421,11 @@ def analytics_body(context):
   'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '{fb_pixel_id}');
   fbq('track', 'PageView');
+  }}
 </script>
 <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id={fb_pixel_id}&ev=PageView&noscript=1"
-/></noscript>'''
+/></noscript>"""
 
     return mark_safe(script)
 
@@ -225,22 +439,24 @@ def ga4_event(context, event_name, **params):
         {% ga4_event "purchase" value=99.99 currency="EUR" %}
         {% ga4_event "sign_up" method="LinkedIn" %}
     """
-    ga4_id = context.get('GOOGLE_ANALYTICS_GTAG_PROPERTY_ID')
+    ga4_id = context.get("GOOGLE_ANALYTICS_GTAG_PROPERTY_ID")
 
     if not ga4_id:
-        return ''
+        return ""
 
-    request = context.get('request')
+    request = context.get("request")
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
         params_json = json.dumps(params, default=_json_default)
         script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)}, {params_json});</script>"
     else:
-        script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)});</script>"
+        script = (
+            f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)});</script>"
+        )
 
     return mark_safe(script)
 
@@ -254,15 +470,15 @@ def fb_event(context, event_name, **params):
         {% fb_event "Purchase" value=99.99 currency="EUR" %}
         {% fb_event "Lead" %}
     """
-    fb_pixel_id = context.get('FACEBOOK_PIXEL_ID')
+    fb_pixel_id = context.get("FACEBOOK_PIXEL_ID")
 
     if not fb_pixel_id:
-        return ''
+        return ""
 
-    request = context.get('request')
+    request = context.get("request")
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
@@ -290,7 +506,8 @@ def appinsights_head(context):
     telemetry using the same instrumentation key.
 
     PERFORMANCE: Loads asynchronously to avoid render-blocking.
-    - Preconnect hint for faster connection establishment
+    - No preconnect hint: it would open a connection to Microsoft whatever
+      the visitor chose (see the consent notes below)
     - SDK loaded with async attribute
     - Stub functions queue events until SDK is ready
 
@@ -302,32 +519,38 @@ def appinsights_head(context):
         window.appInsights.trackEvent({name: 'ButtonClicked', properties: {buttonId: 'signup'}});
         window.appInsights.trackPageView({name: 'Profile Page'});
     """
-    connection_string = context.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+    connection_string = context.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
     if not connection_string:
-        return ''
+        return ""
 
-    request = context.get('request')
+    request = context.get("request")
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
+
+    # Browser telemetry is an analytics cookie category: the SDK loads only
+    # once the visitor accepted analytics. Until then a placeholder waits for
+    # the banner's cookie_consent_updated event (no preconnect either: the
+    # hint alone opens a connection to Microsoft).
+    has_analytics_consent = (
+        get_cookie_consent(request, "analytics", undecided=False) if request else False
+    )
 
     # Get user ID for authenticated user tracking (anonymous if not logged in)
-    user_id = ''
-    if request and hasattr(request, 'user') and request.user.is_authenticated:
+    user_id = ""
+    if request and hasattr(request, "user") and request.user.is_authenticated:
         # Use hashed user ID for privacy (don't expose actual user IDs)
         import hashlib
+
         user_id = hashlib.sha256(str(request.user.id).encode()).hexdigest()[:16]
 
     # Application Insights JavaScript SDK v3 - Official Snippet Pattern
     # See: https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk
     # The onInit callback is used to set authenticated user context after SDK loads
-    user_init_js = f'sdk.setAuthenticatedUserContext("{user_id}");' if user_id else ''
+    user_init_js = f'sdk.setAuthenticatedUserContext("{user_id}");' if user_id else ""
 
-    script = f'''<!-- Azure Application Insights Browser SDK v3 -->
-<link rel="preconnect" href="https://js.monitor.azure.com" crossorigin>
-<script type="text/javascript"{nonce_attr}>
-!(function (cfg){{function e(){{cfg.onInit&&cfg.onInit(n)}}var x,w,D,t,E,n,C=window,O=document,b=C.location,q="script",I="ingestionendpoint",L="disableExceptionTracking",j="ai.device.";"instrumentationKey"[x="toLowerCase"](),w="crossOrigin",D="POST",t="appInsightsSDK",E=cfg.name||"appInsights",(cfg.name||C[t])&&(C[t]=E),n=C[E]||function(g){{var f=!1,m=!1,h={{initialize:!0,queue:[],sv:"8",version:2,config:g}};function v(e,t){{var n={{}},i="Browser";function a(e){{e=""+e;return 1===e.length?"0"+e:e}}return n[j+"id"]=i[x](),n[j+"type"]=i,n["ai.operation.name"]=b&&b.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet_"+(h.sv||h.version),{{time:(i=new Date).getUTCFullYear()+"-"+a(1+i.getUTCMonth())+"-"+a(i.getUTCDate())+"T"+a(i.getUTCHours())+":"+a(i.getUTCMinutes())+":"+a(i.getUTCSeconds())+"."+(i.getUTCMilliseconds()/1e3).toFixed(3).slice(2,5)+"Z",iKey:e,name:"Microsoft.ApplicationInsights."+e.replace(/-/g,"")+"."+t,sampleRate:100,tags:n,data:{{baseData:{{ver:2}}}},ver:undefined,seq:"1",aiDataContract:undefined}}}}var n,i,t,a,y=-1,T=0,S=["js.monitor.azure.com","js.cdn.applicationinsights.io","js.cdn.monitor.azure.com","js0.cdn.applicationinsights.io","js0.cdn.monitor.azure.com","js2.cdn.applicationinsights.io","js2.cdn.monitor.azure.com","az416426.vo.msecnd.net"],o=g.url||cfg.src,r=function(){{return s(o,null)}};function s(d,t){{if((n=navigator)&&(~(n=(n.userAgent||"").toLowerCase()).indexOf("msie")||~n.indexOf("trident/"))&&~d.indexOf("ai.3")&&(d=d.replace(/(\\/)(ai\\.3\\.)([^\\d]*)$/,function(e,t,n){{return t+"ai.2"+n}})),!1!==cfg.cr)for(var e=0;e<S.length;e++)if(0<d.indexOf(S[e])){{y=e;break}}var n,i=function(e){{var a,t,n,i,o,r,s,c,u,l;h.queue=[],m||(0<=y&&T+1<S.length?(a=(y+T+1)%S.length,p(d.replace(/^(.*\\/\\/)([\\w\\.]*)(\\/.*)\\$/,function(e,t,n,i){{return t+S[a]+i}})),T+=1):(f=m=!0,s=d,cfg.dle||!1))}},a=function(e,t){{m||setTimeout(function(){{!t&&h.core||i()}},500),f=!1}},p=function(e){{var n=O.createElement(q),e=(n.src=e,t&&(n.integrity=t),n.setAttribute("data-ai-name",E),cfg[w]);return!e&&""!==e||"undefined"==n[w]||(n[w]=e),n.onload=a,n.onerror=i,n.onreadystatechange=function(e,t){{"loaded"!==n.readyState&&"complete"!==n.readyState||a(0,t)}},cfg.ld&&cfg.ld<0?O.getElementsByTagName("head")[0].appendChild(n):setTimeout(function(){{O.getElementsByTagName(q)[0].parentNode.appendChild(n)}},cfg.ld||0),n}};p(d)}}cfg.sri&&(n=o.match(/^((http[s]?:\\/\\/.*\\/)\\w+(\\.\\d+){{1,5}})\\.(([\\w]+\\.){{0,2}}js)$/))&&6===n.length?(d="".concat(n[1],".integrity.json"),i="@".concat(n[4]),l=window.fetch,t=function(e){{if(!e.ext||!e.ext[i]||!e.ext[i].file)throw Error("Error Loading JSON response");var t=e.ext[i].integrity||null;s(o=n[2]+e.ext[i].file,t)}},l&&!cfg.useXhr?l(d,{{method:"GET",mode:"cors"}}).then(function(e){{return e.json()["catch"](function(){{return{{}}}})}} ).then(t)["catch"](r):XMLHttpRequest&&((a=new XMLHttpRequest).open("GET",d),a.onreadystatechange=function(){{if(a.readyState===XMLHttpRequest.DONE)if(200===a.status)try{{t(JSON.parse(a.responseText))}}catch(e){{r()}}else r()}},a.send())):o&&r();try{{h.cookie=O.cookie}}catch(k){{}}function e(e){{for(;e.length;)!function(t){{h[t]=function(){{var e=arguments;f||h.queue.push(function(){{h[t].apply(h,e)}})}}}}(e.pop())}}var c,u,l="track",d="TrackPage",p="TrackEvent",l=(e([l+"Event",l+"PageView",l+"Exception",l+"Trace",l+"DependencyData",l+"Metric",l+"PageViewPerformance","start"+d,"stop"+d,"start"+p,"stop"+p,"addTelemetryInitializer","setAuthenticatedUserContext","clearAuthenticatedUserContext","flush"]),h.SeverityLevel={{Verbose:0,Information:1,Warning:2,Error:3,Critical:4}},(g.extensionConfig||{{}}).ApplicationInsightsAnalytics||{{}});return!0!==g[L]&&!0!==l[L]&&(e(["_"+(c="onerror")]),u=C[c],C[c]=function(e,t,n,i,a){{var o=u&&u(e,t,n,i,a);return!0!==o&&h["_"+c]({{message:e,url:t,lineNumber:n,columnNumber:i,error:a,evt:C.event}}),o}},g.autoExceptionInstrumented=!0),h}}(cfg.cfg),(C[E]=n).queue&&0===n.queue.length?(n.queue.push(e),n.trackPageView({{}})):e();}})( {{
+    snippet = f"""!(function (cfg){{function e(){{cfg.onInit&&cfg.onInit(n)}}var x,w,D,t,E,n,C=window,O=document,b=C.location,q="script",I="ingestionendpoint",L="disableExceptionTracking",j="ai.device.";"instrumentationKey"[x="toLowerCase"](),w="crossOrigin",D="POST",t="appInsightsSDK",E=cfg.name||"appInsights",(cfg.name||C[t])&&(C[t]=E),n=C[E]||function(g){{var f=!1,m=!1,h={{initialize:!0,queue:[],sv:"8",version:2,config:g}};function v(e,t){{var n={{}},i="Browser";function a(e){{e=""+e;return 1===e.length?"0"+e:e}}return n[j+"id"]=i[x](),n[j+"type"]=i,n["ai.operation.name"]=b&&b.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet_"+(h.sv||h.version),{{time:(i=new Date).getUTCFullYear()+"-"+a(1+i.getUTCMonth())+"-"+a(i.getUTCDate())+"T"+a(i.getUTCHours())+":"+a(i.getUTCMinutes())+":"+a(i.getUTCSeconds())+"."+(i.getUTCMilliseconds()/1e3).toFixed(3).slice(2,5)+"Z",iKey:e,name:"Microsoft.ApplicationInsights."+e.replace(/-/g,"")+"."+t,sampleRate:100,tags:n,data:{{baseData:{{ver:2}}}},ver:undefined,seq:"1",aiDataContract:undefined}}}}var n,i,t,a,y=-1,T=0,S=["js.monitor.azure.com","js.cdn.applicationinsights.io","js.cdn.monitor.azure.com","js0.cdn.applicationinsights.io","js0.cdn.monitor.azure.com","js2.cdn.applicationinsights.io","js2.cdn.monitor.azure.com","az416426.vo.msecnd.net"],o=g.url||cfg.src,r=function(){{return s(o,null)}};function s(d,t){{if((n=navigator)&&(~(n=(n.userAgent||"").toLowerCase()).indexOf("msie")||~n.indexOf("trident/"))&&~d.indexOf("ai.3")&&(d=d.replace(/(\\/)(ai\\.3\\.)([^\\d]*)$/,function(e,t,n){{return t+"ai.2"+n}})),!1!==cfg.cr)for(var e=0;e<S.length;e++)if(0<d.indexOf(S[e])){{y=e;break}}var n,i=function(e){{var a,t,n,i,o,r,s,c,u,l;h.queue=[],m||(0<=y&&T+1<S.length?(a=(y+T+1)%S.length,p(d.replace(/^(.*\\/\\/)([\\w\\.]*)(\\/.*)\\$/,function(e,t,n,i){{return t+S[a]+i}})),T+=1):(f=m=!0,s=d,cfg.dle||!1))}},a=function(e,t){{m||setTimeout(function(){{!t&&h.core||i()}},500),f=!1}},p=function(e){{var n=O.createElement(q),e=(n.src=e,t&&(n.integrity=t),n.setAttribute("data-ai-name",E),cfg[w]);return!e&&""!==e||"undefined"==n[w]||(n[w]=e),n.onload=a,n.onerror=i,n.onreadystatechange=function(e,t){{"loaded"!==n.readyState&&"complete"!==n.readyState||a(0,t)}},cfg.ld&&cfg.ld<0?O.getElementsByTagName("head")[0].appendChild(n):setTimeout(function(){{O.getElementsByTagName(q)[0].parentNode.appendChild(n)}},cfg.ld||0),n}};p(d)}}cfg.sri&&(n=o.match(/^((http[s]?:\\/\\/.*\\/)\\w+(\\.\\d+){{1,5}})\\.(([\\w]+\\.){{0,2}}js)$/))&&6===n.length?(d="".concat(n[1],".integrity.json"),i="@".concat(n[4]),l=window.fetch,t=function(e){{if(!e.ext||!e.ext[i]||!e.ext[i].file)throw Error("Error Loading JSON response");var t=e.ext[i].integrity||null;s(o=n[2]+e.ext[i].file,t)}},l&&!cfg.useXhr?l(d,{{method:"GET",mode:"cors"}}).then(function(e){{return e.json()["catch"](function(){{return{{}}}})}} ).then(t)["catch"](r):XMLHttpRequest&&((a=new XMLHttpRequest).open("GET",d),a.onreadystatechange=function(){{if(a.readyState===XMLHttpRequest.DONE)if(200===a.status)try{{t(JSON.parse(a.responseText))}}catch(e){{r()}}else r()}},a.send())):o&&r();try{{h.cookie=O.cookie}}catch(k){{}}function e(e){{for(;e.length;)!function(t){{h[t]=function(){{var e=arguments;f||h.queue.push(function(){{h[t].apply(h,e)}})}}}}(e.pop())}}var c,u,l="track",d="TrackPage",p="TrackEvent",l=(e([l+"Event",l+"PageView",l+"Exception",l+"Trace",l+"DependencyData",l+"Metric",l+"PageViewPerformance","start"+d,"stop"+d,"start"+p,"stop"+p,"addTelemetryInitializer","setAuthenticatedUserContext","clearAuthenticatedUserContext","flush"]),h.SeverityLevel={{Verbose:0,Information:1,Warning:2,Error:3,Critical:4}},(g.extensionConfig||{{}}).ApplicationInsightsAnalytics||{{}});return!0!==g[L]&&!0!==l[L]&&(e(["_"+(c="onerror")]),u=C[c],C[c]=function(e,t,n,i,a){{var o=u&&u(e,t,n,i,a);return!0!==o&&h["_"+c]({{message:e,url:t,lineNumber:n,columnNumber:i,error:a,evt:C.event}}),o}},g.autoExceptionInstrumented=!0),h}}(cfg.cfg),(C[E]=n).queue&&0===n.queue.length?(n.queue.push(e),n.trackPageView({{}})):e();}})( {{
   src: "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js",
   crossOrigin: "anonymous",
   dle: true,
@@ -339,8 +562,53 @@ def appinsights_head(context):
     autoTrackPageVisitTime: true,
     disablePageUnloadEvents: ["unload"]
   }}
-}});
-</script>'''
+}});"""
+
+    if not has_analytics_consent:
+        return mark_safe(
+            f"""<!-- Azure Application Insights (waiting for analytics consent) -->
+<script type="text/javascript"{nonce_attr}>
+(function () {{
+  function flushPendingEvents() {{
+    var pending = window.__appInsightsPendingEvents;
+    if (!window.appInsights || typeof window.appInsights.trackEvent !== 'function' || !pending) return;
+    while (pending.length) {{
+      window.appInsights.trackEvent(pending.shift());
+    }}
+  }}
+  function load() {{
+    if (window.appInsights) {{
+      flushPendingEvents();
+      return;
+    }}
+    {snippet}
+    // The SDK snippet installs its queueing stub synchronously. Hand it the
+    // events rendered earlier in this page; the SDK drains its own queue once
+    // the external script finishes loading.
+    flushPendingEvents();
+  }}
+  document.addEventListener('cookie_consent_updated', function (e) {{
+    if (e.detail && e.detail.analytics === true) load();
+  }});
+}})();
+</script>"""
+        )
+
+    # Accepted: the SDK starts on parse. A copy of this page served later
+    # (_declined_in_browser_js) must not start it after a withdrawal, so a
+    # refusal recorded since then skips it. No preconnect hint: it is HTML,
+    # which no script can hold back, and it opens a connection to Microsoft
+    # by itself; the snippet adds its script tag right away (setTimeout 0).
+    # A skipped copy registers no placeholder listener, so accepting again on
+    # that copy starts nothing until the next freshly rendered page:
+    # deliberate, under-tracking is the safe direction.
+    analytics_declined = _declined_in_browser_js("analytics")
+    script = f"""<!-- Azure Application Insights Browser SDK v3 -->
+<script type="text/javascript"{nonce_attr}>
+if (!{analytics_declined}) {{
+{snippet}
+}}
+</script>"""
 
     return mark_safe(script)
 
@@ -356,21 +624,38 @@ def appinsights_event(context, event_name, **params):
 
     This renders a script tag that calls trackEvent on the App Insights SDK.
     """
-    connection_string = context.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+    connection_string = context.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
     if not connection_string:
-        return ''
+        return ""
 
-    request = context.get('request')
+    request = context.get("request")
+    # An event that happens while analytics is refused is never recorded:
+    # queueing it would replay it if the visitor opts in later on this page.
+    # An undecided or stale choice still queues (see below).
+    if request is not None and stored_cookie_choice(request, "analytics") is False:
+        return ""
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
-    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
+    nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
 
     # Build properties object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
         props_json = json.dumps(params)
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}, properties: {props_json}}});</script>'
+        event_json = f"{{name: {json.dumps(event_name)}, properties: {props_json}}}"
     else:
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}}});</script>'
+        event_json = f"{{name: {json.dumps(event_name)}}}"
+
+    # A page event can be rendered before the visitor grants analytics. Keep
+    # it in memory until the consent-driven head placeholder creates the SDK
+    # queueing stub, then replay it through trackEvent after consent.
+    script = f"""<script{nonce_attr}>(function (event) {{
+  if (window.appInsights && typeof window.appInsights.trackEvent === 'function') {{
+    window.appInsights.trackEvent(event);
+    return;
+  }}
+  window.__appInsightsPendingEvents = window.__appInsightsPendingEvents || [];
+  window.__appInsightsPendingEvents.push(event);
+}})({event_json});</script>"""
 
     return mark_safe(script)

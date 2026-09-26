@@ -1,5 +1,6 @@
 import tempfile
 import uuid
+from datetime import datetime, timezone
 from io import BytesIO
 from unittest.mock import Mock, patch
 
@@ -58,6 +59,25 @@ class LeadTests(TestCase):
             ArboristLead.objects.get(submission_id=data["submission_id"]),
             response["Location"],
         )
+
+    def analytics_version(self, *cookie_dates):
+        """Register the analytics cookie group the way setup_cookie_groups
+        does, one cookie per date, and return the group's version (its
+        newest cookie's date), which the banner writes into its flag."""
+        from cookie_consent.cache import delete_cache, get_cookie_group
+        from cookie_consent.models import Cookie, CookieGroup
+
+        group, _ = CookieGroup.objects.get_or_create(
+            varname="analytics", defaults={"name": "Analytics"}
+        )
+        for created in cookie_dates:
+            cookie = Cookie.objects.create(
+                cookiegroup=group, name=f"_ga_{created:%Y%m%d}", domain=""
+            )
+            # auto_now_add ignores a value passed to create().
+            Cookie.objects.filter(pk=cookie.pk).update(created=created)
+        delete_cache()
+        return get_cookie_group("analytics").get_version()
 
     def upload(self, url, **overrides):
         page = self.client.get(url)
@@ -201,13 +221,18 @@ class LeadTests(TestCase):
         self.assertEqual(lead.photo_notes, "Unsafe to approach")
 
     def test_consent_required_for_attribution_and_revocation(self):
+        version = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
         self.client.get("/en/?utm_source=google&utm_campaign=trees")
         lead, _ = self.create_lead()
         self.assertEqual(lead.first_attribution, {})
         # The cookies core/templates/includes/cookie_banner.html writes on
-        # "accept all": JSON in cookie_consent, plus the server-side flag.
-        self.client.cookies["cookie_consent"] = '{"essential":true,"analytics":true}'
-        self.client.cookies["cookie_consent_analytics"] = "accept"
+        # "accept all": JSON in cookie_consent, plus the server-side flag
+        # carrying the group version the acceptance was given under.
+        self.client.cookies["cookie_consent"] = (
+            '{"essential":true,"analytics":true,'
+            '"timestamp":"2026-03-01T12:00:00.000Z"}'
+        )
+        self.client.cookies["cookie_consent_analytics"] = f"accept:{version}"
         self.client.get(
             "/en/?utm_source=google&utm_campaign=trees&email=private@example.com"
         )
@@ -226,13 +251,39 @@ class LeadTests(TestCase):
         lead, _ = self.create_lead()
         self.assertEqual(lead.first_attribution, {})
 
+    def test_versioned_banner_flag_alone_keeps_attribution(self):
+        """What the banner writes today: ``accept:<group version>``. A check
+        for a bare "accept" read every new acceptance as no consent."""
+        version = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
+        self.client.cookies["cookie_consent_analytics"] = f"accept:{version}"
+        self.client.get("/en/?utm_source=partner")
+        lead, _ = self.create_lead()
+        self.assertEqual(lead.first_attribution["utm_source"], "partner")
+
+    def test_stale_acceptance_keeps_no_attribution(self):
+        """A cookie added to the analytics group since the acceptance makes it
+        undecided, as it is for the trackers: the banner asks again, and
+        nothing is kept until the visitor answers."""
+        old = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
+        self.client.cookies["cookie_consent_analytics"] = f"accept:{old}"
+        self.client.get("/en/?utm_source=partner")
+        self.assertEqual(
+            self.create_lead()[0].first_attribution["utm_source"], "partner"
+        )
+
+        self.analytics_version(datetime(2026, 6, 1, tzinfo=timezone.utc))
+        self.client.get("/en/?utm_source=later")
+        lead, _ = self.create_lead()
+        self.assertEqual(lead.first_attribution, {})
+        self.assertEqual(lead.last_attribution, {})
+
     def test_library_format_consent_still_honoured(self):
-        # /cookies/ (django-cookie-consent's own pages) writes no banner flag.
-        with patch(
-            "arborist.services.leads.get_cookie_value_from_request", return_value=True
-        ):
-            self.client.get("/en/?utm_source=newsletter")
-            lead, _ = self.create_lead()
+        # /cookies/ (django-cookie-consent's own pages) writes its own cookie,
+        # "group=version|...". A visitor may hold only this.
+        version = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
+        self.client.cookies["cookie_consent"] = f"analytics={version}"
+        self.client.get("/en/?utm_source=newsletter")
+        lead, _ = self.create_lead()
         self.assertEqual(lead.first_attribution["utm_source"], "newsletter")
 
     def test_invalid_upload_token_rejected(self):

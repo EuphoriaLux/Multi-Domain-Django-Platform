@@ -1,16 +1,35 @@
 {% load i18n %}
+{% load analytics %}
 
 {# Cookie Consent Banner - GDPR Compliant #}
 {# Include this at the bottom of your base template, before </body> #}
+{# Optional categories (analytics, marketing) are unchecked by default — GDPR/ePrivacy require an opt-in, #}
+{# so no box may be pre-ticked; the script ticks them only to reflect a choice already stored. #}
+{# cookie_banner_variant="crush" (passed by crush_lu/base.html only) renders the Crush.lu STYLE.md §2 buttons, #}
+{# var(--crush-purple) accents and the informal-"du" DE copy (msgctxt "crush cookie banner" in crush_lu/locale). #}
+{# Without it the partial renders the generic .btn markup and formal core/locale copy the other sites use. #}
 
-<div id="cookie-consent-banner" class="cookie-banner" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
+<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush{% endif %}" data-consent-state="{% cookie_consent_state %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
             <p id="cookie-banner-title" class="cookie-banner-title">{% trans "Cookie Settings" %}</p>
             <p id="cookie-banner-description">
-                {% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}
+                {% if cookie_banner_variant == "crush" %}{% translate "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." context "crush cookie banner" %}{% else %}{% trans "We use cookies to enhance your experience. Analytics cookies help us understand how you use our site. You can accept all cookies or customize your preferences." %}{% endif %}
             </p>
         </div>
+        {% if cookie_banner_variant == "crush" %}
+        <div class="cookie-banner-actions">
+            <button type="button" class="btn-crush-outline btn-sm" id="cookie-btn-decline">
+                {% trans "Decline All" %}
+            </button>
+            <button type="button" class="btn-crush-solid btn-sm" id="cookie-btn-accept">
+                {% trans "Accept All" %}
+            </button>
+            <button type="button" class="btn-link" id="cookie-btn-customize">
+                {% trans "Customize" %}
+            </button>
+        </div>
+        {% else %}
         <div class="cookie-banner-actions">
             <button type="button" class="btn btn-outline-secondary btn-sm" id="cookie-btn-customize">
                 {% trans "Customize" %}
@@ -22,11 +41,12 @@
                 {% trans "Accept All" %}
             </button>
         </div>
+        {% endif %}
     </div>
 </div>
 
 {# Cookie Settings Modal #}
-<div id="cookie-settings-modal" class="cookie-modal" role="dialog" aria-labelledby="cookie-settings-title" style="display: none;">
+<div id="cookie-settings-modal" class="cookie-modal{% if cookie_banner_variant == "crush" %} cookie-modal--crush{% endif %}" role="dialog" aria-labelledby="cookie-settings-title" style="display: none;">
     <div class="cookie-modal-content">
         <div class="cookie-modal-header">
             <h4 id="cookie-settings-title">{% trans "Cookie Preferences" %}</h4>
@@ -45,14 +65,14 @@
                     </div>
                 </div>
                 <p class="cookie-group-description">
-                    {% trans "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." %}
+                    {% if cookie_banner_variant == "crush" %}{% translate "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." context "crush cookie banner" %}{% else %}{% trans "These cookies are necessary for the website to function and cannot be switched off. They are usually only set in response to actions made by you such as logging in or filling in forms." %}{% endif %}
                 </p>
             </div>
 
             <div class="cookie-group">
                 <div class="cookie-group-header">
                     <label class="cookie-toggle">
-                        <input type="checkbox" id="cookie-analytics" checked>
+                        <input type="checkbox" id="cookie-analytics">
                         <span class="cookie-toggle-slider"></span>
                     </label>
                     <div class="cookie-group-info">
@@ -75,13 +95,18 @@
                     </div>
                 </div>
                 <p class="cookie-group-description">
-                    {% trans "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." %}
+                    {% if cookie_banner_variant == "crush" %}{% translate "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." context "crush cookie banner" %}{% else %}{% trans "These cookies may be set through our site by our advertising partners. They may be used to build a profile of your interests and show you relevant adverts on other sites." %}{% endif %}
                 </p>
             </div>
         </div>
         <div class="cookie-modal-footer">
+            {% if cookie_banner_variant == "crush" %}
+            <button type="button" class="btn-crush-outline btn-sm" id="cookie-btn-cancel">{% trans "Cancel" %}</button>
+            <button type="button" class="btn-crush-solid btn-sm" id="cookie-btn-save">{% trans "Save Preferences" %}</button>
+            {% else %}
             <button type="button" class="btn btn-secondary" id="cookie-btn-cancel">{% trans "Cancel" %}</button>
             <button type="button" class="btn btn-primary" id="cookie-btn-save">{% trans "Save Preferences" %}</button>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -294,6 +319,7 @@ html.dark .cookie-banner-text p {
     cursor: not-allowed;
 }
 
+{% if cookie_banner_variant != "crush" %}
 /* Button Styles (replaces Bootstrap classes) */
 .cookie-banner .btn,
 .cookie-modal .btn {
@@ -354,6 +380,7 @@ html.dark .cookie-banner-text p {
     color: #374151;
     border-color: #9ca3af;
 }
+{% endif %}
 
 /* Badge Styles */
 .cookie-modal .badge {
@@ -400,6 +427,7 @@ html.dark .cookie-group-info strong {
     color: #f1f5f9;
 }
 
+{% if cookie_banner_variant != "crush" %}
 /* Dark mode: buttons */
 html.dark .cookie-banner .btn-primary,
 html.dark .cookie-modal .btn-primary {
@@ -435,6 +463,7 @@ html.dark .cookie-banner .btn-outline-secondary:hover {
     color: #e2e8f0;
     border-color: #64748b;
 }
+{% endif %}
 
 html.dark .cookie-modal .bg-secondary {
     background: #475569;
@@ -456,6 +485,91 @@ html.dark .cookie-modal .bg-secondary {
         padding-left: 0;
     }
 }
+{% if cookie_banner_variant == "crush" %}
+/* Crush.lu variant. The buttons carry the canonical crush_lu/STYLE.md §2 classes
+   (.btn-crush-solid / .btn-crush-outline / .btn-link from tailwind.css), which is
+   why the generic .btn rules above are not emitted for this variant. Accents use
+   var(--crush-purple), declared for light and dark in crush_lu/base.html. */
+.cookie-banner.cookie-banner--crush,
+html.dark .cookie-banner.cookie-banner--crush {
+    border-top-color: var(--crush-purple);
+}
+
+.cookie-modal--crush .cookie-toggle input:checked + .cookie-toggle-slider {
+    background-color: var(--crush-purple);
+}
+
+/* Dark mode: the banner and modal sit on #1e293b, where the canonical dark
+   .btn-link (purple-400, 3.5:1) and .btn-crush-outline (--crush-purple-light,
+   4.47:1) miss WCAG AA 4.5:1 for their 14px labels; var(--crush-purple) is 5.4:1.
+   Resting state only, so hover keeps the canonical colours. */
+html.dark .cookie-banner--crush .btn-link:not(:hover),
+html.dark .cookie-banner--crush .btn-crush-outline:not(:hover),
+html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
+    color: var(--crush-purple);
+}
+
+html.dark .cookie-banner--crush .btn-crush-outline:not(:hover),
+html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
+    border-color: var(--crush-purple);
+}
+
+/* crush's mobile touch-target rule (label:has(input[type=checkbox]) { min-height: 44px })
+   stretches the 50x26 switch into a blob, and the flex header squeezes it; pin it. */
+#cookie-settings-modal.cookie-modal--crush .cookie-toggle {
+    flex-shrink: 0;
+    min-height: 0;
+}
+
+/* Accept and Decline carry equal weight: same .btn-sm padding, same width (two
+   equal grid tracks) and the same 2px border box (.btn-crush-outline draws a 2px
+   border, so the solid button gets a transparent one). */
+.cookie-banner--crush .cookie-banner-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: center;
+}
+
+.cookie-banner--crush .btn-crush-solid,
+.cookie-modal--crush .btn-crush-solid {
+    border: 2px solid transparent;
+}
+
+.cookie-banner--crush .cookie-banner-actions button,
+.cookie-modal--crush .cookie-modal-footer button {
+    text-align: center;
+    cursor: pointer;
+}
+
+.cookie-banner--crush .btn-link {
+    font-size: 0.875rem;
+}
+
+/* Long DE/FR labels ("Einstellungen speichern") must not break inside the pill:
+   keep each label on one line and let the pair wrap onto two rows instead. */
+.cookie-modal--crush .cookie-modal-footer {
+    flex-wrap: wrap;
+}
+
+.cookie-modal--crush .cookie-modal-footer button {
+    white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+    .cookie-banner--crush .cookie-banner-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cookie-banner--crush .cookie-banner-actions .btn-link {
+        grid-column: 1 / -1;
+        justify-self: center;
+    }
+
+    .cookie-modal--crush .cookie-modal-footer button {
+        flex: 1 1 auto;
+    }
+}
+{% endif %}
 </style>
 
 <script nonce="{{ csp_nonce }}">
@@ -502,11 +616,46 @@ html.dark .cookie-modal .bg-secondary {
         }
     }
 
+    function clearAppInsightsCookies() {
+        // The Browser SDK uses these host-only identifiers by default. Expire
+        // them immediately when analytics is withdrawn; the native consent
+        // endpoint also clears them server-side, as cookies registered in the
+        // analytics group (setup_cookie_groups, run by startup.sh).
+        ['ai_user', 'ai_session'].forEach(function(name) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        });
+    }
+
     function dispatchConsentEvent(consent) {
         const event = new CustomEvent('cookie_consent_updated', {
             detail: consent
         });
         document.dispatchEvent(event);
+        // The Facebook Pixel, once loaded (the analytics_body placeholder
+        // loads it on a grant), keeps tracking on this page until told
+        // otherwise: a withdrawn marketing choice revokes it right away.
+        if (typeof window.fbq === 'function') {
+            window.fbq('consent', consent.marketing ? 'grant' : 'revoke');
+        }
+        // Application Insights (an analytics cookie) loads on this event
+        // when analytics is granted (appinsights_head placeholder); once
+        // loaded, a withdrawal silences it for the rest of the page.
+        if (window.appInsights && window.appInsights.config) {
+            window.appInsights.config.disableTelemetry = consent.analytics !== true;
+            window.appInsights.config.disableCookiesUsage = consent.analytics !== true;
+        }
+        // The identifiers belong to the browser, not to this page: another
+        // page may have set them under an acceptance given after this copy
+        // was rendered (a restored history entry or the service worker's
+        // kept copy, embedding an older refusal). So clear them only while
+        // the browser holds no acceptance flag. Every save on this page
+        // writes its flag before dispatching, so a refusal made here still
+        // clears them. A stale acceptance flag (a cookie was added to the
+        // group since) holds the wipe back too; the SDK does not load in
+        // that state, and the visitor's next answer settles it.
+        if (consent.analytics !== true && currentFlag('analytics') !== true) {
+            clearAppInsightsCookies();
+        }
     }
 
     // Update Google Consent Mode v2
@@ -522,13 +671,82 @@ html.dark .cookie-modal .bg-secondary {
         }
     }
 
-    // Also set django-cookie-consent cookies for server-side checks
+    // Also set the per-group flags the server reads first (stored_cookie_choice).
+    // An acceptance carries django-cookie-consent's version of the group (the
+    // date of its newest cookie, from data-consent-state), so a cookie added
+    // to the group later makes it stale and the banner asks again, as the
+    // library does with its own cookie. Without a known version the save's
+    // own date stands in.
     function setDjangoCookieConsent(groupName, accepted) {
-        const value = accepted ? 'accept' : 'decline';
+        const value = accepted
+            ? 'accept:' + (serverVersions()[groupName] || new Date().toISOString())
+            : 'decline';
         const date = new Date();
         date.setTime(date.getTime() + (COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
         const expires = "expires=" + date.toUTCString();
         document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
+    }
+
+    // django-cookie-consent's own cookie (mounted at /cookies/ on every site)
+    // is HttpOnly, so this script cannot overwrite it, and the server reads
+    // it first. Record the choice there too, through the library's endpoints:
+    // its status view hands out the CSRF token (the CSRF cookie is HttpOnly
+    // as well) and the accept/decline URLs. Best effort: the readable
+    // cookies above carry the choice too, and the server reads them first,
+    // so a save is honoured even if this never completes.
+    const NATIVE_STATUS_URL = '/cookies/status/';
+
+    function postNativeChoice(url, csrftoken, groups) {
+        if (!groups.length) return Promise.resolve();
+        const body = new URLSearchParams();
+        groups.forEach(function(group) { body.append('cookie_groups', group); });
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true, // survives a navigation right after the save
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Cookie-Consent-Fetch': '1',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body.toString()
+        });
+    }
+
+    function syncNativeConsent(consent) {
+        if (typeof fetch !== 'function') return;
+        fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
+            .then(function(response) { return response.ok ? response.json() : null; })
+            .then(function(status) {
+                if (!status || !status.csrftoken) return;
+                const accepted = [], declined = [];
+                ['analytics', 'marketing'].forEach(function(group) {
+                    (consent[group] ? accepted : declined).push(group);
+                });
+                // One after the other, never side by side: each response
+                // rewrites the whole cookie from the request's copy of it,
+                // so two concurrent posts would let the later response
+                // restore the stale value for the other group.
+                return postNativeChoice(status.acceptUrl, status.csrftoken, accepted)
+                    .then(function() {
+                        return postNativeChoice(status.declineUrl, status.csrftoken, declined);
+                    });
+            })
+            .catch(function() { /* the readable cookies still carry the choice */ });
+    }
+
+    // Keep the server-rendered state (data-consent-state) in step with a
+    // choice saved on this page, so a reopened modal shows the new choice
+    // and a second Save cannot restore the old one.
+    function syncServerState(consent) {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (!banner || !banner.dataset) return;
+        banner.dataset.consentState = JSON.stringify({
+            analytics: consent.analytics === true,
+            marketing: consent.marketing === true,
+            decided: true,
+            versions: serverVersions() // a second save here still writes versioned flags
+        });
     }
 
     function acceptAllCookies() {
@@ -541,6 +759,8 @@ html.dark .cookie-modal .bg-secondary {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', true);
         setDjangoCookieConsent('marketing', true);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         dispatchConsentEvent(consent);
         updateGoogleConsent(consent);
@@ -556,12 +776,100 @@ html.dark .cookie-modal .bg-secondary {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', false);
         setDjangoCookieConsent('marketing', false);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         dispatchConsentEvent(consent);
         updateGoogleConsent(consent);
     }
 
+    // What the server knows (data-consent-state, rendered by the
+    // cookie_consent_state tag): django-cookie-consent's own cookie is
+    // HttpOnly, so a choice made through its /cookies/ views is invisible to
+    // document.cookie, and the server checks every stored acceptance against
+    // the group's version where a readable cookie cannot. Null only when the
+    // page was rendered without a request (empty attribute).
+    function serverState() {
+        const banner = document.getElementById('cookie-consent-banner');
+        const raw = banner && banner.dataset ? banner.dataset.consentState : '';
+        if (!raw) return null;
+        try {
+            const state = JSON.parse(raw);
+            return state && typeof state === 'object' ? state : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // The per-group flag in the browser right now (setDjangoCookieConsent):
+    // false for a refusal, true for an acceptance, null without a flag.
+    // Unlike data-consent-state it is live: a copy of this page served later
+    // (the service worker's offline copy, a restored history entry) still
+    // embeds the state it was rendered with, and a refusal recorded since
+    // then is only here. Never the banner's JSON cookie: the middleware
+    // rewrites the flags, not the JSON, so the JSON can be the stale one.
+    function currentFlag(group) {
+        const value = getCookie('cookie_consent_' + group);
+        if (value === 'decline') return false;
+        return typeof value === 'string' && value.indexOf('accept') === 0 ? true : null;
+    }
+
+    // The groups' current versions (see setDjangoCookieConsent).
+    function serverVersions() {
+        const state = serverState();
+        return state && state.versions && typeof state.versions === 'object' ? state.versions : {};
+    }
+
+    // The stored choice as {analytics, marketing}: the server's view first,
+    // then the cookie this script can read. Two formats share that cookie:
+    // this banner's JSON object, and django-cookie-consent's own
+    // "group=version|group=version" string, where a declined group stores
+    // "-1". Anything else (no cookie, a legacy value) is no stored choice.
+    function storedConsent() {
+        const server = serverState();
+        if (server) {
+            // The server's verdict is version-checked, group by group; a
+            // readable cookie beside it may be an acceptance that a cookie
+            // added since made stale. A group the server holds no choice for
+            // (null) stays unticked, while the other keeps its current choice.
+            // A live refusal flag vetoes an embedded grant: on a freshly
+            // rendered page the server already read that flag first (so this
+            // changes nothing there), but a cached copy of the page embeds the
+            // grant it was rendered with, and must not re-grant a withdrawal.
+            // Only in that direction: a live acceptance never outranks the
+            // server's refusal or its "ask again" (under-tracking is safe).
+            return {
+                analytics: server.analytics === true && currentFlag('analytics') !== false,
+                marketing: server.marketing === true && currentFlag('marketing') !== false
+            };
+        }
+        const consent = getCookie(COOKIE_NAME);
+        if (consent && typeof consent === 'object') return consent;
+        if (typeof consent === 'string' && consent.indexOf('=') !== -1) {
+            const stored = {};
+            consent.split('|').forEach(function(pair) {
+                const parts = pair.split('=');
+                if (parts.length !== 2) return;
+                stored[parts[0]] = parts[1] !== '-1' && parts[1] !== '';
+            });
+            return stored;
+        }
+        return {};
+    }
+
+    // Optional categories start unchecked (no pre-ticked boxes under GDPR/ePrivacy).
+    // When a choice is already stored, show that choice instead; anything that is
+    // not a stored choice (no cookie, legacy string value) leaves them off.
+    function reflectStoredConsent() {
+        const stored = storedConsent();
+        const analytics = document.getElementById('cookie-analytics');
+        const marketing = document.getElementById('cookie-marketing');
+        if (analytics) analytics.checked = stored.analytics === true;
+        if (marketing) marketing.checked = stored.marketing === true;
+    }
+
     function showCookieSettings() {
+        reflectStoredConsent();
         document.getElementById('cookie-settings-modal').style.display = 'flex';
     }
 
@@ -583,6 +891,8 @@ html.dark .cookie-modal .bg-secondary {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', analyticsChecked);
         setDjangoCookieConsent('marketing', marketingChecked);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         hideCookieSettings();
         dispatchConsentEvent(consent);
@@ -617,6 +927,17 @@ html.dark .cookie-modal .bg-secondary {
         var btnSave = document.getElementById('cookie-btn-save');
 
         if (btnCustomize) btnCustomize.addEventListener('click', showCookieSettings);
+        // A persistent trigger outside the banner (the footers' "Cookie
+        // Settings" link): once a choice is stored the banner stays hidden,
+        // so this is how a visitor gets back to the stored preferences.
+        document.addEventListener('click', function(event) {
+            var trigger = event.target && event.target.closest
+                ? event.target.closest('[data-cookie-settings]')
+                : null;
+            if (!trigger) return;
+            event.preventDefault();
+            showCookieSettings();
+        });
         if (btnDecline) btnDecline.addEventListener('click', declineAllCookies);
         if (btnAccept) btnAccept.addEventListener('click', acceptAllCookies);
         if (btnModalClose) btnModalClose.addEventListener('click', hideCookieSettings);
@@ -624,19 +945,76 @@ html.dark .cookie-modal .bg-secondary {
         if (btnSave) btnSave.addEventListener('click', saveCustomCookies);
     }
 
+    // The stored choice a page start acts on, or null when the banner must ask.
+    // The server's state wins when the page carries one: it checked every
+    // stored acceptance against the group versions, so after a cookie was
+    // added to a group a readable acceptance is stale, the server says
+    // undecided, and the banner must ask again rather than re-dispatch the
+    // old grant. "decided" means every optional group holds a choice: one
+    // stale group is enough to ask again (the modal still shows the other
+    // group's current choice). storedConsent() applies a live refusal flag
+    // on top (a cached copy of the page). Only a page rendered without a
+    // request falls back to the cookie this script can read.
+    function choiceOnLoad() {
+        const server = serverState();
+        if (server) return server.decided ? storedConsent() : null;
+        const consent = getCookie(COOKIE_NAME);
+        if (!consent) return null;
+        return typeof consent === 'object' ? consent : storedConsent();
+    }
+
     // Check if consent already given on page load
     document.addEventListener('DOMContentLoaded', function() {
         // Bind event listeners
         bindButtonEvents();
 
-        const consent = getCookie(COOKIE_NAME);
-        if (!consent) {
-            // No consent cookie found - show banner
+        const stored = choiceOnLoad();
+        if (!stored) {
+            // No stored choice anywhere - show banner
             showBanner();
         } else {
-            // Consent exists - dispatch event with existing consent
-            dispatchConsentEvent(consent);
+            // A choice exists - dispatch it so the analytics scripts can act
+            // on it, and put Google Consent Mode in the same state (the
+            // server-rendered defaults already match; this repairs a cached
+            // page).
+            dispatchConsentEvent(stored);
+            updateGoogleConsent(stored);
         }
+    });
+
+    // A page restored from the back/forward cache runs none of the above
+    // again: its trackers keep running under the grants it embeds
+    // (data-consent-state, kept in step with a save on this page), even if
+    // the visitor withdrew on another page since. So act on a refusal
+    // recorded since then, group by group, decided page or not: a page
+    // still asking about one group already runs the other group's granted
+    // tracker (the Pixel for a current marketing acceptance). Only then:
+    // re-sending the embedded choice as it stands would replay a refusal it
+    // embeds over a later acceptance (and wipe the identifiers set under
+    // it), while a later acceptance never outranks the page's own refusal
+    // or its open question (under-tracking is the safe direction). The
+    // banner stays as it was left.
+    window.addEventListener('pageshow', function(event) {
+        if (!event.persisted) return;
+        const server = serverState();
+        if (!server) {
+            // Rendered without a request: the load handler acted on the
+            // cookie this script can read, so do the same again.
+            const fallback = choiceOnLoad();
+            if (fallback) {
+                dispatchConsentEvent(fallback);
+                updateGoogleConsent(fallback);
+            }
+            return;
+        }
+        const withdrawn = ['analytics', 'marketing'].some(function(group) {
+            return server[group] === true && currentFlag(group) === false;
+        });
+        if (!withdrawn) return;
+        // The embedded grants with the live refusals applied.
+        const stored = storedConsent();
+        dispatchConsentEvent(stored);
+        updateGoogleConsent(stored);
     });
 })();
 </script>
