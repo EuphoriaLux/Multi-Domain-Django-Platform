@@ -565,6 +565,7 @@ class Command(BaseCommand):
         unchecked = 0
         last_read = None
         previous_read = None
+        deferred_history_rows = 0
 
         def _over_budget(reserve):
             return (
@@ -648,21 +649,17 @@ class Command(BaseCommand):
                     )
                     if _over_budget(history_reserve):
                         checked -= 1
-                        last_read = previous_read
-                        unchecked = total_count - checked
+                        deferred_history_rows += 1
                         logger.warning(
                             "SumUp reconciliation deferred checkout %s: not "
                             "enough of the %ss budget remains for %s transaction "
-                            "history read(s). Checked %s of %s transaction(s) in "
-                            "the window; %s left unchecked this run.",
+                            "history read(s). Continuing to later payments; "
+                            "this checkout remains unchecked for a later pass.",
                             tx_obj.sumup_checkout_id,
                             budget_seconds,
                             len(history_codes),
-                            checked,
-                            total_count,
-                            unchecked,
                         )
-                        break
+                        continue
 
                 # Gather evidence for EVERY transaction code before classifying.
                 # A retried checkout can list a declined first attempt before
@@ -945,6 +942,14 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"✓ {tx_obj.transaction_reference} ({tx_obj.sumup_checkout_id}): still PAID"
                 )
+
+        if deferred_history_rows:
+            # Rows deferred after their checkout read were not classified, so
+            # keep the cursor resumable even when the loop reached the window's
+            # end. _store_cursor will save the last row read; the next run then
+            # wraps to the oldest row and retries deferred checkouts with a
+            # fresh budget, after later rows have had their turn this run.
+            unchecked = max(unchecked, total_count - checked)
 
         summary_msg = (
             f"Sweep complete: {checked} checked, {refunded_count} external refund(s) reconciled, "
