@@ -5,11 +5,13 @@ The worker keeps navigations as full HTML: "crush-pages" (every page, a day)
 and "crush-tickets-v2" (event tickets, a year). A kept page embeds the consent
 state it was rendered with and the trackers that state allowed, so after a
 withdrawal a copy served offline could track and re-grant (Codex P1 on #1028).
-The pages themselves now hold back their trackers once the visitor refuses
-(the analytics tags and the banner check the live consent flags,
-test_cookie_banner.py); on top of that the worker drops "crush-pages" when a
-choice is saved to django-cookie-consent's /cookies/accept|decline/ views,
-and keeps the offline tickets, whose QR is needed at the door.
+The pages themselves now hold back their trackers once the visitor refuses,
+while the refusal flag is in the browser (the analytics tags and the banner
+check the live consent flags, test_cookie_banner.py; the consent purge in
+sw-workbox.js says when a flag can go). On top of that the worker drops
+"crush-pages" when a choice is saved to django-cookie-consent's
+/cookies/accept|decline/ views, and keeps the offline tickets, whose QR is
+needed at the door.
 
 That last part only holds for tickets rendered with those checks. The v32/v33
 workers kept theirs in "crush-tickets", rendered without them, for a year, and

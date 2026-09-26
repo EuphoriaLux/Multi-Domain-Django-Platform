@@ -60,6 +60,10 @@ def _declined_in_browser_js(cookie_group):
     entries. A refusal recorded since then (the banner's readable
     ``cookie_consent_<group>=decline`` flag, which CookieConsentFlagSyncMiddleware
     also writes after the library's own forms) must still stop the tracker.
+    It can only while that flag is in the browser: Safari's seven-day cap on
+    script-written cookies can drop a flag the banner's script alone wrote
+    (its POST to /cookies/ never landed), and a clear of cookies that keeps
+    the cached copy drops any flag; that copy's tracker then runs again.
     On a freshly rendered page the flag never says decline here, because
     stored_cookie_choice reads it first and the granted branch is not taken.
     document.cookie separates pairs with "; ", so no whitespace class needed.

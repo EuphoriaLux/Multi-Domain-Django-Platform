@@ -6,7 +6,9 @@
 //                rendered with. The offline tickets move to "crush-tickets-v2",
 //                which a consent change keeps (a ticket rendered with the
 //                consent-flag checks holds back its trackers after a later
-//                refusal). Activation deletes the old "crush-tickets" (the
+//                refusal, while the refusal flag is in the browser; see the
+//                consent purge in the fetch listener for when it is not).
+//                Activation deletes the old "crush-tickets" (the
 //                v32/v33 copies, rendered without those checks) and empties
 //                "crush-pages", as every later version's activation will.
 //                Consent POSTs are also kept off the background-sync queue: a
@@ -143,11 +145,19 @@ self.addEventListener("fetch", (event) => {
     // old choice. TICKET_CACHE is deliberately kept: purging it would lose the
     // offline QR at the door. Only workers from v34 on write to it, and v34
     // ships with the consent-flag checks (the analytics tags and the banner),
-    // so a kept ticket holds back its own trackers once the visitor refuses;
-    // the copies older workers kept without those checks were dropped on
-    // activation (LEGACY_TICKET_CACHE). Those checks are the guarantee; this
-    // purge is the extra layer. The library's own forms are navigations and
-    // always pass through here; whether a browser routes the banner's
+    // so a kept ticket holds back its own trackers once the visitor refuses,
+    // for as long as the refusal flag (cookie_consent_<group>=decline) is in
+    // the browser; the copies older workers kept without those checks were
+    // dropped on activation (LEGACY_TICKET_CACHE). The flag is the limit: the
+    // banner writes it from script, and the server sets it again (for a year)
+    // only when the banner's best-effort POST to /cookies/ lands and
+    // CookieConsentFlagSyncMiddleware answers it. Safari's seven-day cap on
+    // script-written cookies can drop a flag only the script wrote, and a
+    // clear of cookies that leaves Cache Storage drops any flag; a ticket
+    // kept from before the refusal then tracks again. For the kept pages this
+    // purge is a second layer on top of those checks; for the kept tickets
+    // the checks are the only one. The library's own forms are navigations
+    // and always pass through here; whether a browser routes the banner's
     // keepalive fetch through a worker varies, so nothing relies on this
     // purge alone.
     if (event.request.method === "POST" && CONSENT_CHANGE_PATH.test(url.pathname)) {
