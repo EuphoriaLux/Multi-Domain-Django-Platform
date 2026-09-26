@@ -19,6 +19,7 @@ reloads; asking AppState to navigate again mints a new one, so it does.
 """
 
 from pathlib import Path
+import re
 import unittest
 
 IOS_SOURCES = Path(__file__).parents[1] / "CrushLU"
@@ -79,7 +80,9 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertNotIn("= webView.url", web_view)
 
     def test_release_metadata_targets_next_testflight_build(self):
-        project = (Path(__file__).parents[1] / "project.yml").read_text(encoding="utf-8")
+        project = (Path(__file__).parents[1] / "project.yml").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn('MARKETING_VERSION: "1.0.2"', project)
         self.assertIn('CURRENT_PROJECT_VERSION: "8"', project)
@@ -96,8 +99,12 @@ class IOSNavigationSourceTests(unittest.TestCase):
 
         self.assertIn("forMainFrameOnly: true", web_view)
         self.assertIn("message.frameInfo.isMainFrame", web_view)
-        self.assertIn("isTrustedNativeOrigin(message.frameInfo.securityOrigin)", web_view)
-        self.assertIn("guard frame.isMainFrame, isTrustedNativeOrigin(origin)", web_view)
+        self.assertIn(
+            "isTrustedNativeOrigin(message.frameInfo.securityOrigin)", web_view
+        )
+        self.assertIn(
+            "guard frame.isMainFrame, isTrustedNativeOrigin(origin)", web_view
+        )
 
     def test_location_bridge_validates_samples_and_stops_with_navigation(self):
         web_view = _source("CrushWebView.swift")
@@ -125,6 +132,65 @@ class IOSNavigationSourceTests(unittest.TestCase):
             "guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }",
             callback,
         )
+
+    def test_accuracy_callback_reads_manager_state_not_completion_error(self):
+        """The full-accuracy prompt reports only an optional error, never the level.
+
+        The completion of requestTemporaryFullAccuracyAuthorization(
+        withPurposeKey:completion:) takes an ``Error?``. Comparing that argument
+        with ``.fullAccuracy`` does not type-check, so the granted level has to
+        be read back from the manager, which iOS updates before it calls the
+        completion.
+        """
+        web_view = _source("CrushWebView.swift")
+        callback = web_view.split("requestTemporaryFullAccuracyAuthorization(", 1)[1]
+        callback = callback.split("startLocationServices()", 1)[0]
+
+        self.assertIn(") { [weak self] _ in", callback)
+        self.assertIn(
+            "guard self.locationManager.accuracyAuthorization == .fullAccuracy else {",
+            callback,
+        )
+        self.assertIsNone(re.search(r"\bauthorization\s*==", callback))
+
+    def test_trusted_origin_accepts_webkits_default_port_zero(self):
+        """WKSecurityOrigin reports port 0 for an origin on its default port.
+
+        WebKit drops a scheme's default port from an origin, so the app's own
+        page at https://crush.lu arrives with port 0, not 443. Requiring 443
+        alone would reject every geolocation message and every motion
+        permission request from crush.lu itself. The parentheses are
+        load-bearing: ``&&`` binds tighter than ``||``, so without them any
+        HTTPS origin on its default port would pass whatever its host.
+        """
+        web_view = _source("CrushWebView.swift")
+        signature = (
+            "private func isTrustedNativeOrigin(_ origin: WKSecurityOrigin) -> Bool {"
+        )
+        body = web_view.split(signature, 1)[1].split("}", 1)[0]
+
+        self.assertIn('origin.`protocol`.lowercased() == "https"', body)
+        self.assertIn("&& (origin.port == 0 || origin.port == 443)", body)
+        self.assertIn("&& isInternalHost(origin.host)", body)
+        self.assertEqual(body.count("origin.port"), 2)
+
+    def test_swift_sources_have_no_literal_escape_artifacts(self):
+        """A line holding a literal backslash-n is a top-level Swift expression.
+
+        ContentView.swift once lost its trailing blank line to the two
+        characters backslash and n, with no final newline. The Release build
+        stopped there with "expressions are not allowed at the top level",
+        before type-checking the rest of the target, while every string guard
+        in this module still passed.
+        """
+        sources = sorted(IOS_SOURCES.glob("*.swift"))
+        self.assertTrue(sources)
+        for path in sources:
+            with self.subTest(source=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertTrue(text.endswith("\n"), "missing trailing newline")
+                lines = [line.strip() for line in text.splitlines()]
+                self.assertNotIn("\\n", lines)
 
     def test_location_and_motion_usage_descriptions_are_present(self):
         info = _source("Info.plist")

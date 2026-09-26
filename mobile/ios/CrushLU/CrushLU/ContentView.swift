@@ -179,4 +179,4 @@ private struct PushPermissionPrompt: View {
         .background(.thinMaterial)
     }
 }
-\n
+

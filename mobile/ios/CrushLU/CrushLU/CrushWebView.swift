@@ -561,9 +561,14 @@ struct CrushWebView: UIViewRepresentable {
             decisionHandler(.grant)
         }
 
+        /// WKSecurityOrigin reports port 0 when the origin is on its scheme's
+        /// default port, so https://crush.lu arrives as 0, not 443. 443 is
+        /// accepted as well, so a WebKit that reports the default port
+        /// explicitly still passes. Keep the parentheses: `&&` binds tighter
+        /// than `||`, and without them any HTTPS origin on port 0 would pass.
         private func isTrustedNativeOrigin(_ origin: WKSecurityOrigin) -> Bool {
             origin.`protocol`.lowercased() == "https"
-                && origin.port == 443
+                && (origin.port == 0 || origin.port == 443)
                 && isInternalHost(origin.host)
         }
 
@@ -812,14 +817,17 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             isRequestingFullAccuracy = true
             locationManager.requestTemporaryFullAccuracyAuthorization(
                 withPurposeKey: "CacheNavigation"
-            ) { [weak self] authorization in
+            ) { [weak self] _ in
+                // The completion receives only an optional error, never the
+                // granted level. iOS updates accuracyAuthorization before it
+                // calls this, so read the user's answer back from the manager.
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.isRequestingFullAccuracy = false
                     // The user can leave the hunt while the system prompt is
                     // visible. Do not restart sensors for a canceled watch.
                     guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }
-                    guard authorization == .fullAccuracy else {
+                    guard self.locationManager.accuracyAuthorization == .fullAccuracy else {
                         self.failActiveRequests(
                             code: 1,
                             message: "Precise location is required for Cache navigation. Enable Precise Location in Settings and try again."
