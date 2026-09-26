@@ -428,7 +428,8 @@ def record_final_response(request):
     Record user's response to the journey's last chapter (Yes/Thinking) and
     mark the journey completed. The last chapter is ``total_chapters``: 6 for
     Wonderland, the configured count for a custom journey.
-    Sends email notification to journey creator.
+    Sends a completion notice to JOURNEY_NOTIFICATION_EMAIL (default
+    DEFAULT_FROM_EMAIL).
     """
     try:
         data = json.loads(request.body)
@@ -465,10 +466,11 @@ def record_final_response(request):
             }, status=404)
 
         # The final question completes the journey, so it is only answerable
-        # once the last chapter is done. chapter_view.html shows the question
-        # under the same condition, so page and endpoint agree. Checking every
-        # chapter instead would refuse an answer the page offers when an admin
-        # turns off requires_previous_completion.
+        # once the last chapter is done. chapter_view.html only offers the
+        # question once that chapter's ChapterProgress is completed, so page
+        # and endpoint share this gate. Checking every chapter instead would
+        # refuse an answer the page offers when an admin turns off
+        # requires_previous_completion.
         last_chapter = journey_progress.journey.total_chapters
         if not ChapterProgress.objects.filter(
             journey_progress=journey_progress,
