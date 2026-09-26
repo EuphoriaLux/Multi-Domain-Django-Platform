@@ -101,13 +101,22 @@ def submit_challenge(request):
                 'points_earned': existing_attempt.points_earned
             })
 
-        # Special handling for Chapters 2, 4, 5 - they're questionnaires, not quizzes
-        # All answers are accepted and saved for later analysis
-        # Also accept all open_text/would_you_rather challenges regardless of chapter
-        # OR if no correct_answer is set (blank = questionnaire mode)
-        if (challenge.chapter.chapter_number in [2, 4, 5] or
-            challenge.challenge_type in ['open_text', 'would_you_rather'] or
-            not challenge.correct_answer.strip()):
+        # Questionnaire mode: every answer is accepted with full points and
+        # saved for later analysis. It applies to open_text/would_you_rather
+        # challenges, to any challenge without a correct_answer (blank =
+        # questionnaire mode), and to Wonderland's Chapters 2, 4 and 5, which
+        # are questionnaires by design. The chapter rule is Wonderland's own:
+        # in a custom journey a Chapter 2 riddle with a correct_answer is a
+        # quiz like any other.
+        is_wonderland_questionnaire_chapter = (
+            challenge.chapter.journey.journey_type == "wonderland"
+            and challenge.chapter.chapter_number in [2, 4, 5]
+        )
+        if (
+            is_wonderland_questionnaire_chapter
+            or challenge.challenge_type in ["open_text", "would_you_rather"]
+            or not challenge.correct_answer.strip()
+        ):
             is_correct = True  # All answers accepted
             points_earned = challenge.points_awarded  # Full points awarded
             hints_used = []  # No hints in questionnaire mode

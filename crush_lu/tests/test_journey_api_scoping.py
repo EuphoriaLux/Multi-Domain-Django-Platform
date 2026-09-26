@@ -771,3 +771,134 @@ class LastChapterFinalQuestionTests(TestCase):
         self.assertFalse(response.json()["success"])
         self._assert_not_completed(self.wonderland)
         self.assertEqual(len(mail.outbox), 0)
+
+
+class QuestionnaireChapterTests(TestCase):
+    """Chapters 2, 4 and 5 are questionnaires in Wonderland only.
+
+    submit_challenge accepted any answer in those chapters of every journey.
+    Once #1034 made custom journeys playable, a custom journey's Chapter 2
+    riddle took any answer for full points (Codex on #1034). A custom journey
+    still gets questionnaire mode from a blank correct_answer or an
+    open_text / would_you_rather challenge.
+    """
+
+    def setUp(self):
+        cache.clear()
+        user, experience = _make_member("Frank")
+        self.custom = _add_journey(
+            user,
+            experience,
+            "Custom",
+            "Custom secret",
+            points=0,
+            journey_type="custom",
+        )
+        self.wonderland = _add_journey(
+            user, experience, "Wonderland", "Wonderland secret", points=0
+        )
+        self.client.force_login(user)
+
+    def _challenge(self, played, number, **fields):
+        """A new challenge in Chapter ``number`` of ``played``'s journey. By
+        default it is Chapter 1's riddle: correct_answer "4", 100 points."""
+        chapter = JourneyChapter.objects.get_or_create(
+            journey=played.journey,
+            chapter_number=number,
+            defaults={
+                "title": f"Chapter {number}",
+                "theme": "Mystery",
+                "story_introduction": "Once upon a time",
+                "completion_message": "Well done",
+            },
+        )[0]
+        values = {
+            "challenge_type": "riddle",
+            "question": "What is 2+2?",
+            "correct_answer": "4",
+            "points_awarded": 100,
+            "success_message": f"Chapter {number} secret",
+        }
+        values.update(fields)
+        return JourneyChallenge.objects.create(
+            chapter=chapter,
+            challenge_order=chapter.challenges.count() + 1,
+            **values,
+        )
+
+    def _submit(self, challenge, answer):
+        return self.client.post(
+            SUBMIT_URL,
+            data=json.dumps({"challenge_id": challenge.id, "answer": answer}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+
+    def _points(self, played):
+        played.progress.refresh_from_db()
+        return played.progress.total_points
+
+    def test_custom_journey_checks_answers_in_chapters_2_4_and_5(self):
+        for number in (2, 4, 5):
+            with self.subTest(chapter=number):
+                challenge = self._challenge(self.custom, number)
+                before = self._points(self.custom)
+
+                wrong = self._submit(challenge, "banana")
+
+                self.assertEqual(wrong.status_code, 200)
+                body = wrong.json()
+                self.assertTrue(body["success"])
+                self.assertFalse(body["is_correct"])
+                self.assertNotIn("success_message", body)
+                self.assertNotIn("points_earned", body)
+                attempt = ChallengeAttempt.objects.get(challenge=challenge)
+                self.assertFalse(attempt.is_correct)
+                self.assertEqual(attempt.points_earned, 0)
+                self.assertEqual(self._points(self.custom), before)
+
+                # A quiz, not a dead end: the right answer still scores.
+                right = self._submit(challenge, "4")
+
+                self.assertEqual(right.status_code, 200)
+                body = right.json()
+                self.assertTrue(body["is_correct"])
+                self.assertEqual(body["points_earned"], 100)
+                self.assertEqual(body["success_message"], f"Chapter {number} secret")
+                self.assertEqual(self._points(self.custom), before + 100)
+
+    def test_wonderland_chapters_2_4_and_5_stay_questionnaires(self):
+        for number in (2, 4, 5):
+            with self.subTest(chapter=number):
+                challenge = self._challenge(self.wonderland, number)
+                before = self._points(self.wonderland)
+
+                response = self._submit(challenge, "banana")
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertTrue(body["is_correct"])
+                self.assertEqual(body["points_earned"], 100)
+                self.assertEqual(self._points(self.wonderland), before + 100)
+                self.assertTrue(
+                    ChallengeAttempt.objects.get(challenge=challenge).is_correct
+                )
+
+    def test_custom_journey_keeps_questionnaire_mode_without_the_chapter_rule(self):
+        cases = (
+            ("blank correct_answer", {"correct_answer": ""}),
+            ("open_text", {"challenge_type": "open_text"}),
+            ("would_you_rather", {"challenge_type": "would_you_rather"}),
+        )
+        for label, fields in cases:
+            with self.subTest(label):
+                challenge = self._challenge(self.custom, 2, **fields)
+                before = self._points(self.custom)
+
+                response = self._submit(challenge, "banana")
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertTrue(body["is_correct"])
+                self.assertEqual(body["points_earned"], 100)
+                self.assertEqual(self._points(self.custom), before + 100)
