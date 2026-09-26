@@ -53,6 +53,31 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
+# Crush Data MCP (read-only analytics API, crush_lu/api_analytics.py).
+# Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+# The API stays dark (404) unless both keys are set AND the "analytics" DB alias
+# exists, which production.py defines only when ANALYTICS_DB_USER/_PASSWORD are
+# set. All four are slot-sticky on the production slot only; staging never has
+# them. ANALYTICS_API_KEY is deliberately separate from ADMIN_API_KEY, which
+# triggers jobs and emails. ANALYTICS_DB_ALIAS is not env-driven so production
+# can never point analytics queries at the admin "default" connection.
+ANALYTICS_API_KEY = os.getenv("ANALYTICS_API_KEY", "")
+ANALYTICS_PSEUDONYM_KEY = os.getenv("ANALYTICS_PSEUDONYM_KEY", "")
+ANALYTICS_DB_ALIAS = "analytics"
+# Other databases on the server the analytics login may still reach through
+# PUBLIC's default CONNECT (which cannot be revoked for one role alone). Only
+# databases holding no member data belong here; the default is Azure's own
+# plus template1, PostgreSQL's empty template for new databases.
+# Both setup_analytics_role and the 10-minute runtime audit enforce it.
+ANALYTICS_ALLOWED_OTHER_DATABASES = [
+    name.strip()
+    for name in os.getenv(
+        "ANALYTICS_ALLOWED_OTHER_DATABASES",
+        "postgres,azure_sys,azure_maintenance,template1",
+    ).split(",")
+    if name.strip()
+]
+
 # Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
 # the new pipeline is dormant until explicitly enabled per environment. Works
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
@@ -724,9 +749,13 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # (mounted globally via allauth.urls) instead of Crush's /login/ — the latter
 # only exists in crush_lu/urls.py, so non-Crush domains (vinsdelux,
 # entreprinder, power-up, arborist, delegations, tableau, portal) would 404
-# on the post-confirm redirect. The Crush prefill UX still works for users
-# who arrive at /login/ directly via the success message; this setting only
-# governs allauth's anonymous post-confirm redirect.
+# on the post-confirm redirect. Crush.lu overrides this per request:
+# MultiDomainAccountAdapter.get_email_verification_redirect_url sends
+# anonymous crush.lu members to the tabbed /<lang>/login/ page (active
+# language, else LANGUAGE_CODE), where the email_confirmed handler's
+# login_prefill_email prefills the address and "Forgot your password?" is
+# one tap away. Every other domain keeps this global value, and authenticated
+# users (any domain) keep allauth's default authenticated redirect.
 ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/accounts/login/"
 
 # Remember me by default

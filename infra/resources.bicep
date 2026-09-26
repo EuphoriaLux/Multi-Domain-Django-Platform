@@ -430,6 +430,14 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // back to the code default. Every Crush Connect phase flag is pinned
       // here, not just the ones whose values currently differ.
       'ADMIN_API_KEY'
+      // Crush Data MCP (read-only analytics API): production slot only. If these
+      // swapped, staging would open the API or prod would lose its DB login.
+      // Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+      'ANALYTICS_API_KEY'
+      'ANALYTICS_PSEUDONYM_KEY'
+      'ANALYTICS_DB_USER'
+      'ANALYTICS_DB_PASSWORD'
+      'ANALYTICS_ALLOWED_OTHER_DATABASES'
       'CRUSH_CONNECT_LAUNCHED'
       // BETA phase: opens the candidate track while receivers stay tester-gated.
       'CRUSH_CONNECT_CANDIDATE_OPEN'

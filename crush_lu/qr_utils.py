@@ -96,6 +96,47 @@ def generate_qr_code_base64(url: str, **kwargs) -> str:
     return f"data:image/png;base64,{b64}"
 
 
+def generate_qr_code_svg(
+    data: str,
+    border: int = 4,
+    error_correction: int = ERROR_CORRECT_M,
+) -> str:
+    """
+    Generate a QR code as an inline ``<svg>`` element, rendered server-side.
+
+    Dark modules sit on an explicit white background that also covers the
+    quiet zone (``border`` modules), so the code stays scannable when the page
+    around it is in dark mode. The viewBox is in module units and the element
+    is sized 100% x 100%, so the caller's container decides the rendered size.
+    There is no XML declaration, so the string can be inlined into HTML as-is.
+
+    The markup is pure geometry built by ``qrcode`` -- ``data`` is encoded
+    into the module pattern and never appears as text -- so it is safe to
+    render unescaped.
+    """
+    if not HAS_QRCODE:
+        raise ImportError("qrcode package not installed. Run: pip install qrcode[pil]")
+
+    from qrcode.image.svg import SvgPathFillImage
+
+    qr = qrcode.QRCode(error_correction=error_correction, border=border)
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    img = qr.make_image(image_factory=SvgPathFillImage)
+    svg = img.get_image()
+    # Replace the physical "NNmm" size with a fluid one; the viewBox keeps
+    # the aspect ratio. crispEdges stops anti-aliasing seams between modules.
+    svg.set("width", "100%")
+    svg.set("height", "100%")
+    svg.set("shape-rendering", "crispEdges")
+
+    markup = img.to_string(encoding="unicode")
+    if markup.startswith("<?xml"):
+        markup = markup.split("?>", 1)[1].lstrip()
+    return markup
+
+
 def generate_advent_qr_url(token: uuid.UUID, domain: str = "crush.lu") -> str:
     """
     Generate the full URL for an Advent Calendar QR code.
