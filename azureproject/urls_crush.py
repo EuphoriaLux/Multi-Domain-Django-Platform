@@ -868,7 +868,7 @@ urlpatterns = (
             name="api_admin_campaign_dispatch",
         ),
         # SumUp Tier-2 refund reconciliation (SumUpReconciliation Azure Function
-        # timer, daily). Gated by SUMUP_RECONCILIATION_ENABLED (default off).
+        # timer, hourly). Gated by SUMUP_RECONCILIATION_ENABLED (default off).
         # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
         path(
             "api/admin/sumup-reconciliation/",

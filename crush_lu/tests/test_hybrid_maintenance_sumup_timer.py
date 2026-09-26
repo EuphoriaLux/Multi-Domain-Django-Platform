@@ -4,7 +4,7 @@ A merge under azure-functions/ deploys that Function to production at once,
 while the Django route only reaches production at the next slot swap. So the
 timer ships dormant: with its URL unset it must send nothing, log a WARNING
 naming the variable, and NOT fail the invocation (which would trip the
-timer-failure alert daily). Every other timer keeps the "unset raises" rule —
+timer-failure alert every run). Every other timer keeps the "unset raises" rule —
 that rule is what caught the 2026-07-30 outage, and this must not weaken it.
 
 Loaded with a stubbed ``azure.functions`` (same idiom as
@@ -281,13 +281,16 @@ def test_exact_skip_payload_passes(app, posts, monkeypatch):
     app.sumup_reconciliation(FakeTimer())  # must not raise
 
 
-def test_schedule_is_0234_utc():
-    """Codex 4080044200: clear of the :32 campaign tick's 110 s tail."""
+def test_schedule_is_hourly_at_34():
+    """Codex 4080044200 (originally daily 02:34): clear of the :32 campaign
+    tick's 110 s tail. Now hourly (Codex thread E: one write/day could not
+    drain a batch of dashboard refunds before rows aged out of the 30-day
+    window) but still landing on :34 past the hour."""
     import re
 
     src = MODULE_PATH.read_text(encoding="utf-8")
     block = src[src.index('@app.function_name(name="SumUpReconciliation")') :]
-    assert re.search(r'schedule="0 34 2 \* \* \*"', block[:1200])
+    assert re.search(r'schedule="0 34 \* \* \* \*"', block[:2400])
 
 
 def test_needs_review_fails_the_invocation(app, posts, monkeypatch, caplog):

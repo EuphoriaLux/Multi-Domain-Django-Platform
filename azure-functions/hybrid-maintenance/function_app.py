@@ -482,16 +482,38 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
 
 @app.function_name(name="SumUpReconciliation")
 @app.timer_trigger(
-    # Daily at 02:34 UTC. What runs in hour 02 on this app: invites :x0,
-    # campaigns :x2/:x7 (5 min apart, so no minute is 3 clear of both), echo
-    # :05, SLA :15, recaps :25, lead reminders :45 (reminders :35 and feedback
-    # :55 only run 09-20). :34 is 4 after the :30 invites, 3 before the :37
-    # campaign tick and 6 before :40; the :32 campaign tick is capped by its own
-    # 110 s timeout (ends by 02:33:50) and this call by its 110 s timeout too
-    # (ends by 02:35:50), so neither overlaps another trigger. :39 was
-    # rejected: it would run into the :40 invites. Also clear of the finops
-    # app's 03:00 sync and 04:00-06:40 retail-price window.
-    schedule="0 34 2 * * *",
+    # Hourly at :34 (was daily at 02:34). MAX_WRITES_PER_RUN stays 1, so one
+    # write per day could not drain a batch of dashboard refunds before rows
+    # aged out of the 30-day window; hourly gives the sweep 24 chances a day
+    # instead of 1, at the same per-run cost.
+    #
+    # Collision analysis, redone for every hour (the old comment was hour-02
+    # specific and stopped being true the moment this stopped running only at
+    # 02:00): invites tick every 10 min (:x0, 60 s timeout, so a :30 start
+    # ends by :31 — clear); campaigns tick every 5 min offset by 2 (:x2/:x7,
+    # 110 s timeout each); echo :05, SLA :15, recaps :25 (110 s), lead
+    # reminders :45 — all 110 s or 60 s timeouts, none of which reaches :34.
+    # :34 sits 2 s clear of the :32 campaign tick's worst-case tail (starts
+    # :32:00, 110 s timeout, ends by :33:50) and this call's own 110 s
+    # timeout (starts :34:00, ends by :35:50) finishes 10 s before the next
+    # campaign tick starts at :37:00 — so neither direction overlaps.
+    #
+    # The one residual: EventReminders and EventFeedback also use 110 s
+    # timeouts at :35 and :55, but only across 09:00-20:00 UTC. :34's tail
+    # (ending :35:50) overlaps EventReminders' first ~50 s every one of those
+    # hours. Accepted: both are independent bounded HTTP calls to the Django
+    # app, neither holds a lock the other needs (EventReminders only reads
+    # confirmed registrations and sends email; this sweep locks one specific
+    # PaymentTransaction/EventRegistration pair at a time), and :54 has the
+    # identical overlap with EventFeedback at :55 — there is no minute in the
+    # hour that clears every 110 s-timeout job AND this one's own tail.
+    #
+    # Also now runs every hour, including inside the finops app's separate
+    # 04:00-06:40 retail-price window that the daily 02:34 schedule used to
+    # avoid entirely — unavoidable once this fires hourly. Accepted: this
+    # sweep's own footprint per run stays bounded to its 100 s Django-side
+    # budget and MAX_WRITES_PER_RUN=1 regardless of what hour it lands in.
+    schedule="0 34 * * * *",
     arg_name="timer",
     run_on_startup=False,
     use_monitor=True,
@@ -515,6 +537,19 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     answers 202. ``errors > 0`` therefore FAILS this invocation, which is what
     trips the timer-failure alert. ``partial`` and ``unchecked`` need a human
     but are not failures, so they log at WARNING. Only the counts are logged.
+
+    Hourly re-alerting: a row this sweep WRITES (a full refund reconciled,
+    whether cleanly or as ``needs_review``) flips its PaymentTransaction from
+    PAID to REFUNDED in the same call, so the query that selects rows to
+    check (``status=PAID``) never selects it again — it alerts once, not
+    once an hour. A row left ``needs_review`` WITHOUT a write (an unresolved
+    sibling payment, an active checkout-creation claim) stays PAID and is
+    re-selected — and, with an hourly cadence and a 30-day window that mostly
+    empties in one pass, re-flagged on every run until staff resolve it, i.e.
+    up to 24x/day rather than the old 1x/day. That is unchanged in kind
+    (the daily timer already re-flagged it every day) and is the intended
+    behaviour, not a bug: an unresolved row is supposed to keep alerting
+    until someone looks at it.
 
     Contract: ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
     """

@@ -1,7 +1,7 @@
 """
 Admin API endpoint for the SumUp Tier-2 refund reconciliation sweep.
 
-Invoked daily by the ``SumUpReconciliation`` Azure Function timer in
+Invoked hourly by the ``SumUpReconciliation`` Azure Function timer in
 ``azure-functions/hybrid-maintenance/``. Same thin-wrapper shape as
 ``api_admin_campaigns``:
 
@@ -152,7 +152,7 @@ COUNTER_KEYS = (
 
 # Resume cursor (Codex 4080651811). Bounded oldest-first runs that leave the
 # rows they read PAID would otherwise re-read the same oldest rows every
-# night. The cursor is the (paid-or-created moment, pk) of the last row READ;
+# run. The cursor is the (paid-or-created moment, pk) of the last row READ;
 # the next run starts strictly after it, and a run that reaches the end of the
 # window clears it so the following one wraps to the oldest again. Kept in the
 # Django cache (Redis in production), so it needs no migration; losing it only
