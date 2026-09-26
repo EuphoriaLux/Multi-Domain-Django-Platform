@@ -82,10 +82,12 @@ def _stale_in_browser_js(cookie_group, rendered_version):
     try {{
       var rendered = Date.parse({rendered});
       var latest = Date.parse(localStorage.getItem({key}) || '');
-      if (!isNaN(latest) && (isNaN(rendered) || latest > rendered)) return true;
       var match = document.cookie.match(new RegExp('(?:^|; )' + {flag} + '=([^;]*)'));
       var value = match ? decodeURIComponent(match[1]) : '';
       var accepted = value.indexOf('accept:') === 0 ? Date.parse(value.slice(7)) : NaN;
+      if (!isNaN(latest) && (isNaN(rendered) || latest > rendered)) {{
+        return isNaN(accepted) || accepted < latest;
+      }}
       return !isNaN(rendered) && !isNaN(accepted) && accepted < rendered;
     }} catch (e) {{ return false; }}
   }})()"""

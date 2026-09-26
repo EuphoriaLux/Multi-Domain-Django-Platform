@@ -328,6 +328,80 @@ def test_kept_page_cannot_track_after_a_newer_group_version_was_seen(page):
 
 
 @pytest.mark.playwright
+def test_kept_ticket_honors_consent_renewed_at_the_newer_version(page):
+    request = RequestFactory().get("/")
+    old = "2026-01-01T00:00:00+00:00"
+    newer = "2026-06-01T00:00:00+00:00"
+    for group in ("analytics", "marketing"):
+        request.COOKIES[f"cookie_consent_{group}"] = f"accept:{old}"
+    context = Context(
+        {
+            "request": request,
+            "GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST",
+            "FACEBOOK_PIXEL_ID": "123",
+            "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc",
+        }
+    )
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(
+        "azureproject.templatetags.analytics._cookie_group_version",
+        return_value=old,
+    ):
+        head = Template(
+            "{% load analytics %}{% analytics_head %}{% appinsights_head %}"
+        ).render(context)
+        body = Template("{% load analytics %}{% analytics_body %}").render(context)
+        banner = render_to_string("includes/cookie_banner.html", {"request": request})
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body=f"<!doctype html><html><head>{head}</head><body>{body}{banner}</body></html>",
+        ),
+    )
+    for pattern in (
+        "https://www.googletagmanager.com/**",
+        "https://connect.facebook.net/**",
+        "https://js.monitor.azure.com/**",
+    ):
+        page.route(pattern, lambda route: route.abort())
+    page.context.add_cookies(
+        [
+            {"name": f"cookie_consent_{group}", "value": f"accept:{newer}", "url": url}
+            for group in ("analytics", "marketing")
+        ]
+    )
+    page.add_init_script(
+        "localStorage.setItem('crush_consent_version_analytics', "
+        f"'{newer}');"
+        "localStorage.setItem('crush_consent_version_marketing', "
+        f"'{newer}');"
+    )
+    page.goto(url)
+    assert not page.locator("#cookie-consent-banner").is_visible()
+    updates = [
+        call[2]
+        for call in page.evaluate("window.dataLayer.map(args => Array.from(args))")
+        if call[:2] == ["consent", "update"]
+    ]
+    assert updates[-1]["analytics_storage"] == "granted"
+    assert updates[-1]["ad_storage"] == "granted"
+    assert page.evaluate("typeof window.fbq") == "function"
+    assert page.evaluate("typeof window.appInsights") == "object"
+
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
+    )
+    assert not page.locator("#cookie-consent-banner").is_visible()
+    assert page.evaluate("window.fbq.queue.map(args => Array.from(args))")[-1] != [
+        "consent",
+        "revoke",
+    ]
+
+
+@pytest.mark.playwright
 @pytest.mark.parametrize(
     "stale_groups, expected_checked",
     [

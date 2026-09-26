@@ -879,13 +879,18 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
 
     function hasNewerServerVersion(group) {
         const version = serverVersions()[group];
+        const rendered = Date.parse(version || '');
+        const flag = getCookie('cookie_consent_' + group);
+        const accepted = typeof flag === 'string' && flag.indexOf('accept:') === 0
+            ? Date.parse(flag.slice(7)) : NaN;
         try {
             const known = localStorage.getItem('crush_consent_version_' + group);
-            if (known && (!version || Date.parse(known) > Date.parse(version))) return true;
+            const latest = Date.parse(known || '');
+            if (!isNaN(latest) && (isNaN(rendered) || latest > rendered)) {
+                return isNaN(accepted) || accepted < latest;
+            }
         } catch (e) { /* storage can be unavailable in private mode */ }
-        const flag = getCookie('cookie_consent_' + group);
-        return typeof flag === 'string' && flag.indexOf('accept:') === 0 &&
-            !!version && Date.parse(flag.slice(7)) < Date.parse(version);
+        return !isNaN(accepted) && !isNaN(rendered) && accepted < rendered;
     }
 
     // The stored choice as {analytics, marketing}: the server's view first,
