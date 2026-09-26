@@ -3,12 +3,12 @@
 import logging
 import re
 
-from cookie_consent.util import get_cookie_value_from_request
 from django.db import transaction
 from django.utils import timezone, translation
 from django.utils.translation import gettext as _
 
 from azureproject.email_utils import send_domain_email
+from azureproject.templatetags.analytics import stored_cookie_choice
 from arborist.models import ArboristLead
 
 logger = logging.getLogger(__name__)
@@ -16,17 +16,17 @@ ATTRIBUTION_KEY = "arborist_attribution"
 
 
 def has_analytics_consent(request):
-    """True only for an explicit analytics opt-in.
+    """True only for a current, explicit analytics opt-in.
 
-    The shared banner (core/templates/includes/cookie_banner.html) stores JSON
-    in ``cookie_consent``, which django-cookie-consent cannot parse, and records
-    the choice for the server in ``cookie_consent_analytics``. The library's own
-    /cookies/ pages still write the library format, so fall back to it.
+    Reads the choice exactly as the analytics tags do (stored_cookie_choice):
+    the shared banner's ``cookie_consent_analytics`` flag, which it writes as
+    ``accept:<group version>`` or ``decline`` (CookieConsentFlagSyncMiddleware
+    writes the same after django-cookie-consent's own /cookies/ forms), then
+    the banner's JSON, then the library's own cookie. An acceptance older than
+    the analytics group's current version is undecided, as it is for the
+    trackers, so it keeps no attribution until the visitor accepts again.
     """
-    banner_choice = request.COOKIES.get("cookie_consent_analytics")
-    if banner_choice is not None:
-        return banner_choice == "accept"
-    return get_cookie_value_from_request(request, "analytics") is True
+    return stored_cookie_choice(request, "analytics") is True
 
 
 def capture_attribution(request):
