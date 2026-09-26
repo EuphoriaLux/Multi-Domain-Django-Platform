@@ -104,6 +104,9 @@ def test_unblock_confirms_then_undo_reblocks(page, live_server):
     assert not UserBlock.objects.filter(blocker=me, blocked=target).exists()
     toast = page.locator("#toast-container [role=alert]")
     expect(toast).to_contain_text("You unblocked Marc.")
+    # Outlives the 5s default: the only Undo must not time out (WCAG 2.2.1).
+    page.wait_for_timeout(5600)
+    expect(toast).to_be_visible()
 
     with page.expect_navigation():
         toast.get_by_role("button", name="Undo").click()

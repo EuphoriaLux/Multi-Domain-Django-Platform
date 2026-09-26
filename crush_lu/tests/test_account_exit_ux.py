@@ -10,6 +10,7 @@ Account-exit UX (UX Wave 2, WP7: findings 8-05 and 8-15).
 """
 
 import re
+import time
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -21,7 +22,10 @@ from django.utils import translation
 from crush_lu.models import UserBlock
 from crush_lu.tests.test_crush_connect import _make_user
 from crush_lu.tests.test_moderation import _grant_consent
-from crush_lu.views_moderation import UNDO_UNBLOCK_SESSION_KEY
+from crush_lu.views_moderation import (
+    UNDO_UNBLOCK_MAX_AGE_SECONDS,
+    UNDO_UNBLOCK_SESSION_KEY,
+)
 
 pytestmark = [pytest.mark.urls("azureproject.urls_crush"), pytest.mark.django_db]
 
@@ -184,16 +188,48 @@ def test_undo_reblocks_with_original_reason(client):
     UserBlock.objects.create(blocker=me, blocked=target, reason="harassment")
     client.post(f"/en/members/{target.id}/unblock/", **HOST)
 
-    # The Undo form posts to the existing block endpoint.
-    resp = client.post(
-        f"/en/members/{target.id}/block/",
-        {"reason": "harassment", "next": "/en/settings/blocked/"},
-        **HOST,
-    )
+    # Submit exactly what the rendered Undo form carries (action + hidden inputs).
+    html = client.get("/en/settings/blocked/", **HOST).content.decode()
+    form = re.search(r'<form id="undo-unblock-form"[^>]*>.*?</form>', html, re.S)
+    assert form, "Undo form not rendered"
+    action = re.search(r'action="([^"]+)"', form.group(0)).group(1)
+    data = dict(re.findall(r'name="([^"]+)" value="([^"]*)"', form.group(0)))
+    assert action == f"/en/members/{target.id}/block/"
+    assert data["reason"] == "harassment"
+    assert "csrfmiddlewaretoken" in data
+
+    resp = client.post(action, data, **HOST)
     assert resp.status_code == 302
+    assert resp["Location"] == "/en/settings/blocked/"
     assert UserBlock.objects.filter(
         blocker=me, blocked=target, reason="harassment"
     ).exists()
+
+
+def test_undo_toast_stays_until_dismissed_and_works_without_js(client):
+    me = _login(client)
+    target = _make_user(username="target")
+    UserBlock.objects.create(blocker=me, blocked=target)
+    client.post(f"/en/members/{target.id}/unblock/", **HOST)
+    html = client.get("/en/settings/blocked/", **HOST).content.decode()
+    # No auto-dismiss: the only Undo must not time out (WCAG 2.2.1).
+    assert 'data-toast-duration="0"' in html
+    noscripts = re.findall(r"<noscript>(.*?)</noscript>", html, re.S)
+    fallback = next(n for n in noscripts if "You unblocked Target." in n)
+    assert 'form="undo-unblock-form"' in fallback
+
+
+def test_stale_undo_payload_is_ignored(client, monkeypatch):
+    me = _login(client)
+    target = _make_user(username="target")
+    UserBlock.objects.create(blocker=me, blocked=target)
+    client.post(f"/en/members/{target.id}/unblock/", **HOST)
+
+    later = time.time() + UNDO_UNBLOCK_MAX_AGE_SECONDS + 1
+    monkeypatch.setattr("crush_lu.views_moderation.time.time", lambda: later)
+    html = client.get("/en/settings/blocked/", **HOST).content.decode()
+    assert "undo-unblock-form" not in html
+    assert UNDO_UNBLOCK_SESSION_KEY not in client.session
 
 
 def test_no_undo_toast_when_already_reblocked(client):

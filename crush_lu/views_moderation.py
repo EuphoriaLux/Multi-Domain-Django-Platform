@@ -8,6 +8,7 @@ report drops a record into the admin moderation queue (``UserReportAdmin``).
 """
 
 import logging
+import time
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -25,6 +26,9 @@ User = get_user_model()
 # Session key carrying the just-removed block to the Blocked members page, which
 # offers an "Undo" toast that re-blocks through ``block_user``.
 UNDO_UNBLOCK_SESSION_KEY = "crush_lu_undo_unblock"
+# An Undo offered later than this (unblock redirected elsewhere, page opened much
+# later) would be stale, so the payload is dropped instead.
+UNDO_UNBLOCK_MAX_AGE_SECONDS = 120
 
 
 def _back(request, default="crush_lu:crush_connect_hub"):
@@ -95,6 +99,7 @@ def unblock_user(request, user_id: int):
         request.session[UNDO_UNBLOCK_SESSION_KEY] = {
             "user_id": user_id,
             "reason": block.reason,
+            "at": time.time(),
         }
         block.delete()
     return _back(request, default="crush_lu:blocked_members")
@@ -169,6 +174,8 @@ def blocked_members(request):
     )
     undo = request.session.pop(UNDO_UNBLOCK_SESSION_KEY, None)
     undo_member = None
+    if undo and time.time() - undo.get("at", 0) > UNDO_UNBLOCK_MAX_AGE_SECONDS:
+        undo = None
     if undo:
         undo_member = User.objects.filter(pk=undo.get("user_id")).first()
         # Re-blocked meanwhile (other tab): nothing left to undo.

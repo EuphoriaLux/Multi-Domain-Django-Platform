@@ -11,7 +11,9 @@
  * submits that <form> in the page. A server-rendered page can raise a toast on
  * load with <div hidden data-toast data-toast-type="success"
  * data-toast-message="..." data-toast-action-label="Undo"
- * data-toast-action-form="<form id>" data-toast-duration="10000"></div>.
+ * data-toast-action-form="<form id>" data-toast-duration="0"></div>.
+ * Give action toasts duration 0 so they stay until the user acts or dismisses
+ * them (WCAG 2.2.1: an Undo must not time out under a keyboard/SR user).
  */
 
 (function () {
@@ -109,7 +111,7 @@
             var actionBtn = document.createElement("button");
             actionBtn.type = "button";
             actionBtn.className =
-                "flex-shrink-0 min-h-11 px-3 -my-2 rounded-md text-sm font-semibold underline underline-offset-2 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-purple-500";
+                "flex-shrink-0 self-center min-h-11 px-3 rounded-md text-sm font-semibold underline underline-offset-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-purple-500";
             actionBtn.textContent = toast.action.label;
             actionBtn.addEventListener("click", function () {
                 var form = document.getElementById(toast.action.form);

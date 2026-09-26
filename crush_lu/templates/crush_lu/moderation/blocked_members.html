@@ -55,9 +55,15 @@
             <input type="hidden" name="next" value="{% url 'crush_lu:blocked_members' %}">
         </form>
         {% blocktrans with name=undo_member.first_name|default:undo_member.username asvar undo_message %}You unblocked {{ name }}.{% endblocktrans %}
-        <div hidden data-toast data-toast-type="success" data-toast-duration="10000"
+        <div hidden data-toast data-toast-type="success" data-toast-duration="0"
              data-toast-message="{{ undo_message }}"
              data-toast-action-label="{% trans 'Undo' %}" data-toast-action-form="undo-unblock-form"></div>
+        <noscript>
+            <p class="mt-6 flex items-center justify-between gap-3 rounded-xl bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-3" role="status">
+                {{ undo_message }}
+                <button type="submit" form="undo-unblock-form" class="btn-crush-outline btn-sm min-h-11">{% trans "Undo" %}</button>
+            </p>
+        </noscript>
         {% endif %}
     </div>
 </div>
