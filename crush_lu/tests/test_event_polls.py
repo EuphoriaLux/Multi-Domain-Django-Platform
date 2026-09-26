@@ -432,6 +432,19 @@ class PublicThemePollTests(TestCase):
         self._vote_with_gender('F')
         self.assertEqual(EventPollVote.objects.get().voter_gender, 'M')
 
+    def test_later_votes_keep_the_first_gender(self):
+        other = EventPollOption.objects.create(poll=self.poll, name_en='Karaoke')
+        self._login()
+        self._vote_with_gender('F')
+        self.client.post(
+            f'/api/polls/{self.poll.id}/vote/',
+            data=json.dumps({'option_ids': [other.id], 'gender': 'M'}),
+            content_type='application/json',
+        )
+        self.assertEqual(
+            set(EventPollVote.objects.values_list('voter_gender', flat=True)), {'F'}
+        )
+
     def test_unknown_gender_answer_is_ignored(self):
         self._login()
         self._vote_with_gender('X')
@@ -469,7 +482,7 @@ class PublicThemePollTests(TestCase):
         from crush_lu.admin.event_polls import EventPollSuggestionAdmin
 
         suggestion = EventPollSuggestion.objects.create(
-            poll=self.poll, user=self.user, text='Salsa night'
+            poll=self.poll, user=self.user, text='Salsa-Abend', language='de'
         )
         model_admin = EventPollSuggestionAdmin(EventPollSuggestion, crush_admin_site)
         with mock.patch.object(model_admin, 'message_user'):
@@ -479,7 +492,8 @@ class PublicThemePollTests(TestCase):
         suggestion.refresh_from_db()
         self.assertEqual(suggestion.status, 'approved')
         self.assertEqual(suggestion.promoted_to.poll, self.poll)
-        self.assertEqual(suggestion.promoted_to.name, 'Salsa night')
+        self.assertEqual(suggestion.promoted_to.name_de, 'Salsa-Abend')
+        self.assertEqual(suggestion.promoted_to.name_en, 'Salsa-Abend')
         self.assertEqual(self.poll.options.count(), 2)
 
 

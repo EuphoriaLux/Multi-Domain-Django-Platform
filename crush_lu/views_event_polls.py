@@ -295,10 +295,15 @@ def poll_vote(request, poll_id):
     if not poll.allow_multiple_choices:
         EventPollVote.objects.filter(poll=poll, user=request.user).delete()
 
-    # The profile's gender wins; the ballot answer only fills a gap.
-    voter_gender = _profile_voter_gender(request.user)
-    if not voter_gender and data.get('gender') in _VOTER_GENDERS:
-        voter_gender = data['gender']
+    # One gender per voter per poll, or a voter could land in both the women
+    # and the men denominators: an earlier vote's gender wins, then the
+    # profile's, then the ballot answer.
+    earlier_votes = EventPollVote.objects.filter(poll=poll, user=request.user)
+    voter_gender = earlier_votes.values_list('voter_gender', flat=True).first()
+    if voter_gender is None:
+        voter_gender = _profile_voter_gender(request.user)
+        if not voter_gender and data.get('gender') in _VOTER_GENDERS:
+            voter_gender = data['gender']
 
     # Create votes (skip duplicates via unique_together)
     created = 0
@@ -311,6 +316,11 @@ def poll_vote(request, poll_id):
         )
         if was_created:
             created += 1
+    # Two first submissions racing (two tabs) could still disagree; settle
+    # every row of this voter on one value.
+    earlier_votes.exclude(voter_gender=voter_gender).update(
+        voter_gender=voter_gender
+    )
 
     # Return updated results
     options = poll.options.annotate(vote_count=Count('votes'))

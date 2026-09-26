@@ -3,6 +3,8 @@ Event Poll admin classes for Crush.lu Coach Panel.
 """
 
 from django.contrib import admin, messages
+from django.conf import settings
+from django.db import transaction
 from django.db.models import Max
 from django.utils.translation import gettext_lazy as _
 from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
@@ -84,18 +86,34 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
     @admin.action(description=_("Approve: add as a new poll option"))
     def approve_suggestions(self, request, queryset):
         approved = 0
+        languages = set(settings.MODELTRANSLATION_LANGUAGES)
         for suggestion in queryset.filter(
             status=EventPollSuggestion.Status.PENDING
         ).select_related('poll'):
-            last = suggestion.poll.options.aggregate(m=Max('sort_order'))['m']
-            option = EventPollOption.objects.create(
-                poll=suggestion.poll,
-                name=suggestion.text,
-                sort_order=(last or 0) + 1,
-            )
-            suggestion.status = EventPollSuggestion.Status.APPROVED
-            suggestion.promoted_to = option
-            suggestion.save(update_fields=['status', 'promoted_to'])
+            with transaction.atomic():
+                # Claim it first: of two concurrent approvals only one flips
+                # the row, so only one creates an option.
+                claimed = EventPollSuggestion.objects.filter(
+                    pk=suggestion.pk, status=EventPollSuggestion.Status.PENDING
+                ).update(status=EventPollSuggestion.Status.APPROVED)
+                if not claimed:
+                    continue
+                # Store the text in the language it was written in. English
+                # is the only fallback language, so it also fills name_en
+                # until a coach translates it.
+                language = (suggestion.language or '')[:2]
+                names = {'name_en': suggestion.text}
+                if language in languages:
+                    names[f'name_{language}'] = suggestion.text
+                last = suggestion.poll.options.aggregate(m=Max('sort_order'))['m']
+                option = EventPollOption.objects.create(
+                    poll=suggestion.poll,
+                    sort_order=(last or 0) + 1,
+                    **names,
+                )
+                EventPollSuggestion.objects.filter(pk=suggestion.pk).update(
+                    promoted_to=option
+                )
             approved += 1
         self.message_user(
             request,
