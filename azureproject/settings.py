@@ -749,9 +749,13 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # (mounted globally via allauth.urls) instead of Crush's /login/ — the latter
 # only exists in crush_lu/urls.py, so non-Crush domains (vinsdelux,
 # entreprinder, power-up, arborist, delegations, tableau, portal) would 404
-# on the post-confirm redirect. The Crush prefill UX still works for users
-# who arrive at /login/ directly via the success message; this setting only
-# governs allauth's anonymous post-confirm redirect.
+# on the post-confirm redirect. Crush.lu overrides this per request:
+# MultiDomainAccountAdapter.get_email_verification_redirect_url sends
+# anonymous crush.lu members to the tabbed /<lang>/login/ page (active
+# language, else LANGUAGE_CODE), where the email_confirmed handler's
+# login_prefill_email prefills the address and "Forgot your password?" is
+# one tap away. Every other domain keeps this global value, and authenticated
+# users (any domain) keep allauth's default authenticated redirect.
 ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/accounts/login/"
 
 # Remember me by default

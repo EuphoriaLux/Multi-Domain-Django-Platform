@@ -224,17 +224,26 @@ class GoogleIndexingServiceTests(TestCase):
         """URLs skipped part-way through the *last* event still count as deferred."""
         mock_get_session.return_value = MagicMock()
 
+        # A real 10 ms budget can run out before the first event is even
+        # checked on a loaded CI box, deferring all three URLs. The service
+        # reads a fake clock instead, and only a sent URL moves it.
+        clock = {"now": 100.0}
+        fake_time = MagicMock(spec=["monotonic"])
+        fake_time.monotonic.side_effect = lambda: clock["now"]
+
         # First URL consumes the whole budget; the other two are never attempted.
         def _burn_budget(*args, **kwargs):
-            time.sleep(0.05)
+            clock["now"] += 1.0
             return {"status": "ok"}
 
         mock_notify_url.side_effect = _burn_budget
 
-        res = notify_events_indexing(
-            [self.event], action="URL_UPDATED", max_budget_seconds=0.01
-        )
+        with patch("crush_lu.services.google_indexing.time", fake_time):
+            res = notify_events_indexing(
+                [self.event], action="URL_UPDATED", max_budget_seconds=0.01
+            )
 
+        self.assertEqual(mock_notify_url.call_count, 1)
         self.assertEqual(res["total_expected"], 3)
         self.assertEqual(res["success_count"], 1)
         self.assertEqual(res["deferred_count"], 2)
