@@ -9,6 +9,7 @@ This module contains middleware for:
 - Admin language forcing
 - Custom CSRF failure handling
 """
+import re
 import logging
 import threading
 
@@ -783,3 +784,53 @@ class DomainURLRoutingMiddleware:
             logger.warning(f"DomainURLRoutingMiddleware: Unknown host {host} -> {prod_config['urlconf']} (fallback)")
 
         return self.get_response(request)
+
+
+class CookieConsentFlagSyncMiddleware:
+    """
+    Keep the cookie banner's readable flags in step with django-cookie-consent.
+
+    The banner (core/templates/includes/cookie_banner.html) stores a choice as
+    readable ``cookie_consent_<group>=accept|decline`` cookies, and the server
+    reads those first because the library's own ``cookie_consent`` cookie is
+    HttpOnly and a banner save may not have reached the library. The library's
+    own /cookies/accept/ and /cookies/decline/ forms only write its cookie, so
+    a later choice made there would lose to a stale flag. When one of those
+    forms sets the library cookie, this writes the same choice into the flags.
+    """
+
+    FLAG_PATH = re.compile(r"/cookies/(accept|decline)/$")
+    FLAG_MAX_AGE = 365 * 24 * 60 * 60  # the banner's own COOKIE_EXPIRY_DAYS
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if request.method != "POST":
+            return response
+        match = self.FLAG_PATH.search(request.path)
+        if not match:
+            return response
+        from django.conf import settings
+
+        name = getattr(settings, "COOKIE_CONSENT_NAME", "cookie_consent")
+        if name not in response.cookies:
+            return response  # the library rejected or ignored the form
+        groups = request.POST.getlist("cookie_groups")
+        if request.POST.get("all_groups") or not groups:
+            try:
+                from cookie_consent.cache import all_cookie_groups
+
+                groups = list(all_cookie_groups().keys())
+            except Exception:
+                groups = []
+        for group in groups:
+            response.set_cookie(
+                f"cookie_consent_{group}",
+                match.group(1),
+                max_age=self.FLAG_MAX_AGE,
+                path="/",
+                samesite="Lax",
+            )
+        return response

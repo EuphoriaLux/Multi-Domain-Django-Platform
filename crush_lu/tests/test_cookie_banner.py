@@ -416,6 +416,54 @@ class AppInsightsConsentTests(SimpleTestCase):
         self.assertIn("keepalive: true", html)
 
 
+class CookieConsentFlagSyncTests(TestCase):
+    """A choice made through django-cookie-consent's own /cookies/ forms must
+    not lose to a stale banner flag: the middleware writes the same choice into
+    the flags the server reads first."""
+
+    def setUp(self):
+        from cookie_consent.models import CookieGroup
+
+        cache.clear()
+        CookieGroup.objects.get_or_create(
+            varname="analytics", defaults={"name": "Analytics"}
+        )
+        CookieGroup.objects.get_or_create(
+            varname="marketing", defaults={"name": "Marketing"}
+        )
+
+    def _post(self, action, data):
+        client = Client()
+        client.cookies["cookie_consent_marketing"] = "accept"
+        return client.post(
+            f"/cookies/{action}/",
+            data,
+            HTTP_HOST="crush.lu",
+            HTTP_X_COOKIE_CONSENT_FETCH="1",
+        )
+
+    def test_native_decline_updates_the_banner_flag(self):
+        response = self._post("decline", {"cookie_groups": "marketing"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("cookie_consent", response.cookies)  # the library wrote its own
+        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "decline")
+        self.assertNotIn("cookie_consent_analytics", response.cookies)
+
+    def test_native_accept_all_updates_every_flag(self):
+        response = self._post("accept", {"all_groups": "on"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "accept")
+        self.assertEqual(response.cookies["cookie_consent_analytics"].value, "accept")
+
+    def test_a_rejected_form_leaves_the_flags_alone(self):
+        response = self._post("decline", {"cookie_groups": "nonexistent"})
+
+        self.assertNotIn("cookie_consent", response.cookies)
+        self.assertNotIn("cookie_consent_marketing", response.cookies)
+
+
 class ConsentStateTagTests(SimpleTestCase):
     """The banner reads the server's view of the stored choice from
     data-consent-state, because the library's own cookie is HttpOnly."""
@@ -575,6 +623,20 @@ class CookieSettingsTriggerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         self.assertIn('data-cookie-settings class="text-purple-600', html)
+        self.assertIn("Cookie Settings", html)
+
+    def test_entreprinder_account_pages_carry_the_banner_and_the_trigger(self):
+        """Entreprinder's signup and email-confirmation pages extend their own
+        account base, which carries the gated analytics tags: without the
+        banner there a visitor landing on them could never choose."""
+        # Rendered directly: which URL serves it depends on allauth's template
+        # resolution order (crush_lu's account/ templates shadow this base on
+        # the shared routes), and the base is what those pages inherit.
+        request = RequestFactory().get("/", HTTP_HOST="entreprinder.lu")
+        html = render_to_string("account/base_account.html", {"request": request})
+
+        self.assertIn('id="cookie-consent-banner"', html)
+        self.assertIn("data-cookie-settings", html)
         self.assertIn("Cookie Settings", html)
 
     def test_every_site_footer_reopens_the_settings(self):
