@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from power_up.finops.retail_prices.service import sync_retail_prices
 from power_up.finops.tests.test_retail_price_sync import FakeConnector, azure_item
@@ -292,6 +293,66 @@ def test_region_index_falls_back_to_the_selected_regions_own_latest_day(
     assert [item["region_code"] for item in response.context["region_index"]] == [
         "westeurope"
     ]
+
+
+@pytest.mark.django_db
+def test_region_index_keeps_every_region_during_the_morning_sync(client, regular_user):
+    """Mid-sync, regions not reached yet keep yesterday's prices.
+
+    Indexing only the newest day would show the few regions synced so far,
+    measured against a stand-in reference instead of West Europe.
+    """
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.00000000")
+    _sync_region(yesterday, "swedencentral", "9.00000000")
+    _sync_region(today, "northeurope", "10.40000000")  # Only region synced so far.
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    assert response.context["index_reference"] == "West Europe"
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert set(index) == {"westeurope", "northeurope", "swedencentral"}
+    assert index["northeurope"]["index"] == 104.0
+    assert index["northeurope"]["snapshot_date"] == today
+    assert index["westeurope"]["snapshot_date"] == yesterday
+    assert response.context["index_day"] == today
+    assert f"prices of {date_format(yesterday)}" in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_region_index_never_mixes_commercial_offers(client, regular_user):
+    """With "All" price types, each ratio still compares the same offer.
+
+    The fixture item also carries a 1-year savings-plan price of 0.07 in both
+    regions. Pooled with on-demand under one key, Min() would pick 0.07 on
+    both sides and hide the 4% on-demand gap.
+    """
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    _sync_region(today, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"price_type": "", "purchase_model": ""})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    # Median of on-demand 1.04 and savings plan 1.00.
+    assert index["northeurope"]["index"] == 102.0
+    assert index["northeurope"]["compared"] == 2
+
+
+@pytest.mark.django_db
+def test_status_card_reports_the_index_snapshot(client, regular_user):
+    today = timezone.localdate()
+    _sync_region(today, "westeurope", "10.00000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    assert response.context["latest_snapshot"] == today
+    assert "No price snapshot yet" not in response.content.decode()
 
 
 @pytest.mark.django_db

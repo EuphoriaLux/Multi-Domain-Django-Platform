@@ -7,7 +7,7 @@ from statistics import median
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.db.models import Count, Max, Min, Sum
+from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -74,30 +74,44 @@ def _latest_day_options(provider, latest_day):
     return options
 
 
-def _region_price_index(day_scope):
+# A like-for-like offer: same VM, OS/licensing, meter and commercial terms.
+# Without the offer dimensions, "All" price types would divide one region's
+# savings-plan price by the reference's on-demand price.
+INDEX_OFFER_FIELDS = (
+    "provider_sku",
+    "product_name",
+    "meter_name",
+    "price_type",
+    "purchase_model",
+    "term",
+    "unit_of_measure",
+)
+
+
+def _region_price_index(scope, region_days):
     """Each region's median price relative to the reference region.
 
-    Only like-for-like offers count: the same SKU, product (OS/licensing) and
-    meter, priced in both the region and the reference region on one day. The
-    comparison is pairwise, not an intersection across every region, so a
+    Every region is read on its own latest snapshot day (``region_days``), so a
+    region the morning sync has not reached yet keeps yesterday's prices
+    instead of dropping out, or leaving a partial set measured against a
+    stand-in reference. Only like-for-like offers count, compared pairwise
+    with the reference, not as an intersection across every region, so a
     region with a small catalogue does not shrink everyone's basket.
     """
+    day_filter = Q()
+    for code, day in region_days.items():
+        day_filter |= Q(region_code=code, snapshot_date=day)
     prices = defaultdict(dict)
     locations = {}
     for row in (
-        day_scope.order_by()
-        .values(
-            "region_code",
-            "location_name",
-            "provider_sku",
-            "product_name",
-            "meter_name",
-        )
+        scope.filter(day_filter)
+        .order_by()
+        .values("region_code", "location_name", *INDEX_OFFER_FIELDS)
         .annotate(price=Min("unit_price"))
     ):
         if not row["price"]:
             continue  # Zero-priced meters would divide by zero or skew ratios.
-        key = (row["provider_sku"], row["product_name"], row["meter_name"])
+        key = tuple(row[field] for field in INDEX_OFFER_FIELDS)
         prices[row["region_code"]][key] = row["price"]
         locations[row["region_code"]] = EUROPEAN_AZURE_REGIONS.get(
             row["region_code"], {}
@@ -129,6 +143,7 @@ def _region_price_index(day_scope):
                 "difference_percent": round(value - 100, 1),
                 "compared": len(ratios),
                 "is_reference": code == reference,
+                "snapshot_date": region_days[code],
             }
         )
     index.sort(key=lambda item: (item["index"], item["region_code"]))
@@ -209,19 +224,20 @@ def retail_price_dashboard(request):
     # price index for one day, never a scan of the full history.
     region_index, index_reference, index_day = [], "", None
     if not active_sku and latest_day:
-        index_day = latest_day
-        region_index, index_reference = _region_price_index(
-            base.filter(snapshot_date=index_day)
-        )
-        if not region_index:
-            # The selected regions can lag the newest day, e.g. mid-sync or
-            # after their sync failed: use their own latest day.
-            scope_day = base.order_by().aggregate(value=Max("snapshot_date"))["value"]
-            if scope_day and scope_day != latest_day:
-                index_day = scope_day
-                region_index, index_reference = _region_price_index(
-                    base.filter(snapshot_date=index_day)
-                )
+        # One index-only MAX per region on (provider, region_code, date).
+        region_days = {}
+        for code in selected_regions:
+            day = (
+                RetailPriceSnapshot.objects.filter(provider=provider, region_code=code)
+                .order_by()
+                .aggregate(value=Max("snapshot_date"))["value"]
+            )
+            if day and start_date <= day <= end_date:
+                region_days[code] = day
+        if region_days:
+            region_index, index_reference = _region_price_index(base, region_days)
+        if region_index:
+            index_day = max(item["snapshot_date"] for item in region_index)
     indexed_codes = {item["region_code"] for item in region_index}
     index_missing_regions = [
         EUROPEAN_AZURE_REGIONS.get(code, {}).get("label", code)
@@ -233,7 +249,11 @@ def retail_price_dashboard(request):
     # page timed out on, and it would compare unlike offers anyway.
     filtered = base.filter(provider_sku=active_sku) if active_sku else base.none()
 
-    latest_snapshot = filtered.aggregate(value=Max("snapshot_date"))["value"]
+    latest_snapshot = (
+        filtered.aggregate(value=Max("snapshot_date"))["value"]
+        if active_sku
+        else index_day
+    )
     chart_rows = list(
         filtered.values("snapshot_date", "region_code", "location_name")
         .annotate(unit_price=Min("unit_price"))

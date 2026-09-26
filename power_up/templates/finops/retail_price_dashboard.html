@@ -131,7 +131,7 @@
             <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div class="mb-4">
                     <h2 class="text-lg font-semibold text-gray-900">Overall price by region</h2>
-                    <p class="text-sm text-gray-500">Price index vs {{ index_reference }} (= 100) on {{ index_day }}. Lower is cheaper.</p>
+                    <p class="text-sm text-gray-500">Price index vs {{ index_reference }} (= 100), each region at its latest snapshot (up to {{ index_day }}). Lower is cheaper.</p>
                 </div>
                 <canvas id="retail-region-index" height="220"></canvas>
             </section>
@@ -148,7 +148,7 @@
                         <tbody class="divide-y divide-gray-100">
                             {% for item in region_index %}
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3"><div class="font-medium text-gray-900">{{ item.location_name }}</div><div class="text-xs text-gray-500">{{ item.region_code }}{% if item.is_reference %} · reference{% endif %}</div></td>
+                                <td class="px-4 py-3"><div class="font-medium text-gray-900">{{ item.location_name }}</div><div class="text-xs text-gray-500">{{ item.region_code }}{% if item.is_reference %} · reference{% endif %}{% if item.snapshot_date != index_day %} · prices of {{ item.snapshot_date }}{% endif %}</div></td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">{{ item.index|floatformat:1 }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right font-semibold {% if item.difference_percent > 0 %}text-red-700{% elif item.difference_percent < 0 %}text-green-700{% else %}text-gray-500{% endif %}">{% if item.is_reference %}—{% elif item.difference_percent > 0 %}+{{ item.difference_percent|floatformat:1 }}%{% else %}{{ item.difference_percent|floatformat:1 }}%{% endif %}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right text-gray-600">{{ item.compared }}</td>
@@ -158,7 +158,7 @@
                     </table>
                 </div>
                 {% if index_missing_regions %}
-                <p class="border-t border-gray-200 px-5 py-3 text-xs text-gray-500">No comparable snapshot on {{ index_day }} for: {{ index_missing_regions|join:", " }}.</p>
+                <p class="border-t border-gray-200 px-5 py-3 text-xs text-gray-500">No comparable snapshot in the selected period for: {{ index_missing_regions|join:", " }}.</p>
                 {% endif %}
             </section>
         </div>
