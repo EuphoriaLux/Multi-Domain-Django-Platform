@@ -429,6 +429,20 @@ def dashboard(request):
             .count()
         )
 
+        # Received connection requests waiting on this member's own action —
+        # the dashboard's "Needs action" block surfaces a few of these
+        # directly (accept/decline inline) instead of leaving them as a
+        # non-clickable header count. Mirrors my_connections' received_pending
+        # query (views_connections.py) so the two never disagree on what
+        # counts as an actionable request.
+        pending_connection_requests = list(
+            EventConnection.objects.filter(recipient=request.user, status="pending")
+            .exclude(flow=EventConnection.FLOW_CRUSH)
+            .exclude(requester_id__in=_blocked_ids)
+            .select_related("requester__crushprofile", "event")
+            .order_by("-requested_at")[:3]
+        )
+
         # Get or create referral code for this user's profile
         from .models import ReferralCode
         from .referrals import build_referral_url
@@ -637,7 +651,15 @@ def dashboard(request):
             "attended_count": attended_count,
             "pending_payment_registrations": pending_payment_registrations,
             "post_event_actions": post_event_actions,
+            "pending_connection_requests": pending_connection_requests,
             "connection_count": connection_count,
+            # The stats row repeats the next-event card (Upcoming) and the
+            # requests just surfaced above (Connections), so it only earns
+            # its place once the member has something to look back on.
+            "show_stats_tiles": (
+                profile.verification_status == "verified"
+                and (attended_count > 0 or connection_count > 0)
+            ),
             "referral_url": referral_url,
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,

@@ -8096,6 +8096,18 @@ document.addEventListener("alpine:init", function () {
             get showFallbackVisible() {
                 return this.showFallback;
             },
+            // Whether the dashboard card has anything worth showing at all.
+            // Deliberately excludes showFallback: that state (desktop
+            // Firefox and other non-Chromium browsers with no install path)
+            // used to render an "Open crush.lu in Chrome or Safari" card
+            // after a 2s timer — a card that was blank until then and only
+            // ever offered advice nobody there could act on. The card just
+            // doesn't render for that visitor now; the sibling Membership
+            // card expands to the full row instead (dashboard.html's
+            // `:class="{ 'md:col-span-2': !cardVisible }"`).
+            get cardVisible() {
+                return this.isInstalled || this.canInstall || this.showInstructions;
+            },
 
             init: function () {
                 var self = this;

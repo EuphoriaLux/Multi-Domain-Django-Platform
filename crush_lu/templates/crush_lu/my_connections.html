@@ -30,7 +30,7 @@
 
     <!-- Received Requests (Pending Action) -->
     {% if received_requests %}
-        <div class="mb-8">
+        <div class="mb-8" id="received">
             <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
                 {% include "shared/icons/inbox.html" with class="w-5 h-5" %}
                 <span>{% trans "Requests You've Received" %}</span>

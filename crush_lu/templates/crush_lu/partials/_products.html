@@ -5,11 +5,18 @@
   Expects: profile (CrushProfile or None), is_premium (bool),
            has_attended_event (bool), next_event (optional),
            connect_onboarded (bool), connect_excluded (bool), connect_paused (bool),
-           connect_photo_consent (bool), has_luxid_connected (bool).
+           connect_photo_consent (bool), has_luxid_connected (bool),
+           connect_strip_shown (bool, optional, default False).
   The "Active — In the Mix" footer mirrors _connect_status_strip.html's green
   gate (services.crush_connect.is_catalogue_eligible): onboarded + photo consent
   + LuxID + not coach-excluded + Connect visible. Any gap falls back to "Active".
   Highlights the viewer's current tier and shows the right CTA.
+
+  connect_strip_shown: pass True only when _connect_status_strip.html is ALSO
+  rendered on this page (dashboard.html does, right above the next-event
+  card). Its "verified, not opted in" state already renders a "Join the Mix"
+  CTA with the same destination — repeating it here was finding 5-03. Other
+  call sites leave this False and keep the CTA.
 {% endcomment %}
 {% with vs=profile.verification_status|default:"incomplete" %}
 
@@ -46,7 +53,11 @@
         {% elif vs == 'verified' and connect_onboarded and connect_photo_consent and is_identity_verified|default:profile.is_connect_identity_verified and not connect_excluded and user|crush_connect_visible %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Active — In the Mix" %}</span>
         {% elif vs == 'verified' and not connect_onboarded and is_identity_verified|default:profile.is_connect_identity_verified and not connect_excluded and user|crush_connect_visible %}
+          {% if connect_strip_shown %}
+          <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium">{% trans "See Crush Connect above" %} ↑</span>
+          {% else %}
           <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 text-sm font-semibold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">{% trans "Join the Mix" %}</a>
+          {% endif %}
         {% elif vs == 'verified' %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Active" %}</span>
         {% else %}
@@ -107,16 +118,24 @@
           <li class="flex items-center gap-2 text-white font-semibold"><span>★</span> {% trans "Crush Connect — Connect Week + human Coach Pick" %}</li>
         </ul>
 
+        {% comment %}
+        px-4 text-center leading-snug (finding 5-12): the label wraps to two
+        lines in DE ("Werde Premium — erster Monat gratis") and FR ("Passez
+        à Premium — premier mois offert"), and the pill had no side padding
+        at all — the wrapped text ran into both edges. Applies to all three
+        variants so the pill's shape doesn't jump depending on which state
+        renders.
+        {% endcomment %}
         {% if is_premium %}
-          <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">✓ {% trans "Your plan" %}</span>
+          <span class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold text-center leading-snug">✓ {% trans "Your plan" %}</span>
         {% elif suppress_native_commerce %}
-          <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">
+          <span class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold text-center leading-snug">
             {% trans "Available outside the mobile app" %}
           </span>
         {% else %}
-          <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold hover:bg-purple-50 transition-colors">
+          <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold text-center leading-snug hover:bg-purple-50 transition-colors">
             {% trans "Go Premium — first month free" %}
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
           </a>
         {% endif %}
       </div>
