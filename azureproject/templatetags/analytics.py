@@ -58,8 +58,7 @@ def _declined_in_browser_js(cookie_group):
     a request: the crush.lu service worker keeps navigations for offline use
     (up to a day, a year for event tickets), and a browser restores history
     entries. A refusal recorded since then (the banner's readable
-    ``cookie_consent_<group>=decline`` flag, which CookieConsentFlagSyncMiddleware
-    also writes after the library's own forms) must still stop the tracker.
+    ``cookie_consent_<group>=decline`` flag) must still stop the tracker.
     It can only while that flag is in the browser: Safari's seven-day cap on
     script-written cookies can drop a flag the banner's script alone wrote
     (its POST to /cookies/ never landed), and a clear of cookies that keeps

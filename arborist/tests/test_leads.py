@@ -252,8 +252,7 @@ class LeadTests(TestCase):
         self.assertEqual(lead.first_attribution, {})
 
     def test_versioned_banner_flag_alone_keeps_attribution(self):
-        """What the banner (and CookieConsentFlagSyncMiddleware, after the
-        library's own forms) writes today: ``accept:<group version>``. A check
+        """What the banner writes today: ``accept:<group version>``. A check
         for a bare "accept" read every new acceptance as no consent."""
         version = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
         self.client.cookies["cookie_consent_analytics"] = f"accept:{version}"
@@ -280,8 +279,7 @@ class LeadTests(TestCase):
 
     def test_library_format_consent_still_honoured(self):
         # /cookies/ (django-cookie-consent's own pages) writes its own cookie,
-        # "group=version|...". Its forms also update the banner flag through
-        # CookieConsentFlagSyncMiddleware, but a visitor may hold only this.
+        # "group=version|...". A visitor may hold only this.
         version = self.analytics_version(datetime(2026, 1, 1, tzinfo=timezone.utc))
         self.client.cookies["cookie_consent"] = f"analytics={version}"
         self.client.get("/en/?utm_source=newsletter")

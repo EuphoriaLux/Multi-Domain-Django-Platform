@@ -23,11 +23,7 @@ const source = fs.readFileSync(swPath, "utf8");
 
 const routes = [];
 const fetchListeners = [];
-const activateListeners = [];
 const deletedCaches = [];
-// What caches.keys() reports; probeActivate() fills it with the names an
-// earlier worker version would have left behind.
-let existingCaches = [];
 let backgroundSync = null;
 
 function strategyName(name) {
@@ -126,7 +122,6 @@ const workbox = {
 const self = {
     addEventListener: (type, handler) => {
         if (type === "fetch") fetchListeners.push(handler);
-        if (type === "activate") activateListeners.push(handler);
     },
     location: new URL("https://crush.lu/sw-workbox.js"),
     clients: { matchAll: async () => [], claim: async () => {}, openWindow: async () => {} },
@@ -134,7 +129,7 @@ const self = {
     skipWaiting: () => {},
     caches: {
         open: async () => ({ match: async () => null, put: async () => {} }),
-        keys: async () => existingCaches.slice(),
+        keys: async () => [],
         // Recorded so a probe can see which caches a request purges.
         delete: async (name) => {
             deletedCaches.push(name);
@@ -286,7 +281,7 @@ const probes = [
         destination: "document",
         mustBeClaimed: true,
         mustMatchStrategy: "NetworkFirst",
-        mustMatchCache: "crush-tickets-v2",
+        mustMatchCache: "crush-tickets",
     },
     {
         name: "ticket_navigation_de",
@@ -295,7 +290,7 @@ const probes = [
         destination: "document",
         mustBeClaimed: true,
         mustMatchStrategy: "NetworkFirst",
-        mustMatchCache: "crush-tickets-v2",
+        mustMatchCache: "crush-tickets",
     },
     {
         name: "ticket_navigation_fr",
@@ -304,7 +299,7 @@ const probes = [
         destination: "document",
         mustBeClaimed: true,
         mustMatchStrategy: "NetworkFirst",
-        mustMatchCache: "crush-tickets-v2",
+        mustMatchCache: "crush-tickets",
     },
     {
         // The ticket route must not swallow its neighbours.
@@ -389,36 +384,6 @@ const probes = [
         destination: "document",
         informational: true,
     },
-    {
-        // A cookie-consent change purges the kept pages ("crush-pages"),
-        // which embed the consent state they were rendered with, but keeps
-        // the offline tickets. django-cookie-consent's own form posts as a
-        // navigation; never queued for background sync (a replay would
-        // rewrite the consent flags over a newer choice).
-        name: "cookie_consent_accept_post_navigation",
-        url: "https://crush.lu/cookies/accept/",
-        method: "POST",
-        mode: "navigate",
-        destination: "document",
-        mustBeClaimed: false,
-    },
-    {
-        // The banner's fetch() to the same views.
-        name: "cookie_consent_decline_fetch",
-        url: "https://crush.lu/cookies/decline/",
-        method: "POST",
-        mode: "same-origin",
-        destination: "",
-        mustBeClaimed: false,
-    },
-    {
-        // The banner's CSRF/status lookup changes nothing: no purge.
-        name: "cookie_status_fetch",
-        url: "https://crush.lu/cookies/status/",
-        mode: "same-origin",
-        destination: "",
-        informational: true,
-    },
 ];
 
 const results = probes.map((probe) => {
@@ -496,50 +461,12 @@ async function probeReplay(urls) {
     return { available: true, replayed, drained: pending.length === 0 };
 }
 
-/**
- * Run the activate listeners over a browser that already holds these caches,
- * as one upgraded from an earlier worker version would. Returns the names
- * they deleted.
- */
-async function probeActivate(names) {
-    existingCaches = names.slice();
-    deletedCaches.length = 0;
-    const pending = [];
-    const event = { waitUntil: (promise) => pending.push(promise) };
-    for (const listener of activateListeners) listener(event);
-    await Promise.all(pending);
-    existingCaches = [];
-    return { listeners: activateListeners.length, deleted: deletedCaches.slice() };
-}
-
-// The Workbox cache-name suffix of the worker under test (its CACHE_VERSION).
-const cacheVersion = (source.match(/const CACHE_VERSION = "([^"]+)";/) || [])[1];
-
 (async () => {
-    const activate = await probeActivate([
-        // Written by the v32/v33 workers, from pages rendered before the
-        // consent-flag checks.
-        "crush-tickets",
-        "crush-pages",
-        // This version's own caches.
-        "crush-tickets-v2",
-        `crush-lu-precache-v2-https://crush.lu/-${cacheVersion}`,
-        `crush-lu-runtime-https://crush.lu/-${cacheVersion}`,
-        // An older Workbox precache: the existing suffix cleanup.
-        "crush-lu-precache-v2-https://crush.lu/-crush-v0-older",
-    ]);
-    activate.cacheVersion = cacheVersion || null;
     const replay = await probeReplay([
         "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
-        // A consent POST an earlier worker queued: dropped, never replayed.
-        "https://crush.lu/cookies/accept/",
         "https://crush.lu/en/events/29/register/",
     ]);
     process.stdout.write(
-        JSON.stringify(
-            { routeCount: routes.length, results, replay, activate },
-            null,
-            2,
-        ),
+        JSON.stringify({ routeCount: routes.length, results, replay }, null, 2),
     );
 })();

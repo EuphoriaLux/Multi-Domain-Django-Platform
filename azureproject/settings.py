@@ -327,7 +327,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # HTMX request detection
-    "azureproject.middleware.CookieConsentFlagSyncMiddleware",  # /cookies/ forms update the banner's flags
 ]
 
 MIDDLEWARE.append("arborist.middleware.LeadAttributionMiddleware")

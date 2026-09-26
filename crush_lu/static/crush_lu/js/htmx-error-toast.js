@@ -139,7 +139,6 @@
         "/logout",
         "/accounts/",
         "/signup",
-        "/cookies/",
     ];
 
     // How long a sendError waits for the worker's "crush-queued" message.

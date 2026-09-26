@@ -20,8 +20,7 @@ def has_analytics_consent(request):
 
     Reads the choice exactly as the analytics tags do (stored_cookie_choice):
     the shared banner's ``cookie_consent_analytics`` flag, which it writes as
-    ``accept:<group version>`` or ``decline`` (CookieConsentFlagSyncMiddleware
-    writes the same after django-cookie-consent's own /cookies/ forms), then
+    ``accept:<group version>`` or ``decline``, then
     the banner's JSON, then the library's own cookie. An acceptance older than
     the analytics group's current version is undecided, as it is for the
     trackers, so it keeps no attribution until the visitor accepts again.

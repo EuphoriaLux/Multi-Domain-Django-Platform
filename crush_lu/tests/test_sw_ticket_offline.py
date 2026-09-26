@@ -28,9 +28,7 @@ from pathlib import Path
 
 import pytest
 
-TICKET_CACHE = "crush-tickets-v2"
-# Where the v32/v33 workers kept tickets (test_sw_consent_change.py).
-LEGACY_TICKET_CACHE = "crush-tickets"
+TICKET_CACHE = "crush-tickets"
 
 
 def _run_sw_route_probe():
@@ -116,12 +114,10 @@ def test_ticket_route_does_not_swallow_other_event_pages():
 )
 def test_session_boundaries_purge_offline_tickets(probe_name):
     probe = _run_sw_route_probe()[probe_name]
-    for cache_name in (TICKET_CACHE, LEGACY_TICKET_CACHE):
-        assert cache_name in probe["purgedCaches"], (
-            f"navigating to {probe['url']} leaves {cache_name!r} in place, so the "
-            "next account on this device is shown the previous account's QR "
-            "offline."
-        )
+    assert TICKET_CACHE in probe["purgedCaches"], (
+        f"navigating to {probe['url']} leaves {TICKET_CACHE!r} in place, so the "
+        "next account on this device is shown the previous account's QR offline."
+    )
 
 
 def test_ordinary_navigation_keeps_offline_tickets():

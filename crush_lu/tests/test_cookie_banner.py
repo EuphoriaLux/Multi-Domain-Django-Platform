@@ -313,8 +313,7 @@ class CookieBannerRenderTests(SimpleTestCase):
             "marketing: server.marketing === true && currentFlag('marketing') !== false",
             server_branch,
         )
-        # Flags only: CookieConsentFlagSyncMiddleware rewrites the flags after
-        # the library's own forms, never the banner's JSON cookie.
+        # Flags only, never the banner's JSON cookie.
         self.assertNotIn("COOKIE_NAME", server_branch)
         self.assertNotIn("function serverConsent()", script)  # unused, removed
 
@@ -834,64 +833,6 @@ class StartupSeedsCookieGroupsTests(SimpleTestCase):
         self.assertNotEqual(broken.returncode, 0)
 
 
-class CookieConsentFlagSyncTests(TestCase):
-    """A choice made through django-cookie-consent's own /cookies/ forms must
-    not lose to a stale banner flag: the middleware writes the same choice into
-    the flags the server reads first."""
-
-    def setUp(self):
-        from cookie_consent.cache import delete_cache, get_cookie_group
-        from cookie_consent.models import Cookie, CookieGroup
-
-        cache.clear()
-        analytics, _ = CookieGroup.objects.get_or_create(
-            varname="analytics", defaults={"name": "Analytics"}
-        )
-        CookieGroup.objects.get_or_create(
-            varname="marketing", defaults={"name": "Marketing"}
-        )
-        Cookie.objects.get_or_create(cookiegroup=analytics, name="_ga", domain="")
-        delete_cache()
-        self.version = get_cookie_group("analytics").get_version()
-        self.assertTrue(self.version)
-
-    def _post(self, action, data):
-        client = Client()
-        client.cookies["cookie_consent_marketing"] = "accept"
-        return client.post(
-            f"/cookies/{action}/",
-            data,
-            HTTP_HOST="crush.lu",
-            HTTP_X_COOKIE_CONSENT_FETCH="1",
-        )
-
-    def test_native_decline_updates_the_banner_flag(self):
-        response = self._post("decline", {"cookie_groups": "marketing"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("cookie_consent", response.cookies)  # the library wrote its own
-        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "decline")
-        self.assertNotIn("cookie_consent_analytics", response.cookies)
-
-    def test_native_accept_all_updates_every_flag(self):
-        """The flag carries the group version the library stored, so it goes
-        stale exactly when the library's own cookie would (a group without
-        cookies has the empty version, as in the library's cookie)."""
-        response = self._post("accept", {"all_groups": "on"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.cookies["cookie_consent_analytics"].value, f"accept:{self.version}"
-        )
-        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "accept:")
-
-    def test_a_rejected_form_leaves_the_flags_alone(self):
-        response = self._post("decline", {"cookie_groups": "nonexistent"})
-
-        self.assertNotIn("cookie_consent", response.cookies)
-        self.assertNotIn("cookie_consent_marketing", response.cookies)
-
-
 class GoogleConsentDefaultsTests(SimpleTestCase):
     """The Consent Mode defaults GA4 boots with must come from the same
     version-checked reading of the stored choice as everything else. Read the
@@ -1168,30 +1109,6 @@ class ConsentVersionTests(TestCase):
         self.assertEqual(
             state["versions"], {"analytics": self.version, "marketing": ""}
         )
-
-    def test_the_library_form_writes_the_version_into_the_flag(self):
-        client = Client()
-        response = client.post(
-            "/cookies/accept/",
-            {"cookie_groups": "analytics"},
-            HTTP_HOST="crush.lu",
-            HTTP_X_COOKIE_CONSENT_FETCH="1",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        flag = response.cookies["cookie_consent_analytics"].value
-        self.assertEqual(flag, f"accept:{self.version}")
-        # ...and that flag is current for the server on the next request.
-        self.assertIs(self._choice({"cookie_consent_analytics": flag}), True)
-
-        response = client.post(
-            "/cookies/decline/",
-            {"cookie_groups": "analytics"},
-            HTTP_HOST="crush.lu",
-            HTTP_X_COOKIE_CONSENT_FETCH="1",
-        )
-
-        self.assertEqual(response.cookies["cookie_consent_analytics"].value, "decline")
 
 
 class ConsentStateTagTests(SimpleTestCase):
@@ -1953,7 +1870,7 @@ def test_a_stale_acceptance_reopens_the_banner(page):
 def _cached_accepted_page():
     """The whole consent surface of a page rendered for a visitor who had
     accepted both groups: the copy the service worker keeps for offline use
-    (crush-pages for a day, crush-tickets-v2 for a year)."""
+    (crush-pages for a day, crush-tickets for a year)."""
     request = RequestFactory().get("/")
     request.COOKIES["cookie_consent_analytics"] = "accept:"
     request.COOKIES["cookie_consent_marketing"] = "accept:"
