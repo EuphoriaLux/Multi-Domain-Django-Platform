@@ -561,6 +561,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         from pathlib import Path
 
         from crush_lu import api_admin_sumup as m
+        from crush_lu.management.commands import reconcile_sumup_payments as cmd
 
         root = Path(__file__).resolve().parents[2]
         sumup_src = (root / "crush_lu" / "services" / "sumup.py").read_text(
@@ -569,7 +570,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         for method in ("def get_checkout", "def get_transactions_history"):
             body = sumup_src[sumup_src.index(method) :]
             body = body[: body.index("\n    def ", 1)]
-            self.assertIn(f"timeout={m.SUMUP_READ_TIMEOUT_SECONDS}", body, method)
+            self.assertIn(f"timeout={cmd.SUMUP_READ_TIMEOUT_SECONDS}", body, method)
         graph_src = (root / "azureproject" / "graph_email_backend.py").read_text(
             encoding="utf-8"
         )
@@ -621,7 +622,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(m.RECONCILIATION_BUDGET_SECONDS, 100)
         # requests turns timeout=10 into a 10 s connect AND a 10 s read.
         self.assertEqual(
-            m.SUMUP_REQUEST_WORST_CASE_SECONDS, 2 * m.SUMUP_READ_TIMEOUT_SECONDS
+            m.SUMUP_REQUEST_WORST_CASE_SECONDS, 2 * cmd.SUMUP_READ_TIMEOUT_SECONDS
         )
         self.assertEqual(m.READ_RESERVE_SECONDS, 41)
         self.assertEqual(m.WRITE_RESERVE_SECONDS, 65)
@@ -1630,12 +1631,46 @@ class SumUpReconciliationEndpointTests(TestCase):
             call_command(
                 "reconcile_sumup_payments", dry_run=True, stdout=out, no_color=True
             )
-        self.assertIn("still pending", out.getvalue())
-        self.assertIn("1 error(s)", out.getvalue())
+        printed = out.getvalue()
+        self.assertIn(
+            f"[DRY RUN] Payment {self.payment.pk} would be reconciled, but "
+            f"registration {self.registration.pk} is still pending",
+            printed,
+        )
+        # Nothing was written, so nothing may say it was.
+        self.assertNotIn("was reconciled", printed)
+        self.assertIn("1 error(s)", printed)
         self.assertTrue(any("would be reconciled" in m for m in logs.output))
+        self.assertFalse(any("was reconciled" in m for m in logs.output))
         self.payment.refresh_from_db()
         self.registration.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "pending")
+        self.assertEqual(mail.outbox, [])
+
+    def test_held_pending_seat_outside_a_dry_run_says_it_was_written(self):
+        from django.core.management import call_command
+
+        self._stale_price_pending_seat()
+        out = io.StringIO()
+        with (
+            patch(GET_CHECKOUT, return_value=FULL_REFUND),
+            patch(GET_HISTORY, return_value={"items": []}),
+            self.captureOnCommitCallbacks(execute=True),
+            self.assertLogs(CMD, level=logging.WARNING),
+        ):
+            call_command("reconcile_sumup_payments", stdout=out, no_color=True)
+        printed = out.getvalue()
+        self.assertIn(
+            f"Payment {self.payment.pk} was reconciled, but registration "
+            f"{self.registration.pk} is still pending",
+            printed,
+        )
+        self.assertNotIn("DRY RUN", printed)
+        self.assertNotIn("would be reconciled", printed)
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(self.registration.status, "pending")
         self.assertEqual(mail.outbox, [])
 
@@ -1971,8 +2006,9 @@ class SumUpReconciliationEndpointTests(TestCase):
         at the last permitted moment must still end its reads by the deadline:
         its history lookup is deferred, not sent late."""
         from crush_lu import api_admin_sumup as m
+        from crush_lu.management.commands import reconcile_sumup_payments as cmd
 
-        worst = 2 * m.SUMUP_READ_TIMEOUT_SECONDS - 0.01
+        worst = 2 * cmd.SUMUP_READ_TIMEOUT_SECONDS - 0.01
         body, read, lookups, elapsed = self._clocked_run(
             {"chk_t2_1": dict(STILL_PAID, transaction_code=CAPTURE_CODE)},
             checkout_cost=worst,
