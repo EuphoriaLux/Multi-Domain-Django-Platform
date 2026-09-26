@@ -15,6 +15,7 @@ import logging
 import re
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -609,6 +610,10 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(m.MAX_WRITES_PER_RUN, 1)
 
         self.assertEqual(m.RECONCILIATION_BUDGET_SECONDS, 100)
+        # requests turns timeout=10 into a 10 s connect AND a 10 s read.
+        self.assertEqual(
+            m.SUMUP_REQUEST_WORST_CASE_SECONDS, 2 * m.SUMUP_READ_TIMEOUT_SECONDS
+        )
         self.assertEqual(m.READ_RESERVE_SECONDS, 41)
         self.assertEqual(m.WRITE_RESERVE_SECONDS, 65)
         self.assertLess(m.RECONCILIATION_BUDGET_SECONDS, m.FUNCTION_TIMEOUT_SECONDS)
@@ -1919,6 +1924,154 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertIsNotNone(kwargs["budget_seconds"])
 
     # -- §6.4 history cap --------------------------------------------------
+
+    # -- the read budget, on a fake clock (Codex: both requests phases) ------
+
+    def _clocked_run(self, payloads, *, checkout_cost, lookup_cost=0.0, prefetch=0.0):
+        """POST with a clock that only SumUp calls and sleeps move.
+
+        Patches the command module's ``time`` name, never the global clock.
+        ``checkout_cost`` is seconds per checkout read, or a dict by checkout
+        id. Returns (body, checkouts read, per-code history lookups, elapsed).
+        """
+        clock = {"now": 1000.0}
+        lookups = []
+
+        def advance(seconds):
+            clock["now"] += seconds
+
+        def get_checkout(checkout_id):
+            if isinstance(checkout_cost, dict):
+                advance(checkout_cost[checkout_id])
+            else:
+                advance(checkout_cost)
+            return payloads[checkout_id]
+
+        def get_history(**kwargs):
+            code = kwargs.get("transaction_code")
+            if code is None:  # the prefetch
+                advance(prefetch)
+            else:
+                advance(lookup_cost)
+                lookups.append(code)
+            return {"items": []}
+
+        fake_time = SimpleNamespace(monotonic=lambda: clock["now"], sleep=advance)
+        with (
+            override_settings(SUMUP_RECONCILIATION_ENABLED=True),
+            patch(f"{CMD}.time", fake_time),
+            patch(GET_CHECKOUT, side_effect=get_checkout) as checkout_mock,
+            patch(GET_HISTORY, side_effect=get_history),
+        ):
+            body = self._post().json()
+        read = [c.args[0] for c in checkout_mock.call_args_list]
+        return body, read, lookups, clock["now"] - 1000.0
+
+    def test_last_permitted_row_finishes_its_reads_by_the_deadline(self):
+        """Each call may spend its full connect AND read timeout. A row started
+        at the last permitted moment must still end its reads by the deadline:
+        its history lookup is deferred, not sent late."""
+        from crush_lu import api_admin_sumup as m
+
+        worst = 2 * m.SUMUP_READ_TIMEOUT_SECONDS - 0.01
+        body, read, lookups, elapsed = self._clocked_run(
+            {"chk_t2_1": dict(STILL_PAID, transaction_code=CAPTURE_CODE)},
+            checkout_cost=worst,
+            lookup_cost=worst,
+            prefetch=m.RECONCILIATION_BUDGET_SECONDS - m.READ_RESERVE_SECONDS - 0.01,
+        )
+        self.assertLessEqual(elapsed, m.RECONCILIATION_BUDGET_SECONDS)
+        self.assertEqual(read, ["chk_t2_1"])
+        self.assertEqual(lookups, [])
+        self.assertEqual(
+            (body["checked"], body["unchecked"], body["errors"]), (0, 1, 0)
+        )
+
+    def _many_capture_codes(self, n):
+        """A checkout whose n attempts all look like captures: none can be
+        skipped, so each needs its own history lookup."""
+        return {
+            "id": "chk_many",
+            "status": "PAID",
+            "amount": 15.5,
+            "transactions": [
+                dict(CAPTURED_ATTEMPT, transaction_code=f"TCAPTURE{i}")
+                for i in range(n)
+            ],
+        }
+
+    def test_a_checkout_that_can_never_fit_is_an_error_not_a_stuck_cursor(self):
+        """Five lookups need 5 x 20 s + margin > the 100 s budget, even as a
+        run's first row. The row is an error naming the checkout, the cursor
+        moves past it, and the next payment is still read, on every run."""
+        from crush_lu import api_admin_sumup
+
+        self._age(self.payment, 5)
+        many = self._new_payment("CRUSH-T2-many", "chk_many")
+        self._age(many, 20)
+        payloads = {
+            "chk_many": self._many_capture_codes(5),
+            "chk_t2_1": dict(STILL_PAID, transaction_code=CAPTURE_CODE),
+        }
+        for _ in range(3):
+            with self.assertLogs(CMD, level=logging.ERROR) as logs:
+                body, read, lookups, _ = self._clocked_run(
+                    payloads, checkout_cost=0.3, lookup_cost=0.3
+                )
+            self.assertEqual(read, ["chk_many", "chk_t2_1"])
+            self.assertEqual(lookups, [CAPTURE_CODE])  # none for chk_many
+            self.assertEqual(
+                (body["checked"], body["errors"], body["unchecked"]), (2, 1, 0)
+            )
+            self.assertIs(body["wrapped"], True)
+            self.assertIsNone(cache.get(api_admin_sumup.CURSOR_CACHE_KEY))
+            error = next(m for m in logs.output if "can ever fit" in m)
+            self.assertIn("--checkout-id chk_many", error)
+        many.refresh_from_db()
+        self.assertEqual(many.status, PaymentTransaction.Status.PAID)
+
+    def test_a_checkout_that_fits_early_in_a_run_is_read_there(self):
+        """Four lookups (4 x 20.05 + 1 s) fit when reached early: not an error,
+        not deferred, all four are read."""
+        self._age(self.payment, 20)
+        many = self._new_payment("CRUSH-T2-many", "chk_many")
+        self._age(many, 5)
+        body, read, lookups, _ = self._clocked_run(
+            {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(4)},
+            checkout_cost=0.3,
+            lookup_cost=0.3,
+        )
+        self.assertEqual(read, ["chk_t2_1", "chk_many"])
+        self.assertEqual(len(lookups), 4)
+        self.assertEqual(
+            (body["checked"], body["errors"], body["unchecked"]), (2, 0, 0)
+        )
+
+    def test_a_checkout_reached_too_late_is_deferred_not_an_error(self):
+        """The same four lookups, reached ~30 s into the run: they no longer
+        fit, but would as a run's first row. Deferred (unchecked) for a later
+        pass, without pinning the cursor."""
+        from crush_lu import api_admin_sumup
+
+        self._age(self.payment, 20)
+        many = self._new_payment("CRUSH-T2-many", "chk_many")
+        self._age(many, 5)
+        with self.assertLogs(CMD, level=logging.WARNING) as logs:
+            body, read, lookups, _ = self._clocked_run(
+                {"chk_t2_1": STILL_PAID, "chk_many": self._many_capture_codes(4)},
+                checkout_cost={"chk_t2_1": 30.0, "chk_many": 0.3},
+            )
+        self.assertEqual(read, ["chk_t2_1", "chk_many"])
+        self.assertEqual(lookups, [])
+        self.assertEqual(
+            (body["checked"], body["errors"], body["unchecked"]), (1, 0, 1)
+        )
+        self.assertIs(body["wrapped"], False)
+        self.assertTrue(any("deferred checkout chk_many" in m for m in logs.output))
+        # Past it, not pinned on it (it was the last row, so the next run
+        # starts again from the oldest and retries it with a fresh budget).
+        cursor = cache.get(api_admin_sumup.CURSOR_CACHE_KEY)
+        self.assertEqual(cursor["pk"], many.pk)
 
     def test_full_history_page_logs_the_coverage_warning(self):
         items = [

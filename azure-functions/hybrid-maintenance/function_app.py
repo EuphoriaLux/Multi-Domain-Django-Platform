@@ -487,8 +487,8 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
     # :05, SLA :15, recaps :25, lead reminders :45 (reminders :35 and feedback
     # :55 only run 09-20). :34 is 4 after the :30 invites, 3 before the :37
     # campaign tick and 6 before :40; the :32 campaign tick is capped by its own
-    # 110 s timeout (ends by 02:33:50) and this sweep by its 100 s deadline
-    # (ends by ~02:35:45), so neither overlaps another trigger. :39 was
+    # 110 s timeout (ends by 02:33:50) and this call by its 110 s timeout too
+    # (ends by 02:35:50), so neither overlaps another trigger. :39 was
     # rejected: it would run into the :40 invites. Also clear of the finops
     # app's 03:00 sync and 04:00-06:40 retail-price window.
     schedule="0 34 2 * * *",
@@ -522,9 +522,12 @@ def sumup_reconciliation(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("SumUpReconciliation: timer past due at %s", ts)
     logging.info("SumUpReconciliation: starting at %s", ts)
-    # The Django side holds a 100 s hard deadline, worst-case timeouts of its
-    # SumUp reads and post-commit emails included (crush_lu/api_admin_sumup.py),
-    # so 110 s covers it.
+    # The Django side plans its sweep against a 100 s deadline that reserves
+    # the worst case of its SumUp reads and post-commit emails
+    # (crush_lu/api_admin_sumup.py). That is a plan, not a bound: a SumUp call
+    # slower than its timeouts assume, or a slow wallet tail after a write, can
+    # run past 110 s. The timeout then fails this invocation, which alerts; the
+    # Django view still finishes and stores its cursor.
     response = _call_admin_endpoint(
         "SumUpReconciliation",
         "DJANGO_SUMUP_RECONCILIATION_URL",

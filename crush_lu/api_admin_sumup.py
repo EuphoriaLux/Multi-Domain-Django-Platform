@@ -55,11 +55,27 @@ RECONCILIATION_DAYS = 30
 # under gunicorn's --timeout 120 (startup.sh). Nothing retries a request cut off
 # mid-flight.
 #
-# Reads: SumUpClient.get_checkout / get_transactions_history, timeout=10 each
-# (crush_lu/services/sumup.py). Requests applies the scalar to connect and read
-# separately. One checkout and one history read are reserved up front; after the
-# checkout reveals nested/retried transaction codes, the remaining history reads
-# are reserved dynamically before they are issued.
+# Reads: SumUpClient.get_checkout / get_transactions_history pass timeout=10
+# (crush_lu/services/sumup.py). Requests turns that scalar into a 10 s CONNECT
+# timeout and a separate 10 s READ timeout, so each call is planned at 20 s
+# (SUMUP_REQUEST_WORST_CASE_SECONDS). A row is started only while its checkout
+# and one history lookup still fit (READ_RESERVE_SECONDS). Once the checkout
+# shows which codes need a lookup (normally one, the capture's:
+# history_lookup_codes), those are reserved again against the clock before
+# any is sent; a row that could never fit is reported as an error.
+#
+# 20 s per call is a planning figure, not a bound. Residual risk, accepted:
+#   * urllib3 applies the connect timeout to EACH address the host resolves to
+#     (api.sumup.com has more than one), so a connect that is silently dropped
+#     can take 10 s per address before the read starts;
+#   * the read timeout is per socket read, so a slowly dripped body is not
+#     bounded, and DNS resolution has no timeout at all.
+# So a run can overrun the 100 s deadline. It cannot start a write late: the
+# write gate reads the clock again after the reads (WRITE_RESERVE_SECONDS).
+# What an overrun costs: the Function's 110 s timeout marks that invocation
+# Failed and fires the timer-failure alert without the counters. The view's
+# thread is not cancelled when the Function disconnects, so the sweep still
+# finishes and stores the cursor, and the next run carries on.
 #
 # Writes: ONE per invocation (MAX_WRITES_PER_RUN). Reconciling a confirmed
 # registration saves it as `cancelled`, and every callback below then runs
@@ -111,10 +127,12 @@ POST_COMMIT_BOUNDED_WORST_SECONDS = (
 # 40 s per device: R pass, R ticket, P pass, P ticket.
 POST_COMMIT_APNS_PER_DEVICE_SECONDS = APNS_TIMEOUT_SECONDS * 4
 
-# 100 s: the hard deadline for the sweep.
+# 100 s: the deadline the sweep plans against (checked, not enforced: see
+# "Residual risk" above).
 RECONCILIATION_BUDGET_SECONDS = FUNCTION_TIMEOUT_SECONDS - DEADLINE_MARGIN_SECONDS
-# 41 s: reserve both connect and read phases for the checkout and one history
-# lookup. Additional nested-code lookups are budgeted after the checkout read.
+# 41 s: both phases of the checkout read and of one history lookup; a row is
+# started only while elapsed < 59 s. Any further lookups a checkout needs are
+# reserved after its checkout read.
 READ_RESERVE_SECONDS = SUMUP_REQUEST_WORST_CASE_SECONDS * SUMUP_READS_PER_ROW + 1
 # 65 s: the one write is started only while elapsed < 35 s.
 WRITE_RESERVE_SECONDS = (

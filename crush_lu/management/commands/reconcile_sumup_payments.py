@@ -518,11 +518,21 @@ class Command(BaseCommand):
         carries ``last_read`` (None if no row was read) and ``reached_end``
         (every row the run could see was read — the pass is complete).
 
-        ``budget_seconds`` is a hard deadline for the whole sweep, including
-        what a write sets off after it commits. Two reserves keep it one:
+        ``budget_seconds`` is the deadline the sweep plans against, including
+        what a write sets off after it commits. It is checked before each
+        step, not enforced: nothing interrupts a call already in flight, so
+        it holds only while every call stays within the worst case its
+        reserve assumes (api_admin_sumup says what those do not bound).
+        The reserves:
 
-        * ``read_reserve_seconds`` — worst case to read one row from SumUp.
-          A row is only started if its reads can finish before the deadline.
+        * ``read_reserve_seconds`` — worst case to read one row from SumUp:
+          its checkout and one history lookup. A row is only started if
+          that can finish before the deadline.
+        * After the checkout read, the history lookups that checkout
+          actually needs are reserved again against the clock. A row that
+          does not fit now is deferred (``unchecked``) to a later pass; one
+          that could not fit even as the first row of the run is counted
+          an error for a human instead.
         * ``write_reserve_seconds`` — worst case for one reconciliation,
           including its ``on_commit`` work (a cancelled registration promotes
           the waitlist and emails synchronously after commit). A detected
@@ -645,6 +655,9 @@ class Command(BaseCommand):
         last_read = None
         previous_read = None
         deferred_history_rows = 0
+        # Seconds this run spent before its first row (count, prefetch): no
+        # row can start earlier than that in a run like this one.
+        pre_row_seconds = None
 
         def _over_budget(reserve):
             return (
@@ -653,7 +666,15 @@ class Command(BaseCommand):
             )
 
         for tx_obj in qs:
-            if _over_budget(read_reserve_seconds):
+            # Same single clock read as _over_budget(read_reserve_seconds);
+            # the first one is also kept as pre_row_seconds.
+            out_of_time = False
+            if budget_seconds is not None:
+                elapsed = time.monotonic() - started
+                if pre_row_seconds is None:
+                    pre_row_seconds = elapsed
+                out_of_time = elapsed + read_reserve_seconds >= budget_seconds
+            if out_of_time:
                 unchecked = total_count - checked
                 logger.warning(
                     "SumUp reconciliation stopped at its %ss budget: checked %s "
@@ -716,15 +737,51 @@ class Command(BaseCommand):
                     if _history_refund_rank(history_map.get(code)) < 2
                 ]
                 if budget_seconds is not None and history_codes:
-                    # Requests' timeout=10 is applied to connect and read
-                    # independently. Reserve both phases for every nested code
-                    # lookup before issuing any of them, or a retried checkout
-                    # can consume the endpoint's remaining deadline.
+                    # Requests applies timeout=10 to connect and to read
+                    # separately, so each lookup reserves both phases
+                    # (SUMUP_REQUEST_WORST_CASE_SECONDS), all of them before
+                    # the first is issued. READ_RESERVE_SECONDS (api_admin_sumup)
+                    # already covered ONE lookup when the row was started;
+                    # this re-checks against the clock now, after the checkout
+                    # read, for however many codes the checkout turned out to
+                    # need.
                     history_reserve = (
                         len(history_codes) * SUMUP_REQUEST_WORST_CASE_SECONDS
                         + len(history_codes) * delay
                         + 1
                     )
+                    if pre_row_seconds + history_reserve >= budget_seconds:
+                        # Could not fit even as the first row of a run like
+                        # this one. Deferring it would leave it "unchecked"
+                        # on every pass — a WARNING nobody acts on — while a
+                        # refund on it is never reconciled. So it is an error
+                        # (the scheduled timer fails and alerts) naming the
+                        # checkout for a human, and it counts as read so the
+                        # cursor moves on. The CLI has no budget and can
+                        # check it. With history_lookup_codes this takes
+                        # several attempts that were NOT declined, which no
+                        # live checkout has shown.
+                        errors_count += 1
+                        logger.error(
+                            "SumUp checkout %s needs %s transaction-history "
+                            "read(s), more than the %ss budget can ever fit; "
+                            "not verified. Check it with `manage.py "
+                            "reconcile_sumup_payments --checkout-id %s`.",
+                            tx_obj.sumup_checkout_id,
+                            len(history_codes),
+                            budget_seconds,
+                            tx_obj.sumup_checkout_id,
+                        )
+                        self.stdout.write(
+                            self.style.ERROR(
+                                f"Could not verify {tx_obj.transaction_reference} "
+                                f"({tx_obj.sumup_checkout_id}): it needs "
+                                f"{len(history_codes)} history read(s), more than "
+                                "the time budget allows — refund state UNKNOWN, "
+                                "NOT confirmed paid. Run with --checkout-id."
+                            )
+                        )
+                        continue
                     if _over_budget(history_reserve):
                         checked -= 1
                         deferred_history_rows += 1
@@ -1040,10 +1097,16 @@ class Command(BaseCommand):
 
         if deferred_history_rows:
             # Rows deferred after their checkout read were not classified, so
-            # keep the cursor resumable even when the loop reached the window's
-            # end. _store_cursor will save the last row read; the next run then
-            # wraps to the oldest row and retries deferred checkouts with a
-            # fresh budget, after later rows have had their turn this run.
+            # the pass is not complete even when the loop reached the
+            # window's end: reached_end stays False and _store_cursor saves
+            # the last row read, which is past the deferred row. If that was
+            # the window's last row, the next run finds nothing after it and
+            # starts again from the oldest, retrying the deferred row with a
+            # fresh budget. If this run instead stopped on the read reserve,
+            # the next run resumes after the last row read and the deferred
+            # row waits until the pass wraps (and, like any unchecked row,
+            # ages out if the window passes it first). A row that could
+            # never fit is not deferred: it is an error above.
             unchecked = max(unchecked, total_count - checked)
 
         summary_msg = (
