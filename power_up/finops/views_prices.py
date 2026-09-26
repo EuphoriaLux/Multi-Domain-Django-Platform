@@ -26,14 +26,18 @@ def _safe_period(value):
     return days if days in PERIOD_OPTIONS else 90
 
 
-def _latest_day_options(provider, currency, os_filter, latest_day):
+def _latest_day_options(provider, latest_day):
     """Dropdown values, read from the newest snapshot day only.
 
     The table grows by one full European VM catalogue per night, so a DISTINCT
     over its whole history ran for minutes on production and the page never
     rendered. One day holds every current SKU, OS, currency and region.
+
+    The key holds only the provider and that day, both taken from stored rows
+    (no rows, no key), so crafted query strings cannot multiply cache entries.
+    Currency and OS narrow the SKU list in Python instead.
     """
-    key = f"finops:prices:options:{provider}:{currency}:{os_filter}:{latest_day}"
+    key = f"finops:prices:options:{provider}:{latest_day}"
     options = cache.get(key)
     if options is not None:
         return options
@@ -42,14 +46,11 @@ def _latest_day_options(provider, currency, os_filter, latest_day):
         provider=provider, snapshot_date=latest_day
     ).order_by()
     vms = day.filter(service_category="compute", resource_type="virtual_machines")
-    skus = vms.filter(currency=currency)
-    if os_filter:
-        skus = skus.filter(operating_system=os_filter)
     options = {
-        "skus": list(
-            skus.values_list("provider_sku", flat=True)
+        "vm_skus": list(
+            vms.values_list("currency", "operating_system", "provider_sku")
             .distinct()
-            .order_by("provider_sku")
+            .order_by("provider_sku", "currency", "operating_system")
         ),
         "os": list(
             vms.exclude(operating_system="")
@@ -66,6 +67,18 @@ def _latest_day_options(provider, currency, os_filter, latest_day):
     }
     cache.set(key, options, OPTIONS_CACHE_SECONDS)
     return options
+
+
+def _default_sku(scope):
+    """The SKU offered in the most regions of ``scope``'s single day."""
+    row = (
+        scope.order_by()
+        .values("provider_sku")
+        .annotate(region_count=Count("region_code", distinct=True))
+        .order_by("-region_count", "provider_sku")
+        .first()
+    )
+    return row["provider_sku"] if row else ""
 
 
 @login_required
@@ -112,11 +125,14 @@ def retail_price_dashboard(request):
         .order_by()
         .aggregate(value=Max("snapshot_date"))["value"]
     )
-    empty_options = {"skus": [], "os": [], "currencies": [], "regions": set()}
-    options = (
-        _latest_day_options(provider, currency, os_filter, latest_day)
-        if latest_day
-        else empty_options
+    empty_options = {"vm_skus": [], "os": [], "currencies": [], "regions": set()}
+    options = _latest_day_options(provider, latest_day) if latest_day else empty_options
+    sku_choices = sorted(
+        {
+            sku
+            for sku_currency, sku_os, sku in options["vm_skus"]
+            if sku_currency == currency and (not os_filter or sku_os == os_filter)
+        }
     )
 
     requested_sku = request.GET.get("sku", "").strip()
@@ -124,24 +140,29 @@ def retail_price_dashboard(request):
         # The SKU box is free text. Resolve the casing here so the lookups
         # below stay exact: iexact compiles to UPPER(provider_sku) on
         # Postgres, which skips the (provider, provider_sku, date) index.
-        canonical = {sku.lower(): sku for sku in options["skus"]}
-        active_sku = canonical.get(requested_sku.lower(), requested_sku)
-    elif latest_day:
-        default_sku = (
-            base.filter(snapshot_date=latest_day)
-            .order_by()
-            .values("provider_sku")
-            .annotate(region_count=Count("region_code", distinct=True))
-            .order_by("-region_count", "provider_sku")
-            .first()
-        )
-        active_sku = default_sku["provider_sku"] if default_sku else ""
+        # An exact match (a retired SKU included) is an index probe; otherwise
+        # the newest day's SKUs supply the stored casing.
+        if RetailPriceSnapshot.objects.filter(
+            provider=provider, provider_sku=requested_sku
+        ).exists():
+            active_sku = requested_sku
+        else:
+            canonical = {sku.lower(): sku for _, _, sku in options["vm_skus"]}
+            active_sku = canonical.get(requested_sku.lower(), requested_sku)
     else:
         active_sku = ""
+        if latest_day:
+            active_sku = _default_sku(base.filter(snapshot_date=latest_day))
+        if not active_sku:
+            # The selected regions can lag the newest day, e.g. mid-sync or
+            # after one region's sync failed: use their own latest day.
+            scope_day = base.order_by().aggregate(value=Max("snapshot_date"))["value"]
+            if scope_day and scope_day != latest_day:
+                active_sku = _default_sku(base.filter(snapshot_date=scope_day))
 
-    filtered = base
-    if active_sku:
-        filtered = filtered.filter(provider_sku=active_sku)
+    # Never fall back to every SKU at once: that is the full-window scan this
+    # page timed out on, and it would compare unlike offers anyway.
+    filtered = base.filter(provider_sku=active_sku) if active_sku else base.none()
 
     latest_snapshot = filtered.aggregate(value=Max("snapshot_date"))["value"]
     chart_rows = list(
@@ -258,7 +279,7 @@ def retail_price_dashboard(request):
         }
         for code in region_codes
     ]
-    sku_options = options["skus"][:500]
+    sku_options = sku_choices[:500]
     product_options = []
     if active_sku:
         product_options_query = RetailPriceSnapshot.objects.filter(
