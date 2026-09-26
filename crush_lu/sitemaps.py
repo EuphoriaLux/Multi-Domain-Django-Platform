@@ -31,6 +31,7 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:about',
             'crush_lu:how_it_works',
             'crush_lu:event_list',
+            'crush_lu:theme_board',
             'crush_lu:crush_coach',
             'crush_lu:crush_connect_teaser',
             'crush_lu:membership',

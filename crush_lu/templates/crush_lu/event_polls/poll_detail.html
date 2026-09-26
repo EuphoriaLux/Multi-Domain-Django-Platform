@@ -100,6 +100,22 @@
                 {% endfor %}
             </div>
 
+            {% if ask_gender %}
+            <fieldset class="mb-6">
+                <legend class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {% trans "I am… (optional, only used for the anonymous women/men split)" %}
+                </legend>
+                <div class="flex flex-wrap gap-x-5 gap-y-2">
+                    {% for code, label in voter_gender_choices %}
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="radio" name="voter_gender" value="{{ code }}" class="text-crush-purple">
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            {% endif %}
+
             <button @click="submitVote"
                     x-bind:disabled="isDisabled"
                     x-bind:class="submitClass"
@@ -115,8 +131,51 @@
         </div>
         {% endif %}
 
+        {% elif login_to_vote %}
+        <div class="rounded-xl border border-purple-200 dark:border-purple-700/50 bg-purple-50 dark:bg-purple-900/20 p-5 mb-8 flex flex-col sm:flex-row sm:items-center gap-4">
+            <p class="flex-1 text-sm sm:text-base text-gray-700 dark:text-gray-300">
+                {% trans "Log in or create a free Crush.lu account to vote. No dating profile needed." %}
+            </p>
+            <a href="{{ login_url }}" class="btn-crush-primary btn-block sm:w-auto">
+                {% trans "Log in to vote" %}
+            </a>
+        </div>
+        {% if show_results %}
+        {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
+        {% else %}
+        {% include 'crush_lu/event_polls/_poll_results_partial.html' with hide_counts=True %}
+        {% endif %}
+
         {% elif show_results %}
         {% include 'crush_lu/event_polls/_poll_results_partial.html' %}
+        {% endif %}
+
+        {% if poll.is_public and show_results %}
+        <p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">
+            {% blocktrans with min=gender_split_min %}Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has {{ min }} votes from women and {{ min }} from men.{% endblocktrans %}
+        </p>
+        {% endif %}
+
+        {% if poll.is_public and poll.is_active %}
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+            {% trans "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first." %}
+        </p>
+        {% endif %}
+
+        {% if can_suggest %}
+        <div class="mt-10 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-1">{% trans "Missing your kind of night?" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "Suggest a theme. A coach reviews every idea before it goes on the ballot." %}</p>
+            <form method="post" action="{% url 'crush_lu:poll_suggest' poll.id %}">
+                {% csrf_token %}
+                {% if request.resolver_match.url_name == 'theme_board' %}<input type="hidden" name="return_to" value="themes">{% endif %}
+                <div class="hidden" aria-hidden="true">{{ suggestion_form.website }}</div>
+                {% include "crush_lu/components/form_field.html" with field=suggestion_form.text %}
+                <button type="submit" class="btn-crush-solid btn-block sm:w-auto mt-3">
+                    {% trans "Send my idea" %}
+                </button>
+            </form>
+        </div>
         {% endif %}
     </div>
 </div>
