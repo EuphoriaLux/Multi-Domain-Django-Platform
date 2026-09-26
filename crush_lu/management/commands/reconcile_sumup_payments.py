@@ -1176,6 +1176,22 @@ class Command(BaseCommand):
             rows = rows.select_for_update()
         return list(rows.order_by("pk"))
 
+    @staticmethod
+    def _blocking_sibling_statuses(tx):
+        """Sibling payment statuses that block reconciling ``tx``.
+
+        Premium checkouts never supersede an older PENDING row: every open of
+        the payment page inserts a fresh one (views_payments
+        create_premium_checkout), so an abandoned attempt stays PENDING
+        forever. Blocking on it would leave a refunded membership active and
+        re-flag it on every pass with no way to clear it. Only a PAID sibling
+        blocks a premium refund; event checkouts supersede their PENDING rows,
+        so there PENDING still blocks.
+        """
+        if tx.premium_membership_id and not tx.event_registration_id:
+            return (PaymentTransaction.Status.PAID,)
+        return (PaymentTransaction.Status.PAID, PaymentTransaction.Status.PENDING)
+
     def _flag_for_review(self, message):
         """Send a review message to the warning log AND the terminal.
 
@@ -1314,8 +1330,7 @@ class Command(BaseCommand):
                 (row.pk, row.status)
                 for row in self._related_payment_rows(tx_obj)
                 if row.pk != tx_obj.pk
-                and row.status
-                in (PaymentTransaction.Status.PAID, PaymentTransaction.Status.PENDING)
+                and row.status in self._blocking_sibling_statuses(tx_obj)
             ]
             active_claim = bool(
                 tx_obj.event_registration_id
@@ -1431,6 +1446,8 @@ class Command(BaseCommand):
             #   this transaction. That is why PENDING blocks exactly like
             #   PAID, and why an ACTIVE/RETIRING checkout-creation claim
             #   blocks too. Narrowing this to PAID would reopen the window.
+            #   Premium is the exception (_blocking_sibling_statuses): its
+            #   checkouts leave abandoned PENDING rows behind forever.
             if locked_tx.event_registration_id:
                 sibling_rows = PaymentTransaction.objects.filter(
                     event_registration_id=locked_tx.event_registration_id
@@ -1443,12 +1460,7 @@ class Command(BaseCommand):
                 sibling_rows = PaymentTransaction.objects.none()
             other_payments = list(
                 sibling_rows.exclude(pk=locked_tx.pk)
-                .filter(
-                    status__in=(
-                        PaymentTransaction.Status.PAID,
-                        PaymentTransaction.Status.PENDING,
-                    )
-                )
+                .filter(status__in=self._blocking_sibling_statuses(locked_tx))
                 .order_by("pk")
                 .values_list("pk", "status")
             )
