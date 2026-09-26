@@ -42462,3 +42462,11 @@ msgstr "Storniere vor dem %(date)s um %(time)s, um den vollen Betrag als Crush C
 #, python-format
 msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
 msgstr "Das Event beginnt in weniger als %(hours)s Stunden, daher gibt es bei einer Stornierung keine Rückerstattung, aber du bekommst %(share)s %% als Crush Credit zurück, wenn jemand deinen Platz übernimmt und vor dem Event bezahlt."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Die Stornobedingungen haben sich geändert, während diese Seite offen war. "
+"Bitte prüfe sie noch einmal, bevor du bestätigst."

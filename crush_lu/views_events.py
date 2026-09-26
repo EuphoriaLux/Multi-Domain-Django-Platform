@@ -2044,7 +2044,24 @@ def event_cancel(request, event_id):
             if refusal is not None:
                 return refusal
 
+            # The page promised an outcome when it was opened. If the full-credit
+            # deadline passed before the member confirmed, don't apply a
+            # different one silently: show them the new terms first.
+            moment = timezone.now()
+            previewed = request.POST.get("previewed_outcome")
+            current = cancellation_outcome(registration, moment=moment)
+            if previewed and previewed != current.kind:
+                messages.warning(
+                    request,
+                    _(
+                        "The cancellation terms changed while this page was "
+                        "open. Please check them again before you confirm."
+                    ),
+                )
+                return redirect("crush_lu:event_cancel", event_id=event_id)
+
             registration.status = "cancelled"
+            registration.cancelled_at = moment
             # This view promotes explicitly below, inside the same locked
             # transaction, and sends the confirmation email itself. Tell
             # `signals.promote_waitlist_on_cancellation` to stand down, or the

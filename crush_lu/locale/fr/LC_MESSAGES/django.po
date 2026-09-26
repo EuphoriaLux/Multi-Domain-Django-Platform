@@ -42594,3 +42594,11 @@ msgstr "Annulez avant le %(date)s à %(time)s pour récupérer l’intégralité
 #, python-format
 msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
 msgstr "L’événement commence dans moins de %(hours)s heures : une annulation ne donne droit à aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
+"Les conditions d’annulation ont changé pendant que cette page était ouverte."
+" Veuillez les vérifier à nouveau avant de confirmer."

@@ -44,6 +44,7 @@
 
             <form method="post" x-data="eventCancelForm" @submit="guardSubmit" @pageshow.window="resetGuard">
                 {% csrf_token %}
+                <input type="hidden" name="previewed_outcome" value="{{ outcome.kind }}">
                 <div class="space-y-3">
                     <button type="submit" class="btn-danger btn-block" :disabled="isConfirming" :aria-busy="isConfirming">
                         <span x-show="isIdle">{% trans "Yes, Cancel Registration" %}</span>

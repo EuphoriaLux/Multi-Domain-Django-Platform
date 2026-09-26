@@ -2705,7 +2705,12 @@ def sumup_widget_view(request, checkout_id):
         "currency": tx_obj.currency,
         "order_event": event,
         "order_town": (event.address_town or event.location) if event else "",
-        "cancellation_policy": cancellation_policy(event) if event else None,
+        # Member-cancellation terms only: once Crush.lu has cancelled the
+        # event, a capture gets the organiser remedy instead, so don't quote
+        # terms that would not apply.
+        "cancellation_policy": (
+            cancellation_policy(event) if event and not event.is_cancelled else None
+        ),
         # The failure baseline, rendered into the page rather than fetched by
         # it. Fetching cannot be made safe here however early it is started:
         # the status endpoint does a live provider read, so its answer can

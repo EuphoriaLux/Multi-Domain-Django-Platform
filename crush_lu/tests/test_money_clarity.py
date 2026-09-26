@@ -204,6 +204,55 @@ class CancelPageShowsOutcomeTests(CreditFixture):
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CancelConfirmsThePreviewedOutcomeTests(CreditFixture):
+    """A stale preview never turns into a different money outcome silently."""
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+    def test_outcome_changed_since_preview_asks_again(self):
+        # The page was opened while full credit applied; the deadline has
+        # passed by the time the member confirms.
+        event = self._event(hours_away=10, max_participants=5)
+        user = self._user("stale-preview@crush.lu")
+        registration = self._paid_registration(event, user)
+        self.client.force_login(user)
+
+        response = self.client.post(_cancel_url(event), {"previewed_outcome": "credit"})
+
+        self.assertRedirects(
+            response, _cancel_url(event), fetch_redirect_response=False
+        )
+        registration.refresh_from_db()
+        self.assertNotEqual(registration.status, "cancelled")
+        self.assertFalse(
+            CrushCredit.objects.filter(source_registration=registration).exists()
+        )
+
+    def test_matching_preview_cancels(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            _cancel_url(self.event), {"previewed_outcome": "credit"}
+        )
+
+        self.assertRedirects(response, "/en/dashboard/", fetch_redirect_response=False)
+        self.assertTrue(
+            CrushCredit.objects.filter(source_registration__event=self.event).exists()
+        )
+
+    def test_page_carries_the_previewed_outcome(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(_cancel_url(self.event))
+
+        self.assertContains(
+            response, '<input type="hidden" name="previewed_outcome" value="credit">'
+        )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class SumUpWidgetOrderSummaryTests(CreditFixture):
     def setUp(self):
         super().setUp()
@@ -310,4 +359,15 @@ class SumUpWidgetOrderSummaryTests(CreditFixture):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-testid="order-summary"')
         self.assertNotContains(response, "Back to event")
+        self.assertNotContains(response, 'data-testid="cancellation-policy-note"')
+
+    def test_organiser_cancelled_event_quotes_no_member_terms(self):
+        """A capture after an organiser cancellation gets the organiser remedy."""
+        event = self.pending.event
+        event.is_cancelled = True
+        event.save()
+
+        response = self._get()
+
+        self.assertContains(response, 'data-testid="order-summary"')
         self.assertNotContains(response, 'data-testid="cancellation-policy-note"')

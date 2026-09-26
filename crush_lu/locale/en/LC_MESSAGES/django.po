@@ -28301,3 +28301,9 @@ msgstr "Back to event"
 #, python-format
 msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
 msgstr "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+
+#: views_events.py:2051
+msgid ""
+"The cancellation terms changed while this page was open. Please check them "
+"again before you confirm."
+msgstr ""
