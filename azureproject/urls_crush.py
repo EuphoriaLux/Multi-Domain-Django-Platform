@@ -72,6 +72,7 @@ from crush_lu import (
     api_admin_events,
     api_admin_campaigns,
     api_admin_changelog,
+    api_analytics,
     views_crush_spark,
     views_checkin,
     api_crush_connect,
@@ -864,6 +865,15 @@ urlpatterns = (
             "api/admin/campaigns/dispatch/",
             api_admin_campaigns.dispatch_campaigns_endpoint,
             name="api_admin_campaign_dispatch",
+        ),
+        # Crush Data MCP: read-only, pseudonymized analytics for AI agents (GET,
+        # Bearer ANALYTICS_API_KEY; 404 unless configured, i.e. production only).
+        # Language-neutral so the local MCP server can hardcode the path.
+        # Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+        path(
+            "api/analytics/<slug:tool>/",
+            api_analytics.analytics_tool,
+            name="api_analytics_tool",
         ),
         # Live Quiz API (called from quiz-live.js WebSocket fallback)
         path(

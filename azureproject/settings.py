@@ -53,6 +53,31 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # Admin API Key for Azure Function App to trigger management commands
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
+# Crush Data MCP (read-only analytics API, crush_lu/api_analytics.py).
+# Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+# The API stays dark (404) unless both keys are set AND the "analytics" DB alias
+# exists, which production.py defines only when ANALYTICS_DB_USER/_PASSWORD are
+# set. All four are slot-sticky on the production slot only; staging never has
+# them. ANALYTICS_API_KEY is deliberately separate from ADMIN_API_KEY, which
+# triggers jobs and emails. ANALYTICS_DB_ALIAS is not env-driven so production
+# can never point analytics queries at the admin "default" connection.
+ANALYTICS_API_KEY = os.getenv("ANALYTICS_API_KEY", "")
+ANALYTICS_PSEUDONYM_KEY = os.getenv("ANALYTICS_PSEUDONYM_KEY", "")
+ANALYTICS_DB_ALIAS = "analytics"
+# Other databases on the server the analytics login may still reach through
+# PUBLIC's default CONNECT (which cannot be revoked for one role alone). Only
+# databases holding no member data belong here; the default is Azure's own
+# plus template1, PostgreSQL's empty template for new databases.
+# Both setup_analytics_role and the 10-minute runtime audit enforce it.
+ANALYTICS_ALLOWED_OTHER_DATABASES = [
+    name.strip()
+    for name in os.getenv(
+        "ANALYTICS_ALLOWED_OTHER_DATABASES",
+        "postgres,azure_sys,azure_maintenance,template1",
+    ).split(",")
+    if name.strip()
+]
+
 # Hybrid Coach Review System (crush_lu) — global kill-switch. Default OFF so
 # the new pipeline is dormant until explicitly enabled per environment. Works
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
