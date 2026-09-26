@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0253_connect_cycle_two_by_five"),
+        ("crush_lu", "0254_event_poll_public_and_suggestions"),
     ]
 
     operations = [
