@@ -168,7 +168,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "Suggest a theme. A coach reviews every idea before it goes on the ballot." %}</p>
             <form method="post" action="{% url 'crush_lu:poll_suggest' poll.id %}">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% if request.resolver_match.url_name == 'theme_board' %}<input type="hidden" name="return_to" value="themes">{% endif %}
                 <div class="hidden" aria-hidden="true">{{ suggestion_form.website }}</div>
                 {% include "crush_lu/components/form_field.html" with field=suggestion_form.text %}
                 <button type="submit" class="btn-crush-solid btn-block sm:w-auto mt-3">

@@ -361,7 +361,7 @@ class PublicThemePollTests(TestCase):
         self.assertContains(self.client.get('/en/themes/'), 'Send my idea')
         response = self.client.post(
             f'/en/polls/{self.poll.id}/suggest/',
-            {'text': '  Tango   evening ', 'next': '/en/themes/'},
+            {'text': '  Tango   evening ', 'return_to': 'themes'},
         )
         self.assertRedirects(response, '/en/themes/', fetch_redirect_response=False)
         suggestion = EventPollSuggestion.objects.get()
@@ -370,8 +370,11 @@ class PublicThemePollTests(TestCase):
         self.assertEqual(suggestion.user, self.user)
         self.assertNotContains(self.client.get('/en/themes/'), 'Tango evening')
 
-    def test_suggestion_rejects_offsite_next(self):
+    def test_suggestion_ignores_user_supplied_next(self):
         self._login()
+        self.assertContains(
+            self.client.get('/en/themes/'), 'name="return_to" value="themes"'
+        )
         response = self.client.post(
             f'/en/polls/{self.poll.id}/suggest/',
             {'text': 'Salsa night', 'next': 'https://evil.example/'},

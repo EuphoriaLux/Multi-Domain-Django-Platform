@@ -15,7 +15,6 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import get_language, gettext_lazy as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -225,12 +224,11 @@ def poll_suggest(request, poll_id):
     poll = get_object_or_404(
         EventPoll, pk=poll_id, is_published=True, is_public=True
     )
-    next_url = request.POST.get('next', '')
-    if not url_has_allowed_host_and_scheme(
-        next_url,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
+    # Return to whichever of our two pages rendered the form; the URL is
+    # always built here, never taken from the request.
+    if request.POST.get('return_to') == 'themes':
+        next_url = reverse('crush_lu:theme_board')
+    else:
         next_url = reverse('crush_lu:poll_detail', args=[poll.pk])
 
     if not poll.is_active:
