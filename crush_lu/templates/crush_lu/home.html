@@ -94,6 +94,12 @@
                         {% trans "How It Works" %} →
                     </a>
                 </div>
+                <p class="mt-8 text-sm text-white/80">
+                    <a href="{% url 'crush_lu:about' %}#media" class="inline-flex flex-wrap items-baseline justify-center lg:justify-start gap-x-2 text-white/80 hover:text-white transition-colors">
+                        <span class="text-xs font-semibold uppercase tracking-widest">{% trans "As seen in" %}</span>
+                        <span class="font-semibold">Virgule &middot; LuxTimes &middot; RTL Today</span>
+                    </a>
+                </p>
             </div>
             <div class="lg:col-span-5 text-center" aria-hidden="true">
                 <div class="hero-emoji">{% include "crush_lu/includes/ghost-logo-hero.html" with class="hero-ghost-svg" %}</div>

@@ -9278,8 +9278,8 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\about.html:253
-msgid "Verified Members"
+#: .\crush_lu\templates\crush_lu\home.html
+msgid "As seen in"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:257

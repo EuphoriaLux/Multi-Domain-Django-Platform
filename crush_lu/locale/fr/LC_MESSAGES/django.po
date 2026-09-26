@@ -13832,9 +13832,9 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr "Crush.lu en chiffres"
 
-#: templates/crush_lu/about.html:253
-msgid "Verified Members"
-msgstr "Membres vérifiés"
+#: templates/crush_lu/home.html
+msgid "As seen in"
+msgstr "Vu dans"
 
 #: templates/crush_lu/about.html:257 templates/crush_lu/how_it_works.html:104
 msgid "Ways to Verify"

@@ -13779,9 +13779,9 @@ msgstr ""
 msgid "Crush.lu in Numbers"
 msgstr "Crush.lu in Zahlen"
 
-#: templates/crush_lu/about.html:253
-msgid "Verified Members"
-msgstr "Verifizierte Mitglieder"
+#: templates/crush_lu/home.html
+msgid "As seen in"
+msgstr "Bekannt aus"
 
 #: templates/crush_lu/about.html:257 templates/crush_lu/how_it_works.html:104
 msgid "Ways to Verify"
