@@ -311,8 +311,12 @@ PRIVILEGE_AUDIT_SQL = {
         "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
         "WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f', 't')"
     ),
+    # The last column says whether PUBLIC itself can read the column: even an
+    # allowed one must reach this login alone, never every login.
     "columns": (
-        "SELECT c.relname, a.attname FROM pg_attribute a "
+        "SELECT c.relname, a.attname, "
+        "has_column_privilege('public', c.oid, a.attnum, 'SELECT') "
+        "FROM pg_attribute a "
         "JOIN pg_class c ON c.oid = a.attrelid "
         "JOIN pg_namespace n ON n.oid = c.relnamespace "
         "WHERE n.nspname = 'public' AND c.relname = ANY(%(tables)s) "
@@ -477,18 +481,28 @@ PRIVILEGE_AUDIT_SQL = {
 }
 
 
-# Roles that can use the login's privileges: members of it that inherit its
-# rights or may SET ROLE to it. From PostgreSQL 16 a membership carries its own
-# options; one with ADMIN OPTION only (what CREATE ROLE gives a non-superuser
-# creator, such as the app's admin login) manages the role but cannot use it.
+# Members of the login: (name, can use its rights, holds ADMIN OPTION). From
+# PostgreSQL 16 a membership carries its own options: INHERIT or SET lets the
+# member use the login's rights, ADMIN lets it grant the login to anyone. The
+# app's own admin login gets ADMIN-only membership by creating the role and
+# needs it to manage the role, so it alone may hold that; before 16 any
+# membership confers SET ROLE.
 ROLE_MEMBERS_SQL = (
-    "SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
-    "WHERE m.roleid = %(role)s::regrole AND (m.inherit_option OR m.set_option)"
-)
-ROLE_MEMBERS_SQL_BEFORE_16 = (
-    "SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
+    "SELECT r.rolname, m.inherit_option OR m.set_option, m.admin_option "
+    "FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
     "WHERE m.roleid = %(role)s::regrole"
 )
+ROLE_MEMBERS_SQL_BEFORE_16 = (
+    "SELECT r.rolname, true, m.admin_option "
+    "FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
+    "WHERE m.roleid = %(role)s::regrole"
+)
+
+
+def _trusted_admin() -> str:
+    """The app's own admin login, which created the analytics role."""
+    return settings.DATABASES.get("default", {}).get("USER") or ""
+
 
 # Parameters whose SET widens what the login can read. SET on one of these is
 # a violation even when it comes through PUBLIC: the audit session only sees
@@ -573,7 +587,12 @@ def privilege_violations(
     for kind, name in grant_options:
         violations.append(f"holds a grant option on {kind} {name}")
     for member in role_members:
-        violations.append(f"role {member} can use this login's privileges")
+        name, can_use = member if isinstance(member, (tuple, list)) else (member, True)
+        violations.append(
+            f"role {name} can use this login's privileges"
+            if can_use
+            else f"role {name} holds ADMIN OPTION on this login and could grant it"
+        )
     if not public_usage:
         violations.append("lacks USAGE on schema public (re-run setup_analytics_role)")
     kinds = {"r": "tables", "S": "sequences", "f": "functions", "T": "types"}
@@ -630,12 +649,17 @@ def privilege_violations(
             violations.append(f"table-level SELECT on {name}")
         if any_column_select and (schema != "public" or relation not in GRANTS):
             violations.append(f"can read {name}")
-    for relation, column in columns:
+    for row in columns:
+        relation, column = row[:2]
         if column not in GRANTS.get(relation, ()):
             violations.append(f"can read public.{relation}.{column}")
+        if len(row) > 2 and row[2]:
+            violations.append(
+                f"PUBLIC can read public.{relation}.{column}, so every login can"
+            )
     # A required grant that went missing would otherwise surface later as a
     # permission error inside whichever tool reads it.
-    readable = set(map(tuple, columns))
+    readable = {tuple(row[:2]) for row in columns}
     for relation, required in GRANTS.items():
         for column in required:
             if (relation, column) not in readable:
@@ -665,7 +689,12 @@ def audit_role(cursor, role: str) -> list:
     cursor.execute(
         ROLE_MEMBERS_SQL if version >= 160000 else ROLE_MEMBERS_SQL_BEFORE_16, params
     )
-    role_members = [row[0] for row in cursor.fetchall()]
+    trusted = _trusted_admin()
+    role_members = [
+        (name, bool(can_use))
+        for name, can_use, admin in cursor.fetchall()
+        if can_use or (admin and name != trusted)
+    ]
     elevated = bool(results["elevated"] and results["elevated"][0][0])
     return privilege_violations(
         elevated,

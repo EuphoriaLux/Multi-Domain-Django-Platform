@@ -888,7 +888,7 @@ class PrivilegeAuditTests(TestCase):
             ],
             ["lo_compat_privileges"],
             [("column", "crush_lu_eventregistration.status")],
-            ["reporting_login"],
+            ["reporting_login", ("delegate", False)],
             False,
             [("pg_catalog", "pg_subscription", "subconninfo")],
             [("reporting_owner", "public", "r", "SELECT", True)],
@@ -922,6 +922,7 @@ class PrivilegeAuditTests(TestCase):
             # An allowed column, but re-grantable: still excess.
             "holds a grant option on column crush_lu_eventregistration.status",
             "role reporting_login can use this login's privileges",
+            "role delegate holds ADMIN OPTION on this login and could grant it",
             "lacks USAGE on schema public",
             "can read pg_catalog.pg_subscription (subconninfo), which PUBLIC cannot "
             "by default",
@@ -929,6 +930,34 @@ class PrivilegeAuditTests(TestCase):
             "schema public to PUBLIC",
         ):
             self.assertIn(expected, joined)
+
+    def test_a_public_grant_on_an_allowed_column_is_reported(self):
+        columns = [
+            (relation, column, (relation, column) == ("auth_user", "is_staff"))
+            for relation, column in self.ALL_GRANTED
+        ]
+        self.assertEqual(
+            analytics.privilege_violations(False, self.CLEAN_RELATIONS, columns, []),
+            ["PUBLIC can read public.auth_user.is_staff, so every login can"],
+        )
+
+    def test_only_the_app_admin_may_hold_admin_only_membership(self):
+        rows = [
+            ("postgresadmin", False, True),  # the creator: trusted
+            ("delegate", False, True),  # could grant the login to anyone
+            ("reporter", True, False),  # can use it
+        ]
+        with mock.patch.object(
+            analytics, "_trusted_admin", return_value="postgresadmin"
+        ):
+            violations, _ = self._audit_with(170011, [], member_rows=rows)
+        self.assertEqual(
+            violations,
+            [
+                "role delegate holds ADMIN OPTION on this login and could grant it",
+                "role reporter can use this login's privileges",
+            ],
+        )
 
     def test_a_missing_required_column_is_reported(self):
         columns = [c for c in self.ALL_GRANTED if c != ("auth_user", "is_staff")]
@@ -940,7 +969,7 @@ class PrivilegeAuditTests(TestCase):
             ],
         )
 
-    def _audit_with(self, version, parameter_rows):
+    def _audit_with(self, version, parameter_rows, member_rows=()):
         class FakeCursor:
             def __init__(self):
                 self.executed = []
@@ -960,6 +989,11 @@ class PrivilegeAuditTests(TestCase):
                     return list(PrivilegeAuditTests.ALL_GRANTED)
                 if self.last == analytics.PRIVILEGE_AUDIT_SQL["public_usage"]:
                     return [(True,)]
+                if self.last in (
+                    analytics.ROLE_MEMBERS_SQL,
+                    analytics.ROLE_MEMBERS_SQL_BEFORE_16,
+                ):
+                    return list(member_rows)
                 return []
 
         cursor = FakeCursor()

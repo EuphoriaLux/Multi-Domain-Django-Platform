@@ -249,7 +249,12 @@ class Command(BaseCommand):
         cursor.execute(
             "SELECT r.rolname, r.rolname = current_user FROM pg_auth_members m "
             "JOIN pg_roles r ON r.oid = m.member WHERE m.roleid = %s::regrole"
-            + (" AND (m.inherit_option OR m.set_option)" if version >= 160000 else ""),
+            + (
+                " AND (m.inherit_option OR m.set_option"
+                " OR (m.admin_option AND r.rolname <> current_user))"
+                if version >= 160000
+                else ""
+            ),
             [ROLE],
         )
         for member, is_self in cursor.fetchall():
