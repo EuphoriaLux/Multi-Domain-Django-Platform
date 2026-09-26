@@ -42394,7 +42394,7 @@ msgstr "Notifications non lues : {count}"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html
 msgid "You're not shown to anyone yet."
-msgstr "Vous n'êtes encore montré à personne."
+msgstr "Votre carte n'est encore montrée à personne."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html
 msgid "Your Connect home shows what is still missing."

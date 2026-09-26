@@ -51,7 +51,8 @@
     {% if not connect_summary.cycle_access %}<div class="flex flex-col gap-2 mb-4"><a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_inbox' %}">{% trans "View requests" %}</a><a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_list' %}">{% trans "Find an event" %}</a></div>{% endif %}
     {# Verified status chips. #}
     <div class="flex flex-wrap gap-2 mb-5">
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
+        {% if profile.is_connect_identity_verified %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300" data-identity-chip>
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
             {% if profile.has_luxid_connected %}
                 {% trans "LuxID verified" %}
@@ -59,6 +60,7 @@
                 {% trans "Identity verified — you can join Crush Connect" %}
             {% endif %}
         </span>
+        {% endif %}
         {% if membership.has_gate_questions %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
@@ -132,7 +134,7 @@
             <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 max-w-sm mx-auto mb-5">
                 {% trans "Right now, coaches can match others with you. With Premium, a personal coach studies your profile and picks one thoughtful match for you every week." %}
             </p>
-            <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            <a href="{% url 'crush_lu:premium_choose_coach' %}" class="{% if blocking_step %}btn-crush-solid{% else %}btn-crush-primary{% endif %} inline-flex items-center gap-2">
                 {% trans "Discover Premium" %}
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
             </a>

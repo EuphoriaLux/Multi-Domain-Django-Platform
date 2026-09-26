@@ -630,8 +630,10 @@ def test_blocked_chat_reads_identically_to_a_naturally_closed_chat(client):
     # nothing in the page that could tip off the non-blocking side.
     assert "Safety options" not in blocked_html
     assert "Safety options" not in closed_html
-    assert "Block this member" not in blocked_html
-    assert "Block this member" not in closed_html
+    assert "data-safety-menu" not in blocked_html
+    assert "data-safety-menu" not in closed_html
+    assert "Just block this member" not in blocked_html
+    assert "Just block this member" not in closed_html
 
 
 @pytest.mark.django_db

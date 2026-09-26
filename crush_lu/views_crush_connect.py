@@ -178,6 +178,12 @@ def _connect_trust_status(profile):
     return None
 
 
+def _active_assigned_coach(profile):
+    """The member's assigned coach, only while that coach is active."""
+    coach = getattr(profile, "assigned_coach", None)
+    return coach if coach is not None and coach.is_active else None
+
+
 def _connect_readiness(user):
     """Build the personal, real-state checklist for the active Connect route.
 
@@ -832,7 +838,7 @@ def crush_connect_catalogue_status(request):
             "is_visible": is_visible,
             "blocking_step": None if is_visible else blocking_step,
             "has_premium": bool(profile and profile.has_active_premium),
-            "premium_coach": getattr(profile, "assigned_coach", None),
+            "premium_coach": _active_assigned_coach(profile),
             **waitlist_context,
         },
     )
@@ -921,7 +927,7 @@ def crush_connect_hub(request):
         "has_premium": bool(profile and profile.has_active_premium),
         # Naming the coach is most of the point: it is the thing being sold, and
         # the hub never told the member who theirs is.
-        "premium_coach": getattr(profile, "assigned_coach", None) if profile else None,
+        "premium_coach": _active_assigned_coach(profile),
         "connect_readiness": _connect_readiness(user),
         "has_non_closed_chat": user_has_non_closed_chat(user),
     }
