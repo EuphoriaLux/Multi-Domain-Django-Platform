@@ -946,11 +946,18 @@ def my_connections(request):
         len(get_people_ive_met(request.user)) if lobby_feature_enabled() else 0
     )
 
+    # Gates the empty state's secondary CTA (finding 5-14): Crush Connect is
+    # only worth offering a verified member, since it's the same gate the
+    # hub itself enforces.
+    profile = getattr(request.user, "crushprofile", None)
+    is_verified = bool(profile and profile.verification_status == "verified")
+
     context = {
         "sent_requests": sent,
         "received_requests": received_pending,
         "active_connections": active,
         "people_ive_met_count": people_ive_met_count,
+        "is_verified": is_verified,
     }
     return render(request, "crush_lu/my_connections.html", context)
 
@@ -998,12 +1005,30 @@ def connection_detail(request, connection_id):
 
         # Handle consent
         if "consent" in request.POST:
-            consent_value = request.POST.get("consent") == "yes"
+            consent_choice = request.POST.get("consent")
+
+            # "Not now" (finding 5-10): a graceful exit from the consent step.
+            # It quietly closes the lead so the coach can follow up — the
+            # other side is never notified (mirrors the plain decline path,
+            # which also sends no notification).
+            if consent_choice == "not_now":
+                connection.status = "declined"
+                connection.save()
+                messages.info(
+                    request,
+                    _("No problem — we've let your coach know. Nothing was shared."),
+                )
+                return redirect("crush_lu:connection_detail", connection_id=connection_id)
+
+            consent_value = consent_choice == "yes"
+            share_email = "share_email" in request.POST
 
             if is_requester:
                 connection.requester_consents_to_share = consent_value
+                connection.requester_shares_email = share_email
             else:
                 connection.recipient_consents_to_share = consent_value
+                connection.recipient_shares_email = share_email
 
             connection.save()
 
@@ -1019,6 +1044,24 @@ def connection_detail(request, connection_id):
 
         # Handle message sending
         elif "message" in request.POST:
+            is_hx = bool(request.headers.get("HX-Request"))
+
+            def _hx_inline_error(error_text):
+                """finding 5-15: a failed send used to fall through to the
+                plain redirect below even for HTMX, so htmx's `beforeend`
+                swap onto #messages-container spliced the *entire* redirected
+                page into the chat thread. Retargeting into
+                #chat-compose-error keeps the failure inline, next to the
+                textarea, without losing what the member typed."""
+                response = render(
+                    request,
+                    "crush_lu/_connection_message_error.html",
+                    {"error": error_text},
+                )
+                response["HX-Retarget"] = "#chat-compose-error"
+                response["HX-Reswap"] = "innerHTML"
+                return response
+
             message_text = request.POST.get("message", "").strip()
             if message_text and len(message_text) <= CONNECTION_MESSAGE_MAX_LENGTH:
                 # Only allow messaging for accepted/shared connections
@@ -1032,6 +1075,10 @@ def connection_detail(request, connection_id):
                     recipient = (
                         connection.recipient if is_requester else connection.requester
                     )
+
+                    # First message in the thread? The response then also
+                    # removes the "No messages yet" placeholder (finding 5-15).
+                    is_first_message = not _approved_messages(connection).exists()
 
                     # Create the message
                     new_message = ConnectionMessage.objects.create(
@@ -1047,27 +1094,37 @@ def connection_detail(request, connection_id):
                         logger.error(f"Failed to send new message notification: {e}")
 
                     # For HTMX requests, return just the message partial
-                    if request.headers.get("HX-Request"):
-                        return render(
+                    if is_hx:
+                        response = render(
                             request,
                             "crush_lu/_connection_message.html",
                             {
                                 "msg": new_message,
                                 "is_own_message": True,
+                                "remove_empty_placeholder": is_first_message,
                             },
                         )
+                        # connection-chat.js resets the compose form on this
+                        # event (never inline via hx-on::after-request, which
+                        # would violate the site CSP once enforced) — and
+                        # only on this event, so a retargeted inline error
+                        # (also a 200) never clears what the member typed.
+                        response["HX-Trigger"] = "connection-message-sent"
+                        return response
 
                     messages.success(request, _("Message sent!"))
                 else:
-                    messages.error(
-                        request, _("You can only message accepted connections.")
-                    )
+                    error_text = _("You can only message accepted connections.")
+                    if is_hx:
+                        return _hx_inline_error(error_text)
+                    messages.error(request, error_text)
             else:
                 # Literal 500 keeps the existing translation catalog entry intact;
                 # CONNECTION_MESSAGE_MAX_LENGTH governs the actual cap above.
-                messages.error(
-                    request, _("Please enter a valid message (max 500 characters).")
-                )
+                error_text = _("Please enter a valid message (max 500 characters).")
+                if is_hx:
+                    return _hx_inline_error(error_text)
+                messages.error(request, error_text)
 
             return redirect("crush_lu:connection_detail", connection_id=connection_id)
 
@@ -1108,6 +1165,14 @@ def connection_detail(request, connection_id):
     if connection.status == "shared" and other_profile and other_profile.phone_number:
         whatsapp_number = re.sub(r"[^\d+]", "", other_profile.phone_number)
 
+    # Did the OTHER side choose to share their email? (finding 5-10: email is
+    # opt-in at consent time, so it must not be assumed shared.)
+    other_shares_email = (
+        connection.recipient_shares_email
+        if is_requester
+        else connection.requester_shares_email
+    )
+
     context = {
         "connection": connection,
         "is_requester": is_requester,
@@ -1119,6 +1184,7 @@ def connection_detail(request, connection_id):
         "user_needs_consent": user_needs_consent,
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
+        "other_shares_email": other_shares_email,
         # Pre-`shared` crush lead: the requester sees only this neutral
         # "with your coach" state — identical whether the lead is pending,
         # mid-coach-workflow, or silently declined.

@@ -158,16 +158,40 @@
 
     <!-- Empty State -->
     {% if not received_requests and not active_connections and not sent_requests %}
-        <div class="text-center py-12 min-h-[55vh] flex flex-col items-center justify-center">
-            <div class="mx-auto w-40 h-40 mb-6 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
-            <h3 class="text-2xl font-semibold mb-2">{% trans "No connections yet" %}</h3>
-            <p class="text-gray-500 dark:text-gray-400 mb-6">
-                {% trans "Attend an event and connect with people you meet!" %}
+        <div class="text-center py-8 flex flex-col items-center">
+            <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
+            <h3 class="text-2xl font-semibold mb-2">{% trans "Your first connection starts at an event" %}</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
+                {% trans "Meet someone, and if you both say yes afterwards, your Crush Coach steps in to make the introduction." %}
             </p>
-            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
-                {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-                {% trans "Browse Events" %}
-            </a>
+
+            <div class="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-6 py-3">
+                    {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
+                    {% trans "Browse Events" %}
+                </a>
+                {% if is_verified %}
+                    <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-outline inline-flex items-center gap-2 px-6 py-3">
+                        {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                        {% trans "Try Crush Connect" %}
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl text-left">
+                <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-semibold shrink-0">1</span>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 m-0">{% trans "Meet at an event" %}</p>
+                </div>
+                <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-semibold shrink-0">2</span>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 m-0">{% trans "Both say yes" %}</p>
+                </div>
+                <div class="flex items-start gap-2">
+                    <span class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-semibold shrink-0">3</span>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 m-0">{% trans "Your coach introduces you" %}</p>
+                </div>
+            </div>
         </div>
     {% endif %}
 </div>

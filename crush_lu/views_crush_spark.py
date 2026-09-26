@@ -123,7 +123,17 @@ def spark_request(request, event_id):
 
 @crush_login_required
 def spark_list(request):
-    """Dashboard showing all sent and received sparks."""
+    """Dashboard showing all sent and received sparks.
+
+    Sparks are soft-retired (finding 5-13): creation routes redirect to the
+    Crush Connect teaser. A member with no in-flight spark at all has
+    nothing left to track here, so they go straight to the Connect hub
+    instead of a page that asks for an action ("send your first Crush
+    Spark!") that no longer exists. A member who still has one or more
+    in-flight sparks keeps this page, so nothing a coach approved gets
+    orphaned, but with copy that explains the retirement rather than
+    inviting a new spark.
+    """
     sent_sparks = (
         CrushSpark.objects.filter(sender=request.user)
         .select_related("event", "recipient__crushprofile", "assigned_coach")
@@ -140,6 +150,9 @@ def spark_list(request):
         .select_related("event")
         .order_by("-delivered_at")
     )
+
+    if not sent_sparks.exists() and not received_sparks.exists():
+        return redirect("crush_lu:crush_connect_hub")
 
     context = {
         "sent_sparks": sent_sparks,
