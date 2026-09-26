@@ -870,9 +870,7 @@ class SumUpReconciliationEndpointTests(TestCase):
             if history_calls is not None:
                 history_calls.append(kwargs)
             return {
-                "items": (history_by_code or {}).get(
-                    kwargs.get("transaction_code"), []
-                )
+                "items": (history_by_code or {}).get(kwargs.get("transaction_code"), [])
             }
 
         with (
@@ -1407,18 +1405,14 @@ class SumUpReconciliationEndpointTests(TestCase):
     ):
         """No top-level code; the declined attempt comes first. Only the
         capture is asked about, and its refund is reconciled."""
-        body, queried = self._retried_checkout_run(
-            [DECLINED_ATTEMPT, CAPTURED_ATTEMPT]
-        )
+        body, queried = self._retried_checkout_run([DECLINED_ATTEMPT, CAPTURED_ATTEMPT])
         self.assertEqual(queried, [CAPTURE_CODE])
         self.assertEqual(body["reconciled"], 1)
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
 
     def test_capture_listed_first_is_still_the_only_code_asked_about(self):
-        body, queried = self._retried_checkout_run(
-            [CAPTURED_ATTEMPT, DECLINED_ATTEMPT]
-        )
+        body, queried = self._retried_checkout_run([CAPTURED_ATTEMPT, DECLINED_ATTEMPT])
         self.assertEqual(queried, [CAPTURE_CODE])
         self.assertEqual(body["reconciled"], 1)
 
@@ -1433,9 +1427,7 @@ class SumUpReconciliationEndpointTests(TestCase):
                 PaymentTransaction.objects.filter(pk=self.payment.pk).update(
                     status=PaymentTransaction.Status.PAID
                 )
-                body, queried = self._retried_checkout_run(
-                    [DECLINED_ATTEMPT, capture]
-                )
+                body, queried = self._retried_checkout_run([DECLINED_ATTEMPT, capture])
                 self.assertEqual(queried, [CAPTURE_CODE])
                 self.assertEqual(body["reconciled"], 1)
 
@@ -2135,9 +2127,7 @@ class CapturedTransactionCodeTests(SimpleTestCase):
 
     def test_a_top_level_code_is_trusted_but_a_captured_sibling_is_still_read(self):
         self.assertEqual(
-            self._codes(
-                [DECLINED_ATTEMPT, CAPTURED_ATTEMPT], top_level=DECLINED_CODE
-            ),
+            self._codes([DECLINED_ATTEMPT, CAPTURED_ATTEMPT], top_level=DECLINED_CODE),
             (DECLINED_CODE, [DECLINED_CODE, CAPTURE_CODE]),
         )
 

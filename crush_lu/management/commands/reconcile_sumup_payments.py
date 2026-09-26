@@ -193,9 +193,9 @@ def index_history(history_map: dict, items) -> dict:
         code = item.get("transaction_code")
         if not code:
             continue
-        if code not in history_map or _history_refund_rank(
-            item
-        ) > _history_refund_rank(history_map[code]):
+        if code not in history_map or _history_refund_rank(item) > _history_refund_rank(
+            history_map[code]
+        ):
             history_map[code] = item
     return history_map
 
@@ -322,7 +322,9 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
             if hist_amt_ref > 0:
                 candidates.append(hist_amt_ref)
             elif (hist_item.get("status") or "").upper() == "REFUNDED":
-                candidates.append(_to_decimal(hist_item.get("amount") or data.get("amount")))
+                candidates.append(
+                    _to_decimal(hist_item.get("amount") or data.get("amount"))
+                )
 
     code = data.get("transaction_code")
     if code and history_map and code in history_map:
@@ -331,7 +333,9 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
         if hist_amt_ref > 0:
             candidates.append(hist_amt_ref)
         elif (hist_item.get("status") or "").upper() == "REFUNDED":
-            candidates.append(_to_decimal(hist_item.get("amount") or data.get("amount")))
+            candidates.append(
+                _to_decimal(hist_item.get("amount") or data.get("amount"))
+            )
 
     candidates.extend([per_tx_total, refunds_total])
     return max(candidates)
@@ -400,7 +404,11 @@ def is_checkout_refunded(data: dict, history_map: Optional[dict] = None) -> bool
         if tx.get("refunds") or _refunded_total(tx) > 0:
             return True
         tx_code = tx.get("transaction_code")
-        if tx_code and history_map and history_row_shows_refund(history_map.get(tx_code)):
+        if (
+            tx_code
+            and history_map
+            and history_row_shows_refund(history_map.get(tx_code))
+        ):
             return True
 
     code = data.get("transaction_code")
@@ -856,8 +864,7 @@ class Command(BaseCommand):
                             )
                             if summed > 0:
                                 history_map[code] = dict(
-                                    history_map.get(code)
-                                    or {"transaction_code": code},
+                                    history_map.get(code) or {"transaction_code": code},
                                     refunded_amount=str(summed),
                                 )
                     except Exception as exc:
@@ -1291,9 +1298,11 @@ class Command(BaseCommand):
             # a new payment after the sibling-row snapshot.
             active_claim = False
             if locked_tx.event_registration_id:
-                event_id = EventRegistration.objects.filter(
-                    pk=locked_tx.event_registration_id
-                ).values_list("event_id", flat=True).first()
+                event_id = (
+                    EventRegistration.objects.filter(pk=locked_tx.event_registration_id)
+                    .values_list("event_id", flat=True)
+                    .first()
+                )
                 if event_id is not None:
                     MeetupEvent.objects.select_for_update().filter(pk=event_id).first()
                 EventRegistration.objects.select_for_update().filter(

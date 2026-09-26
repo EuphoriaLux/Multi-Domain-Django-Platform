@@ -271,10 +271,7 @@ def sumup_reconciliation_endpoint(request):
     # One structured line, queryable in App Insights without a database.
     # Counts only — no references, emails or payloads (contract §7.3).
     needs_attention = (
-        body["partial"]
-        or body["errors"]
-        or body["unchecked"]
-        or body["needs_review"]
+        body["partial"] or body["errors"] or body["unchecked"] or body["needs_review"]
     )
     logger.log(
         logging.WARNING if needs_attention else logging.INFO,
