@@ -648,23 +648,38 @@ if (workbox) {
     // fallback Workbox uses where the Sync API is missing, and the
     // "crush-drain-queue" message a page sends when it regains connectivity
     // (below) all run this.
-    // A response that means "not now": the server never processed the
-    // request, so it goes back to the front of the queue and the drain
-    // stops, like a network failure. A 4xx other than 429 was processed
-    // and refused; replaying it would not change that.
+    // The one HTTP answer that proves the server did NOT process the
+    // request: the @ratelimit decorators answer 429 before any view runs.
+    // Such an entry goes back to the front of the queue and the drain
+    // stops, like a network failure. Every other status is final, 5xx
+    // included: a 500 can come AFTER the mutation committed (the connection
+    // message view stores the row before rendering), so replaying it would
+    // create and notify the same message twice. The replayed POSTs carry no
+    // idempotency key on the server, so an unknown outcome is not retried.
     function replayShouldRetry(response) {
-        return response.status >= 500 || response.status === 429;
+        return response.status === 429;
     }
 
     // One drain at a time, whatever asked for it (Sync event, worker start,
-    // a page's "crush-drain-queue"): two loops shifting entries concurrently
-    // could replay ordered mutations (two chat messages) in reverse, and a
-    // requeue from the loser would keep them reversed.
+    // a page's "crush-drain-queue") and whichever worker generation asks:
+    // Workbox's no-Sync fallback runs onSync from the Queue constructor in
+    // EVERY worker, so an installing worker and the active one would drain
+    // the shared IndexedDB queue side by side and replay ordered mutations
+    // (two chat messages) in reverse. The Web Locks API is origin-wide, so
+    // it serializes across generations; the promise covers this worker.
     let drainInFlight = null;
+
+    function withDrainLock(run) {
+        const locks = self.navigator && self.navigator.locks;
+        if (locks && typeof locks.request === "function") {
+            return locks.request("crush-queue-drain", run);
+        }
+        return run();
+    }
 
     function drainQueue(queue) {
         if (drainInFlight) return drainInFlight;
-        drainInFlight = (async () => {
+        drainInFlight = withDrainLock(async () => {
             let entry;
             while ((entry = await queue.shiftRequest())) {
                 // Discard, don't replay: an entry an earlier worker
@@ -691,7 +706,7 @@ if (workbox) {
                     );
                 }
             }
-        })().finally(() => {
+        }).finally(() => {
             drainInFlight = null;
         });
         return drainInFlight;

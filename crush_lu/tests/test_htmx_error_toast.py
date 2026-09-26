@@ -257,12 +257,18 @@ def test_queued_copy_needs_the_workers_confirmation():
     # fetch consumes the body; a failed replay is requeued by serializing the
     # request again, so the replay must use a clone or the entry is lost.
     assert "await fetch(entry.request.clone())" in sw
-    # A 5xx/429 answer means the server did not process the request: it is
-    # requeued and the drain stops, like a network failure. Drains from any
-    # source share one in-flight promise so entries never replay out of order.
-    assert "return response.status >= 500 || response.status === 429;" in sw
+    # Only a 429 proves the server did not process the request (the ratelimit
+    # decorators answer before any view runs): it is requeued and the drain
+    # stops, like a network failure. A 5xx can follow a committed mutation
+    # (the connection message view stores the row before rendering), so it is
+    # final: replaying it would create the message twice. Drains from any
+    # source and any worker generation are serialized: one in-flight promise
+    # per worker plus an origin-wide Web Lock across generations.
+    assert "return response.status === 429;" in sw
     drain = sw[sw.index("function drainQueue(queue)") : sw.index("const crushQueue")]
     assert "if (drainInFlight) return drainInFlight;" in drain
+    assert "drainInFlight = withDrainLock(async () => {" in drain
+    assert 'locks.request("crush-queue-drain", run)' in sw
     assert "if (replayShouldRetry(response))" in drain
     assert drain.count("await queue.unshiftRequest(entry);") == 2
     assert 'window.addEventListener("online", scheduleDrains)' in handler
