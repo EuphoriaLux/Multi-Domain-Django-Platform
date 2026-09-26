@@ -77,3 +77,13 @@ class Notification(models.Model):
     @property
     def is_unread(self):
         return self.read_at is None
+
+    @classmethod
+    def unread_count_for(cls, user):
+        """Unread in-app notifications for ``user``.
+
+        The one source both bells read: the desktop dropdown fetches it from
+        /api/notifications/ and the mobile top bar's badge is seeded with it
+        by the crush_user_context processor, so the two never disagree.
+        """
+        return cls.objects.filter(user=user, read_at__isnull=True).count()

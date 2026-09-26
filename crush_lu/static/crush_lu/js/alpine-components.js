@@ -293,7 +293,11 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("topBarMobile", function () {
         return {
             pageTitle: "",
+            // Unread in-app notifications (not connection requests — those
+            // badge the bottom nav's Connections tab).
             notificationCount: 0,
+            i18nNotifications: "Notifications",
+            i18nUnreadNotifications: "Unread notifications: {count}",
 
             init: function () {
                 // Read page title from meta tag set by {% block mobile_page_title %}
@@ -303,6 +307,13 @@ document.addEventListener("alpine:init", function () {
                     this.$el.dataset.notificationCount || "0",
                     10,
                 );
+                if (this.$el.dataset.i18nNotifications) {
+                    this.i18nNotifications = this.$el.dataset.i18nNotifications;
+                }
+                if (this.$el.dataset.i18nUnreadNotifications) {
+                    this.i18nUnreadNotifications =
+                        this.$el.dataset.i18nUnreadNotifications;
+                }
             },
 
             get showBackButton() {
@@ -313,6 +324,29 @@ document.addEventListener("alpine:init", function () {
             },
             get hasNotifications() {
                 return this.notificationCount > 0;
+            },
+            // Same "9+" cap as the desktop notificationBell badge.
+            get notificationBadgeText() {
+                if (this.notificationCount > 9) return "9+";
+                return String(this.notificationCount);
+            },
+            // The badge is aria-hidden; the count is spoken via the link's label.
+            get bellAriaLabel() {
+                if (!this.hasNotifications) return this.i18nNotifications;
+                return this.i18nUnreadNotifications.replace(
+                    "{count}",
+                    String(this.notificationCount),
+                );
+            },
+
+            // Bound via x-on:notif-unread-count.window — the desktop
+            // notificationBell re-fetches /api/notifications/ on load and on
+            // mark-read, and broadcasts each new unread count.
+            syncNotificationCount: function (event) {
+                var count = parseInt(event.detail, 10);
+                if (!isNaN(count) && count >= 0) {
+                    this.notificationCount = count;
+                }
             },
 
             goBack: function () {
@@ -14717,6 +14751,7 @@ document.addEventListener("alpine:init", function () {
         return {
             isOpen: false,
             unreadCount: 0,
+            unreadBroadcastWired: false,
             items: [],
             loaded: false,
 
@@ -14741,6 +14776,25 @@ document.addEventListener("alpine:init", function () {
                 this.$watch("items", function () {
                     self.renderItems();
                 });
+                // Seed from the server-rendered count (the same helper the API
+                // uses) so this bell and the mobile top bar start equal, then
+                // broadcast every change so the mobile badge follows. init runs
+                // twice here (x-data auto-init + x-init="init"): wire the
+                // broadcast once.
+                this.unreadCount = parseInt(
+                    this.$el.getAttribute("data-unread-count") || "0",
+                    10,
+                ) || 0;
+                if (!this.unreadBroadcastWired) {
+                    this.unreadBroadcastWired = true;
+                    this.$watch("unreadCount", function (count) {
+                        window.dispatchEvent(
+                            new CustomEvent("notif-unread-count", {
+                                detail: count,
+                            }),
+                        );
+                    });
+                }
                 // Fetch unread count on mount so the badge appears immediately
                 this.refresh();
             },

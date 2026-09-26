@@ -24,7 +24,7 @@ def _wants_json(request) -> bool:
 def notifications_page(request):
     """Full-page notification history with mark-all-read button."""
     qs = Notification.objects.filter(user=request.user)
-    unread_count = qs.filter(read_at__isnull=True).count()
+    unread_count = Notification.unread_count_for(request.user)
     notifications = list(qs[:100])
     return render(
         request,
@@ -46,7 +46,7 @@ def api_notifications_list(request):
         return HttpResponseNotAllowed(["GET"])
 
     qs = Notification.objects.filter(user=request.user)
-    unread_count = qs.filter(read_at__isnull=True).count()
+    unread_count = Notification.unread_count_for(request.user)
     items = list(qs[:20])
     return JsonResponse(
         {
