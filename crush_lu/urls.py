@@ -727,6 +727,9 @@ urlpatterns = [
 
     path('polls/', views.poll_list, name='poll_list'),
     path('polls/<int:poll_id>/', views.poll_detail, name='poll_detail'),
+    path('polls/<int:poll_id>/suggest/', views.poll_suggest, name='poll_suggest'),
+    # Public theme-night ballot: newest active public poll
+    path('themes/', views.theme_board, name='theme_board'),
 
     # ============================================================================
     # ADVENT CALENDAR SYSTEM

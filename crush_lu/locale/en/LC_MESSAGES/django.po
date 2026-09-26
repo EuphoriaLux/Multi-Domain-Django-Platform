@@ -28094,6 +28094,106 @@ msgstr ""
 msgid "Unread notifications: {count}"
 msgstr ""
 
+#: theme ballot
+msgid "Anyone can view; any logged-in account can vote (no approved profile needed)."
+msgstr ""
+
+#: theme ballot
+msgid "Poll Suggestion"
+msgstr ""
+
+#: theme ballot
+msgid "Poll Suggestions"
+msgstr ""
+
+#: theme ballot
+msgid "Your idea"
+msgstr ""
+
+#: theme ballot
+msgid "e.g. Salsa night, Escape room date…"
+msgstr ""
+
+#: theme ballot
+msgid "This poll is closed."
+msgstr ""
+
+#: theme ballot
+msgid "Thanks for your idea! A coach will review it soon."
+msgstr ""
+
+#: theme ballot
+msgid "Please describe your idea in 200 characters or fewer."
+msgstr ""
+
+#: theme ballot
+msgid "Log in or create a free Crush.lu account to vote. No dating profile needed."
+msgstr ""
+
+#: theme ballot
+msgid "Log in to vote"
+msgstr ""
+
+#: theme ballot
+msgid "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first."
+msgstr ""
+
+#: theme ballot
+msgid "Missing your kind of night?"
+msgstr ""
+
+#: theme ballot
+msgid "Suggest a theme. A coach reviews every idea before it goes on the ballot."
+msgstr ""
+
+#: theme ballot
+msgid "Send my idea"
+msgstr ""
+
+#: theme ballot
+msgid "Theme nights"
+msgstr ""
+
+#: theme ballot
+msgid "No theme vote right now"
+msgstr ""
+
+#: theme ballot
+msgid "We're preparing the next ballot of theme nights. Check back soon."
+msgstr ""
+
+#: theme ballot
+msgid "Approve: add as a new poll option"
+msgstr ""
+
+#: theme ballot
+msgid "Reject selected suggestions"
+msgstr ""
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) added as poll options. Add translations and an image on the poll."
+msgstr ""
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) rejected."
+msgstr ""
+
+#: theme ballot
+msgid "I am… (optional, only used for the anonymous women/men split)"
+msgstr ""
+
+#: theme ballot
+#, python-format
+msgid "Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has %(min)s votes from women and %(min)s from men."
+msgstr ""
+
+#: theme ballot
+#, python-format
+msgid "Women %(women)s%% · Men %(men)s%%"
+msgstr ""
+
 #: templates/crush_lu/gdpr_data_management.html
 msgid "Login account"
 msgstr ""

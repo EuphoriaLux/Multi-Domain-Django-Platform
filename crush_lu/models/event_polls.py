@@ -21,6 +21,13 @@ class EventPoll(models.Model):
     is_published = models.BooleanField(default=False)
     allow_multiple_choices = models.BooleanField(default=False)
     show_results_before_close = models.BooleanField(default=False)
+    is_public = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Anyone can view; any logged-in account can vote "
+            "(no approved profile needed)."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -89,6 +96,17 @@ class EventPollVote(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='event_poll_votes'
     )
+    # Snapshot taken at vote time (profile gender, else the voter's optional
+    # answer on the ballot); feeds the public women/men split.
+    VOTER_GENDER_CHOICES = [
+        ('F', _("Woman")),
+        ('M', _("Man")),
+        ('O', _("Other")),
+        ('P', _("Prefer not to say")),
+    ]
+    voter_gender = models.CharField(
+        max_length=1, choices=VOTER_GENDER_CHOICES, blank=True
+    )
     voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -98,3 +116,40 @@ class EventPollVote(models.Model):
 
     def __str__(self):
         return f"{self.user.username} -> {self.option.name}"
+
+
+class EventPollSuggestion(models.Model):
+    """A voter's idea for a new option, held for coach review."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        APPROVED = "approved", _("Approved")
+        REJECTED = "rejected", _("Rejected")
+
+    poll = models.ForeignKey(
+        EventPoll, on_delete=models.CASCADE, related_name='suggestions'
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='event_poll_suggestions'
+    )
+    text = models.CharField(max_length=200)
+    language = models.CharField(max_length=10, blank=True)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+    promoted_to = models.ForeignKey(
+        EventPollOption,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='suggestions',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _("Poll Suggestion")
+        verbose_name_plural = _("Poll Suggestions")
+
+    def __str__(self):
+        return self.text
