@@ -42,6 +42,46 @@ def _json_default(value):
     return str(value)
 
 
+BANNER_COOKIE = "cookie_consent"
+
+
+def stored_cookie_choice(request, cookie_group):
+    """
+    The visitor's stored choice for a cookie group: True, False or None.
+
+    A choice can live in three places, checked in this order:
+    1. django-cookie-consent's own cookie (``group=version|...``, HttpOnly),
+       written by its /cookies/ views;
+    2. the banner's JSON object in the same ``cookie_consent`` cookie
+       (``{"analytics": true, "marketing": false, ...}``);
+    3. the banner's per-group flag ``cookie_consent_<group>=accept|decline``.
+    The banner writes 2 and 3 from JavaScript, so a visitor who accepted
+    through it never has 1; reading only 1 treated every banner choice as
+    undecided.
+    """
+    try:
+        from cookie_consent.util import get_cookie_value_from_request
+        consent = get_cookie_value_from_request(request, cookie_group)
+    except Exception:
+        consent = None
+    if consent is not None:
+        return consent is True
+
+    raw = request.COOKIES.get(BANNER_COOKIE, "")
+    if raw:
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = None
+        if isinstance(data, dict) and cookie_group in data:
+            return data[cookie_group] is True
+
+    flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
+    if flag in ("accept", "decline"):
+        return flag == "accept"
+    return None
+
+
 def get_cookie_consent(request, cookie_group, undecided=True):
     """
     Check if user has consented to a specific cookie group.
@@ -52,16 +92,27 @@ def get_cookie_consent(request, cookie_group, undecided=True):
     withholds storage until the banner answers; a script that has no such
     mode (the Facebook Pixel) must pass False, or it fires before consent.
     """
-    try:
-        from cookie_consent.util import get_cookie_value_from_request
-        consent = get_cookie_value_from_request(request, cookie_group)
-        # consent is True (accepted), False (declined), or None (not yet decided)
-        if consent is None:
-            return undecided
-        return consent is True
-    except Exception:
-        # If cookie_consent is not available, treat it as undecided
-        return undecided
+    choice = stored_cookie_choice(request, cookie_group)
+    return undecided if choice is None else choice
+
+
+@register.simple_tag(takes_context=True)
+def cookie_consent_state(context):
+    """
+    The stored choice as the server sees it, as JSON for the cookie banner.
+
+    django-cookie-consent's cookie is HttpOnly, so the banner's script cannot
+    read a choice made through the library's /cookies/ views from
+    document.cookie; it reads this instead (``data-consent-state``) and only
+    falls back to document.cookie when nothing is decided here.
+    """
+    request = context.get('request')
+    state = {"analytics": None, "marketing": None}
+    if request is not None:
+        for group in state:
+            state[group] = stored_cookie_choice(request, group)
+    state["decided"] = any(value is not None for value in state.values())
+    return json.dumps(state)
 
 
 @register.simple_tag(takes_context=True)

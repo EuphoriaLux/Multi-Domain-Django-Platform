@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load analytics %}
 
 {# Cookie Consent Banner - GDPR Compliant #}
 {# Include this at the bottom of your base template, before </body> #}
@@ -8,7 +9,7 @@
 {# var(--crush-purple) accents and the informal-"du" DE copy (msgctxt "crush cookie banner" in crush_lu/locale). #}
 {# Without it the partial renders the generic .btn markup and formal core/locale copy the other sites use. #}
 
-<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush{% endif %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
+<div id="cookie-consent-banner" class="cookie-banner{% if cookie_banner_variant == "crush" %} cookie-banner--crush{% endif %}" data-consent-state="{% cookie_consent_state %}" role="dialog" aria-labelledby="cookie-banner-title" aria-describedby="cookie-banner-description" style="display: none;">
     <div class="cookie-banner-content">
         <div class="cookie-banner-text">
             <p id="cookie-banner-title" class="cookie-banner-title">{% trans "Cookie Settings" %}</p>
@@ -680,12 +681,35 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         updateGoogleConsent(consent);
     }
 
-    // The stored choice as {analytics, marketing}. Two formats share the
-    // cookie: this banner's JSON object, and django-cookie-consent's own
-    // "group=version|group=version" string written by its /cookies/ views,
-    // where a declined group stores "-1". Anything else (no cookie, a legacy
-    // value) is no stored choice.
+    // What the server knows (data-consent-state, rendered by the
+    // cookie_consent_state tag): django-cookie-consent's own cookie is
+    // HttpOnly, so a choice made through its /cookies/ views is invisible to
+    // document.cookie. Null when nothing is decided server-side.
+    function serverConsent() {
+        const banner = document.getElementById('cookie-consent-banner');
+        const raw = banner && banner.dataset ? banner.dataset.consentState : '';
+        if (!raw) return null;
+        try {
+            const state = JSON.parse(raw);
+            return state && state.decided ? state : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // The stored choice as {analytics, marketing}: the server's view first,
+    // then the cookie this script can read. Two formats share that cookie:
+    // this banner's JSON object, and django-cookie-consent's own
+    // "group=version|group=version" string, where a declined group stores
+    // "-1". Anything else (no cookie, a legacy value) is no stored choice.
     function storedConsent() {
+        const server = serverConsent();
+        if (server) {
+            return {
+                analytics: server.analytics === true,
+                marketing: server.marketing === true
+            };
+        }
         const consent = getCookie(COOKIE_NAME);
         if (consent && typeof consent === 'object') return consent;
         if (typeof consent === 'string' && consent.indexOf('=') !== -1) {
@@ -792,12 +816,15 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         bindButtonEvents();
 
         const consent = getCookie(COOKIE_NAME);
-        if (!consent) {
-            // No consent cookie found - show banner
+        if (!consent && !serverConsent()) {
+            // No stored choice anywhere - show banner
             showBanner();
         } else {
-            // Consent exists - dispatch event with existing consent
-            dispatchConsentEvent(consent);
+            // A choice exists (readable cookie, or the server's HttpOnly
+            // one) - dispatch it so the analytics scripts can act on it
+            dispatchConsentEvent(
+                consent && typeof consent === 'object' ? consent : storedConsent()
+            );
         }
     });
 })();

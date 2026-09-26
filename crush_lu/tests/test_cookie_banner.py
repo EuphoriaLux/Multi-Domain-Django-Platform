@@ -15,6 +15,7 @@ Paths are literal because the host middleware swaps the urlconf per host;
 ``reverse()`` would build a path for the default host instead.
 """
 
+import html
 import re
 from html.parser import HTMLParser
 
@@ -308,6 +309,108 @@ class FacebookPixelConsentTests(SimpleTestCase):
         self.assertNotIn("waiting for consent", html)
         self.assertIn("fbq('init', '123456')", html)
 
+    def _render_with_cookies(self, cookies):
+        request = RequestFactory().get("/")
+        request.COOKIES.update(cookies)
+        # The library sees nothing in its own format; only the banner's.
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            return Template("{% load analytics %}{% analytics_body %}").render(
+                Context({"FACEBOOK_PIXEL_ID": "123456", "request": request})
+            )
+
+    def test_banner_json_choice_counts_server_side(self):
+        """The banner stores its choice as JSON (and a per-group flag), never
+        in the library's format; the server must read it, or every visitor who
+        accepted through the banner stays "undecided" and fb_event calls that
+        run before the banner's script are dropped."""
+        accepted = self._render_with_cookies(
+            {"cookie_consent": '{"essential":true,"analytics":false,"marketing":true}'}
+        )
+        declined = self._render_with_cookies(
+            {"cookie_consent": '{"essential":true,"analytics":true,"marketing":false}'}
+        )
+
+        self.assertIn("fbq('init', '123456')", accepted)
+        self.assertNotIn("waiting for consent", accepted)
+        self.assertIn("waiting for consent", declined)
+
+    def test_banner_flag_cookie_counts_server_side(self):
+        accepted = self._render_with_cookies({"cookie_consent_marketing": "accept"})
+        declined = self._render_with_cookies({"cookie_consent_marketing": "decline"})
+
+        self.assertIn("fbq('init', '123456')", accepted)
+        self.assertIn("waiting for consent", declined)
+
+
+class ConsentStateTagTests(SimpleTestCase):
+    """The banner reads the server's view of the stored choice from
+    data-consent-state, because the library's own cookie is HttpOnly."""
+
+    def _state(self, cookies=None, with_request=True):
+        import json
+
+        context = {}
+        if with_request:
+            request = RequestFactory().get("/")
+            request.COOKIES.update(cookies or {})
+            context["request"] = request
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            rendered = Template(
+                "{% load analytics %}{% cookie_consent_state %}"
+            ).render(Context(context))
+        return json.loads(html.unescape(rendered))
+
+    def test_undecided_without_a_request_or_a_cookie(self):
+        self.assertEqual(
+            self._state(with_request=False),
+            {"analytics": None, "marketing": None, "decided": False},
+        )
+        self.assertEqual(
+            self._state({}), {"analytics": None, "marketing": None, "decided": False}
+        )
+
+    def test_reflects_the_banner_json(self):
+        self.assertEqual(
+            self._state({"cookie_consent": '{"analytics":true,"marketing":false}'}),
+            {"analytics": True, "marketing": False, "decided": True},
+        )
+
+    def test_reflects_the_library_cookie(self):
+        request = RequestFactory().get("/")
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request",
+            side_effect=lambda req, group: {"analytics": False, "marketing": True}[
+                group
+            ],
+        ):
+            rendered = Template(
+                "{% load analytics %}{% cookie_consent_state %}"
+            ).render(Context({"request": request}))
+        import json
+
+        self.assertEqual(
+            json.loads(html.unescape(rendered)),
+            {"analytics": False, "marketing": True, "decided": True},
+        )
+
+    def test_banner_carries_the_state_and_reads_it_first(self):
+        request = RequestFactory().get("/")
+        request.COOKIES["cookie_consent"] = '{"analytics":false,"marketing":true}'
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            html = render_to_string(BANNER_TEMPLATE, {"request": request})
+        self.assertIn(
+            'data-consent-state="{&quot;analytics&quot;: false, &quot;marketing&quot;: true, &quot;decided&quot;: true}"',
+            html,
+        )
+        self.assertIn("function serverConsent()", html)
+        self.assertIn("if (!consent && !serverConsent())", html)
+
 
 class CookieSettingsTriggerTests(TestCase):
     """Once a choice is stored the banner stays hidden, so a persistent footer
@@ -430,3 +533,43 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     # end with the revoke.
     consent_calls = [c for c in page.evaluate("window.__fbqCalls") if c[0] == "consent"]
     assert consent_calls and consent_calls[-1] == ["consent", "revoke"]
+
+
+@pytest.mark.playwright
+def test_server_side_choice_drives_the_banner_when_the_cookie_is_httponly(page):
+    """A choice stored only where document.cookie cannot see it (the
+    library's HttpOnly cookie) must still keep the banner closed and show up
+    in the reopened settings: the page reads data-consent-state instead."""
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent"] = (
+        '{"essential":true,"analytics":false,"marketing":true}'
+    )
+    with patch("cookie_consent.util.get_cookie_value_from_request", return_value=None):
+        html = render_to_string(
+            BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
+        )
+    url = "http://crush.test/"
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
+        ),
+    )
+    # No cookie at all in the browser: the server-rendered state is the only source.
+    page.goto(url)
+    assert (
+        page.evaluate(
+            "getComputedStyle(document.getElementById('cookie-consent-banner')).display"
+        )
+        == "none"
+    )
+    page.click("#open-cookie-settings")
+    checked = page.evaluate(
+        "[document.getElementById('cookie-analytics').checked, "
+        "document.getElementById('cookie-marketing').checked]"
+    )
+    assert checked == [False, True]
