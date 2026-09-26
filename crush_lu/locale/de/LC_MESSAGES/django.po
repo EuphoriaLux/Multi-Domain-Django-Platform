@@ -14964,7 +14964,7 @@ msgstr ""
 
 #: templates/crush_lu/auth.html:58
 msgid "Sign up"
-msgstr "anmelden"
+msgstr "Registrieren"
 
 #: templates/crush_lu/auth.html:87
 msgid "Verified instantly — no SMS code, no waiting"
@@ -26263,7 +26263,7 @@ msgstr ""
 
 #: templates/crush_lu/event_detail.html:767
 msgid "sign up"
-msgstr "anmelden"
+msgstr "registrieren"
 
 #: templates/crush_lu/event_detail.html:767
 msgid "to register for this event."
@@ -33745,7 +33745,7 @@ msgstr ""
 
 #: templates/crush_lu/signup.html:6
 msgid "Sign Up - Crush.lu"
-msgstr "Anmelden – Crush.lu"
+msgstr "Registrieren – Crush.lu"
 
 #: templates/crush_lu/signup.html:17
 msgid "Join Crush.lu"
@@ -33757,7 +33757,7 @@ msgstr "Erstelle dein Konto, um neue Menschen kennenzulernen"
 
 #: templates/crush_lu/signup.html:37
 msgid "Sign up with Google"
-msgstr "Mit Google anmelden"
+msgstr "Mit Google registrieren"
 
 #: templates/crush_lu/signup.html:48
 msgid "Sign up with Facebook"
@@ -42236,3 +42236,26 @@ msgid ""
 msgstr ""
 "Nach Deinem letzten Tag hast Du 24 Stunden, um auf alle zurückzublicken — "
 "darunter eine Person, die aus unserer Sicht besonders gut zu Dir passt"
+
+#: templates/crush_lu/event_ticket.html
+msgid "QR code for event check-in"
+msgstr "QR-Code für den Event-Check-in"
+
+#: templates/crush_lu/event_ticket.html
+msgid "Ticket number"
+msgstr "Ticketnummer"
+
+#. HTMX failure toast: the service worker may have stored the request for
+#. replay but did not confirm it, so neither a retry promise nor a resend
+#. prompt is honest.
+#: templates/crush_lu/components/htmx_error_toast.html
+msgid ""
+"We could not confirm whether this was sent. Check before sending it again."
+msgstr ""
+"Wir konnten nicht bestätigen, ob das gesendet wurde. Prüfe das, bevor du es "
+"erneut sendest."
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr "Ungelesene Benachrichtigungen: {count}"

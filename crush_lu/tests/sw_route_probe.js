@@ -23,6 +23,7 @@ const source = fs.readFileSync(swPath, "utf8");
 
 const routes = [];
 const fetchListeners = [];
+const deletedCaches = [];
 let backgroundSync = null;
 
 function strategyName(name) {
@@ -30,6 +31,13 @@ function strategyName(name) {
         this.__strategy = name;
         this.__opts = opts;
     };
+}
+
+/** The ExpirationPlugin options a caching strategy was built with, if any. */
+function expirationOf(handler) {
+    const plugins = (handler && handler.__opts && handler.__opts.plugins) || [];
+    const plugin = plugins.find((p) => p && p.__expiration);
+    return plugin ? plugin.__expiration : null;
 }
 
 // Any workbox.<ns>.<Thing> we don't model explicitly becomes a no-op constructor.
@@ -60,6 +68,10 @@ const workbox = {
             routes.push({
                 match,
                 strategy: (handler && handler.__strategy) || "unknown",
+                // Which cache a caching strategy writes to: two NetworkFirst
+                // routes differ only here (e.g. crush-tickets vs crush-pages).
+                cacheName: (handler && handler.__opts && handler.__opts.cacheName) || null,
+                expiration: expirationOf(handler),
                 method: method || "GET",
             });
         },
@@ -81,13 +93,25 @@ const workbox = {
         cleanupOutdatedCaches: () => {},
         createHandlerBoundToURL: () => () => {},
     }),
-    expiration: lenientNamespace(),
+    expiration: lenientNamespace({
+        // Recorded so a probe can see how long a route's cache keeps entries.
+        ExpirationPlugin: function (opts) {
+            this.__expiration = opts || {};
+        },
+    }),
     cacheableResponse: lenientNamespace(),
     // Captured rather than stubbed away: the route predicate only governs what
     // ENTERS the queue, so the replay loop has to be probed on its own.
     backgroundSync: lenientNamespace({
         BackgroundSyncPlugin: function (queueName, options) {
             backgroundSync = { queueName, options: options || {} };
+        },
+        // The worker holds the Queue itself (so a page can ask for a drain);
+        // its onSync is the same replay loop, probed the same way.
+        Queue: function (queueName, options) {
+            backgroundSync = { queueName, options: options || {} };
+            this.pushRequest = async () => {};
+            this.replayRequests = async () => {};
         },
     }),
     recipes: lenientNamespace(),
@@ -103,7 +127,15 @@ const self = {
     clients: { matchAll: async () => [], claim: async () => {}, openWindow: async () => {} },
     registration: { showNotification: async () => {}, scope: "https://crush.lu/" },
     skipWaiting: () => {},
-    caches: { open: async () => ({ match: async () => null, put: async () => {} }) },
+    caches: {
+        open: async () => ({ match: async () => null, put: async () => {} }),
+        keys: async () => [],
+        // Recorded so a probe can see which caches a request purges.
+        delete: async (name) => {
+            deletedCaches.push(name);
+            return true;
+        },
+    },
     __WB_DISABLE_DEV_LOGS: true,
 };
 
@@ -159,7 +191,7 @@ function matchingRoute(request) {
         } catch (e) {
             hit = false;
         }
-        if (hit) return route.strategy;
+        if (hit) return route;
     }
     return null;
 }
@@ -239,6 +271,119 @@ const probes = [
         destination: "",
         mustBeClaimed: true,
     },
+    {
+        // The ticket is what an attendee opens at the venue door, often with
+        // no signal. It needs its own cache: "crush-pages" is shared with
+        // every page and expires after 24h.
+        name: "ticket_navigation_en",
+        url: "https://crush.lu/en/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        name: "ticket_navigation_de",
+        url: "https://crush.lu/de/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        name: "ticket_navigation_fr",
+        url: "https://crush.lu/fr/events/29/ticket/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-tickets",
+    },
+    {
+        // The ticket route must not swallow its neighbours.
+        name: "event_detail_navigation",
+        url: "https://crush.lu/en/events/29/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkFirst",
+        mustMatchCache: "crush-pages",
+    },
+    {
+        // Session boundaries purge the offline tickets: the ticket URL is
+        // keyed by event, not user, so the next account on the device would
+        // otherwise be shown the previous account's QR offline. Asserted on
+        // `purgedCaches` by the tests; claiming is informational here (the
+        // NetworkOnly auth route claims these, as with the OAuth probe above).
+        name: "logout_navigation",
+        url: "https://crush.lu/en/logout/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        name: "login_navigation",
+        url: "https://crush.lu/fr/login/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        name: "signup_navigation",
+        url: "https://crush.lu/de/signup/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // The native app's WebView redeems its one-time code here and is
+        // signed in as that code's user (native_auth.complete_native_auth)
+        // without ever visiting a /login page.
+        name: "native_auth_complete_navigation",
+        url: "https://crush.lu/api/mobile/android/auth/complete/abc123/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Accepting a guest invitation creates the guest's account and signs
+        // it in on this POST (views_invitations.invitation_accept).
+        name: "invite_accept_post_navigation",
+        url: "https://crush.lu/en/invite/0b6f3c52-8a4e-4f7e-9f7a-2d7c1e4b9a10/accept/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // A full account deletion POST calls logout() and redirects home
+        // (views_account.gdpr_data_management), never visiting /logout.
+        name: "gdpr_delete_post_navigation",
+        url: "https://crush.lu/en/account/gdpr/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Same view behind the legacy URL.
+        name: "legacy_account_delete_post_navigation",
+        url: "https://crush.lu/de/account/delete/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
+    {
+        // Guards the POST-only rule: opening the GDPR page keeps tickets.
+        name: "gdpr_page_navigation",
+        url: "https://crush.lu/fr/account/gdpr/",
+        mode: "navigate",
+        destination: "document",
+        informational: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -249,23 +394,31 @@ const results = probes.map((probe) => {
         method: probe.method || "GET",
         headers: { get: () => "" },
     };
+    deletedCaches.length = 0;
     const early = earlyListenerClaims(request);
+    const purgedCaches = deletedCaches.slice();
     const route = early ? null : matchingRoute(request);
+    const strategy = route ? route.strategy : null;
     const claimed = early || route !== null;
-    const strategyOk = !probe.mustMatchStrategy || route === probe.mustMatchStrategy;
+    const strategyOk = !probe.mustMatchStrategy || strategy === probe.mustMatchStrategy;
+    const cacheOk = !probe.mustMatchCache || (route && route.cacheName) === probe.mustMatchCache;
     return {
         name: probe.name,
         url: probe.url,
         method: request.method,
         claimedByEarlyListener: early,
-        matchedRoute: route,
+        matchedRoute: strategy,
+        matchedCacheName: route ? route.cacheName : null,
+        matchedExpiration: route ? route.expiration : null,
+        purgedCaches,
         claimed,
         informational: !!probe.informational,
         mustBeClaimed: probe.informational ? null : probe.mustBeClaimed,
         mustMatchStrategy: probe.mustMatchStrategy || null,
+        mustMatchCache: probe.mustMatchCache || null,
         ok: probe.informational
             ? true
-            : claimed === probe.mustBeClaimed && strategyOk,
+            : claimed === probe.mustBeClaimed && strategyOk && cacheOk,
     };
 });
 
@@ -278,7 +431,15 @@ async function probeReplay(urls) {
     if (!backgroundSync || typeof backgroundSync.options.onSync !== "function") {
         return { available: false, replayed: [], drained: false };
     }
-    const pending = urls.map((url) => ({ request: { url, method: "POST" } }));
+    const pending = urls.map((url) => ({
+        request: {
+            url,
+            method: "POST",
+            clone() {
+                return this;
+            },
+        },
+    }));
     const queue = {
         shiftRequest: async () => pending.shift(),
         unshiftRequest: async (entry) => {
