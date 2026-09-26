@@ -65,7 +65,7 @@ class EventPollVoteAdmin(admin.ModelAdmin):
     list_select_related = ["user", "poll", "option"]
     list_filter = ('poll', 'voted_at')
     search_fields = ('user__username', 'user__email')
-    readonly_fields = ('poll', 'option', 'user', 'voted_at')
+    readonly_fields = ('poll', 'option', 'user', 'voter_gender', 'voted_at')
 
 
 class EventPollSuggestionAdmin(admin.ModelAdmin):

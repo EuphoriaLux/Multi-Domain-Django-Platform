@@ -497,6 +497,13 @@ class PublicThemePollTests(TestCase):
         model_admin = EventPollSuggestionAdmin(EventPollSuggestion, crush_admin_site)
         self.assertIn('status', model_admin.readonly_fields)
 
+    def test_vote_gender_is_read_only_in_admin(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.event_polls import EventPollVoteAdmin
+
+        model_admin = EventPollVoteAdmin(EventPollVote, crush_admin_site)
+        self.assertIn('voter_gender', model_admin.readonly_fields)
+
     def test_admin_approve_creates_option(self):
         from unittest import mock
 
