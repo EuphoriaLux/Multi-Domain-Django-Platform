@@ -443,15 +443,21 @@ PRIVILEGE_AUDIT_SQL = {
     # EXECUTE reaches every login through PUBLIC by default. Invoker-rights
     # functions run with the caller's own (read-only, allowlisted) rights, so
     # only SECURITY DEFINER functions, which run as their owner, can reach
-    # beyond GRANTS. System schemas are excluded.
+    # beyond GRANTS. Every schema counts. In system schemas the exemptions are
+    # PostgreSQL's built-ins (OIDs below FirstNormalObjectId, 16384) and
+    # members of installed extensions; anything else created there, which
+    # takes a superuser, is flagged like one in an ordinary schema.
     "definer_functions": (
         "SELECT n.nspname, p.proname FROM pg_proc p "
         "JOIN pg_namespace n ON n.oid = p.pronamespace "
         "WHERE p.prosecdef "
-        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
+        "AND has_function_privilege(%(role)s, p.oid, 'EXECUTE') "
+        "AND ((n.nspname NOT IN ('pg_catalog', 'information_schema') "
         "AND n.nspname NOT LIKE 'pg_%%' "
-        "AND has_schema_privilege(%(role)s, n.oid, 'USAGE') "
-        "AND has_function_privilege(%(role)s, p.oid, 'EXECUTE')"
+        "AND has_schema_privilege(%(role)s, n.oid, 'USAGE')) "
+        "OR (p.oid >= 16384 AND NOT EXISTS (SELECT 1 FROM pg_depend d "
+        "WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid "
+        "AND d.deptype = 'e')))"
     ),
     # Routines authorize through their EXECUTE ACL, not table rights. In every
     # schema, including pg_catalog, it is excess when the login can run a
