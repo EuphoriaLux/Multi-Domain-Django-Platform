@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
-from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpError
 
@@ -577,7 +577,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(m.MAX_WRITES_PER_RUN, 1)
 
         self.assertEqual(m.RECONCILIATION_BUDGET_SECONDS, 100)
-        self.assertEqual(m.READ_RESERVE_SECONDS, 21)
+        self.assertEqual(m.READ_RESERVE_SECONDS, 41)
         self.assertEqual(m.WRITE_RESERVE_SECONDS, 65)
         self.assertLess(m.RECONCILIATION_BUDGET_SECONDS, m.FUNCTION_TIMEOUT_SECONDS)
         self.assertLess(m.FUNCTION_TIMEOUT_SECONDS, 120)
@@ -828,11 +828,20 @@ class SumUpReconciliationEndpointTests(TestCase):
             transaction_reference=ref, sumup_checkout_id=checkout_id, **defaults
         )
 
-    def _run_by_id(self, payloads):
+    def _run_by_id(self, payloads, history_by_code=None, history_calls=None):
+        def get_history(**kwargs):
+            if history_calls is not None:
+                history_calls.append(kwargs)
+            return {
+                "items": (history_by_code or {}).get(
+                    kwargs.get("transaction_code"), []
+                )
+            }
+
         with (
             override_settings(SUMUP_RECONCILIATION_ENABLED=True),
             patch(GET_CHECKOUT, side_effect=lambda c: payloads[c]) as get_checkout,
-            patch(GET_HISTORY, return_value={"items": []}),
+            patch(GET_HISTORY, side_effect=get_history),
         ):
             resp = self._post()
         return resp.json(), [c.args[0] for c in get_checkout.call_args_list]
@@ -1317,23 +1326,148 @@ class SumUpReconciliationEndpointTests(TestCase):
                 {"status": "SUCCESSFUL", "transaction_code": "TX_EVID", "amount": 15.5}
             ],
         }
-        history_row = {
-            "transaction_code": "TX_EVID",
-            "type": "PAYMENT",
-            "status": "REFUNDED",
-            "amount": 15.5,
-            "refunded_amount": 15.5,
-        }
-        resp = self._run(checkout, history={"items": [history_row]})
-        self.assertEqual(resp.json()["reconciled"], 1)
+        history_rows = [
+            {"transaction_code": "TX_EVID", "type": "REFUND", "amount": 7.5},
+            {"transaction_code": "TX_EVID", "type": "REFUND", "amount": 8.0},
+        ]
+        body, _ = self._run_by_id(
+            {"chk_t2_1": checkout}, history_by_code={"TX_EVID": history_rows}
+        )
+        self.assertEqual(body["reconciled"], 1)
         self.payment.refresh_from_db()
         stored = self.payment.raw_response
         self.assertEqual(stored["status"], "PAID")
         self.assertEqual(stored["transactions"], checkout["transactions"])
         evidence = stored["reconciliation_history_evidence"]
-        self.assertEqual(len(evidence), 1)
-        self.assertEqual(evidence[0]["status"], "REFUNDED")
-        self.assertEqual(evidence[0]["transaction_code"], "TX_EVID")
+        self.assertEqual(evidence, history_rows)
+
+    def test_retried_checkout_queries_every_nested_transaction_code(self):
+        """A declined first attempt must not hide the later successful code."""
+        checkout = {
+            "id": "chk_t2_1",
+            "status": "PAID",
+            "amount": 15.5,
+            "transaction_code": "TX_DECLINED",
+            "transactions": [
+                {"status": "FAILED", "transaction_code": "TX_DECLINED"},
+                {
+                    "status": "SUCCESSFUL",
+                    "transaction_code": "TX_CAPTURED",
+                    "amount": 15.5,
+                },
+            ],
+        }
+        captured_refund = {
+            "transaction_code": "TX_CAPTURED",
+            "type": "PAYMENT",
+            "status": "SUCCESSFUL",
+            "amount": 15.5,
+            "refunded_amount": 15.5,
+        }
+        history_calls = []
+        body, _ = self._run_by_id(
+            {"chk_t2_1": checkout},
+            history_by_code={"TX_CAPTURED": [captured_refund]},
+            history_calls=history_calls,
+        )
+        queried = {
+            call.get("transaction_code")
+            for call in history_calls
+            if call.get("transaction_code")
+        }
+        self.assertEqual(queried, {"TX_DECLINED", "TX_CAPTURED"})
+        self.assertEqual(body["reconciled"], 1)
+
+    def test_refunded_pending_registration_releases_its_reserved_seat(self):
+        self.registration.status = "pending"
+        self.registration.payment_confirmed = True
+        self.registration.save(update_fields=["status", "payment_confirmed"])
+
+        body = self._run(FULL_REFUND).json()
+
+        self.registration.refresh_from_db()
+        self.assertEqual(body["reconciled"], 1)
+        self.assertEqual(self.registration.status, "cancelled")
+        self.assertFalse(self.registration.payment_confirmed)
+
+    def test_pending_sibling_capture_is_flagged_without_releasing_the_seat(self):
+        pending = self._new_payment(
+            "CRUSH-EVT-T2-pending-sibling",
+            "chk_t2_pending_sibling",
+            event_registration=self.registration,
+            event=self.event,
+            status=PaymentTransaction.Status.PENDING,
+        )
+        with self.assertLogs(CMD, level=logging.WARNING) as logs:
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.registration.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual((body["needs_review"], body["reconciled"]), (1, 0))
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(
+            any(f"PENDING payment {pending.pk}" in line for line in logs.output)
+        )
+
+    def test_payment_published_while_waiting_for_event_lock_is_flagged(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        original_related_rows = Command._related_payment_rows
+        created = []
+
+        def add_payment_after_initial_snapshot(tx, *, lock=False):
+            rows = original_related_rows(tx, lock=lock)
+            if lock and not created:
+                created.append(
+                    self._new_payment(
+                        "CRUSH-EVT-T2-racing-sibling",
+                        "chk_t2_racing_sibling",
+                        event_registration=self.registration,
+                        event=self.event,
+                        status=PaymentTransaction.Status.PENDING,
+                    )
+                )
+            return rows
+
+        with (
+            patch.object(
+                Command,
+                "_related_payment_rows",
+                side_effect=add_payment_after_initial_snapshot,
+            ),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.registration.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual((body["needs_review"], body["reconciled"]), (1, 0))
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(
+            any(f"PENDING payment {created[0].pk}" in line for line in logs.output)
+        )
+
+    def test_active_checkout_claim_is_flagged_before_refund_reconciliation(self):
+        EventCheckoutCreationClaim.objects.create(
+            registration=self.registration,
+            registration_id_snapshot=self.registration.pk,
+            event_id_snapshot=self.event.pk,
+            transaction_reference="CRUSH-EVT-T2-active-claim",
+            payment_method="card",
+        )
+        with self.assertLogs(CMD, level=logging.WARNING) as logs:
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.registration.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual((body["needs_review"], body["reconciled"]), (1, 0))
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(
+            any("active checkout-creation claim" in line for line in logs.output)
+        )
 
     def test_no_evidence_key_when_the_checkout_itself_proves_it(self):
         self._run(FULL_REFUND)
@@ -1421,7 +1555,7 @@ class SumUpReconciliationStructureTests(TestCase):
         self.assertNotIn("--include-partial", src.replace("# ", ""))
 
     def test_reconcile_locks_payment_before_everything_else(self):
-        """§4 lock order: PaymentTransaction -> EventRegistration -> PremiumMembership.
+        """§4 lock order: payment rows -> event -> registration/membership.
 
         SQLite ignores select_for_update, so an inversion passes every runtime
         test and deadlocks only on production Postgres. Same idiom as
@@ -1431,13 +1565,21 @@ class SumUpReconciliationStructureTests(TestCase):
         from crush_lu.management.commands.reconcile_sumup_payments import Command
 
         src = inspect.getsource(Command._reconcile_refunded)
-        seq = re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src)
-        # The funded row is locked early (before the second-payment check) and
-        # re-read later; what matters is the order each model is FIRST locked.
-        self.assertEqual(seq[0], "PaymentTransaction")
+        payment_lock_src = inspect.getsource(Command._related_payment_rows)
+        self.assertIn("select_for_update()", payment_lock_src)
+        self.assertIn('order_by("pk")', payment_lock_src)
+        payment_lock = src.index("self._related_payment_rows(tx_obj, lock=True)")
+        event_lock = src.index("MeetupEvent.objects.select_for_update")
+        registration_lock = src.index("EventRegistration.objects.select_for_update")
+        self.assertLess(payment_lock, event_lock)
+        self.assertLess(event_lock, registration_lock)
         self.assertEqual(
-            list(dict.fromkeys(seq)),
-            ["PaymentTransaction", "EventRegistration", "PremiumMembership"],
+            list(
+                dict.fromkeys(
+                    re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src)
+                )
+            ),
+            ["MeetupEvent", "EventRegistration", "PremiumMembership"],
         )
         self.assertGreater(
             src.index("void_credit("),

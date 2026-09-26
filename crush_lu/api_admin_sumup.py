@@ -39,6 +39,10 @@ from crush_lu.api_admin_auth import (
     authenticate_admin_request as _authenticate_admin_request,
 )
 from crush_lu.api_admin_auth import unauthorized as _unauthorized
+from crush_lu.management.commands.reconcile_sumup_payments import (
+    SUMUP_READ_TIMEOUT_SECONDS,
+    SUMUP_REQUEST_WORST_CASE_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,10 @@ RECONCILIATION_DAYS = 30
 # mid-flight.
 #
 # Reads: SumUpClient.get_checkout / get_transactions_history, timeout=10 each
-# (crush_lu/services/sumup.py); a row makes at most two.
+# (crush_lu/services/sumup.py). Requests applies the scalar to connect and read
+# separately. One checkout and one history read are reserved up front; after the
+# checkout reveals nested/retried transaction codes, the remaining history reads
+# are reserved dynamically before they are issued.
 #
 # Writes: ONE per invocation (MAX_WRITES_PER_RUN). Reconciling a confirmed
 # registration saves it as `cancelled`, and every callback below then runs
@@ -88,8 +95,7 @@ RECONCILIATION_DAYS = 30
 # an unsent email are NOT retried. The numbers are pinned by a test.
 FUNCTION_TIMEOUT_SECONDS = 110
 DEADLINE_MARGIN_SECONDS = 10
-SUMUP_READ_TIMEOUT_SECONDS = 10
-SUMUP_READS_PER_ROW = 2
+SUMUP_READS_PER_ROW = 2  # checkout plus one history lookup
 GRAPH_SEND_TIMEOUT_SECONDS = 30
 EMAILS_PER_RECONCILED_ROW = 2
 WRITE_MARGIN_SECONDS = 5  # locks, row writes, credit void, MSAL token
@@ -107,8 +113,9 @@ POST_COMMIT_APNS_PER_DEVICE_SECONDS = APNS_TIMEOUT_SECONDS * 4
 
 # 100 s: the hard deadline for the sweep.
 RECONCILIATION_BUDGET_SECONDS = FUNCTION_TIMEOUT_SECONDS - DEADLINE_MARGIN_SECONDS
-# 21 s: a row is started only while elapsed < 79 s.
-READ_RESERVE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * SUMUP_READS_PER_ROW + 1
+# 41 s: reserve both connect and read phases for the checkout and one history
+# lookup. Additional nested-code lookups are budgeted after the checkout read.
+READ_RESERVE_SECONDS = SUMUP_REQUEST_WORST_CASE_SECONDS * SUMUP_READS_PER_ROW + 1
 # 65 s: the one write is started only while elapsed < 35 s.
 WRITE_RESERVE_SECONDS = (
     GRAPH_SEND_TIMEOUT_SECONDS * EMAILS_PER_RECONCILED_ROW + WRITE_MARGIN_SECONDS

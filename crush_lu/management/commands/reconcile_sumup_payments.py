@@ -40,8 +40,8 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from crush_lu.models.credits import CrushCredit
-from crush_lu.models.events import EventRegistration
-from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.events import EventRegistration, MeetupEvent
+from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.credits import void_credit
 from crush_lu.services.sumup import SumUpClient, SumUpError
@@ -111,6 +111,8 @@ _REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
 
 # SumUpClient.get_transactions_history clamps ``limit`` to 100.
 _HISTORY_PREFETCH_LIMIT = 100
+SUMUP_READ_TIMEOUT_SECONDS = 10
+SUMUP_REQUEST_WORST_CASE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * 2
 
 # Truthy outcomes of Command._reconcile_refunded.
 RECONCILED = "reconciled"
@@ -196,6 +198,26 @@ def index_history(history_map: dict, items) -> dict:
     return history_map
 
 
+def collect_history_evidence(evidence_by_code: dict, items) -> dict:
+    """Keep every raw refund-bearing history row, not just the ranked winner.
+
+    ``index_history`` intentionally collapses each code to its most informative
+    row for classification. The audit payload needs the original refund rows,
+    especially when several refunds were added together to classify a full
+    refund.
+    """
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("transaction_code")
+        if not code or not history_row_shows_refund(item):
+            continue
+        rows = evidence_by_code.setdefault(code, [])
+        if item not in rows:
+            rows.append(item)
+    return evidence_by_code
+
+
 def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     """Best available total refunded on this checkout or transaction history.
 
@@ -240,14 +262,14 @@ def refunded_amount(data: dict, history_map: Optional[dict] = None) -> Decimal:
     return max(candidates)
 
 
-def refund_history_evidence(data: dict, history_map: Optional[dict]) -> list:
+def refund_history_evidence(data: dict, evidence_by_code: Optional[dict]) -> list:
     """The history rows that show a refund for this checkout's transaction codes.
 
     Kept with the reconciled payment: when the checkout resource still says
     PAID (a dashboard/terminal refund never mutates it), these rows are the
     only proof of the refund, and storing the checkout alone would lose it.
     """
-    if not isinstance(data, dict) or not history_map:
+    if not isinstance(data, dict) or not evidence_by_code:
         return []
     codes = []
     if data.get("transaction_code"):
@@ -257,9 +279,9 @@ def refund_history_evidence(data: dict, history_map: Optional[dict]) -> list:
             codes.append(tx["transaction_code"])
     evidence = []
     for code in dict.fromkeys(codes):
-        item = history_map.get(code)
-        if history_row_shows_refund(item):
-            evidence.append(item)
+        for item in evidence_by_code.get(code, []):
+            if item not in evidence:
+                evidence.append(item)
     return evidence
 
 
@@ -509,6 +531,7 @@ class Command(BaseCommand):
 
         client = SumUpClient()
         history_map = {}
+        history_evidence_by_code = {}
         try:
             # Prefetch recent merchant transaction history to catch refunds done via
             # the dashboard/POS terminal that do not mutate the static checkout resource.
@@ -517,6 +540,7 @@ class Command(BaseCommand):
             )
             prefetched = history_data.get("items") or []
             index_history(history_map, prefetched)
+            collect_history_evidence(history_evidence_by_code, prefetched)
             # The client caps this at 100 (sumup.py). A full page means the
             # prefetch no longer reaches back over the whole lookback window,
             # so refunds on older payments rely entirely on the per-row
@@ -600,17 +624,50 @@ class Command(BaseCommand):
 
             history_lookup_failed = False
             try:
-                code = remote_data.get("transaction_code")
-                if not code:
-                    tx_list = remote_data.get("transactions") or []
-                    for t in tx_list:
-                        if isinstance(t, dict) and t.get("transaction_code"):
-                            code = t.get("transaction_code")
-                            break
+                codes = []
+                if remote_data.get("transaction_code"):
+                    codes.append(remote_data["transaction_code"])
+                for item in remote_data.get("transactions") or []:
+                    if isinstance(item, dict) and item.get("transaction_code"):
+                        codes.append(item["transaction_code"])
+                codes = list(dict.fromkeys(codes))
+                history_codes = [
+                    code
+                    for code in codes
+                    if _history_refund_rank(history_map.get(code)) < 2
+                ]
+                if budget_seconds is not None and history_codes:
+                    # Requests' timeout=10 is applied to connect and read
+                    # independently. Reserve both phases for every nested code
+                    # lookup before issuing any of them, or a retried checkout
+                    # can consume the endpoint's remaining deadline.
+                    history_reserve = (
+                        len(history_codes) * SUMUP_REQUEST_WORST_CASE_SECONDS
+                        + len(history_codes) * delay
+                        + 1
+                    )
+                    if _over_budget(history_reserve):
+                        checked -= 1
+                        last_read = previous_read
+                        unchecked = total_count - checked
+                        logger.warning(
+                            "SumUp reconciliation deferred checkout %s: not "
+                            "enough of the %ss budget remains for %s transaction "
+                            "history read(s). Checked %s of %s transaction(s) in "
+                            "the window; %s left unchecked this run.",
+                            tx_obj.sumup_checkout_id,
+                            budget_seconds,
+                            len(history_codes),
+                            checked,
+                            total_count,
+                            unchecked,
+                        )
+                        break
 
-                # Gather the evidence BEFORE classifying, and ask SumUp about
-                # this transaction unless the prefetch already holds a row
-                # stating a CUMULATIVE refunded total for it.
+                # Gather evidence for EVERY transaction code before classifying.
+                # A retried checkout can list a declined first attempt before
+                # the successful payment, so stopping at the first code misses
+                # external refunds on the transaction that actually captured.
                 #
                 # Three gates have stood here, each too weak in its own way,
                 # and each hid money:
@@ -637,32 +694,28 @@ class Command(BaseCommand):
                 # This also had to move OUT of ``if not refunded`` — a
                 # refund-bearing row short-circuits detection to True, which is
                 # exactly when the amount still needs establishing.
-                if code and _history_refund_rank(history_map.get(code)) < 2:
-                    # ``--batch-delay`` promises a pause "between SumUp API
-                    # requests", and this is the SECOND request for this row.
-                    # Without a sleep here the ordinary unrefunded case — now
-                    # the common path — fires two back-to-back calls that no
-                    # value of the setting can throttle, which is how a long
-                    # sweep earns a rate limit and reconciles only part of its
-                    # window.
+                for code in history_codes:
+                    # ``--batch-delay`` promises a pause between provider
+                    # requests; apply it between the checkout read, prefetch,
+                    # and every per-code history read.
                     if delay > 0:
                         time.sleep(delay)
                     try:
                         code_data = client.get_transactions_history(
                             limit=10, transaction_code=code
                         )
-                        index_history(history_map, code_data.get("items"))
+                        code_items = code_data.get("items") or []
+                        index_history(history_map, code_items)
+                        collect_history_evidence(history_evidence_by_code, code_items)
 
-                        # Belt and braces: if SumUp answers with refund rows
-                        # but none carrying a cumulative total, add the
-                        # individual refunds up. Only reachable when no rank-2
-                        # row exists, so a cumulative figure and the refunds
-                        # composing it can never be counted twice.
+                        # If SumUp supplies individual refund rows without a
+                        # cumulative total, add them. The raw rows remain in
+                        # history_evidence_by_code for the audit payload.
                         if _history_refund_rank(history_map.get(code)) < 2:
                             summed = sum(
                                 (
                                     _to_decimal(item.get("amount"))
-                                    for item in (code_data.get("items") or [])
+                                    for item in code_items
                                     if isinstance(item, dict)
                                     and item.get("transaction_code") == code
                                     and (item.get("type") or "").upper() == "REFUND"
@@ -676,12 +729,6 @@ class Command(BaseCommand):
                                     refunded_amount=str(summed),
                                 )
                     except Exception as exc:
-                        # Was a bare ``pass``. Logging it is not enough on its
-                        # own: the row still fell through to the "still PAID"
-                        # line below, and the console handler only emits ERROR
-                        # in production, so the operator saw a clean tick for a
-                        # check that never ran. The flag makes it an error and
-                        # skips that line.
                         history_lookup_failed = True
                         logger.warning(
                             "Could not look up SumUp history for "
@@ -814,7 +861,9 @@ class Command(BaseCommand):
 
                 write_attempted = not dry_run
                 try:
-                    evidence = refund_history_evidence(remote_data, history_map)
+                    evidence = refund_history_evidence(
+                        remote_data, history_evidence_by_code
+                    )
                     kwargs = {"dry_run": dry_run}
                     if evidence:
                         kwargs["history_evidence"] = evidence
@@ -865,9 +914,9 @@ class Command(BaseCommand):
                     errors_count += 1
                     self.stdout.write(
                         self.style.ERROR(
-                            self._review_message(
-                                tx_obj, self._other_paid_payment_ids(tx_obj)
-                            )
+                            f"Payment {tx_obj.pk} needs manual review; "
+                            "nothing was changed. See the warning log for the "
+                            "specific unresolved payment or checkout claim."
                         )
                     )
                     continue
@@ -925,39 +974,38 @@ class Command(BaseCommand):
         }
 
     @staticmethod
-    def _other_paid_payment_ids(tx):
-        """Every OTHER PAID payment (any provider, CREDIT included) on the same
-        registration or Premium membership.
+    def _related_payment_rows(tx, *, lock=False):
+        """Return all payments for the same registration/membership in PK order.
 
-        EventRegistration rows are reused on re-registration (views_events
-        ``_admitted_status``), so one row can carry payments from several
-        cycles. Which of them funds the seat now cannot be told reliably from
-        what is stored — ``paid_at`` is when Django processed the capture, not
-        when it happened (services/credits.py ``_replacement_capture_moment``),
-        and a CREDIT payment may have been funded by credit issued from the
-        very payment being refunded. So any second PAID payment makes the
-        refund a case for a human: the sweep changes nothing and flags it.
+        Capture locks payment rows before event and registration state. Locking
+        every related payment in that same phase lets an in-flight capture
+        finish before this sweep decides whether the seat can be released. A
+        still-PENDING sibling is unresolved too: SumUp may already have
+        captured it while its callback has not yet published the PAID state.
         """
-        others = PaymentTransaction.objects.filter(
-            status=PaymentTransaction.Status.PAID
-        ).exclude(pk=tx.pk)
+        rows = PaymentTransaction.objects
         if tx.event_registration_id:
-            others = others.filter(event_registration_id=tx.event_registration_id)
+            rows = rows.filter(event_registration_id=tx.event_registration_id)
         elif tx.premium_membership_id:
-            others = others.filter(premium_membership_id=tx.premium_membership_id)
+            rows = rows.filter(premium_membership_id=tx.premium_membership_id)
         else:
-            return []
-        return list(others.order_by("pk").values_list("pk", flat=True))
+            rows = rows.filter(pk=tx.pk)
+        if lock:
+            rows = rows.select_for_update()
+        return list(rows.order_by("pk"))
 
-    def _review_message(self, tx, other_ids):
+    def _review_message(self, tx, other_payments, *, active_claim=False):
         if tx.event_registration_id:
             funded = f"registration {tx.event_registration_id}"
         else:
             funded = f"membership {tx.premium_membership_id}"
+        blockers = [f"{status} payment {pk}" for pk, status in other_payments]
+        if active_claim:
+            blockers.append("active checkout-creation claim")
         return (
             f"External refund on payment {tx.pk} (checkout {tx.sumup_checkout_id}) "
-            f"needs manual review: {funded} is also funded by PAID payment(s) "
-            f"{', '.join(str(pk) for pk in other_ids)}. Nothing was changed."
+            f"needs manual review: {funded} has unresolved payment state: "
+            f"{', '.join(blockers)}. Nothing was changed."
         )
 
     def _reconcile_refunded(
@@ -967,10 +1015,10 @@ class Command(BaseCommand):
         CrushCredit, and PremiumMembership under atomic lock order.
 
         Returns ``RECONCILED`` when this call moved the row PAID -> REFUNDED
-        (or, in a dry run, would have); ``NEEDS_REVIEW`` when another PAID
-        payment is on the same registration/membership — then NOTHING is
-        written (see ``_other_paid_payment_ids``); False when the row was no
-        longer PAID under the lock — an overlapping run already reconciled it.
+        (or, in a dry run, would have); ``NEEDS_REVIEW`` when another PAID or
+        PENDING payment, or an active event-checkout claim, can still affect the
+        same seat/membership — then NOTHING is written; False when the row was
+        no longer PAID under the lock — an overlapping run already reconciled it.
 
         ``history_evidence`` — the transaction-history rows that proved the
         refund — is stored beside the checkout payload in ``raw_response``,
@@ -984,19 +1032,43 @@ class Command(BaseCommand):
                     f"[DRY RUN] External refund detected on {ref} (checkout {cid}). Would reconcile to REFUNDED."
                 )
             )
-            other_ids = self._other_paid_payment_ids(tx_obj)
-            if other_ids:
-                logger.warning(self._review_message(tx_obj, other_ids))
+            other_payments = [
+                (row.pk, row.status)
+                for row in self._related_payment_rows(tx_obj)
+                if row.pk != tx_obj.pk
+                and row.status
+                in (PaymentTransaction.Status.PAID, PaymentTransaction.Status.PENDING)
+            ]
+            active_claim = bool(
+                tx_obj.event_registration_id
+                and EventCheckoutCreationClaim.objects.filter(
+                    registration_id_snapshot=tx_obj.event_registration_id,
+                    state__in=(
+                        EventCheckoutCreationClaim.State.ACTIVE,
+                        EventCheckoutCreationClaim.State.RETIRING,
+                    ),
+                ).exists()
+            )
+            if other_payments or active_claim:
+                logger.warning(
+                    self._review_message(
+                        tx_obj, other_payments, active_claim=active_claim
+                    )
+                )
                 return NEEDS_REVIEW
             return RECONCILED
 
-        # LOCK ORDER: PaymentTransaction FIRST, then EventRegistration / CrushProfile / CrushCredit
+        # LOCK ORDER: payment rows -> MeetupEvent -> EventRegistration ->
+        # PremiumMembership / CrushProfile / CrushCredit.
         with transaction.atomic():
-            locked_tx = (
-                PaymentTransaction.objects.select_for_update()
-                .filter(pk=tx_obj.pk)
-                .first()
-            )
+            # Lock all related payment rows in stable PK order before event or
+            # registration state. A callback already applying a sibling
+            # capture can finish before this transaction decides whether the
+            # refund should release the seat. PENDING siblings remain an
+            # unresolved manual-review case because SumUp may have captured
+            # before the callback published PAID locally.
+            related_rows = self._related_payment_rows(tx_obj, lock=True)
+            locked_tx = next((row for row in related_rows if row.pk == tx_obj.pk), None)
             if not locked_tx or locked_tx.status != PaymentTransaction.Status.PAID:
                 logger.info(
                     "Skipping reconciliation for %s — status is already %s",
@@ -1005,26 +1077,67 @@ class Command(BaseCommand):
                 )
                 return False
 
-            # Take the registration / membership lock BEFORE asking whether
-            # another payment funds it (same order as below: payment first).
-            # A capture of another payment locks that registration too
-            # (_apply_paid_checkout: payment -> event -> registration), so once
-            # we hold it, any racing capture has either committed — and is
-            # seen here as PAID — or waits until this write is done.
+            # Capture follows payment -> event -> registration. Match that
+            # order, then check for a checkout-creation claim that could publish
+            # a new payment after the sibling-row snapshot.
+            active_claim = False
             if locked_tx.event_registration_id:
+                event_id = EventRegistration.objects.filter(
+                    pk=locked_tx.event_registration_id
+                ).values_list("event_id", flat=True).first()
+                if event_id is not None:
+                    MeetupEvent.objects.select_for_update().filter(pk=event_id).first()
                 EventRegistration.objects.select_for_update().filter(
                     pk=locked_tx.event_registration_id
                 ).first()
+                active_claim = EventCheckoutCreationClaim.objects.filter(
+                    registration_id_snapshot=locked_tx.event_registration_id,
+                    state__in=(
+                        EventCheckoutCreationClaim.State.ACTIVE,
+                        EventCheckoutCreationClaim.State.RETIRING,
+                    ),
+                ).exists()
             elif locked_tx.premium_membership_id:
                 PremiumMembership.objects.select_for_update().filter(
                     pk=locked_tx.premium_membership_id
                 ).first()
-            other_ids = self._other_paid_payment_ids(locked_tx)
-            if other_ids:
+            # Re-read after the event/registration mutex. A checkout creator
+            # may have published a new PENDING payment while this transaction
+            # waited for the event lock; its claim can already be RETIRED by
+            # the time we acquire the lock, so the initial payment snapshot
+            # alone would miss it. Captures also need the event lock before
+            # changing PENDING to PAID, so these current statuses are stable
+            # for the decision while we hold that mutex.
+            if locked_tx.event_registration_id:
+                sibling_rows = PaymentTransaction.objects.filter(
+                    event_registration_id=locked_tx.event_registration_id
+                )
+            elif locked_tx.premium_membership_id:
+                sibling_rows = PaymentTransaction.objects.filter(
+                    premium_membership_id=locked_tx.premium_membership_id
+                )
+            else:
+                sibling_rows = PaymentTransaction.objects.none()
+            other_payments = list(
+                sibling_rows.exclude(pk=locked_tx.pk)
+                .filter(
+                    status__in=(
+                        PaymentTransaction.Status.PAID,
+                        PaymentTransaction.Status.PENDING,
+                    )
+                )
+                .order_by("pk")
+                .values_list("pk", "status")
+            )
+            if other_payments or active_claim:
                 # Leave the atomic block before a single write: payment,
                 # registration/membership, credit and mail all stay as they
                 # are for a human to settle.
-                logger.warning(self._review_message(locked_tx, other_ids))
+                logger.warning(
+                    self._review_message(
+                        locked_tx, other_payments, active_claim=active_claim
+                    )
+                )
                 return NEEDS_REVIEW
 
             locked_tx.status = PaymentTransaction.Status.REFUNDED
@@ -1073,9 +1186,10 @@ class Command(BaseCommand):
                     if reg.status == "cancelled":
                         already_cancelled_reg_id = reg.pk
 
-                    # If the registration was confirmed and hasn't attended yet, cancel it.
-                    # Saving status='cancelled' invokes promote_waitlist_on_cancellation automatically.
-                    if reg.status == "confirmed":
+                    # A refund on a pending registration must release its
+                    # reserved seat too. Saving either state as cancelled
+                    # invokes promote_waitlist_on_cancellation automatically.
+                    if reg.status in {"confirmed", "pending"}:
                         reg.status = "cancelled"
                         update_fields.append("status")
 
