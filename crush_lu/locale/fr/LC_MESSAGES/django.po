@@ -42386,3 +42386,8 @@ msgstr "Numéro de billet"
 msgid ""
 "We could not confirm whether this was sent. Check before sending it again."
 msgstr "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer."
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr "Notifications non lues : {count}"
