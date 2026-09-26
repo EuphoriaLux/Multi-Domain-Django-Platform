@@ -52,12 +52,15 @@
 
     <footer class="footer mt-auto py-3 bg-dark text-white text-center">
         <div class="container">
-            <span>&copy; {% now "Y" %} Entreprinder. {% trans "All rights reserved." %}</span>
+            <span>&copy; {% now "Y" %} Entreprinder. {% trans "All rights reserved." %} &middot; <a href="#" data-cookie-settings class="text-white-50">{% trans "Cookie Settings" %}</a></span>
         </div>
     </footer>
 
     <!-- Bootstrap Bundle (includes Popper) -->
     <script src="{% static 'core/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
+
+    {# The consent banner: this base carries the gated analytics tags above, so a visitor landing here must be able to choose. #}
+    {% include "includes/cookie_banner.html" %}
 </body>
 </html>

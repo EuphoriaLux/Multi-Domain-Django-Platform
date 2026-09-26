@@ -1314,6 +1314,7 @@
                         <li><a href="{% url 'crush_lu:privacy_policy' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Privacy Policy" %}</a></li>
                         <li><a href="{% url 'crush_lu:terms_of_service' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Terms of Service" %}</a></li>
                         <li><a href="{% url 'crush_lu:data_deletion' %}" class="text-white/75 hover:text-white transition-colors">{% trans "Data Deletion" %}</a></li>
+                        <li><a href="#" data-cookie-settings class="text-white/75 hover:text-white transition-colors">{% trans "Cookie Settings" %}</a></li>
                     </ul>
                 </div>
 
@@ -1475,6 +1476,6 @@
         {% include "crush_lu/partials/mobile_drawer.html" %}
     {% endif %}
 
-    {% include "includes/cookie_banner.html" %}
+    {% include "includes/cookie_banner.html" with cookie_banner_variant="crush" %}
 </body>
 </html>
