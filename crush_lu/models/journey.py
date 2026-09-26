@@ -514,7 +514,7 @@ class JourneyProgress(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     last_activity = models.DateTimeField(auto_now=True)
 
-    # Final response (from Chapter 6)
+    # Final response (from the journey's last chapter, total_chapters)
     final_response = models.CharField(
         max_length=20,
         choices=FINAL_RESPONSE_CHOICES,
@@ -534,16 +534,36 @@ class JourneyProgress(models.Model):
     def accessible_to(cls, user):
         """Progress rows ``user`` may still play, oldest first.
 
-        Only rows on a journey whose active experience is linked to ``user``.
-        A row left behind by the old first/last-name match (a namesake who
-        opened someone else's journey) must not keep granting its chapters,
-        rewards, certificate or API.
+        Only rows on an active journey whose active experience is linked to
+        ``user``. A row left behind by the old first/last-name match (a
+        namesake who opened someone else's journey) must not keep granting
+        its chapters, rewards, certificate or API, and neither may a journey
+        the selector and map hide because it was deactivated.
         """
         return cls.objects.filter(
             user=user,
+            journey__is_active=True,
             journey__special_experience__linked_user=user,
             journey__special_experience__is_active=True,
         ).order_by("pk")
+
+    @classmethod
+    def wonderland_for(cls, user):
+        """The accessible row on ``user``'s Wonderland journey, or None.
+
+        Pages and API calls that name no challenge or reward play the journey
+        ``journey_map_wonderland`` shows, so the map and the chapters it links
+        to never disagree. A user has at most one linked experience and it
+        has at most one wonderland journey, so this is at most one row.
+        Anything that names a challenge or reward must use that object's own
+        journey instead.
+        """
+        return (
+            cls.accessible_to(user)
+            .filter(journey__journey_type="wonderland")
+            .select_related("journey")
+            .first()
+        )
 
     @property
     def completion_percentage(self):
