@@ -70,7 +70,9 @@ def test_new_banner_choice_beats_an_older_native_refusal():
     )
     with patch(
         "cookie_consent.util.get_cookie_value_from_request", return_value=False
-    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+    ), patch(
+        "azureproject.templatetags.analytics._cookie_group_version", return_value=""
+    ):
         assert stored_cookie_choice(request, "marketing") is True
 
 
@@ -201,7 +203,9 @@ def test_pixel_event_with_prior_consent_replays_when_pixel_starts(page):
     context = Context({"request": request, "FACEBOOK_PIXEL_ID": "123"})
     with patch(
         "cookie_consent.util.get_cookie_value_from_request", return_value=None
-    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+    ), patch(
+        "azureproject.templatetags.analytics._cookie_group_version", return_value=""
+    ):
         event = Template('{% load analytics %}{% fb_event "Lead" %}').render(context)
         pixel = Template("{% load analytics %}{% analytics_body %}").render(context)
     url = "http://crush.test/"
@@ -228,7 +232,9 @@ def test_refusal_discards_pixel_events_buffered_under_prior_consent(page):
     context = Context({"request": request, "FACEBOOK_PIXEL_ID": "123"})
     with patch(
         "cookie_consent.util.get_cookie_value_from_request", return_value=None
-    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+    ), patch(
+        "azureproject.templatetags.analytics._cookie_group_version", return_value=""
+    ):
         event = Template('{% load analytics %}{% fb_event "Lead" %}').render(context)
         banner = render_to_string("includes/cookie_banner.html", {"request": request})
     url = "http://crush.test/"
