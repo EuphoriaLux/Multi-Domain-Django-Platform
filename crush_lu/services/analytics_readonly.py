@@ -991,9 +991,25 @@ def _attended_user_ids(alias: str, user_ids) -> set[int]:
 
 
 def _paid_event_user_ids(alias: str, user_ids) -> set[int]:
+    """Members who ever paid cash for an event seat (the funnel stage).
+
+    Like paid_event_registrations(), but a refund does not undo the stage: it
+    moves the payment to REFUNDED and keeps paid_at, and the member still
+    reached "paid". Revenue keeps the stricter definition.
+    """
     return set(
         PaymentTransaction.objects.using(alias)
-        .paid_event_registrations()
+        .filter(
+            provider__in=(
+                PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MANUAL,
+            ),
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status__in=(
+                PaymentTransaction.Status.PAID,
+                PaymentTransaction.Status.REFUNDED,
+            ),
+        )
         .filter(user_id__in=list(user_ids))
         .order_by()
         .values_list("user_id", flat=True)
@@ -1213,7 +1229,9 @@ def funnel(start: date, end: date, grain: str = "week") -> dict:
         "cohort_basis": (
             "CrushProfile.created_at; stages count what the cohort has reached as of "
             "now. Stages are independent flags: a member a coach verified from the "
-            "panel without submitting counts as verified but not submitted."
+            "panel without submitting counts as verified but not submitted. "
+            "paid_event counts a captured cash event payment even if it was "
+            "later refunded."
         ),
         "stages": list(stages),
         "cohorts": [

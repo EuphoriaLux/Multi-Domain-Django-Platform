@@ -481,6 +481,12 @@ class ToolTests(AnalyticsFixture):
         self.assertEqual(totals["connect_onboarded"], 1)
         self.assertEqual(totals["premium_active"], 1)
 
+    def test_a_refund_does_not_undo_the_paid_stage(self):
+        PaymentTransaction.objects.filter(user=self.alice).update(
+            status=PaymentTransaction.Status.REFUNDED
+        )
+        self.assertEqual(self.data("funnel")["totals"]["paid_event"], 1)
+
     def test_payments_split_real_and_excluded_money(self):
         data = self.data("payments")
         self.assertEqual(
