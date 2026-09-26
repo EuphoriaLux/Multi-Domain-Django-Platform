@@ -1663,8 +1663,9 @@ def resend_verification_email(request):
         # Remember the address so this page can mask it and keep offering
         # resend without needing the visitor to retype it.
         request.session["pending_verification_email"] = email
-
-    if not still_cooling_down:
+        # Only start the cooldown once we actually resolved an address to
+        # (possibly) send to -- a submission with no session email and no
+        # POST email shouldn't self-lock the visitor's own resend button.
         request.session["resend_verification_cooldown_until"] = (
             now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
         )

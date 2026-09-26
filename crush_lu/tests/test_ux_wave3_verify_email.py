@@ -213,6 +213,27 @@ class ResendVerificationEmailViewTests(TestCase):
         # Only the first POST actually triggered a send.
         self.assertEqual(len(mail.outbox), 1)
 
+    def test_no_email_resolved_does_not_start_a_cooldown(self):
+        """A POST with an empty session and no ``email`` field resolves no
+        address at all -- nothing is sent, so it must not self-lock the
+        visitor's own resend button for 60s. A follow-up POST that *does*
+        supply a real address must still be able to send."""
+        _user, _address = _unverified_user("late@example.com")
+        client = Client(HTTP_HOST="crush.lu")
+
+        first = client.post("/en/signup/resend-verification/")
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(len(mail.outbox), 0)
+
+        html = client.get("/accounts/confirm-email/").content.decode()
+        self.assertRegex(html, r'data-cooldown-until="0"')
+
+        second = client.post(
+            "/en/signup/resend-verification/", {"email": "late@example.com"}
+        )
+        self.assertEqual(second.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_cooldown_is_visible_on_the_next_page_load(self):
         _user, _address = _unverified_user("visible@example.com")
         client = Client(HTTP_HOST="crush.lu")
