@@ -224,7 +224,7 @@ class JourneyChallengeAdmin(AutoTranslateMixin, TranslationAdmin):
             'description': '''
                 <strong>For Quiz Challenges:</strong> Set correct_answer and optionally alternative_answers.<br>
                 <strong>For Questionnaires:</strong> Leave correct_answer blank - all answers are saved for analysis.<br>
-                <em>Questionnaire types: open_text, would_you_rather, or any challenge in Chapters 2, 4, 5</em>
+                <em>Questionnaire types: open_text, would_you_rather, or any challenge in Wonderland Chapters 2, 4, 5</em>
             '''
         }),
         ('💡 Hints System', {

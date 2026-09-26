@@ -8614,8 +8614,12 @@ document.addEventListener("alpine:init", function () {
      * Usage:
      * <div x-data="journeyState"
      *      data-save-url="/api/journey/save-state/"
+     *      data-journey-id="7"
      *      data-initial-time="300"
      *      data-initial-points="150">
+     *
+     * data-journey-id credits the time to the journey the page shows; the
+     * server falls back to the map's journey when it is empty.
      */
     Alpine.data("journeyState", function () {
         return {
@@ -8624,11 +8628,13 @@ document.addEventListener("alpine:init", function () {
             totalTimeSeconds: 0,
             currentPoints: 0,
             saveUrl: "",
+            journeyId: "",
             saveInterval: null,
 
             init: function () {
                 var el = this.$el;
                 this.saveUrl = el.dataset.saveUrl || "";
+                this.journeyId = el.dataset.journeyId || "";
                 this.totalTimeSeconds = parseInt(el.dataset.initialTime, 10) || 0;
                 this.currentPoints = parseInt(el.dataset.initialPoints, 10) || 0;
 
@@ -8652,15 +8658,17 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
 
                 if (timeIncrement > 0) {
+                    var payload = { time_increment: timeIncrement };
+                    if (this.journeyId) {
+                        payload.journey_id = this.journeyId;
+                    }
                     fetch(this.saveUrl, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "X-CSRFToken": CrushUtils.getCsrfToken(),
                         },
-                        body: JSON.stringify({
-                            time_increment: timeIncrement,
-                        }),
+                        body: JSON.stringify(payload),
                     })
                         .then(function (response) {
                             return response.json();
@@ -8684,6 +8692,9 @@ document.addEventListener("alpine:init", function () {
                 if (timeIncrement > 0) {
                     var formData = new FormData();
                     formData.append("time_increment", timeIncrement);
+                    if (this.journeyId) {
+                        formData.append("journey_id", this.journeyId);
+                    }
                     formData.append("csrfmiddlewaretoken", CrushUtils.getCsrfToken());
                     navigator.sendBeacon(this.saveUrl, formData);
                 }
