@@ -11,11 +11,12 @@ import logging
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import Signer
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from .decorators import crush_login_required
 from .models import EventRegistration, MeetupEvent
 from .models.events import SEAT_HOLDING_STATUSES
+from .qr_utils import generate_qr_code_svg
 
 logger = logging.getLogger(__name__)
 
@@ -123,12 +124,24 @@ def event_ticket(request, event_id):
         except Exception:
             pass
 
-    compatibility_score = 88 + (registration.id % 11)
+    # The QR is drawn here, not in the browser: the ticket used to load a
+    # jsDelivr script and paint a canvas, which left a blank box whenever the
+    # CDN was unreachable -- at a venue door, or offline from the service
+    # worker's cache. Same checkin_url as before, so coach scanning is
+    # unaffected (the Wallet passes encode this identical URL too). Pure
+    # geometry -- the URL never appears as text -- so the template marks it safe.
+    checkin_qr_svg = generate_qr_code_svg(checkin_url)
+
+    # Human-readable reference under the QR: the same "#<registration id>"
+    # the door printer puts on the attendee's badge (services/ticket_printer.py).
+    ticket_number = f"#{registration.id}"
 
     context = {
         "event": event,
         "registration": registration,
         "checkin_url": checkin_url,
+        "checkin_qr_svg": checkin_qr_svg,
+        "ticket_number": ticket_number,
         "display_name": display_name,
         "already_checked_in": already_checked_in,
         "table_number": table_number,
@@ -136,7 +149,6 @@ def event_ticket(request, event_id):
         "apple_wallet_enabled": apple_wallet_enabled,
         "apple_wallet_url": apple_wallet_url,
         "lobby_cta": lobby_cta_state,
-        "compatibility_score": compatibility_score,
     }
 
     return render(request, "crush_lu/event_ticket.html", context)
@@ -144,43 +156,11 @@ def event_ticket(request, event_id):
 
 def compatibility_explainer(request):
     """
-    Public explanatory page detailing how the Crush.lu Chemistry Potential
-    and Room Affinity Score are computed.
+    Retired page: permanently redirect to How It Works.
+
+    It explained a weighted "Chemistry Potential" / "Room Chemistry" score
+    (passions, vibe, demographics, languages) that was never computed -- the
+    ticket's percentage was derived from the registration id. The URL name
+    stays registered so old links and bookmarks still land somewhere honest.
     """
-    context = {
-        "score_pillars": [
-            {
-                "weight": "40%",
-                "title": _("Shared Passions & Hobbies"),
-                "icon": "🎯",
-                "desc": _(
-                    "Algorithmic overlap of common interests (travel, food, culture, sports, etc.) between your profile and attendees in the room."
-                ),
-            },
-            {
-                "weight": "30%",
-                "title": _("Event Vibe & Intent"),
-                "icon": "✨",
-                "desc": _(
-                    "Alignment on tonight's mood (chill talk, cocktail vibes, dancing) and mutual first-step communication style."
-                ),
-            },
-            {
-                "weight": "20%",
-                "title": _("Age & Demographic Balance"),
-                "icon": "👥",
-                "desc": _(
-                    "Demographic proximity and age group harmony to ensure you meet singles at a similar life stage."
-                ),
-            },
-            {
-                "weight": "10%",
-                "title": _("Multilingual Synergy"),
-                "icon": "💬",
-                "desc": _(
-                    "No language barrier in Luxembourg: affinity calculated on shared languages spoken (LU, FR, DE, EN)."
-                ),
-            },
-        ]
-    }
-    return render(request, "crush_lu/compatibility_explainer.html", context)
+    return redirect("crush_lu:how_it_works", permanent=True)

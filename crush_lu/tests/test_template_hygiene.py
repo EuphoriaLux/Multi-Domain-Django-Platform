@@ -77,7 +77,6 @@ CSP_ALPINE_DEBT = {
     "admin/crush_lu/email_template_manager.html",
     "crush_lu/account_settings.html",
     "crush_lu/changelog/list.html",
-    "crush_lu/event_ticket.html",
     "crush_lu/partials/edit_account_notifications.html",
 }
 

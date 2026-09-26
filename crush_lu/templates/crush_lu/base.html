@@ -1370,6 +1370,9 @@
     <!-- Toast Notification Container -->
     {% include "crush_lu/shared/toast.html" %}
 
+    <!-- Translated copy for the global HTMX failure toast (htmx-error-toast.js) -->
+    {% include "crush_lu/components/htmx_error_toast.html" %}
+
     <!-- Confirmation sheet (replaces window.confirm for hx-confirm) -->
     {% include "crush_lu/partials/confirm_sheet.html" %}
 
@@ -1396,6 +1399,16 @@
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
     {% else %}
         <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
+    {% endif %}
+
+    <!-- Global HTMX failure handler: resets isSubmitting + shows an error toast
+         on htmx:responseError / sendError / timeout (per-element opt-out: see
+         the script header) -->
+    {% if debug %}
+        {% now "U" as ts %}
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/htmx-error-toast.js' %}?v={{ ts }}"></script>
+    {% else %}
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/htmx-error-toast.js' %}"></script>
     {% endif %}
 
     <!-- Confirmation sheet (intercepts htmx:confirm; must load with defer like HTMX) -->
