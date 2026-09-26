@@ -45,28 +45,30 @@ def journey_selector(request):
         messages.info(request, _('Welcome! Your journey is being prepared.'))
         return redirect('crush_lu:special_welcome')
 
-    # If only one journey, redirect directly to it
+    # Preserve the established shortcuts for the two built-in journeys. Custom
+    # journeys need the selector so their own progress row can be selected.
     if journeys.count() == 1:
         journey = journeys.first()
         if journey.journey_type == 'wonderland':
             return redirect('crush_lu:journey_map_wonderland')
         elif journey.journey_type == 'advent_calendar':
             return redirect('crush_lu:advent_calendar')
-        else:
-            # Custom journey - use wonderland map for now
-            return redirect('crush_lu:journey_map_wonderland')
 
     # Multiple journeys - show selection page
     journey_data = []
     for journey in journeys:
         # Get progress if exists
-        try:
-            progress = JourneyProgress.objects.get(user=request.user, journey=journey)
-            completion_pct = progress.completion_percentage
-            is_completed = progress.is_completed
-        except JourneyProgress.DoesNotExist:
-            completion_pct = 0
-            is_completed = False
+        progress = None
+        if journey.journey_type == 'custom':
+            progress, _ = JourneyProgress.objects.get_or_create(
+                user=request.user, journey=journey
+            )
+        else:
+            progress = JourneyProgress.objects.filter(
+                user=request.user, journey=journey
+            ).first()
+        completion_pct = progress.completion_percentage if progress else 0
+        is_completed = progress.is_completed if progress else False
 
         # Determine the URL and icon for each journey type
         if journey.journey_type == 'wonderland':
@@ -78,7 +80,7 @@ def journey_selector(request):
             icon = '🎄'
             description = _('24 doors of surprises waiting to be discovered')
         else:
-            url = 'crush_lu:journey_map_wonderland'
+            url = None
             icon = '✨'
             description = journey.journey_name
 
@@ -89,6 +91,11 @@ def journey_selector(request):
             'description': description,
             'completion_percentage': completion_pct,
             'is_completed': is_completed,
+            'journey_id': journey.pk if journey.journey_type == 'custom' else None,
+            'chapter_number': (
+                min(max(progress.current_chapter, 1), journey.total_chapters)
+                if progress and journey.journey_type == 'custom' else None
+            ),
         })
 
     context = {
@@ -216,9 +223,27 @@ def chapter_view(request, chapter_number):
     """
     Display a specific chapter with its story and challenges.
     """
+    journey_id = request.GET.get('journey_id')
     try:
-        # The journey the map shows, so its chapter links open its chapters
-        journey_progress = JourneyProgress.wonderland_for(request.user)
+        if journey_id:
+            # Scope explicit custom-journey links to a progress row the current
+            # user can access. Never trust a raw journey ID as authorization.
+            try:
+                journey_id = int(journey_id)
+            except (TypeError, ValueError):
+                journey_id = None
+            journey_progress = (
+                JourneyProgress.accessible_to(request.user).filter(
+                    journey_id=journey_id,
+                    journey__journey_type='custom',
+                ).first()
+                if journey_id is not None else None
+            )
+            if journey_progress is None:
+                messages.warning(request, _('No active journey found.'))
+                return redirect('crush_lu:journey_selector')
+        else:
+            journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             messages.warning(request, _('No active journey found.'))
@@ -244,10 +269,10 @@ def chapter_view(request, chapter_number):
                 )
                 if not previous_progress.is_completed:
                     messages.warning(request, _('Please complete Chapter %(chapter)s first.') % {'chapter': chapter_number - 1})
-                    return redirect('crush_lu:journey_map')
+                    return redirect('crush_lu:journey_selector' if journey_id else 'crush_lu:journey_map')
             except ChapterProgress.DoesNotExist:
                 messages.warning(request, _('Please complete Chapter %(chapter)s first.') % {'chapter': chapter_number - 1})
-                return redirect('crush_lu:journey_map')
+                return redirect('crush_lu:journey_selector' if journey_id else 'crush_lu:journey_map')
 
         # Get or create chapter progress
         chapter_progress, created = ChapterProgress.objects.get_or_create(
@@ -294,6 +319,7 @@ def chapter_view(request, chapter_number):
             'challenge_attempts': challenge_attempts,
             'rewards': rewards,
             'is_completed': chapter_progress.is_completed,
+            'journey_query': f'?journey_id={journey_progress.journey_id}' if journey_progress.journey.journey_type == 'custom' else '',
         }
 
         return render(request, 'crush_lu/journey/chapter_view.html', context)
@@ -301,8 +327,7 @@ def chapter_view(request, chapter_number):
     except Exception as e:
         logger.error(f"❌ Error loading chapter {chapter_number}: {e}", exc_info=True)
         messages.error(request, _('An error occurred loading Chapter %(chapter)s. Please try again or contact support.') % {'chapter': chapter_number})
-        # Always redirect back to journey map on chapter errors
-        return redirect('crush_lu:journey_map')
+        return redirect('crush_lu:journey_selector' if journey_id else 'crush_lu:journey_map')
 
 
 def _validate_timeline_structure(challenge, options, lang):
@@ -463,6 +488,7 @@ def challenge_view(request, chapter_number, challenge_id):
     """
     Display and handle a specific challenge.
     """
+    journey_query = ''
     try:
         accessible = JourneyProgress.accessible_to(request.user)
         if not accessible.exists():
@@ -480,6 +506,7 @@ def challenge_view(request, chapter_number, challenge_id):
 
         # The progress row of the challenge's own journey, not the oldest row
         journey_progress = accessible.get(journey=chapter.journey)
+        journey_query = f'?journey_id={journey_progress.journey_id}' if journey_progress.journey.journey_type == 'custom' else ''
 
         # Get chapter progress
         chapter_progress = get_object_or_404(
@@ -501,6 +528,7 @@ def challenge_view(request, chapter_number, challenge_id):
             'challenge': challenge,
             'existing_attempt': existing_attempt,
             'journey_progress': journey_progress,
+            'journey_query': journey_query,
         }
 
         # Get current language for localized content
@@ -528,7 +556,7 @@ def challenge_view(request, chapter_number, challenge_id):
         logger.error(f"❌ Error loading challenge {challenge_id} in chapter {chapter_number}: {e}", exc_info=True)
         messages.error(request, _('An error occurred loading this challenge. Please try again.'))
         # Redirect back to chapter view so user can try another challenge
-        return redirect('crush_lu:chapter_view', chapter_number=chapter_number)
+        return redirect(f"{redirect('crush_lu:chapter_view', chapter_number=chapter_number).url}{journey_query}")
 
 
 @crush_login_required
@@ -556,6 +584,7 @@ def reward_view(request, reward_id):
 
         # The progress row of the reward's own journey, not the oldest row
         journey_progress = accessible.get(journey=reward.chapter.journey)
+        journey_query = f'?journey_id={journey_progress.journey_id}' if journey_progress.journey.journey_type == 'custom' else ''
 
         # Check if chapter is completed
         try:
@@ -566,15 +595,16 @@ def reward_view(request, reward_id):
 
             if not chapter_progress.is_completed:
                 messages.warning(request, _('Complete all challenges to unlock this reward.'))
-                return redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number)
+                return redirect(f"{redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number).url}{journey_query}")
         except ChapterProgress.DoesNotExist:
             messages.warning(request, _('You must complete the chapter first.'))
-            return redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number)
+            return redirect(f"{redirect('crush_lu:chapter_view', chapter_number=reward.chapter.chapter_number).url}{journey_query}")
 
         context = {
             'reward': reward,
             'chapter': reward.chapter,
             'journey_progress': journey_progress,
+            'journey_query': journey_query,
         }
 
         # For photo slideshows, add the list of all images as JSON for Alpine.js

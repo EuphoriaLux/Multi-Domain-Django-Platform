@@ -12,7 +12,7 @@
         data-challenge-id="{{ challenge.id }}"
         data-submit-url="{% url 'crush_lu:api_submit_challenge' %}"
         data-hint-url="{% url 'crush_lu:api_unlock_hint' %}"
-        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}"
+        data-chapter-url="{% url 'crush_lu:chapter_view' chapter.chapter_number %}{{ journey_query }}"
         data-initial-points="{{ challenge.points_awarded }}"
         data-scrambled-words="{{ challenge.options.scrambled }}"
         data-i18n-correct="{% trans 'Correct!' %}"
