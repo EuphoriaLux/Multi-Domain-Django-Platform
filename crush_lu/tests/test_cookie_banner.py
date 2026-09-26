@@ -767,19 +767,71 @@ class StartupSeedsCookieGroupsTests(SimpleTestCase):
         self.assertIn("set -e", script)
         self.assertRegex(seed, r"\|\| echo ")
 
-    def test_startup_script_parses(self):
+    @staticmethod
+    def _working_bash():
+        """A bash that runs, and the candidates rejected on the way.
+
+        From PowerShell on Windows, ``shutil.which("bash")`` finds the WSL
+        launcher (System32\\bash.exe), which exits non-zero when no Linux
+        distribution is installed. So each candidate must run ``exit 0``
+        before it is trusted, and Git for Windows' own bash (``Git\\bin``,
+        beside ``Git\\cmd\\git.exe``) is tried after the one on PATH.
+        """
         import shutil
         import subprocess
         from pathlib import Path
 
-        bash = shutil.which("bash")
+        candidates = []
+        on_path = shutil.which("bash")
+        if on_path:
+            candidates.append(on_path)
+        git = shutil.which("git")
+        if git:
+            git_root = Path(git).resolve().parents[1]
+            candidates += [
+                str(git_root / "bin" / "bash.exe"),
+                str(git_root / "usr" / "bin" / "bash.exe"),
+            ]
+        rejected = []
+        for candidate in candidates:
+            if not Path(candidate).is_file():
+                continue
+            try:
+                probe = subprocess.run(
+                    [candidate, "-c", "exit 0"], capture_output=True, timeout=30
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                rejected.append(candidate)
+                continue
+            if probe.returncode == 0:
+                return candidate, rejected
+            rejected.append(candidate)
+        return None, rejected
+
+    def test_startup_script_parses(self):
+        """``bash -n`` on startup.sh wherever a working bash is found: CI's
+        ubuntu runner, Git Bash, or Git for Windows' bash from PowerShell. The
+        script goes in on stdin, as bytes: a Windows path would not resolve
+        inside WSL, and a text-mode pipe on Windows would rewrite its LF line
+        endings (.gitattributes) as CRLF."""
+        import subprocess
+        from pathlib import Path
+
+        bash, rejected = self._working_bash()
         if not bash:
-            self.skipTest("bash is not available")
+            self.skipTest(f"no working bash (rejected: {rejected or 'none found'})")
         startup = Path(__file__).resolve().parents[2] / "startup.sh"
         result = subprocess.run(
-            [bash, "-n", str(startup)], capture_output=True, text=True, timeout=30
+            [bash, "-n"], input=startup.read_bytes(), capture_output=True, timeout=30
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.returncode, 0, result.stderr.decode("utf-8", errors="replace")
+        )
+        # Guards the check itself: this bash does parse what it reads on stdin.
+        broken = subprocess.run(
+            [bash, "-n"], input=b"if true; then\n", capture_output=True, timeout=30
+        )
+        self.assertNotEqual(broken.returncode, 0)
 
 
 class CookieConsentFlagSyncTests(TestCase):
