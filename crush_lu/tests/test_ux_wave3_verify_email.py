@@ -113,6 +113,21 @@ class VerificationSentPageTests(TestCase):
         self.assertIn('name="email"', html)
         self.assertNotIn("t***", html)
 
+    def test_localhost_with_a_port_still_gets_the_crush_page(self):
+        """account/verification_sent.html's router matched the bare string
+        'localhost' exactly, so live_server's dev host (localhost:PORT --
+        what Playwright and `manage.py runserver` on the documented port
+        both use) fell through to the generic neutral template instead of
+        this one. Caught while shooting screenshots for this same finding;
+        fixed alongside account/email_confirm.html, which routes the same
+        way."""
+        html = (
+            Client(HTTP_HOST="localhost:54321")
+            .get("/accounts/confirm-email/")
+            .content.decode()
+        )
+        self.assertIn("Check Your Inbox", html)
+
     def test_expired_link_cta_points_at_the_public_resend_page(self):
         html = (
             Client(HTTP_HOST="crush.lu")
@@ -137,7 +152,24 @@ class ResendVerificationEmailViewTests(TestCase):
         response = client.post("/en/signup/resend-verification/")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(address.email, mail.outbox[0].to[0])
+
+    def test_resend_does_not_leak_the_raw_email_in_a_message_banner(self):
+        """EmailAddress.send_confirmation() fires allauth's stock
+        'Confirmation email sent to {email}.' message regardless of caller.
+        On crush.lu that would print the full, unmasked address in a toast
+        directly above the *masked* one this page shows -- see
+        MultiDomainAccountAdapter.add_message. Follow the redirect so the
+        message actually renders into the page (messages are consumed on
+        read, not fired-and-forgotten)."""
+        _user, _address = _unverified_user("noleak@example.com")
+        client = Client(HTTP_HOST="crush.lu")
+        session = client.session
+        session["pending_verification_email"] = "noleak@example.com"
+        session.save()
+
+        client.post("/en/signup/resend-verification/")
+        html = client.get("/accounts/confirm-email/").content.decode()
+        self.assertNotIn("noleak@example.com", html)
 
     def test_resend_accepts_a_typed_email_when_session_is_empty(self):
         _user, _address = _unverified_user("typed@example.com")

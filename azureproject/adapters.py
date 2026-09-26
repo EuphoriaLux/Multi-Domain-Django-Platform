@@ -668,14 +668,27 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
         message=None,
     ):
         """
-        Suppress allauth's "Successfully signed in as {name}." banner on Crush.lu.
+        Suppress two allauth message banners on Crush.lu:
 
-        The banner is redundant (landing on the dashboard already confirms the
-        login) and it renders the username, which breaks Crush.lu's privacy rule
-        against exposing names. Other platforms keep the default message.
+        - "Successfully signed in as {name}." is redundant (landing on the
+          dashboard already confirms the login) and it renders the username,
+          which breaks Crush.lu's privacy rule against exposing names.
+        - "Confirmation email sent to {email}." fires on both signup and
+          crush_lu:resend_verification (EmailAddress.send_confirmation()
+          triggers it either way) and would print the member's full,
+          unmasked address in a banner directly above the *masked* one on
+          account/verification_sent_crush.html -- defeating that page's own
+          masking. The page already says a link was sent, so the banner is
+          redundant there too.
+
+        Other platforms keep both default messages.
         """
         if (
-            message_template == "account/messages/logged_in.txt"
+            message_template
+            in (
+                "account/messages/logged_in.txt",
+                "account/messages/email_confirmation_sent.txt",
+            )
             and request is not None
             and _is_crush_domain(request)
         ):
