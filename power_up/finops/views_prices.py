@@ -5,6 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.db.models import Count, Max, Min, Sum
 from django.shortcuts import render
 from django.utils import timezone
@@ -13,6 +14,8 @@ from .models import RetailPriceSnapshot, RetailPriceSyncRun
 from .retail_prices.connectors.azure import EUROPEAN_AZURE_REGIONS
 
 PERIOD_OPTIONS = {30, 90, 180, 365}
+# The option lists change once a night, when the sync lands a new day.
+OPTIONS_CACHE_SECONDS = 60 * 60
 
 
 def _safe_period(value):
@@ -21,6 +24,48 @@ def _safe_period(value):
     except (TypeError, ValueError):
         return 90
     return days if days in PERIOD_OPTIONS else 90
+
+
+def _latest_day_options(provider, currency, os_filter, latest_day):
+    """Dropdown values, read from the newest snapshot day only.
+
+    The table grows by one full European VM catalogue per night, so a DISTINCT
+    over its whole history ran for minutes on production and the page never
+    rendered. One day holds every current SKU, OS, currency and region.
+    """
+    key = f"finops:prices:options:{provider}:{currency}:{os_filter}:{latest_day}"
+    options = cache.get(key)
+    if options is not None:
+        return options
+
+    day = RetailPriceSnapshot.objects.filter(
+        provider=provider, snapshot_date=latest_day
+    ).order_by()
+    vms = day.filter(service_category="compute", resource_type="virtual_machines")
+    skus = vms.filter(currency=currency)
+    if os_filter:
+        skus = skus.filter(operating_system=os_filter)
+    options = {
+        "skus": list(
+            skus.values_list("provider_sku", flat=True)
+            .distinct()
+            .order_by("provider_sku")
+        ),
+        "os": list(
+            vms.exclude(operating_system="")
+            .values_list("operating_system", flat=True)
+            .distinct()
+            .order_by("operating_system")
+        ),
+        "currencies": list(
+            day.values_list("currency", flat=True).distinct().order_by("currency")
+        ),
+        # Without the explicit order_by() the model's Meta.ordering joins the
+        # DISTINCT, which then runs over (region, date, sku) instead of region.
+        "regions": set(day.values_list("region_code", flat=True).distinct()),
+    }
+    cache.set(key, options, OPTIONS_CACHE_SECONDS)
+    return options
 
 
 @login_required
@@ -62,21 +107,41 @@ def retail_price_dashboard(request):
     if os_filter:
         base = base.filter(operating_system=os_filter)
 
+    latest_day = (
+        RetailPriceSnapshot.objects.filter(provider=provider)
+        .order_by()
+        .aggregate(value=Max("snapshot_date"))["value"]
+    )
+    empty_options = {"skus": [], "os": [], "currencies": [], "regions": set()}
+    options = (
+        _latest_day_options(provider, currency, os_filter, latest_day)
+        if latest_day
+        else empty_options
+    )
+
     requested_sku = request.GET.get("sku", "").strip()
     if requested_sku:
-        active_sku = requested_sku
-    else:
+        # The SKU box is free text. Resolve the casing here so the lookups
+        # below stay exact: iexact compiles to UPPER(provider_sku) on
+        # Postgres, which skips the (provider, provider_sku, date) index.
+        canonical = {sku.lower(): sku for sku in options["skus"]}
+        active_sku = canonical.get(requested_sku.lower(), requested_sku)
+    elif latest_day:
         default_sku = (
-            base.values("provider_sku")
+            base.filter(snapshot_date=latest_day)
+            .order_by()
+            .values("provider_sku")
             .annotate(region_count=Count("region_code", distinct=True))
             .order_by("-region_count", "provider_sku")
             .first()
         )
         active_sku = default_sku["provider_sku"] if default_sku else ""
+    else:
+        active_sku = ""
 
     filtered = base
     if active_sku:
-        filtered = filtered.filter(provider_sku__iexact=active_sku)
+        filtered = filtered.filter(provider_sku=active_sku)
 
     latest_snapshot = filtered.aggregate(value=Max("snapshot_date"))["value"]
     chart_rows = list(
@@ -132,11 +197,13 @@ def retail_price_dashboard(request):
     if history_keys:
         # Only price_key/snapshot_date/unit_price are read below -- .only()
         # keeps the SELECT to those columns instead of the full row.
-        previous_candidates = RetailPriceSnapshot.objects.filter(
-            price_key__in=history_keys,
-            snapshot_date__gte=start_date - timedelta(days=365),
-        ).only("price_key", "snapshot_date", "unit_price").order_by(
-            "price_key", "-snapshot_date"
+        previous_candidates = (
+            RetailPriceSnapshot.objects.filter(
+                price_key__in=history_keys,
+                snapshot_date__gte=start_date - timedelta(days=365),
+            )
+            .only("price_key", "snapshot_date", "unit_price")
+            .order_by("price_key", "-snapshot_date")
         )
         for candidate in previous_candidates:
             history_by_key[candidate.price_key].append(candidate)
@@ -175,11 +242,7 @@ def retail_price_dashboard(request):
             else:
                 row.change_direction = "same"
 
-    captured_region_codes = set(
-        RetailPriceSnapshot.objects.filter(provider=provider)
-        .values_list("region_code", flat=True)
-        .distinct()
-    )
+    captured_region_codes = options["regions"]
     region_codes = sorted(set(EUROPEAN_AZURE_REGIONS) | captured_region_codes)
     region_options = [
         {
@@ -195,56 +258,27 @@ def retail_price_dashboard(request):
         }
         for code in region_codes
     ]
-    sku_options_query = RetailPriceSnapshot.objects.filter(
-        provider=provider,
-        currency=currency,
-        service_category="compute",
-        resource_type="virtual_machines",
-    )
-    if os_filter:
-        sku_options_query = sku_options_query.filter(operating_system=os_filter)
-    sku_options = list(
-        sku_options_query
-        .values_list("provider_sku", flat=True)
-        .distinct()
-        .order_by("provider_sku")[:500]
-    )
-    product_options_query = RetailPriceSnapshot.objects.filter(
-        provider=provider,
-        currency=currency,
-        service_category="compute",
-        resource_type="virtual_machines",
-    )
+    sku_options = options["skus"][:500]
+    product_options = []
     if active_sku:
-        product_options_query = product_options_query.filter(
-            provider_sku__iexact=active_sku
-        )
-    if os_filter:
-        product_options_query = product_options_query.filter(
-            operating_system=os_filter
-        )
-    product_options = list(
-        product_options_query.values_list("product_name", flat=True)
-        .distinct()
-        .order_by("product_name")[:200]
-    )
-    os_options = list(
-        RetailPriceSnapshot.objects.filter(
+        product_options_query = RetailPriceSnapshot.objects.filter(
             provider=provider,
+            currency=currency,
             service_category="compute",
             resource_type="virtual_machines",
+            provider_sku=active_sku,
         )
-        .exclude(operating_system="")
-        .values_list("operating_system", flat=True)
-        .distinct()
-        .order_by("operating_system")
-    )
-    currency_options = list(
-        RetailPriceSnapshot.objects.filter(provider=provider)
-        .values_list("currency", flat=True)
-        .distinct()
-        .order_by("currency")
-    ) or ["EUR"]
+        if os_filter:
+            product_options_query = product_options_query.filter(
+                operating_system=os_filter
+            )
+        product_options = list(
+            product_options_query.values_list("product_name", flat=True)
+            .distinct()
+            .order_by("product_name")[:200]
+        )
+    os_options = options["os"]
+    currency_options = options["currencies"] or ["EUR"]
     latest_sync = RetailPriceSyncRun.objects.filter(
         provider=provider,
         currency=currency,

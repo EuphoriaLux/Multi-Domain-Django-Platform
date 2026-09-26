@@ -1,13 +1,25 @@
+import re
 from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from power_up.finops.retail_prices.service import sync_retail_prices
 from power_up.finops.tests.test_retail_price_sync import FakeConnector, azure_item
 
 User = get_user_model()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_option_cache():
+    # The dashboard caches its dropdowns per day, and every test syncs "today".
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture
@@ -124,6 +136,67 @@ def test_price_decrease_renders_without_a_redundant_sign(client, regular_user):
     content = response.content.decode()
     assert "▼ 16.67%" in content
     assert "▼ -16.67%" not in content
+
+
+def _sync_two_days(first_price, second_price):
+    today = timezone.localdate()
+    for offset, price in ((1, first_price), (0, second_price)):
+        sync_retail_prices(
+            snapshot_date=today - timedelta(days=offset),
+            region="westeurope",
+            connector=FakeConnector(
+                {"Items": [azure_item(price)], "NextPageLink": None}
+            ),
+        )
+
+
+@pytest.mark.django_db
+def test_hand_typed_sku_resolves_to_its_stored_casing(client, regular_user):
+    """The SKU box is free text; the lookup behind it must stay exact.
+
+    A lowercase SKU still finds its prices, because the view maps it to the
+    stored casing instead of querying with iexact (UPPER() skips the index).
+    """
+    _sync_two_days("0.10000000", "0.12000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"sku": "standard_d2s_v5"})
+
+    assert response.status_code == 200
+    assert response.context["active_sku"] == "Standard_D2s_v5"
+    assert len(response.context["chart_series"][0]["data"]) == 2
+
+
+@pytest.mark.django_db
+def test_default_view_never_scans_the_whole_price_history(client, regular_user):
+    """Every snapshot query must be pinned to one day, one SKU or known keys.
+
+    The table grows by a full European VM catalogue each night. Unbounded
+    DISTINCTs over it ran for up to 20 minutes on production (2026-09-21) and
+    the page never loaded. SQLite has no query plans, so assert the shape.
+    """
+    _sync_two_days("0.10000000", "0.12000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get("/finops/prices/")
+
+    assert response.status_code == 200
+    assert response.context["active_sku"] == "Standard_D2s_v5"
+    snapshot_selects = [
+        q["sql"]
+        for q in queries.captured_queries
+        if q["sql"].startswith("SELECT")
+        and '"finops_hub_retailpricesnapshot"' in q["sql"]
+    ]
+    assert snapshot_selects
+    bounded = re.compile(
+        r'"snapshot_date" = |"provider_sku" = |"price_key" IN |'
+        r'SELECT MAX\("finops_hub_retailpricesnapshot"\."snapshot_date"\)'
+    )
+    unbounded = [sql for sql in snapshot_selects if not bounded.search(sql)]
+    assert unbounded == []
+    assert not any("UPPER(" in sql for sql in snapshot_selects)
 
 
 @pytest.mark.django_db
