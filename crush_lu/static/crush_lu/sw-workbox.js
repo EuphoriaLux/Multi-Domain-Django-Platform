@@ -1,5 +1,13 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
+// Version: v34 - A cookie-consent change (a POST to /cookies/accept/ or
+//                /cookies/decline/ that reaches this worker) purges "crush-pages":
+//                a kept page embeds the consent state and trackers it was
+//                rendered with. The offline tickets stay (pages rendered with the
+//                consent-flag checks hold back their trackers after a later
+//                refusal). Consent POSTs are also kept off the background-sync
+//                queue: a replay up to 24h later would rewrite the consent flags
+//                over a newer choice.
 // Version: v33 - Tell the page when a POST really was stored in the background-
 //                sync queue ({type: "crush-queued", requestId, url} to the one
 //                client that sent it, posted only after the queue write succeeded), so
@@ -26,6 +34,19 @@
 // account would be served offline to the next account on the same device.
 const TICKET_CACHE = "crush-tickets";
 const TICKET_PATH = /^\/(en|de|fr)\/events\/\d+\/ticket\/$/;
+
+// The generic NetworkFirst cache for pages (Strategy 4). Declared up here for
+// the same reason: the listener below purges it on a consent change.
+const PAGE_CACHE = "crush-pages";
+
+// A saved cookie-consent choice: django-cookie-consent's accept/decline views,
+// mounted unprefixed at /cookies/ on every site (urls_shared.base_patterns),
+// the same paths CookieConsentFlagSyncMiddleware rewrites the consent flags
+// for. A page kept in PAGE_CACHE embeds the consent state it was rendered with
+// (data-consent-state) and the trackers that state allowed, so it must not
+// outlive a change of mind. Only POSTs: the banner's GET /cookies/status/
+// changes nothing.
+const CONSENT_CHANGE_PATH = /\/cookies\/(accept|decline)\/$/;
 
 // Navigations that can put a different account (or none) on this device, and
 // so must drop TICKET_CACHE. These are the login()/logout() call sites a
@@ -98,6 +119,19 @@ self.addEventListener("fetch", (event) => {
     // below and the routes further down still apply unchanged.
     if (isSessionBoundaryNavigation(event.request, url)) {
         event.waitUntil(caches.delete(TICKET_CACHE));
+    }
+
+    // A consent change drops the kept pages (see CONSENT_CHANGE_PATH), so the
+    // next offline or failed navigation cannot serve a copy rendered under the
+    // old choice. TICKET_CACHE is deliberately kept: purging it would lose the
+    // offline QR at the door, and a ticket rendered with the consent-flag
+    // checks (the analytics tags and the banner) holds back its own trackers
+    // once the visitor refuses. Those checks are the guarantee; this purge is
+    // the extra layer. The library's own forms are navigations and always
+    // pass through here; whether a browser routes the banner's keepalive
+    // fetch through a worker varies, so nothing relies on this purge alone.
+    if (event.request.method === "POST" && CONSENT_CHANGE_PATH.test(url.pathname)) {
+        event.waitUntil(caches.delete(PAGE_CACHE));
     }
 
     // TRUE HARD BYPASS: OAuth and auth-related URLs
@@ -479,7 +513,8 @@ if (workbox) {
             !url.pathname.startsWith("/logout") &&
             !url.pathname.startsWith("/api/mobile/"),
         new workbox.strategies.NetworkFirst({
-            cacheName: "crush-pages",
+            // Purged on a cookie-consent change (fetch listener above).
+            cacheName: PAGE_CACHE,
             plugins: [
                 new workbox.expiration.ExpirationPlugin({
                     maxEntries: 50,
@@ -632,6 +667,13 @@ if (workbox) {
     // but cannot say whether the queue or a double-click produced it. Both
     // mount points are listed: /admin/ is Django's own admin, /crush-admin/
     // is the Crush coach panel (urls_crush.py).
+    //
+    // Cookie-consent POSTs (/cookies/accept/, /cookies/decline/) are excluded
+    // because a replay is a stale choice: CookieConsentFlagSyncMiddleware
+    // rewrites the readable consent flags from it, so an acceptance queued
+    // while offline and replayed hours later would overwrite a refusal made
+    // since, and the consent checks in the pages trust exactly those flags.
+    // The banner keeps the choice in its own cookies when the post is lost.
     function isQueueablePost(pathname) {
         return (
             !pathname.startsWith("/api/") &&
@@ -640,7 +682,8 @@ if (workbox) {
             !pathname.startsWith("/login") &&
             !pathname.startsWith("/logout") &&
             !pathname.startsWith("/accounts/") &&
-            !pathname.startsWith("/signup")
+            !pathname.startsWith("/signup") &&
+            !pathname.startsWith("/cookies/")
         );
     }
 

@@ -384,6 +384,36 @@ const probes = [
         destination: "document",
         informational: true,
     },
+    {
+        // A cookie-consent change purges the kept pages ("crush-pages"),
+        // which embed the consent state they were rendered with, but keeps
+        // the offline tickets. django-cookie-consent's own form posts as a
+        // navigation; never queued for background sync (a replay would
+        // rewrite the consent flags over a newer choice).
+        name: "cookie_consent_accept_post_navigation",
+        url: "https://crush.lu/cookies/accept/",
+        method: "POST",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: false,
+    },
+    {
+        // The banner's fetch() to the same views.
+        name: "cookie_consent_decline_fetch",
+        url: "https://crush.lu/cookies/decline/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        // The banner's CSRF/status lookup changes nothing: no purge.
+        name: "cookie_status_fetch",
+        url: "https://crush.lu/cookies/status/",
+        mode: "same-origin",
+        destination: "",
+        informational: true,
+    },
 ];
 
 const results = probes.map((probe) => {
@@ -464,6 +494,8 @@ async function probeReplay(urls) {
 (async () => {
     const replay = await probeReplay([
         "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
+        // A consent POST an earlier worker queued: dropped, never replayed.
+        "https://crush.lu/cookies/accept/",
         "https://crush.lu/en/events/29/register/",
     ]);
     process.stdout.write(
