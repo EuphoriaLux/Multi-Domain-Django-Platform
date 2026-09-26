@@ -185,6 +185,9 @@ def retail_price_dashboard(request):
         {"label": series_labels[code], "data": values}
         for code, values in sorted(series.items())
     ]
+    # The x axis is a category scale: it needs every snapshot day, in order,
+    # as its labels. Without them Chart.js cannot place the {x, y} points.
+    chart_labels = sorted({row["snapshot_date"].isoformat() for row in chart_rows})
 
     region_comparison = []
     if latest_snapshot:
@@ -343,6 +346,7 @@ def retail_price_dashboard(request):
             "latest_sync_rows": latest_sync_totals["rows"] or 0,
             "latest_sync_regions": latest_sync_totals["regions"] or 0,
             "chart_series": chart_series,
+            "chart_labels": chart_labels,
             "region_comparison": region_comparison,
             "history_rows": history_rows,
             "changed_count": changed_count,

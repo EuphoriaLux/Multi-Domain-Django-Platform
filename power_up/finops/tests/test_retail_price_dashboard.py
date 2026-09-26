@@ -270,6 +270,35 @@ def test_option_cache_key_ignores_request_controlled_filters(
 
 
 @pytest.mark.django_db
+def test_trend_chart_ships_sorted_day_labels_and_lets_chartjs_parse(
+    client, regular_user
+):
+    """The trend's x axis is a category scale: it needs the days as labels.
+
+    With ``parsing: false`` and no labels, Chart.js read the ISO date strings
+    as label indexes and drew the points off-canvas, so a price drop showed
+    as a flat line at the old price (2026-09-26, Easv6_Type1 in westeurope).
+    """
+    _sync_two_days("0.12000000", "0.10000000")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/")
+
+    today = timezone.localdate()
+    assert response.context["chart_labels"] == [
+        (today - timedelta(days=1)).isoformat(),
+        today.isoformat(),
+    ]
+    assert [point["y"] for point in response.context["chart_series"][0]["data"]] == [
+        0.12,
+        0.10,
+    ]
+    content = response.content.decode()
+    assert 'id="retail-price-labels"' in content
+    assert "parsing: false" not in content
+
+
+@pytest.mark.django_db
 def test_retail_sync_webhook_requires_token_and_invokes_command(
     client, settings, mocker
 ):

@@ -188,6 +188,7 @@
 </div>
 
 {{ chart_series|json_script:"retail-price-series" }}
+{{ chart_labels|json_script:"retail-price-labels" }}
 {{ region_comparison|json_script:"retail-region-data" }}
 {% endblock %}
 
@@ -197,12 +198,13 @@
 document.addEventListener("DOMContentLoaded", function () {
     const palette = ["#ea580c", "#2563eb", "#16a34a", "#9333ea", "#0891b2"];
     const series = JSON.parse(document.getElementById("retail-price-series").textContent);
+    const labels = JSON.parse(document.getElementById("retail-price-labels").textContent);
     const comparison = JSON.parse(document.getElementById("retail-region-data").textContent);
     if (series.length) {
         new Chart(document.getElementById("retail-price-trend"), {
             type: "line",
-            data: { datasets: series.map((item, index) => ({ ...item, borderColor: palette[index % palette.length], backgroundColor: palette[index % palette.length], tension: 0.2 })) },
-            options: { responsive: true, parsing: false, scales: { x: { type: "category" }, y: { beginAtZero: false, title: { display: true, text: "{{ currency }} per unit" } } } }
+            data: { labels: labels, datasets: series.map((item, index) => ({ ...item, borderColor: palette[index % palette.length], backgroundColor: palette[index % palette.length], tension: 0 })) },
+            options: { responsive: true, scales: { x: { type: "category" }, y: { beginAtZero: false, title: { display: true, text: "{{ currency }} per unit" } } } }
         });
     }
     if (comparison.length) {
