@@ -6,11 +6,12 @@
 //                rendered with. The offline tickets move to "crush-tickets-v2",
 //                which a consent change keeps (a ticket rendered with the
 //                consent-flag checks holds back its trackers after a later
-//                refusal). Activation drops what older workers kept: the old
-//                "crush-tickets", rendered without those checks, and
-//                "crush-pages". Consent POSTs are also kept off the
-//                background-sync queue: a replay up to 24h later would rewrite
-//                the consent flags over a newer choice.
+//                refusal). Activation deletes the old "crush-tickets" (the
+//                v32/v33 copies, rendered without those checks) and empties
+//                "crush-pages", as every later version's activation will.
+//                Consent POSTs are also kept off the background-sync queue: a
+//                replay up to 24h later would rewrite the consent flags over a
+//                newer choice.
 // Version: v33 - Tell the page when a POST really was stored in the background-
 //                sync queue ({type: "crush-queued", requestId, url} to the one
 //                client that sent it, posted only after the queue write succeeded), so
@@ -140,7 +141,7 @@ self.addEventListener("fetch", (event) => {
     // A consent change drops the kept pages (see CONSENT_CHANGE_PATH), so the
     // next offline or failed navigation cannot serve a copy rendered under the
     // old choice. TICKET_CACHE is deliberately kept: purging it would lose the
-    // offline QR at the door. Only this worker version on writes to it, and it
+    // offline QR at the door. Only workers from v34 on write to it, and v34
     // ships with the consent-flag checks (the analytics tags and the banner),
     // so a kept ticket holds back its own trackers once the visitor refuses;
     // the copies older workers kept without those checks were dropped on
