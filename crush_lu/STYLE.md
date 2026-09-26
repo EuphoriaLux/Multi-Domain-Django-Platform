@@ -338,10 +338,11 @@ The copy depends on the failure: a 429 says "Too many attempts" (the
 network failure on an event registration or connection message POST the
 service worker confirmed it queued for background sync says it will sync
 once online (no "try again": a second submit would queue a duplicate);
-any other confirmed-queued POST, and any queueable POST under a worker
-that predates that confirmation, says "Connection interrupted. Retrying…"
-(neither promise nor retry prompt); everything else gets the generic
-server or network copy. After a confirmation the page asks the worker to
+any other confirmed-queued POST says "Connection interrupted. Retrying…";
+a queueable POST under a worker that never confirmed the store (one that
+predates that confirmation) says "We could not confirm whether this was
+sent. Check before sending it again." (neither promise nor retry prompt);
+everything else gets the generic server or network copy. After a confirmation the page asks the worker to
 drain the queue on a retry schedule, not only on the `online` event.
 An identical toast that is still on screen is not stacked again. So:
 

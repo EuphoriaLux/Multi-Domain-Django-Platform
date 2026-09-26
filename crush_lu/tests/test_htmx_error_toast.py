@@ -32,12 +32,16 @@ QUEUED_MSGID = (
     "automatically!"
 )
 INTERRUPTED_MSGID = "Connection interrupted. Retrying…"
+UNCONFIRMED_MSGID = (
+    "We could not confirm whether this was sent. Check before sending it again."
+)
 MSGIDS = {
     "network": NETWORK_MSGID,
     "server": SERVER_MSGID,
     "rate-limited": RATE_LIMITED_MSGID,
     "queued": QUEUED_MSGID,
     "interrupted": INTERRUPTED_MSGID,
+    "unconfirmed": UNCONFIRMED_MSGID,
 }
 
 # Copy per language. DE uses the informal "du" and FR the formal "vous", like
@@ -57,6 +61,10 @@ EXPECTED_COPY = {
             "Nachrichten automatisch synchronisiert!"
         ),
         "interrupted": "Verbindung unterbrochen. Neuer Versuch…",
+        "unconfirmed": (
+            "Wir konnten nicht bestätigen, ob das gesendet wurde. Prüfe das, "
+            "bevor du es erneut sendest."
+        ),
     },
     "fr": {
         "network": "Erreur réseau. Vérifiez votre connexion et réessayez.",
@@ -67,6 +75,7 @@ EXPECTED_COPY = {
             "messages seront synchronisés automatiquement !"
         ),
         "interrupted": "Connexion interrompue. Nouvelle tentative…",
+        "unconfirmed": "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer.",
     },
 }
 
@@ -232,7 +241,10 @@ def test_queued_copy_needs_the_workers_confirmation():
     # missing ack + an older worker (never answers the capability question)
     # = queued silently = "interrupted", never "network".
     assert "workerQueuedAck !== true" in on_failure
-    assert 'copy = "interrupted"' in on_failure
+    # No confirmation from a worker that never answered: storage unknown, so
+    # the copy neither promises a retry nor invites a resend.
+    assert 'copy = "unconfirmed"' in on_failure
+    assert 'copy = "interrupted"' not in on_failure
     # The ack goes to the client that issued the fetch, never to every tab,
     # and carries the page's request id so it is matched to that request.
     assert "self.clients.get(clientId)" in ack and "matchAll" not in ack

@@ -59,11 +59,13 @@
  *        sent twice). No confirmation from a worker that speaks this
  *        protocol (it answered {type: "crush-capabilities?"} with
  *        queuedAck: true) means the IndexedDB write failed, so the plain
- *        "network" copy is right. No confirmation from an OLDER worker
- *        (a v31 worker keeps controlling the page until the member taps
- *        "Update Now" in pwa-update.js) proves nothing: it queues the same
- *        POSTs but never acknowledges, so the "interrupted" copy is shown
- *        instead -- it neither promises a replay nor invites a resend;
+ *        "network" copy is right. No confirmation from a worker that never
+ *        answered (a v31 worker keeps controlling the page until the member
+ *        taps "Update Now" in pwa-update.js, and queues the same POSTs
+ *        without acknowledging; or the answer has not arrived yet) proves
+ *        nothing either way, so the "unconfirmed" copy is shown: it says
+ *        the send could not be confirmed and asks the member to check
+ *        before sending again -- no retry promise, no resend prompt;
  *      - "network" copy for every other sendError/timeout.
  *
  * htmx itself re-enables hx-disabled-elt elements and removes .htmx-request
@@ -432,7 +434,7 @@
         // is still up suppresses a repeat.
         if (isShowing(store, message)) return;
         // A queued or still-retrying request is not an error: the member
-        // has nothing to do.
+        // has nothing to do. An unconfirmed one needs their attention.
         var info = kind === "queued" || kind === "interrupted";
         store.add({ type: info ? "info" : "error", message: message });
     }
@@ -484,7 +486,7 @@
                 if (ackedRecently(key, since)) {
                     copy = queuedCopyFor(url);
                 } else if (workerQueuedAck !== true) {
-                    copy = "interrupted";
+                    copy = "unconfirmed";
                 }
                 finish(copy);
             }, QUEUE_ACK_WAIT_MS);
