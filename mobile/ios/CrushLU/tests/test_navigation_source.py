@@ -117,6 +117,15 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("POSITION_UNAVAILABLE: 2", web_view)
         self.assertIn("TIMEOUT: 3", web_view)
 
+    def test_accuracy_permission_callback_rechecks_active_consumers(self):
+        web_view = _source("CrushWebView.swift")
+        callback = web_view.split("requestTemporaryFullAccuracyAuthorization(", 1)[1]
+
+        self.assertIn(
+            "guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }",
+            callback,
+        )
+
     def test_location_and_motion_usage_descriptions_are_present(self):
         info = _source("Info.plist")
 

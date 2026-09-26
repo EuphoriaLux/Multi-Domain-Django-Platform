@@ -816,6 +816,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
                 DispatchQueue.main.async {
                     guard let self else { return }
                     self.isRequestingFullAccuracy = false
+                    // The user can leave the hunt while the system prompt is
+                    // visible. Do not restart sensors for a canceled watch.
+                    guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }
                     guard authorization == .fullAccuracy else {
                         self.failActiveRequests(
                             code: 1,
