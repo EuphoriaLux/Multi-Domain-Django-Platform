@@ -651,6 +651,61 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
     }
 
+    // django-cookie-consent's own cookie (mounted at /cookies/ on every site)
+    // is HttpOnly, so this script cannot overwrite it, and the server reads
+    // it first. Record the choice there too, through the library's endpoints:
+    // its status view hands out the CSRF token (the CSRF cookie is HttpOnly
+    // as well) and the accept/decline URLs. Fire-and-forget: the readable
+    // cookies above already carry the choice if this never completes.
+    const NATIVE_STATUS_URL = '/cookies/status/';
+
+    function postNativeChoice(url, csrftoken, groups) {
+        if (!groups.length) return Promise.resolve();
+        const body = new URLSearchParams();
+        groups.forEach(function(group) { body.append('cookie_groups', group); });
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Cookie-Consent-Fetch': '1',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body.toString()
+        });
+    }
+
+    function syncNativeConsent(consent) {
+        if (typeof fetch !== 'function') return;
+        fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
+            .then(function(response) { return response.ok ? response.json() : null; })
+            .then(function(status) {
+                if (!status || !status.csrftoken) return;
+                const accepted = [], declined = [];
+                ['analytics', 'marketing'].forEach(function(group) {
+                    (consent[group] ? accepted : declined).push(group);
+                });
+                return Promise.all([
+                    postNativeChoice(status.acceptUrl, status.csrftoken, accepted),
+                    postNativeChoice(status.declineUrl, status.csrftoken, declined)
+                ]);
+            })
+            .catch(function() { /* the readable cookies still carry the choice */ });
+    }
+
+    // Keep the server-rendered state (data-consent-state) in step with a
+    // choice saved on this page, so a reopened modal shows the new choice
+    // and a second Save cannot restore the old one.
+    function syncServerState(consent) {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (!banner || !banner.dataset) return;
+        banner.dataset.consentState = JSON.stringify({
+            analytics: consent.analytics === true,
+            marketing: consent.marketing === true,
+            decided: true
+        });
+    }
+
     function acceptAllCookies() {
         const consent = {
             essential: true,
@@ -661,6 +716,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', true);
         setDjangoCookieConsent('marketing', true);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         dispatchConsentEvent(consent);
         updateGoogleConsent(consent);
@@ -676,6 +733,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', false);
         setDjangoCookieConsent('marketing', false);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         dispatchConsentEvent(consent);
         updateGoogleConsent(consent);
@@ -758,6 +817,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         setCookie(COOKIE_NAME, consent, COOKIE_EXPIRY_DAYS);
         setDjangoCookieConsent('analytics', analyticsChecked);
         setDjangoCookieConsent('marketing', marketingChecked);
+        syncNativeConsent(consent);
+        syncServerState(consent);
         hideBanner();
         hideCookieSettings();
         dispatchConsentEvent(consent);

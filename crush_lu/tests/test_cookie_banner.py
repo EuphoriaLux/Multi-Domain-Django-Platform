@@ -397,6 +397,27 @@ class ConsentStateTagTests(SimpleTestCase):
             {"analytics": False, "marketing": True, "decided": True},
         )
 
+    def test_saving_updates_the_library_cookie_and_the_embedded_state(self):
+        """The library's cookie is HttpOnly (the server reads it first) and the
+        CSRF cookie is HttpOnly too: a saved choice is posted through the
+        library's status/accept/decline endpoints, and data-consent-state is
+        rewritten so a reopened modal on the same page shows the new choice."""
+        html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        self.assertIn("const NATIVE_STATUS_URL = '/cookies/status/';", html)
+        self.assertIn("'X-CSRFToken': csrftoken", html)
+        self.assertIn("body.append('cookie_groups', group)", html)
+        self.assertIn("banner.dataset.consentState = JSON.stringify({", html)
+        for fn in ("acceptAllCookies", "declineAllCookies", "saveCustomCookies"):
+            body = _js_function_body(html, fn)
+            self.assertIn("syncNativeConsent(consent);", body, fn)
+            self.assertIn("syncServerState(consent);", body, fn)
+            # State first, then the event the analytics scripts react to.
+            self.assertLess(
+                body.index("syncServerState(consent);"),
+                body.index("dispatchConsentEvent(consent);"),
+                fn,
+            )
+
     def test_banner_carries_the_state_and_reads_it_first(self):
         request = RequestFactory().get("/")
         request.COOKIES["cookie_consent"] = '{"analytics":false,"marketing":true}'
@@ -505,8 +526,27 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
             body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
         ),
     )
-    # The library's own endpoints the banner also posts to.
-    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    # The library's own endpoints: the status view hands out the CSRF token and
+    # the accept/decline URLs; record what the banner posts to them.
+    posted = []
+
+    def native(route):
+        request = route.request
+        if request.url.endswith("/cookies/status/"):
+            return route.fulfill(
+                content_type="application/json",
+                body='{"csrftoken":"tok","acceptUrl":"/cookies/accept/","declineUrl":"/cookies/decline/"}',
+            )
+        posted.append(
+            (
+                request.url.rsplit("/cookies/", 1)[1],
+                request.post_data,
+                request.headers.get("x-csrftoken"),
+            )
+        )
+        return route.fulfill(status=200, body="")
+
+    page.route("**/cookies/**", native)
     page.context.add_cookies(
         [
             {
@@ -533,6 +573,17 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     # end with the revoke.
     consent_calls = [c for c in page.evaluate("window.__fbqCalls") if c[0] == "consent"]
     assert consent_calls and consent_calls[-1] == ["consent", "revoke"]
+
+    # The withdrawal reached the library (HttpOnly cookie updated server-side)...
+    page.wait_for_function("() => window.__fbqCalls.length > 0")
+    page.wait_for_timeout(200)
+    assert ("accept/", "cookie_groups=analytics", "tok") in posted
+    assert ("decline/", "cookie_groups=marketing", "tok") in posted
+    # ...and a reopened modal on the same page shows the new choice, not the
+    # state the server rendered before the save.
+    page.click("#open-cookie-settings")
+    assert page.is_checked("#cookie-analytics")
+    assert not page.is_checked("#cookie-marketing")
 
 
 @pytest.mark.playwright
