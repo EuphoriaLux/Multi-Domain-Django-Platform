@@ -374,25 +374,40 @@ def _percent_of(amount_cents, percent):
     )
 
 
-def is_late_cancellation(event, moment=None):
-    """True when ``moment`` is inside the no-credit window before the start."""
-    moment = moment or timezone.now()
-    hours = getattr(
+def late_window_hours():
+    """Hours before the start inside which a member cancellation earns nothing."""
+    return getattr(
         settings,
         "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
         DEFAULT_LATE_CANCELLATION_HOURS,
     )
-    return (event.date_time - moment).total_seconds() <= hours * 3600
+
+
+def resale_share_percent():
+    """Share of a late-cancelled seat's price credited if a replacement pays."""
+    return getattr(
+        settings, "CRUSH_CREDIT_RESALE_SHARE_PERCENT", DEFAULT_RESALE_SHARE_PERCENT
+    )
 
 
 def full_credit_deadline(event):
     """The last moment a member cancellation still earns full Crush Credit."""
-    hours = getattr(
-        settings,
-        "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
-        DEFAULT_LATE_CANCELLATION_HOURS,
-    )
-    return event.date_time - timedelta(hours=hours)
+    return event.date_time - timedelta(hours=late_window_hours())
+
+
+def is_late_cancellation(event, moment=None):
+    """True when ``moment`` is inside the no-credit window before the start."""
+    return (moment or timezone.now()) >= full_credit_deadline(event)
+
+
+def cancellation_policy(event, moment=None):
+    """The member cancellation policy for ``event``, as the policy note shows it."""
+    return {
+        "deadline": full_credit_deadline(event),
+        "late": is_late_cancellation(event, moment),
+        "hours": late_window_hours(),
+        "share_percent": resale_share_percent(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -603,19 +618,8 @@ class CancellationOutcome:
         self.kind = kind
         self.amount_cents = amount_cents
         self.payment = payment
-        self.late_window_hours = getattr(
-            settings,
-            "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
-            DEFAULT_LATE_CANCELLATION_HOURS,
-        )
-        self.resale_share_cents = _percent_of(
-            amount_cents,
-            getattr(
-                settings,
-                "CRUSH_CREDIT_RESALE_SHARE_PERCENT",
-                DEFAULT_RESALE_SHARE_PERCENT,
-            ),
-        )
+        self.late_window_hours = late_window_hours()
+        self.resale_share_cents = _percent_of(amount_cents, resale_share_percent())
 
     @property
     def amount(self):
@@ -670,7 +674,7 @@ def issue_cancellation_credits(registration, *, moment=None):
         CrushCredit.Reason.MEMBER_CANCELLATION,
         note=(
             f"Cancelled more than "
-            f"{getattr(settings, 'CRUSH_CREDIT_LATE_CANCELLATION_HOURS', DEFAULT_LATE_CANCELLATION_HOURS)}h "
+            f"{late_window_hours()}h "
             f"before {registration.event}."
         ),
     )
@@ -839,9 +843,7 @@ def maybe_issue_resale_credits(
     )
     if beneficiary is None:
         return []
-    share = getattr(
-        settings, "CRUSH_CREDIT_RESALE_SHARE_PERCENT", DEFAULT_RESALE_SHARE_PERCENT
-    )
+    share = resale_share_percent()
     try:
         # The savepoint is load-bearing when this runs inside a checkout's
         # outer transaction: catching IntegrityError without one leaves that

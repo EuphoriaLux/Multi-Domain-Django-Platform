@@ -34,8 +34,8 @@
                     <p class="font-bold text-crush-purple dark:text-purple-400">{{ amount|floatformat:2 }} {{ currency }}</p>
                 </div>
             </div>
-            {% if full_credit_deadline %}
-                {% include "crush_lu/partials/_cancellation_policy_note.html" with deadline=full_credit_deadline %}
+            {% if cancellation_policy %}
+                {% include "crush_lu/partials/_cancellation_policy_note.html" with policy=cancellation_policy %}
             {% endif %}
         </div>
 

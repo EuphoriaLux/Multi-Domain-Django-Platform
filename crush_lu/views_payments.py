@@ -29,10 +29,10 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.credits import (
+    cancellation_policy,
     credit_registration_for_cancelled_event,
     credit_registration_for_unavailable_curated_group,
     credit_transaction_reference,
-    full_credit_deadline,
     issue_credit,
     issue_cancellation_credits,
     payment_amount_cents,
@@ -2678,7 +2678,7 @@ def sumup_widget_view(request, checkout_id):
         "currency": tx_obj.currency,
         "order_event": event,
         "order_town": (event.address_town or event.location) if event else "",
-        "full_credit_deadline": full_credit_deadline(event) if event else None,
+        "cancellation_policy": cancellation_policy(event) if event else None,
         # The failure baseline, rendered into the page rather than fetched by
         # it. Fetching cannot be made safe here however early it is started:
         # the status endpoint does a live provider read, so its answer can

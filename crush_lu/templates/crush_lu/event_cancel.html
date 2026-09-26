@@ -27,14 +27,14 @@
                         {% endblocktrans %}
                     {% elif outcome.kind == "late" %}
                         {% blocktrans trimmed with hours=outcome.late_window_hours share=outcome.resale_share|floatformat:2 %}
-                        No refund: the event starts in less than {{ hours }} hours. Your seat goes to the waitlist, and if someone takes it and pays before the event starts, you'll get {{ share }} EUR back as Crush Credit.
+                        No refund: the event starts in less than {{ hours }} hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get {{ share }} EUR back as Crush Credit.
                         {% endblocktrans %}
                     {% else %}
                         {% trans "No payment was recorded for this registration, so no Crush Credit is due." %}
                     {% endif %}
                 </p>
                 {% if outcome.kind == "credit" %}
-                    {% include "crush_lu/partials/_cancellation_policy_note.html" with deadline=full_credit_deadline %}
+                    {% include "crush_lu/partials/_cancellation_policy_note.html" with policy=cancellation_policy %}
                 {% endif %}
             </div>
 
@@ -45,11 +45,11 @@
             <form method="post" x-data="eventCancelForm" @submit="guardSubmit" @pageshow.window="resetGuard">
                 {% csrf_token %}
                 <div class="space-y-3">
-                    <button type="submit" class="btn-danger w-full" :disabled="isConfirming" :aria-busy="isConfirming">
+                    <button type="submit" class="btn-danger btn-block" :disabled="isConfirming" :aria-busy="isConfirming">
                         <span x-show="isIdle">{% trans "Yes, Cancel Registration" %}</span>
                         <span x-show="isConfirming" x-cloak>{% trans "Cancelling..." %}</span>
                     </button>
-                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-outline w-full">
+                    <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-outline btn-block">
                         {% trans "Keep my seat" %}
                     </a>
                 </div>

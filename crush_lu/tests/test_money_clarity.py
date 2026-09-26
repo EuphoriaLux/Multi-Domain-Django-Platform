@@ -110,7 +110,7 @@ class CancelPageShowsOutcomeTests(CreditFixture):
             html.index("Yes, Cancel Registration"),
         )
 
-    def test_late_outcome_says_no_refund_and_waitlist(self):
+    def test_late_outcome_says_no_refund_and_seat_released(self):
         event = self._event(hours_away=10, max_participants=5)
         user = self._user("late-page@crush.lu")
         self._paid_registration(event, user)
@@ -119,8 +119,49 @@ class CancelPageShowsOutcomeTests(CreditFixture):
 
         self.assertContains(response, 'data-outcome="late"')
         self.assertContains(response, "No refund")
-        self.assertContains(response, "waitlist")
+        # Promotion only runs when the event accepts it; never promise a waitlist.
+        self.assertContains(response, "Your seat is released for someone else")
+        self.assertNotContains(response, "waitlist")
         self.assertContains(response, "7.75 EUR back as Crush Credit")
+
+    def test_organiser_cancelled_event_shows_no_member_preview(self):
+        """The organiser remedy is owed, not the member one the preview would show."""
+        self.event.is_cancelled = True
+        self.event.save()
+
+        response = self._get(self.user, self.event)
+
+        self.assertRedirects(
+            response, f"/en/events/{self.event.pk}/", fetch_redirect_response=False
+        )
+
+    def test_started_event_shows_no_preview(self):
+        event = self._event(hours_away=-1, max_participants=5)
+        user = self._user("started@crush.lu")
+        self._paid_registration(event, user)
+
+        response = self._get(user, event)
+
+        self.assertRedirects(
+            response, f"/en/events/{event.pk}/", fetch_redirect_response=False
+        )
+
+    def test_already_cancelled_registration_shows_no_preview(self):
+        event = self._event(hours_away=10, max_participants=5)
+        user = self._user("again@crush.lu")
+        self._registration(event, user, status="cancelled")
+
+        response = self._get(user, event)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn(f"/events/{event.pk}/cancel", response.url)
+
+    @override_settings(CRUSH_CREDIT_RESALE_SHARE_PERCENT=30)
+    def test_policy_note_share_follows_the_setting(self):
+        response = self._get(self.user, self.event)
+
+        self.assertContains(response, "you get 30% back as Crush Credit")
+        self.assertNotContains(response, "you get 50% back")
 
     def test_unpaid_outcome_says_nothing_is_due(self):
         event = self._event(hours_away=100, max_participants=5)
@@ -211,6 +252,41 @@ class SumUpWidgetOrderSummaryTests(CreditFixture):
 
         self.assertContains(response, "15,50 EUR")
         self.assertContains(response, "Retour à l’événement")
+
+    def test_late_checkout_note_names_no_past_deadline(self):
+        """Inside the late window the full-credit deadline has already passed."""
+        late = self._registration(
+            self._event(hours_away=10, max_participants=5),
+            self._user("late-buyer@crush.lu"),
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-widget-late",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_LATE",
+            amount=Decimal("15.50"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=late.user,
+            event_registration=late,
+        )
+        self.client.force_login(late.user)
+        response = self.client.get("/payments/sumup/widget/CHK_LATE/")
+
+        self.assertContains(response, 'data-testid="cancellation-policy-note"')
+        self.assertContains(response, "The event starts in less than 48 hours")
+        self.assertNotContains(response, "Cancel before")
+
+    def test_german_date_reads_um_not_bei(self):
+        response = self._get(HTTP_ACCEPT_LANGUAGE="de")
+        summary = re.search(
+            r'data-testid="order-summary".*?</p>\s*</div>',
+            response.content.decode(),
+            re.S,
+        ).group(0)
+
+        self.assertIn(" um ", summary)
+        self.assertNotIn(" bei ", summary)
 
     def test_uses_crush_tokens_not_rose(self):
         response = self._get()

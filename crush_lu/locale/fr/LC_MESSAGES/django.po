@@ -42440,8 +42440,8 @@ msgstr "Vous récupérez %(amount)s EUR en Crush Credit, utilisable immédiateme
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 #, python-format
-msgid "No refund: the event starts in less than %(hours)s hours. Your seat goes to the waitlist, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
-msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place passe à la liste d’attente ; si quelqu’un la reprend et paie avant le début de l’événement, vous récupérez %(share)s EUR en Crush Credit."
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat is released for someone else, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "Aucun remboursement : l’événement commence dans moins de %(hours)s heures. Votre place est libérée pour quelqu’un d’autre ; si quelqu’un la reprend et paie avant le début de l’événement, vous récupérez %(share)s EUR en Crush Credit."
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 msgid "Keep my seat"
@@ -42449,5 +42449,10 @@ msgstr "Garder ma place"
 
 #: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
 #, python-format
-msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get 50%% back as Crush Credit if someone takes your seat and pays before the event."
-msgstr "Annulez avant le %(date)s à %(time)s pour récupérer l’intégralité en Crush Credit. Ensuite, aucun remboursement, mais vous récupérez 50 %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Annulez avant le %(date)s à %(time)s pour récupérer l’intégralité en Crush Credit. Ensuite, aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "The event starts in less than %(hours)s hours, so cancelling gives no refund, but you get %(share)s%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "L’événement commence dans moins de %(hours)s heures : une annulation ne donne droit à aucun remboursement, mais vous récupérez %(share)s %% en Crush Credit si quelqu’un reprend votre place et paie avant l’événement."
