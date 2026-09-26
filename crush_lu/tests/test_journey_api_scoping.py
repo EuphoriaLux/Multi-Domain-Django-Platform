@@ -451,6 +451,22 @@ class MultiJourneyScopingTests(TestCase):
         self.assertEqual(after.status_code, 200)
         self.assertEqual(after.context["journey"], self.wonderland.journey)
 
+    def test_selector_lists_custom_and_wonderland_journeys(self):
+        """Journeys sort by type, so the custom row is fetched before the
+        Wonderland card's description is translated. A selector that rebinds
+        ``_`` while fetching that row crashes there (Codex on #1034)."""
+        response = self.client.get("/en/journey/select/", HTTP_HOST=HOST)
+
+        self.assertEqual(response.status_code, 200)
+        entries = {e["journey"].pk: e for e in response.context["journeys"]}
+        custom = entries[self.custom.journey.pk]
+        self.assertEqual(custom["journey_id"], self.custom.journey.pk)
+        self.assertEqual(custom["chapter_number"], 1)
+        self.assertIsNone(custom["url"])
+        wonderland = entries[self.wonderland.journey.pk]
+        self.assertEqual(wonderland["url"], "crush_lu:journey_map_wonderland")
+        self.assertIsNone(wonderland["journey_id"])
+
     # --- deactivated journeys ---------------------------------------------
 
     def test_deactivated_journey_answers_like_a_missing_one(self):
