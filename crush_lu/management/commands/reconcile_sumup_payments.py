@@ -741,8 +741,10 @@ class Command(BaseCommand):
                         f"checkout payload is a {type(remote_data).__name__}, "
                         "not an object"
                     )
-                # The capture's code first, then any other attempt that was
-                # not declined; never a declined one (history_lookup_codes).
+                # The captured code first (SumUp's top-level code, else the
+                # last capturing attempt), then every other attempt that was
+                # not declined; a declined attempt is read only when it is the
+                # captured code itself (history_lookup_codes).
                 # Querying every nested code instead found the capture on a
                 # retried checkout too, but paid 20 s of reserve per declined
                 # attempt, so a checkout with a few declines could never fit
@@ -775,8 +777,10 @@ class Command(BaseCommand):
                         # checkout for a human, and it counts as read so the
                         # cursor moves on. The CLI has no budget and can
                         # check it. With history_lookup_codes this takes
-                        # several attempts that were NOT declined, which no
-                        # live checkout has shown.
+                        # several codes to read — the captured one plus other
+                        # attempts that were not declined; fewer when the work
+                        # before the first row was slow — which no live
+                        # checkout has shown.
                         errors_count += 1
                         logger.error(
                             "SumUp checkout %s needs %s transaction-history "
@@ -1069,20 +1073,26 @@ class Command(BaseCommand):
                     )
                     continue
                 if transitioned == RECONCILED_NEEDS_REVIEW:
-                    # Written (the payment is REFUNDED), so it is counted as
-                    # reconciled below and spends the write allowance. Also
-                    # needs_review, and so an error: the scheduled timer fails
-                    # and alerts. It is flagged ONCE — the row is no longer
+                    # Written (or, in a dry run, would be): the payment is
+                    # REFUNDED, so it is counted as reconciled below and, when
+                    # written, spends the write allowance. Also needs_review,
+                    # and so an error: the scheduled timer fails and alerts.
+                    # Once written it is flagged ONCE — the row is no longer
                     # PAID, so no later run selects it — which is why the
-                    # warning log names the registration.
+                    # warning log names the registration. A dry run writes
+                    # nothing, so the row is flagged again by the next run.
                     review_count += 1
                     errors_count += 1
+                    if dry_run:
+                        done = f"[DRY RUN] Payment {tx_obj.pk} would be reconciled"
+                    else:
+                        done = f"Payment {tx_obj.pk} was reconciled"
                     self.stdout.write(
                         self.style.ERROR(
-                            f"Payment {tx_obj.pk} was reconciled, but "
-                            f"registration {tx_obj.event_registration_id} is "
-                            "still pending (seat held, unpaid) and needs "
-                            "manual review. See the warning log."
+                            f"{done}, but registration "
+                            f"{tx_obj.event_registration_id} is still pending "
+                            "(seat held, unpaid) and needs manual review. See "
+                            "the warning log."
                         )
                     )
                 if transitioned:
