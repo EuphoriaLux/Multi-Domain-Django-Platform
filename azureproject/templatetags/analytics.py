@@ -191,7 +191,11 @@ def cookie_consent_state(context):
     state = {"analytics": None, "marketing": None}
     for group in state:
         state[group] = stored_cookie_choice(request, group)
-    state["decided"] = any(value is not None for value in state.values())
+    # Decided only when every optional group holds a choice. A group whose
+    # acceptance went stale (a cookie was added to it) is None here while the
+    # other may still be current: the banner must ask for that group again,
+    # and the modal keeps showing the other group's choice.
+    state["decided"] = all(value is not None for value in state.values())
     state["versions"] = {
         group: _cookie_group_version(group) or "" for group in ("analytics", "marketing")
     }

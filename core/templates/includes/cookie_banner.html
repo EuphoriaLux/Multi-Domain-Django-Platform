@@ -798,10 +798,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     function storedConsent() {
         const server = serverState();
         if (server) {
-            // The server's verdict is version-checked; a readable cookie beside
-            // it may be an acceptance that a cookie added since made stale, so
-            // when the server holds no decision nothing is a stored choice.
-            if (!server.decided) return {};
+            // The server's verdict is version-checked, group by group; a
+            // readable cookie beside it may be an acceptance that a cookie
+            // added since made stale. A group the server holds no choice for
+            // (null) stays unticked, while the other keeps its current choice.
             return {
                 analytics: server.analytics === true,
                 marketing: server.marketing === true
@@ -918,8 +918,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         // stored acceptance against the group versions, so after a cookie was
         // added to a group a readable acceptance is stale, the server says
         // undecided, and the banner must ask again rather than re-dispatch the
-        // old grant. Only a page rendered without a request falls back to the
-        // cookie this script can read.
+        // old grant. "decided" means every optional group holds a choice: one
+        // stale group is enough to ask again (the modal still shows the other
+        // group's current choice). Only a page rendered without a request
+        // falls back to the cookie this script can read.
         const server = serverState();
         const consent = getCookie(COOKIE_NAME);
         let stored = null;

@@ -699,6 +699,30 @@ class ConsentVersionTests(TestCase):
         self.assertTrue(_stamp_is_current("", ""))
         self.assertFalse(_stamp_is_current("", "2026-01-01T00:00:00+00:00"))
 
+    def test_one_stale_group_makes_the_state_undecided(self):
+        """A cookie added to the analytics group only: the analytics
+        acceptance is stale, marketing's stays current, and the state is not
+        decided, so the banner asks again for analytics."""
+        import json
+
+        old = f"accept:{self.version}"
+        self._add_cookie("_ga_NEW", datetime(2026, 6, 1, tzinfo=timezone.utc))
+        request = RequestFactory().get("/")
+        request.COOKIES.update(
+            {"cookie_consent_analytics": old, "cookie_consent_marketing": "accept:"}
+        )
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            rendered = Template(
+                "{% load analytics %}{% cookie_consent_state %}"
+            ).render(Context({"request": request}))
+
+        state = json.loads(html.unescape(rendered))
+        self.assertIsNone(state["analytics"])
+        self.assertIs(state["marketing"], True)
+        self.assertIs(state["decided"], False)
+
     def test_the_state_tag_carries_the_current_versions(self):
         import json
 
@@ -786,6 +810,30 @@ class ConsentStateTagTests(SimpleTestCase):
                 "decided": True,
                 "versions": NO_VERSIONS,
             },
+        )
+
+    def test_one_undecided_group_is_not_decided(self):
+        """One group's acceptance can go stale while the other stays current
+        (a cookie was added to that group only): the banner must ask again
+        for it, so the state counts as decided only when every group holds a
+        choice."""
+        self.assertEqual(
+            self._state({"cookie_consent_analytics": "accept:"}),
+            {
+                "analytics": True,
+                "marketing": None,
+                "decided": False,
+                "versions": NO_VERSIONS,
+            },
+        )
+        self.assertEqual(
+            self._state(
+                {
+                    "cookie_consent_analytics": "decline",
+                    "cookie_consent_marketing": "accept:",
+                }
+            )["decided"],
+            True,
         )
 
     def test_carries_the_groups_current_versions(self):
@@ -919,11 +967,12 @@ class ConsentStateTagTests(SimpleTestCase):
             )
         ]
         self.assertIn("versions: serverVersions()", sync)
-        # A stale acceptance (server undecided) does not pre-tick the modal.
-        self.assertIn(
-            "if (!server.decided) return {};",
-            _js_function_body(rendered, "storedConsent"),
-        )
+        # The modal reflects the server's choice group by group: a stale
+        # acceptance (null server-side) is unticked, the other group's current
+        # choice stays ticked, whether or not the whole state is decided.
+        stored = _js_function_body(rendered, "storedConsent")
+        self.assertIn("analytics: server.analytics === true", stored)
+        self.assertNotIn("server.decided", stored)
 
 
 class CookieSettingsTriggerTests(TestCase):
@@ -1213,6 +1262,74 @@ def test_server_side_choice_drives_the_banner_when_the_cookie_is_httponly(page):
         r"accept:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z",
         flags["cookie_consent_marketing"],
     )
+
+
+@pytest.mark.playwright
+def test_one_stale_group_reopens_the_banner_and_keeps_the_other(page):
+    """A cookie was added to the marketing group only: its acceptance is
+    stale, analytics' is current. The banner must ask again, the modal keeps
+    analytics ticked and marketing off, and a new acceptance dates each group
+    with its own current version."""
+    versions = {
+        "analytics": "2026-01-01T00:00:00+00:00",
+        "marketing": "2026-06-01T00:00:00+00:00",
+    }
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "accept:2026-01-01T00:00:00+00:00"
+    request.COOKIES["cookie_consent_marketing"] = "accept:2026-01-01T00:00:00+00:00"
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, side_effect=versions.get):
+        html = render_to_string(
+            BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
+        )
+    assert "&quot;decided&quot;: false" in html
+    url = "http://crush.test/"
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
+        ),
+    )
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent",
+                "value": '{"essential":true,"analytics":true,"marketing":true}',
+                "url": url,
+            }
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+    )
+    page.goto(url)
+    assert (
+        page.evaluate(
+            "getComputedStyle(document.getElementById('cookie-consent-banner')).display"
+        )
+        == "block"
+    )
+    assert page.evaluate("window.__consentEvents") == []
+    page.click("#open-cookie-settings")
+    checked = page.evaluate(
+        "[document.getElementById('cookie-analytics').checked, "
+        "document.getElementById('cookie-marketing').checked]"
+    )
+    assert checked == [True, False]
+    page.click("#cookie-modal-close")
+    page.click("#cookie-btn-accept")
+    flags = {c["name"]: c["value"] for c in page.context.cookies()}
+    assert flags["cookie_consent_analytics"] == "accept:" + versions["analytics"]
+    assert flags["cookie_consent_marketing"] == "accept:" + versions["marketing"]
 
 
 @pytest.mark.playwright
