@@ -42371,11 +42371,6 @@ msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
 
-#: templates/crush_lu/partials/top_bar_mobile.html
-#, python-brace-format
-msgid "Unread notifications: {count}"
-msgstr "Notifications non lues : {count}"
-
 #: templates/crush_lu/event_ticket.html
 msgid "QR code for event check-in"
 msgstr "Code QR pour l'enregistrement à l'événement"
@@ -42391,3 +42386,8 @@ msgstr "Numéro de billet"
 msgid ""
 "We could not confirm whether this was sent. Check before sending it again."
 msgstr "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer."
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr "Notifications non lues : {count}"

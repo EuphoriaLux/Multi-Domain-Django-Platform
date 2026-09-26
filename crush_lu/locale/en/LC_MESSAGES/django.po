@@ -28120,11 +28120,6 @@ msgstr ""
 msgid "This member's photo changed. Reload and check the new one."
 msgstr ""
 
-#: templates/crush_lu/partials/top_bar_mobile.html
-#, python-brace-format
-msgid "Unread notifications: {count}"
-msgstr ""
-
 #: templates/crush_lu/event_ticket.html
 msgid "QR code for event check-in"
 msgstr ""
@@ -28139,4 +28134,9 @@ msgstr ""
 #: templates/crush_lu/components/htmx_error_toast.html
 msgid ""
 "We could not confirm whether this was sent. Check before sending it again."
+msgstr ""
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
 msgstr ""
