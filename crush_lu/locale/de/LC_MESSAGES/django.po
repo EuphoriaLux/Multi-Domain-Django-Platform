@@ -21197,17 +21197,6 @@ msgstr ""
 "persönlicher Coach wählt jede Woche ein Match für dich, plus täglich ein "
 "Drop mit neuen Gesichtern — öffnet zuerst für eine kleine Gruppe."
 
-#: templates/crush_lu/crush_connect/catalogue_status.html:141
-#| msgid ""
-#| "Your full name and exact age are never shown. Photos stay blurred until you "
-#| "both Spark. Leave Crush Connect anytime from settings."
-msgid ""
-"Your full name and exact age are never shown. Leave Crush Connect anytime "
-"from settings."
-msgstr ""
-"Dein vollständiger Name und dein genaues Alter werden nie angezeigt. Du "
-"kannst Crush Connect jederzeit in den Einstellungen verlassen."
-
 #: templates/crush_lu/crush_connect/coach_member_detail.html:4
 msgid "Curate a match — Crush Connect"
 msgstr "Ein Match kuratieren – Crush Connect"
@@ -41405,21 +41394,12 @@ msgstr "Alle Chats"
 msgid "Already confirmed — thanks!"
 msgstr "Schon bestätigt – danke!"
 
-msgid "Also let a Crush Coach know"
-msgstr "Auch einen Crush Coach informieren"
-
 msgid "Answer questions"
 msgstr "Fragen beantworten"
 
 msgid "Answer saved. Continue with your next available card."
 msgstr ""
 "Antwort gespeichert. Weiter geht es mit deiner nächsten verfügbaren Karte."
-
-msgid "Anything a coach should know? (optional)"
-msgstr "Was sollte dein Coach wissen? (optional)"
-
-msgid "Block this member"
-msgstr "Dieses Mitglied blockieren"
 
 msgid ""
 "Blocked. They won't be able to reach you, and you won't see each other "
@@ -41587,9 +41567,6 @@ msgstr "Hallo, %(name)s"
 
 msgid "How Connect works"
 msgstr "So funktioniert Connect"
-
-msgid "I would like to get to know you."
-msgstr "Ich möchte dich kennenlernen."
 
 msgid "I'm interested"
 msgstr "Ich bin interessiert"
@@ -41769,13 +41746,6 @@ msgstr "Die Rückblickfrist dieser Woche ist abgelaufen."
 msgid "They weren't able to connect right now."
 msgstr "Die Person konnte sich gerade nicht verbinden."
 
-msgid ""
-"They won't be able to reach you, and you won't see each other again. This "
-"can't be undone."
-msgstr ""
-"Ihr könnt euch nicht mehr erreichen und werdet einander nicht mehr "
-"angezeigt. Das kann nicht rückgängig gemacht werden."
-
 msgid "This card is no longer open."
 msgstr "Diese Karte ist nicht mehr offen."
 
@@ -41862,9 +41832,6 @@ msgstr ""
 
 msgid "Write something first."
 msgstr "Schreib zuerst etwas."
-
-msgid "Yes, block"
-msgstr "Ja, blockieren"
 
 msgid "Yes, let's chat"
 msgstr "Ja, lass uns chatten"
@@ -41979,14 +41946,6 @@ msgstr "Dein Interesse ist gespeichert"
 
 msgid "Your interest is saved. View your introduction."
 msgstr "Dein Interesse ist gespeichert. Sieh dir deinen Vorschlag an."
-
-msgid ""
-"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
-"on to appear in eligible discovery and private coach curation."
-msgstr ""
-"Die Fotofreigabe ist aus, daher wirst du noch niemandem gezeigt. Aktiviere "
-"sie wieder, um in berechtigter Entdeckung und privater Coach-Auswahl zu "
-"erscheinen."
 
 msgid "Your private answer"
 msgstr "Deine private Antwort"
@@ -42300,3 +42259,45 @@ msgstr ""
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Ungelesene Benachrichtigungen: {count}"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "You're not shown to anyone yet."
+msgstr "Du wirst noch niemandem angezeigt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your Connect home shows what is still missing."
+msgstr "Auf deiner Connect-Startseite siehst du, was noch fehlt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "See all steps"
+msgstr "Alle Schritte ansehen"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "Your coach"
+msgstr "Dein Coach"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium member · See your Coach's Pick"
+msgstr "Premium-Mitglied · Deinen Coach's Pick ansehen"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your full name and exact age are never shown."
+msgstr "Dein vollständiger Name und dein genaues Alter werden nie angezeigt."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Pause Crush Connect anytime."
+msgstr "Du kannst Crush Connect jederzeit pausieren."
+
+#: models/moderation.py
+msgid "Connect chat"
+msgstr "Connect-Chat"
+
+#: templates/crush_lu/crush_connect/week_inbox.html
+msgid "Sent you a Connect request"
+msgstr "Hat dir eine Connect-Anfrage geschickt"
+
+#: templates/crush_lu/crush_connect/_empty_actions.html
+#, python-format
+msgid "Today: %(done)s of %(total)s cards answered."
+msgstr "Heute: %(done)s von %(total)s Karten beantwortet."

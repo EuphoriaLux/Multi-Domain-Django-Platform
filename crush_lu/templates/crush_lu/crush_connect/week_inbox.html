@@ -19,11 +19,13 @@
             {% endif %}
         </div>
         <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
-            {% trans "Someone chose you" %}
+            {% if requests %}{% trans "Someone chose you" %}{% else %}{% trans "Requests" %}{% endif %}
         </h1>
+        {% if requests %}
         <p class="text-gray-600 dark:text-gray-300 max-w-sm">
             {% trans "After a full week of new encounters, they picked you — no ranking, no pressure either way." %}
         </p>
+        {% endif %}
     </header>
 
     {% if requests %}
@@ -38,7 +40,7 @@
                         {{ req.requester.first_name|default:_("A member") }}
                         {% if req.requester.crushprofile.age %}<span class="font-normal text-gray-500 dark:text-gray-400">&middot; {{ req.requester.crushprofile.age_range }}</span>{% endif %}
                     </p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 italic mb-3">&ldquo;{% trans "I would like to get to know you." %}&rdquo;</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Sent you a Connect request" %}</p>
                     <p class="text-sm">{% trans "Response deadline" %}: <time datetime="{{ req.expires_at|date:'c' }}">{{ req.expires_at|date:'DATETIME_FORMAT' }}</time></p>
                     <details><summary>{% trans "View profile details" %}</summary>
                         {% include 'crush_lu/crush_connect/_permitted_profile.html' with target=req.requester target_profile=req.requester.crushprofile target_membership=req.requester.crush_connect_membership %}
@@ -71,7 +73,7 @@
             <p class="text-sm text-gray-700 dark:text-gray-200 max-w-md mx-auto mb-0">
                 {% trans "When someone completes their Connect Week and chooses you, it'll show up here." %}
             </p>
-            {% include 'crush_lu/crush_connect/_empty_actions.html' %}
+            {% include 'crush_lu/crush_connect/_empty_actions.html' with empty_context='requests' %}
         </div>
     {% endif %}
 

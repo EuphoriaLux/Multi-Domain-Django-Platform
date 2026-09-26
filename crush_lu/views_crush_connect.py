@@ -804,14 +804,35 @@ def crush_connect_catalogue_status(request):
             }
         )
 
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    profile = getattr(user, "crushprofile", None)
+    # Same sources as the hub, so the two pages never disagree about
+    # visibility. Event verification and questions are readiness steps for
+    # the active journey, not visibility gates, so they never "block" here.
+    is_visible = is_catalogue_eligible(user)
+    readiness = _connect_readiness(user)
+    blocking_step = next(
+        (
+            step
+            for step in readiness["steps"]
+            if not step["complete"]
+            and step["key"] in {"identity", "photo", "photo_consent", "onboarding"}
+        ),
+        None,
+    )
     return render(
         request,
         "crush_lu/crush_connect/catalogue_status.html",
         {
             "membership": membership,
-            "profile": getattr(user, "crushprofile", None),
+            "profile": profile,
             "gate_stat_rows": _gate_stat_rows(user, membership),
             "connect_launched": connect_launched,
+            "is_visible": is_visible,
+            "blocking_step": None if is_visible else blocking_step,
+            "has_premium": bool(profile and profile.has_active_premium),
+            "premium_coach": getattr(profile, "assigned_coach", None),
             **waitlist_context,
         },
     )

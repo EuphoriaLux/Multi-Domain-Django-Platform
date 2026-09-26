@@ -4,13 +4,24 @@ Reusable peer-safety disclosure. Caller passes:
     member    - the User being shown (required)
     source    - originating surface, e.g. "spark" (optional)
     source_id - pk of the originating object (optional)
+    variant   - "icon": 44px shield button + floating panel, for headers (optional)
+    block_url - endpoint for the plain block form (optional; default block_user)
 Plain forms (no JS dependency); each posts and redirects back via referer.
 {% endcomment %}
+{% if variant == "icon" %}
+<details class="relative shrink-0 group" data-safety-menu>
+    <summary class="list-none cursor-pointer flex items-center justify-center w-11 h-11 rounded-full text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 hover:text-crush-purple dark:hover:text-crush-pink select-none [&::-webkit-details-marker]:hidden"
+             aria-label="{% trans 'Safety options' %}" title="{% trans 'Safety options' %}">
+        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
+    </summary>
+    <div class="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-lg p-3 space-y-3 text-left">
+{% else %}
 <details class="mt-2 group">
     <summary class="list-none cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none">
         {% trans "Safety options" %}
     </summary>
     <div class="mt-2 rounded-xl bg-gray-50 dark:bg-slate-900/40 ring-1 ring-gray-200 dark:ring-slate-700 p-3 space-y-3">
+{% endif %}
 
         {# Report — opens the moderation queue; option to block at the same time. #}
         <form method="post" action="{% url 'crush_lu:report_user' member.id %}" class="space-y-2">
@@ -36,7 +47,7 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
         </form>
 
         {# Block on its own (no report). #}
-        <form method="post" action="{% url 'crush_lu:block_user' member.id %}">
+        <form method="post" action="{% if block_url %}{{ block_url }}{% else %}{% url 'crush_lu:block_user' member.id %}{% endif %}">
             {% csrf_token %}
             <button type="submit" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">
                 {% trans "Just block this member" %}

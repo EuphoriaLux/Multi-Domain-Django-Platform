@@ -124,6 +124,7 @@ class UserReport(models.Model):
         ("profile", _("Profile")),
         ("connect_week", _("Connect Week")),
         ("coach_pick", _("Coach pick")),
+        ("connect_chat", _("Connect chat")),
     ]
 
     STATUS_CHOICES = [
