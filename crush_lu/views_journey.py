@@ -60,9 +60,9 @@ def journey_selector(request):
         # Get progress if exists
         progress = None
         if journey.journey_type == 'custom':
-            progress, _ = JourneyProgress.objects.get_or_create(
+            progress = JourneyProgress.objects.get_or_create(
                 user=request.user, journey=journey
-            )
+            )[0]
         else:
             progress = JourneyProgress.objects.filter(
                 user=request.user, journey=journey
