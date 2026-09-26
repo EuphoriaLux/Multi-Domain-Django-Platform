@@ -78,11 +78,52 @@ class IOSNavigationSourceTests(unittest.TestCase):
 
         self.assertNotIn("= webView.url", web_view)
 
-    def test_release_metadata_targets_testflight_build_5(self):
+    def test_release_metadata_targets_next_testflight_build(self):
         project = (Path(__file__).parents[1] / "project.yml").read_text(encoding="utf-8")
 
         self.assertIn('MARKETING_VERSION: "1.0.2"', project)
-        self.assertIn('CURRENT_PROJECT_VERSION: "7"', project)
+        self.assertIn('CURRENT_PROJECT_VERSION: "8"', project)
+
+    def test_release_uses_production_and_debug_uses_staging(self):
+        content_view = _source("ContentView.swift")
+
+        self.assertIn("#if DEBUG", content_view)
+        self.assertIn('return URL(string: "https://test.crush.lu")!', content_view)
+        self.assertIn('return URL(string: "https://crush.lu")!', content_view)
+
+    def test_location_and_motion_bridges_are_limited_to_trusted_main_frames(self):
+        web_view = _source("CrushWebView.swift")
+
+        self.assertIn("forMainFrameOnly: true", web_view)
+        self.assertIn("message.frameInfo.isMainFrame", web_view)
+        self.assertIn("isTrustedNativeOrigin(message.frameInfo.securityOrigin)", web_view)
+        self.assertIn("guard frame.isMainFrame, isTrustedNativeOrigin(origin)", web_view)
+
+    def test_location_bridge_validates_samples_and_stops_with_navigation(self):
+        web_view = _source("CrushWebView.swift")
+
+        self.assertIn("guard isUsable(location) else { return }", web_view)
+        self.assertIn("location.horizontalAccuracy > 0", web_view)
+        self.assertIn("newHeading.headingAccuracy >= 0", web_view)
+        self.assertIn("locationBridge?.stopAll()", web_view)
+        self.assertIn("UIApplication.willResignActiveNotification", web_view)
+        self.assertIn("UIApplication.didBecomeActiveNotification", web_view)
+        self.assertIn("requestTemporaryFullAccuracyAuthorization", web_view)
+
+    def test_location_errors_expose_geolocation_permission_constants(self):
+        web_view = _source("CrushWebView.swift")
+
+        self.assertIn("PERMISSION_DENIED: 1", web_view)
+        self.assertIn("POSITION_UNAVAILABLE: 2", web_view)
+        self.assertIn("TIMEOUT: 3", web_view)
+
+    def test_location_and_motion_usage_descriptions_are_present(self):
+        info = _source("Info.plist")
+
+        self.assertIn("NSLocationWhenInUseUsageDescription", info)
+        self.assertIn("NSLocationTemporaryUsageDescriptionDictionary", info)
+        self.assertIn("CacheNavigation", info)
+        self.assertIn("NSMotionUsageDescription", info)
 
 
 if __name__ == "__main__":

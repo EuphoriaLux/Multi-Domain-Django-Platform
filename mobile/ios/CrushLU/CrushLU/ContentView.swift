@@ -4,9 +4,11 @@ import UserNotifications
 
 final class AppState: ObservableObject {
     static var baseURL: URL {
-        // Targeted at staging (test.crush.lu) for TestFlight build 5 to validate
-        // Crush Cache GPS navigation in real conditions before production rollout.
+        #if DEBUG
         return URL(string: "https://test.crush.lu")!
+        #else
+        return URL(string: "https://crush.lu")!
+        #endif
     }
 
     var baseURL: URL {
@@ -177,4 +179,4 @@ private struct PushPermissionPrompt: View {
         .background(.thinMaterial)
     }
 }
-
+\n

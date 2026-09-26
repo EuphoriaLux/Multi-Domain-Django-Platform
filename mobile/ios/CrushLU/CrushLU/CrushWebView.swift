@@ -109,7 +109,7 @@ struct CrushWebView: UIViewRepresentable {
         let locationScript = WKUserScript(
             source: locationBridgeScript,
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
+            forMainFrameOnly: true
         )
         configuration.userContentController.addUserScript(locationScript)
 
@@ -166,6 +166,24 @@ struct CrushWebView: UIViewRepresentable {
                 NativeBridge.registerDeviceToken(token, in: webView)
             }
             observers.append(tokenObserver)
+
+            let pauseLocationObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.locationBridge?.pauseForInactiveApp()
+            }
+            observers.append(pauseLocationObserver)
+
+            let resumeLocationObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.locationBridge?.resumeForActiveApp()
+            }
+            observers.append(resumeLocationObserver)
         }
 
         func load(_ navigation: NavigationRequest) {
@@ -181,12 +199,15 @@ struct CrushWebView: UIViewRepresentable {
             webView.load(request)
         }
 
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            // A new document has no live watch callbacks. Stop native sensors
+            // before it replaces the page that registered them.
+            locationBridge?.stopAll()
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             if let token = UserDefaults.standard.string(forKey: AppDelegate.apnsDeviceTokenKey) {
                 NativeBridge.registerDeviceToken(token, in: webView)
-            }
-            if webView.url?.path.contains("/cache/") == true {
-                locationBridge?.promptForLocationIfNeeded()
             }
         }
 
@@ -209,6 +230,8 @@ struct CrushWebView: UIViewRepresentable {
                     showAddPassFailure(message: error)
                 }
             } else if message.name == locationMessageName {
+                guard message.frameInfo.isMainFrame,
+                      isTrustedNativeOrigin(message.frameInfo.securityOrigin) else { return }
                 if let body = message.body as? [String: Any] {
                     locationBridge?.handleMessage(body)
                 }
@@ -531,9 +554,17 @@ struct CrushWebView: UIViewRepresentable {
             initiatedByFrame frame: WKFrameInfo,
             decisionHandler: @escaping (WKPermissionDecision) -> Void
         ) {
-            // Crush Cache compass navigation uses DeviceOrientationEvent.
-            // Granting here allows WebKit motion events for our internal pages.
+            guard frame.isMainFrame, isTrustedNativeOrigin(origin) else {
+                decisionHandler(.deny)
+                return
+            }
             decisionHandler(.grant)
+        }
+
+        private func isTrustedNativeOrigin(_ origin: WKSecurityOrigin) -> Bool {
+            origin.`protocol`.lowercased() == "https"
+                && origin.port == 443
+                && isInternalHost(origin.host)
         }
 
         private func isInternal(_ url: URL) -> Bool {
@@ -570,6 +601,8 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private var activeWatchIDs = Set<Int>()
     private var pendingCurrentPositionIDs = Set<Int>()
     private var lastLocation: CLLocation?
+    private var isRequestingFullAccuracy = false
+    private var isAppActive = true
 
     init(webView: WKWebView) {
         self.webView = webView
@@ -580,15 +613,6 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         locationManager.activityType = .fitness
         if CLLocationManager.headingAvailable() {
             locationManager.headingFilter = 1.0
-        }
-    }
-
-    func promptForLocationIfNeeded() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if self.locationManager.authorizationStatus == .notDetermined {
-                self.locationManager.requestWhenInUseAuthorization()
-            }
         }
     }
 
@@ -603,7 +627,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         case "watchPosition":
             activeWatchIDs.insert(id)
             ensureAuthorizationAndStart()
-            if let last = lastLocation, Date().timeIntervalSince(last.timestamp) < 3.0 {
+            if let last = lastLocation, isUsable(last), Date().timeIntervalSince(last.timestamp) < 3.0 {
                 dispatchLocation(last, to: id)
             }
         case "clearWatch":
@@ -621,8 +645,21 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     func stopAll() {
         activeWatchIDs.removeAll()
         pendingCurrentPositionIDs.removeAll()
+        lastLocation = nil
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
+    }
+
+    func pauseForInactiveApp() {
+        isAppActive = false
+        locationManager.stopUpdatingLocation()
+        locationManager.stopUpdatingHeading()
+    }
+
+    func resumeForActiveApp() {
+        isAppActive = true
+        guard !activeWatchIDs.isEmpty || !pendingCurrentPositionIDs.isEmpty else { return }
+        ensureAuthorizationAndStart()
     }
 
     private func ensureAuthorizationAndStart() {
@@ -633,12 +670,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             case .notDetermined:
                 self.locationManager.requestWhenInUseAuthorization()
             case .authorizedWhenInUse, .authorizedAlways:
-                self.locationManager.startUpdatingLocation()
-                if CLLocationManager.headingAvailable() {
-                    self.locationManager.startUpdatingHeading()
-                }
+                self.startWithAppropriateAccuracy()
             case .denied, .restricted:
-                self.dispatchError(code: 1, message: "Location permission denied", to: nil)
+                self.failActiveRequests(code: 1, message: "Location permission denied")
             @unknown default:
                 self.locationManager.requestWhenInUseAuthorization()
             }
@@ -654,17 +688,10 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             switch status {
             case .authorizedWhenInUse, .authorizedAlways:
                 if !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty {
-                    self.locationManager.startUpdatingLocation()
-                    if CLLocationManager.headingAvailable() {
-                        self.locationManager.startUpdatingHeading()
-                    }
+                    self.startWithAppropriateAccuracy()
                 }
             case .denied, .restricted:
-                self.dispatchError(code: 1, message: "Location permission denied", to: nil)
-                self.activeWatchIDs.removeAll()
-                self.pendingCurrentPositionIDs.removeAll()
-                self.locationManager.stopUpdatingLocation()
-                self.locationManager.stopUpdatingHeading()
+                self.failActiveRequests(code: 1, message: "Location permission denied")
             case .notDetermined:
                 break
             @unknown default:
@@ -675,6 +702,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
+        guard isUsable(location) else { return }
         lastLocation = location
 
         let currentIDs = pendingCurrentPositionIDs
@@ -688,24 +716,25 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         }
 
         if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
-            locationManager.stopUpdatingLocation()
+            stopLocationServices()
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         let clErr = error as? CLError
         if clErr?.code == .denied {
-            dispatchError(code: 1, message: "Location permission denied", to: nil)
-            activeWatchIDs.removeAll()
-            pendingCurrentPositionIDs.removeAll()
-            locationManager.stopUpdatingLocation()
-            locationManager.stopUpdatingHeading()
+            failActiveRequests(code: 1, message: "Location permission denied")
         } else {
             dispatchError(code: 2, message: "Location unavailable: \(error.localizedDescription)", to: nil)
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        let headingAge = Date().timeIntervalSince(newHeading.timestamp)
+        guard newHeading.headingAccuracy.isFinite,
+              newHeading.headingAccuracy >= 0,
+              headingAge >= -5,
+              headingAge <= 30 else { return }
         let heading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
         guard heading >= 0 else { return }
         let js = "if (typeof window.__crushHeadingUpdate === 'function') { window.__crushHeadingUpdate(\(heading)); }"
@@ -717,7 +746,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private func dispatchLocation(_ location: CLLocation, to id: Int) {
         let lat = location.coordinate.latitude
         let lng = location.coordinate.longitude
-        let accuracy = max(0.0, location.horizontalAccuracy)
+        let accuracy = location.horizontalAccuracy
         let altitude = location.altitude
         let altAcc = location.verticalAccuracy >= 0 ? "\(location.verticalAccuracy)" : "null"
         let heading = location.course >= 0 ? "\(location.course)" : "null"
@@ -746,16 +775,19 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     }
 
     private func dispatchError(code: Int, message: String, to targetID: Int?) {
-        let escaped = message
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
+        let escaped = (try? JSONSerialization.data(withJSONObject: [message], options: [.fragmentsAllowed]))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            .map { String($0.dropFirst().dropLast()) } ?? "\"Location unavailable\""
         let targets = targetID.map { Set([$0]) } ?? activeWatchIDs.union(pendingCurrentPositionIDs)
         for id in targets {
             let js = """
             if (typeof window.__crushLocationError === 'function') {
                 window.__crushLocationError(\(id), {
                     code: \(code),
-                    message: '\(escaped)'
+                    message: \(escaped),
+                    PERMISSION_DENIED: 1,
+                    POSITION_UNAVAILABLE: 2,
+                    TIMEOUT: 3
                 });
             }
             """
@@ -763,5 +795,59 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
                 self?.webView?.evaluateJavaScript(js, completionHandler: nil)
             }
         }
+    }
+
+    private func isUsable(_ location: CLLocation) -> Bool {
+        let age = Date().timeIntervalSince(location.timestamp)
+        return CLLocationCoordinate2DIsValid(location.coordinate)
+            && location.horizontalAccuracy.isFinite
+            && location.horizontalAccuracy > 0
+            && age >= -5
+            && age <= 30
+    }
+
+    private func startWithAppropriateAccuracy() {
+        if #available(iOS 14.0, *), locationManager.accuracyAuthorization == .reducedAccuracy {
+            guard !isRequestingFullAccuracy else { return }
+            isRequestingFullAccuracy = true
+            locationManager.requestTemporaryFullAccuracyAuthorization(
+                withPurposeKey: "CacheNavigation"
+            ) { [weak self] authorization in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.isRequestingFullAccuracy = false
+                    guard authorization == .fullAccuracy else {
+                        self.failActiveRequests(
+                            code: 1,
+                            message: "Precise location is required for Cache navigation. Enable Precise Location in Settings and try again."
+                        )
+                        return
+                    }
+                    self.startLocationServices()
+                }
+            }
+            return
+        }
+        startLocationServices()
+    }
+
+    private func startLocationServices() {
+        guard isAppActive else { return }
+        locationManager.startUpdatingLocation()
+        if CLLocationManager.headingAvailable() {
+            locationManager.startUpdatingHeading()
+        }
+    }
+
+    private func failActiveRequests(code: Int, message: String) {
+        dispatchError(code: code, message: message, to: nil)
+        activeWatchIDs.removeAll()
+        pendingCurrentPositionIDs.removeAll()
+        stopLocationServices()
+    }
+
+    private func stopLocationServices() {
+        locationManager.stopUpdatingLocation()
+        locationManager.stopUpdatingHeading()
     }
 }

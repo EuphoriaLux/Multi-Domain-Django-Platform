@@ -31,6 +31,13 @@
 	<string>Crush.lu uses the camera so coaches can scan attendee QR codes at event check-in.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Crush.lu uses your location during Crush Cache hunts to guide your team to stations and unlock clues.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>CacheNavigation</key>
+		<string>Crush.lu needs precise location to guide your team to nearby Cache stations and verify arrivals.</string>
+	</dict>
+	<key>NSMotionUsageDescription</key>
+	<string>Crush.lu uses motion sensors to point the Cache compass toward nearby stations.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIRequiresFullScreen</key>
