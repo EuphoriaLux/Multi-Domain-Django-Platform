@@ -881,6 +881,10 @@ class Command(BaseCommand):
                                     refunded_amount=str(summed),
                                 )
                     except Exception as exc:
+                        # This warning never reaches production's console
+                        # (see _flag_for_review). The flag is what makes the
+                        # row an error, printed as "Could not verify" below,
+                        # unless the checkout alone proves a full refund.
                         history_lookup_failed = True
                         logger.warning(
                             "Could not look up SumUp history for "
@@ -1061,16 +1065,11 @@ class Command(BaseCommand):
                     # the row still counts as read, so a resume cursor moves
                     # past it and it is re-flagged on every full pass until
                     # staff resolve it. Counted as an error so the scheduled
-                    # timer fails and alerts.
+                    # timer fails and alerts. _reconcile_refunded has already
+                    # printed and logged which payment or claim blocks it
+                    # (_flag_for_review).
                     review_count += 1
                     errors_count += 1
-                    self.stdout.write(
-                        self.style.ERROR(
-                            f"Payment {tx_obj.pk} needs manual review; "
-                            "nothing was changed. See the warning log for the "
-                            "specific unresolved payment or checkout claim."
-                        )
-                    )
                     continue
                 if transitioned == RECONCILED_NEEDS_REVIEW:
                     # Written as REFUNDED (or, in a dry run, would be), so it
@@ -1079,22 +1078,11 @@ class Command(BaseCommand):
                     # and so an error: the scheduled timer fails and alerts.
                     # Once written it is flagged ONCE — the row is no longer
                     # PAID, so no later run selects it — which is why the
-                    # warning log names the registration. A dry run writes
-                    # nothing, so the row is flagged again by the next run.
+                    # message _reconcile_refunded printed and logged names
+                    # the registration. A dry run writes nothing, so the row
+                    # is flagged again by the next run.
                     review_count += 1
                     errors_count += 1
-                    if dry_run:
-                        done = f"[DRY RUN] Payment {tx_obj.pk} would be reconciled"
-                    else:
-                        done = f"Payment {tx_obj.pk} was reconciled"
-                    self.stdout.write(
-                        self.style.ERROR(
-                            f"{done}, but registration "
-                            f"{tx_obj.event_registration_id} is still pending "
-                            "(seat held, unpaid) and needs manual review. See "
-                            "the warning log."
-                        )
-                    )
                 if transitioned:
                     refunded_count += 1
                     writes = refunded_count
@@ -1183,6 +1171,20 @@ class Command(BaseCommand):
             rows = rows.select_for_update()
         return list(rows.order_by("pk"))
 
+    def _flag_for_review(self, message):
+        """Send a review message to the warning log AND the terminal.
+
+        A warning alone never reaches the operator's terminal in production:
+        azureproject/production.py's only console handler is ERROR-level and
+        the ``crush_lu`` logger propagates to it with no handler of its own.
+        Someone running this command in Kudu webssh would then be left without
+        the payment, registration or claim ids needed to settle the row. The
+        scheduled endpoint discards stdout, so for the timer the warning log
+        stays the record.
+        """
+        logger.warning(message)
+        self.stdout.write(self.style.ERROR(message))
+
     def _review_message(self, tx, other_payments, *, active_claim=False):
         if tx.event_registration_id:
             funded = f"registration {tx.event_registration_id}"
@@ -1270,7 +1272,7 @@ class Command(BaseCommand):
                 ).exists()
             )
             if other_payments or active_claim:
-                logger.warning(
+                self._flag_for_review(
                     self._review_message(
                         tx_obj, other_payments, active_claim=active_claim
                     )
@@ -1284,7 +1286,7 @@ class Command(BaseCommand):
                 else None
             )
             if registration_status == "pending":
-                logger.warning(
+                self._flag_for_review(
                     self._held_seat_message(
                         tx_obj, tx_obj.event_registration_id, dry_run=True
                     )
@@ -1383,7 +1385,7 @@ class Command(BaseCommand):
                 # Leave the atomic block before a single write: payment,
                 # registration/membership, credit and mail all stay as they
                 # are for a human to settle.
-                logger.warning(
+                self._flag_for_review(
                     self._review_message(
                         locked_tx, other_payments, active_claim=active_claim
                     )
@@ -1590,8 +1592,8 @@ class Command(BaseCommand):
             )
         )
         if held_pending_reg_id is not None:
-            # Logged only now that the write has committed.
-            logger.warning(
+            # Logged and printed only now that the write has committed.
+            self._flag_for_review(
                 self._held_seat_message(
                     locked_tx, held_pending_reg_id, withdrawn_cents=withdrawn_cents
                 )

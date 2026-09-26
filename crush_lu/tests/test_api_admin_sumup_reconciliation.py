@@ -1122,15 +1122,15 @@ class SumUpReconciliationEndpointTests(TestCase):
         cursor = cache.get(api_admin_sumup.CURSOR_CACHE_KEY)
         self.assertEqual(cursor["pk"], self.payment.pk)
 
-    def test_cli_prints_the_review_as_an_error(self):
+    def _cli_review_run(self, dry_run=False):
+        """Run the CLI over a refunded chk_t2_1; return (stdout, review line).
+
+        Production's console shows ERROR only, so the terminal line — not the
+        warning log — is all an operator in Kudu webssh sees. It must be the
+        logged message itself, blocker ids included, printed once.
+        """
         from django.core.management import call_command
 
-        self._new_payment(
-            "CRUSH-EVT-T2-repaid",
-            "chk_t2_new",
-            event_registration=self.registration,
-            event=self.event,
-        )
         out = io.StringIO()
         with (
             patch(
@@ -1138,13 +1138,59 @@ class SumUpReconciliationEndpointTests(TestCase):
                 side_effect=lambda c: FULL_REFUND if c == "chk_t2_1" else STILL_PAID,
             ),
             patch(GET_HISTORY, return_value={"items": []}),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
         ):
-            call_command("reconcile_sumup_payments", stdout=out, no_color=True)
+            call_command(
+                "reconcile_sumup_payments", dry_run=dry_run, stdout=out, no_color=True
+            )
         text = out.getvalue()
-        self.assertIn("needs manual review", text)
+        lines = [line for line in text.splitlines() if "needs manual review" in line]
+        self.assertEqual(len(lines), 1, text)
+        self.assertTrue(any(lines[0] in m for m in logs.output), logs.output)
+        self.assertNotIn(self.payment.transaction_reference, lines[0])
         self.assertIn("1 error(s)", text)
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        return text, lines[0]
+
+    def test_cli_prints_the_review_as_an_error(self):
+        new = self._new_payment(
+            "CRUSH-EVT-T2-repaid",
+            "chk_t2_new",
+            event_registration=self.registration,
+            event=self.event,
+        )
+        _, line = self._cli_review_run()
+        self.assertIn(f"External refund on payment {self.payment.pk}", line)
+        self.assertIn(f"registration {self.registration.pk}", line)
+        self.assertIn(f"PAID payment {new.pk}", line)
+
+    def test_cli_names_the_pending_payment_that_blocks_the_refund(self):
+        pending = self._new_payment(
+            "CRUSH-EVT-T2-pending-cli",
+            "chk_t2_pending_cli",
+            event_registration=self.registration,
+            event=self.event,
+            status=PaymentTransaction.Status.PENDING,
+        )
+        for dry_run in (False, True):
+            with self.subTest(dry_run=dry_run):
+                _, line = self._cli_review_run(dry_run=dry_run)
+                self.assertIn(f"PENDING payment {pending.pk}", line)
+                self.assertIn("Nothing was changed.", line)
+
+    def test_cli_names_the_checkout_claim_that_blocks_the_refund(self):
+        EventCheckoutCreationClaim.objects.create(
+            registration=self.registration,
+            registration_id_snapshot=self.registration.pk,
+            event_id_snapshot=self.event.pk,
+            transaction_reference="CRUSH-EVT-T2-cli-claim",
+            payment_method="card",
+        )
+        for dry_run in (False, True):
+            with self.subTest(dry_run=dry_run):
+                _, line = self._cli_review_run(dry_run=dry_run)
+                self.assertIn("active checkout-creation claim", line)
 
     # -- a failed write must not block every run (Codex 4080525269) -------
 
@@ -1632,10 +1678,14 @@ class SumUpReconciliationEndpointTests(TestCase):
                 "reconcile_sumup_payments", dry_run=True, stdout=out, no_color=True
             )
         printed = out.getvalue()
+        # The terminal gets the logged message itself: production's console
+        # never shows the warning.
+        line = self._held_seat_line(printed, logs)
         self.assertIn(
-            f"[DRY RUN] Payment {self.payment.pk} would be reconciled, but "
-            f"registration {self.registration.pk} is still pending",
-            printed,
+            f"External refund on payment {self.payment.pk} (checkout chk_t2_1) "
+            "would be reconciled to REFUNDED (dry run), but registration "
+            f"{self.registration.pk} is still pending",
+            line,
         )
         # Nothing was written, so nothing may say it was.
         self.assertNotIn("was reconciled", printed)
@@ -1657,14 +1707,16 @@ class SumUpReconciliationEndpointTests(TestCase):
             patch(GET_CHECKOUT, return_value=FULL_REFUND),
             patch(GET_HISTORY, return_value={"items": []}),
             self.captureOnCommitCallbacks(execute=True),
-            self.assertLogs(CMD, level=logging.WARNING),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
         ):
             call_command("reconcile_sumup_payments", stdout=out, no_color=True)
         printed = out.getvalue()
+        line = self._held_seat_line(printed, logs)
         self.assertIn(
-            f"Payment {self.payment.pk} was reconciled, but registration "
+            f"External refund on payment {self.payment.pk} (checkout chk_t2_1) "
+            "was reconciled to REFUNDED, but registration "
             f"{self.registration.pk} is still pending",
-            printed,
+            line,
         )
         self.assertNotIn("DRY RUN", printed)
         self.assertNotIn("would be reconciled", printed)
@@ -1673,6 +1725,45 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(self.registration.status, "pending")
         self.assertEqual(mail.outbox, [])
+
+    def test_cli_prints_the_credit_a_held_seat_refund_voided(self):
+        """The reused-row case from the CLI: the voided figure is on screen."""
+        from django.core.management import call_command
+
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            status="pending", payment_confirmed=False, payment_date=None
+        )
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        out = io.StringIO()
+        with (
+            patch(GET_CHECKOUT, return_value=FULL_REFUND),
+            patch(GET_HISTORY, return_value={"items": []}),
+            self.captureOnCommitCallbacks(execute=True),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            call_command("reconcile_sumup_payments", stdout=out, no_color=True)
+        line = self._held_seat_line(out.getvalue(), logs)
+        self.assertIn("1550 cents of unspent Crush Credit were voided", line)
+        credit.refresh_from_db()
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        self.assertEqual(mail.outbox, [])
+
+    def _held_seat_line(self, printed, logs):
+        """The one held-seat line on stdout, which is also the logged one."""
+        lines = [line for line in printed.splitlines() if "still pending" in line]
+        self.assertEqual(len(lines), 1, printed)
+        self.assertTrue(any(lines[0] in m for m in logs.output), logs.output)
+        self.assertNotIn(self.payment.transaction_reference, lines[0])
+        self.assertNotIn(self.user.email, lines[0])
+        return lines[0]
 
     def test_confirmed_seat_is_still_released_by_its_refund(self):
         """Unchanged: only a pending seat is held back for review."""
