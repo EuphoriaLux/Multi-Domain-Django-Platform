@@ -1166,13 +1166,13 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         import itertools
 
-        # Clock: start, the row's read check and its write check are in
-        # budget; the next row's read check is past it.
+        # Clock: start, the row's read check, its start mark and its write
+        # check are in budget; the next row's read check is past it.
         clock = patch(
             f"{CMD}.time",
             **{
                 "monotonic.side_effect": itertools.chain(
-                    [0, 0, 0], itertools.repeat(10**6)
+                    [0, 0, 0, 0], itertools.repeat(10**6)
                 )
             },
         )
@@ -1850,6 +1850,62 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(promoted.resale_source_payment_id, self.payment.pk)
         self.assertEqual(promoted.resale_beneficiary_id, self.user.pk)
 
+    def test_refund_clears_a_claim_already_backed_by_the_payment(self):
+        """A late cancellation left the replacement a claim on this payment;
+        once the payment is refunded that claim can never settle and must not
+        be forwarded ahead of the replacement's own (Codex 4112833251)."""
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            date_time=timezone.now() + timedelta(hours=30)  # inside 48h: late
+        )
+        waiter = self._waitlisted_member()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.registration.status = "cancelled"
+            self.registration.save()
+        promoted = EventRegistration.objects.get(pk=waiter.pk)
+        self.assertEqual(promoted.resale_source_payment_id, self.payment.pk)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.assertEqual(body["reconciled"], 1)
+        promoted.refresh_from_db()
+        self.assertIsNone(promoted.resale_source_registration_id)
+        self.assertIsNone(promoted.resale_source_payment_id)
+        self.assertIsNone(promoted.resale_beneficiary_id)
+
+    def test_an_earlier_cycles_refund_does_not_block_a_source_only_claim(self):
+        """The reused row's old REFUNDED payment belongs to a previous cycle;
+        the current unpaid cycle still gets its contingent claim
+        (Codex 4112833247)."""
+        from crush_lu.views_events import _resale_claim_from
+
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            date_time=timezone.now() + timedelta(hours=30)  # inside 48h: late
+        )
+        self.event.refresh_from_db()
+        PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+            status=PaymentTransaction.Status.REFUNDED,
+            created_at=timezone.now() - timedelta(days=10),
+        )
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            status="cancelled",
+            payment_confirmed=False,
+            payment_date=None,
+            registered_at=timezone.now() - timedelta(days=1),
+            cancelled_at=timezone.now(),
+        )
+        self.registration.refresh_from_db()
+        self.assertEqual(
+            _resale_claim_from(self.registration, self.event),
+            (self.registration.pk, None, self.user.pk),
+        )
+
+        # Control: a refund from THIS cycle is a completed cycle — no claim.
+        PaymentTransaction.objects.filter(pk=self.payment.pk).update(
+            created_at=timezone.now()
+        )
+        self.assertIsNone(_resale_claim_from(self.registration, self.event))
+
     def test_held_pending_seat_spends_the_write_allowance(self):
         """It is a write: the endpoint's one-write limit stops the run there."""
         self._stale_price_pending_seat()
@@ -2344,6 +2400,26 @@ class SumUpReconciliationEndpointTests(TestCase):
             body = self._post().json()
         read = [c.args[0] for c in checkout_mock.call_args_list]
         return body, read, lookups, clock["now"] - 1000.0
+
+    def test_a_refund_whose_own_reads_never_leave_room_to_write_is_an_error(self):
+        """Reads that consistently eat the write reserve would defer the same
+        refund every hour until it ages out. As a run's first row it is an
+        error that alerts, still deferred with the cursor kept before it
+        (Codex 4112833246)."""
+        from crush_lu import api_admin_sumup
+
+        with self.assertLogs(CMD, level=logging.ERROR) as logs:
+            body, read, _, _ = self._clocked_run(
+                {"chk_t2_1": FULL_REFUND}, checkout_cost=36.0
+            )
+        self.assertEqual(read, ["chk_t2_1"])
+        self.assertEqual(
+            (body["reconciled"], body["errors"], body["unchecked"]), (0, 1, 1)
+        )
+        self.assertTrue(any("--checkout-id chk_t2_1" in m for m in logs.output))
+        self.assertIsNone(cache.get(api_admin_sumup.CURSOR_CACHE_KEY))
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
 
     def test_last_permitted_row_finishes_its_reads_by_the_deadline(self):
         """Each call may spend its full connect AND read timeout. A row started

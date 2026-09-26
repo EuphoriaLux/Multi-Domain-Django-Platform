@@ -700,6 +700,7 @@ class Command(BaseCommand):
                 )
                 break
             checked += 1
+            row_started = time.monotonic()
             previous_read = last_read
             last_read = (
                 getattr(tx_obj, "paid_or_created", None)
@@ -1018,6 +1019,33 @@ class Command(BaseCommand):
                     # so a resume cursor must not move past it.
                     last_read = previous_read
                     unchecked = total_count - checked
+                    # Deferring is silent only when the next run can do
+                    # better: there this row comes first (the cursor stays
+                    # before it). If this run's pre-row work plus this row's
+                    # own reads already leave too little for the write, it
+                    # would be deferred the same way every hour until it
+                    # ages out of the window — so it is an error, which fails
+                    # the timer and alerts, and names the checkout for a
+                    # human. It is still deferred, so a faster run writes it.
+                    row_read_seconds = time.monotonic() - row_started
+                    if (
+                        pre_row_seconds + row_read_seconds + write_reserve_seconds
+                        >= budget_seconds
+                    ):
+                        errors_count += 1
+                        logger.error(
+                            "SumUp checkout %s carries a detected refund whose "
+                            "reads (%.1fs, after %.1fs before the first row) "
+                            "leave too little of the %ss budget to write it "
+                            "even as a run's first row; not reconciled. Check "
+                            "it with `manage.py reconcile_sumup_payments "
+                            "--checkout-id %s`.",
+                            tx_obj.sumup_checkout_id,
+                            row_read_seconds,
+                            pre_row_seconds,
+                            budget_seconds,
+                            tx_obj.sumup_checkout_id,
+                        )
                     logger.warning(
                         "SumUp reconciliation deferred a detected refund on "
                         "payment %s: too little of the %ss budget left to "
@@ -1517,6 +1545,18 @@ class Command(BaseCommand):
             )
             locked_tx.save(
                 update_fields=["status", "raw_response", "failure_reason", "updated_at"]
+            )
+            # A replacement promoted after an earlier late cancellation carries
+            # a resale claim backed by THIS payment. Its money is back with
+            # the member, so the claim can never settle
+            # (settle_pending_resale_credit skips a non-PAID source) — and a
+            # stale claim is forwarded ahead of the replacement's own paid
+            # seat if they cancel later. Those rows are on this event, whose
+            # lock is held, so this keeps event -> registration order.
+            EventRegistration.objects.filter(resale_source_payment=locked_tx).update(
+                resale_source_registration=None,
+                resale_source_payment=None,
+                resale_beneficiary=None,
             )
 
             # Set when the refunded seat was ALREADY cancelled before this
