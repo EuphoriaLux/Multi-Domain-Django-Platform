@@ -6,6 +6,8 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.utils.translation import gettext as _
 
+from crush_lu.oauth_statekit import get_client_ip
+
 
 def crush_login_required(function):
     """
@@ -83,8 +85,8 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
 
             # Parse rate limit
             try:
-                count, period = rate.split('/')
-                count = int(count)
+                limit, period = rate.split('/')
+                limit = int(limit)
             except (ValueError, AttributeError):
                 # Invalid rate format, skip rate limiting
                 return func(request, *args, **kwargs)
@@ -95,14 +97,17 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
             # Get cache key
             cache_key = _get_cache_key(request, key, func.__name__)
 
-            # Get current count from cache (gracefully handle cache errors)
+            # Count this request (gracefully handle cache errors)
             try:
-                current = cache.get(cache_key, 0)
+                count = _count_request(cache_key, period_seconds)
             except Exception:
-                # Cache unavailable - allow request to proceed
+                count = None
+            if not isinstance(count, int):
+                # Cache unavailable - allow request to proceed. django_redis
+                # with IGNORE_EXCEPTIONS returns None instead of raising.
                 return func(request, *args, **kwargs)
 
-            if current >= count:
+            if count > limit:
                 # Rate limit exceeded
                 request.limited = True
                 if block:
@@ -124,27 +129,33 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                         _('Rate limit exceeded. Please try again later.'),
                         status=429
                     )
-            else:
-                # Increment counter (gracefully handle cache errors)
-                try:
-                    if current == 0:
-                        # First request - set with expiry
-                        cache.set(cache_key, 1, period_seconds)
-                    else:
-                        # Increment existing counter
-                        try:
-                            cache.incr(cache_key)
-                        except ValueError:
-                            # Key doesn't exist, recreate it
-                            cache.set(cache_key, 1, period_seconds)
-                except Exception:
-                    # Cache unavailable - continue without rate limiting
-                    pass
 
             return func(request, *args, **kwargs)
 
         return wrapper
     return decorator
+
+
+def _count_request(cache_key, period_seconds):
+    """
+    Count one request in the key's window and return the new total.
+
+    add() creates the counter, with the window's expiry, only if it is absent,
+    and incr() returns the incremented value, so concurrent requests each get
+    a distinct count (atomic INCR on django_redis, lock-held on LocMem). A
+    get-then-set let a burst all read the same value and pass together.
+    Requests over the limit are counted too; incr() keeps the expiry that
+    add() set, so they never extend the window.
+    """
+    cache.add(cache_key, 0, period_seconds)
+    try:
+        return cache.incr(cache_key)
+    except ValueError:
+        # Evicted between add() and incr(): start a fresh window with this
+        # request, unless a concurrent request already did.
+        if cache.add(cache_key, 1, period_seconds):
+            return 1
+        return cache.incr(cache_key)
 
 
 def _parse_period(period_str):
@@ -175,6 +186,15 @@ def _parse_period(period_str):
     return num * multipliers.get(unit, 60)
 
 
+def _client_ip(request):
+    """
+    Client address without the port. Azure's X-Forwarded-For is IP:PORT and
+    the port changes with every TCP connection, so keying on the raw header
+    gave each new connection a fresh counter.
+    """
+    return get_client_ip(request) or 'unknown'
+
+
 def _get_cache_key(request, key, view_name=''):
     """
     Generate cache key based on key type.
@@ -182,22 +202,13 @@ def _get_cache_key(request, key, view_name=''):
     if callable(key):
         key_value = key(request)
     elif key == 'ip':
-        # Get IP address (handle proxy headers)
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            key_value = x_forwarded_for.split(',')[0].strip()
-        else:
-            key_value = request.META.get('REMOTE_ADDR', 'unknown')
+        key_value = _client_ip(request)
     elif key == 'user':
         if request.user.is_authenticated:
             key_value = f'user_{request.user.id}'
         else:
             # Fall back to IP for anonymous users
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                key_value = x_forwarded_for.split(',')[0].strip()
-            else:
-                key_value = request.META.get('REMOTE_ADDR', 'unknown')
+            key_value = _client_ip(request)
     else:
         key_value = str(key)
 
