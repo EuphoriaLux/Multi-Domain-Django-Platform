@@ -718,6 +718,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private func ensureAuthorizationAndStart() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            // A clearWatch or a new document can remove every request between
+            // queueing this block and running it: then prompt for nothing.
+            guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }
             let status = self.locationManager.authorizationStatus
             switch status {
             case .notDetermined:

@@ -232,6 +232,24 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("locationBridge?.stopAll()", commit.split("\n        }\n", 1)[0])
         self.assertNotIn("didStartProvisionalNavigation", web_view)
 
+    def test_deferred_start_rechecks_consumers_before_prompting(self):
+        """No permission prompt or sensor start once every request is gone.
+
+        ensureAuthorizationAndStart defers to the main queue; a clearWatch or
+        a committed navigation can empty both request sets before it runs.
+        """
+        web_view = _source("CrushWebView.swift")
+        body = web_view.split("private func ensureAuthorizationAndStart() {", 1)[1]
+        body = body.split("\n    }\n", 1)[0]
+        recheck = (
+            "guard !self.activeWatchIDs.isEmpty || "
+            "!self.pendingCurrentPositionIDs.isEmpty else { return }"
+        )
+        self.assertIn(recheck, body)
+        self.assertLess(
+            body.index(recheck), body.index("requestWhenInUseAuthorization()")
+        )
+
     def test_location_failure_ends_one_shot_requests(self):
         """A getCurrentPosition gets one error, and native forgets it too.
 
