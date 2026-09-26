@@ -545,6 +545,24 @@ class JourneyProgress(models.Model):
             journey__special_experience__is_active=True,
         ).order_by("pk")
 
+    @classmethod
+    def wonderland_for(cls, user):
+        """The accessible row on ``user``'s Wonderland journey, or None.
+
+        Pages and API calls that name no challenge or reward play the journey
+        ``journey_map_wonderland`` shows, so the map and the chapters it links
+        to never disagree. A user has at most one linked experience and it
+        has at most one wonderland journey, so this is at most one row.
+        Anything that names a challenge or reward must use that object's own
+        journey instead.
+        """
+        return (
+            cls.accessible_to(user)
+            .filter(journey__journey_type="wonderland")
+            .select_related("journey")
+            .first()
+        )
+
     @property
     def completion_percentage(self):
         """Calculate completion percentage"""

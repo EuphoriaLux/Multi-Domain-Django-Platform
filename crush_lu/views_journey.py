@@ -217,12 +217,8 @@ def chapter_view(request, chapter_number):
     Display a specific chapter with its story and challenges.
     """
     try:
-        # Get user's journey
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey")
-            .first()
-        )
+        # The journey the map shows, so its chapter links open its chapters
+        journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             messages.warning(request, _('No active journey found.'))
@@ -468,35 +464,27 @@ def challenge_view(request, chapter_number, challenge_id):
     Display and handle a specific challenge.
     """
     try:
-        # Get user's journey
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey")
-            .first()
-        )
-
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             messages.warning(request, _('No active journey found.'))
             return redirect('crush_lu:dashboard')
 
-        # Get the chapter
-        chapter = get_object_or_404(
-            JourneyChapter,
-            journey=journey_progress.journey,
-            chapter_number=chapter_number
+        # The challenge must sit in this chapter of one of the user's journeys
+        challenge = get_object_or_404(
+            JourneyChallenge.objects.select_related("chapter__journey"),
+            id=challenge_id,
+            chapter__chapter_number=chapter_number,
+            chapter__journey__in=accessible.values("journey"),  # SECURITY
         )
+        chapter = challenge.chapter
+
+        # The progress row of the challenge's own journey, not the oldest row
+        journey_progress = accessible.get(journey=chapter.journey)
 
         # Get chapter progress
         chapter_progress = get_object_or_404(
             ChapterProgress,
             journey_progress=journey_progress,
-            chapter=chapter
-        )
-
-        # Get the challenge
-        challenge = get_object_or_404(
-            JourneyChallenge,
-            id=challenge_id,
             chapter=chapter
         )
 
@@ -552,20 +540,22 @@ def reward_view(request, reward_id):
     before displaying any content (prevents IDOR attacks).
     """
     try:
-        # Get the user's journey progress first
-        journey_progress = JourneyProgress.accessible_to(request.user).first()
-
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             messages.warning(request, _('No active journey found.'))
             return redirect('crush_lu:dashboard')
 
-        # SECURITY: Fetch reward AND verify it belongs to user's journey in ONE query
-        # This prevents IDOR attacks where users guess reward IDs from other journeys
+        # SECURITY: Fetch reward AND verify it belongs to one of the user's
+        # journeys in ONE query. This prevents IDOR attacks where users guess
+        # reward IDs from other journeys
         reward = get_object_or_404(
-            JourneyReward,
+            JourneyReward.objects.select_related("chapter__journey"),
             id=reward_id,
-            chapter__journey=journey_progress.journey  # Must be from user's journey
+            chapter__journey__in=accessible.values("journey"),
         )
+
+        # The progress row of the reward's own journey, not the oldest row
+        journey_progress = accessible.get(journey=reward.chapter.journey)
 
         # Check if chapter is completed
         try:
@@ -617,15 +607,10 @@ def certificate_view(request):
     Generate and display completion certificate.
     """
     try:
-        # Get user's journey progress
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .filter(is_completed=True)
-            .select_related("journey")
-            .first()
-        )
+        # The certificate of the journey the map shows (its only link)
+        journey_progress = JourneyProgress.wonderland_for(request.user)
 
-        if not journey_progress:
+        if not journey_progress or not journey_progress.is_completed:
             messages.warning(request, _('Complete the journey to unlock your certificate.'))
             return redirect('crush_lu:journey_map')
 

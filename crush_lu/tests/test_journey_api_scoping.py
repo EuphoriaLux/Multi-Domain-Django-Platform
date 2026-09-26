@@ -7,6 +7,12 @@ challenge (and read its private ``success_message``) or unlock pieces of
 another journey's photo puzzle. Both now scope the lookup to the caller's
 journey, as ``unlock_hint`` already did, and answer a foreign id exactly like
 a nonexistent one.
+
+A member can hold more than one accessible journey (one linked experience,
+one journey per type). Every call that names a challenge or reward plays that
+object's own journey; everything else plays the Wonderland journey the map
+shows. Both used to take the oldest progress row, so only one journey was
+ever playable and the map and its chapters could disagree.
 """
 
 import json
@@ -28,6 +34,7 @@ from crush_lu.models import (
     JourneyReward,
     RewardProgress,
     SpecialUserExperience,
+    UserDataConsent,
 )
 
 User = get_user_model()
@@ -36,11 +43,13 @@ User = get_user_model()
 # language-neutral (photo_reveal.html calls it by hardcoded path).
 SUBMIT_URL = "/en/api/journey/submit-challenge/"
 UNLOCK_PIECE_URL = "/api/journey/unlock-puzzle-piece/"
+UNLOCK_HINT_URL = "/en/api/journey/unlock-hint/"
+PROGRESS_URL = "/en/api/journey/progress/"
 HOST = "crush.lu"
 
 
-def _make_player(name, success_message, points):
-    """A member with their own linked experience, journey, challenge and reward."""
+def _make_member(name):
+    """A member with their own linked, active special experience."""
     user = User.objects.create_user(
         username=f"{name.lower()}@example.com",
         email=f"{name.lower()}@example.com",
@@ -55,14 +64,27 @@ def _make_player(name, success_message, points):
         location="Luxembourg",
         is_approved=True,
     )
+    # consent_middleware 302s every crush page (not the API) without this.
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
     experience = SpecialUserExperience.objects.create(
         first_name=name,
         last_name="Player",
         linked_user=user,
         is_active=True,
     )
+    return user, experience
+
+
+def _add_journey(
+    user, experience, name, success_message, points, journey_type="wonderland"
+):
+    """A journey on ``experience`` with a challenge, a reward and ``user``'s
+    progress row."""
     journey = JourneyConfiguration.objects.create(
         special_experience=experience,
+        journey_type=journey_type,
         journey_name=f"{name}'s Journey",
         total_chapters=1,
         is_active=True,
@@ -85,6 +107,7 @@ def _make_player(name, success_message, points):
         correct_answer="4",
         points_awarded=100,
         success_message=success_message,
+        hint_1=f"{name}'s hint",
     )
     reward = JourneyReward.objects.create(
         chapter=chapter,
@@ -95,8 +118,19 @@ def _make_player(name, success_message, points):
         user=user, journey=journey, current_chapter=1, total_points=points
     )
     return SimpleNamespace(
-        user=user, challenge=challenge, reward=reward, progress=progress
+        user=user,
+        journey=journey,
+        chapter=chapter,
+        challenge=challenge,
+        reward=reward,
+        progress=progress,
     )
+
+
+def _make_player(name, success_message, points):
+    """A member with their own linked experience, journey, challenge and reward."""
+    user, experience = _make_member(name)
+    return _add_journey(user, experience, name, success_message, points)
 
 
 class JourneyAPIScopingTests(TestCase):
@@ -196,6 +230,25 @@ class JourneyAPIScopingTests(TestCase):
         self.assertEqual(foreign.status_code, missing.status_code)
         self.assertEqual(foreign.json(), missing.json())
 
+    # --- get_reward_progress ----------------------------------------------
+
+    def test_foreign_reward_progress_is_indistinguishable_from_missing(self):
+        """Neither may echo the caller's points against someone else's id."""
+        self.client.force_login(self.bob.user)
+        missing_id = JourneyReward.objects.order_by("-id").first().id + 1000
+
+        foreign = self.client.get(
+            f"/api/journey/reward-progress/{self.alice.reward.id}/", HTTP_HOST=HOST
+        )
+        missing = self.client.get(
+            f"/api/journey/reward-progress/{missing_id}/", HTTP_HOST=HOST
+        )
+
+        self.assertEqual(foreign.status_code, 404)
+        self.assertEqual(foreign.status_code, missing.status_code)
+        self.assertEqual(foreign.json(), missing.json())
+        self.assertNotIn("current_points", foreign.json())
+
     def test_member_can_still_unlock_their_own_puzzle_piece(self):
         self.client.force_login(self.bob.user)
 
@@ -210,3 +263,189 @@ class JourneyAPIScopingTests(TestCase):
             journey_progress=self.bob.progress, reward=self.bob.reward
         )
         self.assertEqual(reward_progress.unlocked_pieces, [3])
+
+
+class MultiJourneyScopingTests(TestCase):
+    """One member, two accessible journeys on their one linked experience.
+
+    The custom journey's row is created first, so an unscoped ``.first()``
+    resolves it while the map shows the Wonderland journey: the case Codex
+    raised on #1030. Distinct point balances show which row each call used.
+    """
+
+    def setUp(self):
+        cache.clear()
+        user, experience = _make_member("Carol")
+        self.custom = _add_journey(
+            user,
+            experience,
+            "Custom",
+            "Custom secret",
+            points=300,
+            journey_type="custom",
+        )
+        self.wonderland = _add_journey(
+            user, experience, "Wonderland", "Wonderland secret", points=500
+        )
+        self.assertLess(self.custom.progress.pk, self.wonderland.progress.pk)
+        self.client.force_login(user)
+
+    def _post(self, url, payload):
+        return self.client.post(
+            url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+
+    def _points(self, played):
+        played.progress.refresh_from_db()
+        return played.progress.total_points
+
+    # --- API calls that name a challenge or reward ------------------------
+
+    def test_answers_challenges_in_both_journeys(self):
+        # (journey, its total after a correct answer, the other one's total)
+        cases = (
+            (self.wonderland, 600, self.custom, 300),
+            (self.custom, 400, self.wonderland, 600),
+        )
+        for played, total, other, other_total in cases:
+            with self.subTest(journey=played.journey.journey_type):
+                response = self._post(
+                    SUBMIT_URL, {"challenge_id": played.challenge.id, "answer": "4"}
+                )
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertTrue(body["is_correct"])
+                self.assertEqual(
+                    body["success_message"], played.challenge.success_message
+                )
+                self.assertEqual(body["total_points"], total)
+                self.assertEqual(self._points(played), total)
+                self.assertEqual(self._points(other), other_total)
+                self.assertTrue(
+                    ChallengeAttempt.objects.filter(
+                        chapter_progress__journey_progress=played.progress,
+                        chapter_progress__chapter=played.chapter,
+                        challenge=played.challenge,
+                        is_correct=True,
+                    ).exists()
+                )
+
+    def test_unlocks_pieces_in_both_journeys(self):
+        # (journey, its balance after one piece, the other one's balance)
+        cases = (
+            (self.wonderland, 450, self.custom, 300),
+            (self.custom, 250, self.wonderland, 450),
+        )
+        for played, remaining, other, other_total in cases:
+            with self.subTest(journey=played.journey.journey_type):
+                response = self._post(
+                    UNLOCK_PIECE_URL, {"reward_id": played.reward.id, "piece_index": 5}
+                )
+
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertTrue(body["success"])
+                self.assertEqual(body["unlocked_pieces"], [5])
+                self.assertEqual(body["points_remaining"], remaining)
+                self.assertEqual(self._points(played), remaining)
+                self.assertEqual(self._points(other), other_total)
+                reward_progress = RewardProgress.objects.get(
+                    journey_progress=played.progress, reward=played.reward
+                )
+                self.assertEqual(reward_progress.unlocked_pieces, [5])
+
+    def test_reward_progress_reads_the_rewards_own_journey(self):
+        for played in (self.custom, self.wonderland):
+            with self.subTest(journey=played.journey.journey_type):
+                response = self.client.get(
+                    f"/api/journey/reward-progress/{played.reward.id}/",
+                    HTTP_HOST=HOST,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.json()["current_points"], played.progress.total_points
+                )
+
+    def test_hint_is_recorded_on_the_challenges_own_journey(self):
+        for played in (self.custom, self.wonderland):
+            with self.subTest(journey=played.journey.journey_type):
+                response = self._post(
+                    UNLOCK_HINT_URL,
+                    {"challenge_id": played.challenge.id, "hint_number": 1},
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["hint_text"], played.challenge.hint_1)
+                attempt = ChallengeAttempt.objects.get(challenge=played.challenge)
+                self.assertEqual(
+                    attempt.chapter_progress.journey_progress, played.progress
+                )
+                self.assertEqual(attempt.hints_used, [1])
+
+    # --- pages ------------------------------------------------------------
+
+    def test_chapter_page_and_progress_follow_the_map(self):
+        """No challenge or reward is named, so both play the Wonderland
+        journey the map shows, not the older custom row."""
+        chapter = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
+        progress = self.client.get(PROGRESS_URL, HTTP_HOST=HOST)
+
+        self.assertEqual(chapter.status_code, 200)
+        self.assertEqual(chapter.context["journey_progress"], self.wonderland.progress)
+        self.assertEqual(chapter.context["chapter"], self.wonderland.chapter)
+        self.assertEqual(
+            progress.json()["data"]["journey_name"],
+            self.wonderland.journey.journey_name,
+        )
+
+    def test_challenge_page_uses_the_challenges_own_journey(self):
+        for played in (self.custom, self.wonderland):
+            ChapterProgress.objects.create(
+                journey_progress=played.progress, chapter=played.chapter
+            )
+            with self.subTest(journey=played.journey.journey_type):
+                response = self.client.get(
+                    f"/en/journey/chapter/1/challenge/{played.challenge.id}/",
+                    HTTP_HOST=HOST,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["journey_progress"], played.progress)
+                self.assertEqual(response.context["challenge"], played.challenge)
+
+    def test_challenge_page_rejects_a_mismatched_chapter_number(self):
+        """The challenge is now found by id across journeys, so the chapter
+        number in the URL must still be checked: without it this chapter-1
+        challenge would render at /chapter/2/."""
+        ChapterProgress.objects.create(
+            journey_progress=self.custom.progress, chapter=self.custom.chapter
+        )
+
+        response = self.client.get(
+            f"/en/journey/chapter/2/challenge/{self.custom.challenge.id}/",
+            HTTP_HOST=HOST,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn(b"What is 2+2?", response.content)
+
+    def test_certificate_follows_the_map(self):
+        """A completed custom journey does not open the Wonderland map's
+        certificate; the completed Wonderland journey does."""
+        self.custom.progress.is_completed = True
+        self.custom.progress.save()
+
+        before = self.client.get("/en/journey/certificate/", HTTP_HOST=HOST)
+        self.assertEqual(before.status_code, 302)
+
+        self.wonderland.progress.is_completed = True
+        self.wonderland.progress.save()
+
+        after = self.client.get("/en/journey/certificate/", HTTP_HOST=HOST)
+        self.assertEqual(after.status_code, 200)
+        self.assertEqual(after.context["journey"], self.wonderland.journey)

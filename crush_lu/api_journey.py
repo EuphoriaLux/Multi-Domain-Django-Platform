@@ -42,31 +42,30 @@ def submit_challenge(request):
                 'message': _('Missing challenge ID')
             }, status=400)
 
-        # Get user's chapter progress
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey")
-            .first()
-        )
-
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             return JsonResponse({
                 'success': False,
                 'message': _('No active journey found')
             }, status=404)
 
-        # Get the challenge - must belong to user's journey. Resolved before
-        # validating the answer so a foreign id answers exactly like a
-        # missing one.
+        # Get the challenge - must belong to one of the user's journeys.
+        # Resolved before validating the answer so a foreign id answers
+        # exactly like a missing one.
         try:
-            challenge = JourneyChallenge.objects.get(
+            challenge = JourneyChallenge.objects.select_related(
+                "chapter__journey"
+            ).get(
                 id=challenge_id,
-                chapter__journey=journey_progress.journey,  # SECURITY: user's journey
+                chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyChallenge.DoesNotExist:
             return JsonResponse(
                 {"success": False, "message": _("Challenge not found")}, status=404
             )
+
+        # The progress row of the challenge's own journey, not the oldest row
+        journey_progress = accessible.get(journey=challenge.chapter.journey)
 
         # Validate answer format
         is_valid, error_message = validate_answer_format(
@@ -227,24 +226,29 @@ def unlock_hint(request):
                 'message': _('Missing challenge ID or hint number')
             }, status=400)
 
-        # Get the challenge - must belong to user's journey
-        journey_progress = JourneyProgress.accessible_to(request.user).first()
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             return JsonResponse({
                 'success': False,
                 'message': _('No active journey found')
             }, status=404)
 
+        # Get the challenge - must belong to one of the user's journeys
         try:
-            challenge = JourneyChallenge.objects.get(
+            challenge = JourneyChallenge.objects.select_related(
+                "chapter__journey"
+            ).get(
                 id=challenge_id,
-                chapter__journey=journey_progress.journey  # SECURITY: Must be user's journey
+                chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyChallenge.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'message': _('Challenge not found')
             }, status=404)
+
+        # The progress row of the challenge's own journey, not the oldest row
+        journey_progress = accessible.get(journey=challenge.chapter.journey)
 
         # Get hint text and cost
         hint_text = None
@@ -323,11 +327,8 @@ def get_progress(request):
     Used for progress bars, stats display, etc.
     """
     try:
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey")
-            .first()
-        )
+        # The journey the map shows (no challenge or reward names one here)
+        journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             return JsonResponse({
@@ -379,7 +380,8 @@ def save_state(request):
         # Ensure time_increment is an integer
         time_increment = int(data.get('time_increment', 0))  # Seconds since last save
 
-        journey_progress = JourneyProgress.accessible_to(request.user).first()
+        # The journey the map shows (no challenge or reward names one here)
+        journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             return JsonResponse({
@@ -424,11 +426,9 @@ def record_final_response(request):
                 'message': _('Invalid response choice')
             }, status=400)
 
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey__special_experience")
-            .first()
-        )
+        # The final chapter is reached through the map, so it answers for the
+        # journey the map shows
+        journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             return JsonResponse({
@@ -529,30 +529,27 @@ def unlock_puzzle_piece(request):
                 'message': _('Missing reward ID or piece index')
             }, status=400)
 
-        # Get user's journey progress
-        journey_progress = (
-            JourneyProgress.accessible_to(request.user)
-            .select_related("journey")
-            .first()
-        )
-
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             return JsonResponse({
                 'success': False,
                 'message': _('No active journey found')
             }, status=404)
 
-        # Get the reward - must belong to user's journey
+        # Get the reward - must belong to one of the user's journeys
         try:
-            reward = JourneyReward.objects.get(
+            reward = JourneyReward.objects.select_related("chapter__journey").get(
                 id=reward_id,
-                chapter__journey=journey_progress.journey,  # SECURITY: user's journey
+                chapter__journey__in=accessible.values("journey"),  # SECURITY
             )
         except JourneyReward.DoesNotExist:
             return JsonResponse({
                 'success': False,
                 'message': _('Reward not found')
             }, status=404)
+
+        # Points come from the reward's own journey, not the oldest row
+        journey_progress = accessible.get(journey=reward.chapter.journey)
 
         # Get or create reward progress
         reward_progress, created = RewardProgress.objects.get_or_create(
@@ -625,20 +622,34 @@ def get_reward_progress(request, reward_id):
     Get the user's progress for a specific reward (e.g., jigsaw puzzle).
     """
     try:
-        # Get user's journey progress
-        journey_progress = JourneyProgress.accessible_to(request.user).first()
-
-        if not journey_progress:
+        accessible = JourneyProgress.accessible_to(request.user)
+        if not accessible.exists():
             return JsonResponse({
                 'success': False,
                 'message': _('No active journey found')
             }, status=404)
 
+        # The reward must belong to one of the user's journeys; a foreign id
+        # answers exactly like a missing one
+        try:
+            reward = JourneyReward.objects.select_related("chapter__journey").get(
+                id=reward_id,
+                chapter__journey__in=accessible.values("journey"),  # SECURITY
+            )
+        except JourneyReward.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': _('Reward not found')
+            }, status=404)
+
+        # Pieces and points come from the reward's own journey
+        journey_progress = accessible.get(journey=reward.chapter.journey)
+
         # Get reward progress if exists
         try:
             reward_progress = RewardProgress.objects.get(
                 journey_progress=journey_progress,
-                reward_id=reward_id
+                reward=reward
             )
             unlocked_pieces = reward_progress.unlocked_pieces
             is_completed = reward_progress.is_completed
