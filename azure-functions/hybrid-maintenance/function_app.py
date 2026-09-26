@@ -594,10 +594,15 @@ def _check_sumup_reconciliation_counters(response) -> None:
     # checked so the alert fires even if that ever changes.
     if counts["errors"] > 0 or counts["needs_review"] > 0:
         logging.error("SumUpReconciliation: sweep reported errors — %s", summary)
+        # No list of what an error can be: the Django side counts several
+        # kinds under one counter — among them a refund that WAS committed
+        # and whose on_commit callback then raised — and the counters cannot
+        # tell them apart. The web app's reconcile_sumup_payments command
+        # logs the cause of each one, naming the payment or checkout.
         raise RuntimeError(
-            f"SumUpReconciliation: {counts['errors']} row(s) reported as errors "
-            "(not checked, not written, or written but held for review), "
-            f"{counts['needs_review']} need manual review — {summary}"
+            f"SumUpReconciliation: {counts['errors']} row(s) reported as errors, "
+            f"{counts['needs_review']} need manual review (per-row details in "
+            f"the web app's reconcile_sumup_payments log) — {summary}"
         )
     if counts["unchecked"] > 0 or counts["partial"] > 0:
         logging.warning(

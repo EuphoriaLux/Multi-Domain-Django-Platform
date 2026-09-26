@@ -297,6 +297,23 @@ def test_needs_review_fails_the_invocation(app, posts, monkeypatch, caplog):
         app.sumup_reconciliation(FakeTimer())
 
 
+def test_error_message_does_not_guess_what_the_errors_were(app, posts, monkeypatch):
+    """errors also counts a committed refund whose on_commit callback raised,
+    so the message must not describe every error as unchecked or unwritten."""
+    monkeypatch.setenv(URL_VAR, URL)
+    posts.respond_with(FakeResponse(202, _counters(errors=2, needs_review=1)))
+    with pytest.raises(RuntimeError) as raised:
+        app.sumup_reconciliation(FakeTimer())
+    message = str(raised.value)
+    assert message.startswith(
+        "SumUpReconciliation: 2 row(s) reported as errors, 1 need manual review "
+        "(per-row details in the web app's reconcile_sumup_payments log) — "
+    )
+    assert "errors=2" in message
+    for guess in ("not checked", "not written", "could not be", "held for review"):
+        assert guess not in message
+
+
 def test_needs_review_alone_still_fails(app, posts, monkeypatch):
     """Even if Django ever stops folding it into errors."""
     monkeypatch.setenv(URL_VAR, URL)
