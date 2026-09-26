@@ -28160,3 +28160,11 @@ msgstr ""
 #: templates/crush_lu/event_ticket.html
 msgid "Ticket number"
 msgstr ""
+
+#. HTMX failure toast: the service worker may have stored the request for
+#. replay but did not confirm it, so neither a retry promise nor a resend
+#. prompt is honest.
+#: templates/crush_lu/components/htmx_error_toast.html
+msgid ""
+"We could not confirm whether this was sent. Check before sending it again."
+msgstr ""

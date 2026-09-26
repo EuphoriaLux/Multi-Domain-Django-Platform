@@ -106,6 +106,13 @@ const workbox = {
         BackgroundSyncPlugin: function (queueName, options) {
             backgroundSync = { queueName, options: options || {} };
         },
+        // The worker holds the Queue itself (so a page can ask for a drain);
+        // its onSync is the same replay loop, probed the same way.
+        Queue: function (queueName, options) {
+            backgroundSync = { queueName, options: options || {} };
+            this.pushRequest = async () => {};
+            this.replayRequests = async () => {};
+        },
     }),
     recipes: lenientNamespace(),
     rangeRequests: lenientNamespace(),
@@ -424,7 +431,15 @@ async function probeReplay(urls) {
     if (!backgroundSync || typeof backgroundSync.options.onSync !== "function") {
         return { available: false, replayed: [], drained: false };
     }
-    const pending = urls.map((url) => ({ request: { url, method: "POST" } }));
+    const pending = urls.map((url) => ({
+        request: {
+            url,
+            method: "POST",
+            clone() {
+                return this;
+            },
+        },
+    }));
     const queue = {
         shiftRequest: async () => pending.shift(),
         unshiftRequest: async (entry) => {
