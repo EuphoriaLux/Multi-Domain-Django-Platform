@@ -217,6 +217,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'presentationrating': {'order': 9, 'icon': '⭐', 'group': 'Events & Meetups'},
             'eventpoll': {'order': 10, 'icon': '🗳️', 'group': 'Events & Meetups'},
             'eventpollvote': {'order': 11, 'icon': '📊', 'group': 'Events & Meetups'},
+            'eventpollsuggestion': {'order': 11, 'icon': '💡', 'group': 'Events & Meetups'},  # voter theme ideas
             'eventfeedback': {'order': 12, 'icon': '📝', 'group': 'Events & Meetups'},
             'eventlobbyparticipation': {'order': 13, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
             'eventmeetsignal': {'order': 14, 'icon': '👋', 'group': 'Events & Meetups'},

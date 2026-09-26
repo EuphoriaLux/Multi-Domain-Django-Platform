@@ -42462,3 +42462,111 @@ msgstr "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer."
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Notifications non lues : {count}"
+
+#: theme ballot
+msgid "Anyone can view; any logged-in account can vote (no approved profile needed)."
+msgstr "Tout le monde peut la voir ; tout compte connecté peut voter (aucun profil approuvé requis)."
+
+#: theme ballot
+msgid "Poll Suggestion"
+msgstr "Suggestion de sondage"
+
+#: theme ballot
+msgid "Poll Suggestions"
+msgstr "Suggestions de sondage"
+
+#: theme ballot
+msgid "Your idea"
+msgstr "Votre idée"
+
+#: theme ballot
+msgid "e.g. Salsa night, Escape room date…"
+msgstr "p. ex. soirée salsa, rendez-vous escape game…"
+
+#: theme ballot
+msgid "This poll is closed."
+msgstr "Ce sondage est clôturé."
+
+#: theme ballot
+msgid "Thanks for your idea! A coach will review it soon."
+msgstr "Merci pour votre idée ! Un coach l'examinera bientôt."
+
+#: theme ballot
+msgid "Please describe your idea in 200 characters or fewer."
+msgstr "Veuillez décrire votre idée en 200 caractères maximum."
+
+#: theme ballot
+msgid "Log in or create a free Crush.lu account to vote. No dating profile needed."
+msgstr "Connectez-vous ou créez un compte Crush.lu gratuit pour voter. Aucun profil de rencontre requis."
+
+#: theme ballot
+msgid "Log in to vote"
+msgstr "Se connecter pour voter"
+
+#: theme ballot
+msgid "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first."
+msgstr "Quand un thème reçoit assez de votes, nous l'organisons. Si vous avez voté pour lui, vous serez informé en premier."
+
+#: theme ballot
+msgid "Missing your kind of night?"
+msgstr "Votre soirée idéale manque ?"
+
+#: theme ballot
+msgid "Suggest a theme. A coach reviews every idea before it goes on the ballot."
+msgstr "Proposez un thème. Un coach examine chaque idée avant qu'elle ne soit soumise au vote."
+
+#: theme ballot
+msgid "Send my idea"
+msgstr "Envoyer mon idée"
+
+#: theme ballot
+msgid "Theme nights"
+msgstr "Soirées à thème"
+
+#: theme ballot
+msgid "No theme vote right now"
+msgstr "Aucun vote de thème en ce moment"
+
+#: theme ballot
+msgid "We're preparing the next ballot of theme nights. Check back soon."
+msgstr "Nous préparons le prochain vote sur les soirées à thème. Revenez bientôt."
+
+#: theme ballot
+msgid "Approve: add as a new poll option"
+msgstr "Approuver : ajouter comme nouvelle option"
+
+#: theme ballot
+msgid "Reject selected suggestions"
+msgstr "Refuser les suggestions sélectionnées"
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) added as poll options. Add translations and an image on the poll."
+msgstr "%(count)d suggestion(s) ajoutée(s) comme options. Ajoutez les traductions et une image dans le sondage."
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) rejected."
+msgstr "%(count)d suggestion(s) refusée(s)."
+
+#: theme ballot
+msgid "Woman"
+msgstr "Femme"
+
+#: theme ballot
+msgid "Man"
+msgstr "Homme"
+
+#: theme ballot
+msgid "I am… (optional, only used for the anonymous women/men split)"
+msgstr "Je suis… (facultatif, sert uniquement à la répartition anonyme femmes/hommes)"
+
+#: theme ballot
+#, python-format
+msgid "Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has %(min)s votes from women and %(min)s from men."
+msgstr "Les parts femmes/hommes indiquent le pourcentage de toutes les femmes et de tous les hommes votants ayant choisi un thème. Elles s'affichent dès qu'un thème a %(min)s votes de femmes et %(min)s d'hommes."
+
+#: theme ballot
+#, python-format
+msgid "Women %(women)s%% · Men %(men)s%%"
+msgstr "Femmes %(women)s%% · Hommes %(men)s%%"

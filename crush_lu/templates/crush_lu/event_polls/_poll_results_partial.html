@@ -35,10 +35,16 @@
                     {% endif %}
                     <h3 class="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{{ option.name }}</h3>
                 </div>
+                {% if not hide_counts %}
                 <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap ml-2">
                     {{ option.vote_count }}{% if total_votes %} ({% widthratio option.vote_count total_votes 100 %}%){% endif %}
                 </span>
+                {% endif %}
             </div>
+            {% if option.description %}
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">{{ option.description }}</p>
+            {% endif %}
+            {% if not hide_counts %}
             <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                 {% if total_votes %}
                 <div class="poll-results-bar" style="width: {% widthratio option.vote_count total_votes 100 %}%"></div>
@@ -46,6 +52,12 @@
                 <div class="poll-results-bar" style="width: 0%"></div>
                 {% endif %}
             </div>
+            {% if option.show_gender_split %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {% blocktrans with women=option.women_pct men=option.men_pct %}Women {{ women }}% · Men {{ men }}%{% endblocktrans %}
+            </p>
+            {% endif %}
+            {% endif %}
         </div>
     </div>
     {% endfor %}
