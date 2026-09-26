@@ -733,6 +733,14 @@ class Command(BaseCommand):
 
             history_lookup_failed = False
             try:
+                # history_lookup_codes and is_checkout_refunded both read a
+                # non-object payload as "no codes, no refund"; that would
+                # print "still PAID" for a row nobody could check.
+                if not isinstance(remote_data, dict):
+                    raise ValueError(
+                        f"checkout payload is a {type(remote_data).__name__}, "
+                        "not an object"
+                    )
                 # The capture's code first, then any other attempt that was
                 # not declined; never a declined one (history_lookup_codes).
                 # Querying every nested code instead found the capture on a

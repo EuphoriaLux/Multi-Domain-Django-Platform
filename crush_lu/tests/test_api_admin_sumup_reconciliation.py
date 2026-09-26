@@ -416,6 +416,15 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 202)
         self.assertEqual(resp.json()["errors"], 1)
 
+    def test_a_non_object_payload_is_an_error_not_still_paid(self):
+        """Valid JSON that is not an object cannot be checked: an error."""
+        for payload in ([FULL_REFUND], "PAID", None):
+            with self.subTest(payload=payload):
+                body = self._run(payload).json()
+                self.assertEqual((body["checked"], body["errors"]), (1, 1))
+                self.payment.refresh_from_db()
+                self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+
     def test_one_bad_row_does_not_stop_the_next(self):
         """Case 8: the sweep continues past a failing row."""
         other = PaymentTransaction.objects.create(
