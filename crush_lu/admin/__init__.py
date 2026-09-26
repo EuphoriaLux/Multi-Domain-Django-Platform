@@ -190,6 +190,7 @@ from .event_polls import (
     EventPollOptionInline,
     EventPollAdmin,
     EventPollVoteAdmin,
+    EventPollSuggestionAdmin,
 )
 
 from .crush_connect import (
@@ -328,6 +329,7 @@ from crush_lu.models import (
     EventPoll,
     EventPollOption,
     EventPollVote,
+    EventPollSuggestion,
     ConnectCoachPick,
     Interest,
     ConnectQuestion,
@@ -496,6 +498,7 @@ crush_admin_site.register(CampaignRecipient, CampaignRecipientAdmin)
 # Event Polls
 crush_admin_site.register(EventPoll, EventPollAdmin)
 crush_admin_site.register(EventPollVote, EventPollVoteAdmin)
+crush_admin_site.register(EventPollSuggestion, EventPollSuggestionAdmin)
 
 # Site Configuration (singleton)
 crush_admin_site.register(CrushSiteConfig, CrushSiteConfigAdmin)
@@ -695,6 +698,7 @@ __all__ = [
     "EventPollOptionInline",
     "EventPollAdmin",
     "EventPollVoteAdmin",
+    "EventPollSuggestionAdmin",
     # Crush Connect
     "CrushConnectWaitlistAdmin",
     "CrushConnectMembershipAdmin",
