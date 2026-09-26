@@ -42462,3 +42462,25 @@ msgstr "Nous n'avons pas pu confirmer l'envoi. Vérifiez avant de renvoyer."
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Notifications non lues : {count}"
+
+#: templates/crush_lu/event_detail.html:156
+#, python-format
+msgid "%(spots)s spots left"
+msgstr "%(spots)s places restantes"
+
+#: templates/crush_lu/event_detail.html:166
+msgid "Read more"
+msgstr "Lire la suite"
+
+#: templates/crush_lu/event_detail.html:631
+#: templates/crush_lu/event_detail.html:676
+msgid "See entry events"
+msgstr "Voir les événements d'entrée"
+
+#: templates/crush_lu/event_detail.html:693
+msgid "Contact support"
+msgstr "Contacter le support"
+
+#: templates/crush_lu/event_detail.html:987
+msgid "Link copied"
+msgstr "Lien copié"

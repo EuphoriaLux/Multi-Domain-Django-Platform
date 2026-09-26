@@ -1235,6 +1235,15 @@ def event_detail(request, event_id):
         registration=registration,
     )
 
+    # Only needed for the "verified members only" / "coach required" dead-end
+    # boxes below, which show a "Verify with LuxID" action to an authenticated
+    # member whose profile exists but isn't approved yet (#4-14).
+    luxid_connect_url_value = None
+    if request.user.is_authenticated and user_profile and not user_profile.is_approved:
+        from .luxid import get_luxid_connect_url
+
+        luxid_connect_url_value = get_luxid_connect_url(request)
+
     context = {
         "event": event,
         "is_past": is_past,
@@ -1259,6 +1268,7 @@ def event_detail(request, event_id):
             and available_credit_cents(request.user)
             >= int(event.registration_fee * 100)
         ),
+        "luxid_connect_url": luxid_connect_url_value,
     }
     return render(request, "crush_lu/event_detail.html", context)
 

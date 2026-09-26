@@ -2345,6 +2345,60 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Event detail description collapse/expand (#4-03)
+    Alpine.data("eventDescriptionToggle", function () {
+        return {
+            expanded: false,
+            get collapsed() {
+                return !this.expanded;
+            },
+            get descriptionClass() {
+                return this.expanded ? "" : "line-clamp-4";
+            },
+            toggle: function () {
+                this.expanded = !this.expanded;
+            },
+        };
+    });
+
+    // Event detail mobile sticky CTA bar (#4-03). Mirrors whichever single
+    // btn-crush-primary registration anchor is already rendered inside
+    // #event-cta-panel, so it can never disagree with the in-page CTA — it
+    // reads the same DOM instead of re-deriving eligibility. Stays hidden
+    // when that panel has no such anchor (blocked / login states).
+    Alpine.data("eventStickyCta", function () {
+        return {
+            visible: false,
+            ctaHref: "",
+            ctaLabel: "",
+            priceText: "",
+            factsText: "",
+            init: function () {
+                this.priceText = this.$el.dataset.priceLabel || "";
+                this.factsText = this.$el.dataset.factsText || "";
+                var panel = document.getElementById("event-cta-panel");
+                if (!panel || !("IntersectionObserver" in window)) {
+                    return;
+                }
+                var anchor = panel.querySelector("a.btn-crush-primary");
+                if (!anchor) {
+                    return;
+                }
+                this.ctaHref = anchor.getAttribute("href") || "";
+                this.ctaLabel = (anchor.textContent || "").trim();
+                var self = this;
+                var observer = new IntersectionObserver(
+                    function (entries) {
+                        var entry = entries[0];
+                        self.visible = !!entry && !entry.isIntersecting;
+                    },
+                    { rootMargin: "0px 0px -20% 0px" },
+                );
+                observer.observe(panel);
+            },
+        };
+    });
+
     // Calendar dropdown component
     Alpine.data("calendarDropdown", function () {
         return {

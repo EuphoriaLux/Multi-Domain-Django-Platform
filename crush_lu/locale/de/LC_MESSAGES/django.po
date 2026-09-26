@@ -42330,3 +42330,25 @@ msgstr ""
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Ungelesene Benachrichtigungen: {count}"
+
+#: templates/crush_lu/event_detail.html:156
+#, python-format
+msgid "%(spots)s spots left"
+msgstr "%(spots)s Plätze übrig"
+
+#: templates/crush_lu/event_detail.html:166
+msgid "Read more"
+msgstr "Mehr lesen"
+
+#: templates/crush_lu/event_detail.html:631
+#: templates/crush_lu/event_detail.html:676
+msgid "See entry events"
+msgstr "Einstiegs-Events ansehen"
+
+#: templates/crush_lu/event_detail.html:693
+msgid "Contact support"
+msgstr "Support kontaktieren"
+
+#: templates/crush_lu/event_detail.html:987
+msgid "Link copied"
+msgstr "Link kopiert"
