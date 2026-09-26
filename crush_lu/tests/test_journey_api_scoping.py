@@ -45,6 +45,7 @@ SUBMIT_URL = "/en/api/journey/submit-challenge/"
 UNLOCK_PIECE_URL = "/api/journey/unlock-puzzle-piece/"
 UNLOCK_HINT_URL = "/en/api/journey/unlock-hint/"
 PROGRESS_URL = "/en/api/journey/progress/"
+SAVE_STATE_URL = "/en/api/journey/save-state/"
 HOST = "crush.lu"
 
 
@@ -449,3 +450,141 @@ class MultiJourneyScopingTests(TestCase):
         after = self.client.get("/en/journey/certificate/", HTTP_HOST=HOST)
         self.assertEqual(after.status_code, 200)
         self.assertEqual(after.context["journey"], self.wonderland.journey)
+
+    # --- deactivated journeys ---------------------------------------------
+
+    def test_deactivated_journey_answers_like_a_missing_one(self):
+        """The selector and map hide a deactivated journey, so its ids must
+        not stay playable by bookmark or guess (Codex on #1034)."""
+        ChapterProgress.objects.create(
+            journey_progress=self.custom.progress, chapter=self.custom.chapter
+        )
+        self.custom.journey.is_active = False
+        self.custom.journey.save()
+        missing_challenge = JourneyChallenge.objects.order_by("-id").first().id + 1000
+        missing_reward = JourneyReward.objects.order_by("-id").first().id + 1000
+
+        for answer in ("4", ""):
+            with self.subTest(answer=answer):
+                closed = self._post(
+                    SUBMIT_URL,
+                    {"challenge_id": self.custom.challenge.id, "answer": answer},
+                )
+                missing = self._post(
+                    SUBMIT_URL, {"challenge_id": missing_challenge, "answer": answer}
+                )
+                self.assertEqual(closed.status_code, 404)
+                self.assertEqual(closed.json(), missing.json())
+
+        for url, payload, missing_payload in (
+            (
+                UNLOCK_HINT_URL,
+                {"challenge_id": self.custom.challenge.id, "hint_number": 1},
+                {"challenge_id": missing_challenge, "hint_number": 1},
+            ),
+            (
+                UNLOCK_PIECE_URL,
+                {"reward_id": self.custom.reward.id, "piece_index": 0},
+                {"reward_id": missing_reward, "piece_index": 0},
+            ),
+        ):
+            with self.subTest(url=url):
+                closed = self._post(url, payload)
+                missing = self._post(url, missing_payload)
+                self.assertEqual(closed.status_code, 404)
+                self.assertEqual(closed.json(), missing.json())
+
+        reward_progress = self.client.get(
+            f"/api/journey/reward-progress/{self.custom.reward.id}/", HTTP_HOST=HOST
+        )
+        challenge_page = self.client.get(
+            f"/en/journey/chapter/1/challenge/{self.custom.challenge.id}/",
+            HTTP_HOST=HOST,
+        )
+        self.assertEqual(reward_progress.status_code, 404)
+        self.assertEqual(challenge_page.status_code, 302)
+        self.assertNotIn(b"What is 2+2?", challenge_page.content)
+        self.assertEqual(self._points(self.custom), 300)
+        self.assertFalse(ChallengeAttempt.objects.exists())
+        self.assertFalse(RewardProgress.objects.exists())
+
+        # The active Wonderland journey is unaffected
+        response = self._post(
+            SUBMIT_URL, {"challenge_id": self.wonderland.challenge.id, "answer": "4"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._points(self.wonderland), 600)
+
+    def test_deactivated_wonderland_closes_the_chapter_pages(self):
+        self.wonderland.journey.is_active = False
+        self.wonderland.journey.save()
+
+        chapter = self.client.get("/en/journey/chapter/1/", HTTP_HOST=HOST)
+        progress = self.client.get(PROGRESS_URL, HTTP_HOST=HOST)
+
+        self.assertEqual(chapter.status_code, 302)
+        self.assertEqual(progress.status_code, 404)
+
+    # --- save_state -------------------------------------------------------
+
+    def _time(self, played):
+        played.progress.refresh_from_db()
+        return played.progress.total_time_seconds
+
+    def test_pages_render_their_own_journey_for_the_timer(self):
+        ChapterProgress.objects.create(
+            journey_progress=self.custom.progress, chapter=self.custom.chapter
+        )
+
+        response = self.client.get(
+            f"/en/journey/chapter/1/challenge/{self.custom.challenge.id}/",
+            HTTP_HOST=HOST,
+        )
+
+        self.assertContains(response, f'data-journey-id="{self.custom.journey.id}"')
+
+    def test_save_state_credits_the_journey_the_page_shows(self):
+        # The timer's JSON save and its form-encoded unload beacon
+        json_save = self._post(
+            SAVE_STATE_URL, {"time_increment": 30, "journey_id": self.custom.journey.id}
+        )
+        beacon = self.client.post(
+            SAVE_STATE_URL,
+            {"time_increment": 20, "journey_id": str(self.custom.journey.id)},
+            HTTP_HOST=HOST,
+        )
+
+        self.assertEqual(json_save.status_code, 200)
+        self.assertEqual(beacon.status_code, 200)
+        self.assertEqual(beacon.json()["total_time"], 50)
+        self.assertEqual(self._time(self.custom), 50)
+        self.assertEqual(self._time(self.wonderland), 0)
+
+    def test_save_state_without_a_journey_credits_the_map_journey(self):
+        response = self._post(SAVE_STATE_URL, {"time_increment": 30})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self._time(self.wonderland), 30)
+        self.assertEqual(self._time(self.custom), 0)
+
+    def test_save_state_refuses_a_journey_the_member_cannot_play(self):
+        outsider = _make_player("Dave", "Dave's private message", points=0)
+        self.custom.journey.is_active = False
+        self.custom.journey.save()
+
+        for journey_id in (
+            outsider.journey.id,  # someone else's journey
+            self.custom.journey.id,  # deactivated
+            "not-a-number",
+        ):
+            with self.subTest(journey_id=journey_id):
+                response = self._post(
+                    SAVE_STATE_URL, {"time_increment": 30, "journey_id": journey_id}
+                )
+                self.assertEqual(response.status_code, 404)
+                self.assertFalse(response.json()["success"])
+
+        self.assertEqual(self._time(self.custom), 0)
+        self.assertEqual(self._time(self.wonderland), 0)
+        outsider.progress.refresh_from_db()
+        self.assertEqual(outsider.progress.total_time_seconds, 0)

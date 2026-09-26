@@ -380,8 +380,20 @@ def save_state(request):
         # Ensure time_increment is an integer
         time_increment = int(data.get('time_increment', 0))  # Seconds since last save
 
-        # The journey the map shows (no challenge or reward names one here)
-        journey_progress = JourneyProgress.wonderland_for(request.user)
+        # The journey of the page that is open (journey_base.html sends it);
+        # without one, the journey the map shows
+        journey_id = data.get('journey_id')
+        if journey_id:
+            try:
+                journey_progress = (
+                    JourneyProgress.accessible_to(request.user)
+                    .filter(journey_id=int(journey_id))
+                    .first()
+                )
+            except (TypeError, ValueError):
+                journey_progress = None
+        else:
+            journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             return JsonResponse({
