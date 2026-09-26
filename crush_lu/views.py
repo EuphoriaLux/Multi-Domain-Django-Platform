@@ -2186,6 +2186,10 @@ def profile_submitted(request):
     # self-serve "Verify your identity" hero, not the old coach-review
     # messaging — and must not fall back to an older non-expired row.
     submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is not None and submission.status == "rejected":
+        # A rejection is final: show the one verdict page (with its delete
+        # path) rather than a second, contradictory "needs updates" story.
+        return redirect("crush_lu:profile_rejected")
 
     now = timezone.now()
 
