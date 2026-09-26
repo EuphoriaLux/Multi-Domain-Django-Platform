@@ -164,9 +164,22 @@ def _resale_claim_from(source, event):
         ),
     ).exists()
     captured_payment_exists = PaymentTransaction.objects.filter(
+        # REFUNDED alongside PAID: the comment below already says "a captured
+        # OR ALREADY-RETURNED payment is a completed cycle, not future cash"
+        # — reconcile_sumup_payments flips a payment straight to REFUNDED
+        # (never back to unconfirmed-PAID) when it reconciles an external
+        # cash refund, so a source-only claim built after that would wait on
+        # cash that was already given back, not cash still owed. Only a
+        # refund from THIS cycle counts: the row is reused on re-registration,
+        # which resets registered_at, and an earlier cycle's refund says
+        # nothing about cash still owed for the current one.
+        Q(status=PaymentTransaction.Status.PAID)
+        | Q(
+            status=PaymentTransaction.Status.REFUNDED,
+            created_at__gte=source.registered_at,
+        ),
         event_registration=source,
         purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-        status=PaymentTransaction.Status.PAID,
     ).exists()
     if (
         not source.payment_confirmed

@@ -806,19 +806,44 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("SumUp did not return a valid checkout ID.")}, status=500
         )
 
-    PaymentTransaction.objects.create(
-        transaction_reference=checkout_ref,
-        provider=PaymentTransaction.Provider.SUMUP,
-        sumup_checkout_id=checkout_id,
-        sumup_customer_id=sumup_customer_id,
-        amount=amount,
-        currency="EUR",
-        status=PaymentTransaction.Status.PENDING,
-        purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
-        user=request.user,
-        premium_membership=membership,
-        raw_response=checkout_data,
-    )
+    # Re-check under the membership lock before publishing the row. The checks
+    # above ran unlocked and before the SumUp call, so the refund sweep
+    # (reconcile_sumup_payments) can have cancelled this membership, or a
+    # capture paid it, in between; a row inserted anyway would be a payable
+    # checkout against a membership that can no longer be activated.
+    with transaction.atomic():
+        locked_membership = (
+            PremiumMembership.objects.select_for_update()
+            .filter(pk=membership.pk)
+            .first()
+        )
+        still_payable = (
+            locked_membership is not None
+            and locked_membership.status == "pending"
+            and not PaymentTransaction.objects.filter(
+                premium_membership=membership,
+                status=PaymentTransaction.Status.PAID,
+            ).exists()
+        )
+        if still_payable:
+            PaymentTransaction.objects.create(
+                transaction_reference=checkout_ref,
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id=checkout_id,
+                sumup_customer_id=sumup_customer_id,
+                amount=amount,
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+                user=request.user,
+                premium_membership=membership,
+                raw_response=checkout_data,
+            )
+    if not still_payable:
+        client.deactivate_checkout(checkout_id)
+        return JsonResponse(
+            {"error": _("This membership is not pending payment.")}, status=409
+        )
 
     return JsonResponse(
         {
@@ -1101,6 +1126,7 @@ def _send_member_cancellation_safely(
     *,
     awaiting_resale=False,
     recipient_user=None,
+    cash_refunded=False,
 ):
     """Tell a cancelled member when credit is issued or remains conditional."""
     from .email_helpers import send_event_cancellation_confirmation
@@ -1113,6 +1139,7 @@ def _send_member_cancellation_safely(
             None,
             credits,
             awaiting_resale=awaiting_resale,
+            cash_refunded=cash_refunded,
         )
     except Exception as exc:
         logger.error(
