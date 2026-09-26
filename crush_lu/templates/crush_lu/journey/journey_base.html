@@ -14,6 +14,7 @@
 <div
     x-data="journeyState"
     data-save-url="{% url 'crush_lu:api_save_state' %}"
+    data-journey-id="{{ journey_progress.journey_id|default:'' }}"
     data-initial-time="{{ journey_progress.total_time_seconds }}"
     data-initial-points="{{ journey_progress.total_points }}"
     class="journey-container journey-animate-fade-in"
