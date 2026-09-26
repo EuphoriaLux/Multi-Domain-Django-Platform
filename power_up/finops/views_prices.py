@@ -166,7 +166,10 @@ def retail_price_dashboard(request):
     start_date = end_date - timedelta(days=period - 1)
 
     if "region" in request.GET:
-        selected_regions = [value for value in request.GET.getlist("region") if value]
+        # dict.fromkeys de-duplicates while keeping the submitted order.
+        selected_regions = list(
+            dict.fromkeys(value for value in request.GET.getlist("region") if value)
+        )
     else:
         selected_regions = list(EUROPEAN_AZURE_REGIONS)
 
@@ -229,8 +232,18 @@ def retail_price_dashboard(request):
     # price index for one day, never a scan of the full history.
     region_index, index_reference, index_day = [], "", None
     product_names = {product.lower() for _, product in offer_choices}
+    # Currencies come from the sync runs, not the newest day: a day the sync
+    # has only started may not carry every currency yet.
+    synced_currencies = set(
+        RetailPriceSyncRun.objects.filter(
+            provider=provider, status=RetailPriceSyncRun.Status.COMPLETED
+        )
+        .order_by()
+        .values_list("currency", flat=True)
+        .distinct()
+    )
     index_filters_valid = (
-        currency in options["currencies"]
+        currency in synced_currencies
         and (not os_filter or os_filter in options["os"])
         and price_type in PRICE_TYPES
         and purchase_model in PURCHASE_MODELS
@@ -240,12 +253,15 @@ def retail_price_dashboard(request):
         )
     )
     if not active_sku and latest_day and index_filters_valid:
-        # Each region's own latest day: one index-only MAX per region on
-        # (provider, region_code, date).
+        # Each region's own latest day in the requested currency: one MAX per
+        # known region (never per submitted value) on the (provider,
+        # region_code, date) index.
         region_days = {}
         for code in sorted(set(EUROPEAN_AZURE_REGIONS) | options["regions"]):
             day = (
-                RetailPriceSnapshot.objects.filter(provider=provider, region_code=code)
+                RetailPriceSnapshot.objects.filter(
+                    provider=provider, region_code=code, currency=currency
+                )
                 .order_by()
                 .aggregate(value=Max("snapshot_date"))["value"]
             )
@@ -288,7 +304,8 @@ def retail_price_dashboard(request):
                 if region_days
                 else ([], "")
             )
-            cache.set(key, cached, OPTIONS_CACHE_SECONDS)
+            if cached[0]:
+                cache.set(key, cached, OPTIONS_CACHE_SECONDS)
         all_regions_index, index_reference = cached
         region_index = [
             item

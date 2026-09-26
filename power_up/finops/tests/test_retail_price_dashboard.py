@@ -431,6 +431,49 @@ def test_unknown_filters_neither_build_nor_cache_an_index(
 
 
 @pytest.mark.django_db
+def test_region_index_reads_each_region_in_the_requested_currency(client, regular_user):
+    """A newer snapshot in another currency must not hide the EUR one."""
+    from power_up.finops.models import RetailPriceSnapshot
+
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    _sync_region(today, "northeurope", "11.00000000")
+    RetailPriceSnapshot.objects.filter(
+        region_code="northeurope", snapshot_date=today
+    ).update(currency="USD")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"currency": "EUR"})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+    assert index["northeurope"]["snapshot_date"] == yesterday
+
+
+@pytest.mark.django_db
+def test_region_lookups_never_scale_with_submitted_region_values(client, regular_user):
+    """Repeated or invented region values cost no extra queries."""
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as few:
+        client.get("/finops/prices/", {"region": ["westeurope"]})
+    cache.clear()
+    with CaptureQueriesContext(connection) as many:
+        response = client.get(
+            "/finops/prices/",
+            {"region": ["westeurope"] * 300 + [f"fake{i}" for i in range(300)]},
+        )
+
+    assert response.status_code == 200
+    assert len(many.captured_queries) == len(few.captured_queries)
+    assert response.context["selected_regions"][0] == "westeurope"
+    assert response.context["selected_regions"].count("westeurope") == 1
+
+
+@pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
     _sync_two_days("0.10000000", "0.12000000")
