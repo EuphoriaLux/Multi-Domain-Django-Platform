@@ -97,6 +97,14 @@ CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 # environment explicitly opts in.
 CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
 
+# SumUp Tier-2 refund reconciliation — gate for /api/admin/sumup-reconciliation/,
+# driven daily by the SumUpReconciliation Azure Function timer. The sweep never
+# issues a refund; it syncs Django to refunds a human already took in the SumUp
+# dashboard or on a terminal. Default OFF so the deploy is dark. NOT slot-sticky:
+# set it on both slots. Contract:
+# ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
+SUMUP_RECONCILIATION_ENABLED = _env_bool("SUMUP_RECONCILIATION_ENABLED", False)
+
 # Microsoft 365 NDR processing. Default OFF: enabling writes suppressions and
 # requires the app registration to have Mail.Read application permission.
 CRUSH_EMAIL_BOUNCE_PROCESSING_ENABLED = _env_bool(

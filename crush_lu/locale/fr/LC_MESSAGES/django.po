@@ -42371,6 +42371,35 @@ msgstr ""
 "Après votre dernier jour, vous avez 24 heures pour revoir tout le monde — "
 "dont une personne qui, selon nous, vous correspond particulièrement bien"
 
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"Your payment for this event has been refunded to the payment method you "
+"used, so your registration has been cancelled and your seat released."
+msgstr ""
+"Votre paiement pour cet événement a été remboursé sur le moyen de paiement "
+"que vous avez utilisé ; votre inscription a donc été annulée et votre place "
+"libérée."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Your payment for <strong>%(title)s</strong> has been refunded to the payment"
+" method you used."
+msgstr ""
+"Votre paiement pour <strong>%(title)s</strong> a été remboursé sur le moyen "
+"de paiement que vous avez utilisé."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Because of this refund, the %(amount)s EUR in Crush Credit issued when you "
+"cancelled this registration has been withdrawn."
+msgstr ""
+"En raison de ce remboursement, le Crush Credit de %(amount)s EUR émis lors "
+"de l’annulation de votre inscription a été retiré."
+
 #: templates/crush_lu/event_ticket.html
 msgid "QR code for event check-in"
 msgstr "Code QR pour l'enregistrement à l'événement"

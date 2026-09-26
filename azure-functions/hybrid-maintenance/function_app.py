@@ -38,6 +38,14 @@ Environment Variables Required:
     - DJANGO_EVENT_RECAPS_URL: e.g. https://crush.lu/api/admin/event-recaps/
     - DJANGO_EVENT_FEEDBACK_URL: e.g. https://crush.lu/api/admin/event-feedback/
     - DJANGO_ECHO_SYNC_URL: e.g. https://crush.lu/api/admin/echo-sync/
+    - DJANGO_SUMUP_RECONCILIATION_URL: e.g. https://crush.lu/api/admin/sumup-reconciliation/
+      (the one exception to "unset raises": SumUpReconciliation ships dormant,
+      so while this is unset it logs a WARNING and returns. Deliberately NOT in
+      provision.sh / provision.ps1 — set it BY HAND, and only after the slot
+      swap that puts the route on production; set earlier, the timer 404s:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_SUMUP_RECONCILIATION_URL=https://crush.lu/api/admin/sumup-reconciliation/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -58,7 +66,12 @@ import requests
 app = func.FunctionApp()
 
 
-def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None:
+def _call_admin_endpoint(
+    name: str,
+    url_env_var: str,
+    timeout: int = 60,
+    dormant_if_unset: bool = False,
+):
     """Shared body: POST to a Django admin endpoint with bearer auth.
 
     Raises so Azure Functions marks the invocation as Failed on any
@@ -75,6 +88,14 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
     ``HYBRID_MAINTENANCE_ENABLED`` stays a quiet return, because that one is a
     deliberate off-switch rather than a misconfiguration.
 
+    ``dormant_if_unset=True`` is the narrow exception for a timer that ships
+    *before* its URL may be set — a merge here deploys to production at once,
+    while the Django route only reaches production at the next slot swap.
+    Raising in that gap would fail the invocation every day and trip the
+    timer-failure alert for a timer nobody has switched on yet. The skip is
+    logged at WARNING and names the variable, so it is never mistaken for a
+    run. Only for timers whose Django endpoint is itself feature-flagged off.
+
     The URL's own host is sent in the Host header (requests' default).
     DomainURLRoutingMiddleware treats `test.crush.lu` as an alias of
     `crush.lu` (see `azureproject/domains.py`), so both production and
@@ -89,6 +110,14 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
 
     if not enabled:
         logging.info("%s: HYBRID_MAINTENANCE_ENABLED is not true — skipping", name)
+        return
+    if not url and dormant_if_unset:
+        logging.warning(
+            "%s: DORMANT — %s is not set on this Function App, so no request "
+            "was sent and no work was done. Set it to activate this timer.",
+            name,
+            url_env_var,
+        )
         return
     # Enabled but unconfigured is a deployment defect, not a benign skip.
     if not url:
@@ -141,6 +170,9 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
                 )
             else:
                 logging.info("%s: %s body=%s", name, response.status_code, body)
+        # Returned for callers that need to read the body (SumUpReconciliation);
+        # every other timer ignores it. None when a gate above skipped the call.
+        return response
 
     except requests.exceptions.Timeout:
         logging.error("%s: request timed out", name)
@@ -446,3 +478,137 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
         logging.warning("EchoLuSync: timer past due at %s", ts)
     logging.info("EchoLuSync: starting at %s", ts)
     _call_admin_endpoint("EchoLuSync", "DJANGO_ECHO_SYNC_URL", timeout=110)
+
+
+@app.function_name(name="SumUpReconciliation")
+@app.timer_trigger(
+    # Daily at 02:34 UTC. What runs in hour 02 on this app: invites :x0,
+    # campaigns :x2/:x7 (5 min apart, so no minute is 3 clear of both), echo
+    # :05, SLA :15, recaps :25, lead reminders :45 (reminders :35 and feedback
+    # :55 only run 09-20). :34 is 4 after the :30 invites, 3 before the :37
+    # campaign tick and 6 before :40; the :32 campaign tick is capped by its own
+    # 110 s timeout (ends by 02:33:50) and this call by its 110 s timeout too
+    # (ends by 02:35:50), so neither overlaps another trigger. :39 was
+    # rejected: it would run into the :40 invites. Also clear of the finops
+    # app's 03:00 sync and 04:00-06:40 retail-price window.
+    schedule="0 34 2 * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def sumup_reconciliation(timer: func.TimerRequest) -> None:
+    """Sync Django to refunds taken in the SumUp dashboard or on a terminal.
+
+    SumUp sends no webhook for those refunds, so the Django endpoint polls
+    recent PAID payments (30-day window) and reconciles full refunds; partial
+    refunds are counted and left for a human. It never issues a refund.
+
+    Three gates, each logged: HYBRID_MAINTENANCE_ENABLED here (INFO skip),
+    DJANGO_SUMUP_RECONCILIATION_URL here (WARNING "DORMANT" while unset), and
+    SUMUP_RECONCILIATION_ENABLED on the Django side (200 skipped → WARNING
+    "SKIPPED"). A real run answers 202 with checked/reconciled/partial/errors/
+    unchecked counters. Idempotent: only PAID rows are selected and each write
+    re-checks the row under a lock.
+
+    Unlike the other timers, a 202 is not taken as success on its own: the
+    sweep catches every SumUp failure per row, so a total SumUp outage still
+    answers 202. ``errors > 0`` therefore FAILS this invocation, which is what
+    trips the timer-failure alert. ``partial`` and ``unchecked`` need a human
+    but are not failures, so they log at WARNING. Only the counts are logged.
+
+    Contract: ai-memory-hub/policies/sumup-tier2-refund-automation-contract.md
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("SumUpReconciliation: timer past due at %s", ts)
+    logging.info("SumUpReconciliation: starting at %s", ts)
+    # The Django side plans its sweep against a 100 s deadline that reserves
+    # the worst case of its SumUp reads and post-commit emails
+    # (crush_lu/api_admin_sumup.py). That is a plan, not a bound: a SumUp call
+    # slower than its timeouts assume, or a slow wallet tail after a write, can
+    # run past 110 s. The timeout then fails this invocation, which alerts; the
+    # Django view still finishes and stores its cursor.
+    response = _call_admin_endpoint(
+        "SumUpReconciliation",
+        "DJANGO_SUMUP_RECONCILIATION_URL",
+        timeout=110,
+        dormant_if_unset=True,
+    )
+    _check_sumup_reconciliation_counters(response)
+
+
+_SUMUP_FLAG = "SUMUP_RECONCILIATION_ENABLED"
+
+_SUMUP_COUNTERS = (
+    "in_window",
+    "checked",
+    "reconciled",
+    "needs_review",
+    "partial",
+    "errors",
+    "unchecked",
+)
+
+
+def _check_sumup_reconciliation_counters(response) -> None:
+    """Fail the invocation when the sweep reported errors.
+
+    Logs the counters only — never the rest of the body.
+    """
+    if response is None:
+        return  # a gate on this side skipped the call; already logged
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if response.status_code != 202:
+        # The only other success the endpoint sends is its flag-off skip,
+        # exactly {"skipped": true, "reason": "SUMUP_RECONCILIATION_ENABLED is
+        # off"} (crush_lu/api_admin_sumup.py). Other endpoints answer the same
+        # shape for THEIR flag (api_admin_campaigns: CAMPAIGN_DISPATCH_ENABLED),
+        # so the reason must name this one — a URL pointed at the wrong
+        # endpoint must not read as a quiet skip. Anything else (a 204, an HTML
+        # page from a proxy, a changed contract) fails too.
+        if (
+            isinstance(body, dict)
+            and set(body) == {"skipped", "reason"}
+            and body["skipped"] is True
+            and isinstance(body["reason"], str)
+            and _SUMUP_FLAG in body["reason"]
+        ):
+            return
+        raise RuntimeError(
+            f"SumUpReconciliation: unexpected {response.status_code} response "
+            "— neither the 202 counters nor the flag-off skip"
+        )
+    if not isinstance(body, dict) or not all(
+        isinstance(body.get(key), int) for key in _SUMUP_COUNTERS
+    ):
+        raise RuntimeError(
+            "SumUpReconciliation: 202 without the expected counters "
+            f"({', '.join(_SUMUP_COUNTERS)}) — cannot tell whether the sweep ran"
+        )
+    counts = {key: body[key] for key in _SUMUP_COUNTERS}
+    summary = " ".join(f"{key}={value}" for key, value in counts.items())
+    # needs_review is folded into errors on the Django side; both are
+    # checked so the alert fires even if that ever changes.
+    if counts["errors"] > 0 or counts["needs_review"] > 0:
+        logging.error("SumUpReconciliation: sweep reported errors — %s", summary)
+        # No list of what an error can be: the Django side counts several
+        # kinds under one counter — among them a refund that WAS committed
+        # and whose on_commit callback then raised — and the counters cannot
+        # tell them apart. The web app's reconcile_sumup_payments command
+        # logs the cause of each one, naming the payment or checkout.
+        raise RuntimeError(
+            f"SumUpReconciliation: {counts['errors']} row(s) reported as errors, "
+            f"{counts['needs_review']} need manual review (per-row details in "
+            f"the web app's reconcile_sumup_payments log) — {summary}"
+        )
+    if counts["unchecked"] > 0 or counts["partial"] > 0:
+        logging.warning(
+            "SumUpReconciliation: needs attention (unchecked rows wait for a "
+            "later run; partial refunds need a human) — %s",
+            summary,
+        )
+    else:
+        logging.info("SumUpReconciliation: %s", summary)
