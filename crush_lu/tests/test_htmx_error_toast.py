@@ -257,6 +257,14 @@ def test_queued_copy_needs_the_workers_confirmation():
     # fetch consumes the body; a failed replay is requeued by serializing the
     # request again, so the replay must use a clone or the entry is lost.
     assert "await fetch(entry.request.clone())" in sw
+    # A 5xx/429 answer means the server did not process the request: it is
+    # requeued and the drain stops, like a network failure. Drains from any
+    # source share one in-flight promise so entries never replay out of order.
+    assert "return response.status >= 500 || response.status === 429;" in sw
+    drain = sw[sw.index("function drainQueue(queue)") : sw.index("const crushQueue")]
+    assert "if (drainInFlight) return drainInFlight;" in drain
+    assert "if (replayShouldRetry(response))" in drain
+    assert drain.count("await queue.unshiftRequest(entry);") == 2
     assert 'window.addEventListener("online", scheduleDrains)' in handler
     assert 'postMessage({ type: "crush-drain-queue" })' in handler
     # A POST can fail while the browser still says it is online, so the

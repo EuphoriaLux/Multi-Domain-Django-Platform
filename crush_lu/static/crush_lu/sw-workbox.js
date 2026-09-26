@@ -648,26 +648,53 @@ if (workbox) {
     // fallback Workbox uses where the Sync API is missing, and the
     // "crush-drain-queue" message a page sends when it regains connectivity
     // (below) all run this.
-    async function drainQueue(queue) {
-        let entry;
-        while ((entry = await queue.shiftRequest())) {
-            // Discard, don't replay: an entry an earlier worker
-            // queued predates the exclusions above, and shifting it
-            // out without fetching is what actually removes it.
-            if (!isQueueablePost(new URL(entry.request.url).pathname)) {
-                continue;
+    // A response that means "not now": the server never processed the
+    // request, so it goes back to the front of the queue and the drain
+    // stops, like a network failure. A 4xx other than 429 was processed
+    // and refused; replaying it would not change that.
+    function replayShouldRetry(response) {
+        return response.status >= 500 || response.status === 429;
+    }
+
+    // One drain at a time, whatever asked for it (Sync event, worker start,
+    // a page's "crush-drain-queue"): two loops shifting entries concurrently
+    // could replay ordered mutations (two chat messages) in reverse, and a
+    // requeue from the loser would keep them reversed.
+    let drainInFlight = null;
+
+    function drainQueue(queue) {
+        if (drainInFlight) return drainInFlight;
+        drainInFlight = (async () => {
+            let entry;
+            while ((entry = await queue.shiftRequest())) {
+                // Discard, don't replay: an entry an earlier worker
+                // queued predates the exclusions above, and shifting it
+                // out without fetching is what actually removes it.
+                if (!isQueueablePost(new URL(entry.request.url).pathname)) {
+                    continue;
+                }
+                let response;
+                try {
+                    // A clone: fetch consumes the body, and unshiftRequest()
+                    // serializes the request again on failure. Replaying the
+                    // original would make that requeue throw and lose the
+                    // entry (it was already shifted out).
+                    response = await fetch(entry.request.clone());
+                } catch (error) {
+                    await queue.unshiftRequest(entry);
+                    throw error;
+                }
+                if (replayShouldRetry(response)) {
+                    await queue.unshiftRequest(entry);
+                    throw new Error(
+                        `Replay of ${entry.request.url} answered ${response.status}; kept for a later drain`,
+                    );
+                }
             }
-            try {
-                // A clone: fetch consumes the body, and unshiftRequest()
-                // serializes the request again on failure. Replaying the
-                // original would make that requeue throw and lose the
-                // entry (it was already shifted out).
-                await fetch(entry.request.clone());
-            } catch (error) {
-                await queue.unshiftRequest(entry);
-                throw error;
-            }
-        }
+        })().finally(() => {
+            drainInFlight = null;
+        });
+        return drainInFlight;
     }
 
     // Same queue name and store as the BackgroundSyncPlugin this replaces
