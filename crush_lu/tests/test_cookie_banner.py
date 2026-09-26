@@ -587,6 +587,33 @@ class AppInsightsConsentTests(SimpleTestCase):
         self.assertIn("window.__appInsightsPendingEvents.push(event)", html)
         self.assertIn('name: "dashboard_viewed"', html)
 
+    def _render_event(self, cookies):
+        request = RequestFactory().get("/")
+        request.COOKIES.update(cookies)
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            return Template(
+                '{% load analytics %}{% appinsights_event "dashboard_viewed" %}'
+            ).render(
+                Context(
+                    {
+                        "request": request,
+                        "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc",
+                    }
+                )
+            )
+
+    def test_event_during_a_refusal_is_dropped_not_queued(self):
+        """A later opt-in on the same page must not replay what happened while
+        analytics was refused."""
+        self.assertEqual(
+            self._render_event({"cookie_consent_analytics": "decline"}), ""
+        )
+        self.assertIn(
+            "window.__appInsightsPendingEvents.push(event)", self._render_event({})
+        )
+
     def test_consent_placeholder_flushes_queued_events_to_the_sdk(self):
         html = self._render({})
 

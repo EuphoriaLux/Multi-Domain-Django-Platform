@@ -630,6 +630,11 @@ def appinsights_event(context, event_name, **params):
         return ""
 
     request = context.get("request")
+    # An event that happens while analytics is refused is never recorded:
+    # queueing it would replay it if the visitor opts in later on this page.
+    # An undecided or stale choice still queues (see below).
+    if request is not None and stored_cookie_choice(request, "analytics") is False:
+        return ""
     nonce = get_nonce(request) if request else None
     # `is not None`: LazyNonce is falsy until generated — see analytics_head above.
     nonce_attr = f' nonce="{nonce}"' if nonce is not None else ""
