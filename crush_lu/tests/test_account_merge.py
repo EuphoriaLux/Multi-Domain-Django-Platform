@@ -511,6 +511,244 @@ class TestMergeConnections:
         assert conns.first().status == "accepted"  # Keeper's original status preserved
 
 
+def _advent_door(experience, door_number=1):
+    from crush_lu.models import AdventCalendar, AdventDoor, JourneyConfiguration
+
+    journey = JourneyConfiguration.objects.create(
+        special_experience=experience,
+        journey_type="advent_calendar",
+        journey_name="Advent",
+    )
+    calendar = AdventCalendar.objects.create(
+        journey=journey,
+        year=2026,
+        start_date=date(2026, 12, 1),
+        end_date=date(2026, 12, 24),
+    )
+    return AdventDoor.objects.create(calendar=calendar, door_number=door_number)
+
+
+class TestMergeSpecialExperience:
+    """Special journeys are granted by linked_user only (finding 7-02), so
+    the link must follow the keeper or the merge cuts them off."""
+
+    def test_moves_special_experience_and_qr_token_to_keeper(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=duplicate_user
+        )
+        token = QRCodeToken.objects.create(
+            door=_advent_door(experience), user=duplicate_user
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        experience.refresh_from_db()
+        token.refresh_from_db()
+        assert experience.linked_user == keeper_user
+        assert SpecialUserExperience.active_for_user(keeper_user) == experience
+        assert token.user == keeper_user
+        assert f"Moved special experience #{experience.pk} to keeper" in log
+
+    def test_keeps_duplicate_experience_when_keeper_has_one(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import SpecialUserExperience
+
+        keeper_exp = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        duplicate_exp = SpecialUserExperience.objects.create(
+            first_name="Duplicate", last_name="User", linked_user=duplicate_user
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        keeper_exp.refresh_from_db()
+        duplicate_exp.refresh_from_db()
+        assert keeper_exp.linked_user == keeper_user
+        assert duplicate_exp.linked_user == duplicate_user
+        assert any(line.startswith("CONFLICT: keeper already has") for line in log)
+
+    def test_keeps_keepers_valid_qr_token_and_drops_the_duplicates(
+        self, keeper_user, duplicate_user
+    ):
+        """A token redeems only for its own user, so the duplicate's copy
+        would be dead on the deactivated account: it is deleted, not left."""
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        keeper_token = QRCodeToken.objects.create(door=door, user=keeper_user)
+        duplicate_token = QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        assert not QRCodeToken.objects.filter(pk=duplicate_token.pk).exists()
+        assert list(QRCodeToken.objects.filter(door=door)) == [keeper_token]
+        assert any(
+            line.startswith(f"Deleted duplicate's QR token for door #{door.pk}")
+            for line in log
+        )
+
+    def test_replaces_keepers_expired_qr_token_with_duplicates_valid_one(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        expired = QRCodeToken.objects.create(
+            door=door,
+            user=keeper_user,
+            expires_at=timezone.now() - timedelta(days=1),
+        )
+        duplicate_token = QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        assert not QRCodeToken.objects.filter(pk=expired.pk).exists()
+        duplicate_token.refresh_from_db()
+        assert duplicate_token.user == keeper_user
+        assert duplicate_token.is_valid()
+        assert any(
+            line.startswith(f"Replaced keeper's expired QR token for door #{door.pk}")
+            for line in log
+        )
+
+    def test_keeps_keepers_redeemed_qr_token(self, keeper_user, duplicate_user):
+        """An already scanned door stays scanned: the duplicate's fresh token
+        must not reopen it."""
+        from crush_lu.models import QRCodeToken, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        door = _advent_door(experience)
+        redeemed = QRCodeToken.objects.create(
+            door=door, user=keeper_user, is_used=True, used_at=timezone.now()
+        )
+        QRCodeToken.objects.create(door=door, user=duplicate_user)
+
+        merge_accounts(keeper_user, duplicate_user)
+
+        assert list(QRCodeToken.objects.filter(door=door)) == [redeemed]
+
+
+class TestMergeAdventProgress:
+    """The advent views get_or_create the keeper's AdventProgress, so a row
+    left on the deactivated duplicate reads as every door closed again."""
+
+    def _calendar(self, experience):
+        return _advent_door(experience).calendar
+
+    def test_moves_duplicate_progress_when_keeper_has_none(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=duplicate_user
+        )
+        calendar = self._calendar(experience)
+        progress = AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[1, 2, 6],
+            qr_scans=[6],
+            last_door_opened=6,
+            last_opened_at=timezone.now(),
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        progress.refresh_from_db()
+        assert progress.user == keeper_user
+        assert progress.doors_opened == [1, 2, 6]
+        assert progress.qr_scans == [6]
+        assert not AdventProgress.objects.filter(user=duplicate_user).exists()
+        assert f"Moved advent progress for calendar #{calendar.pk} to keeper" in log
+
+    def test_folds_duplicate_progress_into_keepers_row(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        calendar = self._calendar(experience)
+        earlier = timezone.now() - timedelta(days=2)
+        later = timezone.now()
+        keeper_progress = AdventProgress.objects.create(
+            user=keeper_user,
+            calendar=calendar,
+            doors_opened=[1, 2],
+            qr_scans=[],
+            last_door_opened=2,
+            last_opened_at=earlier,
+        )
+        AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[2, 3, 6],
+            qr_scans=[6],
+            last_door_opened=6,
+            last_opened_at=later,
+        )
+
+        log = merge_accounts(keeper_user, duplicate_user)
+
+        keeper_progress.refresh_from_db()
+        assert keeper_progress.doors_opened == [1, 2, 3, 6]
+        assert keeper_progress.qr_scans == [6]
+        assert keeper_progress.last_door_opened == 6
+        assert keeper_progress.last_opened_at == later
+        assert AdventProgress.objects.filter(calendar=calendar).count() == 1
+        assert not AdventProgress.objects.filter(user=duplicate_user).exists()
+        assert any(
+            line.startswith(f"Merged advent progress for calendar #{calendar.pk}")
+            for line in log
+        )
+
+    def test_keeper_keeps_its_own_latest_door_when_newer(
+        self, keeper_user, duplicate_user
+    ):
+        from crush_lu.models import AdventProgress, SpecialUserExperience
+
+        experience = SpecialUserExperience.objects.create(
+            first_name="Keeper", last_name="User", linked_user=keeper_user
+        )
+        calendar = self._calendar(experience)
+        keeper_progress = AdventProgress.objects.create(
+            user=keeper_user,
+            calendar=calendar,
+            doors_opened=[5],
+            last_door_opened=5,
+            last_opened_at=timezone.now(),
+        )
+        AdventProgress.objects.create(
+            user=duplicate_user,
+            calendar=calendar,
+            doors_opened=[1],
+            last_door_opened=1,
+            last_opened_at=timezone.now() - timedelta(days=1),
+        )
+
+        merge_accounts(keeper_user, duplicate_user)
+
+        keeper_progress.refresh_from_db()
+        assert keeper_progress.doors_opened == [1, 5]
+        assert keeper_progress.last_door_opened == 5
+
+
 class TestMergeAtomicity:
     def test_merge_is_atomic(self, keeper_user, duplicate_user):
         """If an error occurs mid-merge, nothing should be committed."""

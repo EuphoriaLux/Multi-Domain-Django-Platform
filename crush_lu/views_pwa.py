@@ -40,11 +40,13 @@ def special_welcome(request):
     # Get special experience data from session
     special_experience_data = request.session.get("special_experience_data", {})
 
-    # Get the full SpecialUserExperience object for complete data
+    # Get the full SpecialUserExperience object for complete data. It must
+    # still be linked to this user: sessions activated by the removed name
+    # match must not keep showing a namesake's experience.
     special_experience_id = request.session.get("special_experience_id")
     try:
         special_experience = SpecialUserExperience.objects.get(
-            id=special_experience_id, is_active=True
+            id=special_experience_id, is_active=True, linked_user=request.user
         )
     except SpecialUserExperience.DoesNotExist:
         # Clear session data if experience is not found or inactive

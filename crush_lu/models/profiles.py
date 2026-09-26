@@ -99,8 +99,11 @@ def user_export_path(instance, filename):
 class SpecialUserExperience(models.Model):
     """
     Admin-configurable special user experience for VIP/special users.
-    When a user with matching first_name and last_name logs in,
-    they receive a personalized, unique Crush.lu experience.
+    The user it is linked to (``linked_user``) receives a personalized,
+    unique Crush.lu experience. first_name/last_name only label the record:
+    matching on them let any namesake open someone else's private journey,
+    so legacy name-only experiences must be linked once with
+    ``manage.py link_special_experiences`` (or by hand in the admin).
     """
 
     first_name = models.CharField(
@@ -203,25 +206,26 @@ class SpecialUserExperience(models.Model):
     def __str__(self):
         return f"Special Experience for {self.first_name} {self.last_name}"
 
-    def matches_user(self, user):
-        """Check if this special experience matches the given user.
+    @classmethod
+    def active_for_user(cls, user):
+        """Return the active experience linked to ``user``, or None.
 
-        Matches if:
-        - linked_user is set and matches the user (direct link from gifts), OR
-        - first_name and last_name match (legacy name-based matching)
+        The single access check for special journeys: only a direct
+        ``linked_user`` link grants access, never a first/last name match.
+        """
+        if user is None or not user.is_authenticated:
+            return None
+        return cls.objects.filter(linked_user=user, is_active=True).first()
+
+    def matches_user(self, user):
+        """Check if this special experience belongs to the given user.
+
+        Only an active experience whose ``linked_user`` is ``user`` matches;
+        first_name/last_name are never used (a namesake must not match).
         """
         if not self.is_active:
             return False
-
-        # Direct link takes priority (used for gifted journeys)
-        if self.linked_user_id and self.linked_user_id == user.id:
-            return True
-
-        # Fallback to name matching (legacy behavior)
-        return (
-            user.first_name.lower() == self.first_name.lower()
-            and user.last_name.lower() == self.last_name.lower()
-        )
+        return bool(self.linked_user_id) and self.linked_user_id == user.id
 
     def trigger(self):
         """Mark this experience as triggered"""

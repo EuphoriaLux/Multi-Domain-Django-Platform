@@ -1332,11 +1332,8 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         """Display journey progress for this user as HTML"""
         user = obj.user
 
-        special_exp = SpecialUserExperience.objects.filter(
-            first_name__iexact=user.first_name,
-            last_name__iexact=user.last_name,
-            is_active=True,
-        ).first()
+        # linked_user only: a name match showed a namesake's journey here
+        special_exp = SpecialUserExperience.active_for_user(user)
 
         if not special_exp:
             return mark_safe(

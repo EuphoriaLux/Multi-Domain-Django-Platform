@@ -14,7 +14,8 @@ Usage:
     # Create with specific year
     python manage.py create_advent_calendar --first-name Marie --last-name Dupont --year 2025
 
-    # Create with QR tokens
+    # Create with QR tokens (issued to the experience's linked user only;
+    # link it in the admin or with link_special_experiences first)
     python manage.py create_advent_calendar --first-name Marie --last-name Dupont --generate-qr
 
     # Customize welcome message
@@ -26,15 +27,16 @@ Usage:
 from datetime import date
 
 from django.core.management.base import BaseCommand, CommandError
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from crush_lu.models import (
-    SpecialUserExperience, JourneyConfiguration,
+    JourneyConfiguration,
     AdventCalendar, AdventDoor, AdventDoorContent, QRCodeToken
 )
 import uuid
-
-User = get_user_model()
+from crush_lu.management.commands._special_experience import (
+    add_experience_id_argument,
+    resolve_experience,
+)
 
 
 # Default door configuration for 24 days
@@ -106,6 +108,7 @@ class Command(BaseCommand):
             required=True,
             help='Last name of the special user'
         )
+        add_experience_id_argument(parser)
         parser.add_argument(
             '--year',
             type=int,
@@ -148,10 +151,14 @@ class Command(BaseCommand):
             f'\nCreating Advent Calendar for {first_name} {last_name} ({year})...\n'
         ))
 
-        # 1. Get or create Special User Experience
-        special_exp, created = SpecialUserExperience.objects.get_or_create(
+        # 1. Get or create Special User Experience. Never a namesake's LINKED
+        # row by name (pass --experience-id to target one on purpose).
+        special_exp, created = resolve_experience(
+            self,
             first_name=first_name,
             last_name=last_name,
+            experience_id=options.get('experience_id'),
+            update_existing=False,
             defaults={
                 'is_active': True,
                 'custom_welcome_title': f'Welcome, {first_name}!',
@@ -168,6 +175,8 @@ class Command(BaseCommand):
             self.stdout.write(f'[+] Created Special User Experience for {first_name}')
         else:
             self.stdout.write(f'[=] Found existing Special User Experience for {first_name}')
+
+        unlinked = self._warn_if_unlinked(special_exp)
 
         # 2. Check for existing advent calendar journey
         existing_journey = JourneyConfiguration.objects.filter(
@@ -242,7 +251,7 @@ class Command(BaseCommand):
 
         # 6. Generate QR tokens if requested
         if generate_qr:
-            self._generate_qr_tokens(calendar, first_name, last_name)
+            self._generate_qr_tokens(calendar, special_exp)
 
         # Summary
         self.stdout.write('\n' + '=' * 50)
@@ -255,13 +264,8 @@ class Command(BaseCommand):
         self.stdout.write(f'QR Bonus Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "bonus")}')
         self.stdout.write('')
         self.stdout.write('Next steps:')
-        self.stdout.write('1. Add personalized content via Django Admin')
-        self.stdout.write('2. Upload photos, audio, video files')
-        self.stdout.write('3. Configure challenge questions')
-        if generate_qr:
-            self.stdout.write('4. Print QR codes for physical gifts')
-        else:
-            self.stdout.write('4. Run with --generate-qr to create QR codes')
+        for number, step in enumerate(self._next_steps(unlinked, generate_qr), 1):
+            self.stdout.write(f'{number}. {step}')
         self.stdout.write('')
 
     def _get_door_color(self, day: int) -> str:
@@ -293,19 +297,55 @@ class Command(BaseCommand):
         }
         return icons.get(content_type, 'bi-star')
 
-    def _generate_qr_tokens(self, calendar, first_name, last_name):
-        """Generate QR tokens for doors that need them."""
-        # Find user by name matching
-        user = User.objects.filter(
-            first_name__iexact=first_name,
-            last_name__iexact=last_name
-        ).first()
+    def _warn_if_unlinked(self, special_exp):
+        """Warn when nobody can open the calendar; return True if so.
+
+        Access is granted by linked_user only, never by name, so this runs
+        on every invocation, not only with --generate-qr.
+        """
+        if special_exp.linked_user_id is not None:
+            return False
+        self.stdout.write(self.style.WARNING(
+            '[!] No user account is linked to the Special User Experience'
+            f' for {special_exp.first_name} {special_exp.last_name}:'
+            " nobody can open this calendar until 'Linked user' is set in"
+            ' the admin (Special User Experience -> Linked account).'
+        ))
+        return True
+
+    def _next_steps(self, unlinked, generate_qr):
+        steps = []
+        if unlinked:
+            steps.append(
+                "Set 'Linked user' on the Special User Experience in the admin"
+                ' - nobody can open the calendar until then'
+            )
+        steps += [
+            'Add personalized content via Django Admin',
+            'Upload photos, audio, video files',
+            'Configure challenge questions',
+            'Print QR codes for physical gifts' if generate_qr
+            else 'Run with --generate-qr to create QR codes',
+        ]
+        return steps
+
+    def _generate_qr_tokens(self, calendar, special_exp):
+        """Generate QR tokens for doors that need them.
+
+        Tokens go to the experience's linked user only. A first/last name
+        lookup could hand the tokens to a namesake.
+        """
+        user = special_exp.linked_user
 
         if not user:
-            self.stdout.write(self.style.WARNING(
-                f'[!] No user found matching {first_name} {last_name}. '
-                f'QR tokens will be created when user registers.'
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "[!] No user account is linked to the Special User Experience"
+                    f" for {special_exp.first_name} {special_exp.last_name}."
+                    " QR tokens were not created: set 'Linked user' in the admin,"
+                    " then add the tokens under QR Code Tokens."
+                )
+            )
             return
 
         # Create tokens for doors with QR requirements
