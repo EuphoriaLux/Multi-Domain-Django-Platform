@@ -52,6 +52,16 @@ private let locationBridgeScript = """
             }
         });
     } catch (e) {}
+    // didCommit resets native state, but a page restored from the
+    // back-forward cache keeps its hook without setting it again.
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted && headingHook !== null) {
+            window.webkit.messageHandlers.crushLocation.postMessage({
+                action: "headingConsumer",
+                enabled: true
+            });
+        }
+    });
 
     var customGeolocation = {
         getCurrentPosition: function (success, error, options) {
@@ -672,6 +682,14 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         case "getCurrentPosition":
             maximumAgeByID[id] = Self.maximumAge(from: body)
             timeoutByID[id] = Self.timeout(from: body)
+            // While the sensors already run, a repeated startUpdatingLocation
+            // produces no new delivery and distanceFilter holds back a still
+            // device: answer from the live stream's last fix when it is fresh.
+            if isUpdatingLocation, let last = lastLocation, isUsable(last), isFresh(last, for: id) {
+                forgetRequest(id)
+                dispatchLocation(last, to: id)
+                return
+            }
             pendingCurrentPositionIDs.insert(id)
             armTimeout(for: id)
             ensureAuthorizationAndStart()
@@ -789,6 +807,8 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         let clErr = error as? CLError
+        // Transient: Core Location keeps trying, and a fix usually follows.
+        if clErr?.code == .locationUnknown { return }
         if clErr?.code == .denied {
             failActiveRequests(code: 1, message: "Location permission denied")
         } else {
@@ -904,7 +924,11 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             // Declined once: do not ask again on every watch restart. Turning
             // Precise Location on in Settings brings us back here through
             // locationManagerDidChangeAuthorization or resumeForActiveApp.
-            guard !declinedFullAccuracy else { return }
+            guard !declinedFullAccuracy else {
+                // A request made after the decline still gets its answer.
+                reportPreciseLocationRequired()
+                return
+            }
             guard !isRequestingFullAccuracy else { return }
             isRequestingFullAccuracy = true
             locationManager.requestTemporaryFullAccuracyAuthorization(
@@ -972,9 +996,15 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         }
     }
 
+    /// Report the failure and end one-shot requests, but keep watches
+    /// registered: cache-play.js never recreates a denied watch, so a kept
+    /// watch is what resumes the hunt once Location is enabled in Settings.
     private func failActiveRequests(code: Int, message: String) {
         dispatchError(code: code, message: message, to: nil)
-        forgetAllRequests()
+        for id in pendingCurrentPositionIDs {
+            forgetRequest(id)
+        }
+        pendingCurrentPositionIDs.removeAll()
         stopLocationServices()
     }
 
@@ -1045,10 +1075,8 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
                 stopLocationServices()
             }
-        } else {
-            // A watch keeps looking and reports again if the next wait also
-            // passes without a fix.
-            armTimeout(for: id)
         }
+        // A watch keeps looking; its next wait starts with its next fix or
+        // sensor start. Re-arming here would loop on a zero or tiny timeout.
     }
 }

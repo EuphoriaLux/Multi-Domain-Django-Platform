@@ -137,9 +137,16 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("maximumAgeByID.removeValue(forKey: id)", bridge)
         forget_all = bridge.split("private func forgetAllRequests() {", 1)[1]
         self.assertIn("maximumAgeByID.removeAll()", forget_all.split("\n    }\n", 1)[0])
-        for caller in ("func stopAll() {", "private func failActiveRequests("):
-            body = bridge.split(caller, 1)[1].split("\n    }\n", 1)[0]
-            self.assertIn("forgetAllRequests()", body, caller)
+        stop_all = bridge.split("func stopAll() {", 1)[1].split("\n    }\n", 1)[0]
+        self.assertIn("forgetAllRequests()", stop_all)
+        # A permission failure ends one-shot requests but keeps watches, so
+        # enabling Location in Settings resumes a watch the page won't recreate.
+        failed = bridge.split("private func failActiveRequests(", 1)[1]
+        failed = failed.split("\n    }\n", 1)[0]
+        self.assertIn("forgetRequest(id)", failed)
+        self.assertIn("pendingCurrentPositionIDs.removeAll()", failed)
+        self.assertNotIn("forgetAllRequests()", failed)
+        self.assertNotIn("activeWatchIDs.removeAll()", failed)
         self.assertIn(
             "return min(max(milliseconds / 1000, minimumMaximumAge), maximumMaximumAge)",
             bridge,
@@ -349,9 +356,11 @@ class IOSNavigationSourceTests(unittest.TestCase):
         start = start.split("\n    }\n", 1)[0]
         callback = start.split("requestTemporaryFullAccuracyAuthorization(", 1)[1]
 
-        self.assertIn("guard !declinedFullAccuracy else { return }", start)
+        self.assertIn("guard !declinedFullAccuracy else {", start)
+        declined = start.split("guard !declinedFullAccuracy else {", 1)[1]
+        self.assertIn("reportPreciseLocationRequired()", declined.split("}", 1)[0])
         self.assertLess(
-            start.index("guard !declinedFullAccuracy else { return }"),
+            start.index("guard !declinedFullAccuracy else {"),
             start.index("requestTemporaryFullAccuracyAuthorization("),
         )
         self.assertIn("self.declinedFullAccuracy = true", callback)
