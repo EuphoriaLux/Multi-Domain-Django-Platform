@@ -620,6 +620,12 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             detail: consent
         });
         document.dispatchEvent(event);
+        // The Facebook Pixel, once loaded (the analytics_body placeholder
+        // loads it on a grant), keeps tracking on this page until told
+        // otherwise: a withdrawn marketing choice revokes it right away.
+        if (typeof window.fbq === 'function') {
+            window.fbq('consent', consent.marketing ? 'grant' : 'revoke');
+        }
     }
 
     // Update Google Consent Mode v2
@@ -674,12 +680,31 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         updateGoogleConsent(consent);
     }
 
+    // The stored choice as {analytics, marketing}. Two formats share the
+    // cookie: this banner's JSON object, and django-cookie-consent's own
+    // "group=version|group=version" string written by its /cookies/ views,
+    // where a declined group stores "-1". Anything else (no cookie, a legacy
+    // value) is no stored choice.
+    function storedConsent() {
+        const consent = getCookie(COOKIE_NAME);
+        if (consent && typeof consent === 'object') return consent;
+        if (typeof consent === 'string' && consent.indexOf('=') !== -1) {
+            const stored = {};
+            consent.split('|').forEach(function(pair) {
+                const parts = pair.split('=');
+                if (parts.length !== 2) return;
+                stored[parts[0]] = parts[1] !== '-1' && parts[1] !== '';
+            });
+            return stored;
+        }
+        return {};
+    }
+
     // Optional categories start unchecked (no pre-ticked boxes under GDPR/ePrivacy).
     // When a choice is already stored, show that choice instead; anything that is
-    // not a stored consent object (no cookie, legacy string value) leaves them off.
+    // not a stored choice (no cookie, legacy string value) leaves them off.
     function reflectStoredConsent() {
-        const consent = getCookie(COOKIE_NAME);
-        const stored = (consent && typeof consent === 'object') ? consent : {};
+        const stored = storedConsent();
         const analytics = document.getElementById('cookie-analytics');
         const marketing = document.getElementById('cookie-marketing');
         if (analytics) analytics.checked = stored.analytics === true;

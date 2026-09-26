@@ -238,6 +238,21 @@ class CookieBannerRenderTests(SimpleTestCase):
         for selector in outlined:
             self.assertIn("border-color: var(--crush-purple);", crush.get(selector, []))
 
+    def test_native_cookie_consent_format_is_reflected(self):
+        """The library's /cookies/ views store "group=version|...", not this
+        banner's JSON; the modal must read both, or it shows an accepted
+        choice as declined and a save overwrites it."""
+        html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        self.assertIn("function storedConsent()", html)
+        self.assertIn("consent.split('|')", html)
+        self.assertIn("parts[1] !== '-1'", html)
+
+    def test_withdrawn_marketing_revokes_the_pixel(self):
+        html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        self.assertIn(
+            "window.fbq('consent', consent.marketing ? 'grant' : 'revoke')", html
+        )
+
     def test_settings_modal_reflects_stored_consent(self):
         script = render_to_string(BANNER_TEMPLATE, {})
         show = [
@@ -248,9 +263,13 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertEqual(show[0], "reflectStoredConsent();")
         self.assertIn("style.display = 'flex'", show[1])
         reflect = _js_function_body(script, "reflectStoredConsent")
-        self.assertIn("getCookie(COOKIE_NAME)", reflect)
-        # Only a stored JSON object counts; anything else leaves both off.
-        self.assertIn("typeof consent === 'object'", reflect)
+        self.assertIn("storedConsent()", reflect)
+        stored = _js_function_body(script, "storedConsent")
+        self.assertIn("getCookie(COOKIE_NAME)", stored)
+        # A stored JSON object or the library's own "group=version|..." string
+        # counts; anything else leaves both off.
+        self.assertIn("typeof consent === 'object'", stored)
+        self.assertIn("consent.split('|')", stored)
         self.assertIn("analytics.checked = stored.analytics === true;", reflect)
         self.assertIn("marketing.checked = stored.marketing === true;", reflect)
 
@@ -328,6 +347,9 @@ class CookieSettingsTriggerTests(TestCase):
         ('{"essential":true,"analytics":true,"marketing":false}', [True, False]),
         ('{"essential":true,"analytics":false,"marketing":true}', [False, True]),
         ("accepted", [False, False]),  # legacy non-JSON value
+        # django-cookie-consent's own format (its /cookies/ views): declined = -1
+        ("analytics=2026-01-01T00:00:00|marketing=-1", [True, False]),
+        ("analytics=-1|marketing=2026-01-01T00:00:00", [False, True]),
     ],
 )
 def test_settings_modal_shows_stored_choice_in_browser(page, stored, expected):
@@ -361,3 +383,50 @@ def test_settings_modal_shows_stored_choice_in_browser(page, stored, expected):
         "document.getElementById('cookie-marketing').checked]"
     )
     assert checked == expected
+
+
+@pytest.mark.playwright
+def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
+    """A visitor who had accepted marketing (so the Pixel is loaded) unticks it
+    in the reopened settings: the Pixel must be told to stop on this page, not
+    only at the next navigation."""
+    html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+    url = "http://crush.test/"
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
+        ),
+    )
+    # The library's own endpoints the banner also posts to.
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent",
+                "value": '{"essential":true,"analytics":true,"marketing":true}',
+                "url": url,
+            }
+        ]
+    )
+    page.add_init_script(
+        "window.__fbqCalls = [];"
+        "window.fbq = function () { window.__fbqCalls.push([].slice.call(arguments)); };"
+    )
+    page.goto(url)
+    page.click("#open-cookie-settings")
+    assert page.is_checked("#cookie-marketing")
+    # The input is visually hidden behind the styled slider: toggle it the
+    # way a member does, through its label.
+    page.click("label.cookie-toggle:has(#cookie-marketing)")
+    assert not page.is_checked("#cookie-marketing")
+    page.click("#cookie-btn-save")
+
+    # On load the stored acceptance is re-dispatched (a grant); the save must
+    # end with the revoke.
+    consent_calls = [c for c in page.evaluate("window.__fbqCalls") if c[0] == "consent"]
+    assert consent_calls and consent_calls[-1] == ["consent", "revoke"]
