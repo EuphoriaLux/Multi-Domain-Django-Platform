@@ -7,12 +7,13 @@ hardcodes English:
   data-server        htmx:responseError (a 4xx/5xx the page does not swap)
   data-rate-limited  a 429 responseError (@ratelimit answers a bare 429; its
                      Django message would only show on a full page load)
-  data-queued        a sendError on a POST the service worker confirmed it
-                     queued for background sync: it replays once online, so no
-                     "try again"
-  data-interrupted   the same, but the controlling worker predates the
-                     acknowledgement protocol (v32): it queues silently, so
-                     neither "try again" nor a replay promise
+  data-queued        a sendError on an event registration or connection
+                     message POST the service worker confirmed it queued for
+                     background sync: it replays once online, so no "try again"
+  data-interrupted   any other confirmed-queued POST (the copy above would not
+                     name the action), and any queueable POST under a worker
+                     that predates the acknowledgement protocol (v32): it
+                     queues silently, so neither "try again" nor a promise
 To keep an element (or a whole subtree) from raising the toast, put
 data-htmx-error-toast="off" on it or an ancestor; the script still resets its
 Alpine isSubmitting state. See the script header for the full contract.

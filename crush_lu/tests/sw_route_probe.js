@@ -106,6 +106,13 @@ const workbox = {
         BackgroundSyncPlugin: function (queueName, options) {
             backgroundSync = { queueName, options: options || {} };
         },
+        // The worker holds the Queue itself (so a page can ask for a drain);
+        // its onSync is the same replay loop, probed the same way.
+        Queue: function (queueName, options) {
+            backgroundSync = { queueName, options: options || {} };
+            this.pushRequest = async () => {};
+            this.replayRequests = async () => {};
+        },
     }),
     recipes: lenientNamespace(),
     rangeRequests: lenientNamespace(),

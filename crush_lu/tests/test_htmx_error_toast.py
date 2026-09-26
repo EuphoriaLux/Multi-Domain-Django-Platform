@@ -254,8 +254,18 @@ def test_queued_copy_needs_the_workers_confirmation():
     assert 'new workbox.backgroundSync.Queue("crush-queue"' in sw
     assert "BackgroundSyncPlugin(" not in sw
     assert 'data.type === "crush-drain-queue"' in sw and "drainQueue(crushQueue)" in sw
-    assert 'window.addEventListener("online"' in handler
+    assert 'window.addEventListener("online", scheduleDrains)' in handler
     assert 'postMessage({ type: "crush-drain-queue" })' in handler
+    # A POST can fail while the browser still says it is online, so the
+    # drain is also requested on a retry schedule after every ack.
+    assert "var DRAIN_RETRY_MS = [" in handler
+    ack_handler = handler[handler.index('data.type === "crush-queued"') :]
+    assert "scheduleDrains();" in ack_handler[: ack_handler.index("} else if")]
+    # Only the registration and message POSTs get the copy that names them;
+    # every other queued action gets the action-neutral copy.
+    assert "copy = queuedCopyFor(url);" in on_failure
+    assert "/\\/events\\/\\d+\\/register\\/$/" in handler
+    assert "/\\/connections\\/\\d+\\/$/" in handler
     # Forms without isSubmitting/hx-disabled-elt: the submit control is held
     # from beforeRequest until success or until finish() classifies the
     # failure, so a second click cannot queue a duplicate POST.

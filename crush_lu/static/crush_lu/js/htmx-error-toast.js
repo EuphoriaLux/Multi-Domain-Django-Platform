@@ -14,10 +14,13 @@
  * the form follows the isSubmitting convention or sets hx-disabled-elt: a
  * second click during the request or during the queue-ack wait would store
  * a second non-idempotent POST for replay (chat message, registration).
- * And when the page comes back online it asks the worker to drain the
- * background-sync queue ({type: "crush-drain-queue"}), so a queued request
- * replays even where the Background Sync API is missing or its
- * registration failed.
+ * And it asks the worker to drain the background-sync queue
+ * ({type: "crush-drain-queue"}) when the page comes back online AND, after
+ * every queue acknowledgement, on a short retry schedule while the page
+ * lives (DRAIN_RETRY_MS): a POST can fail while the browser still reports
+ * itself online (server or DNS outage), so an "online" event alone would
+ * leave the request waiting for the next worker start where the
+ * Background Sync API is missing or its registration failed.
  *
  * On htmx:responseError, htmx:sendError and htmx:timeout this:
  *   1. resets the Alpine submit flag(s) in SUBMIT_FLAGS on the component
@@ -35,8 +38,13 @@
  *        decorators answer a bare 429 and queue "Too many attempts" as a
  *        Django message that only a full page load would show, so the toast
  *        says it now instead of inviting retries that stay blocked;
- *      - "queued" copy for a sendError on a POST the service worker has
- *        confirmed it stored for background sync (sw-workbox.js posts a
+ *      - "queued" copy (event registrations and messages will sync once
+ *        online) for a sendError on the event registration or connection
+ *        message POST the service worker has confirmed it stored for
+ *        background sync; every other confirmed POST (sparks, connection
+ *        requests, cache answers, coach actions...) gets the action-neutral
+ *        "interrupted" copy instead, since the specific wording would not
+ *        name what the member just did (sw-workbox.js posts a
  *        {type: "crush-queued", requestId, url} message to the ONE client
  *        that issued the fetch right after the queue write succeeds; the
  *        page waits QUEUE_ACK_WAIT_MS for it, and keeps the form's
@@ -218,6 +226,7 @@
             if (!data) return;
             if (data.type === "crush-queued" && (data.requestId || data.url)) {
                 queuedAcks[data.requestId || data.url] = Date.now();
+                scheduleDrains();
             } else if (data.type === "crush-capabilities") {
                 workerQueuedAck = data.queuedAck === true;
             }
@@ -231,17 +240,9 @@
         askWorkerCapabilities();
         // Background Sync is not everywhere (and its registration can fail);
         // the worker's own fallback only drains on worker start. Ask for a
-        // drain whenever this page regains connectivity.
-        window.addEventListener("online", function () {
-            var sw = navigator.serviceWorker;
-            if (sw && sw.controller) {
-                try {
-                    sw.controller.postMessage({ type: "crush-drain-queue" });
-                } catch (e) {
-                    // no worker to ask
-                }
-            }
-        });
+        // drain whenever this page regains connectivity (the retry schedule
+        // above covers failures the browser never reported as offline).
+        window.addEventListener("online", scheduleDrains);
     }
 
     // The absolute URL of a failed request the worker may have queued, or
@@ -266,6 +267,55 @@
             if (url.pathname.indexOf(QUEUE_EXCLUDED_PREFIXES[i]) === 0) return null;
         }
         return url.href;
+    }
+
+    // Confirmed-queued POSTs whose replay the "queued" copy describes by
+    // name (event registrations and messages); anything else queued gets
+    // the action-neutral "interrupted" copy.
+    var QUEUED_COPY_ROUTES = [/\/events\/\d+\/register\/$/, /\/connections\/\d+\/$/];
+
+    function queuedCopyFor(url) {
+        var path;
+        try {
+            path = new URL(url).pathname;
+        } catch (e) {
+            return "interrupted";
+        }
+        for (var i = 0; i < QUEUED_COPY_ROUTES.length; i++) {
+            if (QUEUED_COPY_ROUTES[i].test(path)) return "queued";
+        }
+        return "interrupted";
+    }
+
+    // Drain requests after an acknowledgement: right away (the browser may
+    // still say it is online during a server outage, so no "online" event
+    // is coming), then with growing gaps. One chain per page, restarted by
+    // each new acknowledgement.
+    var DRAIN_RETRY_MS = [3000, 15000, 60000, 300000];
+    var drainTimer = null;
+
+    function requestDrain() {
+        var sw = navigator.serviceWorker;
+        if (!sw || !sw.controller) return;
+        try {
+            sw.controller.postMessage({ type: "crush-drain-queue" });
+        } catch (e) {
+            // no worker to ask
+        }
+    }
+
+    function scheduleDrains() {
+        if (drainTimer) clearTimeout(drainTimer);
+        var step = 0;
+        var tick = function () {
+            drainTimer = null;
+            if (navigator.onLine !== false) requestDrain();
+            if (step < DRAIN_RETRY_MS.length) {
+                drainTimer = setTimeout(tick, DRAIN_RETRY_MS[step]);
+                step += 1;
+            }
+        };
+        drainTimer = setTimeout(tick, 0);
     }
 
     function requestIdOf(detail) {
@@ -413,7 +463,7 @@
             setTimeout(function () {
                 var copy = "network";
                 if (ackedRecently(key, since)) {
-                    copy = "queued";
+                    copy = queuedCopyFor(url);
                 } else if (workerQueuedAck !== true) {
                     copy = "interrupted";
                 }

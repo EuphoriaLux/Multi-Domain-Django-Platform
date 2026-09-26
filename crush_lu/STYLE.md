@@ -335,12 +335,14 @@ it shows one translated toast (copy rendered by
 keyboard focus back to the submit button if disabling it dropped focus.
 The copy depends on the failure: a 429 says "Too many attempts" (the
 `@ratelimit` decorators' own message only shows on a full page load), a
-network failure on a POST the service worker confirmed it queued for
-background sync says it will sync once online (no "try again": a second
-submit would queue a duplicate); the same failure under a worker that
-predates that confirmation says "Connection interrupted. Retrying…"
+network failure on an event registration or connection message POST the
+service worker confirmed it queued for background sync says it will sync
+once online (no "try again": a second submit would queue a duplicate);
+any other confirmed-queued POST, and any queueable POST under a worker
+that predates that confirmation, says "Connection interrupted. Retrying…"
 (neither promise nor retry prompt); everything else gets the generic
-server or network copy.
+server or network copy. After a confirmation the page asks the worker to
+drain the queue on a retry schedule, not only on the `online` event.
 An identical toast that is still on screen is not stacked again. So:
 
 - Name your "submit in flight" flag `isSubmitting` and bind the button's
