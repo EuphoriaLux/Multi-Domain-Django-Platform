@@ -641,6 +641,8 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     /// True while the page has installed its compass hook.
     private var hasHeadingConsumer = false
     private var isUpdatingLocation = false
+    /// The user declined the temporary precise-location prompt on this page.
+    private var declinedFullAccuracy = false
     private var lastLocation: CLLocation?
     private var isRequestingFullAccuracy = false
     private var isAppActive = true
@@ -698,8 +700,10 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
 
     func stopAll() {
         forgetAllRequests()
-        // The next document installs its own compass hook if it has one.
+        // The next document installs its own compass hook if it has one, and
+        // may ask for precise location again.
         hasHeadingConsumer = false
+        declinedFullAccuracy = false
         lastLocation = nil
         stopLocationServices()
     }
@@ -897,6 +901,10 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
 
     private func startWithAppropriateAccuracy() {
         if #available(iOS 14.0, *), locationManager.accuracyAuthorization == .reducedAccuracy {
+            // Declined once: do not ask again on every watch restart. Turning
+            // Precise Location on in Settings brings us back here through
+            // locationManagerDidChangeAuthorization or resumeForActiveApp.
+            guard !declinedFullAccuracy else { return }
             guard !isRequestingFullAccuracy else { return }
             isRequestingFullAccuracy = true
             locationManager.requestTemporaryFullAccuracyAuthorization(
@@ -912,10 +920,8 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
                     // visible. Do not restart sensors for a canceled watch.
                     guard !self.activeWatchIDs.isEmpty || !self.pendingCurrentPositionIDs.isEmpty else { return }
                     guard self.locationManager.accuracyAuthorization == .fullAccuracy else {
-                        self.failActiveRequests(
-                            code: 1,
-                            message: "Precise location is required for Cache navigation. Enable Precise Location in Settings and try again."
-                        )
+                        self.declinedFullAccuracy = true
+                        self.reportPreciseLocationRequired()
                         return
                     }
                     self.startLocationServices()
@@ -923,7 +929,25 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             }
             return
         }
+        declinedFullAccuracy = false
         startLocationServices()
+    }
+
+    /// Tell the page precise location is required and end its one-shot
+    /// requests, but keep its watches registered. The page stops recreating a
+    /// denied watch, so dropping it would strand the hunt until a reload; kept,
+    /// the watch receives the first fix once Precise Location is turned on,
+    /// and the page's success handler clears its denied state.
+    private func reportPreciseLocationRequired() {
+        dispatchError(
+            code: 1,
+            message: "Precise location is required for Cache navigation. Enable Precise Location in Settings and try again.",
+            to: nil
+        )
+        for id in pendingCurrentPositionIDs {
+            forgetRequest(id)
+        }
+        pendingCurrentPositionIDs.removeAll()
     }
 
     private func startLocationServices() {

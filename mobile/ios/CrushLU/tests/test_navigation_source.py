@@ -334,6 +334,40 @@ class IOSNavigationSourceTests(unittest.TestCase):
         )
         self.assertIsNone(re.search(r"\bauthorization\s*==", callback))
 
+    def test_precise_location_decline_keeps_the_watch_retryable(self):
+        """Declining precise location must not strand the hunt.
+
+        cache-play.js marks code 1 as denied and never recreates a denied
+        watch, so native keeps the watch registered (only one-shot requests
+        end) and does not re-prompt on every restart. Turning Precise Location
+        on reaches startWithAppropriateAccuracy again through
+        locationManagerDidChangeAuthorization or resumeForActiveApp, and the
+        first fix clears the page's denied state.
+        """
+        web_view = _source("CrushWebView.swift")
+        start = web_view.split("private func startWithAppropriateAccuracy() {", 1)[1]
+        start = start.split("\n    }\n", 1)[0]
+        callback = start.split("requestTemporaryFullAccuracyAuthorization(", 1)[1]
+
+        self.assertIn("guard !declinedFullAccuracy else { return }", start)
+        self.assertLess(
+            start.index("guard !declinedFullAccuracy else { return }"),
+            start.index("requestTemporaryFullAccuracyAuthorization("),
+        )
+        self.assertIn("self.declinedFullAccuracy = true", callback)
+        self.assertIn("self.reportPreciseLocationRequired()", callback)
+        self.assertNotIn("failActiveRequests", callback)
+
+        report = web_view.split("private func reportPreciseLocationRequired() {", 1)[1]
+        report = report.split("\n    }\n", 1)[0]
+        self.assertIn("code: 1,", report)
+        self.assertIn("pendingCurrentPositionIDs.removeAll()", report)
+        self.assertNotIn("activeWatchIDs.removeAll()", report)
+        self.assertNotIn("forgetAllRequests()", report)
+
+        stop_all = web_view.split("func stopAll() {", 1)[1].split("\n    }\n", 1)[0]
+        self.assertIn("declinedFullAccuracy = false", stop_all)
+
     def test_trusted_origin_accepts_webkits_default_port_zero(self):
         """WKSecurityOrigin reports port 0 for an origin on its default port.
 
