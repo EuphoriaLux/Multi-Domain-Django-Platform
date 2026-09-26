@@ -1645,6 +1645,145 @@ class SumUpReconciliationEndpointTests(TestCase):
         warning = next(m for m in logs.output if "still pending" in m)
         self.assertIn("1550 cents of unspent Crush Credit were voided", warning)
 
+    def test_credit_consumed_on_another_seat_is_flagged_not_silently_reconciled(
+        self,
+    ):
+        """Codex thread B: a credit sourced from this payment already funded a
+        DIFFERENT seat and was fully spent (CONSUMED) before the external
+        refund landed. The credit query used to filter ``status=ACTIVE``,
+        which makes a CONSUMED credit invisible — so the sweep reported a
+        clean reconcile while the member kept both the cash refund on this
+        payment AND the seat that redemption paid for."""
+        other_user = User.objects.create_user(
+            username="t2_credit_spender",
+            email="t2_credit_spender@test.crush.lu",
+            password="x" * 12,
+        )
+        other_registration = EventRegistration.objects.create(
+            event=self.event, user=other_user, status="confirmed"
+        )
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.CONSUMED,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        CreditRedemption.objects.create(
+            credit=credit,
+            event_registration=other_registration,
+            amount_cents=1550,
+        )
+
+        with self.assertLogs(CMD, level=logging.WARNING) as logs:
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 1))
+        self.payment.refresh_from_db()
+        other_registration.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        # Untouched: staff decide what happens to the seat it paid for, not
+        # the sweep.
+        self.assertEqual(other_registration.status, "confirmed")
+        # CONSUMED is not ACTIVE, so void_credit correctly leaves it alone —
+        # there is nothing left on it to void.
+        self.assertEqual(credit.status, CrushCredit.Status.CONSUMED)
+        warning = next(m for m in logs.output if "already redeemed" in m)
+        self.assertIn(f"payment {self.payment.pk}", warning)
+        self.assertIn(f"credit {credit.pk}", warning)
+        self.assertIn(f"registration {other_registration.pk}", warning)
+        self.assertNotIn(self.payment.transaction_reference, warning)
+        self.assertNotIn(self.user.email, warning)
+
+        # Flagged once: the payment is REFUNDED now, so no later run selects it.
+        again, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+        self.assertEqual((again["checked"], again["needs_review"]), (0, 0))
+
+    def test_partially_spent_active_credit_now_also_flags_for_review(self):
+        """The ACTIVE-and-partially-redeemed case was already voided before
+        this fix, but only ``logger.warning``d — never counted as
+        ``needs_review``, so it read as a clean reconcile in the counters
+        the timer alerts on."""
+        other_user = User.objects.create_user(
+            username="t2_partial_spender",
+            email="t2_partial_spender@test.crush.lu",
+            password="x" * 12,
+        )
+        other_registration = EventRegistration.objects.create(
+            event=self.event, user=other_user, status="confirmed"
+        )
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        CreditRedemption.objects.create(
+            credit=credit,
+            event_registration=other_registration,
+            amount_cents=800,
+        )
+
+        body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 1))
+        credit.refresh_from_db()
+        # The still-voidable remainder is voided exactly as before this fix.
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+
+    # -- cash-refunded cancellation must not create a resale obligation ----
+    # Codex thread D (crush_lu/signals.py ~3835): money already given back
+    # outside Django must not leave a dangling resale claim that can never
+    # settle and can later outrank the promoted member's own paid-seat claim.
+
+    def test_cash_refunded_cancellation_creates_no_resale_claim(self):
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            date_time=timezone.now() + timedelta(hours=30)  # inside 48h: late
+        )
+        waiter = self._waitlisted_member()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            body, _ = self._run_by_id({"chk_t2_1": FULL_REFUND})
+
+        self.assertEqual(body["reconciled"], 1)
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.registration.status, "cancelled")
+        promoted = EventRegistration.objects.get(pk=waiter.pk)
+        # Promoted onto a paid event with no payment of their own yet.
+        self.assertEqual(promoted.status, "pending")
+        self.assertIsNone(promoted.resale_source_registration_id)
+        self.assertIsNone(promoted.resale_source_payment_id)
+        self.assertIsNone(promoted.resale_beneficiary_id)
+
+    def test_admin_cancellation_of_a_paid_seat_still_creates_a_resale_claim(
+        self,
+    ):
+        """Control: an ordinary late cancellation NOT driven by
+        reconcile_sumup_payments — an admin, a coach, or the shell setting
+        ``status='cancelled'`` directly, the same path this signal serves —
+        must still carry the resale obligation for whoever is promoted."""
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            date_time=timezone.now() + timedelta(hours=30)  # inside 48h: late
+        )
+        waiter = self._waitlisted_member()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.registration.status = "cancelled"
+            self.registration.save()
+
+        promoted = EventRegistration.objects.get(pk=waiter.pk)
+        self.assertEqual(promoted.resale_source_registration_id, self.registration.pk)
+        self.assertEqual(promoted.resale_source_payment_id, self.payment.pk)
+        self.assertEqual(promoted.resale_beneficiary_id, self.user.pk)
+
     def test_held_pending_seat_spends_the_write_allowance(self):
         """It is a write: the endpoint's one-write limit stops the run there."""
         self._stale_price_pending_seat()
