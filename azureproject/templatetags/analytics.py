@@ -390,6 +390,9 @@ def analytics_body(context):
     # send its PageView before the banner's script could revoke anything: a
     # refusal recorded since then skips it. (The <noscript> image needs no
     # such check: without script there is no service worker serving copies.)
+    # A skipped copy registers no placeholder listener, so accepting again on
+    # that copy loads nothing until the next freshly rendered page: deliberate,
+    # under-tracking is the safe direction.
     marketing_declined = _declined_in_browser_js("marketing")
     script = f"""<!-- Facebook Pixel -->
 <script{nonce_attr}>
@@ -582,6 +585,9 @@ def appinsights_head(context):
     # refusal recorded since then skips it. No preconnect hint: it is HTML,
     # which no script can hold back, and it opens a connection to Microsoft
     # by itself; the snippet adds its script tag right away (setTimeout 0).
+    # A skipped copy registers no placeholder listener, so accepting again on
+    # that copy starts nothing until the next freshly rendered page:
+    # deliberate, under-tracking is the safe direction.
     analytics_declined = _declined_in_browser_js("analytics")
     script = f"""<!-- Azure Application Insights Browser SDK v3 -->
 <script type="text/javascript"{nonce_attr}>
