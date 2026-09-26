@@ -229,6 +229,10 @@
                 scheduleDrains();
             } else if (data.type === "crush-capabilities") {
                 workerQueuedAck = data.queuedAck === true;
+                // Entries an earlier page left behind still need a drain.
+                drainReported(data.queued);
+            } else if (data.type === "crush-drained") {
+                drainReported(data.remaining);
             }
         });
         // A new worker taking over mid-page (pwa-update.js "Update Now")
@@ -287,12 +291,16 @@
         return "interrupted";
     }
 
-    // Drain requests after an acknowledgement: right away (the browser may
-    // still say it is online during a server outage, so no "online" event
-    // is coming), then with growing gaps. One chain per page, restarted by
-    // each new acknowledgement.
+    // Drain requests while the worker reports queued work: right away (the
+    // browser may still say it is online during a server outage, so no
+    // "online" event is coming), then with growing gaps, capped at the last
+    // value and repeated until the worker answers {type: "crush-drained",
+    // remaining: 0}. One chain per page, restarted by each acknowledgement,
+    // by an "online" event, and by a capability answer that reports leftover
+    // entries from an earlier page.
     var DRAIN_RETRY_MS = [3000, 15000, 60000, 300000];
     var drainTimer = null;
+    var drainPending = false;
 
     function requestDrain() {
         var sw = navigator.serviceWorker;
@@ -306,16 +314,27 @@
 
     function scheduleDrains() {
         if (drainTimer) clearTimeout(drainTimer);
+        drainPending = true;
         var step = 0;
         var tick = function () {
             drainTimer = null;
+            if (!drainPending) return; // the worker reported an empty queue
             if (navigator.onLine !== false) requestDrain();
-            if (step < DRAIN_RETRY_MS.length) {
-                drainTimer = setTimeout(tick, DRAIN_RETRY_MS[step]);
-                step += 1;
-            }
+            var delay = DRAIN_RETRY_MS[Math.min(step, DRAIN_RETRY_MS.length - 1)];
+            step += 1;
+            drainTimer = setTimeout(tick, delay);
         };
         drainTimer = setTimeout(tick, 0);
+    }
+
+    function drainReported(remaining) {
+        if (remaining === 0) {
+            drainPending = false;
+            if (drainTimer) clearTimeout(drainTimer);
+            drainTimer = null;
+        } else if (typeof remaining === "number" && remaining > 0 && !drainPending) {
+            scheduleDrains();
+        }
     }
 
     function requestIdOf(detail) {

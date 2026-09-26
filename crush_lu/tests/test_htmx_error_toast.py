@@ -270,6 +270,13 @@ def test_queued_copy_needs_the_workers_confirmation():
     # A POST can fail while the browser still says it is online, so the
     # drain is also requested on a retry schedule after every ack.
     assert "var DRAIN_RETRY_MS = [" in handler
+    # The schedule is open-ended (capped backoff) until the worker reports an
+    # empty queue, and a capability answer with leftover entries starts it.
+    assert "DRAIN_RETRY_MS[Math.min(step, DRAIN_RETRY_MS.length - 1)]" in handler
+    assert 'data.type === "crush-drained"' in handler
+    assert "drainReported(data.queued)" in handler
+    assert 'postMessage({ type: "crush-drained", remaining })' in sw
+    assert "queued = await crushQueue.size();" in sw
     ack_handler = handler[handler.index('data.type === "crush-queued"') :]
     assert "scheduleDrains();" in ack_handler[: ack_handler.index("} else if")]
     # Only the registration and message POSTs get the copy that names them;
@@ -284,7 +291,10 @@ def test_queued_copy_needs_the_workers_confirmation():
     assert "holdSubmitters(detail.elt || evt.target)" in handler
     assert "if (detail.successful) releaseHeld(detail.elt || evt.target)" in handler
     assert "releaseHeld(elt)" in finish
-    assert 'postMessage({ type: "crush-capabilities", queuedAck: true })' in sw
+    capabilities = sw[sw.index('data.type === "crush-capabilities?"') :]
+    capabilities = capabilities[: capabilities.index('"crush-drain-queue"')]
+    assert 'type: "crush-capabilities",' in capabilities
+    assert "queuedAck: true," in capabilities
     assert 'postMessage({ type: "crush-capabilities?" })' in handler
     assert 'addEventListener(\n            "controllerchange"' in handler or (
         '"controllerchange"' in handler

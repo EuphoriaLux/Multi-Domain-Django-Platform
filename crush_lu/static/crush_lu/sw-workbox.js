@@ -910,13 +910,46 @@ if (workbox) {
         // controlled by an older worker gets no answer and knows not to read
         // a missing acknowledgement as "the request was not queued".
         if (event.data && event.data.type === "crush-capabilities?" && event.source) {
-            event.source.postMessage({ type: "crush-capabilities", queuedAck: true });
+            event.waitUntil(
+                (async () => {
+                    let queued = null;
+                    try {
+                        queued = await crushQueue.size();
+                    } catch (error) {
+                        // unknown: the page keeps its own schedule
+                    }
+                    event.source.postMessage({
+                        type: "crush-capabilities",
+                        queuedAck: true,
+                        queued,
+                    });
+                })(),
+            );
         }
-        // A page regained connectivity: replay now rather than waiting for a
-        // Sync event that may never come (no Sync API, registration failed)
-        // or for the next worker start.
+        // A page asked for a replay (it regained connectivity, or a queue
+        // acknowledgement started its retry schedule) rather than waiting
+        // for a Sync event that may never come (no Sync API, registration
+        // failed) or for the next worker start. Answer with what is left so
+        // the page keeps retrying until the queue is empty.
         if (event.data && event.data.type === "crush-drain-queue") {
-            event.waitUntil(drainQueue(crushQueue).catch(() => {}));
+            event.waitUntil(
+                (async () => {
+                    try {
+                        await drainQueue(crushQueue);
+                    } catch (error) {
+                        // the failed entry is back in the queue
+                    }
+                    let remaining = null;
+                    try {
+                        remaining = await crushQueue.size();
+                    } catch (error) {
+                        // unknown: the page keeps retrying
+                    }
+                    if (event.source) {
+                        event.source.postMessage({ type: "crush-drained", remaining });
+                    }
+                })(),
+            );
         }
     });
 } else {
