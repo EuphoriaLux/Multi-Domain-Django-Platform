@@ -521,6 +521,38 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_PRICE_001")
         self.assertEqual(tx.amount, Decimal("15.00"))
 
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_membership_cancelled_during_checkout_creation_publishes_no_row(
+        self, mock_create_customer, mock_create_checkout, mock_deactivate
+    ):
+        """The refund sweep can cancel the membership while SumUp creates the
+        checkout; the row must not be published against it (Codex 4111687544)."""
+        mock_create_customer.return_value = {}
+
+        def _sweep_cancels_meanwhile(**kwargs):
+            PremiumMembership.objects.filter(pk=self.membership.pk).update(
+                status="cancelled"
+            )
+            return {"id": "CHK_RACE_001", "status": "PENDING"}
+
+        mock_create_checkout.side_effect = _sweep_cancels_meanwhile
+        mock_deactivate.return_value = True
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse(
+                "crush_lu:sumup_create_premium_checkout",
+                kwargs={"membership_id": self.membership.id},
+            )
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(
+            PaymentTransaction.objects.filter(sumup_checkout_id="CHK_RACE_001").exists()
+        )
+        mock_deactivate.assert_called_once_with("CHK_RACE_001")
+
 
 # PREMIUM_REDIRECTS_TO_BETA is pinned ON for the whole class rather than
 # inherited: it defaults True in settings.py, but a local .env or a CI env var

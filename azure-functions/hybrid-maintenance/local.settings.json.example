@@ -16,6 +16,7 @@
     "DJANGO_EVENT_RECAPS_URL": "http://localhost:8000/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL": "http://localhost:8000/api/admin/event-feedback/",
     "DJANGO_ECHO_SYNC_URL": "http://localhost:8000/api/admin/echo-sync/",
+    "DJANGO_SUMUP_RECONCILIATION_URL": "http://localhost:8000/api/admin/sumup-reconciliation/",
     "ADMIN_API_KEY": "your-admin-api-key-here",
     "HYBRID_MAINTENANCE_ENABLED": "true",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
