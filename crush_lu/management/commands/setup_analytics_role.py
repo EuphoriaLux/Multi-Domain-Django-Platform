@@ -277,7 +277,9 @@ class Command(BaseCommand):
                 f"REVOKE ALL ON {keyword} {_qn(schema)}.{_qn(relation)} FROM {r}"
             )
         cursor.execute(
-            "SELECT n.nspname, c.relname, string_agg(DISTINCT at.attname, ',') "
+            # An array keeps each name whole: a quoted identifier may contain
+            # a comma, so a delimited string would split it.
+            "SELECT n.nspname, c.relname, array_agg(DISTINCT at.attname::text) "
             "FROM pg_attribute at JOIN pg_class c ON c.oid = at.attrelid "
             "JOIN pg_namespace n ON n.oid = c.relnamespace "
             "CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE a.grantee = %s::regrole "
@@ -285,7 +287,7 @@ class Command(BaseCommand):
             [ROLE],
         )
         for schema, relation, columns in cursor.fetchall():
-            cols = ", ".join(_qn(c) for c in columns.split(","))
+            cols = ", ".join(_qn(c) for c in columns)
             cursor.execute(
                 f"REVOKE ALL ({cols}) ON {_qn(schema)}.{_qn(relation)} FROM {r}"
             )

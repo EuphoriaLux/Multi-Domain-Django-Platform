@@ -1188,6 +1188,36 @@ class SetupRoleCommandTests(TestCase):
         self.assertNotIn('"email"', sql)
         self.assertNotIn('"username"', sql)
 
+    def test_revoke_keeps_column_names_that_contain_commas(self):
+        from crush_lu.management.commands.setup_analytics_role import Command
+
+        class FakeCursor:
+            def __init__(self):
+                self.executed = []
+                self.last = ""
+
+            def execute(self, sql, params=None):
+                self.executed.append(sql)
+                self.last = sql
+
+            def fetchone(self):
+                return ("170011",) if "server_version_num" in self.last else (0,)
+
+            def fetchall(self):
+                if "at.attacl" in self.last:
+                    return [
+                        ("public", "crush_lu_crushprofile", ["location,raw", "gender"])
+                    ]
+                return []
+
+        cursor = FakeCursor()
+        Command()._revoke_everything(cursor)
+        self.assertIn(
+            'REVOKE ALL ("location,raw", "gender") ON "public"."crush_lu_crushprofile" '
+            'FROM "crush_analytics_ro"',
+            cursor.executed,
+        )
+
     @skipUnless(connection.vendor == "sqlite", "checks the non-PostgreSQL guard")
     def test_refuses_to_run_on_sqlite(self):
         with self.assertRaises(CommandError):
