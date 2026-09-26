@@ -438,9 +438,21 @@ def record_final_response(request):
                 'message': _('Invalid response choice')
             }, status=400)
 
-        # The final chapter is reached through the map, so it answers for the
-        # journey the map shows
-        journey_progress = JourneyProgress.wonderland_for(request.user)
+        journey_id = request.GET.get('journey_id')
+        if journey_id:
+            try:
+                journey_id = int(journey_id)
+            except (TypeError, ValueError):
+                journey_id = None
+            journey_progress = (
+                JourneyProgress.accessible_to(request.user)
+                .filter(journey_id=journey_id)
+                .select_related('journey')
+                .first()
+                if journey_id is not None else None
+            )
+        else:
+            journey_progress = JourneyProgress.wonderland_for(request.user)
 
         if not journey_progress:
             return JsonResponse({
@@ -473,7 +485,7 @@ def record_final_response(request):
 
             subject = f"🎉 {user_name} completed the journey!"
             message = f"""
-            Great news! {user_name} just completed "The Wonderland of You" journey!
+            Great news! {user_name} just completed "{journey_progress.journey.journey_name}"!
 
             Final Response: {response_text}
             Completed: {journey_progress.completed_at.strftime('%B %d, %Y at %I:%M %p')}

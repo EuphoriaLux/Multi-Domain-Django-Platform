@@ -96,7 +96,7 @@
     {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
     <div id="finalResponseSection" class="mt-10"
          x-data="finalResponse"
-         data-submit-url="{% url 'crush_lu:api_record_final_response' %}"
+         data-submit-url="{% url 'crush_lu:api_record_final_response' %}{{ journey_query }}"
          data-i18n-submitting="{% trans 'Submitting your response...' %}"
          data-i18n-success="{% trans 'Thank you for your response!' %}"
          data-i18n-error="{% trans 'An error occurred. Please try again.' %}"
