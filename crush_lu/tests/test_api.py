@@ -65,9 +65,11 @@ class JourneyAPITests(SiteTestMixin, TestCase):
         )
 
         # Create special experience and journey
+        # Access is granted by linked_user only (finding 7-02), never by name
         self.experience = SpecialUserExperience.objects.create(
             first_name='Journey',
             last_name='User',
+            linked_user=self.user,
             custom_welcome_message='Welcome to your journey!',
             is_active=True
         )
@@ -742,9 +744,11 @@ class PhotoPuzzleAPITests(SiteTestMixin, TestCase):
         )
 
         # Create special experience and journey
+        # Access is granted by linked_user only (finding 7-02), never by name
         self.experience = SpecialUserExperience.objects.create(
             first_name='Puzzle',
             last_name='User',
+            linked_user=self.user,
             custom_welcome_message='Welcome to your puzzle journey!',
             is_active=True
         )

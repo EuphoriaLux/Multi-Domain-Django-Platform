@@ -165,9 +165,10 @@ class CreateAdventCalendarCommandTests(TestCase):
             first_name="Marie",
             last_name="Dupont",
         )
-        # QR tokens go to the experience's linked user; the command reuses
-        # this experience because first and last name match.
-        SpecialUserExperience.objects.create(
+        # QR tokens go to the experience's linked user. A linked row is never
+        # picked up by name (a namesake's gift experience would be), so the
+        # command is pointed at it with --experience-id.
+        experience = SpecialUserExperience.objects.create(
             first_name="Marie", last_name="Dupont", linked_user=user
         )
 
@@ -177,6 +178,8 @@ class CreateAdventCalendarCommandTests(TestCase):
             "Marie",
             "--last-name",
             "Dupont",
+            "--experience-id",
+            str(experience.pk),
             "--year",
             "2026",
             "--generate-qr",
@@ -198,3 +201,42 @@ class CreateAdventCalendarCommandTests(TestCase):
         self.assertEqual(
             QRCodeToken.objects.filter(door__calendar=calendar, user=user).count(), 8
         )
+
+    def test_linked_namesake_is_not_reused_by_name(self):
+        """Without --experience-id the command builds on an UNLINKED row: a
+        member's own gift experience carries their real name, and a calendar
+        meant for someone else with that name must not land on it."""
+        user = User.objects.create_user(
+            username="marie@example.com",
+            email="marie@example.com",
+            password="testpass123",
+            first_name="Marie",
+            last_name="Dupont",
+        )
+        gift = SpecialUserExperience.objects.create(
+            first_name="Marie", last_name="Dupont", linked_user=user
+        )
+        out = StringIO()
+
+        call_command(
+            "create_advent_calendar",
+            "--first-name",
+            "Marie",
+            "--last-name",
+            "Dupont",
+            "--year",
+            "2026",
+            "--generate-qr",
+            stdout=out,
+        )
+
+        calendar = AdventCalendar.objects.get(
+            journey__special_experience__first_name="Marie"
+        )
+        self.assertNotEqual(calendar.journey.special_experience_id, gift.pk)
+        self.assertIsNone(calendar.journey.special_experience.linked_user)
+        self.assertFalse(gift.journeys.exists())
+        self.assertFalse(QRCodeToken.objects.exists())
+        output = out.getvalue()
+        self.assertIn(f"--experience-id {gift.pk}", output)
+        self.assertIn("No user account is linked", output)

@@ -23,16 +23,24 @@ class SpecialUserExperienceTests(TestCase):
             username="alice", first_name="Alice", last_name="Wonder"
         )
 
-    def test_matches_user_is_case_insensitive_and_active(self):
+    def test_matches_user_requires_linked_user(self):
         special = SpecialUserExperience.objects.create(
-            first_name="alice", last_name="wonder", is_active=True
+            first_name="Alice", last_name="Wonder", is_active=True
         )
 
+        # A first/last name match alone must not match (namesake privacy).
+        self.assertFalse(special.matches_user(self.user))
+
+        special.linked_user = self.user
+        special.save()
         self.assertTrue(special.matches_user(self.user))
 
     def test_matches_user_respects_inactive_state(self):
         special = SpecialUserExperience.objects.create(
-            first_name="Alice", last_name="Wonder", is_active=False
+            first_name="Alice",
+            last_name="Wonder",
+            linked_user=self.user,
+            is_active=False,
         )
 
         self.assertFalse(special.matches_user(self.user))
