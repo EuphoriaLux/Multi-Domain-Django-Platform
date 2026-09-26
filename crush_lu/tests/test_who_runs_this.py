@@ -75,6 +75,10 @@ class WhoRunsThisTests(TestCase):
         hrefs = [href for href, text in _parse(html).anchors if "Bekannt aus" in text]
         self.assertEqual(hrefs, ["/de/about/#media"])
 
+        html = self._get("/fr/")
+        hrefs = [href for href, text in _parse(html).anchors if "Vu dans" in text]
+        self.assertEqual(hrefs, ["/fr/about/#media"])
+
     def test_every_strip_outlet_is_cited_on_about(self):
         about = self._get("/en/about/")
         for outlet in ("Virgule", "LuxTimes", "RTL Today"):
@@ -92,6 +96,10 @@ class WhoRunsThisTests(TestCase):
         footer = _footer(self._get("/de/about/"))
         self.assertIn("Crush.lu (in Gründung)", footer)
         self.assertIn(f"{IMPRINT_ADDRESS}, Luxemburg", footer)
+
+        footer = _footer(self._get("/fr/about/"))
+        self.assertIn("Crush.lu (en cours de constitution)", footer)
+        self.assertIn(f"{IMPRINT_ADDRESS}, Luxembourg", footer)
 
     def test_about_drops_hardcoded_member_count(self):
         about = self._get("/en/about/")
