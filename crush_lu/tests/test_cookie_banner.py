@@ -317,13 +317,66 @@ class CookieBannerRenderTests(SimpleTestCase):
         # the library's own forms, never the banner's JSON cookie.
         self.assertNotIn("COOKIE_NAME", server_branch)
         self.assertNotIn("function serverConsent()", script)  # unused, removed
+
+    def test_a_restore_acts_only_on_a_refusal_recorded_since(self):
+        """A back/forward restore reruns no load handler. It must revoke a
+        tracker the page runs under an embedded grant the visitor withdrew
+        since, decided page or not (a page asking about analytics already
+        runs the Pixel for a current marketing acceptance), and must not
+        replay an embedded refusal over a later acceptance. The browser runs
+        are test_back_forward_restore_* below; this is the CI guard."""
+        script = render_to_string(BANNER_TEMPLATE, {})
         pageshow = script[script.index("window.addEventListener('pageshow'") :]
         pageshow = pageshow[: pageshow.index("\n    });\n")]
         self.assertIn("if (!event.persisted) return;", pageshow)
-        self.assertIn("const stored = choiceOnLoad();", pageshow)
-        self.assertIn("dispatchConsentEvent(stored);", pageshow)
-        self.assertIn("updateGoogleConsent(stored);", pageshow)
+        # A page rendered without a request keeps the load handler's fallback.
+        fallback = pageshow[
+            pageshow.index("if (!server) {") : pageshow.index("const withdrawn")
+        ]
+        self.assertIn("choiceOnLoad()", fallback)
+        self.assertIn("return;", fallback)
+        # With embedded state: only a grant it embeds that a live refusal
+        # flag now contradicts, for either group, whatever "decided" says.
+        embedded = pageshow[pageshow.index("const withdrawn") :]
+        self.assertIn(
+            "return server[group] === true && currentFlag(group) === false;",
+            embedded,
+        )
+        self.assertIn("['analytics', 'marketing'].some(", embedded)
+        self.assertIn("if (!withdrawn) return;", embedded)
+        self.assertIn("const stored = storedConsent();", embedded)
+        self.assertIn("dispatchConsentEvent(stored);", embedded)
+        self.assertIn("updateGoogleConsent(stored);", embedded)
+        self.assertNotIn("decided", embedded)
+        self.assertNotIn("choiceOnLoad()", embedded)
         self.assertNotIn("showBanner()", pageshow)
+
+    def test_the_identifier_wipe_spares_a_live_acceptance(self):
+        """dispatchConsentEvent clears ai_user/ai_session on a refusal. Those
+        belong to the browser, and a copy of the page (restored, or kept by
+        the service worker) can embed a refusal older than an acceptance
+        given elsewhere since: the wipe must hold back while the browser
+        holds an acceptance flag. That relies on every save writing its flag
+        before it dispatches, so a refusal saved on the page still clears."""
+        script = render_to_string(BANNER_TEMPLATE, {})
+        dispatch = script[
+            script.index("function dispatchConsentEvent(consent) {") : script.index(
+                "function updateGoogleConsent(consent)"
+            )
+        ]
+        self.assertIn(
+            "if (consent.analytics !== true && currentFlag('analytics') !== true) {"
+            "\n            clearAppInsightsCookies();",
+            dispatch,
+        )
+        self.assertEqual(dispatch.count("clearAppInsightsCookies();"), 1)
+        for save in ("acceptAllCookies", "declineAllCookies", "saveCustomCookies"):
+            body = _js_function_body(script, save)
+            self.assertLess(
+                body.index("setDjangoCookieConsent('analytics'"),
+                body.index("dispatchConsentEvent(consent);"),
+                save,
+            )
 
 
 # A refusal flag in the browser, as the granted branches of the analytics tags
@@ -2052,3 +2105,184 @@ def test_back_forward_restore_applies_a_later_refusal(page):
     }
     assert page.evaluate("window.__fbqCalls")[-1] == ["consent", "revoke"]
     assert page.evaluate("window.appInsights.config.disableTelemetry") is True
+
+
+def _fbq_queue(page):
+    return page.evaluate(
+        "window.fbq.queue.map(function (a) { return Array.prototype.slice.call(a); })"
+    )
+
+
+@pytest.mark.playwright
+def test_back_forward_restore_revokes_a_tracker_on_a_page_still_asking(page):
+    """Codex P3 on #1028: after a cookie is added to the analytics group, an
+    earlier "accept all" visitor's analytics acceptance is stale while the
+    marketing one is current. The page is not decided (the banner asks about
+    analytics), yet it runs the full Pixel. The visitor declines everything
+    on another page and comes back: the restored page must revoke the Pixel,
+    not skip itself for being undecided."""
+    versions = {"analytics": "2026-06-01T00:00:00+00:00", "marketing": ""}
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "accept:2026-01-01T00:00:00+00:00"
+    request.COOKIES["cookie_consent_marketing"] = "accept:"
+    context = {
+        "request": request,
+        "FACEBOOK_PIXEL_ID": "999",
+        "cookie_banner_variant": "crush",
+    }
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, side_effect=versions.get):
+        body = Template("{% load analytics %}{% analytics_body %}").render(
+            Context(context)
+        )
+        banner = render_to_string(BANNER_TEMPLATE, context)
+    assert "fbq('init', '999')" in body and "waiting for" not in body
+    assert "&quot;decided&quot;: false" in banner
+    assert "&quot;marketing&quot;: true" in banner
+
+    url = "http://crush.test/"
+    _serve_kept_copy(
+        page, "<!doctype html><html><body>%s%s</body></html>" % (body, banner), url
+    )
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent_analytics",
+                "value": "accept:2026-01-01T00:00:00+00:00",
+                "url": url,
+            },
+            {"name": "cookie_consent_marketing", "value": "accept:", "url": url},
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+    )
+    page.goto(url)
+    # The banner asks; the Pixel queued its PageView under the marketing grant.
+    assert page.is_visible("#cookie-consent-banner")
+    assert page.evaluate("window.__consentEvents") == []
+    assert ["track", "PageView"] in _fbq_queue(page)
+
+    # "Decline all" on another page, then back here from the back/forward cache.
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "decline", "url": url},
+            {"name": "cookie_consent_marketing", "value": "decline", "url": url},
+        ]
+    )
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
+    )
+    assert _fbq_queue(page)[-1] == ["consent", "revoke"]
+    assert page.evaluate("window.__consentEvents") == [
+        {"analytics": False, "marketing": False}
+    ]
+
+
+def _embedded_refusal_page():
+    """The banner of a page rendered for a visitor who had declined both groups."""
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "decline"
+    request.COOKIES["cookie_consent_marketing"] = "decline"
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, return_value=""):
+        html = render_to_string(
+            BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
+        )
+    assert "&quot;decided&quot;: true" in html
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    return "<!doctype html><html><body>%s%s</body></html>" % (footer, html)
+
+
+def _app_insights_ids(page):
+    return sorted(
+        c["name"]
+        for c in page.context.cookies()
+        if c["name"] in ("ai_user", "ai_session")
+    )
+
+
+@pytest.mark.playwright
+def test_back_forward_restore_keeps_identifiers_set_under_a_later_acceptance(page):
+    """Codex P3 on #1028: the visitor declined on this page, accepted all on
+    another (whose SDK set ai_user/ai_session), then came back from the
+    back/forward cache. The refusal this page embeds is older than that
+    acceptance: replaying it would wipe identifiers the live choice allows."""
+    url = "http://crush.test/"
+    _serve_kept_copy(page, _embedded_refusal_page(), url)
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "decline", "url": url},
+            {"name": "cookie_consent_marketing", "value": "decline", "url": url},
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+    )
+    page.goto(url)
+    assert page.evaluate("window.__consentEvents") == [
+        {"analytics": False, "marketing": False}
+    ]
+
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "accept:", "url": url},
+            {"name": "cookie_consent_marketing", "value": "accept:", "url": url},
+            {"name": "ai_user", "value": "u1", "url": url},
+            {"name": "ai_session", "value": "s1", "url": url},
+        ]
+    )
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
+    )
+    assert _app_insights_ids(page) == ["ai_session", "ai_user"]
+    # Nothing replayed: the page's own refusal stands for its trackers.
+    assert len(page.evaluate("window.__consentEvents")) == 1
+
+
+@pytest.mark.playwright
+def test_a_kept_copy_embedding_a_refusal_keeps_identifiers_of_a_later_acceptance(
+    page,
+):
+    """The same on load: the service worker serves a copy rendered under a
+    refusal after the visitor accepted elsewhere. The copy acts on its own
+    refusal (under-tracking), but the identifiers stay for the live choice."""
+    url = "http://crush.test/"
+    _serve_kept_copy(page, _embedded_refusal_page(), url)
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "accept:", "url": url},
+            {"name": "cookie_consent_marketing", "value": "accept:", "url": url},
+            {"name": "ai_user", "value": "u1", "url": url},
+            {"name": "ai_session", "value": "s1", "url": url},
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+    )
+    page.goto(url)
+    assert page.evaluate("window.__consentEvents") == [
+        {"analytics": False, "marketing": False}
+    ]
+    assert _app_insights_ids(page) == ["ai_session", "ai_user"]
+
+    # Guards the two tests above: a refusal saved on this page still clears
+    # them (the save writes its flags before it dispatches).
+    page.click("#open-cookie-settings")
+    page.click("#cookie-btn-save")  # both boxes unticked: the stored refusal
+    last = page.evaluate("window.__consentEvents")[-1]
+    assert last["analytics"] is False and last["marketing"] is False
+    assert _app_insights_ids(page) == []

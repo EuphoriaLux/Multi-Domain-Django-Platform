@@ -644,7 +644,16 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             window.appInsights.config.disableTelemetry = consent.analytics !== true;
             window.appInsights.config.disableCookiesUsage = consent.analytics !== true;
         }
-        if (consent.analytics !== true) {
+        // The identifiers belong to the browser, not to this page: another
+        // page may have set them under an acceptance given after this copy
+        // was rendered (a restored history entry or the service worker's
+        // kept copy, embedding an older refusal). So clear them only while
+        // the browser holds no acceptance flag. Every save on this page
+        // writes its flag before dispatching, so a refusal made here still
+        // clears them. A stale acceptance flag (a cookie was added to the
+        // group since) holds the wipe back too; the SDK does not load in
+        // that state, and the visitor's next answer settles it.
+        if (consent.analytics !== true && currentFlag('analytics') !== true) {
             clearAppInsightsCookies();
         }
     }
@@ -975,17 +984,38 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     });
 
     // A page restored from the back/forward cache runs none of the above
-    // again: its trackers keep the choice they had when it was left, even if
-    // the visitor withdrew on another page since. Hand them the current
-    // choice (with the live refusal veto). Only when there is one: an
-    // undecided page keeps its banner as it was left.
+    // again: its trackers keep running under the grants it embeds
+    // (data-consent-state, kept in step with a save on this page), even if
+    // the visitor withdrew on another page since. So act on a refusal
+    // recorded since then, group by group, decided page or not: a page
+    // still asking about one group already runs the other group's granted
+    // tracker (the Pixel for a current marketing acceptance). Only then:
+    // re-sending the embedded choice as it stands would replay a refusal it
+    // embeds over a later acceptance (and wipe the identifiers set under
+    // it), while a later acceptance never outranks the page's own refusal
+    // or its open question (under-tracking is the safe direction). The
+    // banner stays as it was left.
     window.addEventListener('pageshow', function(event) {
         if (!event.persisted) return;
-        const stored = choiceOnLoad();
-        if (stored) {
-            dispatchConsentEvent(stored);
-            updateGoogleConsent(stored);
+        const server = serverState();
+        if (!server) {
+            // Rendered without a request: the load handler acted on the
+            // cookie this script can read, so do the same again.
+            const fallback = choiceOnLoad();
+            if (fallback) {
+                dispatchConsentEvent(fallback);
+                updateGoogleConsent(fallback);
+            }
+            return;
         }
+        const withdrawn = ['analytics', 'marketing'].some(function(group) {
+            return server[group] === true && currentFlag(group) === false;
+        });
+        if (!withdrawn) return;
+        // The embedded grants with the live refusals applied.
+        const stored = storedConsent();
+        dispatchConsentEvent(stored);
+        updateGoogleConsent(stored);
     });
 })();
 </script>
