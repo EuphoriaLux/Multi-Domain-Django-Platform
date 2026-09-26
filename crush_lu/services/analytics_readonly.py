@@ -994,7 +994,9 @@ def definitions() -> dict:
         ),
         "real_member_rule": REAL_MEMBER_RULE,
         "timezone": "Dates and buckets use Europe/Luxembourg; weeks start on Monday.",
-        "age_bands": [label for _, _, label in AGE_BANDS],
+        # Every value demographics() can report for age_band: the adult bands,
+        # minors, and members without a (usable) birth date.
+        "age_bands": [label for _, _, label in AGE_BANDS] + ["under-18", UNKNOWN],
         "privacy_model": (
             "Pseudonymized, not anonymous (decision D2 in the spec): member-level rows "
             "are personal data. The controls target linkage through the classical "

@@ -665,6 +665,9 @@ class DisclosureControlTests(AnalyticsFixture):
         for key in ("member_gender", "member_age_band", "member_canton"):
             self.assertIn("suppressed", enums[key])
             self.assertIn("unknown", enums[key])
+        age_bands = self.data("definitions")["age_bands"]
+        self.assertIn("under-18", age_bands)
+        self.assertIn("unknown", age_bands)
         for param in ("gender", "age_band", "canton"):
             self.assertEqual(self.get("members", **{param: "unknown"}).status_code, 200)
 
