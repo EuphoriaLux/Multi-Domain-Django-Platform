@@ -514,7 +514,7 @@ class JourneyProgress(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     last_activity = models.DateTimeField(auto_now=True)
 
-    # Final response (from Chapter 6)
+    # Final response (from the journey's last chapter, total_chapters)
     final_response = models.CharField(
         max_length=20,
         choices=FINAL_RESPONSE_CHOICES,

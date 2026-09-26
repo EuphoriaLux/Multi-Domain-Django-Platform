@@ -20,6 +20,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.cache import cache
 from django.test import TestCase
 
@@ -46,6 +47,7 @@ UNLOCK_PIECE_URL = "/api/journey/unlock-puzzle-piece/"
 UNLOCK_HINT_URL = "/en/api/journey/unlock-hint/"
 PROGRESS_URL = "/en/api/journey/progress/"
 SAVE_STATE_URL = "/en/api/journey/save-state/"
+FINAL_RESPONSE_URL = "/en/api/journey/final-response/"
 HOST = "crush.lu"
 
 
@@ -604,3 +606,168 @@ class MultiJourneyScopingTests(TestCase):
         self.assertEqual(self._time(self.wonderland), 0)
         outsider.progress.refresh_from_db()
         self.assertEqual(outsider.progress.total_time_seconds, 0)
+
+
+class LastChapterFinalQuestionTests(TestCase):
+    """The final question completes a journey, so it belongs on the journey's
+    own last chapter (``total_chapters``), not on a hardcoded Chapter 6.
+
+    Chapter 6 is Wonderland's last chapter. A custom journey can be shorter or
+    longer: the hardcode left a 4-chapter one uncompletable and completed an
+    8-chapter one with two chapters unplayed (Codex on #1034). The endpoint
+    also refuses an answer until that last chapter is done.
+    """
+
+    def setUp(self):
+        cache.clear()
+        user, experience = _make_member("Erin")
+        self.custom = _add_journey(
+            user,
+            experience,
+            "Custom",
+            "Custom secret",
+            points=0,
+            journey_type="custom",
+        )
+        self.wonderland = _add_journey(
+            user, experience, "Wonderland", "Wonderland secret", points=0
+        )
+        self.client.force_login(user)
+
+    def _chapters(self, played, total, completed_through):
+        """Give ``played`` ``total`` chapters with the first
+        ``completed_through`` of them done."""
+        played.journey.total_chapters = total
+        played.journey.save()
+        for number in range(2, total + 1):
+            JourneyChapter.objects.create(
+                journey=played.journey,
+                chapter_number=number,
+                title=f"Chapter {number}",
+                theme="Mystery",
+                story_introduction="Once upon a time",
+                completion_message="Well done",
+            )
+        for chapter in JourneyChapter.objects.filter(
+            journey=played.journey, chapter_number__lte=completed_through
+        ):
+            ChapterProgress.objects.create(
+                journey_progress=played.progress, chapter=chapter, is_completed=True
+            )
+
+    def _custom_page(self, number):
+        return self.client.get(
+            f"/en/journey/chapter/{number}/?journey_id={self.custom.journey.pk}",
+            HTTP_HOST=HOST,
+        )
+
+    def _answer(self, query=""):
+        return self.client.post(
+            f"{FINAL_RESPONSE_URL}{query}",
+            data=json.dumps({"response": "yes"}),
+            content_type="application/json",
+            HTTP_HOST=HOST,
+        )
+
+    def _assert_not_completed(self, played):
+        played.progress.refresh_from_db()
+        self.assertFalse(played.progress.is_completed)
+        self.assertIsNone(played.progress.completed_at)
+        self.assertEqual(played.progress.final_response, "")
+
+    def test_short_custom_journey_asks_on_its_last_chapter(self):
+        self._chapters(self.custom, total=4, completed_through=4)
+        query = f"?journey_id={self.custom.journey.pk}"
+
+        page = self._custom_page(4)
+
+        # chapter_view turns a template error into a 302, so check 200 first
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'id="finalResponseSection"')
+        self.assertContains(page, f'data-submit-url="{FINAL_RESPONSE_URL}{query}"')
+
+        answer = self._answer(query)
+
+        self.assertEqual(answer.status_code, 200)
+        self.assertTrue(answer.json()["success"])
+        self.custom.progress.refresh_from_db()
+        self.assertTrue(self.custom.progress.is_completed)
+        self.assertEqual(self.custom.progress.final_response, "yes")
+        self.assertEqual(len(mail.outbox), 1)
+        self._assert_not_completed(self.wonderland)
+
+        answered = self._custom_page(4)
+        self.assertEqual(answered.status_code, 200)
+        self.assertNotContains(answered, 'id="finalResponseSection"')
+        self.assertContains(answered, "You chose:")
+
+    def test_custom_journey_does_not_ask_before_its_last_chapter(self):
+        for total, number in ((4, 3), (8, 6)):
+            with self.subTest(total_chapters=total, chapter=number):
+                ChapterProgress.objects.all().delete()
+                JourneyChapter.objects.filter(
+                    journey=self.custom.journey, chapter_number__gt=1
+                ).delete()
+                self._chapters(self.custom, total=total, completed_through=number)
+
+                page = self._custom_page(number)
+
+                self.assertEqual(page.status_code, 200)
+                self.assertContains(page, "Chapter Complete!")
+                self.assertContains(page, "Next Chapter")
+                self.assertNotContains(page, 'id="finalResponseSection"')
+
+    def test_answer_is_refused_before_the_last_chapter_is_done(self):
+        # Custom: Chapter 6 done, the journey's last chapter (8) is not.
+        self._chapters(self.custom, total=8, completed_through=6)
+        # Wonderland: Chapter 5 done, its last chapter (6) is not.
+        self._chapters(self.wonderland, total=6, completed_through=5)
+
+        cases = (
+            (self.custom, f"?journey_id={self.custom.journey.pk}", 8),
+            (self.wonderland, "", 6),
+        )
+        for played, query, last in cases:
+            with self.subTest(journey=played.journey.journey_type):
+                response = self._answer(query)
+
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(
+                    response.json(),
+                    {
+                        "success": False,
+                        "message": f"Please complete Chapter {last} first.",
+                    },
+                )
+                self._assert_not_completed(played)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_wonderland_still_asks_on_chapter_six(self):
+        self._chapters(self.wonderland, total=6, completed_through=6)
+
+        page = self.client.get("/en/journey/chapter/6/", HTTP_HOST=HOST)
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'id="finalResponseSection"')
+        self.assertContains(page, f'data-submit-url="{FINAL_RESPONSE_URL}"')
+
+        answer = self._answer()
+
+        self.assertEqual(answer.status_code, 200)
+        self.wonderland.progress.refresh_from_db()
+        self.assertTrue(self.wonderland.progress.is_completed)
+        self.assertEqual(self.wonderland.progress.final_response, "yes")
+        self._assert_not_completed(self.custom)
+
+    def test_journey_id_only_names_a_custom_journey(self):
+        """Same scope as the chapter page: the Wonderland journey is answered
+        without a journey_id, never through one. Its last chapter is done, so
+        only the journey-type scope refuses this."""
+        self._chapters(self.wonderland, total=6, completed_through=6)
+
+        response = self._answer(f"?journey_id={self.wonderland.journey.pk}")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.json()["success"])
+        self._assert_not_completed(self.wonderland)
+        self.assertEqual(len(mail.outbox), 0)

@@ -92,8 +92,8 @@
         {{ chapter.completion_message|linebreaks }}
     </div>
 
-    <!-- Chapter 6 Final Response (Special Handling) -->
-    {% if chapter.chapter_number == 6 and not journey_progress.final_response %}
+    {# Final Response on the journey's last chapter: total_chapters is 6 for Wonderland and the configured count for a custom journey. The final-response API refuses an answer until that chapter is completed. #}
+    {% if chapter.chapter_number == journey_progress.journey.total_chapters and not journey_progress.final_response %}
     <div id="finalResponseSection" class="mt-10"
          x-data="finalResponse"
          data-submit-url="{% url 'crush_lu:api_record_final_response' %}{{ journey_query }}"
@@ -122,7 +122,7 @@
             <div x-show="showStatus" x-bind:class="statusClass" x-text="statusMessage" class="mt-5 text-lg" role="status" aria-live="polite"></div>
         </div>
     </div>
-    {% elif chapter.chapter_number == 6 and journey_progress.final_response %}
+    {% elif chapter.chapter_number == journey_progress.journey.total_chapters and journey_progress.final_response %}
     <div class="mt-8 p-8 bg-crush-success/10 border-2 border-crush-success/30 rounded-2xl">
         <h3 class="text-xl font-bold mb-4">&#128150; {% trans "Your Response" %}</h3>
         <p class="text-lg">

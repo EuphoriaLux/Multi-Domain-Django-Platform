@@ -425,7 +425,9 @@ def save_state(request):
 @require_http_methods(["POST"])
 def record_final_response(request):
     """
-    Record user's response to the final chapter (Yes/Thinking).
+    Record user's response to the journey's last chapter (Yes/Thinking) and
+    mark the journey completed. The last chapter is ``total_chapters``: 6 for
+    Wonderland, the configured count for a custom journey.
     Sends email notification to journey creator.
     """
     try:
@@ -440,13 +442,15 @@ def record_final_response(request):
 
         journey_id = request.GET.get('journey_id')
         if journey_id:
+            # Same scope as chapter_view: an explicit journey_id only ever
+            # names a custom journey; Wonderland is reached without one.
             try:
                 journey_id = int(journey_id)
             except (TypeError, ValueError):
                 journey_id = None
             journey_progress = (
                 JourneyProgress.accessible_to(request.user)
-                .filter(journey_id=journey_id)
+                .filter(journey_id=journey_id, journey__journey_type='custom')
                 .select_related('journey')
                 .first()
                 if journey_id is not None else None
@@ -459,6 +463,25 @@ def record_final_response(request):
                 'success': False,
                 'message': _('No active journey found')
             }, status=404)
+
+        # The final question completes the journey, so it is only answerable
+        # once the last chapter is done. chapter_view.html shows the question
+        # under the same condition, so page and endpoint agree. Checking every
+        # chapter instead would refuse an answer the page offers when an admin
+        # turns off requires_previous_completion.
+        last_chapter = journey_progress.journey.total_chapters
+        if not ChapterProgress.objects.filter(
+            journey_progress=journey_progress,
+            chapter__journey_id=journey_progress.journey_id,
+            chapter__chapter_number=last_chapter,
+            is_completed=True,
+        ).exists():
+            return JsonResponse({
+                'success': False,
+                'message': _('Please complete Chapter %(chapter)s first.') % {
+                    'chapter': last_chapter
+                },
+            }, status=400)
 
         # Update final response
         journey_progress.final_response = response_choice
