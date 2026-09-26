@@ -28168,3 +28168,8 @@ msgstr ""
 msgid ""
 "We could not confirm whether this was sent. Check before sending it again."
 msgstr ""
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr ""

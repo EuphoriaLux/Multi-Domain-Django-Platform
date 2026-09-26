@@ -42295,3 +42295,8 @@ msgid ""
 msgstr ""
 "Wir konnten nicht bestätigen, ob das gesendet wurde. Prüfe das, bevor du es "
 "erneut sendest."
+
+#: templates/crush_lu/partials/top_bar_mobile.html
+#, python-brace-format
+msgid "Unread notifications: {count}"
+msgstr "Ungelesene Benachrichtigungen: {count}"

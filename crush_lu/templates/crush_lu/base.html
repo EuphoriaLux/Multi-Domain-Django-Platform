@@ -760,6 +760,7 @@
                     {% if user.is_authenticated %}
                     {# Notification Bell (authenticated users only) #}
                     <div x-data="notificationBell" x-init="init"
+                         data-unread-count="{{ unread_notifications_count|default:0 }}"
                          class="relative"
                          x-on:click.outside="close"
                          x-on:notif-mark-read="markReadFromEvent">
