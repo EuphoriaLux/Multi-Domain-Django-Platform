@@ -1043,6 +1043,49 @@ class ConsentVersionTests(TestCase):
             False,
         )
 
+    def _choice_with_library(self, cookies, library, group="analytics"):
+        from azureproject.templatetags.analytics import stored_cookie_choice
+
+        request = RequestFactory().get("/")
+        request.COOKIES.update(cookies)
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=library
+        ):
+            return stored_cookie_choice(request, group)
+
+    def test_a_later_library_refusal_beats_a_banner_acceptance(self):
+        """The library's own /cookies/ forms write only its cookie: a refusal
+        made there after a banner acceptance must stop the trackers."""
+        self.assertIs(
+            self._choice_with_library(
+                {"cookie_consent_analytics": f"accept:{self.version}"}, False
+            ),
+            False,
+        )
+        self.assertIs(
+            self._choice_with_library(
+                {
+                    "cookie_consent": (
+                        '{"analytics":true,"timestamp":"2026-03-01T12:00:00.000Z"}'
+                    )
+                },
+                False,
+            ),
+            False,
+        )
+
+    def test_a_library_acceptance_never_beats_a_banner_refusal(self):
+        self.assertIs(
+            self._choice_with_library({"cookie_consent_analytics": "decline"}, True),
+            False,
+        )
+        self.assertIs(
+            self._choice_with_library(
+                {"cookie_consent_analytics": f"accept:{self.version}"}, True
+            ),
+            True,
+        )
+
     def test_a_group_without_cookies_has_nothing_to_renew(self):
         for flag in ("accept:", "accept"):
             self.assertIs(

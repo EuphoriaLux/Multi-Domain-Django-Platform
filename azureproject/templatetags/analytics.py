@@ -137,6 +137,14 @@ def stored_cookie_choice(request, cookie_group):
     it wins. 3 alone is what a visitor who only used the library's own
     /cookies/ pages has.
 
+    A refusal in any of the three wins over an acceptance in another. The
+    library's /cookies/ forms write only 3, so a visitor who accepted through
+    the banner and later declined there holds an old banner acceptance next
+    to a newer library refusal; nothing records which is newer, so the
+    refusal is honoured. The cost is the reverse case (a banner acceptance
+    whose library post never landed, after a library refusal), which stays
+    declined until the next save: it errs toward not tracking.
+
     An acceptance only counts while it is current for the group
     (_stamp_is_current): the flag carries the group version it was given
     under, the JSON its own date. A stale acceptance is skipped, not turned
@@ -145,6 +153,15 @@ def stored_cookie_choice(request, cookie_group):
     the library does with its own cookie. A refusal never goes stale.
     """
     reference, looked_up = None, False
+
+    try:
+        from cookie_consent.util import get_cookie_value_from_request
+
+        library = get_cookie_value_from_request(request, cookie_group)
+    except Exception:
+        library = None
+    if library is False:
+        return False
 
     flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
     action, _, stamp = flag.partition(":")
@@ -170,14 +187,8 @@ def stored_cookie_choice(request, cookie_group):
             if _stamp_is_current(stamp if isinstance(stamp, str) else "", reference):
                 return True
 
-    try:
-        from cookie_consent.util import get_cookie_value_from_request
-
-        consent = get_cookie_value_from_request(request, cookie_group)
-    except Exception:
-        consent = None
-    if consent is not None:
-        return consent is True
+    if library is not None:
+        return library is True
     return None
 
 
