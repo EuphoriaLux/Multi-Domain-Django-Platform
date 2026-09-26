@@ -480,10 +480,12 @@ PRIVILEGE_AUDIT_SQL = {
         "SELECT 1 FROM aclexplode(i.initprivs) d "
         "WHERE d.grantee = 0 AND d.privilege_type = 'EXECUTE')))"
     ),
+    # CREATE in any schema, system ones included: none grants it to PUBLIC by
+    # default, and pg_catalog or information_schema would host objects as
+    # readily as public.
     "schemas_with_create": (
-        "SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%%' "
-        "AND nspname <> 'information_schema' "
-        "AND has_schema_privilege(%(role)s, oid, 'CREATE')"
+        "SELECT nspname FROM pg_namespace "
+        "WHERE has_schema_privilege(%(role)s, oid, 'CREATE')"
     ),
 }
 
