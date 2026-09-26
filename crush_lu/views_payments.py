@@ -32,6 +32,7 @@ from crush_lu.services.credits import (
     credit_registration_for_cancelled_event,
     credit_registration_for_unavailable_curated_group,
     credit_transaction_reference,
+    full_credit_deadline,
     issue_credit,
     issue_cancellation_credits,
     payment_amount_cents,
@@ -2663,11 +2664,21 @@ def sumup_widget_view(request, checkout_id):
         )
         raise Http404("No payment found.")
 
+    # What is being bought, shown above the card form: a card-entry page that
+    # does not name the purchase is a trust breaker.
+    event = (
+        tx_obj.event_registration.event
+        if tx_obj.event_registration_id
+        else tx_obj.event
+    )
     context = {
         "checkout_id": checkout_id,
         "transaction": tx_obj,
         "amount": tx_obj.amount,
         "currency": tx_obj.currency,
+        "order_event": event,
+        "order_town": (event.address_town or event.location) if event else "",
+        "full_credit_deadline": full_credit_deadline(event) if event else None,
         # The failure baseline, rendered into the page rather than fetched by
         # it. Fetching cannot be made safe here however early it is started:
         # the status endpoint does a live provider read, so its answer can

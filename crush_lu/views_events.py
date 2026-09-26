@@ -38,6 +38,8 @@ from .services.event_grouping import (
 )
 from .services.credits import (
     available_credit_cents,
+    cancellation_outcome,
+    full_credit_deadline,
     is_late_cancellation,
     issue_cancellation_credits,
     paid_amount_cents,
@@ -73,10 +75,7 @@ def _is_duplicate_event_registration(error):
         with connection.cursor() as cursor:
             constraints = connection.introspection.get_constraints(cursor, table)
         constraint = constraints.get(diagnostic.constraint_name, {})
-        return (
-            constraint.get("unique", False)
-            and constraint.get("columns") == columns
-        )
+        return constraint.get("unique", False) and constraint.get("columns") == columns
     if connection.vendor == "sqlite":
         expected = "UNIQUE constraint failed: " + ", ".join(
             f"{table}.{column}" for column in columns
@@ -2099,6 +2098,10 @@ def event_cancel(request, event_id):
     context = {
         "event": event,
         "registration": registration,
+        # The same decision the POST makes, previewed now so the member sees
+        # what happens to their money before they confirm.
+        "outcome": cancellation_outcome(registration, moment=timezone.now()),
+        "full_credit_deadline": full_credit_deadline(event),
     }
     return render(request, "crush_lu/event_cancel.html", context)
 

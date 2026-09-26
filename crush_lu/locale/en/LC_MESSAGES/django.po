@@ -17524,10 +17524,6 @@ msgstr ""
 msgid "Yes, Cancel Registration"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\event_cancel.html:33
-msgid "No, Keep Registration"
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\event_detail.html:40
 msgid "Back to Events"
 msgstr ""
@@ -28173,3 +28169,30 @@ msgstr ""
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr ""
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "What happens to your payment"
+msgstr "What happens to your payment"
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+msgstr "You'll get %(amount)s EUR back as Crush Credit, ready to use on any Crush.lu event."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+#, python-format
+msgid "No refund: the event starts in less than %(hours)s hours. Your seat goes to the waitlist, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+msgstr "No refund: the event starts in less than %(hours)s hours. Your seat goes to the waitlist, and if someone takes it and pays before the event starts, you'll get %(share)s EUR back as Crush Credit."
+
+#: crush_lu/templates/crush_lu/event_cancel.html
+msgid "Keep my seat"
+msgstr "Keep my seat"
+
+#: crush_lu/templates/crush_lu/partials/_cancellation_policy_note.html
+#, python-format
+msgid "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get 50%% back as Crush Credit if someone takes your seat and pays before the event."
+msgstr "Cancel before %(date)s at %(time)s for full Crush Credit. After that there's no refund, but you get 50%% back as Crush Credit if someone takes your seat and pays before the event."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Back to event"
+msgstr "Back to event"

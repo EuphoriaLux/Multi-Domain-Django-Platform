@@ -31,6 +31,7 @@ reading, not by running. Two rules keep this module out of the cycle:
 
 import logging
 import uuid
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -384,6 +385,16 @@ def is_late_cancellation(event, moment=None):
     return (event.date_time - moment).total_seconds() <= hours * 3600
 
 
+def full_credit_deadline(event):
+    """The last moment a member cancellation still earns full Crush Credit."""
+    hours = getattr(
+        settings,
+        "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
+        DEFAULT_LATE_CANCELLATION_HOURS,
+    )
+    return event.date_time - timedelta(hours=hours)
+
+
 # ---------------------------------------------------------------------------
 # Issuing
 # ---------------------------------------------------------------------------
@@ -575,20 +586,76 @@ def _issue_payment_return_credits(
     return issued
 
 
-def issue_cancellation_credits(registration, *, moment=None):
-    """Plural form of :func:`issue_cancellation_credit` for tranche restores."""
+class CancellationOutcome:
+    """What a member's own cancellation returns — decided, not yet issued.
+
+    ``kind`` is ``NOTHING_PAID`` (no captured payment, nothing to return),
+    ``CREDIT`` (outside the late window: ``amount_cents`` as Crush Credit) or
+    ``LATE`` (inside it: nothing now, only the resale share if a replacement
+    pays before the start).
+    """
+
+    NOTHING_PAID = "nothing_paid"
+    CREDIT = "credit"
+    LATE = "late"
+
+    def __init__(self, kind, amount_cents=0, payment=None):
+        self.kind = kind
+        self.amount_cents = amount_cents
+        self.payment = payment
+        self.late_window_hours = getattr(
+            settings,
+            "CRUSH_CREDIT_LATE_CANCELLATION_HOURS",
+            DEFAULT_LATE_CANCELLATION_HOURS,
+        )
+        self.resale_share_cents = _percent_of(
+            amount_cents,
+            getattr(
+                settings,
+                "CRUSH_CREDIT_RESALE_SHARE_PERCENT",
+                DEFAULT_RESALE_SHARE_PERCENT,
+            ),
+        )
+
+    @property
+    def amount(self):
+        return Decimal(self.amount_cents) / 100
+
+    @property
+    def resale_share(self):
+        return Decimal(self.resale_share_cents) / 100
+
+
+def cancellation_outcome(registration, *, moment=None):
+    """Decide a member's own cancellation under the credit policy, issuing nothing.
+
+    The one policy decision behind :func:`issue_cancellation_credits`, so the
+    confirmation page previews exactly what the real cancellation will do.
+    """
     if not registration.payment_confirmed:
-        return []
+        return CancellationOutcome(CancellationOutcome.NOTHING_PAID)
 
     amount_cents, payment = paid_amount_cents(registration)
     if amount_cents <= 0:
-        return []
+        return CancellationOutcome(CancellationOutcome.NOTHING_PAID)
 
     # A SumUp callback can arrive hours or days after the member released the
     # seat. Classify the policy at that durable cancellation time, never at the
     # callback/reconciliation time.
     policy_moment = moment or getattr(registration, "cancelled_at", None)
     if is_late_cancellation(registration.event, policy_moment):
+        return CancellationOutcome(CancellationOutcome.LATE, amount_cents, payment)
+    return CancellationOutcome(CancellationOutcome.CREDIT, amount_cents, payment)
+
+
+def issue_cancellation_credits(registration, *, moment=None):
+    """Plural form of :func:`issue_cancellation_credit` for tranche restores."""
+    outcome = cancellation_outcome(registration, moment=moment)
+    if outcome.kind == CancellationOutcome.NOTHING_PAID:
+        return []
+    amount_cents, payment = outcome.amount_cents, outcome.payment
+
+    if outcome.kind == CancellationOutcome.LATE:
         logger.info(
             "Registration %s cancelled inside the late window — no credit now; "
             "50%% follows if the replacement pays before the event starts.",
