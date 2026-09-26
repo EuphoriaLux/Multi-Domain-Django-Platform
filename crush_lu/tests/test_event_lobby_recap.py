@@ -13,6 +13,7 @@ Reuses the builders from test_event_lobby via import to stay DRY.
 """
 
 import json
+import re
 from datetime import timedelta
 
 import pytest
@@ -759,7 +760,9 @@ class TestPeopleIveMetPages:
         profile = client.get(reverse("crush_lu:event_lobby_person", args=[ben.pk]))
 
         assert collection.status_code == 200
-        assert "Ben" not in collection.content.decode()
+        # Whole word only: a bare substring check flaked whenever the page's
+        # random CSRF token happened to contain "Ben" (seen on PR #1019 CI).
+        assert not re.search(r"\bBen\b", collection.content.decode())
         assert profile.status_code == 404
 
     def test_pair_authorized_photo_is_revoked_after_block(

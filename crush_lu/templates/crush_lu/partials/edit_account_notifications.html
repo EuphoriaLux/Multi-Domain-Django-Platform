@@ -169,12 +169,12 @@
 
             <!-- State: Permission denied -->
             <template x-if="showPermissionDenied">
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
                     <div class="flex items-start">
-                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                         <div>
-                            <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
-                            <p class="text-sm text-amber-700 mt-1">
+                            <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
+                            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
                                 {% trans "You've blocked notifications for this site. To enable them, click the lock icon in your browser's address bar and allow notifications." %}
                             </p>
                         </div>
@@ -388,12 +388,12 @@
             </template>
 
             <template x-if="showPermissionDenied">
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
                     <div class="flex items-start">
-                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                         <div>
-                            <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
-                            <p class="text-sm text-amber-700 mt-1">
+                            <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
+                            <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
                                 {% trans "Allow notifications in your browser settings to receive coach alerts." %}
                             </p>
                         </div>

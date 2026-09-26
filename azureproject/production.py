@@ -1,4 +1,5 @@
 import os
+import sys
 
 # ─── Environment detection ─────────────────────────────────────────────────────
 # Set DJANGO_ENV as a slot-sticky App Service setting:
@@ -292,6 +293,46 @@ DATABASES = {
         "CONN_HEALTH_CHECKS": True,
     }
 }
+
+# Read-only login for the Crush Data MCP (crush_lu/services/analytics_readonly.py).
+# Spec: ai-memory-hub/specs/2026-09-25-crush-data-mcp.md
+# Credentials come from two plain app settings, NOT a second PostgreSQL
+# connection string: the block above takes the FIRST POSTGRESQLCONNSTR_* it
+# finds, so another one could silently become the app's main connection.
+# crush_analytics_ro is created by `manage.py setup_analytics_role`; its role
+# settings already force read-only and a 10 s statement timeout, repeated here.
+# Only that login is accepted: pointing ANALYTICS_DB_USER at the app's own (or
+# any other) login would drop the column boundary, so the API then stays dark.
+# The service also audits the login's effective privileges before every use.
+_analytics_db_user = os.getenv("ANALYTICS_DB_USER", "")
+_analytics_db_password = os.getenv("ANALYTICS_DB_PASSWORD", "")
+if _analytics_db_user and _analytics_db_user != "crush_analytics_ro":
+    print(
+        "WARNING: ANALYTICS_DB_USER must be crush_analytics_ro; analytics API disabled.",
+        file=sys.stderr,
+    )
+if _analytics_db_user == "crush_analytics_ro" and _analytics_db_password:
+    DATABASES["analytics"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": conn_str_params["dbname"],
+        "HOST": conn_str_params["host"],
+        "USER": _analytics_db_user,
+        "PASSWORD": _analytics_db_password,
+        "CONN_MAX_AGE": 0,
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {
+            "sslmode": "require",
+            "connect_timeout": 5,
+            "application_name": "crush_data_mcp",
+            # Connection options beat any role or database default, so a stray
+            # stored search_path cannot hide the unqualified ORM tables.
+            "options": (
+                "-c default_transaction_read_only=on -c statement_timeout=10000 "
+                "-c search_path=public"
+            ),
+        },
+        "TEST": {"MIRROR": "default"},
+    }
 
 # ============================================================================
 # CACHE CONFIGURATION

@@ -370,14 +370,7 @@
                     {% endif %}
 
                     <div class="mb-6">
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" class="sr-only peer" name="unsubscribed_all"
-                                   :checked="unsubscribeAll"
-                                   @change="toggleUnsubscribe"
-                                   {% if email_prefs.unsubscribed_all %}checked{% endif %}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
-                            <span class="ml-3 text-sm font-bold text-red-600">{% trans "Unsubscribe from ALL emails" %}</span>
-                        </label>
+                        {% include "crush_lu/components/toggle.html" with name="unsubscribed_all" checked=email_prefs.unsubscribed_all tone="red" inline=True x_checked="unsubscribeAll" x_change="toggleUnsubscribe" label=_("Unsubscribe from ALL emails") %}
                     </div>
 
                     <hr class="my-6 border-gray-200 dark:border-gray-700">
@@ -386,67 +379,17 @@
                         <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mb-4">{% trans "Choose which emails you'd like to receive:" %}</p>
 
                         <div class="space-y-4">
-                            <label class="flex items-start cursor-pointer">
-                                <div class="relative mt-0.5">
-                                    <input type="checkbox" class="sr-only peer" name="email_profile_updates"
-                                           {% if email_prefs.email_profile_updates %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <div class="ml-3">
-                                    <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
-                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Emails about profile approval, revision requests" %}</p>
-                                </div>
-                            </label>
+                            {% include "crush_lu/components/toggle.html" with name="email_profile_updates" checked=email_prefs.email_profile_updates label=_("Profile Updates") help=_("Emails about profile approval, revision requests") %}
 
-                            <label class="flex items-start cursor-pointer">
-                                <div class="relative mt-0.5">
-                                    <input type="checkbox" class="sr-only peer" name="email_event_reminders"
-                                           {% if email_prefs.email_event_reminders %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <div class="ml-3">
-                                    <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
-                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about upcoming events you're registered for" %}</p>
-                                </div>
-                            </label>
+                            {% include "crush_lu/components/toggle.html" with name="email_event_reminders" checked=email_prefs.email_event_reminders label=_("Event Reminders") help=_("Reminders about upcoming events you're registered for") %}
 
-                            <label class="flex items-start cursor-pointer">
-                                <div class="relative mt-0.5">
-                                    <input type="checkbox" class="sr-only peer" name="email_new_connections"
-                                           {% if email_prefs.email_new_connections %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <div class="ml-3">
-                                    <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
-                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about new connection requests" %}</p>
-                                </div>
-                            </label>
+                            {% include "crush_lu/components/toggle.html" with name="email_new_connections" checked=email_prefs.email_new_connections label=_("New Connections") help=_("Notifications about new connection requests") %}
 
-                            <label class="flex items-start cursor-pointer">
-                                <div class="relative mt-0.5">
-                                    <input type="checkbox" class="sr-only peer" name="email_new_messages"
-                                           {% if email_prefs.email_new_messages %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <div class="ml-3">
-                                    <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
-                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about new messages from connections" %}</p>
-                                </div>
-                            </label>
+                            {% include "crush_lu/components/toggle.html" with name="email_new_messages" checked=email_prefs.email_new_messages label=_("New Messages") help=_("Notifications about new messages from connections") %}
 
                             <hr class="my-4 border-gray-200 dark:border-gray-700">
 
-                            <label class="flex items-start cursor-pointer">
-                                <div class="relative mt-0.5">
-                                    <input type="checkbox" class="sr-only peer" name="email_marketing"
-                                           {% if email_prefs.email_marketing %}checked{% endif %}>
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <div class="ml-3">
-                                    <strong class="text-gray-900 dark:text-white">{% trans "Marketing & Promotions" %}</strong>
-                                    <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Newsletters, special offers, and promotions" %}</p>
-                                </div>
-                            </label>
+                            {% include "crush_lu/components/toggle.html" with name="email_marketing" checked=email_prefs.email_marketing label=_("Marketing & Promotions") help=_("Newsletters, special offers, and promotions") %}
                         </div>
                     </div>
 
@@ -484,19 +427,7 @@
                         <strong class="text-gray-900 dark:text-white ml-1">{{ user.crushprofile.phone_number }}</strong>
                     </p>
 
-                    <label class="flex items-start cursor-pointer">
-                        <div class="relative mt-0.5">
-                            <input type="checkbox" class="sr-only peer" name="whatsapp_opt_in"
-                                   {% if email_prefs.whatsapp_opt_in %}checked{% endif %}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                        </div>
-                        <div class="ml-3">
-                            <strong class="text-gray-900 dark:text-white">{% trans "Enable WhatsApp Notifications" %}</strong>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm">
-                                {% trans "Match alerts, new messages, and event reminders sent to your WhatsApp number." %}
-                            </p>
-                        </div>
-                    </label>
+                    {% include "crush_lu/components/toggle.html" with name="whatsapp_opt_in" checked=email_prefs.whatsapp_opt_in tone="green" label=_("Enable WhatsApp Notifications") help=_("Match alerts, new messages, and event reminders sent to your WhatsApp number.") %}
 
                     <div class="mt-6">
                         <button type="submit" class="btn-crush-primary px-6 py-2 rounded-lg inline-flex items-center">
@@ -562,12 +493,12 @@
 
                 <!-- State: Permission denied -->
                 <template x-if="showPermissionDenied">
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
                         <div class="flex items-start">
-                            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
-                                <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
-                                <p class="text-sm text-amber-700 mt-1">
+                                <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
+                                <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
                                     {% trans "You've blocked notifications for this site. To enable them, click the lock icon in your browser's address bar and allow notifications." %}
                                 </p>
                             </div>
@@ -692,68 +623,16 @@
 
                             <div class="space-y-4 pl-7">
                                 <!-- New Messages Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="newMessages"
-                                               {% if subscription.notify_new_messages %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "New Messages" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when you receive a new message" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_new_messages input_class="push-pref-toggle" subscription_id=subscription.id pref_key="newMessages" label=_("New Messages") help=_("Get notified when you receive a new message") %}
 
                                 <!-- Event Reminders Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="eventReminders"
-                                               {% if subscription.notify_event_reminders %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "Event Reminders" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about upcoming events" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_event_reminders input_class="push-pref-toggle" subscription_id=subscription.id pref_key="eventReminders" label=_("Event Reminders") help=_("Reminders about upcoming events") %}
 
                                 <!-- New Connections Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="newConnections"
-                                               {% if subscription.notify_new_connections %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "New Connections" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when someone connects with you" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_new_connections input_class="push-pref-toggle" subscription_id=subscription.id pref_key="newConnections" label=_("New Connections") help=_("Get notified when someone connects with you") %}
 
                                 <!-- Profile Updates Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="profileUpdates"
-                                               {% if subscription.notify_profile_updates %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "Profile Updates" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Notifications about your profile status" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_profile_updates input_class="push-pref-toggle" subscription_id=subscription.id pref_key="profileUpdates" label=_("Profile Updates") help=_("Notifications about your profile status") %}
                             </div>
                         </div>
                         {% empty %}
@@ -813,12 +692,12 @@
 
                 <!-- State: Permission denied -->
                 <template x-if="showPermissionDenied">
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
                         <div class="flex items-start">
-                            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" %}
+                            {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-500 dark:text-amber-400 mr-2 flex-shrink-0 mt-0.5" %}
                             <div>
-                                <p class="font-medium text-amber-800">{% trans "Notifications blocked" %}</p>
-                                <p class="text-sm text-amber-700 mt-1">
+                                <p class="font-medium text-amber-800 dark:text-amber-200">{% trans "Notifications blocked" %}</p>
+                                <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
                                     {% trans "Allow notifications in your browser settings to receive coach alerts." %}
                                 </p>
                             </div>
@@ -889,68 +768,16 @@
 
                             <div class="space-y-4 pl-7">
                                 <!-- New Submissions Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer coach-push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="newSubmissions"
-                                               {% if subscription.notify_new_submissions %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "New Profile Submissions" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when new profiles need review" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_new_submissions input_class="coach-push-pref-toggle" subscription_id=subscription.id pref_key="newSubmissions" label=_("New Profile Submissions") help=_("Get notified when new profiles need review") %}
 
                                 <!-- Screening Reminders Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer coach-push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="screeningReminders"
-                                               {% if subscription.notify_screening_reminders %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "Screening Reminders" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Reminders about pending screening calls" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_screening_reminders input_class="coach-push-pref-toggle" subscription_id=subscription.id pref_key="screeningReminders" label=_("Screening Reminders") help=_("Reminders about pending screening calls") %}
 
                                 <!-- User Responses Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer coach-push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="userResponses"
-                                               {% if subscription.notify_user_responses %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "User Revisions" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Get notified when users submit profile revisions" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_user_responses input_class="coach-push-pref-toggle" subscription_id=subscription.id pref_key="userResponses" label=_("User Revisions") help=_("Get notified when users submit profile revisions") %}
 
                                 <!-- System Alerts Toggle -->
-                                <label class="flex items-start cursor-pointer">
-                                    <div class="relative mt-0.5">
-                                        <input type="checkbox"
-                                               class="sr-only peer coach-push-pref-toggle"
-                                               data-subscription-id="{{ subscription.id }}"
-                                               data-pref-key="systemAlerts"
-                                               {% if subscription.notify_system_alerts %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-gray-800 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <strong class="text-gray-900 dark:text-white">{% trans "System Alerts" %}</strong>
-                                        <p class="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">{% trans "Important system notifications and alerts" %}</p>
-                                    </div>
-                                </label>
+                                {% include "crush_lu/components/toggle.html" with checked=subscription.notify_system_alerts input_class="coach-push-pref-toggle" subscription_id=subscription.id pref_key="systemAlerts" label=_("System Alerts") help=_("Important system notifications and alerts") %}
                             </div>
                         </div>
                         {% empty %}
