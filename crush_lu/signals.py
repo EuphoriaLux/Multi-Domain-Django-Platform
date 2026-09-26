@@ -3827,6 +3827,19 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 # canceller is not. A late cancellation records the candidate
                 # resale on the promoted row, and the share is issued only
                 # after that replacement's payment completes.
+                #
+                # NOT true when reconcile_sumup_payments set this marker: the
+                # cash already went back to the member outside Django, so
+                # there is no future capture for a resale claim to wait on —
+                # attaching one would name a beneficiary a claim that can
+                # never settle and can later outrank their own paid-seat
+                # claim. Passing None skips it here; a later newcomer taking
+                # the same freed seat directly still goes through
+                # _attach_unclaimed_resale_claim's own scan of every
+                # cancelled row on the event, which is why
+                # views_events._resale_claim_from also has to read this off
+                # the database (a REFUNDED source payment), not just this
+                # in-memory marker.
                 promoted = None
                 if (
                     not locked_event.is_cancelled
@@ -3835,7 +3848,11 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                     promoted = _promote_from_waitlist(
                         locked_event,
                         cancelled_user,
-                        resale_source_registration=cancelled,
+                        resale_source_registration=(
+                            None
+                            if getattr(instance, "_external_cash_refund", False)
+                            else cancelled
+                        ),
                     )
         except Exception:
             logger.exception(
@@ -3850,6 +3867,9 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
                 cancelled,
                 credits,
                 awaiting_resale=awaiting_resale,
+                # Set by reconcile_sumup_payments when the seat was cancelled
+                # because its payment was refunded outside Django.
+                cash_refunded=getattr(instance, "_external_cash_refund", False),
             )
 
         if not promoted:
