@@ -11,7 +11,7 @@ it through the global confirm sheet; without JS it is a plain form POST.
       data-confirm-label="{% trans "Close and report" %}"
       class="relative z-10 mt-6 text-center">
     {% csrf_token %}
-    <button type="submit" class="btn-link text-sm text-white/80 hover:text-white dark:text-white/80 dark:hover:text-white" data-testid="gift-report">
+    <button type="submit" class="btn-link text-sm text-white/80 hover:text-white" data-testid="gift-report">
         {% trans "This isn't for me / Report" %}
     </button>
 </form>

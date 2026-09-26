@@ -116,6 +116,25 @@ class GiftCreateGateTests(GiftAbuseTestBase):
         self.assertFalse(JourneyGift.objects.exists())
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_deactivated_approved_member_is_blocked(self):
+        # A coach "Deactivate" keeps is_approved=True but sets is_active=False.
+        from crush_lu.models import CrushProfile, JourneyGift
+
+        user = self._user("paused@example.com", approved=True)
+        CrushProfile.objects.filter(user=user).update(is_active=False)
+        self._login(user)
+
+        response = self._post()
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/dashboard/", response["Location"])
+        self.assertFalse(JourneyGift.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+        gift = self._gift(user)
+        self.client.logout()
+        landing = self.client.get(f"/en/journey/gift/{gift.gift_code}/")
+        self.assertNotContains(landing, "verified Crush.lu member")
+
     def test_approved_member_can_open_the_form(self):
         self._login(self._user("approved@example.com", approved=True))
         response = self.client.get(CREATE_URL)
@@ -202,10 +221,28 @@ class GiftReportTests(GiftAbuseTestBase):
             self._user("alice@example.com", approved=True),
             status=JourneyGift.Status.CLAIMED,
         )
-        self.client.post(f"/en/journey/gift/{gift.gift_code}/report/")
+        response = self.client.post(
+            f"/en/journey/gift/{gift.gift_code}/report/", follow=True
+        )
         gift.refresh_from_db()
         self.assertEqual(gift.status, JourneyGift.Status.CLAIMED)
         self.assertFalse(Notification.objects.exists())
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertIn("This gift is no longer active.", texts)
+        self.assertNotIn("notified", " ".join(texts))
+
+    def test_report_keeps_another_pending_gift_code(self):
+        sender = self._user("alice@example.com", approved=True)
+        reported, other = self._gift(sender), self._gift(sender)
+        self.client.get(f"/en/journey/gift/{other.gift_code}/")
+        self.client.post(f"/en/journey/gift/{reported.gift_code}/report/")
+        self.assertEqual(self.client.session["pending_gift_code"], other.gift_code)
+
+    def test_report_clears_its_own_pending_gift_code(self):
+        gift = self._gift(self._user("alice@example.com", approved=True))
+        self.client.get(f"/en/journey/gift/{gift.gift_code}/")
+        self.client.post(f"/en/journey/gift/{gift.gift_code}/report/")
+        self.assertNotIn("pending_gift_code", self.client.session)
 
     def test_report_requires_post(self):
         gift = self._gift(self._user("alice@example.com", approved=True))

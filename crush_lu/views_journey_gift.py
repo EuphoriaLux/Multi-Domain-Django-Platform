@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 def _sender_is_verified(user):
-    """True when the gift sender holds a coach-approved Crush.lu profile."""
-    return CrushProfile.objects.filter(user=user, is_approved=True).exists()
+    """True when the sender holds a coach-approved, still-active profile."""
+    return CrushProfile.objects.filter(
+        user=user, is_approved=True, is_active=True
+    ).exists()
 
 
 def _gift_sender_block_redirect(request):
@@ -231,7 +233,8 @@ def gift_report(request, gift_code):
         status__in=[JourneyGift.Status.PENDING, JourneyGift.Status.CLAIM_FAILED],
     ).update(status=JourneyGift.Status.EXPIRED)
     if updated:
-        request.session.pop("pending_gift_code", None)
+        if request.session.get("pending_gift_code") == gift_code:
+            del request.session["pending_gift_code"]
         try:
             from .notification_service import notify_gift_reported
 
@@ -239,13 +242,16 @@ def gift_report(request, gift_code):
         except Exception:  # notification must never break the report
             logger.exception("Gift-reported notification failed for gift %s", gift.pk)
 
-    messages.success(
-        request,
-        _(
-            "Thanks for letting us know. This gift is now closed and our team "
-            "has been notified."
-        ),
-    )
+        messages.success(
+            request,
+            _(
+                "Thanks for letting us know. This gift is now closed and our "
+                "team has been notified."
+            ),
+        )
+    else:
+        # Already claimed, expired or reported: nothing closed, nobody notified.
+        messages.info(request, _("This gift is no longer active."))
     if request.headers.get("HX-Request"):
         return HttpResponse(headers={"HX-Redirect": reverse("crush_lu:home")})
     return redirect("crush_lu:home")

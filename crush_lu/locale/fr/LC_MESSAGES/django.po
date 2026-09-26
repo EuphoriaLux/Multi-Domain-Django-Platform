@@ -42441,6 +42441,10 @@ msgstr "Vous pourrez envoyer un cadeau Wonderland dès qu'un coach aura approuv�
 msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
 msgstr "Merci de nous avoir prévenus. Ce cadeau est désormais clôturé et notre équipe a été informée."
 
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr "Ce cadeau n’est plus actif."
+
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
 #, python-format
 msgid "Created by %(name)s"

@@ -28182,6 +28182,10 @@ msgstr ""
 msgid "Thanks for letting us know. This gift is now closed and our team has been notified."
 msgstr ""
 
+#: crush_lu/views_journey_gift.py
+msgid "This gift is no longer active."
+msgstr ""
+
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
 #, python-format
 msgid "Created by %(name)s"
