@@ -1004,7 +1004,11 @@ class Command(BaseCommand):
             funded = f"registration {tx.event_registration_id}"
         else:
             funded = f"membership {tx.premium_membership_id}"
-        blockers = [f"{status} payment {pk}" for pk, status in other_payments]
+        # Upper case, like every other status this command prints ("still
+        # PAID", "status=REFUNDED"); the stored value is lower case.
+        blockers = [
+            f"{str(status).upper()} payment {pk}" for pk, status in other_payments
+        ]
         if active_claim:
             blockers.append("active checkout-creation claim")
         return (
@@ -1106,13 +1110,27 @@ class Command(BaseCommand):
                 PremiumMembership.objects.select_for_update().filter(
                     pk=locked_tx.premium_membership_id
                 ).first()
-            # Re-read after the event/registration mutex. A checkout creator
-            # may have published a new PENDING payment while this transaction
-            # waited for the event lock; its claim can already be RETIRED by
-            # the time we acquire the lock, so the initial payment snapshot
-            # alone would miss it. Captures also need the event lock before
-            # changing PENDING to PAID, so these current statuses are stable
-            # for the decision while we hold that mutex.
+            # Re-read the sibling payments now that the event/registration
+            # (or membership) lock is held. The event lock is NOT what keeps
+            # their statuses stable: a capture writes PAID onto its own
+            # payment row BEFORE it takes the event lock
+            # (views_payments._apply_paid_checkout). Two things do:
+            #
+            # * Every payment row that existed at the lock above is held by
+            #   it (_related_payment_rows(lock=True) has no status filter).
+            #   A capture already in flight on one of them made that lock
+            #   wait until it committed, and no capture can flip one of them
+            #   to PAID until this transaction ends.
+            # * A row that was not in that lock's result is not held. This
+            #   re-read is a new statement, so under READ COMMITTED it sees
+            #   every such row that has committed by now: a new checkout
+            #   (PENDING) or a credit payment (PAID). An event checkout or
+            #   credit payment inserts under _lock_event_checkout_state,
+            #   which locks the registration's payment rows first, so it
+            #   either committed while we waited for our lock or waits for
+            #   this transaction. That is why PENDING blocks exactly like
+            #   PAID, and why an ACTIVE/RETIRING checkout-creation claim
+            #   blocks too. Narrowing this to PAID would reopen the window.
             if locked_tx.event_registration_id:
                 sibling_rows = PaymentTransaction.objects.filter(
                     event_registration_id=locked_tx.event_registration_id

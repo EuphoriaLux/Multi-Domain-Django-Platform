@@ -1469,6 +1469,145 @@ class SumUpReconciliationEndpointTests(TestCase):
             any("active checkout-creation claim" in line for line in logs.output)
         )
 
+    # -- lock scheme, asserted structurally (SQLite ignores FOR UPDATE) ------
+
+    def _record_locks(self):
+        """Patch QuerySet.select_for_update to record each locked model."""
+        from django.db.models.query import QuerySet
+
+        locked = []
+        original = QuerySet.select_for_update
+
+        def recording(qs, *args, **kwargs):
+            locked.append(qs.model.__name__)
+            return original(qs, *args, **kwargs)
+
+        return locked, patch.object(QuerySet, "select_for_update", recording)
+
+    def _payment_lock_sql(self, tx):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        locked, recording = self._record_locks()
+        with recording, CaptureQueriesContext(connection) as ctx:
+            rows = Command._related_payment_rows(tx, lock=True)
+        self.assertEqual(locked, ["PaymentTransaction"])
+        (query,) = ctx.captured_queries
+        return rows, query["sql"]
+
+    def _assert_lock_query_shape(self, sql, fk_column):
+        # The SELECT list names every column, status included, so only the
+        # WHERE clause is inspected. A status predicate there would let
+        # PostgreSQL skip a sibling whose COMMITTED status does not match —
+        # exactly the row a capture is flipping to PAID right now.
+        where = sql[sql.index(" WHERE ") : sql.index(" ORDER BY ")]
+        self.assertIn(fk_column, where)
+        self.assertNotIn("status", where)
+        self.assertRegex(sql[sql.index(" ORDER BY ") :], r'\."id" ASC$')
+
+    def test_related_payment_lock_has_no_status_predicate_and_is_pk_ordered(self):
+        siblings = [
+            self._new_payment(
+                f"CRUSH-EVT-T2-{status}",
+                f"chk_t2_{status}",
+                event_registration=self.registration,
+                event=self.event,
+                status=status,
+            )
+            for status in (
+                PaymentTransaction.Status.PENDING,
+                PaymentTransaction.Status.FAILED,
+            )
+        ]
+        self._second_refundable_payment()  # another registration: not locked
+        rows, sql = self._payment_lock_sql(self.payment)
+        self.assertEqual(
+            [row.pk for row in rows],
+            sorted([self.payment.pk, *(s.pk for s in siblings)]),
+        )
+        self._assert_lock_query_shape(sql, "event_registration_id")
+
+    def _active_membership(self):
+        coach_user = User.objects.create_user(
+            username="t2_lock_coach", email="t2_lock_coach@crush.lu", password="x" * 12
+        )
+        coach = CrushCoach.objects.create(
+            user=coach_user, is_active=True, accepting_premium=True
+        )
+        return PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="active"
+        )
+
+    def test_related_premium_payment_lock_has_no_status_predicate(self):
+        pm = self._active_membership()
+        refunded = self._new_payment(
+            "CRUSH-PREM-T2-a",
+            "chk_prem_a",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        pending = self._new_payment(
+            "CRUSH-PREM-T2-b",
+            "chk_prem_b",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+            status=PaymentTransaction.Status.PENDING,
+        )
+        rows, sql = self._payment_lock_sql(refunded)
+        self.assertEqual([row.pk for row in rows], [refunded.pk, pending.pk])
+        self._assert_lock_query_shape(sql, "premium_membership_id")
+
+    def test_reconcile_locks_payment_rows_then_event_then_registration(self):
+        """Runtime order of every select_for_update in one event refund."""
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        locked, recording = self._record_locks()
+        with recording:
+            outcome = Command(stdout=io.StringIO())._reconcile_refunded(
+                self.payment, FULL_REFUND
+            )
+        self.assertEqual(outcome, "reconciled")
+        self.assertEqual(
+            locked[:3], ["PaymentTransaction", "MeetupEvent", "EventRegistration"]
+        )
+        # No payment row is locked after the event (that would invert the
+        # capture's payment -> event -> registration order), and the credit
+        # comes last.
+        self.assertNotIn("PaymentTransaction", locked[1:])
+        self.assertGreater(
+            locked.index("CrushCredit"), locked.index("EventRegistration")
+        )
+
+    def test_reconcile_locks_premium_payment_rows_before_the_membership(self):
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        pm = self._active_membership()
+        refunded = self._new_payment(
+            "CRUSH-PREM-T2-a",
+            "chk_prem_a",
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            premium_membership=pm,
+        )
+        locked, recording = self._record_locks()
+        with recording:
+            outcome = Command(stdout=io.StringIO())._reconcile_refunded(
+                refunded, {"id": "chk_prem_a", "status": "REFUNDED"}
+            )
+        self.assertEqual(outcome, "reconciled")
+        self.assertEqual(locked[:2], ["PaymentTransaction", "PremiumMembership"])
+        self.assertNotIn("PaymentTransaction", locked[1:])
+
     def test_no_evidence_key_when_the_checkout_itself_proves_it(self):
         self._run(FULL_REFUND)
         self.payment.refresh_from_db()
