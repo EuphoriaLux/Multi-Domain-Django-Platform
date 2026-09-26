@@ -22,7 +22,7 @@ import getpass
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
 
-from crush_lu.services.analytics_readonly import GRANTS, audit_role
+from crush_lu.services.analytics_readonly import CONNECTION_LIMIT, GRANTS, audit_role
 
 ROLE = "crush_analytics_ro"
 ROLE_SETTINGS = (
@@ -74,7 +74,7 @@ def role_statements(role: str = ROLE, database: str = "pythonapp") -> list[str]:
         ),
         (
             f"ALTER ROLE {r} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
-            "NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT 3 "
+            f"NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT {CONNECTION_LIMIT} "
             # A stale password deadline would lock the login out after a
             # clean audit (which runs as the admin connection).
             "VALID UNTIL 'infinity'"

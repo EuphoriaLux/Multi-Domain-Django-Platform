@@ -898,6 +898,7 @@ class PrivilegeAuditTests(TestCase):
             False,
             [("pg_catalog", "pg_subscription", "subconninfo")],
             [("reporting_owner", "public", "r", "SELECT", True)],
+            -1,
         )
         joined = " | ".join(violations)
         self.assertNotIn("connect to database postgres", joined)  # allowlisted
@@ -934,6 +935,7 @@ class PrivilegeAuditTests(TestCase):
             "by default",
             "default privileges of reporting_owner grant SELECT on future tables in "
             "schema public to PUBLIC",
+            "connection limit is unlimited, above 3",
         ):
             self.assertIn(expected, joined)
 
@@ -1181,6 +1183,7 @@ class SetupRoleCommandTests(TestCase):
         self.assertIn('GRANT USAGE ON SCHEMA public TO "crush_analytics_ro"', sql)
         self.assertIn('REVOKE TEMPORARY ON DATABASE "pythonapp" FROM PUBLIC', sql)
         self.assertIn("NOBYPASSRLS", sql)
+        self.assertIn("CONNECTION LIMIT 3", sql)
         self.assertIn("VALID UNTIL 'infinity'", sql)
         self.assertIn("default_transaction_read_only = 'on'", sql)
         # Stale stored settings are reset before the hardening ones are set.

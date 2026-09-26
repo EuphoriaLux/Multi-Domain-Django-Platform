@@ -290,9 +290,10 @@ def _alias() -> str:
 # ---------------------------------------------------------------------------
 
 PRIVILEGE_AUDIT_SQL = {
+    # Elevated attributes, and the session cap that contains leaked credentials.
     "elevated": (
         "SELECT rolsuper OR rolcreaterole OR rolcreatedb OR rolbypassrls "
-        "OR rolreplication FROM pg_roles WHERE rolname = %(role)s"
+        "OR rolreplication, rolconnlimit FROM pg_roles WHERE rolname = %(role)s"
     ),
     "relations": (
         "SELECT n.nspname, c.relname, "
@@ -530,6 +531,10 @@ PARAMETER_AUDIT_SQL = (
 )
 
 
+# Sessions the analytics login may hold at once; setup_analytics_role sets it
+# and the audit rejects anything higher (or unlimited, -1).
+CONNECTION_LIMIT = 3
+
 # Catalogs that hold password verifiers, data samples, credentials or large
 # object contents: readable by the analytics login is always a violation.
 SENSITIVE_CATALOGS = frozenset(
@@ -564,6 +569,7 @@ def privilege_violations(
     public_usage=True,
     system_columns=(),
     default_privileges=(),
+    connection_limit=CONNECTION_LIMIT,
 ) -> list:
     """Everything the role can effectively do beyond GRANTS, and any GRANTS
     column it can no longer read (pure; testable).
@@ -575,6 +581,12 @@ def privilege_violations(
     violations = []
     if elevated:
         violations.append("role has an elevated attribute")
+    if connection_limit < 0 or connection_limit > CONNECTION_LIMIT:
+        shown = "unlimited" if connection_limit < 0 else connection_limit
+        violations.append(
+            f"connection limit is {shown}, above {CONNECTION_LIMIT} "
+            "(re-run setup_analytics_role)"
+        )
     for group in memberships:
         violations.append(f"member of role {group}")
     for schema, function in definer_functions:
@@ -723,6 +735,7 @@ def audit_role(cursor, role: str) -> list:
         bool(results["public_usage"] and results["public_usage"][0][0]),
         results["system_columns"],
         results["default_privileges"],
+        results["elevated"][0][1] if results["elevated"] else CONNECTION_LIMIT,
     )
 
 
