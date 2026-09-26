@@ -1848,7 +1848,7 @@ def test_a_stale_acceptance_reopens_the_banner(page):
 def _cached_accepted_page():
     """The whole consent surface of a page rendered for a visitor who had
     accepted both groups: the copy the service worker keeps for offline use
-    (crush-pages for a day, crush-tickets for a year)."""
+    (crush-pages for a day, crush-tickets-v2 for a year)."""
     request = RequestFactory().get("/")
     request.COOKIES["cookie_consent_analytics"] = "accept:"
     request.COOKIES["cookie_consent_marketing"] = "accept:"

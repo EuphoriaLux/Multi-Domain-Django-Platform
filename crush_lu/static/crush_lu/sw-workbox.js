@@ -3,11 +3,14 @@
 // Version: v34 - A cookie-consent change (a POST to /cookies/accept/ or
 //                /cookies/decline/ that reaches this worker) purges "crush-pages":
 //                a kept page embeds the consent state and trackers it was
-//                rendered with. The offline tickets stay (pages rendered with the
-//                consent-flag checks hold back their trackers after a later
-//                refusal). Consent POSTs are also kept off the background-sync
-//                queue: a replay up to 24h later would rewrite the consent flags
-//                over a newer choice.
+//                rendered with. The offline tickets move to "crush-tickets-v2",
+//                which a consent change keeps (a ticket rendered with the
+//                consent-flag checks holds back its trackers after a later
+//                refusal). Activation drops what older workers kept: the old
+//                "crush-tickets", rendered without those checks, and
+//                "crush-pages". Consent POSTs are also kept off the
+//                background-sync queue: a replay up to 24h later would rewrite
+//                the consent flags over a newer choice.
 // Version: v33 - Tell the page when a POST really was stored in the background-
 //                sync queue ({type: "crush-queued", requestId, url} to the one
 //                client that sent it, posted only after the queue write succeeded), so
@@ -32,11 +35,19 @@
 // below purges this cache, and it runs before Workbox is even imported.
 // The ticket URL is keyed by event, not by user, so a copy left behind by one
 // account would be served offline to the next account on the same device.
-const TICKET_CACHE = "crush-tickets";
+const TICKET_CACHE = "crush-tickets-v2";
 const TICKET_PATH = /^\/(en|de|fr)\/events\/\d+\/ticket\/$/;
 
+// The ticket cache of the v32/v33 workers. Its copies were rendered before the
+// analytics tags and the cookie banner checked the live consent flags, so one
+// served at the door would run its trackers whatever the visitor chose since,
+// for up to a year. Deleted on activation (and on a session switch, for the
+// same account reason as TICKET_CACHE); nothing writes to it any more.
+const LEGACY_TICKET_CACHE = "crush-tickets";
+
 // The generic NetworkFirst cache for pages (Strategy 4). Declared up here for
-// the same reason: the listener below purges it on a consent change.
+// the same reason: the listener below purges it on a consent change, and
+// activation empties it (see the activate listener).
 const PAGE_CACHE = "crush-pages";
 
 // A saved cookie-consent choice: django-cookie-consent's accept/decline views,
@@ -118,18 +129,26 @@ self.addEventListener("fetch", (event) => {
     // alive for the delete without claiming the request, so the auth bypass
     // below and the routes further down still apply unchanged.
     if (isSessionBoundaryNavigation(event.request, url)) {
-        event.waitUntil(caches.delete(TICKET_CACHE));
+        event.waitUntil(
+            Promise.all([
+                caches.delete(TICKET_CACHE),
+                caches.delete(LEGACY_TICKET_CACHE),
+            ]),
+        );
     }
 
     // A consent change drops the kept pages (see CONSENT_CHANGE_PATH), so the
     // next offline or failed navigation cannot serve a copy rendered under the
     // old choice. TICKET_CACHE is deliberately kept: purging it would lose the
-    // offline QR at the door, and a ticket rendered with the consent-flag
-    // checks (the analytics tags and the banner) holds back its own trackers
-    // once the visitor refuses. Those checks are the guarantee; this purge is
-    // the extra layer. The library's own forms are navigations and always
-    // pass through here; whether a browser routes the banner's keepalive
-    // fetch through a worker varies, so nothing relies on this purge alone.
+    // offline QR at the door. Only this worker version on writes to it, and it
+    // ships with the consent-flag checks (the analytics tags and the banner),
+    // so a kept ticket holds back its own trackers once the visitor refuses;
+    // the copies older workers kept without those checks were dropped on
+    // activation (LEGACY_TICKET_CACHE). Those checks are the guarantee; this
+    // purge is the extra layer. The library's own forms are navigations and
+    // always pass through here; whether a browser routes the banner's
+    // keepalive fetch through a worker varies, so nothing relies on this
+    // purge alone.
     if (event.request.method === "POST" && CONSENT_CHANGE_PATH.test(url.pathname)) {
         event.waitUntil(caches.delete(PAGE_CACHE));
     }
@@ -269,6 +288,19 @@ if (workbox) {
                         )
                         .map((name) => caches.delete(name)),
                 );
+
+                // The navigation caches carry no version suffix, so the filter
+                // above never reaches them. Every worker version starts with
+                // an empty PAGE_CACHE: a kept page embeds the consent state and
+                // trackers of the code that rendered it (before v34, without
+                // the consent-flag checks), and it is only a day's convenience
+                // copy, fetched again on the next online visit. The pre-v34
+                // tickets go for good (LEGACY_TICKET_CACHE). TICKET_CACHE is
+                // kept, or every worker update would lose the offline QR.
+                await Promise.all([
+                    caches.delete(PAGE_CACHE),
+                    caches.delete(LEGACY_TICKET_CACHE),
+                ]);
 
                 // Cache the offline page
                 const cache = await caches.open(workbox.core.cacheNames.runtime);

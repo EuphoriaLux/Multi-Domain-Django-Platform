@@ -2,7 +2,7 @@
 A cookie-consent change must not be undone by the service worker (8-06).
 
 The worker keeps navigations as full HTML: "crush-pages" (every page, a day)
-and "crush-tickets" (event tickets, a year). A kept page embeds the consent
+and "crush-tickets-v2" (event tickets, a year). A kept page embeds the consent
 state it was rendered with and the trackers that state allowed, so after a
 withdrawal a copy served offline could track and re-grant (Codex P1 on #1028).
 The pages themselves now hold back their trackers once the visitor refuses
@@ -10,6 +10,12 @@ The pages themselves now hold back their trackers once the visitor refuses
 test_cookie_banner.py); on top of that the worker drops "crush-pages" when a
 choice is saved to django-cookie-consent's /cookies/accept|decline/ views,
 and keeps the offline tickets, whose QR is needed at the door.
+
+That last part only holds for tickets rendered with those checks. The v32/v33
+workers kept theirs in "crush-tickets", rendered without them, for a year, and
+activation's suffix cleanup never matched that name. So the ticket cache moved
+to a new name, and activation deletes the old one, together with
+"crush-pages" (Codex P2 on #1028).
 
 Those POSTs are also kept off the background-sync queue: a replay up to 24h
 later reaches CookieConsentFlagSyncMiddleware, which would rewrite the
@@ -27,7 +33,8 @@ from pathlib import Path
 import pytest
 
 PAGE_CACHE = "crush-pages"
-TICKET_CACHE = "crush-tickets"
+TICKET_CACHE = "crush-tickets-v2"
+LEGACY_TICKET_CACHE = "crush-tickets"
 CONSENT_POSTS = [
     "cookie_consent_accept_post_navigation",
     "cookie_consent_decline_fetch",
@@ -111,3 +118,26 @@ def test_other_requests_keep_the_kept_pages():
         "event_detail_navigation",
     ):
         assert PAGE_CACHE not in results[name]["purgedCaches"], results[name]
+
+
+def test_activation_drops_what_older_workers_kept():
+    """An upgraded browser still holds the v32/v33 worker's caches, whose pages
+    were rendered before the consent-flag checks: a ticket there would run its
+    trackers at the door, for up to a year, whatever the visitor chose since.
+    Neither name carries the Workbox suffix the old cleanup matched."""
+    activate = _run_probe()["activate"]
+    assert activate["listeners"], "the probe found no activate listener"
+    assert LEGACY_TICKET_CACHE in activate["deleted"], activate
+    assert PAGE_CACHE in activate["deleted"], activate
+
+
+def test_activation_keeps_this_versions_tickets_and_precache():
+    """Guards the test above: a worker update must not lose the offline QR,
+    and the suffix cleanup still spares this version's own caches."""
+    activate = _run_probe()["activate"]
+    deleted = activate["deleted"]
+    assert activate["cacheVersion"], "CACHE_VERSION not found in sw-workbox.js"
+    assert TICKET_CACHE not in deleted
+    assert not [name for name in deleted if name.endswith(activate["cacheVersion"])]
+    # ...while an older version's precache still goes.
+    assert any(name.endswith("-crush-v0-older") for name in deleted), deleted
