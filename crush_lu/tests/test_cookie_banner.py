@@ -17,6 +17,7 @@ Paths are literal because the host middleware swaps the urlconf per host;
 
 import html
 import re
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 
 from unittest.mock import patch
@@ -29,6 +30,29 @@ from django.test import Client, RequestFactory, SimpleTestCase, TestCase
 from django.utils import translation
 
 BANNER_TEMPLATE = "includes/cookie_banner.html"
+VERSION_SEAM = "azureproject.templatetags.analytics._cookie_group_version"
+NO_VERSIONS = {"analytics": "", "marketing": ""}
+
+
+def _pin_versions(test, value=""):
+    """Group versions come from the DB (cached for an hour): pin them, so a
+    group a TestCase left in the cache cannot make a bare "accept" stale."""
+    patcher = patch(VERSION_SEAM, return_value=value)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
+VERSION_SEAM = "azureproject.templatetags.analytics._cookie_group_version"
+NO_VERSIONS = {"analytics": "", "marketing": ""}
+
+
+def _pin_versions(test, value=""):
+    """Group versions come from the DB (cached for an hour): pin them, so a
+    group a TestCase left in the cache cannot make a bare "accept" stale."""
+    patcher = patch(VERSION_SEAM, return_value=value)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
 
 EN_BANNER = (
     "We use cookies to enhance your experience. Analytics cookies help us "
@@ -280,6 +304,9 @@ class FacebookPixelConsentTests(SimpleTestCase):
     it has no consent mode of its own, so an undecided visitor must get the
     placeholder, not the PageView."""
 
+    def setUp(self):
+        _pin_versions(self)
+
     def _render(self, stored):
         request = RequestFactory().get("/")
         with patch(
@@ -364,6 +391,9 @@ class AppInsightsConsentTests(SimpleTestCase):
     """Browser telemetry is an analytics cookie: the SDK must not load, nor
     the preconnect open a connection, before analytics is accepted."""
 
+    def setUp(self):
+        _pin_versions(self)
+
     def _render(self, cookies=None, with_request=True):
         context = {"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc"}
         if with_request:
@@ -422,15 +452,20 @@ class CookieConsentFlagSyncTests(TestCase):
     the flags the server reads first."""
 
     def setUp(self):
-        from cookie_consent.models import CookieGroup
+        from cookie_consent.cache import delete_cache, get_cookie_group
+        from cookie_consent.models import Cookie, CookieGroup
 
         cache.clear()
-        CookieGroup.objects.get_or_create(
+        analytics, _ = CookieGroup.objects.get_or_create(
             varname="analytics", defaults={"name": "Analytics"}
         )
         CookieGroup.objects.get_or_create(
             varname="marketing", defaults={"name": "Marketing"}
         )
+        Cookie.objects.get_or_create(cookiegroup=analytics, name="_ga", domain="")
+        delete_cache()
+        self.version = get_cookie_group("analytics").get_version()
+        self.assertTrue(self.version)
 
     def _post(self, action, data):
         client = Client()
@@ -451,11 +486,16 @@ class CookieConsentFlagSyncTests(TestCase):
         self.assertNotIn("cookie_consent_analytics", response.cookies)
 
     def test_native_accept_all_updates_every_flag(self):
+        """The flag carries the group version the library stored, so it goes
+        stale exactly when the library's own cookie would (a group without
+        cookies has the empty version, as in the library's cookie)."""
         response = self._post("accept", {"all_groups": "on"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "accept")
-        self.assertEqual(response.cookies["cookie_consent_analytics"].value, "accept")
+        self.assertEqual(
+            response.cookies["cookie_consent_analytics"].value, f"accept:{self.version}"
+        )
+        self.assertEqual(response.cookies["cookie_consent_marketing"].value, "accept:")
 
     def test_a_rejected_form_leaves_the_flags_alone(self):
         response = self._post("decline", {"cookie_groups": "nonexistent"})
@@ -464,9 +504,248 @@ class CookieConsentFlagSyncTests(TestCase):
         self.assertNotIn("cookie_consent_marketing", response.cookies)
 
 
+class GoogleConsentDefaultsTests(SimpleTestCase):
+    """The Consent Mode defaults GA4 boots with must come from the same
+    version-checked reading of the stored choice as everything else. Read the
+    library's HttpOnly cookie alone and a stale acceptance in it outranks a
+    newer refusal the banner recorded while its post to the library was lost,
+    and gtag('config') sends the page view with analytics_storage granted."""
+
+    def setUp(self):
+        _pin_versions(self)
+
+    def _render(self, cookies=None, library=None, with_request=True):
+        context = {"GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST"}
+        if with_request:
+            request = RequestFactory().get("/")
+            request.COOKIES.update(cookies or {})
+            context["request"] = request
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=library
+        ):
+            return Template("{% load analytics %}{% analytics_head %}").render(
+                Context(context)
+            )
+
+    def _defaults(self, rendered):
+        block = rendered[
+            rendered.index("gtag('consent', 'default', {") : rendered.index(
+                "'wait_for_update'"
+            )
+        ]
+        return dict(re.findall(r"'(\w+)': '(granted|denied)'", block))
+
+    def test_undecided_and_no_request_are_denied(self):
+        for rendered in (self._render({}), self._render(with_request=False)):
+            defaults = self._defaults(rendered)
+            self.assertEqual(len(defaults), 4)
+            self.assertEqual(set(defaults.values()), {"denied"})
+
+    def test_a_banner_refusal_outranks_a_stale_library_acceptance(self):
+        rendered = self._render(
+            {
+                "cookie_consent_analytics": "decline",
+                "cookie_consent_marketing": "decline",
+            },
+            library=True,
+        )
+
+        self.assertEqual(set(self._defaults(rendered).values()), {"denied"})
+
+    def test_a_current_acceptance_grants_per_group(self):
+        rendered = self._render(
+            {
+                "cookie_consent_analytics": "accept:",
+                "cookie_consent_marketing": "decline",
+            }
+        )
+
+        defaults = self._defaults(rendered)
+        self.assertEqual(defaults["analytics_storage"], "granted")
+        self.assertEqual(defaults["ad_storage"], "denied")
+        self.assertEqual(defaults["ad_user_data"], "denied")
+        self.assertEqual(defaults["ad_personalization"], "denied")
+
+    def test_the_library_cookie_alone_still_counts(self):
+        rendered = self._render({}, library=True)
+
+        self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
+
+
+class ConsentVersionTests(TestCase):
+    """django-cookie-consent dates a group by its newest cookie and treats an
+    acceptance recorded before that date as undecided, so adding a cookie to a
+    group asks everyone again. The banner's own cookies follow the same rule:
+    the flag carries the group version it was accepted under, the banner JSON
+    its own date, and a stale acceptance is undecided, never a refusal."""
+
+    def setUp(self):
+        from cookie_consent.cache import get_cookie_group
+        from cookie_consent.models import CookieGroup
+
+        cache.clear()
+        self.analytics, _ = CookieGroup.objects.get_or_create(
+            varname="analytics", defaults={"name": "Analytics"}
+        )
+        CookieGroup.objects.get_or_create(
+            varname="marketing", defaults={"name": "Marketing"}
+        )
+        self._add_cookie("_ga", datetime(2026, 1, 1, tzinfo=timezone.utc))
+        self.version = get_cookie_group("analytics").get_version()
+        self.assertTrue(self.version)
+
+    def _add_cookie(self, name, created):
+        from cookie_consent.cache import delete_cache
+        from cookie_consent.models import Cookie
+
+        cookie = Cookie.objects.create(cookiegroup=self.analytics, name=name, domain="")
+        # auto_now_add ignores a value passed to create().
+        Cookie.objects.filter(pk=cookie.pk).update(created=created)
+        delete_cache()
+
+    def _choice(self, cookies, group="analytics"):
+        from azureproject.templatetags.analytics import stored_cookie_choice
+
+        request = RequestFactory().get("/")
+        request.COOKIES.update(cookies)
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            return stored_cookie_choice(request, group)
+
+    def test_a_current_acceptance_counts(self):
+        self.assertIs(
+            self._choice({"cookie_consent_analytics": f"accept:{self.version}"}), True
+        )
+
+    def test_adding_a_cookie_makes_an_older_acceptance_undecided(self):
+        from cookie_consent.cache import get_cookie_group
+
+        old = f"accept:{self.version}"
+        self._add_cookie("_ga_NEW", datetime(2026, 6, 1, tzinfo=timezone.utc))
+        new_version = get_cookie_group("analytics").get_version()
+        self.assertGreater(new_version, self.version)
+
+        self.assertIsNone(self._choice({"cookie_consent_analytics": old}))
+        self.assertIs(
+            self._choice({"cookie_consent_analytics": f"accept:{new_version}"}), True
+        )
+
+    def test_a_flag_without_a_version_falls_back_to_the_banner_json_date(self):
+        """What visitors have today: a bare "accept" flag (written before flags
+        carried a version) beside the banner JSON with its own timestamp, in
+        the browser's ISO shape."""
+        after = (
+            '{"essential":true,"analytics":true,"marketing":true,'
+            '"timestamp":"2026-03-01T12:00:00.000Z"}'
+        )
+        before = (
+            '{"essential":true,"analytics":true,"marketing":true,'
+            '"timestamp":"2025-12-01T12:00:00.000Z"}'
+        )
+
+        self.assertIs(
+            self._choice(
+                {"cookie_consent_analytics": "accept", "cookie_consent": after}
+            ),
+            True,
+        )
+        self.assertIsNone(
+            self._choice(
+                {"cookie_consent_analytics": "accept", "cookie_consent": before}
+            )
+        )
+        self.assertIsNone(self._choice({"cookie_consent_analytics": "accept"}))
+
+    def test_a_refusal_never_goes_stale(self):
+        self._add_cookie("_ga_NEW", datetime(2026, 6, 1, tzinfo=timezone.utc))
+
+        self.assertIs(self._choice({"cookie_consent_analytics": "decline"}), False)
+        self.assertIs(
+            self._choice(
+                {
+                    "cookie_consent": (
+                        '{"analytics":false,"timestamp":"2025-01-01T00:00:00.000Z"}'
+                    )
+                }
+            ),
+            False,
+        )
+
+    def test_a_group_without_cookies_has_nothing_to_renew(self):
+        for flag in ("accept:", "accept"):
+            self.assertIs(
+                self._choice({"cookie_consent_marketing": flag}, group="marketing"),
+                True,
+                flag,
+            )
+
+    def test_dates_are_compared_as_datetimes_not_strings(self):
+        """The banner's script writes "...123Z", the library "...123456+00:00":
+        as strings "Z" sorts above any digit, so a string compare would call an
+        acceptance 456 microseconds too old current."""
+        from azureproject.templatetags.analytics import _stamp_is_current
+
+        self.assertFalse(
+            _stamp_is_current(
+                "2026-01-01T00:00:00.123Z", "2026-01-01T00:00:00.123456+00:00"
+            )
+        )
+        self.assertTrue(
+            _stamp_is_current(
+                "2026-01-01T00:00:00.124Z", "2026-01-01T00:00:00.123456+00:00"
+            )
+        )
+        self.assertTrue(_stamp_is_current("", ""))
+        self.assertFalse(_stamp_is_current("", "2026-01-01T00:00:00+00:00"))
+
+    def test_the_state_tag_carries_the_current_versions(self):
+        import json
+
+        request = RequestFactory().get("/")
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            rendered = Template(
+                "{% load analytics %}{% cookie_consent_state %}"
+            ).render(Context({"request": request}))
+
+        state = json.loads(html.unescape(rendered))
+        self.assertEqual(
+            state["versions"], {"analytics": self.version, "marketing": ""}
+        )
+
+    def test_the_library_form_writes_the_version_into_the_flag(self):
+        client = Client()
+        response = client.post(
+            "/cookies/accept/",
+            {"cookie_groups": "analytics"},
+            HTTP_HOST="crush.lu",
+            HTTP_X_COOKIE_CONSENT_FETCH="1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        flag = response.cookies["cookie_consent_analytics"].value
+        self.assertEqual(flag, f"accept:{self.version}")
+        # ...and that flag is current for the server on the next request.
+        self.assertIs(self._choice({"cookie_consent_analytics": flag}), True)
+
+        response = client.post(
+            "/cookies/decline/",
+            {"cookie_groups": "analytics"},
+            HTTP_HOST="crush.lu",
+            HTTP_X_COOKIE_CONSENT_FETCH="1",
+        )
+
+        self.assertEqual(response.cookies["cookie_consent_analytics"].value, "decline")
+
+
 class ConsentStateTagTests(SimpleTestCase):
     """The banner reads the server's view of the stored choice from
     data-consent-state, because the library's own cookie is HttpOnly."""
+
+    def setUp(self):
+        _pin_versions(self)
 
     def _state(self, cookies=None, with_request=True):
         import json
@@ -482,21 +761,44 @@ class ConsentStateTagTests(SimpleTestCase):
             rendered = Template(
                 "{% load analytics %}{% cookie_consent_state %}"
             ).render(Context(context))
-        return json.loads(html.unescape(rendered))
+        return json.loads(html.unescape(rendered)) if rendered else None
 
     def test_undecided_without_a_request_or_a_cookie(self):
+        # Without a request the server has no view to offer: empty, so the
+        # banner's script falls back to the cookie it can read.
+        self.assertIsNone(self._state(with_request=False))
         self.assertEqual(
-            self._state(with_request=False),
-            {"analytics": None, "marketing": None, "decided": False},
-        )
-        self.assertEqual(
-            self._state({}), {"analytics": None, "marketing": None, "decided": False}
+            self._state({}),
+            {
+                "analytics": None,
+                "marketing": None,
+                "decided": False,
+                "versions": NO_VERSIONS,
+            },
         )
 
     def test_reflects_the_banner_json(self):
         self.assertEqual(
             self._state({"cookie_consent": '{"analytics":true,"marketing":false}'}),
-            {"analytics": True, "marketing": False, "decided": True},
+            {
+                "analytics": True,
+                "marketing": False,
+                "decided": True,
+                "versions": NO_VERSIONS,
+            },
+        )
+
+    def test_carries_the_groups_current_versions(self):
+        with patch(
+            VERSION_SEAM,
+            side_effect=lambda group: {"analytics": "2026-01-01T00:00:00+00:00"}.get(
+                group
+            ),
+        ):
+            state = self._state({})
+        self.assertEqual(
+            state["versions"],
+            {"analytics": "2026-01-01T00:00:00+00:00", "marketing": ""},
         )
 
     def test_reflects_the_library_cookie(self):
@@ -514,7 +816,12 @@ class ConsentStateTagTests(SimpleTestCase):
 
         self.assertEqual(
             json.loads(html.unescape(rendered)),
-            {"analytics": False, "marketing": True, "decided": True},
+            {
+                "analytics": False,
+                "marketing": True,
+                "decided": True,
+                "versions": NO_VERSIONS,
+            },
         )
 
     def test_saving_updates_the_library_cookie_and_the_embedded_state(self):
@@ -552,18 +859,71 @@ class ConsentStateTagTests(SimpleTestCase):
             )
 
     def test_banner_carries_the_state_and_reads_it_first(self):
+        import json
+
         request = RequestFactory().get("/")
         request.COOKIES["cookie_consent"] = '{"analytics":false,"marketing":true}'
         with patch(
             "cookie_consent.util.get_cookie_value_from_request", return_value=None
         ):
-            html = render_to_string(BANNER_TEMPLATE, {"request": request})
-        self.assertIn(
-            'data-consent-state="{&quot;analytics&quot;: false, &quot;marketing&quot;: true, &quot;decided&quot;: true}"',
-            html,
+            rendered = render_to_string(BANNER_TEMPLATE, {"request": request})
+        attribute = re.search(r'data-consent-state="([^"]*)"', rendered).group(1)
+        self.assertEqual(
+            json.loads(html.unescape(attribute)),
+            {
+                "analytics": False,
+                "marketing": True,
+                "decided": True,
+                "versions": NO_VERSIONS,
+            },
         )
-        self.assertIn("function serverConsent()", html)
-        self.assertIn("if (!consent && !serverConsent())", html)
+        self.assertIn("function serverState()", rendered)
+        self.assertIn("function serverConsent()", rendered)
+        # On load the server's (version-checked) state wins over a readable
+        # cookie: undecided server-side shows the banner whatever the cookie
+        # says; a decision is dispatched to the analytics scripts and put into
+        # Google Consent Mode.
+        load = rendered[
+            rendered.index("document.addEventListener('DOMContentLoaded'") :
+        ]
+        self.assertIn("const server = serverState();", load)
+        self.assertIn("if (server.decided) stored = storedConsent();", load)
+        self.assertIn("dispatchConsentEvent(stored);", load)
+        self.assertIn("updateGoogleConsent(stored);", load)
+        self.assertLess(
+            load.index("dispatchConsentEvent(stored);"),
+            load.index("updateGoogleConsent(stored);"),
+        )
+        # Rendered without a request the attribute is empty: the script falls
+        # back to the cookie it can read.
+        self.assertIn('data-consent-state=""', render_to_string(BANNER_TEMPLATE, {}))
+
+    def test_saving_writes_a_versioned_flag(self):
+        """An acceptance flag carries the group version from data-consent-state
+        (the save's own date when none is known), and the state rewritten
+        after a save keeps the versions for a second save on the same page."""
+        rendered = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        flag = rendered[
+            rendered.index("function setDjangoCookieConsent(") : rendered.index(
+                "const NATIVE_STATUS_URL"
+            )
+        ]
+        self.assertIn(
+            "'accept:' + (serverVersions()[groupName] || new Date().toISOString())",
+            flag,
+        )
+        self.assertIn(": 'decline'", flag)
+        sync = rendered[
+            rendered.index("function syncServerState(") : rendered.index(
+                "function acceptAllCookies()"
+            )
+        ]
+        self.assertIn("versions: serverVersions()", sync)
+        # A stale acceptance (server undecided) does not pre-tick the modal.
+        self.assertIn(
+            "if (!server.decided) return {};",
+            _js_function_body(rendered, "storedConsent"),
+        )
 
 
 class CookieSettingsTriggerTests(TestCase):
@@ -801,7 +1161,9 @@ def test_server_side_choice_drives_the_banner_when_the_cookie_is_httponly(page):
     request.COOKIES["cookie_consent"] = (
         '{"essential":true,"analytics":false,"marketing":true}'
     )
-    with patch("cookie_consent.util.get_cookie_value_from_request", return_value=None):
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, return_value=""):
         html = render_to_string(
             BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
         )
@@ -816,6 +1178,11 @@ def test_server_side_choice_drives_the_banner_when_the_cookie_is_httponly(page):
             body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
         ),
     )
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    page.add_init_script(
+        "window.__gtagCalls = [];"
+        "window.gtag = function () { window.__gtagCalls.push([].slice.call(arguments)); };"
+    )
     # No cookie at all in the browser: the server-rendered state is the only source.
     page.goto(url)
     assert (
@@ -824,9 +1191,107 @@ def test_server_side_choice_drives_the_banner_when_the_cookie_is_httponly(page):
         )
         == "none"
     )
+    # On load the stored choice is put into Google Consent Mode as well.
+    updates = [
+        c for c in page.evaluate("window.__gtagCalls") if c[:2] == ["consent", "update"]
+    ]
+    assert updates and updates[-1][2]["analytics_storage"] == "denied"
+    assert updates[-1][2]["ad_storage"] == "granted"
     page.click("#open-cookie-settings")
     checked = page.evaluate(
         "[document.getElementById('cookie-analytics').checked, "
         "document.getElementById('cookie-marketing').checked]"
     )
     assert checked == [False, True]
+    # Saving writes the flags the server reads first: a refusal as "decline",
+    # an acceptance dated (no group version was known here, so the save's own
+    # date, in the browser's ISO shape).
+    page.click("#cookie-btn-save")
+    flags = {c["name"]: c["value"] for c in page.context.cookies()}
+    assert flags["cookie_consent_analytics"] == "decline"
+    assert re.fullmatch(
+        r"accept:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z",
+        flags["cookie_consent_marketing"],
+    )
+
+
+@pytest.mark.playwright
+def test_a_stale_acceptance_reopens_the_banner(page):
+    """After a cookie is added to a group, django-cookie-consent treats an
+    older acceptance as undecided. The server applies that rule to the
+    banner's cookies too (data-consent-state), and on load the page must
+    follow the server, not the readable cookies that still say accepted: the
+    banner shows, nothing is granted, the modal pre-ticks nothing, and a new
+    acceptance is dated with the group's current version."""
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "accept:2026-01-01T00:00:00+00:00"
+    request.COOKIES["cookie_consent_marketing"] = "accept:2026-01-01T00:00:00+00:00"
+    current = "2026-06-01T00:00:00+00:00"
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, return_value=current):
+        html = render_to_string(
+            BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
+        )
+    assert "&quot;decided&quot;: false" in html
+    url = "http://crush.test/"
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
+        ),
+    )
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    # The browser still holds the old acceptance in every readable form.
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent",
+                "value": '{"essential":true,"analytics":true,"marketing":true}',
+                "url": url,
+            },
+            {
+                "name": "cookie_consent_analytics",
+                "value": "accept:2026-01-01T00:00:00+00:00",
+                "url": url,
+            },
+            {
+                "name": "cookie_consent_marketing",
+                "value": "accept:2026-01-01T00:00:00+00:00",
+                "url": url,
+            },
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+        "window.__fbqCalls = [];"
+        "window.fbq = function () { window.__fbqCalls.push([].slice.call(arguments)); };"
+    )
+    page.goto(url)
+    assert (
+        page.evaluate(
+            "getComputedStyle(document.getElementById('cookie-consent-banner')).display"
+        )
+        == "block"
+    )
+    assert page.evaluate("window.__consentEvents") == []
+    assert page.evaluate("window.__fbqCalls") == []
+    page.click("#open-cookie-settings")
+    checked = page.evaluate(
+        "[document.getElementById('cookie-analytics').checked, "
+        "document.getElementById('cookie-marketing').checked]"
+    )
+    assert checked == [False, False]
+    page.click("#cookie-modal-close")
+    page.click("#cookie-btn-accept")
+    flags = {c["name"]: c["value"] for c in page.context.cookies()}
+    assert flags["cookie_consent_analytics"] == "accept:" + current
+    assert flags["cookie_consent_marketing"] == "accept:" + current
+    assert page.evaluate("window.__consentEvents")[-1]["analytics"] is True

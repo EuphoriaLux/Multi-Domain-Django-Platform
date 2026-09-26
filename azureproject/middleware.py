@@ -796,7 +796,9 @@ class CookieConsentFlagSyncMiddleware:
     HttpOnly and a banner save may not have reached the library. The library's
     own /cookies/accept/ and /cookies/decline/ forms only write its cookie, so
     a later choice made there would lose to a stale flag. When one of those
-    forms sets the library cookie, this writes the same choice into the flags.
+    forms sets the library cookie, this writes the same choice into the flags,
+    with the group version the library stored (``accept:<version>``), so a
+    flag goes stale exactly when the library's own cookie would.
     """
 
     FLAG_PATH = re.compile(r"/cookies/(accept|decline)/$")
@@ -817,18 +819,31 @@ class CookieConsentFlagSyncMiddleware:
         name = getattr(settings, "COOKIE_CONSENT_NAME", "cookie_consent")
         if name not in response.cookies:
             return response  # the library rejected or ignored the form
+        from cookie_consent.conf import settings as consent_settings
+        from cookie_consent.util import parse_cookie_str
+
+        # What the library just stored, group by group: "-1" for a refusal,
+        # otherwise the group version the acceptance was given under. The flag
+        # carries that version (stored_cookie_choice checks it), so a cookie
+        # added to the group later makes the acceptance stale, as the library
+        # finds its own cookie. Only the posted groups: the library's cookie
+        # re-states groups this form did not touch, and a flag the banner
+        # wrote for one of those may be newer than the library's copy.
+        stored = parse_cookie_str(response.cookies[name].value)
         groups = request.POST.getlist("cookie_groups")
         if request.POST.get("all_groups") or not groups:
-            try:
-                from cookie_consent.cache import all_cookie_groups
-
-                groups = list(all_cookie_groups().keys())
-            except Exception:
-                groups = []
+            groups = list(stored)
         for group in groups:
+            if group not in stored:
+                continue
+            version = stored[group]
+            if version == consent_settings.COOKIE_CONSENT_DECLINE:
+                flag = "decline"
+            else:
+                flag = f"accept:{version}"
             response.set_cookie(
                 f"cookie_consent_{group}",
-                match.group(1),
+                flag,
                 max_age=self.FLAG_MAX_AGE,
                 path="/",
                 samesite="Lax",

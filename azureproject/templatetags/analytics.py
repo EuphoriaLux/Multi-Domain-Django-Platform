@@ -21,9 +21,11 @@ APPLICATIONINSIGHTS_CONNECTION_STRING based on domain.
 
 import json
 from decimal import Decimal
+from urllib.parse import unquote
 
 from django import template
 from django.middleware.csp import get_nonce
+from django.utils.dateparse import parse_datetime
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -43,6 +45,54 @@ def _json_default(value):
 
 
 BANNER_COOKIE = "cookie_consent"
+FLAG_ACCEPT = "accept"
+FLAG_DECLINE = "decline"
+
+
+def _cookie_group_version(cookie_group):
+    """
+    django-cookie-consent's current version of a group, or None if unknown here.
+
+    The library dates a group by its newest cookie (``CookieGroup.get_version``,
+    "" while the group has no cookies) and treats an acceptance recorded before
+    that date as undecided, so adding a cookie to a group asks everyone again.
+    None (no such group, or the lookup failed) means no version to check against.
+    """
+    try:
+        from cookie_consent.cache import get_cookie_group
+
+        group = get_cookie_group(cookie_group)
+    except Exception:
+        return None
+    return group.get_version() if group is not None else None
+
+
+def _stamp_is_current(stamp, reference):
+    """
+    Whether an acceptance dated ``stamp`` still covers a group at ``reference``.
+
+    The library's own rule: the acceptance stands until a cookie is added to
+    the group after it. No reference (the group has no cookies, or is unknown
+    here) leaves nothing to renew; an acceptance with no date at all (a flag
+    written before flags carried one) is older than any cookie.
+    Both sides are ISO 8601 but not the same shape (the banner's script writes
+    ``...123Z``, the library ``...123456+00:00``), so compare parsed datetimes
+    and fall back to the strings only when one side does not parse.
+    """
+    if not reference:
+        return True
+    if not stamp:
+        return False
+    try:
+        stamped, current = parse_datetime(stamp), parse_datetime(reference)
+    except (TypeError, ValueError):
+        stamped = current = None
+    if stamped is not None and current is not None:
+        try:
+            return stamped >= current
+        except TypeError:  # naive against aware
+            pass
+    return stamp >= reference
 
 
 def stored_cookie_choice(request, cookie_group):
@@ -50,9 +100,11 @@ def stored_cookie_choice(request, cookie_group):
     The visitor's stored choice for a cookie group: True, False or None.
 
     A choice can live in three places, checked in this order:
-    1. the banner's per-group flag ``cookie_consent_<group>=accept|decline``;
+    1. the banner's per-group flag ``cookie_consent_<group>=accept:<version>``
+       (``decline`` for a refusal; flags written before this carry a bare
+       ``accept``);
     2. the banner's JSON object in the ``cookie_consent`` cookie
-       (``{"analytics": true, "marketing": false, ...}``);
+       (``{"analytics": true, "marketing": false, "timestamp": ...}``);
     3. django-cookie-consent's own cookie (``group=version|...``, HttpOnly),
        written by its /cookies/ views.
     The banner writes 1 and 2 on every save and also posts the choice to the
@@ -60,10 +112,24 @@ def stored_cookie_choice(request, cookie_group):
     after the save, a network error) the banner's copy is the newer one, so
     it wins. 3 alone is what a visitor who only used the library's own
     /cookies/ pages has.
+
+    An acceptance only counts while it is current for the group
+    (_stamp_is_current): the flag carries the group version it was given
+    under, the JSON its own date. A stale acceptance is skipped, not turned
+    into a refusal: the next source is consulted, and when every source is
+    stale the visitor is undecided and the banner asks again, which is what
+    the library does with its own cookie. A refusal never goes stale.
     """
+    reference, looked_up = None, False
+
     flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
-    if flag in ("accept", "decline"):
-        return flag == "accept"
+    action, _, stamp = flag.partition(":")
+    if action == FLAG_DECLINE:
+        return False
+    if action == FLAG_ACCEPT:
+        reference, looked_up = _cookie_group_version(cookie_group), True
+        if _stamp_is_current(unquote(stamp), reference):
+            return True
 
     raw = request.COOKIES.get(BANNER_COOKIE, "")
     if raw:
@@ -72,7 +138,13 @@ def stored_cookie_choice(request, cookie_group):
         except ValueError:
             data = None
         if isinstance(data, dict) and cookie_group in data:
-            return data[cookie_group] is True
+            if data[cookie_group] is not True:
+                return False
+            if not looked_up:
+                reference = _cookie_group_version(cookie_group)
+            stamp = data.get("timestamp")
+            if _stamp_is_current(stamp if isinstance(stamp, str) else "", reference):
+                return True
 
     try:
         from cookie_consent.util import get_cookie_value_from_request
@@ -90,9 +162,10 @@ def get_cookie_consent(request, cookie_group, undecided=True):
 
     Returns True if the group is accepted and False if it was declined.
     ``undecided`` is the answer while no choice is stored yet (first visit,
-    the banner is showing): GA4 keeps the default True because Consent Mode
-    withholds storage until the banner answers; a script that has no such
-    mode (the Facebook Pixel) must pass False, or it fires before consent.
+    the banner is showing). Every tag in this module passes False: the GA4
+    Consent Mode defaults, the Facebook Pixel and Application Insights all
+    wait for the banner's answer. The True default is kept for a caller that
+    only wants to know a group was not refused.
     """
     choice = stored_cookie_choice(request, cookie_group)
     return undecided if choice is None else choice
@@ -105,15 +178,23 @@ def cookie_consent_state(context):
 
     django-cookie-consent's cookie is HttpOnly, so the banner's script cannot
     read a choice made through the library's /cookies/ views from
-    document.cookie; it reads this instead (``data-consent-state``) and only
-    falls back to document.cookie when nothing is decided here.
+    document.cookie; it reads this instead (``data-consent-state``). This is
+    also version-checked (stored_cookie_choice) where a readable cookie is
+    not, so the script takes it as the truth whenever it is present and only
+    falls back to document.cookie when the page was rendered without a
+    request (empty output). ``versions`` carries the groups' current versions
+    for the flags a save on this page writes.
     """
     request = context.get('request')
+    if request is None:
+        return ""  # rendered without a request: the server has no view to offer
     state = {"analytics": None, "marketing": None}
-    if request is not None:
-        for group in state:
-            state[group] = stored_cookie_choice(request, group)
+    for group in state:
+        state[group] = stored_cookie_choice(request, group)
     state["decided"] = any(value is not None for value in state.values())
+    state["versions"] = {
+        group: _cookie_group_version(group) or "" for group in ("analytics", "marketing")
+    }
     return json.dumps(state)
 
 
@@ -153,25 +234,20 @@ def analytics_head(context):
     # analytics goes dark. Interpolating the nonce below is what forces generation.
     nonce_attr = f' nonce="{nonce}"' if nonce is not None else ''
 
-    # Check existing consent from cookies
-    # Returns True if consented, False if declined, True if not yet decided
-    # (we default to denied for new visitors per GDPR best practice)
-    has_analytics = get_cookie_consent(request, 'analytics') if request else False
-    has_marketing = get_cookie_consent(request, 'marketing') if request else False
+    # The stored choice as the server sees it (stored_cookie_choice: the
+    # banner's flag, then its JSON, then the library's HttpOnly cookie, each
+    # checked against the group's version). Only a current acceptance grants;
+    # undecided, or no request, is denied until the banner answers. Reading
+    # the library's cookie alone here would let a stale acceptance in it
+    # outrank a newer refusal the banner recorded while its post to the
+    # library was lost, and gtag('config') would send the page view.
+    def granted(group):
+        if request is None:
+            return 'denied'
+        return 'granted' if get_cookie_consent(request, group, undecided=False) else 'denied'
 
-    # For first-time visitors (no consent cookie), default to denied
-    # get_cookie_consent returns True for None (not decided), but we want denied
-    try:
-        from cookie_consent.util import get_cookie_value_from_request
-        analytics_value = get_cookie_value_from_request(request, 'analytics')
-        marketing_value = get_cookie_value_from_request(request, 'marketing')
-        # Only grant if explicitly accepted (True), deny for None or False
-        analytics_granted = 'granted' if analytics_value is True else 'denied'
-        marketing_granted = 'granted' if marketing_value is True else 'denied'
-    except Exception:
-        # Fallback: denied by default for GDPR compliance
-        analytics_granted = 'denied'
-        marketing_granted = 'denied'
+    analytics_granted = granted('analytics')
+    marketing_granted = granted('marketing')
 
     # Get current language for multi-language tracking
     # This allows GA4 to track page views with language context

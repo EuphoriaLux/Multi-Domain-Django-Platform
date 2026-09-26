@@ -648,9 +648,16 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         }
     }
 
-    // Also set django-cookie-consent cookies for server-side checks
+    // Also set the per-group flags the server reads first (stored_cookie_choice).
+    // An acceptance carries django-cookie-consent's version of the group (the
+    // date of its newest cookie, from data-consent-state), so a cookie added
+    // to the group later makes it stale and the banner asks again, as the
+    // library does with its own cookie. Without a known version the save's
+    // own date stands in.
     function setDjangoCookieConsent(groupName, accepted) {
-        const value = accepted ? 'accept' : 'decline';
+        const value = accepted
+            ? 'accept:' + (serverVersions()[groupName] || new Date().toISOString())
+            : 'decline';
         const date = new Date();
         date.setTime(date.getTime() + (COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
         const expires = "expires=" + date.toUTCString();
@@ -714,7 +721,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         banner.dataset.consentState = JSON.stringify({
             analytics: consent.analytics === true,
             marketing: consent.marketing === true,
-            decided: true
+            decided: true,
+            versions: serverVersions() // a second save here still writes versioned flags
         });
     }
 
@@ -755,17 +763,31 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // What the server knows (data-consent-state, rendered by the
     // cookie_consent_state tag): django-cookie-consent's own cookie is
     // HttpOnly, so a choice made through its /cookies/ views is invisible to
-    // document.cookie. Null when nothing is decided server-side.
-    function serverConsent() {
+    // document.cookie, and the server checks every stored acceptance against
+    // the group's version where a readable cookie cannot. Null only when the
+    // page was rendered without a request (empty attribute).
+    function serverState() {
         const banner = document.getElementById('cookie-consent-banner');
         const raw = banner && banner.dataset ? banner.dataset.consentState : '';
         if (!raw) return null;
         try {
             const state = JSON.parse(raw);
-            return state && state.decided ? state : null;
+            return state && typeof state === 'object' ? state : null;
         } catch (e) {
             return null;
         }
+    }
+
+    // The server's state when it holds a decision, else null.
+    function serverConsent() {
+        const state = serverState();
+        return state && state.decided ? state : null;
+    }
+
+    // The groups' current versions (see setDjangoCookieConsent).
+    function serverVersions() {
+        const state = serverState();
+        return state && state.versions && typeof state.versions === 'object' ? state.versions : {};
     }
 
     // The stored choice as {analytics, marketing}: the server's view first,
@@ -774,8 +796,12 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // "group=version|group=version" string, where a declined group stores
     // "-1". Anything else (no cookie, a legacy value) is no stored choice.
     function storedConsent() {
-        const server = serverConsent();
+        const server = serverState();
         if (server) {
+            // The server's verdict is version-checked; a readable cookie beside
+            // it may be an acceptance that a cookie added since made stale, so
+            // when the server holds no decision nothing is a stored choice.
+            if (!server.decided) return {};
             return {
                 analytics: server.analytics === true,
                 marketing: server.marketing === true
@@ -888,16 +914,30 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         // Bind event listeners
         bindButtonEvents();
 
+        // The server's state wins when the page carries one: it checked every
+        // stored acceptance against the group versions, so after a cookie was
+        // added to a group a readable acceptance is stale, the server says
+        // undecided, and the banner must ask again rather than re-dispatch the
+        // old grant. Only a page rendered without a request falls back to the
+        // cookie this script can read.
+        const server = serverState();
         const consent = getCookie(COOKIE_NAME);
-        if (!consent && !serverConsent()) {
+        let stored = null;
+        if (server) {
+            if (server.decided) stored = storedConsent();
+        } else if (consent) {
+            stored = typeof consent === 'object' ? consent : storedConsent();
+        }
+        if (!stored) {
             // No stored choice anywhere - show banner
             showBanner();
         } else {
-            // A choice exists (readable cookie, or the server's HttpOnly
-            // one) - dispatch it so the analytics scripts can act on it
-            dispatchConsentEvent(
-                consent && typeof consent === 'object' ? consent : storedConsent()
-            );
+            // A choice exists - dispatch it so the analytics scripts can act
+            // on it, and put Google Consent Mode in the same state (the
+            // server-rendered defaults already match; this repairs a cached
+            // page).
+            dispatchConsentEvent(stored);
+            updateGoogleConsent(stored);
         }
     });
 })();
