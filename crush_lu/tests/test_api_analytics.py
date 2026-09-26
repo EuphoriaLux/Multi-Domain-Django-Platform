@@ -758,6 +758,18 @@ class HardeningTests(AnalyticsFixture):
             ]
         self.assertEqual(statuses, [200, 200, 429])
 
+    def test_a_busy_db_slot_is_a_503_not_an_extra_session(self):
+        from crush_lu import api_analytics
+
+        self.assertTrue(api_analytics._DB_SLOT.acquire(timeout=1))
+        try:
+            with mock.patch.object(api_analytics, "DB_SLOT_WAIT_SECONDS", 0.01):
+                response = self.get("definitions")
+        finally:
+            api_analytics._DB_SLOT.release()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.get("definitions").status_code, 200)
+
     def test_rate_limiter_fails_open_when_redis_swallows_an_outage(self):
         from crush_lu import api_analytics
 
@@ -935,7 +947,7 @@ class PrivilegeAuditTests(TestCase):
             "by default",
             "default privileges of reporting_owner grant SELECT on future tables in "
             "schema public to PUBLIC",
-            "connection limit is unlimited, above 3",
+            "connection limit is unlimited, above 6",
         ):
             self.assertIn(expected, joined)
 
@@ -1183,7 +1195,7 @@ class SetupRoleCommandTests(TestCase):
         self.assertIn('GRANT USAGE ON SCHEMA public TO "crush_analytics_ro"', sql)
         self.assertIn('REVOKE TEMPORARY ON DATABASE "pythonapp" FROM PUBLIC', sql)
         self.assertIn("NOBYPASSRLS", sql)
-        self.assertIn("CONNECTION LIMIT 3", sql)
+        self.assertIn("CONNECTION LIMIT 6", sql)
         self.assertIn("VALID UNTIL 'infinity'", sql)
         self.assertIn("default_transaction_read_only = 'on'", sql)
         # Stale stored settings are reset before the hardening ones are set.

@@ -19,12 +19,13 @@ import hashlib
 import json
 import logging
 import secrets
+import threading
 import time
 from datetime import date, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import DatabaseError, OperationalError
+from django.db import DatabaseError, OperationalError, connections
 from django.http import Http404, JsonResponse
 from django.utils import timezone, translation
 from django.views.decorators.http import require_GET
@@ -308,6 +309,23 @@ def _over_rate_limit(request) -> bool:
     return count > RATE_LIMIT_PER_MINUTE
 
 
+# One analytics DB session per worker process at a time. Under ASGI each sync
+# request runs in its own thread, so without this one worker could open several
+# sessions and hit the login's CONNECTION_LIMIT (sized for one per worker). The
+# session is closed before the slot is released, never left for the next
+# request's thread to overlap.
+_DB_SLOT = threading.BoundedSemaphore(1)
+DB_SLOT_WAIT_SECONDS = 15
+
+
+def _close_analytics_session() -> None:
+    alias = settings.ANALYTICS_DB_ALIAS
+    # Tests point the alias at the app's own "default" connection: never close
+    # that one.
+    if alias != "default" and alias in connections:
+        connections[alias].close()
+
+
 @require_GET
 def _serve(request, tool):
     if _over_rate_limit(request):
@@ -326,6 +344,17 @@ def _serve(request, tool):
     if params.errors:
         return _error("; ".join(params.errors), 400)
 
+    if not _DB_SLOT.acquire(timeout=DB_SLOT_WAIT_SECONDS):
+        logger.warning("Analytics tool %s waited too long for a DB slot", tool)
+        return _error("analytics database busy, retry shortly", 503)
+    try:
+        return _serve_with_db(tool, handler, kwargs)
+    finally:
+        _close_analytics_session()
+        _DB_SLOT.release()
+
+
+def _serve_with_db(tool, handler, kwargs):
     # The privilege audit runs before any payload is read or returned, cached
     # or not, so an excessive grant yields the 503 on schedule.
     try:

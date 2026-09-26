@@ -532,8 +532,11 @@ PARAMETER_AUDIT_SQL = (
 
 
 # Sessions the analytics login may hold at once; setup_analytics_role sets it
-# and the audit rejects anything higher (or unlimited, -1).
-CONNECTION_LIMIT = 3
+# and the audit rejects anything higher (or unlimited, -1). The API holds at
+# most one per worker process (api_analytics._DB_SLOT): production runs four
+# Gunicorn workers (startup.sh), plus headroom for WEB_CONCURRENCY tuning or an
+# overlapping restart.
+CONNECTION_LIMIT = 6
 
 # Catalogs that hold password verifiers, data samples, credentials or large
 # object contents: readable by the analytics login is always a violation.
