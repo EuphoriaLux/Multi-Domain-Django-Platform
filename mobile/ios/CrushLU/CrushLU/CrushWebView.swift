@@ -217,9 +217,11 @@ struct CrushWebView: UIViewRepresentable {
             webView.load(request)
         }
 
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            // A new document has no live watch callbacks. Stop native sensors
-            // before it replaces the page that registered them.
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            // The new document has now replaced the page that registered the
+            // watches, so its callbacks are gone: stop the native sensors. Not
+            // earlier: a provisional load that fails (DNS, TLS, network) leaves
+            // the old page and its live watch in place.
             locationBridge?.stopAll()
         }
 
@@ -784,6 +786,15 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             failActiveRequests(code: 1, message: "Location permission denied")
         } else {
             dispatchError(code: 2, message: "Location unavailable: \(error.localizedDescription)", to: nil)
+            // The page drops a one-shot request's callbacks on its error, so
+            // end it here too. Watches stay and keep trying.
+            for id in pendingCurrentPositionIDs {
+                forgetRequest(id)
+            }
+            pendingCurrentPositionIDs.removeAll()
+            if activeWatchIDs.isEmpty {
+                stopLocationServices()
+            }
         }
     }
 
@@ -917,6 +928,10 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         locationManager.startUpdatingLocation()
         isUpdatingLocation = true
         updateHeadingUpdates()
+        // Timeouts measure acquisition time only: they start with the sensors.
+        for id in activeWatchIDs.union(pendingCurrentPositionIDs) where timeoutWorkItems[id] == nil {
+            armTimeout(for: id)
+        }
     }
 
     /// The heading sensor runs only while the page shows a compass and the
@@ -940,6 +955,10 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         locationManager.stopUpdatingLocation()
         isUpdatingLocation = false
         locationManager.stopUpdatingHeading()
+        // No acquisition while stopped (background, permission prompt, idle):
+        // pause every timeout. The next start gives each request a full wait.
+        timeoutWorkItems.values.forEach { $0.cancel() }
+        timeoutWorkItems.removeAll()
     }
 
     /// Forget one request's freshness window and pending timeout.
@@ -972,10 +991,11 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         return max(milliseconds, 0) / 1000
     }
 
-    /// (Re)start the wait for this request's next fix.
+    /// (Re)start the wait for this request's next fix. Only while the sensors
+    /// run: startLocationServices arms requests that arrived before that.
     private func armTimeout(for id: Int) {
         timeoutWorkItems.removeValue(forKey: id)?.cancel()
-        guard let timeout = timeoutByID[id] else { return }
+        guard isUpdatingLocation, let timeout = timeoutByID[id] else { return }
         let item = DispatchWorkItem { [weak self] in
             self?.timeoutFired(for: id)
         }
@@ -987,13 +1007,9 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         timeoutWorkItems.removeValue(forKey: id)
         let isPending = pendingCurrentPositionIDs.contains(id)
         guard isPending || activeWatchIDs.contains(id) else { return }
-        // The spec's timeout excludes time spent on a permission prompt, and a
-        // backgrounded app is not looking for a fix: wait another window.
-        if !isAppActive || isRequestingFullAccuracy
-            || locationManager.authorizationStatus == .notDetermined {
-            armTimeout(for: id)
-            return
-        }
+        // Stopping the sensors cancels every timer; this only guards a timer
+        // that had already been dequeued when they stopped.
+        guard isUpdatingLocation else { return }
         dispatchError(code: 3, message: "Location request timed out", to: id)
         if isPending {
             // A one-shot request ends with its error.

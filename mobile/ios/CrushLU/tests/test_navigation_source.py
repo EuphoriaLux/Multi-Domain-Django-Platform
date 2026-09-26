@@ -179,9 +179,27 @@ class IOSNavigationSourceTests(unittest.TestCase):
             'dispatchError(code: 3, message: "Location request timed out", to: id)',
             fired,
         )
-        # Time on a permission prompt or in the background does not count.
-        self.assertIn("locationManager.authorizationStatus == .notDetermined", fired)
-        self.assertIn("isRequestingFullAccuracy", fired)
+        # Timeouts measure acquisition time only. A timer runs only while the
+        # sensors do: stopping them (background, permission prompt, idle)
+        # cancels every timer, and starting them arms the waiting requests.
+        # Checking the state only when a timer fires would still count the
+        # paused time if the app came back before the deadline.
+        arm = bridge.split("private func armTimeout(for id: Int) {", 1)[1]
+        self.assertIn(
+            "guard isUpdatingLocation, let timeout = timeoutByID[id] else { return }",
+            arm.split("\n    }\n", 1)[0],
+        )
+        start = bridge.split("private func startLocationServices() {", 1)[1]
+        start = start.split("\n    }\n", 1)[0]
+        self.assertIn("where timeoutWorkItems[id] == nil {", start)
+        self.assertIn("armTimeout(for: id)", start)
+        stop = bridge.split("private func stopLocationServices() {", 1)[1]
+        stop = stop.split("\n    }\n", 1)[0]
+        self.assertIn("timeoutWorkItems.values.forEach { $0.cancel() }", stop)
+        for caller in ("func pauseForInactiveApp() {",):
+            body = bridge.split(caller, 1)[1].split("\n    }\n", 1)[0]
+            self.assertIn("stopLocationServices()", body)
+        self.assertNotIn(".notDetermined", fired)
         # A one-shot request ends; a watch keeps looking.
         self.assertIn("pendingCurrentPositionIDs.remove(id)", fired)
         self.assertIn("stopLocationServices()", fired)
@@ -198,6 +216,39 @@ class IOSNavigationSourceTests(unittest.TestCase):
             forget.split("\n    }\n", 1)[0],
         )
         self.assertIn("timeoutWorkItems.values.forEach { $0.cancel() }", bridge)
+
+    def test_sensors_stop_when_a_new_document_commits_not_before(self):
+        """Tear down native watches only once the old page is really gone.
+
+        A provisional load that fails (DNS, TLS, network) leaves the Cache
+        page and its JS watch alive; stopping at provisional start froze its
+        tracking until the page's own watchdog recreated the watch.
+        """
+        web_view = _source("CrushWebView.swift")
+        commit = web_view.split(
+            "func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {",
+            1,
+        )[1]
+        self.assertIn("locationBridge?.stopAll()", commit.split("\n        }\n", 1)[0])
+        self.assertNotIn("didStartProvisionalNavigation", web_view)
+
+    def test_location_failure_ends_one_shot_requests(self):
+        """A getCurrentPosition gets one error, and native forgets it too.
+
+        The injected wrapper deletes a one-shot callback on its error; a
+        request left in pendingCurrentPositionIDs kept the sensors running
+        for a page that could no longer hear it.
+        """
+        web_view = _source("CrushWebView.swift")
+        failed = web_view.split("didFailWithError error: Error) {", 1)[1]
+        failed = failed.split("\n    }\n", 1)[0]
+        self.assertIn("for id in pendingCurrentPositionIDs {", failed)
+        self.assertIn("forgetRequest(id)", failed)
+        self.assertIn("pendingCurrentPositionIDs.removeAll()", failed)
+        self.assertIn(
+            "if activeWatchIDs.isEmpty {\n                stopLocationServices()",
+            failed,
+        )
 
     def test_heading_sensor_runs_only_for_a_compass_page(self):
         """Heading updates start only once the page installs its compass hook.
