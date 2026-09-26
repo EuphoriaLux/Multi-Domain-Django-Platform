@@ -144,7 +144,8 @@ def _render_poll(request, poll):
         )
     )
     total_votes = sum(o.vote_count for o in options)
-    any_gender_split = _annotate_gender_split(poll, options)
+    # Members-only polls never publish a gender breakdown.
+    any_gender_split = poll.is_public and _annotate_gender_split(poll, options)
     authenticated = request.user.is_authenticated
 
     user_votes = set()

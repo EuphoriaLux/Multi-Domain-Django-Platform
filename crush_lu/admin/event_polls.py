@@ -75,8 +75,9 @@ class EventPollSuggestionAdmin(admin.ModelAdmin):
     list_select_related = ['poll', 'user']
     list_filter = ('status', 'poll')
     search_fields = ('text', 'user__email')
+    # status changes only through the actions, so approval always promotes
     readonly_fields = (
-        'poll', 'user', 'text', 'language', 'promoted_to', 'created_at'
+        'poll', 'user', 'text', 'language', 'status', 'promoted_to', 'created_at'
     )
     actions = ['approve_suggestions', 'reject_suggestions']
 

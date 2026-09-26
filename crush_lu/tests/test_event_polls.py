@@ -473,6 +473,30 @@ class PublicThemePollTests(TestCase):
         self.assertContains(response, 'Women 100% · Men 50%', count=1)
         self.assertContains(self.client.get('/fr/themes/'), 'Femmes 100% · Hommes 50%')
 
+    def test_members_poll_never_shows_gender_split(self):
+        self.poll.is_public = False
+        self.poll.save()
+        self._add_votes(self.option, 'F', 5)
+        self._add_votes(self.option, 'M', 5)
+        _create_approved_profile(self.user)
+        self._login()
+        response = self.client.get(f'/en/polls/{self.poll.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Women 100%')
+
+        self.poll.is_public = True
+        self.poll.save()
+        self.assertContains(
+            self.client.get(f'/en/polls/{self.poll.id}/'), 'Women 100% · Men 100%'
+        )
+
+    def test_suggestion_status_is_read_only_in_admin(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.event_polls import EventPollSuggestionAdmin
+
+        model_admin = EventPollSuggestionAdmin(EventPollSuggestion, crush_admin_site)
+        self.assertIn('status', model_admin.readonly_fields)
+
     def test_admin_approve_creates_option(self):
         from unittest import mock
 
