@@ -55,7 +55,14 @@ class CookieConsentFlagSyncMiddleware:
         ):
             return response
 
-        groups = self.GROUPS.intersection(request.POST.getlist("cookie_groups"))
+        from cookie_consent.forms import ProcessCookiesForm
+
+        form = ProcessCookiesForm(data=request.POST)
+        if not form.is_valid():
+            return response
+        groups = self.GROUPS.intersection(
+            group.varname for group in form.get_cookie_groups()
+        )
         if not groups:
             return response
 

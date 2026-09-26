@@ -273,8 +273,12 @@ class CookieBannerRenderTests(SimpleTestCase):
             for line in _js_function_body(script, "showCookieSettings").splitlines()
         ]
         # Sync the toggles before the modal becomes visible.
-        self.assertEqual(show[0], "reflectStoredConsent();")
-        self.assertIn("style.display = 'flex'", show[1])
+        self.assertIn("prepareNativeStatus();", show)
+        self.assertLess(
+            show.index("reflectStoredConsent();"),
+            show.index("document.getElementById('cookie-settings-modal').style.display = 'flex';"),
+        )
+        self.assertIn("style.display = 'flex'", show[2])
         reflect = _js_function_body(script, "reflectStoredConsent")
         self.assertIn("storedConsent()", reflect)
         stored = _js_function_body(script, "storedConsent")
@@ -1348,9 +1352,8 @@ class ConsentStateTagTests(SimpleTestCase):
         # Google Consent Mode.
         choice = _js_function_body(rendered, "choiceOnLoad")
         self.assertIn("const server = serverState();", choice)
-        self.assertIn(
-            "if (server) return server.decided ? storedConsent() : null;", choice
-        )
+        self.assertIn("if (['analytics', 'marketing'].some(hasNewerServerVersion)) return null;", choice)
+        self.assertIn("return server.decided ? storedConsent() : null;", choice)
         load = rendered[
             rendered.index("document.addEventListener('DOMContentLoaded'") :
         ]

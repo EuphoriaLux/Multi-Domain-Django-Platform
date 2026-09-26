@@ -603,6 +603,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function showBanner() {
+        prepareNativeStatus();
         const banner = document.getElementById('cookie-consent-banner');
         if (banner) {
             banner.style.display = 'block';
@@ -627,6 +628,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function dispatchConsentEvent(consent) {
+        if (consent.marketing !== true) window.__fbPendingEvents = [];
         const event = new CustomEvent('cookie_consent_updated', {
             detail: consent
         });
@@ -685,6 +687,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         date.setTime(date.getTime() + (COOKIE_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
         const expires = "expires=" + date.toUTCString();
         document.cookie = 'cookie_consent_' + groupName + "=" + value + ";" + expires + ";path=/;SameSite=Lax";
+        document.cookie = 'cookie_consent_' + groupName + '_banner=1;' + expires + ';path=/;SameSite=Lax';
     }
 
     // django-cookie-consent's own cookie (mounted at /cookies/ on every site)
@@ -695,10 +698,24 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // cookies above carry the choice too, and the server reads them first,
     // so a save is honoured even if this never completes.
     const NATIVE_STATUS_URL = '/cookies/status/';
-    // Each native response rewrites the library's whole consent cookie. Keep
-    // saves from separate modal interactions in order as well as the two
-    // requests within one save, so an older accept cannot follow a decline.
-    let nativeConsentQueue = Promise.resolve();
+    let nativeStatusPromise = null;
+
+    function prepareNativeStatus() {
+        if (typeof fetch !== 'function') return Promise.resolve(null);
+        if (!nativeStatusPromise) {
+            nativeStatusPromise = fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
+                .then(function(response) { return response.ok ? response.json() : null; })
+                .then(function(status) {
+                    if (!status) nativeStatusPromise = null;
+                    return status;
+                })
+                .catch(function() {
+                    nativeStatusPromise = null;
+                    return null;
+                });
+        }
+        return nativeStatusPromise;
+    }
 
     function postNativeChoice(url, csrftoken, groups) {
         if (!groups.length) return Promise.resolve();
@@ -719,11 +736,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
 
     function syncNativeConsent(consent) {
         if (typeof fetch !== 'function') return;
-        nativeConsentQueue = nativeConsentQueue.catch(function() {
-            // A failed save must not stop the next choice from reaching the server.
-        }).then(function() {
-            return fetch(NATIVE_STATUS_URL, { credentials: 'same-origin' })
-            .then(function(response) { return response.ok ? response.json() : null; })
+        // Start the latest keepalive POST without waiting for an older choice.
+        prepareNativeStatus()
             .then(function(status) {
                 if (!status || !status.csrftoken) return;
                 const accepted = [], declined = [];
@@ -740,7 +754,6 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
                     });
             })
             .catch(function() { /* the readable cookies still carry the choice */ });
-        });
     }
 
     // Keep the server-rendered state (data-consent-state) in step with a
@@ -846,6 +859,17 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         });
     }
 
+    function hasNewerServerVersion(group) {
+        const version = serverVersions()[group];
+        try {
+            const known = localStorage.getItem('crush_consent_version_' + group);
+            if (known && (!version || Date.parse(known) > Date.parse(version))) return true;
+        } catch (e) { /* storage can be unavailable in private mode */ }
+        const flag = getCookie('cookie_consent_' + group);
+        return typeof flag === 'string' && flag.indexOf('accept:') === 0 &&
+            !!version && Date.parse(flag.slice(7)) < Date.parse(version);
+    }
+
     // The stored choice as {analytics, marketing}: the server's view first,
     // then the cookie this script can read. Two formats share that cookie:
     // this banner's JSON object, and django-cookie-consent's own
@@ -895,6 +919,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     }
 
     function showCookieSettings() {
+        prepareNativeStatus();
         reflectStoredConsent();
         document.getElementById('cookie-settings-modal').style.display = 'flex';
     }
@@ -983,7 +1008,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // request falls back to the cookie this script can read.
     function choiceOnLoad() {
         const server = serverState();
-        if (server) return server.decided ? storedConsent() : null;
+        if (server) {
+            if (['analytics', 'marketing'].some(hasNewerServerVersion)) return null;
+            return server.decided ? storedConsent() : null;
+        }
         const consent = getCookie(COOKIE_NAME);
         if (!consent) return null;
         return typeof consent === 'object' ? consent : storedConsent();

@@ -45,6 +45,34 @@ def test_native_cookie_forms_sync_flags_without_overwriting_a_newer_banner_choic
     response = client.post("/cookies/accept/", {}, HTTP_HOST="crush.lu")
     assert "cookie_consent_analytics" not in response.cookies
 
+    response = client.post(
+        "/cookies/accept/", {"all_groups": "true"}, HTTP_HOST="crush.lu"
+    )
+    assert response.cookies["cookie_consent_analytics"].value.startswith("accept:")
+    assert response.cookies["cookie_consent_marketing"].value.startswith("accept:")
+
+    response = client.post(
+        "/cookies/decline/", {"all_groups": "true"}, HTTP_HOST="crush.lu"
+    )
+    assert response.cookies["cookie_consent_analytics"].value == "decline"
+    assert response.cookies["cookie_consent_marketing"].value == "decline"
+
+
+def test_new_banner_choice_beats_an_older_native_refusal():
+    from azureproject.templatetags.analytics import stored_cookie_choice
+
+    request = RequestFactory().get("/")
+    request.COOKIES.update(
+        {
+            "cookie_consent_marketing": "accept:",
+            "cookie_consent_marketing_banner": "1",
+        }
+    )
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=False
+    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+        assert stored_cookie_choice(request, "marketing") is True
+
 
 def test_group_versions_are_cached_for_one_template_request():
     request = RequestFactory().get("/")
@@ -88,7 +116,8 @@ def test_rapid_banner_saves_finish_with_the_last_native_choice(page):
     )
     page.add_init_script("""
         window.__nativeCalls = [];
-        window.fetch = function(url) {
+        window.__nativePosts = [];
+        window.fetch = function(url, options) {
           window.__nativeCalls.push(url);
           if (url === '/cookies/status/') {
             return Promise.resolve({ok: true, json: () => Promise.resolve({
@@ -97,6 +126,8 @@ def test_rapid_banner_saves_finish_with_the_last_native_choice(page):
               declineUrl: '/cookies/decline/'
             })});
           }
+          window.__nativePosts.push({url: url, keepalive: options.keepalive,
+                                     body: options.body});
           if (url === '/cookies/accept/') {
             return new Promise(function(resolve) {
               window.__releaseFirst = () => resolve({ok: true});
@@ -110,23 +141,23 @@ def test_rapid_banner_saves_finish_with_the_last_native_choice(page):
         "document.getElementById('cookie-btn-accept').click();"
         "document.getElementById('cookie-btn-decline').click();"
     )
-    page.wait_for_function("window.__nativeCalls.length === 2")
+    page.wait_for_function("window.__nativeCalls.length === 3")
     assert page.evaluate("window.__nativeCalls") == [
         "/cookies/status/",
         "/cookies/accept/",
-    ]
-    page.evaluate("window.__releaseFirst()")
-    page.wait_for_function("window.__nativeCalls.length === 4")
-    assert page.evaluate("window.__nativeCalls") == [
-        "/cookies/status/",
-        "/cookies/accept/",
-        "/cookies/status/",
         "/cookies/decline/",
     ]
+    assert page.evaluate("window.__nativePosts[1]") == {
+        "url": "/cookies/decline/",
+        "keepalive": True,
+        "body": "cookie_groups=analytics&cookie_groups=marketing",
+    }
+    page.evaluate("window.__releaseFirst()")
+    assert page.evaluate("window.__nativeCalls.length") == 3
 
 
 @pytest.mark.playwright
-def test_pixel_event_replays_after_marketing_is_accepted(page):
+def test_pixel_event_before_consent_is_not_replayed_after_acceptance(page):
     context = {"FACEBOOK_PIXEL_ID": "123"}
     pixel = Template("{% load analytics %}{% analytics_body %}").render(
         Context(context)
@@ -155,11 +186,72 @@ def test_pixel_event_replays_after_marketing_is_accepted(page):
         ),
     )
     page.goto(url)
-    assert page.evaluate("window.__fbPendingEvents") == [["track", "Lead"]]
+    assert page.evaluate("window.__fbPendingEvents || []") == []
     page.click("#cookie-btn-accept")
+    calls = page.evaluate("window.fbq.queue.map(args => Array.from(args))")
+    assert ["track", "Lead"] not in calls
+    assert ["track", "PageView"] in calls
+    assert page.evaluate("window.__fbPendingEvents") == []
+
+
+@pytest.mark.playwright
+def test_pixel_event_with_prior_consent_replays_when_pixel_starts(page):
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_marketing"] = "accept:"
+    context = Context({"request": request, "FACEBOOK_PIXEL_ID": "123"})
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+        event = Template('{% load analytics %}{% fb_event "Lead" %}').render(context)
+        pixel = Template("{% load analytics %}{% analytics_body %}").render(context)
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body=f"<!doctype html><html><body>{event}{pixel}</body></html>",
+        ),
+    )
+    page.route("https://connect.facebook.net/**", lambda route: route.abort())
+    page.goto(url)
     calls = page.evaluate("window.fbq.queue.map(args => Array.from(args))")
     assert ["track", "Lead"] in calls
     assert calls.index(["track", "PageView"]) < calls.index(["track", "Lead"])
+    assert page.evaluate("window.__fbPendingEvents") == []
+
+
+@pytest.mark.playwright
+def test_refusal_discards_pixel_events_buffered_under_prior_consent(page):
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "decline"
+    request.COOKIES["cookie_consent_marketing"] = "accept:"
+    context = Context({"request": request, "FACEBOOK_PIXEL_ID": "123"})
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch("azureproject.templatetags.analytics._cookie_group_version", return_value=""):
+        event = Template('{% load analytics %}{% fb_event "Lead" %}').render(context)
+        banner = render_to_string("includes/cookie_banner.html", {"request": request})
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body=f"<!doctype html><html><body>{event}{banner}</body></html>",
+        ),
+    )
+    page.route(
+        "**/cookies/**",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body='{"csrftoken":"tok","acceptUrl":"/cookies/accept/",'
+            '"declineUrl":"/cookies/decline/"}',
+        ),
+    )
+    page.goto(url)
+    assert page.evaluate("window.__fbPendingEvents") == [["track", "Lead"]]
+    page.evaluate("document.getElementById('cookie-btn-decline').click()")
+    assert page.evaluate("window.__fbPendingEvents") == []
+    page.evaluate("document.getElementById('cookie-btn-accept').click()")
     assert page.evaluate("window.__fbPendingEvents") == []
 
 
@@ -188,12 +280,13 @@ def test_kept_page_cannot_track_after_a_newer_group_version_was_seen(page):
             "{% load analytics %}{% analytics_head %}{% appinsights_head %}"
         ).render(context)
         body = Template("{% load analytics %}{% analytics_body %}").render(context)
+        banner = render_to_string("includes/cookie_banner.html", {"request": request})
     url = "http://crush.test/"
     page.route(
         url,
         lambda route: route.fulfill(
             content_type="text/html",
-            body=f"<!doctype html><html><head>{head}</head><body>{body}</body></html>",
+            body=f"<!doctype html><html><head>{head}</head><body>{body}{banner}</body></html>",
         ),
     )
     for pattern in (
@@ -217,5 +310,12 @@ def test_kept_page_cannot_track_after_a_newer_group_version_was_seen(page):
     config = next(i for i, call in enumerate(calls) if call[:2] == ["config", "G-TEST"])
     updates = [call[2] for call in calls[:config] if call[:2] == ["consent", "update"]]
     assert {"analytics_storage": "denied"} in updates
+    analytics_updates = [
+        call[2]["analytics_storage"]
+        for call in calls
+        if call[:2] == ["consent", "update"] and "analytics_storage" in call[2]
+    ]
+    assert analytics_updates[-1] == "denied"
+    assert page.locator("#cookie-consent-banner").is_visible()
     assert page.evaluate("typeof window.fbq") == "undefined"
     assert page.evaluate("typeof window.appInsights") == "undefined"

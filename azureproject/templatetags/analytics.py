@@ -166,13 +166,11 @@ def stored_cookie_choice(request, cookie_group):
     it wins. 3 alone is what a visitor who only used the library's own
     /cookies/ pages has.
 
-    A refusal in any of the three wins over an acceptance in another. The
-    library's /cookies/ forms write only 3, so a visitor who accepted through
-    the banner and later declined there holds an old banner acceptance next
-    to a newer library refusal; nothing records which is newer, so the
-    refusal is honoured. The cost is the reverse case (a banner acceptance
-    whose library post never landed, after a library refusal), which stays
-    declined until the next save: it errs toward not tracking.
+    A readable refusal always wins. A library refusal wins over an old banner
+    acceptance whose flag has no ``_banner`` marker. The current banner sets
+    that marker with its flag, so a newer acceptance remains authoritative if
+    an older native keepalive response arrives after navigation. The library's
+    own forms mirror their choices to the readable flags in middleware.
 
     An acceptance only counts while it is current for the group
     (_stamp_is_current): the flag carries the group version it was given
@@ -189,9 +187,6 @@ def stored_cookie_choice(request, cookie_group):
         library = get_cookie_value_from_request(request, cookie_group)
     except Exception:
         library = None
-    if library is False:
-        return False
-
     flag = request.COOKIES.get(f"cookie_consent_{cookie_group}", "")
     action, _, stamp = flag.partition(":")
     if action == FLAG_DECLINE:
@@ -201,8 +196,16 @@ def stored_cookie_choice(request, cookie_group):
             _request_cookie_group_version(request, cookie_group),
             True,
         )
-        if _stamp_is_current(unquote(stamp), reference):
+        if _stamp_is_current(unquote(stamp), reference) and (
+            library is not False
+            or request.COOKIES.get(f"cookie_consent_{cookie_group}_banner") == "1"
+        ):
             return True
+
+    # Older banner flags have no marker. Keep the native refusal authoritative
+    # for those ambiguous legacy cookies; newer banner saves carry the marker.
+    if library is False:
+        return False
 
     raw = request.COOKIES.get(BANNER_COOKIE, "")
     if raw:
@@ -422,6 +425,7 @@ def analytics_body(context):
 <script{nonce_attr}>
   window.fbPixelId = '{fb_pixel_id}';
   document.addEventListener('cookie_consent_updated', function(e) {{
+    if (!e.detail || !e.detail.marketing) window.__fbPendingEvents = [];
     if (e.detail && e.detail.marketing && !window.fbq) {{
       !function(f,b,e,v,n,t,s)
       {{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?
@@ -475,6 +479,8 @@ def analytics_body(context):
   var pending = window.__fbPendingEvents || [];
   window.__fbPendingEvents = [];
   pending.forEach(function(args) {{ fbq.apply(null, args); }});
+  }} else {{
+    window.__fbPendingEvents = [];
   }}
 </script>
 <noscript><img height="1" width="1" style="display:none"
@@ -539,10 +545,19 @@ def fb_event(context, event_name, **params):
     if params:
         args.append(params)
     args_json = json.dumps(args, default=_json_default)
+    can_buffer = (
+        get_cookie_consent(request, "marketing", undecided=False) if request else False
+    )
+    live_refusal = _declined_in_browser_js("marketing")
+    if request is not None:
+        live_refusal += " || " + _stale_in_browser_js(
+            "marketing", _request_cookie_group_version(request, "marketing")
+        )
+    can_track = f"!({live_refusal})"
     script = f"""<script{nonce_attr}>(function(args) {{
-  if (typeof window.fbq === 'function') {{
+  if ({can_track} && typeof window.fbq === 'function') {{
     window.fbq.apply(null, args);
-  }} else {{
+  }} else if ({str(can_buffer).lower()} && {can_track}) {{
     window.__fbPendingEvents = window.__fbPendingEvents || [];
     window.__fbPendingEvents.push(args);
   }}
