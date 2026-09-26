@@ -109,9 +109,6 @@ def _to_decimal(value) -> Decimal:
 # up at all — reported nothing refunded.
 _REFUNDED_TOTAL_KEYS = ("amount_refunded", "refunded_amount")
 
-# How long a premium PENDING sibling still blocks a refund (_blocking_siblings_q).
-PREMIUM_PENDING_BLOCKS_FOR = timedelta(hours=24)
-
 # SumUpClient.get_transactions_history clamps ``limit`` to 100.
 _HISTORY_PREFETCH_LIMIT = 100
 SUMUP_READ_TIMEOUT_SECONDS = 10
@@ -1194,19 +1191,20 @@ class Command(BaseCommand):
     def _blocking_siblings_q(tx):
         """Filter for the sibling payments that block reconciling ``tx``.
 
-        PAID always blocks, and so does PENDING for an event registration,
-        whose checkouts supersede older PENDING rows. Premium checkouts never
-        do: every open of the payment page inserts a fresh row
-        (create_sumup_premium_checkout), so an abandoned attempt would stay
-        PENDING — and block — forever, leaving a refunded membership active.
-        A premium PENDING row therefore blocks only while it is recent enough
-        to be a checkout the member may still be paying.
+        PAID and PENDING both block, at any age. That includes an abandoned
+        premium checkout, which never leaves PENDING (every open of the
+        payment page inserts a fresh row): its SumUp checkout stays payable
+        through a saved widget link, and a capture after the membership is
+        cancelled here is charged without granting Premium. This read-only
+        sweep cannot close it at SumUp, so the refund is flagged for a human,
+        whose review message names the PENDING payment to close first.
         """
-        paid = Q(status=PaymentTransaction.Status.PAID)
-        pending = Q(status=PaymentTransaction.Status.PENDING)
-        if tx.premium_membership_id and not tx.event_registration_id:
-            pending &= Q(created_at__gte=timezone.now() - PREMIUM_PENDING_BLOCKS_FOR)
-        return paid | pending
+        return Q(
+            status__in=(
+                PaymentTransaction.Status.PAID,
+                PaymentTransaction.Status.PENDING,
+            )
+        )
 
     def _flag_for_review(self, message):
         """Send a review message to the warning log AND the terminal.
@@ -1470,9 +1468,9 @@ class Command(BaseCommand):
             #   this transaction. That is why PENDING blocks exactly like
             #   PAID, and why an ACTIVE/RETIRING checkout-creation claim
             #   blocks too. Narrowing this to PAID would reopen the window.
-            #   Premium is the exception (_blocking_siblings_q): its checkouts
-            #   leave abandoned PENDING rows behind, so only a recent one
-            #   blocks. create_sumup_premium_checkout re-checks the
+            #   That holds for premium too (_blocking_siblings_q), whose
+            #   abandoned checkouts stay payable. create_sumup_premium_checkout
+            #   re-checks the
             #   membership under its lock before inserting, so it cannot add
             #   a row after this read against a membership cancelled here.
             if locked_tx.event_registration_id:
@@ -1645,6 +1643,20 @@ class Command(BaseCommand):
             # registration, while the sweep reported a clean reconcile. Read
             # straight off CreditRedemption, not CrushCredit.redeemed_cents,
             # so each spend keeps the registration it was spent on.
+            #
+            # Lock the matching credits first (status-blind, PK order):
+            # redeem_for_registration locks the credit rows it spends, so a
+            # redemption either committed before this lock — and is seen
+            # below — or waits until this transaction ends. Unlocked, one could
+            # land between this read and void_credit()'s lock and leave a spent
+            # credit reported as a clean reconcile. Credits are locked after
+            # the payment, registration and membership rows, as everywhere.
+            list(
+                CrushCredit.objects.select_for_update()
+                .filter(credit_filters)
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
             redeemed_elsewhere = list(
                 CreditRedemption.objects.filter(
                     credit__in=CrushCredit.objects.filter(credit_filters)

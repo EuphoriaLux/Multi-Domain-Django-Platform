@@ -1099,19 +1099,18 @@ class SumUpReconciliationEndpointTests(TestCase):
         )
         return pm, pending, paid
 
-    def test_premium_abandoned_pending_checkout_does_not_block(self):
-        """An abandoned premium checkout never leaves PENDING; it must not
-        block the refund forever."""
+    def test_premium_abandoned_pending_checkout_still_blocks(self):
+        """An old premium checkout stays payable at SumUp, and a capture after
+        the membership is cancelled would be charged without Premium. The
+        read-only sweep cannot close it, so a human settles it
+        (Codex 4112797742)."""
         pm, pending, paid = self._premium_with_pending_sibling(pending_age_hours=48)
-        with self.captureOnCommitCallbacks(execute=True):
-            body, _ = self._run_by_id(
-                {"chk_prem_paid": {"id": "chk_prem_paid", "status": "REFUNDED"}}
-            )
-        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 0))
-        paid.refresh_from_db()
-        pm.refresh_from_db()
-        self.assertEqual(paid.status, PaymentTransaction.Status.REFUNDED)
-        self.assertEqual(pm.status, "cancelled")
+        body, logs = self._review_run(
+            {"chk_prem_paid": {"id": "chk_prem_paid", "status": "REFUNDED"}}
+        )
+        self._assert_flagged_for_review(
+            body, logs, paid, [pending], f"membership {pm.pk}"
+        )
 
     def test_premium_recent_pending_checkout_still_blocks(self):
         pm, pending, paid = self._premium_with_pending_sibling(pending_age_hours=1)
@@ -2191,6 +2190,47 @@ class SumUpReconciliationEndpointTests(TestCase):
             locked.index("CrushCredit"), locked.index("EventRegistration")
         )
 
+    def test_credits_are_locked_before_their_redemptions_are_read(self):
+        """A redemption landing between an unlocked read and void_credit()'s
+        lock would be missed (Codex 4112797746). Asserted structurally:
+        SQLite ignores FOR UPDATE."""
+        from django.db.models.query import QuerySet
+
+        from crush_lu.management.commands.reconcile_sumup_payments import Command
+
+        CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        events = []
+        original = QuerySet.select_for_update
+
+        def recording(qs, *args, **kwargs):
+            events.append(f"lock:{qs.model.__name__}")
+            return original(qs, *args, **kwargs)
+
+        def reading(*args, **kwargs):
+            events.append("read:CreditRedemption")
+            return CreditRedemption.objects.filter(*args, **kwargs)
+
+        spy = SimpleNamespace(objects=SimpleNamespace(filter=reading))
+        with (
+            patch.object(QuerySet, "select_for_update", recording),
+            patch(f"{CMD}.CreditRedemption", spy),
+        ):
+            outcome = Command(stdout=io.StringIO())._reconcile_refunded(
+                self.payment, FULL_REFUND
+            )
+        self.assertEqual(outcome, "reconciled")
+        self.assertLess(
+            events.index("lock:CrushCredit"), events.index("read:CreditRedemption")
+        )
+
     def test_reconcile_locks_premium_payment_rows_before_the_membership(self):
         from crush_lu.management.commands.reconcile_sumup_payments import Command
 
@@ -2565,7 +2605,10 @@ class SumUpReconciliationStructureTests(TestCase):
                     re.findall(r"(\w+)\.objects\s*\.?\s*select_for_update", src)
                 )
             ),
-            ["MeetupEvent", "EventRegistration", "PremiumMembership"],
+            # CrushCredit last: locked before its redemptions are read
+            # (Codex 4112797746), after every row redeem_for_registration
+            # locks ahead of it.
+            ["MeetupEvent", "EventRegistration", "PremiumMembership", "CrushCredit"],
         )
         self.assertGreater(
             src.index("void_credit("),
