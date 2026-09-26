@@ -323,10 +323,10 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertNotIn("COOKIE_NAME", server_branch)
         self.assertNotIn("function serverConsent()", script)  # unused, removed
 
-    def test_a_restore_acts_only_on_a_refusal_recorded_since(self):
+    def test_a_restore_acts_on_a_refusal_or_stale_version(self):
         """A back/forward restore reruns no load handler. It must revoke a
         tracker the page runs under an embedded grant the visitor withdrew
-        since, decided page or not (a page asking about analytics already
+        or whose version expired, decided page or not (a page asking about analytics already
         runs the Pixel for a current marketing acceptance), and must not
         replay an embedded refusal over a later acceptance. The browser runs
         are test_back_forward_restore_* below; this is the CI guard."""
@@ -340,21 +340,26 @@ class CookieBannerRenderTests(SimpleTestCase):
         ]
         self.assertIn("choiceOnLoad()", fallback)
         self.assertIn("return;", fallback)
-        # With embedded state: only a grant it embeds that a live refusal
-        # flag now contradicts, for either group, whatever "decided" says.
+        # With embedded state: a granted group is revoked after a live refusal
+        # or a newer version, whatever "decided" says.
         embedded = pageshow[pageshow.index("const withdrawn") :]
         self.assertIn(
             "return server[group] === true && currentFlag(group) === false;",
             embedded,
         )
-        self.assertIn("['analytics', 'marketing'].some(", embedded)
-        self.assertIn("if (!withdrawn) return;", embedded)
+        self.assertIn("const stale = groups.some(", embedded)
+        self.assertIn(
+            "return server[group] === true && currentFlag(group) !== false &&",
+            embedded,
+        )
+        self.assertIn("hasNewerServerVersion(group);", embedded)
+        self.assertIn("if (!withdrawn && !stale) return;", embedded)
         self.assertIn("const stored = storedConsent();", embedded)
         self.assertIn("dispatchConsentEvent(stored);", embedded)
         self.assertIn("updateGoogleConsent(stored);", embedded)
         self.assertNotIn("decided", embedded)
         self.assertNotIn("choiceOnLoad()", embedded)
-        self.assertNotIn("showBanner()", pageshow)
+        self.assertIn("if (stale) showBanner();", embedded)
 
     def test_the_identifier_wipe_spares_a_live_acceptance(self):
         """dispatchConsentEvent clears ai_user/ai_session on a refusal. Those
@@ -369,11 +374,9 @@ class CookieBannerRenderTests(SimpleTestCase):
                 "function updateGoogleConsent(consent)"
             )
         ]
-        self.assertIn(
-            "if (consent.analytics !== true && currentFlag('analytics') !== true) {"
-            "\n            clearAppInsightsCookies();",
-            dispatch,
-        )
+        self.assertIn("currentFlag('analytics') !== true ||", dispatch)
+        self.assertIn("serverState().analytics === true &&", dispatch)
+        self.assertIn("hasNewerServerVersion('analytics')", dispatch)
         self.assertEqual(dispatch.count("clearAppInsightsCookies();"), 1)
         for save in ("acceptAllCookies", "declineAllCookies", "saveCustomCookies"):
             body = _js_function_body(script, save)
@@ -1355,9 +1358,10 @@ class ConsentStateTagTests(SimpleTestCase):
         choice = _js_function_body(rendered, "choiceOnLoad")
         self.assertIn("const server = serverState();", choice)
         self.assertIn(
-            "if (['analytics', 'marketing'].some(hasNewerServerVersion)) return null;",
+            "return server[group] === true && currentFlag(group) !== false &&",
             choice,
         )
+        self.assertIn("hasNewerServerVersion(group);", choice)
         self.assertIn("return server.decided ? storedConsent() : null;", choice)
         load = rendered[
             rendered.index("document.addEventListener('DOMContentLoaded'") :
@@ -1384,7 +1388,7 @@ class ConsentStateTagTests(SimpleTestCase):
             )
         ]
         self.assertIn(
-            "'accept:' + (serverVersions()[groupName] || new Date().toISOString())",
+            "'accept:' + (latestGroupVersion(groupName) || new Date().toISOString())",
             flag,
         )
         self.assertIn(": 'decline'", flag)
@@ -1393,7 +1397,8 @@ class ConsentStateTagTests(SimpleTestCase):
                 "function acceptAllCookies()"
             )
         ]
-        self.assertIn("versions: serverVersions()", sync)
+        self.assertIn("analytics: latestGroupVersion('analytics')", sync)
+        self.assertIn("marketing: latestGroupVersion('marketing')", sync)
         # The modal reflects the server's choice group by group: a stale
         # acceptance (null server-side) is unticked, the other group's current
         # choice stays ticked, whether or not the whole state is decided.
@@ -2143,6 +2148,10 @@ def test_back_forward_restore_applies_a_later_refusal(page):
         ]
     )
     page.evaluate(
+        "localStorage.setItem('crush_consent_version_analytics', "
+        "'2026-06-01T00:00:00+00:00')"
+    )
+    page.evaluate(
         "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
     )
     assert page.evaluate("window.__consentEvents")[-1] == {
@@ -2151,6 +2160,7 @@ def test_back_forward_restore_applies_a_later_refusal(page):
     }
     assert page.evaluate("window.__fbqCalls")[-1] == ["consent", "revoke"]
     assert page.evaluate("window.appInsights.config.disableTelemetry") is True
+    assert not page.is_visible("#cookie-consent-banner")
 
 
 def _fbq_queue(page):
@@ -2315,6 +2325,8 @@ def test_a_kept_copy_embedding_a_refusal_keeps_identifiers_of_a_later_acceptance
     )
     page.add_init_script(
         "window.__consentEvents = [];"
+        "localStorage.setItem('crush_consent_version_analytics', "
+        "'2026-06-01T00:00:00+00:00');"
         "document.addEventListener('cookie_consent_updated', function (e) {"
         "  window.__consentEvents.push(e.detail);"
         "});"

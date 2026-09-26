@@ -325,3 +325,117 @@ def test_kept_page_cannot_track_after_a_newer_group_version_was_seen(page):
     assert page.locator("#cookie-consent-banner").is_visible()
     assert page.evaluate("typeof window.fbq") == "undefined"
     assert page.evaluate("typeof window.appInsights") == "undefined"
+
+
+@pytest.mark.playwright
+@pytest.mark.parametrize(
+    "stale_groups, expected_checked",
+    [
+        (["analytics"], [False, True]),
+        (["marketing"], [True, False]),
+        (["analytics", "marketing"], [False, False]),
+    ],
+)
+def test_restored_page_revokes_stale_groups_and_unticks_them(
+    page, stale_groups, expected_checked
+):
+    request = RequestFactory().get("/")
+    old = "2026-01-01T00:00:00+00:00"
+    newer = "2026-06-01T00:00:00+00:00"
+    for group in ("analytics", "marketing"):
+        request.COOKIES[f"cookie_consent_{group}"] = f"accept:{old}"
+    context = Context(
+        {
+            "request": request,
+            "GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST",
+            "FACEBOOK_PIXEL_ID": "123",
+            "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc",
+        }
+    )
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(
+        "azureproject.templatetags.analytics._cookie_group_version",
+        return_value=old,
+    ):
+        head = Template(
+            "{% load analytics %}{% analytics_head %}{% appinsights_head %}"
+        ).render(context)
+        body = Template("{% load analytics %}{% analytics_body %}").render(context)
+        banner = render_to_string("includes/cookie_banner.html", {"request": request})
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body=f"<!doctype html><html><head>{head}</head><body>{body}{banner}</body></html>",
+        ),
+    )
+    for pattern in (
+        "https://www.googletagmanager.com/**",
+        "https://connect.facebook.net/**",
+        "https://js.monitor.azure.com/**",
+    ):
+        page.route(pattern, lambda route: route.abort())
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    page.context.add_cookies(
+        [
+            {"name": f"cookie_consent_{group}", "value": f"accept:{old}", "url": url}
+            for group in ("analytics", "marketing")
+        ]
+    )
+    page.goto(url)
+    assert page.evaluate("typeof window.fbq") == "function"
+    assert page.evaluate("typeof window.appInsights") == "object"
+
+    page.evaluate(
+        "groups => groups.forEach(group => "
+        "localStorage.setItem('crush_consent_version_' + group, "
+        f"'{newer}'))",
+        stale_groups,
+    )
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
+    )
+    assert page.locator("#cookie-consent-banner").is_visible()
+    updates = [
+        call[2]
+        for call in page.evaluate("window.dataLayer.map(args => Array.from(args))")
+        if call[:2] == ["consent", "update"]
+    ]
+    assert updates[-1]["analytics_storage"] == (
+        "denied" if "analytics" in stale_groups else "granted"
+    )
+    assert updates[-1]["ad_storage"] == (
+        "denied" if "marketing" in stale_groups else "granted"
+    )
+    if "analytics" in stale_groups:
+        assert page.evaluate("window.appInsights.config.disableTelemetry") is True
+        assert page.evaluate("window.appInsights.config.disableCookiesUsage") is True
+    if "marketing" in stale_groups:
+        assert page.evaluate("window.fbq.queue.map(args => Array.from(args))")[-1] == [
+            "consent",
+            "revoke",
+        ]
+
+    page.click("#cookie-btn-customize")
+    checked = page.evaluate(
+        "[document.getElementById('cookie-analytics').checked, "
+        "document.getElementById('cookie-marketing').checked]"
+    )
+    assert checked == expected_checked
+
+    page.evaluate(
+        "groups => { groups.forEach(group => {"
+        "  document.getElementById('cookie-' + group).checked = true;"
+        "}); document.getElementById('cookie-btn-save').click(); }",
+        stale_groups,
+    )
+    flags = {cookie["name"]: cookie["value"] for cookie in page.context.cookies(url)}
+    for group in stale_groups:
+        assert flags[f"cookie_consent_{group}"] == f"accept:{newer}"
+    state = page.evaluate(
+        "JSON.parse(document.getElementById('cookie-consent-banner').dataset.consentState)"
+    )
+    for group in stale_groups:
+        assert state["versions"][group] == newer
