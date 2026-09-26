@@ -372,6 +372,19 @@ PRIVILEGE_AUDIT_SQL = {
         "WHERE refclassid = 'pg_authid'::regclass "
         "AND refobjid = %(role)s::regrole AND deptype = 'o'"
     ),
+    # Default privileges would expose objects that do not exist yet: the next
+    # table another owner creates would be readable before any audit sees it.
+    # Any entry granting this login anything, or granting PUBLIC anything on
+    # tables, sequences, schemas or large objects, is excess. (PUBLIC's
+    # built-in EXECUTE on functions and USAGE on types are not stored here.)
+    "default_privileges": (
+        "SELECT pg_get_userbyid(d.defaclrole), COALESCE(n.nspname, '*'), "
+        "d.defaclobjtype::text, a.privilege_type, a.grantee = 0 "
+        "FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace "
+        "CROSS JOIN LATERAL aclexplode(d.defaclacl) a "
+        "WHERE a.grantee = %(role)s::regrole "
+        "OR (a.grantee = 0 AND d.defaclobjtype IN ('r', 'S', 'n', 'L'))"
+    ),
     # The login must keep USAGE on public, or every column grant is unusable.
     "public_usage": ("SELECT has_schema_privilege(%(role)s, 'public', 'USAGE')"),
     # Catalog columns the login can read that PUBLIC could not read by default.
@@ -530,6 +543,7 @@ def privilege_violations(
     role_members=(),
     public_usage=True,
     system_columns=(),
+    default_privileges=(),
 ) -> list:
     """Everything the role can effectively do beyond GRANTS, and any GRANTS
     column it can no longer read (pure; testable).
@@ -562,6 +576,14 @@ def privilege_violations(
         violations.append(f"role {member} can use this login's privileges")
     if not public_usage:
         violations.append("lacks USAGE on schema public (re-run setup_analytics_role)")
+    kinds = {"r": "tables", "S": "sequences", "f": "functions", "T": "types"}
+    kinds.update({"n": "schemas", "L": "large objects"})
+    for owner, schema, kind, privilege, to_public in default_privileges:
+        violations.append(
+            f"default privileges of {owner} grant {privilege} on future "
+            f"{kinds.get(kind, kind)} in schema {schema} to "
+            + ("PUBLIC" if to_public else "this login")
+        )
     for schema, relation, attributes in system_columns:
         violations.append(
             f"can read {schema}.{relation} ({attributes}), "
@@ -665,6 +687,7 @@ def audit_role(cursor, role: str) -> list:
         role_members,
         bool(results["public_usage"] and results["public_usage"][0][0]),
         results["system_columns"],
+        results["default_privileges"],
     )
 
 

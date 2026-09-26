@@ -888,6 +888,7 @@ class PrivilegeAuditTests(TestCase):
             ["reporting_login"],
             False,
             [("pg_catalog", "pg_subscription", "subconninfo")],
+            [("reporting_owner", "public", "r", "SELECT", True)],
         )
         joined = " | ".join(violations)
         self.assertNotIn("connect to database postgres", joined)  # allowlisted
@@ -921,6 +922,8 @@ class PrivilegeAuditTests(TestCase):
             "lacks USAGE on schema public",
             "can read pg_catalog.pg_subscription (subconninfo), which PUBLIC cannot "
             "by default",
+            "default privileges of reporting_owner grant SELECT on future tables in "
+            "schema public to PUBLIC",
         ):
             self.assertIn(expected, joined)
 
