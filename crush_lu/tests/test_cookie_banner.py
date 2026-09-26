@@ -407,6 +407,19 @@ class ConsentStateTagTests(SimpleTestCase):
         self.assertIn("'X-CSRFToken': csrftoken", html)
         self.assertIn("body.append('cookie_groups', group)", html)
         self.assertIn("banner.dataset.consentState = JSON.stringify({", html)
+        # Accept, then decline: concurrent posts would each rewrite the whole
+        # library cookie from a stale copy.
+        sync = html[
+            html.index("function syncNativeConsent(") : html.index(
+                "function syncServerState("
+            )
+        ]
+        self.assertLess(
+            sync.index("postNativeChoice(status.acceptUrl"),
+            sync.index("postNativeChoice(status.declineUrl"),
+        )
+        self.assertIn(".then(function() {", sync)
+        self.assertNotIn("Promise.all", sync)
         for fn in ("acceptAllCookies", "declineAllCookies", "saveCustomCookies"):
             body = _js_function_body(html, fn)
             self.assertIn("syncNativeConsent(consent);", body, fn)
@@ -439,6 +452,58 @@ class CookieSettingsTriggerTests(TestCase):
 
     def setUp(self):
         cache.clear()
+
+    def test_signed_in_member_reaches_the_settings_at_every_width(self):
+        """The crush footer is hidden for signed-in members below lg, so the
+        account settings page carries its own trigger."""
+        from datetime import date
+
+        from allauth.account.models import EmailAddress
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile, UserDataConsent
+
+        # A member the consent middleware and the settings view let through:
+        # verified email, Crush consent, approved profile.
+        user = get_user_model().objects.create_user(
+            username="member@example.com",
+            email="member@example.com",
+            password="testpass123",
+            first_name="Lena",
+            last_name="Schmit",
+        )
+        EmailAddress.objects.create(
+            user=user, email=user.email, verified=True, primary=True
+        )
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1995, 5, 15),
+            gender="F",
+            location="Luxembourg City",
+            phone_number="+352621123456",
+            phone_verified=True,
+            is_approved=True,
+            verification_status="verified",
+            is_active=True,
+        )
+        client = Client()
+        client.force_login(user)
+        client.cookies["cookie_consent"] = (
+            '{"essential":true,"analytics":false,"marketing":false}'
+        )
+
+        response = client.get(
+            "/en/account/settings/", HTTP_HOST="crush.lu", follow=True
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('data-cookie-settings class="text-purple-600', html)
+        self.assertIn("Cookie Settings", html)
 
     def test_every_site_footer_reopens_the_settings(self):
         client = Client()
@@ -579,6 +644,10 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     page.wait_for_timeout(200)
     assert ("accept/", "cookie_groups=analytics", "tok") in posted
     assert ("decline/", "cookie_groups=marketing", "tok") in posted
+    # ...one after the other, accept first.
+    assert posted.index(("accept/", "cookie_groups=analytics", "tok")) < posted.index(
+        ("decline/", "cookie_groups=marketing", "tok")
+    )
     # ...and a reopened modal on the same page shows the new choice, not the
     # state the server rendered before the save.
     page.click("#open-cookie-settings")

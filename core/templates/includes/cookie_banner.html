@@ -685,10 +685,14 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
                 ['analytics', 'marketing'].forEach(function(group) {
                     (consent[group] ? accepted : declined).push(group);
                 });
-                return Promise.all([
-                    postNativeChoice(status.acceptUrl, status.csrftoken, accepted),
-                    postNativeChoice(status.declineUrl, status.csrftoken, declined)
-                ]);
+                // One after the other, never side by side: each response
+                // rewrites the whole cookie from the request's copy of it,
+                // so two concurrent posts would let the later response
+                // restore the stale value for the other group.
+                return postNativeChoice(status.acceptUrl, status.csrftoken, accepted)
+                    .then(function() {
+                        return postNativeChoice(status.declineUrl, status.csrftoken, declined);
+                    });
             })
             .catch(function() { /* the readable cookies still carry the choice */ });
     }
