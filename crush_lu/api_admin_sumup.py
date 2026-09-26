@@ -40,7 +40,6 @@ from crush_lu.api_admin_auth import (
 )
 from crush_lu.api_admin_auth import unauthorized as _unauthorized
 from crush_lu.management.commands.reconcile_sumup_payments import (
-    SUMUP_READ_TIMEOUT_SECONDS,
     SUMUP_REQUEST_WORST_CASE_SECONDS,
 )
 
