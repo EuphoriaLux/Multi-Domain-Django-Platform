@@ -42196,6 +42196,35 @@ msgstr ""
 "Nach Deinem letzten Tag hast Du 24 Stunden, um auf alle zurückzublicken — "
 "darunter eine Person, die aus unserer Sicht besonders gut zu Dir passt"
 
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"Your payment for this event has been refunded to the payment method you "
+"used, so your registration has been cancelled and your seat released."
+msgstr ""
+"Deine Zahlung für dieses Event wurde auf das Zahlungsmittel zurückerstattet,"
+" mit dem du bezahlt hast. Deine Anmeldung wurde deshalb storniert und dein "
+"Platz freigegeben."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Your payment for <strong>%(title)s</strong> has been refunded to the payment"
+" method you used."
+msgstr ""
+"Deine Zahlung für <strong>%(title)s</strong> wurde auf das Zahlungsmittel "
+"zurückerstattet, mit dem du bezahlt hast."
+
+
+#: crush_lu/templates/crush_lu/emails/event_payment_refunded.html
+#, python-format
+msgid ""
+"Because of this refund, the %(amount)s EUR in Crush Credit issued when you "
+"cancelled this registration has been withdrawn."
+msgstr ""
+"Wegen dieser Rückerstattung wurde das Crush Credit über %(amount)s EUR, das "
+"du bei der Stornierung dieser Anmeldung erhalten hast, zurückgezogen."
+
 #. Crush.lu variant of the shared cookie banner
 #. (cookie_banner_variant="crush"). Same English as core/locale; DE uses the
 #. informal "du" of the rest of Crush.lu.
@@ -42237,6 +42266,7 @@ msgstr ""
 "Diese Cookies können über unsere Website von unseren Werbepartnern gesetzt "
 "werden. Sie können verwendet werden, um ein Profil deiner Interessen zu "
 "erstellen und dir relevante Werbung auf anderen Websites zu zeigen."
+
 #: templates/crush_lu/event_ticket.html
 msgid "QR code for event check-in"
 msgstr "QR-Code für den Event-Check-in"
@@ -42259,6 +42289,114 @@ msgstr ""
 #, python-brace-format
 msgid "Unread notifications: {count}"
 msgstr "Ungelesene Benachrichtigungen: {count}"
+
+#: theme ballot
+msgid "Anyone can view; any logged-in account can vote (no approved profile needed)."
+msgstr "Alle können die Umfrage sehen; jedes angemeldete Konto kann abstimmen (kein genehmigtes Profil nötig)."
+
+#: theme ballot
+msgid "Poll Suggestion"
+msgstr "Umfragevorschlag"
+
+#: theme ballot
+msgid "Poll Suggestions"
+msgstr "Umfragevorschläge"
+
+#: theme ballot
+msgid "Your idea"
+msgstr "Deine Idee"
+
+#: theme ballot
+msgid "e.g. Salsa night, Escape room date…"
+msgstr "z. B. Salsa-Abend, Escape-Room-Date…"
+
+#: theme ballot
+msgid "This poll is closed."
+msgstr "Diese Umfrage ist beendet."
+
+#: theme ballot
+msgid "Thanks for your idea! A coach will review it soon."
+msgstr "Danke für deine Idee! Ein Coach schaut sie sich bald an."
+
+#: theme ballot
+msgid "Please describe your idea in 200 characters or fewer."
+msgstr "Bitte beschreibe deine Idee in höchstens 200 Zeichen."
+
+#: theme ballot
+msgid "Log in or create a free Crush.lu account to vote. No dating profile needed."
+msgstr "Melde dich an oder erstelle ein kostenloses Crush.lu-Konto, um abzustimmen. Kein Dating-Profil nötig."
+
+#: theme ballot
+msgid "Log in to vote"
+msgstr "Anmelden und abstimmen"
+
+#: theme ballot
+msgid "When a theme gets enough votes, we plan it. If you voted for it, you'll hear first."
+msgstr "Wenn ein Thema genug Stimmen bekommt, planen wir es. Wenn du dafür gestimmt hast, erfährst du es zuerst."
+
+#: theme ballot
+msgid "Missing your kind of night?"
+msgstr "Dein Lieblingsabend fehlt?"
+
+#: theme ballot
+msgid "Suggest a theme. A coach reviews every idea before it goes on the ballot."
+msgstr "Schlag ein Thema vor. Ein Coach prüft jede Idee, bevor sie zur Abstimmung kommt."
+
+#: theme ballot
+msgid "Send my idea"
+msgstr "Idee senden"
+
+#: theme ballot
+msgid "Theme nights"
+msgstr "Themenabende"
+
+#: theme ballot
+msgid "No theme vote right now"
+msgstr "Gerade läuft keine Themen-Abstimmung"
+
+#: theme ballot
+msgid "We're preparing the next ballot of theme nights. Check back soon."
+msgstr "Wir bereiten die nächste Abstimmung über Themenabende vor. Schau bald wieder vorbei."
+
+#: theme ballot
+msgid "Approve: add as a new poll option"
+msgstr "Genehmigen: als neue Umfrageoption hinzufügen"
+
+#: theme ballot
+msgid "Reject selected suggestions"
+msgstr "Ausgewählte Vorschläge ablehnen"
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) added as poll options. Add translations and an image on the poll."
+msgstr "%(count)d Vorschlag/Vorschläge als Umfrageoptionen hinzugefügt. Ergänze Übersetzungen und ein Bild in der Umfrage."
+
+#: theme ballot
+#, python-format
+msgid "%(count)d suggestion(s) rejected."
+msgstr "%(count)d Vorschlag/Vorschläge abgelehnt."
+
+#: theme ballot
+msgid "Woman"
+msgstr "Frau"
+
+#: theme ballot
+msgid "Man"
+msgstr "Mann"
+
+#: theme ballot
+msgid "I am… (optional, only used for the anonymous women/men split)"
+msgstr "Ich bin… (optional, nur für die anonyme Aufteilung Frauen/Männer)"
+
+#: theme ballot
+#, python-format
+msgid "Women/men shares are the percentage of all women and of all men voting who picked a theme. They appear once a theme has %(min)s votes from women and %(min)s from men."
+msgstr "Die Anteile Frauen/Männer zeigen, wie viel Prozent aller abstimmenden Frauen bzw. Männer ein Thema gewählt haben. Sie erscheinen, sobald ein Thema %(min)s Stimmen von Frauen und %(min)s von Männern hat."
+
+#: theme ballot
+#, python-format
+msgid "Women %(women)s%% · Men %(men)s%%"
+msgstr "Frauen %(women)s%% · Männer %(men)s%%"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html
 msgid "You're not shown to anyone yet."
