@@ -148,10 +148,11 @@ self.addEventListener("fetch", (event) => {
     // so a kept ticket holds back its own trackers once the visitor refuses,
     // for as long as the refusal flag (cookie_consent_<group>=decline) is in
     // the browser; the copies older workers kept without those checks were
-    // dropped on activation (LEGACY_TICKET_CACHE). The flag is the limit: the
-    // banner writes it from script, and the server sets it again (for a year)
-    // only when the banner's best-effort POST to /cookies/ lands and
-    // CookieConsentFlagSyncMiddleware answers it. Safari's seven-day cap on
+    // dropped on activation (LEGACY_TICKET_CACHE). The flag is the limit. A
+    // refusal made through the library's own forms gets it from the server
+    // (CookieConsentFlagSyncMiddleware, for a year); one saved in the banner
+    // gets it from script, and from the server as well only when the
+    // banner's best-effort POST to /cookies/ lands. Safari's seven-day cap on
     // script-written cookies can drop a flag only the script wrote, and a
     // clear of cookies that leaves Cache Storage drops any flag; a ticket
     // kept from before the refusal then tracks again. For the kept pages this
