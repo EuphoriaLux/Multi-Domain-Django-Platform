@@ -5,9 +5,11 @@ Routes authentication to appropriate handlers based on request domain.
 """
 
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.socialaccount.providers.base import AuthError
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from django.http import HttpResponseForbidden
+from django.utils.translation import gettext_lazy as _
 import base64
 import json
 import os
@@ -205,8 +207,6 @@ def _domain_allows_signup(request, allowed_domains):
         or domain.endswith(".crush.lu")
         or domain.endswith(".azurewebsites.net")
     )
-
-
 
 
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -442,12 +442,42 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         Handle authentication errors with detailed logging.
         This helps debug OAuth issues like Microsoft login failures.
+
+        On crush.lu, a user backing out of the provider's consent screen
+        (``AuthError.CANCELLED`` -- Google/Microsoft "access_denied", Apple's
+        cancel) is not a failure: redirect straight back to login with a
+        friendly, non-technical message instead of falling through to
+        allauth's generic (unbranded) "Login Cancelled" page. Everything
+        else still renders socialaccount/authentication_error_crush.html,
+        which itself hides the raw error/exception behind a details
+        disclosure -- see that template.
         """
         logger.error(
             "[OAUTH-ADAPTER] Authentication error: provider=%s, type=%s",
             provider_id,
             type(exception).__name__ if exception else "none",
         )
+
+        if error == AuthError.CANCELLED and _is_crush_domain(request):
+            from django.conf import settings
+            from django.contrib import messages
+            from django.shortcuts import redirect
+            from django.utils import translation
+
+            # Built as a literal path, not reverse("crush_lu:login"): this
+            # runs on the OAuth callback host/urlconf, and crush_lu:login
+            # only resolves under azureproject.urls_crush's i18n_patterns
+            # -- see get_email_verification_redirect_url() above for the
+            # same pattern.
+            supported = {code for code, _name in settings.LANGUAGES}
+            lang = translation.get_language()
+            if lang not in supported:
+                lang = settings.LANGUAGE_CODE
+            messages.info(
+                request,
+                _("Sign-in cancelled. Pick another way to continue, or try again."),
+            )
+            raise ImmediateHttpResponse(redirect(f"/{lang}/login/"))
 
         # Let the default handler show the error page
         return super().on_authentication_error(
