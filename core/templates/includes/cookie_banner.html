@@ -627,6 +627,12 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         if (typeof window.fbq === 'function') {
             window.fbq('consent', consent.marketing ? 'grant' : 'revoke');
         }
+        // Application Insights (an analytics cookie) loads on this event
+        // when analytics is granted (appinsights_head placeholder); once
+        // loaded, a withdrawal silences it for the rest of the page.
+        if (window.appInsights && window.appInsights.config) {
+            window.appInsights.config.disableTelemetry = consent.analytics !== true;
+        }
     }
 
     // Update Google Consent Mode v2
@@ -655,8 +661,9 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     // is HttpOnly, so this script cannot overwrite it, and the server reads
     // it first. Record the choice there too, through the library's endpoints:
     // its status view hands out the CSRF token (the CSRF cookie is HttpOnly
-    // as well) and the accept/decline URLs. Fire-and-forget: the readable
-    // cookies above already carry the choice if this never completes.
+    // as well) and the accept/decline URLs. Best effort: the readable
+    // cookies above carry the choice too, and the server reads them first,
+    // so a save is honoured even if this never completes.
     const NATIVE_STATUS_URL = '/cookies/status/';
 
     function postNativeChoice(url, csrftoken, groups) {
@@ -666,6 +673,7 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         return fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
+            keepalive: true, // survives a navigation right after the save
             headers: {
                 'X-CSRFToken': csrftoken,
                 'X-Cookie-Consent-Fetch': '1',

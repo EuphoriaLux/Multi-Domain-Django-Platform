@@ -343,6 +343,78 @@ class FacebookPixelConsentTests(SimpleTestCase):
         self.assertIn("fbq('init', '123456')", accepted)
         self.assertIn("waiting for consent", declined)
 
+    def test_banner_choice_wins_over_a_stale_library_cookie(self):
+        """The banner posts each save to the library too, but that post can
+        be cut off by a navigation; the banner's own cookies are then the
+        newer choice and must win over the library's HttpOnly cookie."""
+        request = RequestFactory().get("/")
+        request.COOKIES["cookie_consent_marketing"] = "decline"
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=True
+        ):
+            html = Template("{% load analytics %}{% analytics_body %}").render(
+                Context({"FACEBOOK_PIXEL_ID": "123456", "request": request})
+            )
+
+        self.assertIn("waiting for consent", html)
+        self.assertNotIn("fbq('init', '123456')", html)
+
+
+class AppInsightsConsentTests(SimpleTestCase):
+    """Browser telemetry is an analytics cookie: the SDK must not load, nor
+    the preconnect open a connection, before analytics is accepted."""
+
+    def _render(self, cookies=None, with_request=True):
+        context = {"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc"}
+        if with_request:
+            request = RequestFactory().get("/")
+            request.COOKIES.update(cookies or {})
+            context["request"] = request
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=None
+        ):
+            return Template("{% load analytics %}{% appinsights_head %}").render(
+                Context(context)
+            )
+
+    def test_undecided_visitor_gets_a_waiting_placeholder(self):
+        html = self._render({})
+
+        self.assertIn("waiting for analytics consent", html)
+        self.assertNotIn('rel="preconnect"', html)
+        self.assertIn("cookie_consent_updated", html)
+        self.assertIn("e.detail.analytics === true", html)
+        # The snippet is there, but only inside load(): nothing runs on parse.
+        self.assertIn("function load() {", html)
+        self.assertLess(
+            html.index("function load() {"), html.index("InstrumentationKey=abc")
+        )
+
+    def test_declined_visitor_gets_the_placeholder(self):
+        html = self._render({"cookie_consent_analytics": "decline"})
+
+        self.assertIn("waiting for analytics consent", html)
+
+    def test_no_request_means_no_sdk(self):
+        html = self._render(with_request=False)
+
+        self.assertIn("waiting for analytics consent", html)
+
+    def test_accepted_visitor_gets_the_sdk(self):
+        html = self._render({"cookie_consent_analytics": "accept"})
+
+        self.assertNotIn("waiting for analytics consent", html)
+        self.assertIn('rel="preconnect" href="https://js.monitor.azure.com"', html)
+        self.assertIn("InstrumentationKey=abc", html)
+
+    def test_banner_silences_a_loaded_sdk_on_withdrawal(self):
+        html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+        self.assertIn(
+            "window.appInsights.config.disableTelemetry = consent.analytics !== true;",
+            html,
+        )
+        self.assertIn("keepalive: true", html)
+
 
 class ConsentStateTagTests(SimpleTestCase):
     """The banner reads the server's view of the stored choice from
@@ -624,6 +696,7 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     page.add_init_script(
         "window.__fbqCalls = [];"
         "window.fbq = function () { window.__fbqCalls.push([].slice.call(arguments)); };"
+        "window.appInsights = { config: { disableTelemetry: false } };"
     )
     page.goto(url)
     page.click("#open-cookie-settings")
@@ -638,6 +711,8 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     # end with the revoke.
     consent_calls = [c for c in page.evaluate("window.__fbqCalls") if c[0] == "consent"]
     assert consent_calls and consent_calls[-1] == ["consent", "revoke"]
+    # Analytics stayed accepted in this save, so App Insights keeps running.
+    assert page.evaluate("window.appInsights.config.disableTelemetry") is False
 
     # The withdrawal reached the library (HttpOnly cookie updated server-side)...
     page.wait_for_function("() => window.__fbqCalls.length > 0")
