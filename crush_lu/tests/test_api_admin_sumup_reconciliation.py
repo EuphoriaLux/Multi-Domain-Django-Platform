@@ -1596,7 +1596,7 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(waiter.status, "waitlist")
         self.assertEqual(mail.outbox, [])
         warning = next(m for m in logs.output if "still pending" in m)
-        self.assertIn("1550 cents of unspent Crush Credit", warning)
+        self.assertIn("1550 cents of unspent Crush Credit were voided", warning)
 
     def test_held_pending_seat_spends_the_write_allowance(self):
         """It is a write: the endpoint's one-write limit stops the run there."""
@@ -2026,7 +2026,7 @@ class SumUpReconciliationEndpointTests(TestCase):
             )
             self.assertIs(body["wrapped"], True)
             self.assertIsNone(cache.get(api_admin_sumup.CURSOR_CACHE_KEY))
-            error = next(m for m in logs.output if "can ever fit" in m)
+            error = next(m for m in logs.output if "even as a run's first row" in m)
             self.assertIn("--checkout-id chk_many", error)
         many.refresh_from_db()
         self.assertEqual(many.status, PaymentTransaction.Status.PAID)

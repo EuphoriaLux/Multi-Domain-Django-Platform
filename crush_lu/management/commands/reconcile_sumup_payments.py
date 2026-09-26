@@ -780,9 +780,10 @@ class Command(BaseCommand):
                         errors_count += 1
                         logger.error(
                             "SumUp checkout %s needs %s transaction-history "
-                            "read(s), more than the %ss budget can ever fit; "
-                            "not verified. Check it with `manage.py "
-                            "reconcile_sumup_payments --checkout-id %s`.",
+                            "read(s), more than the %ss budget fits even as a "
+                            "run's first row; not verified. Check it with "
+                            "`manage.py reconcile_sumup_payments --checkout-id "
+                            "%s`.",
                             tx_obj.sumup_checkout_id,
                             len(history_codes),
                             budget_seconds,
@@ -1202,8 +1203,7 @@ class Command(BaseCommand):
         else:
             done = "was reconciled to REFUNDED"
         credit = (
-            f" {withdrawn_cents} cents of unspent Crush Credit issued from this "
-            "payment were voided."
+            f" {withdrawn_cents} cents of unspent Crush Credit were voided with it."
             if withdrawn_cents
             else ""
         )
