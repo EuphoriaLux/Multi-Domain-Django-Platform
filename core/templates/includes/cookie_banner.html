@@ -616,6 +616,15 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         }
     }
 
+    function clearAppInsightsCookies() {
+        // The Browser SDK uses these host-only identifiers by default. Expire
+        // them immediately when analytics is withdrawn; the native consent
+        // endpoint also clears the registered analytics cookies server-side.
+        ['ai_user', 'ai_session'].forEach(function(name) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        });
+    }
+
     function dispatchConsentEvent(consent) {
         const event = new CustomEvent('cookie_consent_updated', {
             detail: consent
@@ -632,6 +641,10 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         // loaded, a withdrawal silences it for the rest of the page.
         if (window.appInsights && window.appInsights.config) {
             window.appInsights.config.disableTelemetry = consent.analytics !== true;
+            window.appInsights.config.disableCookiesUsage = consent.analytics !== true;
+        }
+        if (consent.analytics !== true) {
+            clearAppInsightsCookies();
         }
     }
 

@@ -443,7 +443,50 @@ class AppInsightsConsentTests(SimpleTestCase):
             "window.appInsights.config.disableTelemetry = consent.analytics !== true;",
             html,
         )
+        self.assertIn(
+            "window.appInsights.config.disableCookiesUsage = consent.analytics !== true;",
+            html,
+        )
+        self.assertIn("clearAppInsightsCookies();", html)
+        self.assertIn("['ai_user', 'ai_session']", html)
         self.assertIn("keepalive: true", html)
+
+    def test_event_tag_queues_until_the_sdk_is_available(self):
+        html = Template(
+            '{% load analytics %}{% appinsights_event "dashboard_viewed" approved=True %}'
+        ).render(
+            Context({"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc"})
+        )
+
+        self.assertIn("window.__appInsightsPendingEvents =", html)
+        self.assertIn("window.__appInsightsPendingEvents.push(event)", html)
+        self.assertIn('name: "dashboard_viewed"', html)
+
+    def test_consent_placeholder_flushes_queued_events_to_the_sdk(self):
+        html = self._render({})
+
+        self.assertIn("function flushPendingEvents()", html)
+        self.assertIn("window.appInsights.trackEvent(pending.shift())", html)
+        self.assertIn("flushPendingEvents();", html)
+
+
+class AppInsightsCookieRegistrationTests(TestCase):
+    def test_setup_command_registers_sdk_cookies_for_native_cleanup(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from cookie_consent.models import Cookie
+
+        call_command("setup_cookie_groups", stdout=StringIO())
+
+        self.assertEqual(
+            set(
+                Cookie.objects.filter(name__in=("ai_user", "ai_session"))
+                .values_list("name", flat=True)
+            ),
+            {"ai_user", "ai_session"},
+        )
 
 
 class CookieConsentFlagSyncTests(TestCase):
@@ -1199,6 +1242,109 @@ def test_withdrawing_marketing_revokes_a_loaded_pixel(page):
     page.click("#open-cookie-settings")
     assert page.is_checked("#cookie-analytics")
     assert not page.is_checked("#cookie-marketing")
+
+
+@pytest.mark.playwright
+def test_appinsights_event_waits_for_consent_then_replays(page):
+    """Page events rendered before opt-in must be buffered in memory and
+    delivered when the consent listener can hand them to the initialized SDK."""
+    head = Template("{% load analytics %}{% appinsights_head %}").render(
+        Context({"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc"})
+    )
+    event = Template(
+        '{% load analytics %}{% appinsights_event "dashboard_viewed" approved=True %}'
+    ).render(
+        Context({"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc"})
+    )
+    banner = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><head>%s</head><body>%s%s</body></html>"
+            % (head, event, banner),
+        ),
+    )
+    page.route(
+        "**/cookies/**",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body='{"csrftoken":"tok","acceptUrl":"/cookies/accept/","declineUrl":"/cookies/decline/"}',
+        ),
+    )
+    page.add_init_script("window.__deliveredAppInsights = [];")
+
+    page.goto(url)
+    assert page.evaluate("window.__appInsightsPendingEvents") == [
+        {"name": "dashboard_viewed", "properties": {"approved": True}}
+    ]
+    assert page.evaluate("typeof window.appInsights") == "undefined"
+
+    # Stand in for the SDK queueing stub installed by the consent-triggered
+    # loader. The custom event must pass through trackEvent only after opt-in.
+    page.evaluate(
+        "window.appInsights = { config: {}, trackEvent: function (event) { "
+        "window.__deliveredAppInsights.push(event); } };"
+    )
+    page.click("#cookie-btn-accept")
+
+    assert page.evaluate("window.__deliveredAppInsights") == [
+        {"name": "dashboard_viewed", "properties": {"approved": True}}
+    ]
+    assert page.evaluate("window.__appInsightsPendingEvents") == []
+
+
+@pytest.mark.playwright
+def test_withdrawing_analytics_disables_sdk_and_clears_its_cookies(page):
+    """Withdrawing analytics stops the SDK and expires the identifiers it had
+    already written, even before the native cookie-consent POST completes."""
+    html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
+    url = "http://crush.test/"
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
+        ),
+    )
+    page.route(
+        "**/cookies/**",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body='{"csrftoken":"tok","acceptUrl":"/cookies/accept/","declineUrl":"/cookies/decline/"}',
+        ),
+    )
+    page.context.add_cookies(
+        [
+            {
+                "name": "cookie_consent",
+                "value": '{"essential":true,"analytics":true,"marketing":false}',
+                "url": url,
+            },
+            {"name": "ai_user", "value": "visitor-id", "url": url},
+            {"name": "ai_session", "value": "session-id", "url": url},
+        ]
+    )
+    page.add_init_script(
+        "window.appInsights = { config: { disableTelemetry: false, "
+        "disableCookiesUsage: false } };"
+    )
+
+    page.goto(url)
+    page.click("#open-cookie-settings")
+    assert page.is_checked("#cookie-analytics")
+    page.click("label.cookie-toggle:has(#cookie-analytics)")
+    page.click("#cookie-btn-save")
+
+    assert page.evaluate("window.appInsights.config.disableTelemetry") is True
+    assert page.evaluate("window.appInsights.config.disableCookiesUsage") is True
+    names = {cookie["name"] for cookie in page.context.cookies()}
+    assert "ai_user" not in names
+    assert "ai_session" not in names
 
 
 @pytest.mark.playwright

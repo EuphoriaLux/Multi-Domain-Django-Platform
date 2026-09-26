@@ -488,9 +488,23 @@ def appinsights_head(context):
         return mark_safe(f'''<!-- Azure Application Insights (waiting for analytics consent) -->
 <script type="text/javascript"{nonce_attr}>
 (function () {{
+  function flushPendingEvents() {{
+    var pending = window.__appInsightsPendingEvents;
+    if (!window.appInsights || typeof window.appInsights.trackEvent !== 'function' || !pending) return;
+    while (pending.length) {{
+      window.appInsights.trackEvent(pending.shift());
+    }}
+  }}
   function load() {{
-    if (window.appInsights) return;
+    if (window.appInsights) {{
+      flushPendingEvents();
+      return;
+    }}
     {snippet}
+    // The SDK snippet installs its queueing stub synchronously. Hand it the
+    // events rendered earlier in this page; the SDK drains its own queue once
+    // the external script finishes loading.
+    flushPendingEvents();
   }}
   document.addEventListener('cookie_consent_updated', function (e) {{
     if (e.detail && e.detail.analytics === true) load();
@@ -531,8 +545,20 @@ def appinsights_event(context, event_name, **params):
     # Build properties object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
         props_json = json.dumps(params)
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}, properties: {props_json}}});</script>'
+        event_json = f'{{name: {json.dumps(event_name)}, properties: {props_json}}}'
     else:
-        script = f'<script{nonce_attr}>if(window.appInsights)appInsights.trackEvent({{name: {json.dumps(event_name)}}});</script>'
+        event_json = f'{{name: {json.dumps(event_name)}}}'
+
+    # A page event can be rendered before the visitor grants analytics. Keep
+    # it in memory until the consent-driven head placeholder creates the SDK
+    # queueing stub, then replay it through trackEvent after consent.
+    script = f'''<script{nonce_attr}>(function (event) {{
+  if (window.appInsights && typeof window.appInsights.trackEvent === 'function') {{
+    window.appInsights.trackEvent(event);
+    return;
+  }}
+  window.__appInsightsPendingEvents = window.__appInsightsPendingEvents || [];
+  window.__appInsightsPendingEvents.push(event);
+}})({event_json});</script>'''
 
     return mark_safe(script)

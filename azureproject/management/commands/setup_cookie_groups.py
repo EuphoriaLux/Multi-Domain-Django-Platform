@@ -116,6 +116,16 @@ class Command(BaseCommand):
                 'description': 'Google Analytics - throttle request rate (expires: 1 minute)',
                 'domain': '',
             },
+            {
+                'name': 'ai_user',
+                'description': 'Application Insights - distinguishes browser users',
+                'domain': '',
+            },
+            {
+                'name': 'ai_session',
+                'description': 'Application Insights - identifies browser sessions',
+                'domain': '',
+            },
         ]
 
         for cookie_data in analytics_cookies:
