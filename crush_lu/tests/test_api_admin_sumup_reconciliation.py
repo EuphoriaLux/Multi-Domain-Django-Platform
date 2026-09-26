@@ -1796,6 +1796,8 @@ class SumUpReconciliationEndpointTests(TestCase):
         return rows, query["sql"]
 
     def _assert_lock_query_shape(self, sql, fk_column):
+        from django.db import connection
+
         # The SELECT list names every column, status included, so only the
         # WHERE clause is inspected. A status predicate there would let
         # PostgreSQL skip a sibling whose COMMITTED status does not match —
@@ -1803,7 +1805,12 @@ class SumUpReconciliationEndpointTests(TestCase):
         where = sql[sql.index(" WHERE ") : sql.index(" ORDER BY ")]
         self.assertIn(fk_column, where)
         self.assertNotIn("status", where)
-        self.assertRegex(sql[sql.index(" ORDER BY ") :], r'\."id" ASC$')
+        # SQLite drops the lock clause. PostgreSQL appends it AFTER the
+        # ORDER BY (its for_update_after_from is False), so there the query
+        # ends `ORDER BY "crush_lu_paymenttransaction"."id" ASC FOR UPDATE`.
+        self.assertRegex(sql[sql.index(" ORDER BY ") :], r'\."id" ASC( FOR UPDATE)?$')
+        if connection.features.has_select_for_update:
+            self.assertIn(" FOR UPDATE", sql)
 
     def test_related_payment_lock_has_no_status_predicate_and_is_pk_ordered(self):
         siblings = [
