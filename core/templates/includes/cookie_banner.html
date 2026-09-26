@@ -619,7 +619,8 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
     function clearAppInsightsCookies() {
         // The Browser SDK uses these host-only identifiers by default. Expire
         // them immediately when analytics is withdrawn; the native consent
-        // endpoint also clears the registered analytics cookies server-side.
+        // endpoint also clears them server-side, as cookies registered in the
+        // analytics group (setup_cookie_groups, run by startup.sh).
         ['ai_user', 'ai_session'].forEach(function(name) {
             document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
         });
@@ -791,10 +792,18 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         }
     }
 
-    // The server's state when it holds a decision, else null.
-    function serverConsent() {
-        const state = serverState();
-        return state && state.decided ? state : null;
+    // The per-group flag in the browser right now (setDjangoCookieConsent,
+    // or CookieConsentFlagSyncMiddleware after the library's own forms):
+    // false for a refusal, true for an acceptance, null without a flag.
+    // Unlike data-consent-state it is live: a copy of this page served later
+    // (the service worker's offline copy, a restored history entry) still
+    // embeds the state it was rendered with, and a refusal recorded since
+    // then is only here. Never the banner's JSON cookie: the middleware
+    // rewrites the flags, not the JSON, so the JSON can be the stale one.
+    function currentFlag(group) {
+        const value = getCookie('cookie_consent_' + group);
+        if (value === 'decline') return false;
+        return typeof value === 'string' && value.indexOf('accept') === 0 ? true : null;
     }
 
     // The groups' current versions (see setDjangoCookieConsent).
@@ -815,9 +824,15 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             // readable cookie beside it may be an acceptance that a cookie
             // added since made stale. A group the server holds no choice for
             // (null) stays unticked, while the other keeps its current choice.
+            // A live refusal flag vetoes an embedded grant: on a freshly
+            // rendered page the server already read that flag first (so this
+            // changes nothing there), but a cached copy of the page embeds the
+            // grant it was rendered with, and must not re-grant a withdrawal.
+            // Only in that direction: a live acceptance never outranks the
+            // server's refusal or its "ask again" (under-tracking is safe).
             return {
-                analytics: server.analytics === true,
-                marketing: server.marketing === true
+                analytics: server.analytics === true && currentFlag('analytics') !== false,
+                marketing: server.marketing === true && currentFlag('marketing') !== false
             };
         }
         const consent = getCookie(COOKIE_NAME);
@@ -922,27 +937,30 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         if (btnSave) btnSave.addEventListener('click', saveCustomCookies);
     }
 
+    // The stored choice a page start acts on, or null when the banner must ask.
+    // The server's state wins when the page carries one: it checked every
+    // stored acceptance against the group versions, so after a cookie was
+    // added to a group a readable acceptance is stale, the server says
+    // undecided, and the banner must ask again rather than re-dispatch the
+    // old grant. "decided" means every optional group holds a choice: one
+    // stale group is enough to ask again (the modal still shows the other
+    // group's current choice). storedConsent() applies a live refusal flag
+    // on top (a cached copy of the page). Only a page rendered without a
+    // request falls back to the cookie this script can read.
+    function choiceOnLoad() {
+        const server = serverState();
+        if (server) return server.decided ? storedConsent() : null;
+        const consent = getCookie(COOKIE_NAME);
+        if (!consent) return null;
+        return typeof consent === 'object' ? consent : storedConsent();
+    }
+
     // Check if consent already given on page load
     document.addEventListener('DOMContentLoaded', function() {
         // Bind event listeners
         bindButtonEvents();
 
-        // The server's state wins when the page carries one: it checked every
-        // stored acceptance against the group versions, so after a cookie was
-        // added to a group a readable acceptance is stale, the server says
-        // undecided, and the banner must ask again rather than re-dispatch the
-        // old grant. "decided" means every optional group holds a choice: one
-        // stale group is enough to ask again (the modal still shows the other
-        // group's current choice). Only a page rendered without a request
-        // falls back to the cookie this script can read.
-        const server = serverState();
-        const consent = getCookie(COOKIE_NAME);
-        let stored = null;
-        if (server) {
-            if (server.decided) stored = storedConsent();
-        } else if (consent) {
-            stored = typeof consent === 'object' ? consent : storedConsent();
-        }
+        const stored = choiceOnLoad();
         if (!stored) {
             // No stored choice anywhere - show banner
             showBanner();
@@ -951,6 +969,20 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
             // on it, and put Google Consent Mode in the same state (the
             // server-rendered defaults already match; this repairs a cached
             // page).
+            dispatchConsentEvent(stored);
+            updateGoogleConsent(stored);
+        }
+    });
+
+    // A page restored from the back/forward cache runs none of the above
+    // again: its trackers keep the choice they had when it was left, even if
+    // the visitor withdrew on another page since. Hand them the current
+    // choice (with the live refusal veto). Only when there is one: an
+    // undecided page keeps its banner as it was left.
+    window.addEventListener('pageshow', function(event) {
+        if (!event.persisted) return;
+        const stored = choiceOnLoad();
+        if (stored) {
             dispatchConsentEvent(stored);
             updateGoogleConsent(stored);
         }

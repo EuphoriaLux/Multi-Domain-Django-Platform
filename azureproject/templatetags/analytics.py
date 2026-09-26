@@ -49,6 +49,27 @@ FLAG_ACCEPT = "accept"
 FLAG_DECLINE = "decline"
 
 
+def _declined_in_browser_js(cookie_group):
+    """
+    A JS expression: does the browser hold a refusal flag for the group now?
+
+    The tags below decide from the request, and a granted branch emits a
+    tracker that runs on its own. That HTML can be served again later without
+    a request: the crush.lu service worker keeps navigations for offline use
+    (up to a day, a year for event tickets), and a browser restores history
+    entries. A refusal recorded since then (the banner's readable
+    ``cookie_consent_<group>=decline`` flag, which CookieConsentFlagSyncMiddleware
+    also writes after the library's own forms) must still stop the tracker.
+    On a freshly rendered page the flag never says decline here, because
+    stored_cookie_choice reads it first and the granted branch is not taken.
+    document.cookie separates pairs with "; ", so no whitespace class needed.
+    """
+    return (
+        f"/(?:^|; )cookie_consent_{cookie_group}={FLAG_DECLINE}(?:;|$)/"
+        ".test(document.cookie)"
+    )
+
+
 def _cookie_group_version(cookie_group):
     """
     django-cookie-consent's current version of a group, or None if unknown here.
@@ -259,6 +280,31 @@ def analytics_head(context):
     analytics_granted = granted("analytics")
     marketing_granted = granted("marketing")
 
+    # A granted default is only true for this response. Served again later
+    # (_declined_in_browser_js), the page must not send its page view under a
+    # grant the visitor has withdrawn since: a refusal flag in the browser
+    # turns the group back to denied before gtag('config') below. Consent
+    # commands run in dataLayer order, so this update lands before the page
+    # view. A denied default needs no such check (a live acceptance never
+    # outranks the server's answer).
+    refusal_updates = []
+    if analytics_granted == "granted":
+        refusal_updates.append(
+            f"  if ({_declined_in_browser_js('analytics')}) "
+            "gtag('consent', 'update', {'analytics_storage': 'denied'});"
+        )
+    if marketing_granted == "granted":
+        refusal_updates.append(
+            f"  if ({_declined_in_browser_js('marketing')}) "
+            "gtag('consent', 'update', {'ad_storage': 'denied', "
+            "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
+        )
+    if refusal_updates:
+        refusal_updates.insert(
+            0, "  // A copy of this page served later: a refusal recorded since wins."
+        )
+    refusal_js = "".join("\n" + line for line in refusal_updates)
+
     # Get current language for multi-language tracking
     # This allows GA4 to track page views with language context
     language_code = context.get("LANGUAGE_CODE", "en")
@@ -277,7 +323,7 @@ def analytics_head(context):
     'ad_personalization': '{marketing_granted}',
     'analytics_storage': '{analytics_granted}',
     'wait_for_update': 500
-  }});
+  }});{refusal_js}
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"{nonce_attr}></script>
 <script{nonce_attr}>
@@ -339,9 +385,15 @@ def analytics_body(context):
   }});
 </script>""")
 
-    # Full Facebook Pixel implementation
+    # Full Facebook Pixel implementation. It runs on parse, so a copy of this
+    # page served later (_declined_in_browser_js) would load the Pixel and
+    # send its PageView before the banner's script could revoke anything: a
+    # refusal recorded since then skips it. (The <noscript> image needs no
+    # such check: without script there is no service worker serving copies.)
+    marketing_declined = _declined_in_browser_js("marketing")
     script = f"""<!-- Facebook Pixel -->
 <script{nonce_attr}>
+  if (!{marketing_declined}) {{
   !function(f,b,e,v,n,t,s)
   {{if(f.fbq)return;n=f.fbq=function(){{n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)}};
@@ -352,6 +404,7 @@ def analytics_body(context):
   'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '{fb_pixel_id}');
   fbq('track', 'PageView');
+  }}
 </script>
 <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id={fb_pixel_id}&ev=PageView&noscript=1"
@@ -436,7 +489,8 @@ def appinsights_head(context):
     telemetry using the same instrumentation key.
 
     PERFORMANCE: Loads asynchronously to avoid render-blocking.
-    - Preconnect hint for faster connection establishment
+    - No preconnect hint: it would open a connection to Microsoft whatever
+      the visitor chose (see the consent notes below)
     - SDK loaded with async attribute
     - Stub functions queue events until SDK is ready
 
@@ -523,10 +577,17 @@ def appinsights_head(context):
 </script>"""
         )
 
+    # Accepted: the SDK starts on parse. A copy of this page served later
+    # (_declined_in_browser_js) must not start it after a withdrawal, so a
+    # refusal recorded since then skips it. No preconnect hint: it is HTML,
+    # which no script can hold back, and it opens a connection to Microsoft
+    # by itself; the snippet adds its script tag right away (setTimeout 0).
+    analytics_declined = _declined_in_browser_js("analytics")
     script = f"""<!-- Azure Application Insights Browser SDK v3 -->
-<link rel="preconnect" href="https://js.monitor.azure.com" crossorigin>
 <script type="text/javascript"{nonce_attr}>
+if (!{analytics_declined}) {{
 {snippet}
+}}
 </script>"""
 
     return mark_safe(script)

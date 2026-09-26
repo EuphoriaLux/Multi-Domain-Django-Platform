@@ -42,18 +42,6 @@ def _pin_versions(test, value=""):
     test.addCleanup(patcher.stop)
 
 
-VERSION_SEAM = "azureproject.templatetags.analytics._cookie_group_version"
-NO_VERSIONS = {"analytics": "", "marketing": ""}
-
-
-def _pin_versions(test, value=""):
-    """Group versions come from the DB (cached for an hour): pin them, so a
-    group a TestCase left in the cache cannot make a bare "accept" stale."""
-    patcher = patch(VERSION_SEAM, return_value=value)
-    patcher.start()
-    test.addCleanup(patcher.stop)
-
-
 EN_BANNER = (
     "We use cookies to enhance your experience. Analytics cookies help us "
     "understand how you use our site. You can accept all cookies or customize "
@@ -298,6 +286,55 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertIn("analytics.checked = stored.analytics === true;", reflect)
         self.assertIn("marketing.checked = stored.marketing === true;", reflect)
 
+    def test_a_live_refusal_flag_vetoes_the_embedded_grant(self):
+        """A copy of the page served later (the service worker's offline
+        copy, a restored history entry) still embeds the grant it was
+        rendered with. A refusal flag written since then must win on load,
+        in the modal (else Save re-grants the withdrawal) and on a
+        back/forward restore. Test_a_cached_accepted_page_honours_a_later_refusal
+        runs it in a browser."""
+        script = render_to_string(BANNER_TEMPLATE, {})
+        helper = script[
+            script.index("function currentFlag(group) {") : script.index(
+                "function serverVersions()"
+            )
+        ]
+        self.assertIn("getCookie('cookie_consent_' + group)", helper)
+        self.assertIn("if (value === 'decline') return false;", helper)
+        stored = _js_function_body(script, "storedConsent")
+        server_branch = stored[
+            : stored.index("const consent = getCookie(COOKIE_NAME);")
+        ]
+        self.assertIn(
+            "analytics: server.analytics === true && currentFlag('analytics') !== false",
+            server_branch,
+        )
+        self.assertIn(
+            "marketing: server.marketing === true && currentFlag('marketing') !== false",
+            server_branch,
+        )
+        # Flags only: CookieConsentFlagSyncMiddleware rewrites the flags after
+        # the library's own forms, never the banner's JSON cookie.
+        self.assertNotIn("COOKIE_NAME", server_branch)
+        self.assertNotIn("function serverConsent()", script)  # unused, removed
+        pageshow = script[script.index("window.addEventListener('pageshow'") :]
+        pageshow = pageshow[: pageshow.index("\n    });\n")]
+        self.assertIn("if (!event.persisted) return;", pageshow)
+        self.assertIn("const stored = choiceOnLoad();", pageshow)
+        self.assertIn("dispatchConsentEvent(stored);", pageshow)
+        self.assertIn("updateGoogleConsent(stored);", pageshow)
+        self.assertNotIn("showBanner()", pageshow)
+
+
+# A refusal flag in the browser, as the granted branches of the analytics tags
+# test it (document.cookie separates pairs with "; ").
+MARKETING_DECLINED_JS = (
+    "/(?:^|; )cookie_consent_marketing=decline(?:;|$)/.test(document.cookie)"
+)
+ANALYTICS_DECLINED_JS = (
+    "/(?:^|; )cookie_consent_analytics=decline(?:;|$)/.test(document.cookie)"
+)
+
 
 class FacebookPixelConsentTests(SimpleTestCase):
     """An unchecked marketing toggle is only honest if the Pixel really waits:
@@ -335,6 +372,22 @@ class FacebookPixelConsentTests(SimpleTestCase):
 
         self.assertNotIn("waiting for consent", html)
         self.assertIn("fbq('init', '123456')", html)
+
+    def test_accepted_pixel_yields_to_a_later_refusal_in_the_browser(self):
+        """The full Pixel runs on parse. Served again later (the service
+        worker's copy of the page), it must not load or send its PageView
+        once the visitor has withdrawn marketing since the render."""
+        html = self._render(True)
+
+        guard = "if (!%s) {" % MARKETING_DECLINED_JS
+        self.assertIn(guard, html)
+        self.assertLess(html.index(guard), html.index("fbevents.js"))
+        self.assertLess(html.index(guard), html.index("fbq('init', '123456')"))
+        closing = html.index("}", html.index("fbq('track', 'PageView');"))
+        self.assertLess(closing, html.index("</script>"))
+        # The placeholder only loads the Pixel on a grant: it stays as it was.
+        for placeholder in (self._render(None), self._render(False)):
+            self.assertNotIn("cookie_consent_marketing=decline", placeholder)
 
     def _render_with_cookies(self, cookies):
         request = RequestFactory().get("/")
@@ -389,7 +442,8 @@ class FacebookPixelConsentTests(SimpleTestCase):
 
 class AppInsightsConsentTests(SimpleTestCase):
     """Browser telemetry is an analytics cookie: the SDK must not load, nor
-    the preconnect open a connection, before analytics is accepted."""
+    the preconnect open a connection, before analytics is accepted (there is
+    no preconnect at all: see test_accepted_visitor_gets_the_sdk)."""
 
     def setUp(self):
         _pin_versions(self)
@@ -434,8 +488,27 @@ class AppInsightsConsentTests(SimpleTestCase):
         html = self._render({"cookie_consent_analytics": "accept"})
 
         self.assertNotIn("waiting for analytics consent", html)
-        self.assertIn('rel="preconnect" href="https://js.monitor.azure.com"', html)
         self.assertIn("InstrumentationKey=abc", html)
+        # No preconnect hint even then: it is HTML, so nothing could hold it
+        # back on a copy of the page served after a withdrawal.
+        self.assertNotIn('rel="preconnect"', html)
+
+    def test_accepted_sdk_yields_to_a_later_refusal_in_the_browser(self):
+        """The accepted SDK starts on parse. Served again later (the service
+        worker's copy of the page), it must not start once the visitor has
+        withdrawn analytics since the render."""
+        html = self._render({"cookie_consent_analytics": "accept"})
+
+        guard = "if (!%s) {" % ANALYTICS_DECLINED_JS
+        self.assertIn(guard, html)
+        self.assertLess(html.index(guard), html.index("!(function (cfg)"))
+        self.assertLess(html.index(guard), html.index("InstrumentationKey=abc"))
+        # The placeholder only loads the SDK on a grant: it stays as it was.
+        for placeholder in (
+            self._render({}),
+            self._render({"cookie_consent_analytics": "decline"}),
+        ):
+            self.assertNotIn("cookie_consent_analytics=decline", placeholder)
 
     def test_banner_silences_a_loaded_sdk_on_withdrawal(self):
         html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
@@ -482,8 +555,9 @@ class AppInsightsCookieRegistrationTests(TestCase):
 
         self.assertEqual(
             set(
-                Cookie.objects.filter(name__in=("ai_user", "ai_session"))
-                .values_list("name", flat=True)
+                Cookie.objects.filter(name__in=("ai_user", "ai_session")).values_list(
+                    "name", flat=True
+                )
             ),
             {"ai_user", "ai_session"},
         )
@@ -613,6 +687,48 @@ class GoogleConsentDefaultsTests(SimpleTestCase):
         rendered = self._render({}, library=True)
 
         self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
+
+    def test_a_granted_default_yields_to_a_later_refusal_in_the_browser(self):
+        """A granted default is only true for this response. Served again
+        later (the service worker's copy of the page), a refusal recorded
+        since must turn the group back to denied before gtag('config') sends
+        the page view. The defaults themselves stay as rendered."""
+        rendered = self._render(
+            {
+                "cookie_consent_analytics": "accept:",
+                "cookie_consent_marketing": "accept:",
+            }
+        )
+
+        self.assertEqual(set(self._defaults(rendered).values()), {"granted"})
+        updates = (
+            "if (%s) gtag('consent', 'update', {'analytics_storage': 'denied'});"
+            % ANALYTICS_DECLINED_JS,
+            "if (%s) gtag('consent', 'update', {'ad_storage': 'denied', "
+            "'ad_user_data': 'denied', 'ad_personalization': 'denied'});"
+            % MARKETING_DECLINED_JS,
+        )
+        for update in updates:
+            self.assertIn(update, rendered)
+            self.assertLess(
+                rendered.index("gtag('consent', 'default'"), rendered.index(update)
+            )
+            self.assertLess(rendered.index(update), rendered.index("gtag('config'"))
+
+    def test_only_a_granted_group_gets_the_refusal_check(self):
+        """A denied default has nothing to take back: a live acceptance never
+        outranks the server's refusal or its "ask again"."""
+        mixed = self._render(
+            {
+                "cookie_consent_analytics": "accept:",
+                "cookie_consent_marketing": "decline",
+            }
+        )
+        self.assertIn(ANALYTICS_DECLINED_JS, mixed)
+        self.assertNotIn("cookie_consent_marketing=decline", mixed)
+        for denied in (self._render({}), self._render(with_request=False)):
+            self.assertNotIn("=decline", denied)
+            self.assertNotIn("gtag('consent', 'update'", denied)
 
 
 class ConsentVersionTests(TestCase):
@@ -969,16 +1085,19 @@ class ConsentStateTagTests(SimpleTestCase):
             },
         )
         self.assertIn("function serverState()", rendered)
-        self.assertIn("function serverConsent()", rendered)
         # On load the server's (version-checked) state wins over a readable
         # cookie: undecided server-side shows the banner whatever the cookie
         # says; a decision is dispatched to the analytics scripts and put into
         # Google Consent Mode.
+        choice = _js_function_body(rendered, "choiceOnLoad")
+        self.assertIn("const server = serverState();", choice)
+        self.assertIn(
+            "if (server) return server.decided ? storedConsent() : null;", choice
+        )
         load = rendered[
             rendered.index("document.addEventListener('DOMContentLoaded'") :
         ]
-        self.assertIn("const server = serverState();", load)
-        self.assertIn("if (server.decided) stored = storedConsent();", load)
+        self.assertIn("const stored = choiceOnLoad();", load)
         self.assertIn("dispatchConsentEvent(stored);", load)
         self.assertIn("updateGoogleConsent(stored);", load)
         self.assertLess(
@@ -1558,3 +1677,212 @@ def test_a_stale_acceptance_reopens_the_banner(page):
     assert flags["cookie_consent_analytics"] == "accept:" + current
     assert flags["cookie_consent_marketing"] == "accept:" + current
     assert page.evaluate("window.__consentEvents")[-1]["analytics"] is True
+
+
+def _cached_accepted_page():
+    """The whole consent surface of a page rendered for a visitor who had
+    accepted both groups: the copy the service worker keeps for offline use
+    (crush-pages for a day, crush-tickets for a year)."""
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "accept:"
+    request.COOKIES["cookie_consent_marketing"] = "accept:"
+    context = {
+        "request": request,
+        "GOOGLE_ANALYTICS_GTAG_PROPERTY_ID": "G-TEST123",
+        "FACEBOOK_PIXEL_ID": "999",
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=abc",
+        "cookie_banner_variant": "crush",
+    }
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, return_value=""):
+        head = Template(
+            "{% load analytics %}{% analytics_head %}{% appinsights_head %}"
+        ).render(Context(context))
+        body = Template("{% load analytics %}{% analytics_body %}").render(
+            Context(context)
+        )
+        banner = render_to_string(BANNER_TEMPLATE, context)
+    # The granted branches, not the placeholders.
+    assert "fbq('init', '999')" in body and "waiting for" not in head + body
+    assert "&quot;decided&quot;: true" in banner
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
+    return "<!doctype html><html><head>%s</head><body>%s%s%s</body></html>" % (
+        head,
+        body,
+        footer,
+        banner,
+    )
+
+
+def _serve_kept_copy(page, html, url):
+    page.route(
+        url,
+        lambda route: route.fulfill(content_type="text/html", body=html),
+    )
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    # The trackers' own scripts: never fetched, whatever the page decides.
+    for pattern in (
+        "https://www.googletagmanager.com/**",
+        "https://connect.facebook.net/**",
+        "https://js.monitor.azure.com/**",
+    ):
+        page.route(pattern, lambda route: route.abort())
+
+
+def _data_layer(page):
+    return page.evaluate(
+        "window.dataLayer.map(function (a) { return Array.prototype.slice.call(a); })"
+    )
+
+
+@pytest.mark.playwright
+def test_a_cached_accepted_page_honours_a_later_refusal(page):
+    """Codex P1 on #1028: the visitor accepted both groups, the worker kept
+    the page, the visitor then withdrew both (flags now "decline"), and the
+    worker serves the kept copy (offline, or a slow network at the venue door
+    for a ticket). Nothing on that copy may track or re-grant: GA4 must be
+    denied before its page view, the Pixel and App Insights must not start,
+    the banner must dispatch the refusal, and the reopened modal must show
+    it, or Save would write a fresh acceptance over the withdrawal."""
+    url = "http://crush.test/"
+    _serve_kept_copy(page, _cached_accepted_page(), url)
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "decline", "url": url},
+            {"name": "cookie_consent_marketing", "value": "decline", "url": url},
+            {
+                "name": "cookie_consent",
+                "value": '{"essential":true,"analytics":false,"marketing":false}',
+                "url": url,
+            },
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+    )
+    page.goto(url)
+
+    calls = _data_layer(page)
+    commands = [c[:2] for c in calls]
+    config = commands.index(["config", "G-TEST123"])
+    # The kept copy's default still says granted (it is the rendered HTML)...
+    default = calls[commands.index(["consent", "default"])][2]
+    assert default["analytics_storage"] == "granted"
+    # ...but both groups are denied again before the page view is configured.
+    before_config = [c[2] for c in calls[:config] if c[:2] == ["consent", "update"]]
+    assert {"analytics_storage": "denied"} in before_config
+    assert {
+        "ad_storage": "denied",
+        "ad_user_data": "denied",
+        "ad_personalization": "denied",
+    } in before_config
+    # The banner's own update on load says denied too.
+    last_update = [c[2] for c in calls if c[:2] == ["consent", "update"]][-1]
+    assert last_update["analytics_storage"] == "denied"
+    assert last_update["ad_storage"] == "denied"
+
+    assert page.evaluate("typeof window.fbq") == "undefined"
+    assert page.evaluate("typeof window.appInsights") == "undefined"
+    events = page.evaluate("window.__consentEvents")
+    assert events, "the decided state must still be dispatched"
+    assert all(e["analytics"] is False and e["marketing"] is False for e in events)
+
+    page.click("#open-cookie-settings")
+    checked = page.evaluate(
+        "[document.getElementById('cookie-analytics').checked, "
+        "document.getElementById('cookie-marketing').checked]"
+    )
+    assert checked == [False, False]
+
+
+@pytest.mark.playwright
+def test_the_same_cached_page_still_tracks_while_the_choice_stands(page):
+    """Guards the test above: with the acceptance still in place the kept
+    copy behaves like a fresh page (no refusal, nothing held back)."""
+    url = "http://crush.test/"
+    _serve_kept_copy(page, _cached_accepted_page(), url)
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "accept:", "url": url},
+            {"name": "cookie_consent_marketing", "value": "accept:", "url": url},
+        ]
+    )
+    page.goto(url)
+
+    updates = [c[2] for c in _data_layer(page) if c[:2] == ["consent", "update"]]
+    assert updates and all(set(u.values()) == {"granted"} for u in updates)
+    assert page.evaluate("typeof window.fbq") == "function"
+    assert page.evaluate("typeof window.appInsights") == "object"
+
+
+@pytest.mark.playwright
+def test_back_forward_restore_applies_a_later_refusal(page):
+    """A page restored from the back/forward cache runs no load handler
+    again: its trackers keep the grant they had when the visitor left it. A
+    withdrawal made on another page since must reach them on pageshow."""
+    request = RequestFactory().get("/")
+    request.COOKIES["cookie_consent_analytics"] = "accept:"
+    request.COOKIES["cookie_consent_marketing"] = "accept:"
+    with patch(
+        "cookie_consent.util.get_cookie_value_from_request", return_value=None
+    ), patch(VERSION_SEAM, return_value=""):
+        html = render_to_string(
+            BANNER_TEMPLATE, {"cookie_banner_variant": "crush", "request": request}
+        )
+    url = "http://crush.test/"
+    page.route(
+        url,
+        lambda route: route.fulfill(
+            content_type="text/html",
+            body="<!doctype html><html><body>%s</body></html>" % html,
+        ),
+    )
+    page.route("**/cookies/**", lambda route: route.fulfill(status=200, body=""))
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "accept:", "url": url},
+            {"name": "cookie_consent_marketing", "value": "accept:", "url": url},
+        ]
+    )
+    page.add_init_script(
+        "window.__consentEvents = [];"
+        "document.addEventListener('cookie_consent_updated', function (e) {"
+        "  window.__consentEvents.push(e.detail);"
+        "});"
+        "window.__fbqCalls = [];"
+        "window.fbq = function () { window.__fbqCalls.push([].slice.call(arguments)); };"
+        "window.appInsights = { config: { disableTelemetry: false } };"
+    )
+    page.goto(url)
+    assert page.evaluate("window.__consentEvents") == [
+        {"analytics": True, "marketing": True}
+    ]
+
+    # An ordinary pageshow (a fresh load) re-dispatches nothing.
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: false}))"
+    )
+    assert len(page.evaluate("window.__consentEvents")) == 1
+
+    # Withdrawn on another page, then back here from the back/forward cache.
+    page.context.add_cookies(
+        [
+            {"name": "cookie_consent_analytics", "value": "decline", "url": url},
+            {"name": "cookie_consent_marketing", "value": "decline", "url": url},
+        ]
+    )
+    page.evaluate(
+        "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
+    )
+    assert page.evaluate("window.__consentEvents")[-1] == {
+        "analytics": False,
+        "marketing": False,
+    }
+    assert page.evaluate("window.__fbqCalls")[-1] == ["consent", "revoke"]
+    assert page.evaluate("window.appInsights.config.disableTelemetry") is True
