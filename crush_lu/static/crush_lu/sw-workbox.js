@@ -658,7 +658,11 @@ if (workbox) {
                 continue;
             }
             try {
-                await fetch(entry.request);
+                // A clone: fetch consumes the body, and unshiftRequest()
+                // serializes the request again on failure. Replaying the
+                // original would make that requeue throw and lose the
+                // entry (it was already shifted out).
+                await fetch(entry.request.clone());
             } catch (error) {
                 await queue.unshiftRequest(entry);
                 throw error;

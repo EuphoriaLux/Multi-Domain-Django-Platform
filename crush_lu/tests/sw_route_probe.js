@@ -431,7 +431,15 @@ async function probeReplay(urls) {
     if (!backgroundSync || typeof backgroundSync.options.onSync !== "function") {
         return { available: false, replayed: [], drained: false };
     }
-    const pending = urls.map((url) => ({ request: { url, method: "POST" } }));
+    const pending = urls.map((url) => ({
+        request: {
+            url,
+            method: "POST",
+            clone() {
+                return this;
+            },
+        },
+    }));
     const queue = {
         shiftRequest: async () => pending.shift(),
         unshiftRequest: async (entry) => {

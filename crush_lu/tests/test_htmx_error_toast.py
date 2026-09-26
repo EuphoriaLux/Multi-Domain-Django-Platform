@@ -254,6 +254,9 @@ def test_queued_copy_needs_the_workers_confirmation():
     assert 'new workbox.backgroundSync.Queue("crush-queue"' in sw
     assert "BackgroundSyncPlugin(" not in sw
     assert 'data.type === "crush-drain-queue"' in sw and "drainQueue(crushQueue)" in sw
+    # fetch consumes the body; a failed replay is requeued by serializing the
+    # request again, so the replay must use a clone or the entry is lost.
+    assert "await fetch(entry.request.clone())" in sw
     assert 'window.addEventListener("online", scheduleDrains)' in handler
     assert 'postMessage({ type: "crush-drain-queue" })' in handler
     # A POST can fail while the browser still says it is online, so the
