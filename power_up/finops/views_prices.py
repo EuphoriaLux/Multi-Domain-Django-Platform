@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
+from statistics import median
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
@@ -16,6 +17,8 @@ from .retail_prices.connectors.azure import EUROPEAN_AZURE_REGIONS
 PERIOD_OPTIONS = {30, 90, 180, 365}
 # The option lists change once a night, when the sync lands a new day.
 OPTIONS_CACHE_SECONDS = 60 * 60
+# The region every other region's price index is measured against.
+INDEX_REFERENCE_REGION = "westeurope"
 
 
 def _safe_period(value):
@@ -37,7 +40,7 @@ def _latest_day_options(provider, latest_day):
     (no rows, no key), so crafted query strings cannot multiply cache entries.
     Currency and OS narrow the SKU list in Python instead.
     """
-    key = f"finops:prices:options:{provider}:{latest_day}"
+    key = f"finops:prices:options:v2:{provider}:{latest_day}"
     options = cache.get(key)
     if options is not None:
         return options
@@ -48,9 +51,11 @@ def _latest_day_options(provider, latest_day):
     vms = day.filter(service_category="compute", resource_type="virtual_machines")
     options = {
         "vm_skus": list(
-            vms.values_list("currency", "operating_system", "provider_sku")
+            vms.values_list(
+                "currency", "operating_system", "provider_sku", "product_name"
+            )
             .distinct()
-            .order_by("provider_sku", "currency", "operating_system")
+            .order_by("provider_sku", "currency", "operating_system", "product_name")
         ),
         "os": list(
             vms.exclude(operating_system="")
@@ -69,16 +74,65 @@ def _latest_day_options(provider, latest_day):
     return options
 
 
-def _default_sku(scope):
-    """The SKU offered in the most regions of ``scope``'s single day."""
-    row = (
-        scope.order_by()
-        .values("provider_sku")
-        .annotate(region_count=Count("region_code", distinct=True))
-        .order_by("-region_count", "provider_sku")
-        .first()
+def _region_price_index(day_scope):
+    """Each region's median price relative to the reference region.
+
+    Only like-for-like offers count: the same SKU, product (OS/licensing) and
+    meter, priced in both the region and the reference region on one day. The
+    comparison is pairwise, not an intersection across every region, so a
+    region with a small catalogue does not shrink everyone's basket.
+    """
+    prices = defaultdict(dict)
+    locations = {}
+    for row in (
+        day_scope.order_by()
+        .values(
+            "region_code",
+            "location_name",
+            "provider_sku",
+            "product_name",
+            "meter_name",
+        )
+        .annotate(price=Min("unit_price"))
+    ):
+        if not row["price"]:
+            continue  # Zero-priced meters would divide by zero or skew ratios.
+        key = (row["provider_sku"], row["product_name"], row["meter_name"])
+        prices[row["region_code"]][key] = row["price"]
+        locations[row["region_code"]] = EUROPEAN_AZURE_REGIONS.get(
+            row["region_code"], {}
+        ).get("label", row["location_name"] or row["region_code"])
+    if not prices:
+        return [], ""
+
+    reference = (
+        INDEX_REFERENCE_REGION
+        if INDEX_REFERENCE_REGION in prices
+        else max(sorted(prices), key=lambda code: len(prices[code]))
     )
-    return row["provider_sku"] if row else ""
+    reference_prices = prices[reference]
+    index = []
+    for code, region_prices in prices.items():
+        ratios = [
+            price / reference_prices[key]
+            for key, price in region_prices.items()
+            if key in reference_prices
+        ]
+        if not ratios:
+            continue
+        value = float(median(ratios) * 100)
+        index.append(
+            {
+                "region_code": code,
+                "location_name": locations[code],
+                "index": round(value, 1),
+                "difference_percent": round(value - 100, 1),
+                "compared": len(ratios),
+                "is_reference": code == reference,
+            }
+        )
+    index.sort(key=lambda item: (item["index"], item["region_code"]))
+    return index, reference
 
 
 @login_required
@@ -127,13 +181,12 @@ def retail_price_dashboard(request):
     )
     empty_options = {"vm_skus": [], "os": [], "currencies": [], "regions": set()}
     options = _latest_day_options(provider, latest_day) if latest_day else empty_options
-    sku_choices = sorted(
-        {
-            sku
-            for sku_currency, sku_os, sku in options["vm_skus"]
-            if sku_currency == currency and (not os_filter or sku_os == os_filter)
-        }
-    )
+    offer_choices = [
+        (sku, product)
+        for sku_currency, sku_os, sku, product in options["vm_skus"]
+        if sku_currency == currency and (not os_filter or sku_os == os_filter)
+    ]
+    sku_choices = sorted({sku for sku, _ in offer_choices})
 
     requested_sku = request.GET.get("sku", "").strip()
     if requested_sku:
@@ -147,18 +200,34 @@ def retail_price_dashboard(request):
         ).exists():
             active_sku = requested_sku
         else:
-            canonical = {sku.lower(): sku for _, _, sku in options["vm_skus"]}
+            canonical = {sku.lower(): sku for _, _, sku, _ in options["vm_skus"]}
             active_sku = canonical.get(requested_sku.lower(), requested_sku)
     else:
         active_sku = ""
-        if latest_day:
-            active_sku = _default_sku(base.filter(snapshot_date=latest_day))
-        if not active_sku:
+
+    # Without a SKU the page compares whole regions instead: a like-for-like
+    # price index for one day, never a scan of the full history.
+    region_index, index_reference, index_day = [], "", None
+    if not active_sku and latest_day:
+        index_day = latest_day
+        region_index, index_reference = _region_price_index(
+            base.filter(snapshot_date=index_day)
+        )
+        if not region_index:
             # The selected regions can lag the newest day, e.g. mid-sync or
-            # after one region's sync failed: use their own latest day.
+            # after their sync failed: use their own latest day.
             scope_day = base.order_by().aggregate(value=Max("snapshot_date"))["value"]
             if scope_day and scope_day != latest_day:
-                active_sku = _default_sku(base.filter(snapshot_date=scope_day))
+                index_day = scope_day
+                region_index, index_reference = _region_price_index(
+                    base.filter(snapshot_date=index_day)
+                )
+    indexed_codes = {item["region_code"] for item in region_index}
+    index_missing_regions = [
+        EUROPEAN_AZURE_REGIONS.get(code, {}).get("label", code)
+        for code in selected_regions
+        if code not in indexed_codes
+    ]
 
     # Never fall back to every SKU at once: that is the full-window scan this
     # page timed out on, and it would compare unlike offers anyway.
@@ -283,7 +352,8 @@ def retail_price_dashboard(request):
         for code in region_codes
     ]
     sku_options = sku_choices[:500]
-    product_options = []
+    # Without a SKU, the newest day's products still help narrow the index.
+    product_options = sorted({product for _, product in offer_choices})[:200]
     if active_sku:
         product_options_query = RetailPriceSnapshot.objects.filter(
             provider=provider,
@@ -347,6 +417,12 @@ def retail_price_dashboard(request):
             "latest_sync_regions": latest_sync_totals["regions"] or 0,
             "chart_series": chart_series,
             "chart_labels": chart_labels,
+            "region_index": region_index,
+            "index_reference": EUROPEAN_AZURE_REGIONS.get(index_reference, {}).get(
+                "label", index_reference
+            ),
+            "index_day": index_day,
+            "index_missing_regions": index_missing_regions,
             "region_comparison": region_comparison,
             "history_rows": history_rows,
             "changed_count": changed_count,
