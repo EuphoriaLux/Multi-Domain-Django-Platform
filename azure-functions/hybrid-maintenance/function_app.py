@@ -493,20 +493,19 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
     # ends by :31 — clear); campaigns tick every 5 min offset by 2 (:x2/:x7,
     # 110 s timeout each); echo :05, SLA :15, recaps :25 (110 s), lead
     # reminders :45 — all 110 s or 60 s timeouts, none of which reaches :34.
-    # :34 sits 2 s clear of the :32 campaign tick's worst-case tail (starts
+    # :34 sits 10 s clear of the :32 campaign tick's worst-case tail (starts
     # :32:00, 110 s timeout, ends by :33:50) and this call's own 110 s
-    # timeout (starts :34:00, ends by :35:50) finishes 10 s before the next
-    # campaign tick starts at :37:00 — so neither direction overlaps.
+    # timeout (starts :34:00, ends by :35:50) finishes 1 min 10 s before the
+    # next campaign tick starts at :37:00 — so neither direction overlaps.
     #
     # The one residual: EventReminders and EventFeedback also use 110 s
     # timeouts at :35 and :55, but only across 09:00-20:00 UTC. :34's tail
     # (ending :35:50) overlaps EventReminders' first ~50 s every one of those
-    # hours. Accepted: both are independent bounded HTTP calls to the Django
-    # app, neither holds a lock the other needs (EventReminders only reads
-    # confirmed registrations and sends email; this sweep locks one specific
-    # PaymentTransaction/EventRegistration pair at a time), and :54 has the
-    # identical overlap with EventFeedback at :55 — there is no minute in the
-    # hour that clears every 110 s-timeout job AND this one's own tail.
+    # hours. Accepted: both are independent, bounded HTTP calls to the
+    # Django app, and neither holds a row lock for longer than its own
+    # request; :54 has the identical overlap with EventFeedback at :55 —
+    # there is no minute in the hour that clears every 110 s-timeout job AND
+    # this one's own tail.
     #
     # Also now runs every hour, including inside the finops app's separate
     # 04:00-06:40 retail-price window that the daily 02:34 schedule used to
