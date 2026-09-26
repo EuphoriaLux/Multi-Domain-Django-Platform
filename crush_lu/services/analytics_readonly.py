@@ -354,11 +354,12 @@ PRIVILEGE_AUDIT_SQL = {
         "CROSS JOIN LATERAL aclexplode(l.lomacl) a "
         "WHERE a.grantee = %(role)s::regrole AND a.is_grantable "
     ),
+    # Any sequence privilege, in every schema: sequences default to owner-only
+    # access, so a readable or advanceable one was granted somewhere.
     "sequences": (
         "SELECT n.nspname, c.relname FROM pg_class c "
         "JOIN pg_namespace n ON n.oid = c.relnamespace "
         "WHERE c.relkind = 'S' "
-        "AND n.nspname NOT IN ('pg_catalog', 'information_schema') "
         "AND has_sequence_privilege(%(role)s, c.oid, 'SELECT,USAGE,UPDATE')"
     ),
     # CREATE on this database (which ownership implies) would let the login
