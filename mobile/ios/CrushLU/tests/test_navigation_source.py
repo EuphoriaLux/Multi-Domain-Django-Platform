@@ -117,6 +117,43 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("UIApplication.didBecomeActiveNotification", web_view)
         self.assertIn("requestTemporaryFullAccuracyAuthorization", web_view)
 
+    def test_location_bridge_honors_the_pages_maximum_age(self):
+        """A fix older than the page's maximumAge must never reach it.
+
+        Crush Cache asks for maximumAge 5000 and unlocks a station from the
+        positions it receives. Core Location's first delivery after a start can
+        be a cached fix, so accepting anything up to the 30 s sanity cap would
+        let a player who has walked away unlock from the stale position.
+        """
+        web_view = _source("CrushWebView.swift")
+        bridge = web_view.split("final class NativeLocationBridge", 1)[1]
+
+        # Both request kinds record their own maximumAge from the options the
+        # JS shim forwards, and clearWatch/stopAll/failure drop it again.
+        self.assertIn('options["maximumAge"]', bridge)
+        self.assertEqual(
+            bridge.count("maximumAgeByID[id] = Self.maximumAge(from: body)"), 2
+        )
+        self.assertIn("maximumAgeByID.removeValue(forKey: id)", bridge)
+        self.assertEqual(bridge.count("maximumAgeByID.removeAll()"), 2)
+        self.assertIn(
+            "return min(max(milliseconds / 1000, minimumMaximumAge), maximumMaximumAge)",
+            bridge,
+        )
+        self.assertIn("private static let maximumMaximumAge: TimeInterval = 30", bridge)
+
+        # Every dispatch path filters by the requester's own freshness window.
+        updates = bridge.split("didUpdateLocations locations: [CLLocation]) {", 1)[1]
+        updates = updates.split("\n    }\n", 1)[0]
+        self.assertIn(
+            "pendingCurrentPositionIDs.filter { isFresh(location, for: $0) }", updates
+        )
+        self.assertIn(
+            "for id in activeWatchIDs where isFresh(location, for: id) {", updates
+        )
+        self.assertNotIn("pendingCurrentPositionIDs.removeAll()", updates)
+        self.assertIn("isFresh(last, for: id)", bridge)
+
     def test_location_errors_expose_geolocation_permission_constants(self):
         web_view = _source("CrushWebView.swift")
 

@@ -605,6 +605,15 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private weak var webView: WKWebView?
     private var activeWatchIDs = Set<Int>()
     private var pendingCurrentPositionIDs = Set<Int>()
+    /// Each request's `maximumAge` from the page's geolocation options, in seconds.
+    private var maximumAgeByID: [Int: TimeInterval] = [:]
+    /// Used when a page passes no `maximumAge`; it is what Crush Cache asks for.
+    private static let defaultMaximumAge: TimeInterval = 5
+    /// Floor for an explicit small or zero `maximumAge`: a live fix is already a
+    /// fraction of a second old by the time it reaches the delegate.
+    private static let minimumMaximumAge: TimeInterval = 1
+    /// Never hand the page a fix older than this, whatever it asks for.
+    private static let maximumMaximumAge: TimeInterval = 30
     private var lastLocation: CLLocation?
     private var isRequestingFullAccuracy = false
     private var isAppActive = true
@@ -627,17 +636,21 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
 
         switch action {
         case "getCurrentPosition":
+            maximumAgeByID[id] = Self.maximumAge(from: body)
             pendingCurrentPositionIDs.insert(id)
             ensureAuthorizationAndStart()
         case "watchPosition":
+            maximumAgeByID[id] = Self.maximumAge(from: body)
             activeWatchIDs.insert(id)
             ensureAuthorizationAndStart()
-            if let last = lastLocation, isUsable(last), Date().timeIntervalSince(last.timestamp) < 3.0 {
+            if let last = lastLocation, isUsable(last), isFresh(last, for: id),
+               Date().timeIntervalSince(last.timestamp) < 3.0 {
                 dispatchLocation(last, to: id)
             }
         case "clearWatch":
             activeWatchIDs.remove(id)
             pendingCurrentPositionIDs.remove(id)
+            maximumAgeByID.removeValue(forKey: id)
             if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
                 locationManager.stopUpdatingLocation()
                 locationManager.stopUpdatingHeading()
@@ -650,6 +663,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     func stopAll() {
         activeWatchIDs.removeAll()
         pendingCurrentPositionIDs.removeAll()
+        maximumAgeByID.removeAll()
         lastLocation = nil
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
@@ -710,13 +724,18 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         guard isUsable(location) else { return }
         lastLocation = location
 
-        let currentIDs = pendingCurrentPositionIDs
-        pendingCurrentPositionIDs.removeAll()
-        for id in currentIDs {
+        // Answer each request only with a fix inside its own maximumAge. Core
+        // Location's first delivery after a start can be a cached fix, and
+        // Crush Cache unlocks a station from the first position it receives,
+        // so a pending getCurrentPosition waits for a fresh fix instead.
+        let answeredIDs = pendingCurrentPositionIDs.filter { isFresh(location, for: $0) }
+        pendingCurrentPositionIDs.subtract(answeredIDs)
+        for id in answeredIDs {
+            maximumAgeByID.removeValue(forKey: id)
             dispatchLocation(location, to: id)
         }
 
-        for id in activeWatchIDs {
+        for id in activeWatchIDs where isFresh(location, for: id) {
             dispatchLocation(location, to: id)
         }
 
@@ -808,7 +827,24 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
             && location.horizontalAccuracy.isFinite
             && location.horizontalAccuracy > 0
             && age >= -5
-            && age <= 30
+            && age <= Self.maximumMaximumAge
+    }
+
+    private func isFresh(_ location: CLLocation, for id: Int) -> Bool {
+        let maximumAge = maximumAgeByID[id] ?? Self.defaultMaximumAge
+        return Date().timeIntervalSince(location.timestamp) <= maximumAge
+    }
+
+    /// The page's `maximumAge` (milliseconds) in seconds, clamped to
+    /// [minimumMaximumAge, maximumMaximumAge]. JS Infinity maps to the cap.
+    private static func maximumAge(from body: [String: Any]) -> TimeInterval {
+        guard let options = body["options"] as? [String: Any],
+              let milliseconds = (options["maximumAge"] as? NSNumber)?.doubleValue,
+              !milliseconds.isNaN,
+              milliseconds >= 0 else {
+            return defaultMaximumAge
+        }
+        return min(max(milliseconds / 1000, minimumMaximumAge), maximumMaximumAge)
     }
 
     private func startWithAppropriateAccuracy() {
@@ -854,6 +890,7 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         dispatchError(code: code, message: message, to: nil)
         activeWatchIDs.removeAll()
         pendingCurrentPositionIDs.removeAll()
+        maximumAgeByID.removeAll()
         stopLocationServices()
     }
 
