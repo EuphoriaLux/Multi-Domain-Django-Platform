@@ -1073,9 +1073,9 @@ class Command(BaseCommand):
                     )
                     continue
                 if transitioned == RECONCILED_NEEDS_REVIEW:
-                    # Written (or, in a dry run, would be): the payment is
-                    # REFUNDED, so it is counted as reconciled below and, when
-                    # written, spends the write allowance. Also needs_review,
+                    # Written as REFUNDED (or, in a dry run, would be), so it
+                    # is counted as reconciled below and, when written, spends
+                    # the write allowance. Also needs_review,
                     # and so an error: the scheduled timer fails and alerts.
                     # Once written it is flagged ONCE — the row is no longer
                     # PAID, so no later run selects it — which is why the
