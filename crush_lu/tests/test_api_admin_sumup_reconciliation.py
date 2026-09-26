@@ -1924,8 +1924,6 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertIs(kwargs["oldest_first"], True)
         self.assertIsNotNone(kwargs["budget_seconds"])
 
-    # -- §6.4 history cap --------------------------------------------------
-
     # -- the read budget, on a fake clock (Codex: both requests phases) ------
 
     def _clocked_run(self, payloads, *, checkout_cost, lookup_cost=0.0, prefetch=0.0):
@@ -2073,6 +2071,8 @@ class SumUpReconciliationEndpointTests(TestCase):
         # starts again from the oldest and retries it with a fresh budget).
         cursor = cache.get(api_admin_sumup.CURSOR_CACHE_KEY)
         self.assertEqual(cursor["pk"], many.pk)
+
+    # -- §6.4 history cap --------------------------------------------------
 
     def test_full_history_page_logs_the_coverage_warning(self):
         items = [
