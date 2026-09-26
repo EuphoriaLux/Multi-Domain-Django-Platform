@@ -595,9 +595,9 @@ def _check_sumup_reconciliation_counters(response) -> None:
     if counts["errors"] > 0 or counts["needs_review"] > 0:
         logging.error("SumUpReconciliation: sweep reported errors — %s", summary)
         raise RuntimeError(
-            f"SumUpReconciliation: {counts['errors']} row(s) could not be "
-            f"checked or written, {counts['needs_review']} need manual review "
-            f"— {summary}"
+            f"SumUpReconciliation: {counts['errors']} row(s) reported as errors "
+            "(not checked, not written, or written but held for review), "
+            f"{counts['needs_review']} need manual review — {summary}"
         )
     if counts["unchecked"] > 0 or counts["partial"] > 0:
         logging.warning(
