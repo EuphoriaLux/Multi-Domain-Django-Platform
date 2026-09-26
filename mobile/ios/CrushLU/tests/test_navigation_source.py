@@ -135,7 +135,11 @@ class IOSNavigationSourceTests(unittest.TestCase):
             bridge.count("maximumAgeByID[id] = Self.maximumAge(from: body)"), 2
         )
         self.assertIn("maximumAgeByID.removeValue(forKey: id)", bridge)
-        self.assertEqual(bridge.count("maximumAgeByID.removeAll()"), 2)
+        forget_all = bridge.split("private func forgetAllRequests() {", 1)[1]
+        self.assertIn("maximumAgeByID.removeAll()", forget_all.split("\n    }\n", 1)[0])
+        for caller in ("func stopAll() {", "private func failActiveRequests("):
+            body = bridge.split(caller, 1)[1].split("\n    }\n", 1)[0]
+            self.assertIn("forgetAllRequests()", body, caller)
         self.assertIn(
             "return min(max(milliseconds / 1000, minimumMaximumAge), maximumMaximumAge)",
             bridge,
@@ -153,6 +157,77 @@ class IOSNavigationSourceTests(unittest.TestCase):
         )
         self.assertNotIn("pendingCurrentPositionIDs.removeAll()", updates)
         self.assertIn("isFresh(last, for: id)", bridge)
+
+    def test_location_bridge_honors_the_pages_timeout(self):
+        """A request that sees no fix within its timeout gets error code 3.
+
+        Crush Cache asks for timeout 15000. Without it a one-shot request with
+        no fix kept Core Location running forever, and a watch reported
+        nothing until the page's own 25 s watchdog.
+        """
+        web_view = _source("CrushWebView.swift")
+        bridge = web_view.split("final class NativeLocationBridge", 1)[1]
+
+        self.assertIn('options["timeout"]', bridge)
+        self.assertEqual(bridge.count("timeoutByID[id] = Self.timeout(from: body)"), 2)
+        # Infinity (the spec default) and a missing option mean no timer.
+        self.assertIn("milliseconds.isFinite else {\n            return nil", bridge)
+
+        fired = bridge.split("private func timeoutFired(for id: Int) {", 1)[1]
+        fired = fired.split("\n    }\n", 1)[0]
+        self.assertIn(
+            'dispatchError(code: 3, message: "Location request timed out", to: id)',
+            fired,
+        )
+        # Time on a permission prompt or in the background does not count.
+        self.assertIn("locationManager.authorizationStatus == .notDetermined", fired)
+        self.assertIn("isRequestingFullAccuracy", fired)
+        # A one-shot request ends; a watch keeps looking.
+        self.assertIn("pendingCurrentPositionIDs.remove(id)", fired)
+        self.assertIn("stopLocationServices()", fired)
+
+        # Each fix delivered to a watch starts its next wait; an answered or
+        # cleared request cancels its timer.
+        updates = bridge.split("didUpdateLocations locations: [CLLocation]) {", 1)[1]
+        updates = updates.split("\n    }\n", 1)[0]
+        self.assertIn("armTimeout(for: id)", updates)
+        self.assertIn("forgetRequest(id)", updates)
+        forget = bridge.split("private func forgetRequest(_ id: Int) {", 1)[1]
+        self.assertIn(
+            "timeoutWorkItems.removeValue(forKey: id)?.cancel()",
+            forget.split("\n    }\n", 1)[0],
+        )
+        self.assertIn("timeoutWorkItems.values.forEach { $0.cancel() }", bridge)
+
+    def test_heading_sensor_runs_only_for_a_compass_page(self):
+        """Heading updates start only once the page installs its compass hook.
+
+        cache-play.js sets window.__crushHeadingUpdate in attachCompass(), and
+        only in compass mode. Map mode and one-shot requests must not keep
+        the heading sensor and a per-sample evaluateJavaScript running.
+        """
+        web_view = _source("CrushWebView.swift")
+        shim = web_view.split("private let locationBridgeScript = ", 1)[1]
+        shim = shim.split('"""\n', 2)[1]
+        bridge = web_view.split("final class NativeLocationBridge", 1)[1]
+
+        self.assertIn("Object.defineProperty(window, '__crushHeadingUpdate'", shim)
+        self.assertIn('action: "headingConsumer"', shim)
+        self.assertIn("enabled: headingHook !== null", shim)
+
+        self.assertIn('if action == "headingConsumer" {', bridge)
+        # The only place that starts the heading sensor is gated on a consumer.
+        self.assertEqual(bridge.count("startUpdatingHeading()"), 1)
+        self.assertIn(
+            "if hasHeadingConsumer && isAppActive && isUpdatingLocation {\n"
+            "            locationManager.startUpdatingHeading()",
+            bridge,
+        )
+        start = bridge.split("private func startLocationServices() {", 1)[1]
+        self.assertIn("updateHeadingUpdates()", start.split("\n    }\n", 1)[0])
+        # A new document starts without a compass until it installs one.
+        stop_all = bridge.split("func stopAll() {", 1)[1].split("\n    }\n", 1)[0]
+        self.assertIn("hasHeadingConsumer = false", stop_all)
 
     def test_location_errors_expose_geolocation_permission_constants(self):
         web_view = _source("CrushWebView.swift")

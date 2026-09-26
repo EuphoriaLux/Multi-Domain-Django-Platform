@@ -35,6 +35,24 @@ private let locationBridgeScript = """
         }
     };
 
+    // The page installs window.__crushHeadingUpdate only when it shows a
+    // compass (cache-play.js attachCompass). Tell the app when that happens,
+    // so the heading sensor runs only for a page that consumes it.
+    var headingHook = null;
+    try {
+        Object.defineProperty(window, '__crushHeadingUpdate', {
+            configurable: true,
+            get: function () { return headingHook; },
+            set: function (fn) {
+                headingHook = typeof fn === 'function' ? fn : null;
+                window.webkit.messageHandlers.crushLocation.postMessage({
+                    action: "headingConsumer",
+                    enabled: headingHook !== null
+                });
+            }
+        });
+    } catch (e) {}
+
     var customGeolocation = {
         getCurrentPosition: function (success, error, options) {
             var id = nextWatchId++;
@@ -614,6 +632,13 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private static let minimumMaximumAge: TimeInterval = 1
     /// Never hand the page a fix older than this, whatever it asks for.
     private static let maximumMaximumAge: TimeInterval = 30
+    /// Each request's `timeout` from the page's options, in seconds. A request
+    /// without one (the spec default is Infinity) never times out.
+    private var timeoutByID: [Int: TimeInterval] = [:]
+    private var timeoutWorkItems: [Int: DispatchWorkItem] = [:]
+    /// True while the page has installed its compass hook.
+    private var hasHeadingConsumer = false
+    private var isUpdatingLocation = false
     private var lastLocation: CLLocation?
     private var isRequestingFullAccuracy = false
     private var isAppActive = true
@@ -631,29 +656,38 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     }
 
     func handleMessage(_ body: [String: Any]) {
-        guard let action = body["action"] as? String,
-              let id = body["id"] as? Int else { return }
+        guard let action = body["action"] as? String else { return }
+        if action == "headingConsumer" {
+            hasHeadingConsumer = (body["enabled"] as? Bool) ?? false
+            updateHeadingUpdates()
+            return
+        }
+        guard let id = body["id"] as? Int else { return }
 
         switch action {
         case "getCurrentPosition":
             maximumAgeByID[id] = Self.maximumAge(from: body)
+            timeoutByID[id] = Self.timeout(from: body)
             pendingCurrentPositionIDs.insert(id)
+            armTimeout(for: id)
             ensureAuthorizationAndStart()
         case "watchPosition":
             maximumAgeByID[id] = Self.maximumAge(from: body)
+            timeoutByID[id] = Self.timeout(from: body)
             activeWatchIDs.insert(id)
+            armTimeout(for: id)
             ensureAuthorizationAndStart()
             if let last = lastLocation, isUsable(last), isFresh(last, for: id),
                Date().timeIntervalSince(last.timestamp) < 3.0 {
                 dispatchLocation(last, to: id)
+                armTimeout(for: id)
             }
         case "clearWatch":
             activeWatchIDs.remove(id)
             pendingCurrentPositionIDs.remove(id)
-            maximumAgeByID.removeValue(forKey: id)
+            forgetRequest(id)
             if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
-                locationManager.stopUpdatingLocation()
-                locationManager.stopUpdatingHeading()
+                stopLocationServices()
             }
         default:
             break
@@ -661,18 +695,16 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     }
 
     func stopAll() {
-        activeWatchIDs.removeAll()
-        pendingCurrentPositionIDs.removeAll()
-        maximumAgeByID.removeAll()
+        forgetAllRequests()
+        // The next document installs its own compass hook if it has one.
+        hasHeadingConsumer = false
         lastLocation = nil
-        locationManager.stopUpdatingLocation()
-        locationManager.stopUpdatingHeading()
+        stopLocationServices()
     }
 
     func pauseForInactiveApp() {
         isAppActive = false
-        locationManager.stopUpdatingLocation()
-        locationManager.stopUpdatingHeading()
+        stopLocationServices()
     }
 
     func resumeForActiveApp() {
@@ -731,12 +763,14 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
         let answeredIDs = pendingCurrentPositionIDs.filter { isFresh(location, for: $0) }
         pendingCurrentPositionIDs.subtract(answeredIDs)
         for id in answeredIDs {
-            maximumAgeByID.removeValue(forKey: id)
+            forgetRequest(id)
             dispatchLocation(location, to: id)
         }
 
         for id in activeWatchIDs where isFresh(location, for: id) {
             dispatchLocation(location, to: id)
+            // A watch's timeout covers each wait for a fix: start the next one.
+            armTimeout(for: id)
         }
 
         if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
@@ -881,21 +915,97 @@ final class NativeLocationBridge: NSObject, CLLocationManagerDelegate {
     private func startLocationServices() {
         guard isAppActive else { return }
         locationManager.startUpdatingLocation()
-        if CLLocationManager.headingAvailable() {
+        isUpdatingLocation = true
+        updateHeadingUpdates()
+    }
+
+    /// The heading sensor runs only while the page shows a compass and the
+    /// location sensors are running for it.
+    private func updateHeadingUpdates() {
+        guard CLLocationManager.headingAvailable() else { return }
+        if hasHeadingConsumer && isAppActive && isUpdatingLocation {
             locationManager.startUpdatingHeading()
+        } else {
+            locationManager.stopUpdatingHeading()
         }
     }
 
     private func failActiveRequests(code: Int, message: String) {
         dispatchError(code: code, message: message, to: nil)
-        activeWatchIDs.removeAll()
-        pendingCurrentPositionIDs.removeAll()
-        maximumAgeByID.removeAll()
+        forgetAllRequests()
         stopLocationServices()
     }
 
     private func stopLocationServices() {
         locationManager.stopUpdatingLocation()
+        isUpdatingLocation = false
         locationManager.stopUpdatingHeading()
+    }
+
+    /// Forget one request's freshness window and pending timeout.
+    private func forgetRequest(_ id: Int) {
+        maximumAgeByID.removeValue(forKey: id)
+        timeoutByID.removeValue(forKey: id)
+        timeoutWorkItems.removeValue(forKey: id)?.cancel()
+    }
+
+    /// Forget every request, when the page goes away or permission fails.
+    private func forgetAllRequests() {
+        activeWatchIDs.removeAll()
+        pendingCurrentPositionIDs.removeAll()
+        maximumAgeByID.removeAll()
+        timeoutByID.removeAll()
+        timeoutWorkItems.values.forEach { $0.cancel() }
+        timeoutWorkItems.removeAll()
+    }
+
+    // MARK: - Request timeouts (W3C `timeout` option, error code 3)
+
+    /// The page's `timeout` (milliseconds) in seconds, or nil for none.
+    /// A non-finite value (JS Infinity, the spec default) means no timeout.
+    private static func timeout(from body: [String: Any]) -> TimeInterval? {
+        guard let options = body["options"] as? [String: Any],
+              let milliseconds = (options["timeout"] as? NSNumber)?.doubleValue,
+              milliseconds.isFinite else {
+            return nil
+        }
+        return max(milliseconds, 0) / 1000
+    }
+
+    /// (Re)start the wait for this request's next fix.
+    private func armTimeout(for id: Int) {
+        timeoutWorkItems.removeValue(forKey: id)?.cancel()
+        guard let timeout = timeoutByID[id] else { return }
+        let item = DispatchWorkItem { [weak self] in
+            self?.timeoutFired(for: id)
+        }
+        timeoutWorkItems[id] = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: item)
+    }
+
+    private func timeoutFired(for id: Int) {
+        timeoutWorkItems.removeValue(forKey: id)
+        let isPending = pendingCurrentPositionIDs.contains(id)
+        guard isPending || activeWatchIDs.contains(id) else { return }
+        // The spec's timeout excludes time spent on a permission prompt, and a
+        // backgrounded app is not looking for a fix: wait another window.
+        if !isAppActive || isRequestingFullAccuracy
+            || locationManager.authorizationStatus == .notDetermined {
+            armTimeout(for: id)
+            return
+        }
+        dispatchError(code: 3, message: "Location request timed out", to: id)
+        if isPending {
+            // A one-shot request ends with its error.
+            pendingCurrentPositionIDs.remove(id)
+            forgetRequest(id)
+            if activeWatchIDs.isEmpty && pendingCurrentPositionIDs.isEmpty {
+                stopLocationServices()
+            }
+        } else {
+            // A watch keeps looking and reports again if the next wait also
+            // passes without a fix.
+            armTimeout(for: id)
+        }
     }
 }
