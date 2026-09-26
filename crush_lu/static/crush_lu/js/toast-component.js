@@ -146,6 +146,14 @@
         var el = container.querySelector('[data-toast-id="' + id + '"]');
         if (!el) return;
 
+        // Leave the store now, not after the exit animation: a toast that is
+        // on its way out no longer counts as showing, so a repeat of the same
+        // message raised in the next 300 ms (dismiss, retry, fail again) is
+        // shown rather than deduplicated away by htmx-error-toast.js.
+        if (typeof Alpine !== "undefined") {
+            Alpine.store("toasts").remove(id);
+        }
+
         // Animate out
         VISIBLE_CLASSES.forEach(function (c) {
             el.classList.remove(c);
@@ -157,10 +165,6 @@
         setTimeout(function () {
             if (el.parentNode) {
                 el.parentNode.removeChild(el);
-            }
-            // Also clean from store
-            if (typeof Alpine !== "undefined") {
-                Alpine.store("toasts").remove(id);
             }
         }, 300);
     }
