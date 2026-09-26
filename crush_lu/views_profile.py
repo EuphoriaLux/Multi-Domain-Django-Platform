@@ -1462,6 +1462,9 @@ def screening_call_step(request):
     submission = ProfileSubmission.latest_for_profile(profile)
     if submission is None:
         return redirect("crush_lu:profile_submitted")
+    if submission.status == "rejected":
+        # A rejection is final: the one verdict page, not "locked until approval".
+        return redirect("crush_lu:profile_rejected")
     approved = submission is not None and submission.status == "approved"
 
     context = {

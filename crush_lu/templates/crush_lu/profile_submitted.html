@@ -27,7 +27,10 @@
             {# ═══════════════════════════════════════════════════════════════ #}
 
             {# One status line, then straight into the verification paths below. #}
-            {# LuxID is only named when this member can actually use it. #}
+            {# LuxID is only named when this member can actually use it: luxid_unavailable #}
+            {# is the flag that collapses the LuxID card in _verification_options.html, so #}
+            {# this line always matches the cards below (a member already linked to LuxID #}
+            {# still sees the LuxID card, hence not the auth page's has_luxid filter). #}
             <div class="flex justify-center mb-4">
                 <div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
                     {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}

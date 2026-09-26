@@ -190,6 +190,17 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         self.assertIn("btn-crush-outline", anchor)
         self.assertNotContains(response, "Profile Needs Updates")
 
+    def test_screening_call_with_rejected_submission_shows_verdict(self):
+        response = self._get("/en/onboarding/screening-call/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/profile/rejected/", response["Location"])
+
+    def test_rejected_page_says_what_is_kept(self):
+        response = self._get("/en/profile/rejected/")
+        self.assertContains(
+            response, "Your PowerUp account remains active for other platforms."
+        )
+
     def test_delete_flow_is_reachable_for_a_rejected_member(self):
         response = self._get("/en/account/delete-profile/")
         self.assertEqual(response.status_code, 200)
@@ -224,3 +235,25 @@ class SignupLuxidPromiseTests(TestCase):
         # The third-party gradient lives in .luxid-btn, not inline.
         self.assertNotIn("#8B5CF6", html)
         self.assertNotIn("width: 20px; height: 20px", html)
+
+
+class LoginLuxidButtonTests(TestCase):
+    """2-06: the login page's LuxID button shares .luxid-btn, no utility gradient."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_login_luxid_button_uses_shared_class_only(self):
+        _add_luxid_app()
+        response = self.client.get("/accounts/login/", HTTP_HOST=HOST)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "account/login_crush.html")
+        match = re.search(
+            r'<a [^>]*data-provider="LuxID"[^>]*>', response.content.decode()
+        )
+        self.assertIsNotNone(match)
+        anchor = match.group(0)
+        self.assertIn("luxid-btn", anchor)
+        # Utility gradients would be overridden by (and fight) .luxid-btn.
+        self.assertNotIn("bg-gradient-to-r", anchor)
+        self.assertNotIn("hover:from-", anchor)

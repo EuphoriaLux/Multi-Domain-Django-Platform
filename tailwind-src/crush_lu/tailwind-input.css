@@ -6613,6 +6613,10 @@ html.dark .section-card {
     color: #ffffff;
 }
 
+.social-login-btn.luxid-btn:hover {
+    filter: brightness(0.92);
+}
+
 .social-login-btn.luxid-btn .luxid-btn-logo {
     width: 20px;
     height: 20px;
