@@ -103,9 +103,10 @@
         <div class="stat-number">2</div>
         <div class="stat-label">{% trans "Ways to Verify" %}</div>
     </div>
+    {# Verification is required before meeting anyone (LuxID instantly, or in person at an event). Keep in sync with the Connect/verification model. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
     <div class="stat-card">
-        <div class="stat-number">100%</div>
-        <div class="stat-label">{% trans "Verified Profiles" %}</div>
+        <div class="stat-number" aria-hidden="true">&#10003;</div>
+        <div class="stat-label">{% trans "Verified before you meet anyone" %}</div>
     </div>
 </div>
 
@@ -182,12 +183,13 @@
                 <span class="feature-icon">🔒</span>
                 {% trans "Your Privacy Matters" %}
             </h5>
+            {# Must match the shipped photo model: Crush Connect shows a clear photo to daily matches only after photo_share_consent (no blur). Keep aligned with privacy_policy.html 6.2. Spec: ai-memory-hub/specs/2026-08-24-crush-connect-repo-product-doc.md #}
             <ul class="feature-list">
                 <li>{% trans "Control what information you share" %}</li>
                 <li>{% trans "Show full name or just first name" %}</li>
-                <li>{% trans "Blur photos until mutual interest" %}</li>
-                <li>{% trans "No public profiles browsing" %}</li>
-                <li>{% trans "Event-based connections only" %}</li>
+                <li>{% trans "Your photo is only shown to the few verified members matched with you, and only after you opt in" %}</li>
+                <li>{% trans "No public search or profile browsing" %}</li>
+                <li>{% trans "Contact details are only shared when you both agree" %}</li>
             </ul>
         </div>
         <div class="feature-column">
