@@ -13697,13 +13697,14 @@ msgstr ""
 
 #: templates/crush_lu/about.html:149
 msgid ""
-"Every member is verified before meeting anyone. Every event is thoughtfully "
-"organized. Every connection is meaningful. That's not an algorithm's promise"
-" - it's our commitment."
+"Members are verified instantly with LuxID or in person at an event. Every "
+"event is thoughtfully organized. Every connection is meaningful. That's not "
+"an algorithm's promise - it's our commitment."
 msgstr ""
-"Chaque membre est vérifié avant toute rencontre. Chaque événement est "
-"organisé avec soin. Chaque connexion est significative. Ce n'est pas la "
-"promesse d'un algorithme - c'est notre engagement."
+"Les membres sont vérifiés instantanément avec LuxID ou en personne lors d'un "
+"événement. Chaque événement est organisé avec soin. Chaque connexion est "
+"significative. Ce n'est pas la promesse d'un algorithme - c'est notre "
+"engagement."
 
 #: templates/crush_lu/about.html:154
 msgid ""
@@ -13871,9 +13872,9 @@ msgstr ""
 "Ou une vérification instantanée avec LuxID, le login officiel au Luxembourg"
 
 #: templates/crush_lu/about.html:284
-msgid "Every member verified before they meet anyone — real people only"
+msgid "Crush Connect only matches verified members — real people only"
 msgstr ""
-"Chaque membre est vérifié avant toute rencontre — que de vraies personnes"
+"Crush Connect ne propose que des membres vérifiés — que de vraies personnes"
 
 #: templates/crush_lu/about.html:285
 msgid "No bots, no catfishing, no fake accounts"
@@ -13942,12 +13943,12 @@ msgstr "Confidentialité d'abord"
 
 #: templates/crush_lu/about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: your photo is "
-"only shown to the verified members matched with you, after you opt in."
+"In a small country, discretion matters. No public browsing: only your Connect"
+" matches (after you opt in) and fellow event attendees see your photo."
 msgstr ""
-"Dans un petit pays, la discrétion compte. Aucune navigation publique : votre"
-" photo n'est montrée qu'aux membres vérifiés qui vous sont proposés, après "
-"votre accord."
+"Dans un petit pays, la discrétion compte. Aucune navigation publique : seuls "
+"vos matchs Connect (après votre accord) et les autres participants de vos "
+"événements voient votre photo."
 
 #: templates/crush_lu/about.html:331
 msgid "Multicultural"
@@ -15518,11 +15519,11 @@ msgstr "Suppression des données"
 #: templates/crush_lu/base.html:1289
 #: templates/crush_lu/partials/edit_about_crushlu.html:123
 msgid ""
-"Your privacy matters. Every member is verified before meeting anyone: "
-"instantly with LuxID or in person at an event."
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
 msgstr ""
-"Votre vie privée compte. Chaque membre est vérifié avant toute rencontre : "
-"instantanément avec LuxID ou en personne lors d'un événement."
+"Votre vie privée compte. Les membres sont vérifiés instantanément avec LuxID "
+"ou en personne lors d'un événement."
 
 #: templates/crush_lu/base.html:1326
 msgid "&copy; 2026 Crush.lu - Made with 💕 in Luxembourg"
@@ -27784,8 +27785,8 @@ msgid "Simple Steps"
 msgstr "Étapes simples"
 
 #: templates/crush_lu/how_it_works.html:108
-msgid "Verified before you meet anyone"
-msgstr "Vérifiés avant toute rencontre"
+msgid "Verified with LuxID or in person"
+msgstr "Vérifiés via LuxID ou en personne"
 
 #: templates/crush_lu/how_it_works.html:122
 msgid ""
@@ -27835,11 +27836,13 @@ msgstr "Montrez votre nom complet ou juste votre prénom"
 
 #: templates/crush_lu/how_it_works.html:188
 msgid ""
-"Your photo is only shown to the few verified members matched with you, and "
-"only after you opt in"
+"On Crush Connect, your photo is only shown to the few verified members "
+"matched with you, and only after you opt in. At events, only fellow attendees"
+" see it."
 msgstr ""
-"Votre photo n'est montrée qu'aux quelques membres vérifiés qui vous sont "
-"proposés, et seulement après votre accord"
+"Sur Crush Connect, votre photo n'est montrée qu'aux quelques membres vérifiés"
+" qui vous sont proposés, et seulement après votre accord. Lors des "
+"événements, seuls les autres participants la voient."
 
 #: templates/crush_lu/how_it_works.html:189
 msgid "No public search or profile browsing"

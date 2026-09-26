@@ -9173,9 +9173,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:149
 msgid ""
-"Every member is verified before meeting anyone. Every event is thoughtfully "
-"organized. Every connection is meaningful. That's not an algorithm's promise"
-" - it's our commitment."
+"Members are verified instantly with LuxID or in person at an event. Every "
+"event is thoughtfully organized. Every connection is meaningful. That's not "
+"an algorithm's promise - it's our commitment."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:154
@@ -9319,6 +9319,10 @@ msgstr ""
 msgid "Personalized feedback to improve your profile"
 msgstr ""
 
+#: .\crush_lu\templates\crush_lu\about.html:286
+msgid "Crush Connect only matches verified members — real people only"
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\about.html:285
 msgid "No bots, no catfishing, no fake accounts"
 msgstr ""
@@ -9384,8 +9388,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:325
 msgid ""
-"In a small country, discretion matters. No public browsing: your photo is "
-"only shown to the verified members matched with you, after you opt in."
+"In a small country, discretion matters. No public browsing: only your Connect"
+" matches (after you opt in) and fellow event attendees see your photo."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:331
@@ -10775,8 +10779,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\base.html:1210
 #: .\crush_lu\templates\crush_lu\partials\edit_about_crushlu.html:126
 msgid ""
-"Your privacy matters. Every member is verified before meeting anyone: "
-"instantly with LuxID or in person at an event."
+"Your privacy matters. Members are verified instantly with LuxID or in person "
+"at an event."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\base.html:1247
@@ -18631,7 +18635,7 @@ msgid "Simple Steps"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:108
-msgid "Verified before you meet anyone"
+msgid "Verified with LuxID or in person"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:122
@@ -18678,8 +18682,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:188
 msgid ""
-"Your photo is only shown to the few verified members matched with you, and "
-"only after you opt in"
+"On Crush Connect, your photo is only shown to the few verified members "
+"matched with you, and only after you opt in. At events, only fellow attendees"
+" see it."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:189
@@ -28176,7 +28181,4 @@ msgstr ""
 #: templates/crush_lu/partials/top_bar_mobile.html
 #, python-brace-format
 msgid "Unread notifications: {count}"
-msgstr ""
-
-msgid "Every member verified before they meet anyone — real people only"
 msgstr ""
