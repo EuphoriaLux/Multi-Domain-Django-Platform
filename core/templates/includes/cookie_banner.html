@@ -743,6 +743,17 @@ html.dark .cookie-modal--crush .btn-crush-outline:not(:hover) {
         var btnSave = document.getElementById('cookie-btn-save');
 
         if (btnCustomize) btnCustomize.addEventListener('click', showCookieSettings);
+        // A persistent trigger outside the banner (the footers' "Cookie
+        // Settings" link): once a choice is stored the banner stays hidden,
+        // so this is how a visitor gets back to the stored preferences.
+        document.addEventListener('click', function(event) {
+            var trigger = event.target && event.target.closest
+                ? event.target.closest('[data-cookie-settings]')
+                : null;
+            if (!trigger) return;
+            event.preventDefault();
+            showCookieSettings();
+        });
         if (btnDecline) btnDecline.addEventListener('click', declineAllCookies);
         if (btnAccept) btnAccept.addEventListener('click', acceptAllCookies);
         if (btnModalClose) btnModalClose.addEventListener('click', hideCookieSettings);

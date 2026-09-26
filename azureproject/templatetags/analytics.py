@@ -42,26 +42,26 @@ def _json_default(value):
     return str(value)
 
 
-def get_cookie_consent(request, cookie_group):
+def get_cookie_consent(request, cookie_group, undecided=True):
     """
     Check if user has consented to a specific cookie group.
 
-    Returns True if:
-    - Cookie consent is accepted for the group
-    - No consent cookie exists (first visit - we'll show banner)
-
-    Returns False if:
-    - User explicitly declined the cookie group
+    Returns True if the group is accepted and False if it was declined.
+    ``undecided`` is the answer while no choice is stored yet (first visit,
+    the banner is showing): GA4 keeps the default True because Consent Mode
+    withholds storage until the banner answers; a script that has no such
+    mode (the Facebook Pixel) must pass False, or it fires before consent.
     """
     try:
         from cookie_consent.util import get_cookie_value_from_request
         consent = get_cookie_value_from_request(request, cookie_group)
         # consent is True (accepted), False (declined), or None (not yet decided)
-        # We return True for None to allow GA4 consent mode to handle it
-        return consent is not False
+        if consent is None:
+            return undecided
+        return consent is True
     except Exception:
-        # If cookie_consent not available, default to allowing analytics
-        return True
+        # If cookie_consent is not available, treat it as undecided
+        return undecided
 
 
 @register.simple_tag(takes_context=True)
@@ -158,7 +158,10 @@ def analytics_body(context):
     """
     Render Facebook Pixel script after <body> opening tag.
 
-    Only loads if user has consented to marketing/analytics cookies.
+    Only loads once the visitor has accepted marketing cookies. An undecided
+    visitor (no consent cookie yet) gets the placeholder that waits for the
+    banner's cookie_consent_updated event: the Pixel has no consent mode of
+    its own, so emitting it earlier would fire PageView before any choice.
     This tag should be placed right after the opening <body> tag.
     """
     fb_pixel_id = context.get('FACEBOOK_PIXEL_ID')
@@ -167,7 +170,9 @@ def analytics_body(context):
         return ''
 
     request = context.get('request')
-    has_marketing_consent = get_cookie_consent(request, 'marketing') if request else True
+    has_marketing_consent = (
+        get_cookie_consent(request, 'marketing', undecided=False) if request else False
+    )
 
     # Get CSP nonce from request (if available)
     nonce = get_nonce(request) if request else None

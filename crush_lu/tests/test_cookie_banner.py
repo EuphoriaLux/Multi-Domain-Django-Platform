@@ -18,10 +18,13 @@ Paths are literal because the host middleware swaps the urlconf per host;
 import re
 from html.parser import HTMLParser
 
+from unittest.mock import patch
+
 import pytest
 from django.core.cache import cache
+from django.template import Context, Template
 from django.template.loader import render_to_string
-from django.test import Client, SimpleTestCase, TestCase
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase
 from django.utils import translation
 
 BANNER_TEMPLATE = "includes/cookie_banner.html"
@@ -252,6 +255,71 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertIn("marketing.checked = stored.marketing === true;", reflect)
 
 
+class FacebookPixelConsentTests(SimpleTestCase):
+    """An unchecked marketing toggle is only honest if the Pixel really waits:
+    it has no consent mode of its own, so an undecided visitor must get the
+    placeholder, not the PageView."""
+
+    def _render(self, stored):
+        request = RequestFactory().get("/")
+        with patch(
+            "cookie_consent.util.get_cookie_value_from_request", return_value=stored
+        ):
+            return Template("{% load analytics %}{% analytics_body %}").render(
+                Context({"FACEBOOK_PIXEL_ID": "123456", "request": request})
+            )
+
+    def test_undecided_visitor_gets_the_waiting_placeholder(self):
+        html = self._render(None)
+
+        self.assertIn("Facebook Pixel (waiting for consent)", html)
+        self.assertIn("cookie_consent_updated", html)
+        self.assertNotIn("fbq('init', '123456')", html)
+        self.assertNotIn("facebook.com/tr?id=", html)
+
+    def test_declined_visitor_gets_the_waiting_placeholder(self):
+        html = self._render(False)
+
+        self.assertIn("Facebook Pixel (waiting for consent)", html)
+        self.assertNotIn("fbq('init', '123456')", html)
+
+    def test_accepted_visitor_gets_the_pixel(self):
+        html = self._render(True)
+
+        self.assertNotIn("waiting for consent", html)
+        self.assertIn("fbq('init', '123456')", html)
+
+
+class CookieSettingsTriggerTests(TestCase):
+    """Once a choice is stored the banner stays hidden, so a persistent footer
+    link has to reopen the preferences modal."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_every_site_footer_reopens_the_settings(self):
+        client = Client()
+        client.cookies["cookie_consent"] = (
+            '{"essential":true,"analytics":false,"marketing":false}'
+        )
+        # delegations.lu is not listed: its landing page is a standalone sign-in
+        # template without the banner (no consent UI at all); the portal pages
+        # behind it extend the base that carries the link.
+        for host, path in (
+            ("crush.lu", "/en/"),
+            ("vinsdelux.com", "/"),
+            ("entreprinder.lu", "/"),
+            ("arborist.lu", "/"),
+        ):
+            with self.subTest(host=host):
+                response = client.get(path, HTTP_HOST=host, follow=True)
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                self.assertIn("data-cookie-settings", html)
+                self.assertIn("Cookie Settings", html)
+                self.assertIn("closest('[data-cookie-settings]')", html)
+
+
 @pytest.mark.playwright
 @pytest.mark.parametrize(
     "stored, expected",
@@ -266,11 +334,16 @@ def test_settings_modal_shows_stored_choice_in_browser(page, stored, expected):
     """Run the real script: open Customize, read the two toggles."""
     html = render_to_string(BANNER_TEMPLATE, {"cookie_banner_variant": "crush"})
     url = "http://crush.test/"
+    # The footers' persistent trigger: with a stored choice the banner stays
+    # hidden, and this link is the real way back to the preferences.
+    footer = (
+        '<a href="#" data-cookie-settings id="open-cookie-settings">Cookie Settings</a>'
+    )
     page.route(
         url,
         lambda route: route.fulfill(
             content_type="text/html",
-            body="<!doctype html><html><body>%s</body></html>" % html,
+            body="<!doctype html><html><body>%s%s</body></html>" % (footer, html),
         ),
     )
     if stored is not None:
@@ -278,11 +351,11 @@ def test_settings_modal_shows_stored_choice_in_browser(page, stored, expected):
             [{"name": "cookie_consent", "value": stored, "url": url}]
         )
     page.goto(url)
-    # With a stored choice the banner stays hidden; reveal it to reach Customize.
-    page.evaluate(
-        "document.getElementById('cookie-consent-banner').style.display = 'block'"
+    page.click("#open-cookie-settings")
+    assert (
+        page.evaluate("document.getElementById('cookie-settings-modal').style.display")
+        == "flex"
     )
-    page.click("#cookie-btn-customize")
     checked = page.evaluate(
         "[document.getElementById('cookie-analytics').checked, "
         "document.getElementById('cookie-marketing').checked]"
