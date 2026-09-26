@@ -39,7 +39,7 @@ from django.db.models import F, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from crush_lu.models.credits import CrushCredit
+from crush_lu.models.credits import CreditRedemption, CrushCredit
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
@@ -117,7 +117,10 @@ SUMUP_REQUEST_WORST_CASE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * 2
 # Truthy outcomes of Command._reconcile_refunded.
 RECONCILED = "reconciled"
 NEEDS_REVIEW = "needs_review"  # nothing written
-# Written, and flagged: the registration is still pending (seat held).
+# Written, and flagged: either the registration is still pending (seat
+# held), or the payment funded a CrushCredit already redeemed on another
+# seat before this refund landed (double-dip risk) — one or both, named
+# in the flag message.
 RECONCILED_NEEDS_REVIEW = "reconciled_needs_review"
 
 
@@ -501,8 +504,10 @@ class Command(BaseCommand):
         "partial", "errors", "unchecked"}``; ``errors`` includes
         ``needs_review``. ``needs_review`` counts rows a human must settle:
         a refund NOT written because other payment state on the same
-        seat/membership is unresolved, and a refund written on a registration
-        that is still ``pending`` (also counted in ``reconciled``).
+        seat/membership is unresolved, and a refund WRITTEN (also counted in
+        ``reconciled``) because either the registration it freed is still
+        ``pending``, or it funded a CrushCredit already redeemed on another
+        seat before this refund landed.
         ``unchecked`` is only ever
         non-zero when ``budget_seconds`` or ``max_writes`` is given: the CLI
         passes neither; the scheduled endpoint does, so the request cannot run
@@ -1227,6 +1232,57 @@ class Command(BaseCommand):
             f"and nobody was promoted from the waitlist.{credit}"
         )
 
+    @staticmethod
+    def _credit_filters(tx):
+        """Q matching every CrushCredit this payment could have funded.
+
+        Shared by the dry-run preview and the real write path so both ask
+        SumUp/the database the same question. The registration clause is
+        deliberately narrowed to credits with no payment of their own —
+        see the comment beside its use in ``_reconcile_refunded`` for why.
+        """
+        filters = Q(source_payment=tx)
+        if tx.event_registration_id:
+            filters |= Q(
+                source_registration_id=tx.event_registration_id,
+                source_payment__isnull=True,
+            )
+        return filters
+
+    def _redeemed_credit_message(self, tx, redemptions, *, dry_run=False):
+        """The review line for a refund reconciled while a CrushCredit it
+        funded had already been spent — possibly on a DIFFERENT registration
+        than the one this payment paid for.
+
+        ``redemptions`` — ``[(credit_id, registration_id, amount_cents), ...]``
+        straight off ``CreditRedemption`` — because voiding a credit (or one
+        already CONSUMED, which the void loop cannot touch at all) does not
+        undo a redemption already on the ledger: the member could end up
+        keeping both the cash refund on THIS payment and the seat that
+        redemption paid for. Ids only, like ``_held_seat_message``: no
+        reference, email or payload.
+        """
+        if dry_run:
+            done = "would be reconciled to REFUNDED (dry run)"
+        else:
+            done = "was reconciled to REFUNDED"
+        parts = [
+            (
+                f"{cents} cents of credit {credit_id} spent on registration {reg_id}"
+                if reg_id is not None
+                else f"{cents} cents of credit {credit_id} spent (its "
+                "registration no longer exists)"
+            )
+            for credit_id, reg_id, cents in redemptions
+        ]
+        return (
+            f"External refund on payment {tx.pk} (checkout {tx.sumup_checkout_id}) "
+            f"{done}, but it funded Crush Credit already redeemed before this "
+            f"refund landed: {'; '.join(parts)}. The member may be keeping "
+            "both the cash refund and that seat. It needs manual review; "
+            "nothing else was changed."
+        )
+
     def _reconcile_refunded(
         self, tx_obj, remote_data, dry_run=False, history_evidence=None
     ):
@@ -1285,12 +1341,27 @@ class Command(BaseCommand):
                 if tx_obj.event_registration_id
                 else None
             )
+            redeemed_elsewhere = list(
+                CreditRedemption.objects.filter(
+                    credit__in=CrushCredit.objects.filter(self._credit_filters(tx_obj))
+                ).values_list("credit_id", "event_registration_id", "amount_cents")
+            )
+            review_notes = []
             if registration_status == "pending":
-                self._flag_for_review(
+                review_notes.append(
                     self._held_seat_message(
                         tx_obj, tx_obj.event_registration_id, dry_run=True
                     )
                 )
+            if redeemed_elsewhere:
+                review_notes.append(
+                    self._redeemed_credit_message(
+                        tx_obj, redeemed_elsewhere, dry_run=True
+                    )
+                )
+            for note in review_notes:
+                self._flag_for_review(note)
+            if review_notes:
                 return RECONCILED_NEEDS_REVIEW
             return RECONCILED
 
@@ -1514,12 +1585,22 @@ class Command(BaseCommand):
             # earlier cycle against a different payment — silently destroying credit
             # the member is genuinely owed. A credit naming its own source_payment
             # is only ours when that payment is the one being refunded.
-            credit_filters = Q(source_payment=locked_tx)
-            if locked_tx.event_registration_id:
-                credit_filters |= Q(
-                    source_registration_id=locked_tx.event_registration_id,
-                    source_payment__isnull=True,
-                )
+            credit_filters = self._credit_filters(locked_tx)
+
+            # Detection is deliberately status-blind: a credit already fully
+            # spent has moved to CONSUMED, and the ACTIVE filter below (which
+            # the void loop needs, since void_credit only ever acts on an
+            # ACTIVE row) would make it invisible here too — exactly what let
+            # a member keep the cash refund on THIS payment AND the seat a
+            # redemption of its credit paid for, possibly on a DIFFERENT
+            # registration, while the sweep reported a clean reconcile. Read
+            # straight off CreditRedemption, not CrushCredit.redeemed_cents,
+            # so each spend keeps the registration it was spent on.
+            redeemed_elsewhere = list(
+                CreditRedemption.objects.filter(
+                    credit__in=CrushCredit.objects.filter(credit_filters)
+                ).values_list("credit_id", "event_registration_id", "amount_cents")
+            )
 
             # Model instances, not values_list: redeemed_cents is a computed
             # property over the redemption rows, not a column.
@@ -1591,12 +1672,23 @@ class Command(BaseCommand):
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"
             )
         )
+        # Logged and printed only now that the write has committed. Both
+        # conditions are independent and either or both may apply; each gets
+        # its own line, and either one alone still makes the row
+        # RECONCILED_NEEDS_REVIEW.
+        review_notes = []
         if held_pending_reg_id is not None:
-            # Logged and printed only now that the write has committed.
-            self._flag_for_review(
+            review_notes.append(
                 self._held_seat_message(
                     locked_tx, held_pending_reg_id, withdrawn_cents=withdrawn_cents
                 )
             )
+        if redeemed_elsewhere:
+            review_notes.append(
+                self._redeemed_credit_message(locked_tx, redeemed_elsewhere)
+            )
+        for note in review_notes:
+            self._flag_for_review(note)
+        if review_notes:
             return RECONCILED_NEEDS_REVIEW
         return RECONCILED
