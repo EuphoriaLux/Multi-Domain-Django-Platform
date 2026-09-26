@@ -563,6 +563,172 @@ class AppInsightsCookieRegistrationTests(TestCase):
         )
 
 
+class SetupCookieGroupsCommandTests(TestCase):
+    """startup.sh runs setup_cookie_groups on every container start (Codex P2
+    on #1028: nothing else puts the ai_user/ai_session rows into a deployed
+    database, and the library's own decline only deletes registered cookies).
+    So the command must change nothing on a re-run (a moved group version
+    asks every visitor again), survive the rows an admin may have added, and
+    leave the library's cached groups fresh."""
+
+    def setUp(self):
+        from cookie_consent.cache import delete_cache
+
+        cache.clear()
+        delete_cache()
+
+    def _run(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("setup_cookie_groups", stdout=out)
+        return out.getvalue()
+
+    def _versions(self):
+        from cookie_consent.cache import delete_cache, get_cookie_group
+
+        delete_cache()
+        return {
+            g: get_cookie_group(g).get_version() for g in ("analytics", "marketing")
+        }
+
+    def test_a_second_run_changes_nothing(self):
+        from cookie_consent.models import Cookie, CookieGroup
+
+        def snapshot():
+            return (
+                list(CookieGroup.objects.order_by("pk").values_list("pk", "varname")),
+                list(
+                    Cookie.objects.order_by("pk").values_list(
+                        "pk", "cookiegroup_id", "name", "domain", "created"
+                    )
+                ),
+            )
+
+        self._run()
+        before, versions = snapshot(), self._versions()
+        self._run()
+
+        self.assertEqual(snapshot(), before)
+        self.assertEqual(self._versions(), versions)
+
+    def test_the_run_ends_by_clearing_the_library_cache(self):
+        """Each save clears the cache inside get_or_create's transaction,
+        before the commit, so a request served meanwhile can cache the groups
+        without the new row for an hour. The command clears it again once
+        every write has committed, even when it wrote nothing."""
+        from cookie_consent.cache import CACHE_KEY, _get_cache
+
+        self._run()
+        _get_cache().set(CACHE_KEY, {"stale": "snapshot"})
+        self._run()  # every row exists: no save() clears the cache this time
+
+        self.assertIsNone(_get_cache().get(CACHE_KEY))
+
+    def test_a_same_name_row_on_another_domain_does_not_stop_the_run(self):
+        """Cookies are looked up by (group, name), so an admin-added row that
+        differs only in domain would make get_or_create raise; the command
+        leaves those rows alone and still registers the rest."""
+        from cookie_consent.models import Cookie, CookieGroup
+
+        analytics = CookieGroup.objects.create(varname="analytics", name="Analytics")
+        Cookie.objects.create(cookiegroup=analytics, name="_ga", domain="")
+        Cookie.objects.create(cookiegroup=analytics, name="_ga", domain=".crush.lu")
+
+        output = self._run()
+
+        self.assertIn("Several analytics cookies named _ga", output)
+        self.assertEqual(
+            Cookie.objects.filter(cookiegroup=analytics, name="_ga").count(), 2
+        )
+        self.assertTrue(
+            Cookie.objects.filter(cookiegroup=analytics, name="ai_user").exists()
+        )
+        self.assertTrue(Cookie.objects.filter(name="fr").exists())
+
+    def _native_decline(self):
+        client = Client()
+        client.cookies["ai_user"] = "visitor-id"
+        client.cookies["ai_session"] = "session-id"
+        return client.post(
+            "/cookies/decline/",
+            {"cookie_groups": "analytics"},
+            HTTP_HOST="crush.lu",
+            HTTP_X_COOKIE_CONSENT_FETCH="1",
+        )
+
+    def test_native_decline_deletes_the_app_insights_cookies(self):
+        from cookie_consent.cache import delete_cache
+        from cookie_consent.models import Cookie, CookieGroup
+
+        # Control: a group without the rows leaves them in the browser.
+        analytics = CookieGroup.objects.create(varname="analytics", name="Analytics")
+        Cookie.objects.create(cookiegroup=analytics, name="_ga", domain="")
+        delete_cache()
+        response = self._native_decline()
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("ai_user", response.cookies)
+
+        self._run()
+        response = self._native_decline()
+
+        self.assertEqual(response.status_code, 200)
+        for name in ("ai_user", "ai_session"):
+            self.assertIn(name, response.cookies)
+            self.assertEqual(response.cookies[name]["max-age"], 0)
+
+
+class StartupSeedsCookieGroupsTests(SimpleTestCase):
+    """Nothing in CI runs startup.sh, so its seeding step is checked where it
+    is written: after migrate, before Gunicorn, at the top level (every start,
+    both slots), and unable to abort startup under `set -e`."""
+
+    def _script(self):
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parents[2] / "startup.sh").read_text(
+            encoding="utf-8"
+        )
+
+    def test_startup_runs_setup_cookie_groups_after_migrate(self):
+        script = self._script()
+        lines = script.splitlines()
+
+        def first(prefix):
+            return next(i for i, line in enumerate(lines) if line.startswith(prefix))
+
+        seeds = [
+            i
+            for i, line in enumerate(lines)
+            if "manage.py setup_cookie_groups" in line and not line.startswith("#")
+        ]
+        self.assertEqual(len(seeds), 1, seeds)
+        seed = lines[seeds[0]]
+        # Unindented: not inside an `if` that would skip it on some starts.
+        self.assertTrue(seed.startswith("$PYTHON manage.py setup_cookie_groups"))
+        self.assertLess(first("$PYTHON manage.py migrate --no-input"), seeds[0])
+        self.assertLess(seeds[0], first("gunicorn "))
+        # startup.sh runs under `set -e`: a failure must be caught on the line.
+        self.assertIn("set -e", script)
+        self.assertRegex(seed, r"\|\| echo ")
+
+    def test_startup_script_parses(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("bash is not available")
+        startup = Path(__file__).resolve().parents[2] / "startup.sh"
+        result = subprocess.run(
+            [bash, "-n", str(startup)], capture_output=True, text=True, timeout=30
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
 class CookieConsentFlagSyncTests(TestCase):
     """A choice made through django-cookie-consent's own /cookies/ forms must
     not lose to a stale banner flag: the middleware writes the same choice into

@@ -88,6 +88,16 @@ $PYTHON manage.py migrate --no-input
 echo "📦 Creating cache table if needed..."
 $PYTHON manage.py createcachetable 2>&1 || echo "Cache table already exists or creation skipped"
 
+# Seed django-cookie-consent's groups and cookies (idempotent get_or_create,
+# never modifies an existing row). Its native /cookies/ decline deletes only
+# the cookies registered there (e.g. ai_user/ai_session), and nothing else
+# puts those rows into a deployed database. Runs on every start, both slots,
+# swap warm-up included. The `|| echo` keeps `set -e` from aborting startup
+# over it, which also hides a real failure: after a deploy, grep the container
+# log for the "Cookie consent groups setup complete!" line.
+echo "🍪 Ensuring cookie consent groups..."
+$PYTHON manage.py setup_cookie_groups 2>&1 || echo "⚠️ setup_cookie_groups failed - the native /cookies/ decline will not clear unregistered cookies"
+
 # Only deploy media/data on initial deployment or when explicitly needed
 # Set INITIAL_DEPLOYMENT=true in Azure portal only for first deployment
 if [ "$INITIAL_DEPLOYMENT" = "true" ]; then
