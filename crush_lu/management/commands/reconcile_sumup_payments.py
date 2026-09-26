@@ -116,7 +116,9 @@ SUMUP_REQUEST_WORST_CASE_SECONDS = SUMUP_READ_TIMEOUT_SECONDS * 2
 
 # Truthy outcomes of Command._reconcile_refunded.
 RECONCILED = "reconciled"
-NEEDS_REVIEW = "needs_review"
+NEEDS_REVIEW = "needs_review"  # nothing written
+# Written, and flagged: the registration is still pending (seat held).
+RECONCILED_NEEDS_REVIEW = "reconciled_needs_review"
 
 
 def _refunded_total(item) -> Decimal:
@@ -416,7 +418,11 @@ class Command(BaseCommand):
 
         Returns ``{"in_window", "checked", "reconciled", "needs_review",
         "partial", "errors", "unchecked"}``; ``errors`` includes
-        ``needs_review``. ``unchecked`` is only ever
+        ``needs_review``. ``needs_review`` counts rows a human must settle:
+        a refund NOT written because other payment state on the same
+        seat/membership is unresolved, and a refund written on a registration
+        that is still ``pending`` (also counted in ``reconciled``).
+        ``unchecked`` is only ever
         non-zero when ``budget_seconds`` or ``max_writes`` is given: the CLI
         passes neither; the scheduled endpoint does, so the request cannot run
         into the App Service front end's ~230 s cap. Rows left unchecked stay
@@ -917,6 +923,23 @@ class Command(BaseCommand):
                         )
                     )
                     continue
+                if transitioned == RECONCILED_NEEDS_REVIEW:
+                    # Written (the payment is REFUNDED), so it is counted as
+                    # reconciled below and spends the write allowance. Also
+                    # needs_review, and so an error: the scheduled timer fails
+                    # and alerts. It is flagged ONCE — the row is no longer
+                    # PAID, so no later run selects it — which is why the
+                    # warning log names the registration.
+                    review_count += 1
+                    errors_count += 1
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f"Payment {tx_obj.pk} was reconciled, but "
+                            f"registration {tx_obj.event_registration_id} is "
+                            "still pending (seat held, unpaid) and needs "
+                            "manual review. See the warning log."
+                        )
+                    )
                 if transitioned:
                     refunded_count += 1
                     writes = refunded_count
@@ -1017,6 +1040,31 @@ class Command(BaseCommand):
             f"{', '.join(blockers)}. Nothing was changed."
         )
 
+    def _held_seat_message(
+        self, tx, registration_id, *, dry_run=False, withdrawn_cents=0
+    ):
+        """The review line for a refund reconciled on a still-pending seat.
+
+        Ids only, like ``_review_message``: no reference, email or payload.
+        """
+        if dry_run:
+            done = "would be reconciled to REFUNDED (dry run)"
+        else:
+            done = "was reconciled to REFUNDED"
+        credit = (
+            f" {withdrawn_cents} cents of unspent Crush Credit issued from this "
+            "payment were voided."
+            if withdrawn_cents
+            else ""
+        )
+        return (
+            f"External refund on payment {tx.pk} (checkout {tx.sumup_checkout_id}) "
+            f"{done}, but registration {registration_id} is still pending, so "
+            "its seat stays held and unpaid. It needs manual review: cancel it "
+            "in admin, or let the member pay the current fee. No email was sent "
+            f"and nobody was promoted from the waitlist.{credit}"
+        )
+
     def _reconcile_refunded(
         self, tx_obj, remote_data, dry_run=False, history_evidence=None
     ):
@@ -1024,10 +1072,13 @@ class Command(BaseCommand):
         CrushCredit, and PremiumMembership under atomic lock order.
 
         Returns ``RECONCILED`` when this call moved the row PAID -> REFUNDED
-        (or, in a dry run, would have); ``NEEDS_REVIEW`` when another PAID or
-        PENDING payment, or an active event-checkout claim, can still affect the
-        same seat/membership — then NOTHING is written; False when the row was
-        no longer PAID under the lock — an overlapping run already reconciled it.
+        (or, in a dry run, would have); ``RECONCILED_NEEDS_REVIEW`` when it did
+        so but the registration is still ``pending`` — the money side is
+        reconciled, the seat is left held for a human, and nobody is emailed
+        or promoted; ``NEEDS_REVIEW`` when another PAID or PENDING payment, or
+        an active event-checkout claim, can still affect the same
+        seat/membership — then NOTHING is written; False when the row was no
+        longer PAID under the lock — an overlapping run already reconciled it.
 
         ``history_evidence`` — the transaction-history rows that proved the
         refund — is stored beside the checkout payload in ``raw_response``,
@@ -1065,6 +1116,20 @@ class Command(BaseCommand):
                     )
                 )
                 return NEEDS_REVIEW
+            registration_status = (
+                EventRegistration.objects.filter(pk=tx_obj.event_registration_id)
+                .values_list("status", flat=True)
+                .first()
+                if tx_obj.event_registration_id
+                else None
+            )
+            if registration_status == "pending":
+                logger.warning(
+                    self._held_seat_message(
+                        tx_obj, tx_obj.event_registration_id, dry_run=True
+                    )
+                )
+                return RECONCILED_NEEDS_REVIEW
             return RECONCILED
 
         # LOCK ORDER: payment rows -> MeetupEvent -> EventRegistration ->
@@ -1188,6 +1253,9 @@ class Command(BaseCommand):
             # member the only email about the refund — see the end of this
             # method.
             already_cancelled_reg_id = None
+            # Set when the refunded payment's registration is still pending:
+            # reconciled, but flagged for a human (see below).
+            held_pending_reg_id = None
             withdrawn_cents = 0
 
             # 1. Reconcile EventRegistration
@@ -1209,12 +1277,24 @@ class Command(BaseCommand):
                     if reg.status == "cancelled":
                         already_cancelled_reg_id = reg.pk
 
-                    # A refund on a pending registration must release its
-                    # reserved seat too. Saving either state as cancelled
-                    # invokes promote_waitlist_on_cancellation automatically.
-                    if reg.status in {"confirmed", "pending"}:
+                    # A confirmed seat this payment funded is released.
+                    # Saving status='cancelled' invokes
+                    # promote_waitlist_on_cancellation automatically.
+                    if reg.status == "confirmed":
                         reg.status = "cancelled"
                         update_fields.append("status")
+                    elif reg.status == "pending":
+                        # A pending seat is NOT released: the owner's call is
+                        # to flag it for a human. This payment never
+                        # confirmed it (a stale-price capture is left pending
+                        # with "refund or top-up required"), and a reused row
+                        # can be pending for a NEW cycle while this refund
+                        # belongs to an old, credited capture. Pending-unpaid
+                        # is also a legitimate pay-at-the-door state. So the
+                        # money side is reconciled as for any other status,
+                        # the status stays, no email is sent, nobody is
+                        # promoted, and the run reports it as needs_review.
+                        held_pending_reg_id = reg.pk
 
                     reg.save(update_fields=update_fields)
                     logger.info(
@@ -1347,4 +1427,12 @@ class Command(BaseCommand):
                 f"Reconciled external refund for {ref} (checkout {cid}) -> status=REFUNDED"
             )
         )
+        if held_pending_reg_id is not None:
+            # Logged only now that the write has committed.
+            logger.warning(
+                self._held_seat_message(
+                    locked_tx, held_pending_reg_id, withdrawn_cents=withdrawn_cents
+                )
+            )
+            return RECONCILED_NEEDS_REVIEW
         return RECONCILED

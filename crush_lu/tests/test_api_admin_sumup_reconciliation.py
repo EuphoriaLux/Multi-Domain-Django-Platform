@@ -1378,17 +1378,170 @@ class SumUpReconciliationEndpointTests(TestCase):
         self.assertEqual(queried, {"TX_DECLINED", "TX_CAPTURED"})
         self.assertEqual(body["reconciled"], 1)
 
-    def test_refunded_pending_registration_releases_its_reserved_seat(self):
-        self.registration.status = "pending"
-        self.registration.payment_confirmed = True
-        self.registration.save(update_fields=["status", "payment_confirmed"])
+    # -- refund on a still-PENDING registration: flag, don't cancel ---------
+    # Owner decision (Codex thread "Release pending seats after reconciling
+    # their refunds"): the money side is reconciled, the seat is left held for
+    # a human, nobody is emailed or promoted, and the run reports needs_review.
 
-        body = self._run(FULL_REFUND).json()
+    def _waitlisted_member(self):
+        waiter = User.objects.create_user(
+            username="t2_wait", email="t2_wait@test.crush.lu", password="x" * 12
+        )
+        CrushProfile.objects.create(
+            user=waiter,
+            date_of_birth=date(1994, 1, 1),
+            gender="F",
+            location="Luxembourg",
+            verification_status="verified",
+            completion_status="step4",
+        )
+        return EventRegistration.objects.create(
+            event=self.event, user=waiter, status="waitlist"
+        )
 
+    def _stale_price_pending_seat(self):
+        """What _apply_paid_checkout leaves after a stale-price capture.
+
+        The fee moved to 20.00 while the member's widget was open on 15.50:
+        the payment is PAID, the registration stays pending and unpaid
+        ("refund or top-up required"). Written with .update(): no signals.
+        """
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            registration_fee=Decimal("20.00")
+        )
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            status="pending", payment_confirmed=False, payment_date=None
+        )
+
+    def test_refunded_stale_price_pending_registration_is_flagged_and_keeps_seat(
+        self,
+    ):
+        self._stale_price_pending_seat()
+        waiter = self._waitlisted_member()
+
+        with (
+            self.captureOnCommitCallbacks(execute=True),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            body = self._run(FULL_REFUND).json()
+
+        self.assertEqual(
+            (body["reconciled"], body["needs_review"], body["errors"]), (1, 1, 1)
+        )
+        self.payment.refresh_from_db()
         self.registration.refresh_from_db()
-        self.assertEqual(body["reconciled"], 1)
-        self.assertEqual(self.registration.status, "cancelled")
+        waiter.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.registration.status, "pending")
         self.assertFalse(self.registration.payment_confirmed)
+        self.assertIsNone(self.registration.payment_date)
+        self.assertEqual(waiter.status, "waitlist")
+        # Nobody is emailed: not the member, not a promoted waitlister.
+        self.assertEqual(mail.outbox, [])
+        warning = next(m for m in logs.output if "still pending" in m)
+        self.assertIn(f"payment {self.payment.pk}", warning)
+        self.assertIn(f"registration {self.registration.pk}", warning)
+        self.assertNotIn(self.payment.transaction_reference, warning)
+        self.assertNotIn(self.user.email, warning)
+
+        # Flagged once: the row is REFUNDED now, so no later run selects it.
+        with self.captureOnCommitCallbacks(execute=True):
+            again = self._run(FULL_REFUND).json()
+        self.assertEqual((again["checked"], again["needs_review"]), (0, 0))
+        self.assertEqual(mail.outbox, [])
+
+    def test_reused_pending_row_keeps_its_new_cycle_seat_and_is_flagged(self):
+        """The member paid, cancelled for credit, and re-registered (pending,
+        no checkout yet). Tom then cash-refunds the OLD capture: the credit it
+        funded is voided, the new-cycle seat is left alone and flagged."""
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            status="pending", payment_confirmed=False, payment_date=None
+        )
+        self._age(self.payment, 7)
+        credit = CrushCredit.objects.create(
+            user=self.user,
+            amount_cents=1550,
+            currency="EUR",
+            reason=CrushCredit.Reason.MEMBER_CANCELLATION,
+            status=CrushCredit.Status.ACTIVE,
+            source_payment=self.payment,
+            source_registration=self.registration,
+        )
+        waiter = self._waitlisted_member()
+
+        with (
+            self.captureOnCommitCallbacks(execute=True),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            body = self._run(FULL_REFUND).json()
+
+        self.assertEqual((body["reconciled"], body["needs_review"]), (1, 1))
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        credit.refresh_from_db()
+        waiter.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        self.assertEqual(self.registration.status, "pending")
+        self.assertEqual(waiter.status, "waitlist")
+        self.assertEqual(mail.outbox, [])
+        warning = next(m for m in logs.output if "still pending" in m)
+        self.assertIn("1550 cents of unspent Crush Credit", warning)
+
+    def test_held_pending_seat_spends_the_write_allowance(self):
+        """It is a write: the endpoint's one-write limit stops the run there."""
+        self._stale_price_pending_seat()
+        self._age(self.payment, 20)
+        later = self._second_refundable_payment()
+        body, order = self._run_by_id(
+            {
+                "chk_t2_1": FULL_REFUND,
+                "chk_t2_2": {"id": "chk_t2_2", "status": "REFUNDED"},
+            }
+        )
+        self.assertEqual(order, ["chk_t2_1"])
+        self.assertEqual(
+            (body["reconciled"], body["needs_review"], body["unchecked"]), (1, 1, 1)
+        )
+        later.refresh_from_db()
+        self.assertEqual(later.status, PaymentTransaction.Status.PAID)
+
+    def test_held_pending_seat_in_a_dry_run_is_reported_not_written(self):
+        from django.core.management import call_command
+
+        self._stale_price_pending_seat()
+        out = io.StringIO()
+        with (
+            patch(GET_CHECKOUT, return_value=FULL_REFUND),
+            patch(GET_HISTORY, return_value={"items": []}),
+            self.captureOnCommitCallbacks(execute=True),
+            self.assertLogs(CMD, level=logging.WARNING) as logs,
+        ):
+            call_command(
+                "reconcile_sumup_payments", dry_run=True, stdout=out, no_color=True
+            )
+        self.assertIn("still pending", out.getvalue())
+        self.assertIn("1 error(s)", out.getvalue())
+        self.assertTrue(any("would be reconciled" in m for m in logs.output))
+        self.payment.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.registration.status, "pending")
+        self.assertEqual(mail.outbox, [])
+
+    def test_confirmed_seat_is_still_released_by_its_refund(self):
+        """Unchanged: only a pending seat is held back for review."""
+        waiter = self._waitlisted_member()
+        with self.captureOnCommitCallbacks(execute=True):
+            body = self._run(FULL_REFUND).json()
+        self.assertEqual(
+            (body["reconciled"], body["needs_review"], body["errors"]), (1, 0, 0)
+        )
+        self.registration.refresh_from_db()
+        waiter.refresh_from_db()
+        self.assertEqual(self.registration.status, "cancelled")
+        self.assertEqual(waiter.status, "pending")  # promoted into a paid seat
+        self.assertEqual(len(self._mails_to(self.user.email)), 1)
 
     def test_pending_sibling_capture_is_flagged_without_releasing_the_seat(self):
         pending = self._new_payment(
