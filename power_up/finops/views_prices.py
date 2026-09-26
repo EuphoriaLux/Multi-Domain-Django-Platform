@@ -1,5 +1,6 @@
 """Login-protected public retail price intelligence views."""
 
+import hashlib
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
@@ -19,6 +20,10 @@ PERIOD_OPTIONS = {30, 90, 180, 365}
 OPTIONS_CACHE_SECONDS = 60 * 60
 # The region every other region's price index is measured against.
 INDEX_REFERENCE_REGION = "westeurope"
+# Filter values the dashboard offers. The region index is cached per filter
+# combination, so anything else is refused rather than minting a cache entry.
+PRICE_TYPES = {"", "Consumption", "Reservation", "DevTestConsumption", "SavingsPlan"}
+PURCHASE_MODELS = {"", "on_demand", "spot", "reservation", "savings_plan", "dev_test"}
 
 
 def _safe_period(value):
@@ -223,10 +228,22 @@ def retail_price_dashboard(request):
     # Without a SKU the page compares whole regions instead: a like-for-like
     # price index for one day, never a scan of the full history.
     region_index, index_reference, index_day = [], "", None
-    if not active_sku and latest_day:
-        # One index-only MAX per region on (provider, region_code, date).
+    product_names = {product.lower() for _, product in offer_choices}
+    index_filters_valid = (
+        currency in options["currencies"]
+        and (not os_filter or os_filter in options["os"])
+        and price_type in PRICE_TYPES
+        and purchase_model in PURCHASE_MODELS
+        and (
+            not product_filter
+            or any(product_filter.lower() in name for name in product_names)
+        )
+    )
+    if not active_sku and latest_day and index_filters_valid:
+        # Each region's own latest day: one index-only MAX per region on
+        # (provider, region_code, date).
         region_days = {}
-        for code in selected_regions:
+        for code in sorted(set(EUROPEAN_AZURE_REGIONS) | options["regions"]):
             day = (
                 RetailPriceSnapshot.objects.filter(provider=provider, region_code=code)
                 .order_by()
@@ -234,8 +251,50 @@ def retail_price_dashboard(request):
             )
             if day and start_date <= day <= end_date:
                 region_days[code] = day
-        if region_days:
-            region_index, index_reference = _region_price_index(base, region_days)
+        # A region's index is pairwise against the reference, so it does not
+        # depend on which other regions are selected: build it once for all
+        # regions and cache it until any region's snapshot day moves. Grouping
+        # the daily catalogue is too heavy to repeat on every page load.
+        signature = repr(
+            (
+                provider,
+                currency,
+                os_filter,
+                price_type,
+                purchase_model,
+                product_filter.lower(),
+                sorted(region_days.items()),
+            )
+        )
+        key = "finops:prices:index:v1:" + hashlib.sha256(signature.encode()).hexdigest()
+        cached = cache.get(key)
+        if cached is None:
+            index_scope = RetailPriceSnapshot.objects.filter(
+                provider=provider,
+                currency=currency,
+                service_category="compute",
+                resource_type="virtual_machines",
+            )
+            if price_type:
+                index_scope = index_scope.filter(price_type=price_type)
+            if purchase_model:
+                index_scope = index_scope.filter(purchase_model=purchase_model)
+            if product_filter:
+                index_scope = index_scope.filter(product_name__icontains=product_filter)
+            if os_filter:
+                index_scope = index_scope.filter(operating_system=os_filter)
+            cached = (
+                _region_price_index(index_scope, region_days)
+                if region_days
+                else ([], "")
+            )
+            cache.set(key, cached, OPTIONS_CACHE_SECONDS)
+        all_regions_index, index_reference = cached
+        region_index = [
+            item
+            for item in all_regions_index
+            if not selected_regions or item["region_code"] in selected_regions
+        ]
         if region_index:
             index_day = max(item["snapshot_date"] for item in region_index)
     indexed_codes = {item["region_code"] for item in region_index}

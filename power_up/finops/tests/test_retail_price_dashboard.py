@@ -355,6 +355,81 @@ def test_status_card_reports_the_index_snapshot(client, regular_user):
     assert "No price snapshot yet" not in response.content.decode()
 
 
+def _index_group_by_queries(queries):
+    return [
+        q["sql"]
+        for q in queries.captured_queries
+        if '"finops_hub_retailpricesnapshot"' in q["sql"]
+        and "GROUP BY" in q["sql"]
+        and '"meter_name"' in q["sql"]
+    ]
+
+
+@pytest.mark.django_db
+def test_region_index_is_cached_until_a_region_snapshot_moves(client, regular_user):
+    """Grouping the daily catalogue runs once, not on every page load.
+
+    Selecting fewer regions reuses the same cached index; a new snapshot day
+    for any region invalidates it.
+    """
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    client.force_login(regular_user)
+
+    with CaptureQueriesContext(connection) as first:
+        client.get("/finops/prices/")
+    with CaptureQueriesContext(connection) as second:
+        response = client.get(
+            "/finops/prices/", {"region": ["westeurope", "northeurope"]}
+        )
+
+    assert len(_index_group_by_queries(first)) == 1
+    assert _index_group_by_queries(second) == []
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+
+    _sync_region(today, "northeurope", "10.80000000")
+    with CaptureQueriesContext(connection) as third:
+        response = client.get("/finops/prices/")
+
+    assert len(_index_group_by_queries(third)) == 1
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 108.0
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"currency": "XYZ"},
+        {"os": "bogus"},
+        {"price_type": "bogus"},
+        {"purchase_model": "bogus"},
+        {"product": "no such product"},
+    ],
+    ids=["currency", "os", "price-type", "purchase-model", "product"],
+)
+def test_unknown_filters_neither_build_nor_cache_an_index(
+    client, regular_user, mocker, params
+):
+    _sync_region(timezone.localdate(), "westeurope", "10.00000000")
+    client.force_login(regular_user)
+    cache_set = mocker.spy(cache, "set")
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get("/finops/prices/", params)
+
+    assert response.status_code == 200
+    assert response.context["region_index"] == []
+    assert _index_group_by_queries(queries) == []
+    assert not any(
+        call.args[0].startswith("finops:prices:index:")
+        for call in cache_set.call_args_list
+    )
+
+
 @pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
