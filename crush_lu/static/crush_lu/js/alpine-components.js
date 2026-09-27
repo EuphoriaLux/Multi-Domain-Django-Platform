@@ -2551,6 +2551,202 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Event detail description collapse/expand (#4-03)
+    Alpine.data("eventDescriptionToggle", function () {
+        return {
+            expanded: false,
+            // The template initially clamps long text so it cannot flash
+            // open before Alpine loads. The same gate renders the toggle.
+            collapsible: false,
+            init: function () {
+                this.collapsible = this.$el.dataset.collapsible === "true";
+            },
+            get collapsed() {
+                return !this.expanded;
+            },
+            // String form for :aria-expanded on the toggle button (#WP6-2):
+            // mirrors the getter idiom base.html uses for nav aria-expanded
+            // bindings under the CSP-safe Alpine build.
+            get expandedAria() {
+                return this.expanded ? "true" : "false";
+            },
+            toggle: function () {
+                this.expanded = !this.expanded;
+                if (this.collapsible) {
+                    this.$refs.description.classList.toggle(
+                        "line-clamp-4",
+                        !this.expanded,
+                    );
+                }
+            },
+        };
+    });
+
+    // Event detail mobile sticky CTA bar (#4-03). Mirrors whichever single
+    // btn-crush-primary registration anchor is already rendered inside
+    // #event-cta-panel, so it can never disagree with the in-page CTA — it
+    // reads the same DOM instead of re-deriving eligibility. Stays hidden
+    // when that panel has no such anchor (blocked / login states).
+    //
+    // A registered-but-unpaid member sees "Pay with Card" / "Pay with Crush
+    // Credit" as <button class="js-sumup-checkout-detail"> elements instead
+    // (they trigger a fetch()-based SumUp checkout, not a navigation), so
+    // when no anchor is found this also falls back to that button and, on
+    // tap, re-dispatches a click to the real in-panel button so the existing
+    // document-level '.js-sumup-checkout-detail' listener (event_detail.html)
+    // handles the checkout exactly as if the member had tapped it directly.
+    Alpine.data("eventStickyCta", function () {
+        return {
+            visible: false,
+            ctaHref: "",
+            ctaLabel: "",
+            priceText: "",
+            factsText: "",
+            isPayment: false,
+            payMethod: "",
+            // Bare getter for the anchor branch's x-show (#WP6 fix): the CSP
+            // build only evaluates bare property/method names, not
+            // expressions like "!isPayment".
+            get isLink() {
+                return !this.isPayment;
+            },
+            init: function () {
+                this.priceText = this.$el.dataset.priceLabel || "";
+                this.factsText = this.$el.dataset.factsText || "";
+                var self = this;
+                // #WP6-1: while this bar is visible, push #toast-container's
+                // bottom offset above the bar's own rendered height so a
+                // toast never renders on top of the price/CTA. Reverts to
+                // its normal .toast-above-nav offset when the bar hides.
+                //
+                // `visible` (Alpine's own x-show flag) only ever changes from
+                // the IntersectionObserver below, so it is silent about the
+                // `md:hidden` breakpoint: rotating or resizing past 768px
+                // while `visible` stays true leaves this offset applied with
+                // no bar left to justify it, and resizing back can reuse a
+                // stale height (Codex review on #1062). Recompute on resize
+                // too, not just on the `visible` watcher, so the offset
+                // always matches what CSS is actually showing right now.
+                function syncToastOffset() {
+                    var toast = document.getElementById("toast-container");
+                    if (!toast) {
+                        return;
+                    }
+                    // The bar is md:hidden, so at >=768px offsetHeight reads 0
+                    // regardless of `visible` (display:none from the media
+                    // query) — never write a bottom offset in that case, or
+                    // the desktop toast stack (lg:bottom-auto lg:top-4) picks
+                    // up an inline `bottom` it never had.
+                    var barHeight = self.visible ? self.$el.offsetHeight : 0;
+                    if (barHeight > 0) {
+                        toast.style.setProperty(
+                            "bottom",
+                            "calc(var(--bottom-nav-height) + " +
+                                barHeight +
+                                "px + env(safe-area-inset-bottom, 0px))",
+                        );
+                    } else {
+                        toast.style.removeProperty("bottom");
+                    }
+                }
+                this.$watch("visible", function () {
+                    // This watcher and the x-show effect both react to the
+                    // same `visible` change, but x-show always applies its
+                    // style mutation on a requestAnimationFrame callback
+                    // (even with no x-transition), which runs AFTER a plain
+                    // $nextTick's microtask — so offsetHeight below would
+                    // still read the pre-toggle 0. Wait two frames instead:
+                    // one for x-show's own rAF, one more so the resulting
+                    // layout has actually been computed before we read it.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(syncToastOffset);
+                    });
+                });
+                // A plain `resize` listener fires on every pixel during a
+                // drag; debounce it so a rotation/resize settles once before
+                // reading layout, same cost profile as the watcher above.
+                var resizeTimer = null;
+                window.addEventListener("resize", function () {
+                    if (resizeTimer) {
+                        clearTimeout(resizeTimer);
+                    }
+                    resizeTimer = setTimeout(syncToastOffset, 150);
+                });
+                var panel = document.getElementById("event-cta-panel");
+                if (!panel || !("IntersectionObserver" in window)) {
+                    return;
+                }
+                // A language-blocked member sees the registration (or
+                // payment) CTA rendered alongside the language-requirement
+                // warning even though event_register rejects them — skip
+                // the sticky bar entirely rather than advertise an action
+                // that cannot succeed (Codex review on #1062).
+                if (panel.querySelector("#event-language-blocked")) {
+                    return;
+                }
+                var anchor = panel.querySelector("a.btn-crush-primary");
+                // event_register rejects age-restricted sign-ups without a
+                // qualifying profile DOB. Keep a real payment button available
+                // for an existing unpaid registration, but never mirror a
+                // registration anchor that leads straight to that rejection.
+                if (anchor && panel.dataset.ageBlocked === "true") {
+                    return;
+                }
+                var target = anchor;
+                if (anchor) {
+                    this.ctaHref = anchor.getAttribute("href") || "";
+                    this.ctaLabel = (anchor.textContent || "").trim();
+                } else {
+                    // Prefer the "Pay with Card" button: it's the one payment
+                    // option always rendered when a balance is due, whereas
+                    // "Pay with Crush Credit" only appears with sufficient
+                    // credit — so anchoring on "card" keeps target selection
+                    // stable across members.
+                    var payButton =
+                        panel.querySelector(
+                            '.js-sumup-checkout-detail[data-payment-method="card"]',
+                        ) || panel.querySelector(".js-sumup-checkout-detail");
+                    if (!payButton) {
+                        return;
+                    }
+                    this.isPayment = true;
+                    this.payMethod =
+                        payButton.getAttribute("data-payment-method") || "card";
+                    this.ctaLabel = (payButton.textContent || "").trim();
+                    target = payButton;
+                }
+                // Observe the CTA element itself, not the whole panel. Use
+                // the full viewport so the bar hides as soon as any part of
+                // the real CTA enters view, including near the bottom edge.
+                var observer = new IntersectionObserver(
+                    function (entries) {
+                        var entry = entries[0];
+                        self.visible = !!entry && !entry.isIntersecting;
+                    },
+                    { rootMargin: "0px" },
+                );
+                observer.observe(target);
+            },
+            onCtaClick: function (event) {
+                if (!this.isPayment) {
+                    return;
+                }
+                event.preventDefault();
+                var panel = document.getElementById("event-cta-panel");
+                var real =
+                    panel &&
+                    panel.querySelector(
+                        '.js-sumup-checkout-detail[data-payment-method="' +
+                            this.payMethod +
+                            '"]',
+                    );
+                if (real) {
+                    real.click();
+                }
+            },
+        };
+    });
+
     // Calendar dropdown component
     Alpine.data("calendarDropdown", function () {
         return {
