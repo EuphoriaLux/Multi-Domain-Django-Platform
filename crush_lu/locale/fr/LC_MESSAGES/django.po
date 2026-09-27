@@ -42720,3 +42720,16 @@ msgstr "Vous êtes en pause — masqué(e) des événements, du matching Connect
 
 msgid "Resume"
 msgstr "Reprendre"
+
+# UX Wave 3 · WP13
+msgid ""
+"True when this pause was set by CrushProfile.take_a_break() rather than "
+"the member's own Connect pause control. resume_from_break() only "
+"reactivates Connect when this is True, so it never undoes an independent, "
+"self-service Connect pause (UX Wave 3 · WP13)."
+msgstr ""
+"Vrai lorsque cette pause a été définie par CrushProfile.take_a_break() et "
+"non par le contrôle de pause Connect propre au membre. "
+"resume_from_break() ne réactive Connect que si cette valeur est vraie, "
+"afin de ne jamais annuler une pause Connect indépendante et volontaire "
+"(UX Wave 3 · WP13)."

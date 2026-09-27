@@ -98,6 +98,73 @@ class TakeABreakModelTests(TestCase):
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.is_on_break)
 
+    def test_resume_from_break_does_not_reactivate_independent_connect_pause(self):
+        """Regression for WP13 review finding 8-13 / review id 1497.
+
+        A member who paused Crush Connect on its own (self-service) before
+        ever taking a break must keep that pause after resuming the break —
+        `resume_from_break()` must not silently reactivate Connect matching
+        the member never asked it to touch.
+        """
+        membership = CrushConnectMembership.objects.create(user=self.user)
+        # 1) Member pauses Connect for its own sake (existing, independent flow).
+        membership.pause()
+        self.assertTrue(membership.is_paused)
+        self.assertFalse(membership.paused_by_break)
+
+        # 2) Member independently takes a break — pause() no-ops since Connect
+        #    is already paused, so the independent pause is left as-is.
+        self.profile.take_a_break()
+        membership.refresh_from_db()
+        self.assertTrue(membership.is_paused)
+        self.assertFalse(membership.paused_by_break)
+
+        # 3) Member resumes from the break banner — Connect must stay paused.
+        self.profile.resume_from_break()
+        membership.refresh_from_db()
+        self.assertTrue(
+            membership.is_paused,
+            "resume_from_break() must not lift an independent Connect pause",
+        )
+
+    def test_resume_from_break_reactivates_break_owned_connect_pause(self):
+        """The mirror case: a pause take_a_break() itself set is still lifted."""
+        membership = CrushConnectMembership.objects.create(user=self.user)
+        self.profile.take_a_break()
+        membership.refresh_from_db()
+        self.assertTrue(membership.is_paused)
+        self.assertTrue(membership.paused_by_break)
+
+        self.profile.resume_from_break()
+        membership.refresh_from_db()
+        self.assertFalse(membership.is_paused)
+        self.assertFalse(membership.paused_by_break)
+
+    def test_independent_connect_reactivate_clears_break_ownership_flag(self):
+        """Mirror-image scenario from the review: a member who takes a break,
+        then independently clicks "Resume Crush Connect" on the Connect hub,
+        reactivates matching while still on_break — and that must not leave
+        a stale paused_by_break flag for a later resume_from_break() to act on.
+        """
+        membership = CrushConnectMembership.objects.create(user=self.user)
+        self.profile.take_a_break()
+        membership.refresh_from_db()
+        self.assertTrue(membership.paused_by_break)
+
+        # Independent reactivate (crush_connect_reactivate view) — while still on break.
+        membership.reactivate()
+        self.assertFalse(membership.is_paused)
+        self.assertFalse(membership.paused_by_break)
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.is_on_break)
+
+        # Later resuming from the break must not error or re-pause Connect.
+        self.profile.resume_from_break()
+        self.profile.refresh_from_db()
+        membership.refresh_from_db()
+        self.assertFalse(self.profile.is_on_break)
+        self.assertFalse(membership.is_paused)
+
 
 class AudienceExclusionTests(TestCase):
     def setUp(self):

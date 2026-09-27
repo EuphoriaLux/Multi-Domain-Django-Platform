@@ -1486,21 +1486,35 @@ class CrushProfile(models.Model):
         matching stops using `CrushConnectMembership.pause()`'s existing
         score-cache cleanup. Does not touch existing event registrations —
         those are a separate, deliberate decision left to the member.
+
+        Passes `by_break=True` so the membership records that *this* pause
+        was taken on the break's behalf. `CrushConnectMembership.pause()` is
+        a no-op when the member already paused Connect independently via
+        `crush_connect_pause` — that pre-existing pause, and its reason,
+        stay untouched, and `resume_from_break()` below will not lift it.
         """
         if self.on_break_at is None:
             self.on_break_at = timezone.now()
             self.save(update_fields=["on_break_at"])
         membership = getattr(self.user, "crush_connect_membership", None)
         if membership is not None:
-            membership.pause()
+            membership.pause(by_break=True)
 
     def resume_from_break(self) -> None:
-        """Undo `take_a_break()` — restores events, matching and marketing."""
+        """Undo `take_a_break()` — restores events and marketing.
+
+        Only reactivates Crush Connect matching when the membership's current
+        pause was itself set by `take_a_break()`
+        (`CrushConnectMembership.paused_by_break`). A member who separately
+        paused Connect on purpose via `crush_connect_pause` keeps that pause;
+        resuming from a break must never silently resume Connect matching
+        they deliberately stopped for unrelated reasons.
+        """
         if self.on_break_at is not None:
             self.on_break_at = None
             self.save(update_fields=["on_break_at"])
         membership = getattr(self.user, "crush_connect_membership", None)
-        if membership is not None:
+        if membership is not None and membership.paused_by_break:
             membership.reactivate()
 
 

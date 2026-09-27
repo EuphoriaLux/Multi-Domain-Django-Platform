@@ -42587,3 +42587,16 @@ msgstr "Du machst eine Pause — ausgeblendet bei Events, Connect-Matching und M
 
 msgid "Resume"
 msgstr "Fortsetzen"
+
+# UX Wave 3 · WP13
+msgid ""
+"True when this pause was set by CrushProfile.take_a_break() rather than "
+"the member's own Connect pause control. resume_from_break() only "
+"reactivates Connect when this is True, so it never undoes an independent, "
+"self-service Connect pause (UX Wave 3 · WP13)."
+msgstr ""
+"Wahr, wenn diese Pause von CrushProfile.take_a_break() gesetzt wurde und "
+"nicht über die eigene Connect-Pause-Steuerung des Mitglieds. "
+"resume_from_break() reaktiviert Connect nur, wenn dies Wahr ist, damit "
+"eine unabhängige, selbst gesteuerte Connect-Pause (UX Wave 3 · WP13) nie "
+"aufgehoben wird."
