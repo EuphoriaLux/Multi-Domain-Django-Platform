@@ -14,10 +14,15 @@
  *   (connection declined/blocked), and reloads the page if a poll gets
  *   bounced to the login form (session expiry) instead of swapping a whole
  *   login document into the chat box.
+ * - Resets the compose form after a successful send (finding 5-15): moved
+ *   here instead of an inline `hx-on::after-request="...this.reset()"`,
+ *   which htmx compiles via Function() and would violate the site CSP once
+ *   SECURE_CSP moves from report-only to enforced.
  */
 (function () {
     "use strict";
 
+    var COMPOSE_FORM_ID = "connection-compose-form";
     var NEAR_BOTTOM_PX = 80;
     var SEND_GUARD_MS = 2500; // ignore stale poll swaps briefly after a send
     var stopped = false; // server said 286 (dead connection) — quiesce
@@ -26,6 +31,10 @@
 
     function box() {
         return document.getElementById("messages-container");
+    }
+
+    function composeForm() {
+        return document.getElementById(COMPOSE_FORM_ID);
     }
 
     function atBottom(el) {
@@ -86,6 +95,33 @@
         var sentOwn = cfg && cfg.verb === "post";
         if (sentOwn) lastSendAt = performance.now();
         if (sentOwn || wasAtBottom) scrollBottom(el);
+    });
+
+    // Clear any inline error left from a previous failed send as soon as the
+    // member edits the message again, so it doesn't read as still-current.
+    document.body.addEventListener("input", function (evt) {
+        var form = composeForm();
+        if (!form || !form.contains(evt.target)) return;
+        var errorBox = document.getElementById("chat-compose-error");
+        if (errorBox && errorBox.textContent) errorBox.textContent = "";
+    });
+
+    // Fired via HX-Trigger only on a successful send — never on the
+    // retargeted inline-error response, which is also a plain 200 — so a
+    // failed send never wipes what the member typed.
+    document.body.addEventListener("connection-message-sent", function (evt) {
+        var form = composeForm();
+        if (!form || (evt.detail && evt.detail.elt && evt.detail.elt !== form)) return;
+        form.reset();
+        var counter = form.querySelector("[data-max-length]");
+        if (counter && window.Alpine && typeof window.Alpine.$data === "function") {
+            try {
+                var scope = window.Alpine.$data(counter);
+                if (scope) scope.charCount = 0;
+            } catch (e) {
+                // no Alpine scope bound yet: nothing to reset
+            }
+        }
     });
 
     // Catch up immediately when the user returns to the tab (unless stopped).

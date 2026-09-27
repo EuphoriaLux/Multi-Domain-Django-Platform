@@ -1975,10 +1975,26 @@ def export_user_data(request):
         visible_connections.append(
             {
                 "event": conn.event.title if conn.event else None,
+                # Once the other member has answered the consent step without
+                # choosing to share their email, it never appears here, in
+                # any status (UX Wave 3, 5-10). Rows where they have not
+                # answered yet keep the existing export contract.
                 "connected_with": (
-                    conn.recipient.email
-                    if conn.requester == user
-                    else conn.requester.email
+                    None
+                    if (
+                        (conn.status == "shared" or conn.recipient_consents_to_share)
+                        and not conn.recipient_shares_email
+                        if conn.requester == user
+                        else (
+                            conn.status == "shared" or conn.requester_consents_to_share
+                        )
+                        and not conn.requester_shares_email
+                    )
+                    else (
+                        conn.recipient.email
+                        if conn.requester == user
+                        else conn.requester.email
+                    )
                 ),
                 "status": ("with your coach" if is_unshared_crush else conn.status),
                 "created_at": (

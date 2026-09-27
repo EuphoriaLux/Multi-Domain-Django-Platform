@@ -701,6 +701,24 @@ def connection_actions(request, event_id, user_id):
     )
 
 
+def _refresh_if_from_dashboard(request, response, message=None):
+    """Reload the dashboard after an inline accept/decline.
+
+    The dashboard embeds the same request card as My Connections (UX Wave 3,
+    finding 5-02), but its counts, header link and stats row sit outside the
+    swapped card. A full refresh keeps them honest, and the queued message
+    confirms the action on the reloaded page.
+    """
+    from urllib.parse import urlparse
+
+    path = urlparse(request.headers.get("HX-Current-URL", "")).path
+    if path.rstrip("/").endswith("/dashboard"):
+        if message:
+            messages.success(request, message)
+        response["HX-Refresh"] = "true"
+    return response
+
+
 @crush_login_required
 @ratelimit(key="user", rate="10/h", method="POST")
 @require_http_methods(["POST"])
@@ -732,8 +750,13 @@ def respond_connection(request, connection_id, action):
     # pending → accepted transition (an old notification / known accept URL
     # could otherwise turn a blocked pair into a shared connection).
     from .services.blocking import is_blocked_pair
+    from .services.event_lobby import hidden_encounter_user_ids
 
-    if is_blocked_pair(request.user, connection.requester):
+    # A safety-removed encounter (removal_pending / removed) is treated like a
+    # block: the pair stays mutually invisible, so it can't be accepted here.
+    if is_blocked_pair(
+        request.user, connection.requester
+    ) or connection.requester_id in hidden_encounter_user_ids(request.user):
         if request.headers.get("HX-Request"):
             return render(
                 request,
@@ -756,18 +779,26 @@ def respond_connection(request, connection_id, action):
                 ),
                 "connection_id": connection.id,
             }
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_attendee_connection_response.html",
-                {
-                    "attendee": attendee,
-                    "action": (
-                        "accept"
-                        if connection.status
-                        in ("accepted", "coach_reviewing", "coach_approved", "shared")
-                        else "decline"
-                    ),
-                },
+                render(
+                    request,
+                    "crush_lu/_attendee_connection_response.html",
+                    {
+                        "attendee": attendee,
+                        "action": (
+                            "accept"
+                            if connection.status
+                            in (
+                                "accepted",
+                                "coach_reviewing",
+                                "coach_approved",
+                                "shared",
+                            )
+                            else "decline"
+                        ),
+                    },
+                ),
             )
         return redirect("crush_lu:my_connections")
 
@@ -846,10 +877,21 @@ def respond_connection(request, connection_id, action):
                     "crush_lu/_attendee_connection_response.html",
                     {"attendee": attendee, "action": "accept"},
                 )
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_connection_response.html",
-                {"connection": connection, "action": "accept"},
+                render(
+                    request,
+                    "crush_lu/_connection_response.html",
+                    {"connection": connection, "action": "accept"},
+                ),
+                (
+                    _("Connection accepted! Contact info is now shared.")
+                    if connection.is_same_gender
+                    else _(
+                        "Connection accepted! A coach will help facilitate "
+                        "your introduction."
+                    )
+                ),
             )
         if connection.is_same_gender:
             messages.success(
@@ -878,10 +920,14 @@ def respond_connection(request, connection_id, action):
                     "crush_lu/_attendee_connection_response.html",
                     {"attendee": attendee, "action": "decline"},
                 )
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_connection_response.html",
-                {"connection": connection, "action": "decline"},
+                render(
+                    request,
+                    "crush_lu/_connection_response.html",
+                    {"connection": connection, "action": "decline"},
+                ),
+                _("Connection request declined."),
             )
         messages.info(request, _("Connection request declined."))
     else:
@@ -952,11 +998,19 @@ def my_connections(request):
         len(get_people_ive_met(request.user)) if lobby_feature_enabled() else 0
     )
 
+    # Gates the empty state's secondary CTA (finding 5-14): offer Crush
+    # Connect only to members the hub will actually let in, using the hub's
+    # own gate so the link never bounces to the teaser.
+    from .views_crush_connect import _hub_access_blocker
+
+    is_verified = _hub_access_blocker(request.user) is None
+
     context = {
         "sent_requests": sent,
         "received_requests": received_pending,
         "active_connections": active,
         "people_ive_met_count": people_ive_met_count,
+        "is_verified": is_verified,
     }
     return render(request, "crush_lu/my_connections.html", context)
 
@@ -1008,19 +1062,104 @@ def connection_detail(request, connection_id):
 
         # Handle consent
         if "consent" in request.POST:
-            consent_value = request.POST.get("consent") == "yes"
+            # WP10 review (finding 5-10/10-blocker): the consent step, and
+            # its "Not now" exit, only ever make sense at `coach_approved` —
+            # the same status the template's own `user_needs_consent` gate
+            # requires before it shows this form at all. Without this guard
+            # a stale page (another tab, a double-submit, or a page reopened
+            # after the introduction already completed) could POST "not_now"
+            # or a yes/no choice against a `shared` connection and force it
+            # straight back to `declined`, undoing an introduction whose
+            # contact info was already exchanged. No-op with a stale-page
+            # notice instead.
+            if connection.status != "coach_approved":
+                messages.info(
+                    request,
+                    _(
+                        "This connection has already moved on — refresh the page to see its current status."
+                    ),
+                )
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
 
-            if is_requester:
-                connection.requester_consents_to_share = consent_value
-            else:
-                connection.recipient_consents_to_share = consent_value
+            consent_choice = request.POST.get("consent")
 
-            connection.save()
+            # "Not now" (finding 5-10): a graceful exit from the consent step.
+            # It quietly closes the lead — the other side is never notified
+            # (mirrors the plain decline path, which also sends no
+            # notification). There is currently no coach-facing view of a
+            # quiet decline: coach_connections' "all" filter excludes
+            # status="declined" outright, so this state is invisible to
+            # coaches under every filter option today. Whether coaches
+            # should see it — and how to tell it apart from a mutual
+            # decline — is an open product question (see
+            # findings_deferred), not something this fix invents.
+            if consent_choice == "not_now":
+                # Conditional update, not a blind save: a concurrent request
+                # (another tab, or the coach/other party moving the
+                # connection to `shared` between the status check above and
+                # this write) must never be clobbered by a stale-tab
+                # "not_now". The WHERE clause re-reads status atomically at
+                # write time — if it no longer matches coach_approved, this
+                # updates zero rows and the introduction stands.
+                updated_rows = EventConnection.objects.filter(
+                    pk=connection.pk, status="coach_approved"
+                ).update(status="declined")
+                if not updated_rows:
+                    messages.info(
+                        request,
+                        _(
+                            "This connection has already moved on — refresh the page to see its current status."
+                        ),
+                    )
+                    return redirect(
+                        "crush_lu:connection_detail", connection_id=connection_id
+                    )
+                messages.info(
+                    request,
+                    _(
+                        "No problem — nothing was shared, and this connection is now closed."
+                    ),
+                )
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
 
-            # Check if both consented and coach approved
-            if connection.can_share_contacts:
-                connection.status = "shared"
-                connection.save()
+            consent_value = consent_choice == "yes"
+            share_email = "share_email" in request.POST
+
+            # Conditional updates, like "not_now" above: a stale save must
+            # never restore coach_approved over a concurrent decline, and the
+            # switch to `shared` re-checks both consents and the status at
+            # write time.
+            side = "requester" if is_requester else "recipient"
+            updated_rows = EventConnection.objects.filter(
+                pk=connection.pk, status="coach_approved"
+            ).update(
+                **{
+                    f"{side}_consents_to_share": consent_value,
+                    f"{side}_shares_email": share_email,
+                }
+            )
+            if not updated_rows:
+                messages.info(
+                    request,
+                    _(
+                        "This connection has already moved on — refresh the page to see its current status."
+                    ),
+                )
+                return redirect(
+                    "crush_lu:connection_detail", connection_id=connection_id
+                )
+
+            shared_rows = EventConnection.objects.filter(
+                pk=connection.pk,
+                status="coach_approved",
+                requester_consents_to_share=True,
+                recipient_consents_to_share=True,
+            ).update(status="shared")
+            if shared_rows:
                 messages.success(request, _("Contact information is now shared!"))
             else:
                 messages.success(request, _("Your consent has been recorded."))
@@ -1029,6 +1168,24 @@ def connection_detail(request, connection_id):
 
         # Handle message sending
         elif "message" in request.POST:
+            is_hx = bool(request.headers.get("HX-Request"))
+
+            def _hx_inline_error(error_text):
+                """finding 5-15: a failed send used to fall through to the
+                plain redirect below even for HTMX, so htmx's `beforeend`
+                swap onto #messages-container spliced the *entire* redirected
+                page into the chat thread. Retargeting into
+                #chat-compose-error keeps the failure inline, next to the
+                textarea, without losing what the member typed."""
+                response = render(
+                    request,
+                    "crush_lu/_connection_message_error.html",
+                    {"error": error_text},
+                )
+                response["HX-Retarget"] = "#chat-compose-error"
+                response["HX-Reswap"] = "innerHTML"
+                return response
+
             message_text = request.POST.get("message", "").strip()
             if message_text and len(message_text) <= CONNECTION_MESSAGE_MAX_LENGTH:
                 # Only allow messaging for accepted/shared connections
@@ -1042,6 +1199,10 @@ def connection_detail(request, connection_id):
                     recipient = (
                         connection.recipient if is_requester else connection.requester
                     )
+
+                    # First message in the thread? The response then also
+                    # removes the "No messages yet" placeholder (finding 5-15).
+                    is_first_message = not _approved_messages(connection).exists()
 
                     # Create the message
                     new_message = ConnectionMessage.objects.create(
@@ -1057,27 +1218,37 @@ def connection_detail(request, connection_id):
                         logger.error(f"Failed to send new message notification: {e}")
 
                     # For HTMX requests, return just the message partial
-                    if request.headers.get("HX-Request"):
-                        return render(
+                    if is_hx:
+                        response = render(
                             request,
                             "crush_lu/_connection_message.html",
                             {
                                 "msg": new_message,
                                 "is_own_message": True,
+                                "remove_empty_placeholder": is_first_message,
                             },
                         )
+                        # connection-chat.js resets the compose form on this
+                        # event (never inline via hx-on::after-request, which
+                        # would violate the site CSP once enforced) — and
+                        # only on this event, so a retargeted inline error
+                        # (also a 200) never clears what the member typed.
+                        response["HX-Trigger"] = "connection-message-sent"
+                        return response
 
                     messages.success(request, _("Message sent!"))
                 else:
-                    messages.error(
-                        request, _("You can only message accepted connections.")
-                    )
+                    error_text = _("You can only message accepted connections.")
+                    if is_hx:
+                        return _hx_inline_error(error_text)
+                    messages.error(request, error_text)
             else:
                 # Literal 500 keeps the existing translation catalog entry intact;
                 # CONNECTION_MESSAGE_MAX_LENGTH governs the actual cap above.
-                messages.error(
-                    request, _("Please enter a valid message (max 500 characters).")
-                )
+                error_text = _("Please enter a valid message (max 500 characters).")
+                if is_hx:
+                    return _hx_inline_error(error_text)
+                messages.error(request, error_text)
 
             return redirect("crush_lu:connection_detail", connection_id=connection_id)
 
@@ -1118,6 +1289,14 @@ def connection_detail(request, connection_id):
     if connection.status == "shared" and other_profile and other_profile.phone_number:
         whatsapp_number = re.sub(r"[^\d+]", "", other_profile.phone_number)
 
+    # Did the OTHER side choose to share their email? (finding 5-10: email is
+    # opt-in at consent time, so it must not be assumed shared.)
+    other_shares_email = (
+        connection.recipient_shares_email
+        if is_requester
+        else connection.requester_shares_email
+    )
+
     context = {
         "connection": connection,
         "is_requester": is_requester,
@@ -1129,6 +1308,7 @@ def connection_detail(request, connection_id):
         "user_needs_consent": user_needs_consent,
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
+        "other_shares_email": other_shares_email,
         # Pre-`shared` crush lead: the requester sees only this neutral
         # "with your coach" state — identical whether the lead is pending,
         # mid-coach-workflow, or silently declined.
