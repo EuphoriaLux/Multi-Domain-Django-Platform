@@ -174,6 +174,17 @@ class DrillDownPageChromeTests(TestCase):
             self.assertIn("text-3xl", classes, path)
             self.assertIn("max-lg:sr-only", classes, path)
 
+    def test_hidden_header_leaves_no_mobile_gap(self):
+        # The wrapper's spacing only matters where its h1 is visible.
+        tags = _tags(self._get("/en/account/gdpr/"))
+        idx = next(i for i, (t, _a) in enumerate(tags) if t == "h1")
+        wrapper = tags[idx - 1][1]["class"].split()
+        self.assertEqual(wrapper, ["mb-8", "max-lg:mb-0"])
+        # With a subtitle the header stays visible, so it keeps its spacing.
+        tags = _tags(self._get("/en/notifications/"))
+        idx = next(i for i, (t, _a) in enumerate(tags) if t == "h1")
+        self.assertNotIn("max-lg:mb-0", tags[idx - 1][1]["class"])
+
     def test_german_top_bar_titles(self):
         self.assertEqual(
             _mobile_title(self._get("/de/settings/blocked/")), "Blockierte Mitglieder"
