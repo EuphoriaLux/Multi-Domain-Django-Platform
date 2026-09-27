@@ -23019,7 +23019,7 @@ msgstr "vorübergehend deaktivieren kannst, anstatt alles zu löschen."
 msgid ""
 "Are you absolutely sure you want to delete your account? This cannot be "
 "undone."
-msgstr "Möchtest du diese Verbindung wirklich ablehnen?"
+msgstr "Bist du dir absolut sicher, dass du dein Konto löschen möchtest? Das kann nicht rückgängig gemacht werden."
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:13
 msgid "Warning: Permanent Deletion"
@@ -33532,7 +33532,7 @@ msgstr ""
 msgid ""
 "Declare your crush? It stays completely private and cannot be undone. Your "
 "Crush Coach will call you within 48 hours to talk about it."
-msgstr ""
+msgstr "Deinen Crush erklären? Das bleibt völlig privat und kann nicht rückgängig gemacht werden. Dein Crush Coach wird dich innerhalb von 48 Stunden anrufen, um darüber zu sprechen."
 
 #: templates/crush_lu/set_password.html:4
 msgid "Set Password - Crush.lu"

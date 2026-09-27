@@ -23115,7 +23115,7 @@ msgstr "temporairement au lieu de tout supprimer."
 msgid ""
 "Are you absolutely sure you want to delete your account? This cannot be "
 "undone."
-msgstr "Êtes-vous sûr de vouloir refuser cette connexion ?"
+msgstr "Êtes-vous absolument sûr de vouloir supprimer votre compte ? Cette action est irréversible."
 
 #: templates/crush_lu/delete_crushlu_profile_confirm.html:13
 msgid "Warning: Permanent Deletion"
@@ -33669,7 +33669,7 @@ msgstr ""
 msgid ""
 "Declare your crush? It stays completely private and cannot be undone. Your "
 "Crush Coach will call you within 48 hours to talk about it."
-msgstr ""
+msgstr "Déclarer votre coup de cœur ? Il reste totalement privé et cette action est irréversible. Votre Crush Coach vous appellera sous 48h pour en discuter."
 
 #: templates/crush_lu/set_password.html:4
 msgid "Set Password - Crush.lu"

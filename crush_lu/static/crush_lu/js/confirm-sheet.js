@@ -17,7 +17,9 @@
  * Plain POST forms (no HTMX): put data-confirm="Question?" (plus the two
  * options above) on the <form> itself. data-confirm-when="<checkbox name>"
  * asks only while that checkbox is ticked. The confirmed re-submit keeps the
- * clicked submit button (requestSubmit(submitter)).
+ * clicked submit button (requestSubmit(submitter)). A form whose submit
+ * buttons ask different questions puts data-confirm (and -style / -label) on
+ * each <button type="submit"> instead; the clicked button's attributes win.
  */
 (function () {
     "use strict";
@@ -112,9 +114,11 @@
     // "submit" only fires for a valid form.
     document.addEventListener("submit", function (evt) {
         var form = evt.target;
-        if (!form || !form.hasAttribute || !form.hasAttribute("data-confirm")) {
-            return;
-        }
+        if (!form || !form.hasAttribute) return;
+        var submitter = evt.submitter || null;
+        var source =
+            submitter && submitter.hasAttribute("data-confirm") ? submitter : form;
+        if (!source.hasAttribute("data-confirm")) return;
         if (form.getAttribute("data-confirmed") === "1") {
             form.removeAttribute("data-confirmed"); // one pass per confirmation
             return;
@@ -127,10 +131,9 @@
             if (!box || !box.checked) return;
         }
         evt.preventDefault();
-        var submitter = evt.submitter || null;
-        openConfirm(form.getAttribute("data-confirm"), {
-            style: form.getAttribute("data-confirm-style") || "danger",
-            confirmLabel: form.getAttribute("data-confirm-label") || undefined,
+        openConfirm(source.getAttribute("data-confirm"), {
+            style: source.getAttribute("data-confirm-style") || "danger",
+            confirmLabel: source.getAttribute("data-confirm-label") || undefined,
         }).then(function (ok) {
             if (!ok) return;
             form.setAttribute("data-confirmed", "1");
