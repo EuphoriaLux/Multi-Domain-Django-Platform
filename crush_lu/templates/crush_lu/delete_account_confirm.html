@@ -62,7 +62,8 @@
                     </li>
                 </ul>
 
-                <form method="post" id="deleteAccountForm">
+                <form method="post" id="deleteAccountForm"
+                      data-confirm="{% trans 'Are you absolutely sure you want to delete your account? This cannot be undone.' %}">
                     {% csrf_token %}
 
                     {% if user.has_usable_password %}
@@ -113,19 +114,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     const confirmInput = document.getElementById('confirm_text');
     const deleteBtn = document.getElementById('deleteBtn');
-    const form = document.getElementById('deleteAccountForm');
 
     // Enable/disable button based on confirmation text
     confirmInput.addEventListener('input', function() {
         const isValid = this.value.toLowerCase() === 'delete my account';
         deleteBtn.disabled = !isValid;
-    });
-
-    // Final confirmation before submit
-    form.addEventListener('submit', function(e) {
-        if (!confirm('{% filter escapejs %}{% trans "Are you absolutely sure you want to delete your account? This cannot be undone." %}{% endfilter %}')) {
-            e.preventDefault();
-        }
     });
 });
 </script>

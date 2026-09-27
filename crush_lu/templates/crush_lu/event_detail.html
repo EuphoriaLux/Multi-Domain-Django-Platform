@@ -97,7 +97,7 @@
                 />
             </div>
             {% else %}
-            <div class="w-full h-48 sm:h-56 md:h-64 bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex items-end p-5 sm:p-6 relative overflow-hidden">
+            <div class="w-full min-h-[12rem] sm:min-h-[14rem] md:min-h-[16rem] bg-gradient-to-br from-crush-purple to-crush-pink rounded-t-xl flex items-end p-5 sm:p-6 relative overflow-hidden">
                 <div class="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 w-24 h-24 sm:w-32 sm:h-32 opacity-20 select-none" aria-hidden="true">
                     {% if event.event_type == 'speed_dating' %}{% include "crush_lu/includes/ghost-story-nervous.html" with class="w-full h-full" %}
                     {% elif event.event_type == 'mixer' %}{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}
@@ -111,7 +111,7 @@
                     <span class="inline-block px-2.5 py-0.5 text-xs sm:text-sm font-semibold bg-white/20 text-white rounded-full mb-2 backdrop-blur-sm">
                         {{ event.get_event_type_display }}
                     </span>
-                    <h2 class="text-white font-bold text-2xl sm:text-3xl leading-tight line-clamp-2">{{ event.title }}</h2>
+                    <h1 class="text-white font-bold text-xl sm:text-2xl md:text-3xl leading-tight">{{ event.title }}</h1>
                     <p class="text-white/80 text-sm mt-1.5">
                         {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }} · {{ event.date_time|date:"TIME_FORMAT" }} · {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
                     </p>
@@ -134,9 +134,47 @@
                 </div>
                 {% endif %}
 
-                {# Description section #}
-                <div class="mb-6 sm:mb-8">
-                    <div class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300">{{ event.description|linebreaks }}</div>
+                {# Quick-facts strip: the decision-making facts, above the fold and before the description (#4-03) #}
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4 sm:mb-6 text-sm sm:text-base text-gray-700 dark:text-gray-200">
+                    <span class="inline-flex items-center gap-1.5">
+                        {% include "shared/icons/calendar.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
+                        {% comment %}
+                        "D" + DATE_FORMAT, not a literal "D, M j": only day/month names are
+                        translated, so a fixed English-order format renders DE/FR dates in the
+                        wrong order. DATE_FORMAT is locale-aware day-before-month for both (Codex
+                        review on #1062) and is already how the hero above formats this date.
+                        {% endcomment %}
+                        {{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }} &middot; {{ event.date_time|date:"TIME_FORMAT" }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5">
+                        {% include "shared/icons/map-pin.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
+                        {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
+                    </span>
+                    {% if not is_past %}
+                    <span class="inline-flex items-center gap-1.5 font-semibold">
+                        {% if event.registration_fee > 0 %}€{{ event.registration_fee }}{% else %}<span class="text-green-600 dark:text-green-300">{% trans "Free" %}</span>{% endif %}
+                    </span>
+                    {% endif %}
+                    <span class="inline-flex items-center gap-1.5">
+                        {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}
+                    </span>
+                    {% if not is_past and event.is_registration_accepting and not curated_group_outlook and not gender_pool_availability %}
+                    <span class="inline-flex items-center gap-1.5 {% if viewer_spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
+                        {% blocktrans count spots=viewer_spots_remaining %}{{ spots }} spot left{% plural %}{{ spots }} spots left{% endblocktrans %}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# Description section: collapsed after ~4 lines behind "Read more" (#4-03) #}
+                <div class="mb-6 sm:mb-8" x-data="eventDescriptionToggle" {% if event.description|wordcount > 40 %}data-collapsible="true"{% endif %}>
+                    <div id="event-description-text" x-ref="description" class="prose dark:prose-invert prose-sm sm:prose-base max-w-none text-gray-600 dark:text-gray-300{% if event.description|wordcount > 40 %} line-clamp-4{% endif %}">{{ event.description|linebreaks }}</div>
+                    {% if event.description|wordcount > 40 %}
+                    <button type="button" @click="toggle" class="btn-crush-outline btn-sm mt-2" aria-expanded="false" x-bind:aria-expanded="expandedAria" aria-controls="event-description-text">
+                        <span x-show="collapsed">{% trans "Read more" %}</span>
+                        <span x-show="expanded" style="display: none;">{% trans "Show less" %}</span>
+                    </button>
+                    <noscript><style nonce="{{ csp_nonce }}">#event-description-text{display:block;overflow:visible;-webkit-line-clamp:unset}#event-description-text+button{display:none}</style></noscript>
+                    {% endif %}
                 </div>
 
                 {# Event information grid with visual cards #}
@@ -377,6 +415,13 @@
                 <hr class="my-6 sm:my-8 border-gray-200 dark:border-gray-700">
                 {% endif %}
 
+                {% comment %}
+                Wraps the whole registration decision area so the mobile sticky CTA bar
+                (#event-sticky-cta, alpine-components.js "eventStickyCta") can mirror
+                whichever single btn-crush-primary anchor is rendered here, without
+                re-deriving the eligibility logic itself (#4-03).
+                {% endcomment %}
+                <div id="event-cta-panel" data-age-blocked="{{ age_blocked_for_registration|yesno:'true,false' }}">
                 {# Live banner: frames the whole action area while the event is in progress #}
                 {% if event.is_live %}
                 <div class="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 sm:p-4">
@@ -519,7 +564,7 @@
                         {% endif %}
                     {% else %}
                         {% if event_languages_display and not language_requirement_met %}
-                        <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4 mb-4">
+                        <div id="event-language-blocked" class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4 mb-4">
                             <div class="flex items-start gap-2">
                                 <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -572,6 +617,31 @@
                                         </div>
                                     </div>
                                 </div>
+                            {% elif user_profile.verification_status == "rejected" %}
+                                {% comment %}
+                                LuxID refuses to verify a rejected profile, so offering
+                                "Verify with LuxID" here completes OAuth without resolving
+                                the block and leaves the member stuck behind the wrong
+                                recovery guidance (Codex review on #1062). Handle it before
+                                the generic "not approved" branch below, which would
+                                otherwise also match a rejected profile.
+                                {% endcomment %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <div class="flex items-start gap-2">
+                                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "Your profile was not approved, so you cannot register for this event. Please contact support." %}</p>
+                                            <a href="mailto:support@crush.lu" class="btn-crush-outline btn-sm">{% trans "Contact support" %}</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif user_profile.verification_status == "incomplete" %}
+                                <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
+                                    <p class="text-xs sm:text-sm mb-3">{% trans "Please complete your profile to continue." %}</p>
+                                    <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-solid btn-sm">{% trans "Finish your profile" %}</a>
+                                </div>
                             {% elif not user_profile.is_approved %}
                                 <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
                                     <div class="flex items-start gap-2">
@@ -579,7 +649,13 @@
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
                                         </svg>
                                         <div class="flex-1">
-                                            <p class="text-xs sm:text-sm">{% trans "This event is for verified members only. Get verified at an entry event or with LuxID first." %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event is for verified members only. Get verified at an entry event or with LuxID first." %}</p>
+                                            <div class="flex flex-wrap gap-2">
+                                                {% if luxid_connect_url %}
+                                                <a href="{{ luxid_connect_url }}" class="btn-crush-solid btn-sm">{% trans "Verify with LuxID" %}</a>
+                                                {% endif %}
+                                                <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -616,21 +692,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            {% elif not user_profile.assigned_coach %}
-                                <div class="rounded-lg p-3 sm:p-4 border border-amber-300 dark:border-amber-600 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-900 dark:text-amber-200">
-                                    <div class="flex items-start gap-2">
-                                        <span class="text-lg leading-none">✦</span>
-                                        <div class="flex-1">
-                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Coach required" %}</p>
-                                            <p class="text-xs sm:text-sm mb-0">{% trans "This event is reserved for members with a personal coach. Attend any event to get your coach assigned." %}</p>
-                                        </div>
-                                    </div>
-                                </div>
                             {% elif user_profile.verification_status == "rejected" %}
                                 {% comment %}
-                                A rejected profile keeps its assigned_coach — nothing clears it — so
-                                without this the two checks above pass and the CTA renders for a user
-                                event_register now refuses, bouncing them straight back here.
+                                A rejected profile keeps its assigned_coach — nothing clears it — and
+                                event_register checks verification_status before assigned_coach, so
+                                this must be checked ahead of the missing-coach branch below or a
+                                rejected member without a coach gets the wrong recovery action.
                                 {% endcomment %}
                                 <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-3 sm:p-4">
                                     <div class="flex items-start gap-2">
@@ -638,7 +705,19 @@
                                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                                         </svg>
                                         <div class="flex-1">
-                                            <p class="text-xs sm:text-sm">{% trans "Your profile was not approved, so you cannot register for this event. Please contact support." %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "Your profile was not approved, so you cannot register for this event. Please contact support." %}</p>
+                                            <a href="mailto:support@crush.lu" class="btn-crush-outline btn-sm">{% trans "Contact support" %}</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif not user_profile.assigned_coach %}
+                                <div class="rounded-lg p-3 sm:p-4 border border-amber-300 dark:border-amber-600 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-900 dark:text-amber-200">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-lg leading-none">✦</span>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-sm sm:text-base mb-1">{% trans "Coach required" %}</p>
+                                            <p class="text-xs sm:text-sm mb-3">{% trans "This event is reserved for members with a personal coach. Attend any event to get your coach assigned." %}</p>
+                                            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
                                         </div>
                                     </div>
                                 </div>
@@ -880,6 +959,7 @@
                         </div>
                     </div>
                 {% endif %}
+                </div>{# /#event-cta-panel #}
 
                 {# Static Event Lobby feature promo — identical on every event, no per-event state (§5.3 as amended 2026-07-18). Members with a personal CTA see that instead. #}
                 {% if event_lobby_cta == "promo_only" %}
@@ -892,33 +972,124 @@
     </div>
 </div>
 
+{% comment %}
+Mobile sticky CTA bar (#4-03): hidden until JS confirms #event-cta-panel
+renders a single mirrorable btn-crush-primary anchor, and while that
+anchor is still visible on screen. Sits above the mobile tab bar and
+respects the home-bar safe area.
+{% endcomment %}
+<div id="event-sticky-cta"
+     x-data="eventStickyCta"
+     x-show="visible"
+     x-cloak
+     data-price-label="{% if not is_past %}{% if event.registration_fee > 0 %}€{{ event.registration_fee }}{% else %}{% trans "Free" %}{% endif %}{% endif %}"
+     data-facts-text="{{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }} &middot; {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}"
+     class="md:hidden fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom,0px))] z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-crush-lg px-4 pt-3 pb-3 flex items-center gap-3">
+    <div class="flex-1 min-w-0">
+        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="factsText"></p>
+        <p class="font-semibold text-gray-900 dark:text-white" x-text="priceText"></p>
+    </div>
+    <a :href="ctaHref" x-show="isLink" class="btn-crush-primary btn-sm whitespace-nowrap" x-text="ctaLabel"></a>
+    <button type="button" x-show="isPayment" x-cloak @click="onCtaClick" class="btn-crush-primary btn-sm whitespace-nowrap" x-text="ctaLabel"></button>
+</div>
+
 <script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
-    // Web Share functionality
+    // Web Share functionality (#4-18): the button stays visible even when
+    // navigator.share is unavailable (desktop browsers, some WebViews) and
+    // falls back to copying the link, with a toast confirming it.
     const shareBtn = document.getElementById('shareEventBtn');
+    const shareUrl = window.location.href;
+    const shareData = {
+        title: '{{ event.title|escapejs }}',
+        text: '{{ event.description|truncatewords:20|escapejs }} - {{ event.get_event_type_display|escapejs }}',
+        url: shareUrl
+    };
 
-    // Hide share button if Web Share API is not supported
-    if (!navigator.share) {
-        shareBtn.style.display = 'none';
-    } else {
-        shareBtn.addEventListener('click', async function() {
-            const shareData = {
-                title: '{{ event.title|escapejs }}',
-                text: '{{ event.description|truncatewords:20|escapejs }} - {{ event.get_event_type_display|escapejs }}',
-                url: window.location.href
-            };
+    function notifyLinkCopied() {
+        if (window.Alpine && Alpine.store('toasts')) {
+            Alpine.store('toasts').add({
+                type: 'success',
+                message: '{% trans "Link copied"|escapejs %}'
+            });
+        }
+    }
 
+    function notifyCopyFailed() {
+        if (window.Alpine && Alpine.store('toasts')) {
+            Alpine.store('toasts').add({
+                type: 'error',
+                message: '{% trans "Could not copy the link. Long-press or select it from the address bar instead."|escapejs %}'
+            });
+        }
+    }
+
+    // Legacy copy path for a WebView or browser with neither Web Share nor
+    // the async Clipboard API: `execCommand('copy')` off a hidden, focused
+    // textarea (#4-18 review). Returns false, not throws, on failure so the
+    // caller can fall through to the error toast instead of a dead control.
+    function legacyCopyFallback() {
+        var textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        var selection = document.getSelection();
+        var originalRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        var succeeded = false;
+        try {
+            succeeded = document.execCommand('copy');
+        } catch (err) {
+            succeeded = false;
+        }
+        document.body.removeChild(textarea);
+        if (originalRange) {
+            selection.removeAllRanges();
+            selection.addRange(originalRange);
+        }
+        return succeeded;
+    }
+
+    function copyLinkFallback() {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(notifyLinkCopied).catch(function (err) {
+                console.error('Error copying link:', err);
+                if (legacyCopyFallback()) {
+                    notifyLinkCopied();
+                } else {
+                    notifyCopyFailed();
+                }
+            });
+            return;
+        }
+        if (legacyCopyFallback()) {
+            notifyLinkCopied();
+        } else {
+            notifyCopyFailed();
+        }
+    }
+
+    shareBtn.addEventListener('click', async function() {
+        if (navigator.share) {
             try {
                 await navigator.share(shareData);
-                console.log('Event shared successfully');
             } catch (err) {
-                // User cancelled or error occurred
+                // AbortError is the user cancelling the native share sheet -
+                // no feedback needed. Any other error (e.g. share blocked by
+                // a WebView or permissions policy) falls back to copying the
+                // link so the button is never a dead control (#4-18 review).
                 if (err.name !== 'AbortError') {
                     console.error('Error sharing:', err);
+                    copyLinkFallback();
                 }
             }
-        });
-    }
+        } else {
+            copyLinkFallback();
+        }
+    });
 
 });
 </script>

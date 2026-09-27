@@ -377,7 +377,7 @@ class CookieBannerRenderTests(SimpleTestCase):
         self.assertIn("currentFlag('analytics') !== true ||", dispatch)
         self.assertIn("serverState().analytics === true &&", dispatch)
         self.assertIn("hasNewerServerVersion('analytics')", dispatch)
-        self.assertEqual(dispatch.count("clearAppInsightsCookies();"), 1)
+        self.assertEqual(dispatch.count("clearAnalyticsCookies();"), 1)
         for save in ("acceptAllCookies", "declineAllCookies", "saveCustomCookies"):
             body = _js_function_body(script, save)
             self.assertLess(
@@ -583,7 +583,7 @@ class AppInsightsConsentTests(SimpleTestCase):
             "window.appInsights.config.disableCookiesUsage = consent.analytics !== true;",
             html,
         )
-        self.assertIn("clearAppInsightsCookies();", html)
+        self.assertIn("clearAnalyticsCookies();", html)
         self.assertIn("['ai_user', 'ai_session']", html)
         self.assertIn("keepalive: true", html)
 
