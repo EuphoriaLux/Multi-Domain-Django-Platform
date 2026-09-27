@@ -42526,24 +42526,6 @@ msgstr "Beide sagen Ja"
 msgid "Your coach introduces you"
 msgstr "Dein Coach stellt euch vor"
 
-#: templates/crush_lu/spark_list.html:11
-msgid "Sparks have become Crush Connect — here's what happened to yours."
-msgstr ""
-"Sparks sind jetzt Crush Connect – hier siehst du, was aus deinen geworden "
-"ist."
-
-#: templates/crush_lu/spark_list.html:14
-msgid "Go to Crush Connect"
-msgstr "Zu Crush Connect"
-
-#: templates/crush_lu/spark_list.html:48
-msgid ""
-"You have no sparks in progress. New connections now happen through Crush "
-"Connect."
-msgstr ""
-"Du hast keine laufenden Sparks. Neue Verbindungen entstehen jetzt über Crush"
-" Connect."
-
 #: views_connections.py:1019
 msgid "No problem — nothing was shared, and this connection is now closed."
 msgstr "Kein Problem – es wurde nichts geteilt, und diese Verbindung ist jetzt geschlossen."

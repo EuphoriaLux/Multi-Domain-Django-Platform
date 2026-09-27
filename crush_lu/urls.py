@@ -124,9 +124,25 @@ def _spark_to_crush_connect(request, *args, **kwargs):
     NoReverseMatch and would return 500 instead of redirecting.
 
     This tiny view ignores any captured kwargs and reverses cleanly.
-    Codex flagged the RedirectView form as P1 on PR #433.
+    Codex flagged the RedirectView form as P1 on PR #433. The teaser is
+    public (unlike the hub, which is login-gated) — deliberate, since these
+    routes (spark_request/spark_send_inline/spark_actions) can be hit by a
+    logged-out or unverified member off an old bookmark/notification.
     """
     return redirect("crush_lu:crush_connect_teaser")
+
+
+def _spark_to_crush_connect_hub(request, *args, **kwargs):
+    """UX Wave 3, finding 5-13 (product answer): a permanent, unconditional
+    redirect for the three explicitly named member Sparks pages — /sparks/
+    (spark_list), /sparks/received/ (spark_received) and spark_detail — to
+    the Crush Connect hub. Unlike ``_spark_to_crush_connect`` above, these
+    three are member-only pages a signed-in member reaches from their own
+    dashboard/nav, so the hub's login gate is the right target (matching
+    "Go to Crush Connect" elsewhere in this retirement). Ignores any
+    captured spark_id kwarg for the same NoReverseMatch reason.
+    """
+    return redirect("crush_lu:crush_connect_hub", permanent=True)
 
 
 urlpatterns = [
@@ -533,35 +549,39 @@ urlpatterns = [
     # - api/events/<int:event_id>/voting/results/
 
     # ============================================================================
-    # CRUSH SPARK SYSTEM (soft-removed; user-facing routes redirect to the
-    # Crush Connect teaser. Coach-side spark URLs remain so coaches can clean
-    # up any in-flight sparks until the data model is fully retired.)
+    # CRUSH SPARK SYSTEM (soft-removed; every member-facing route redirects.
+    # Coach-side spark URLs remain so coaches can clean up any in-flight
+    # sparks until the data model is fully retired.)
     # ============================================================================
 
-    # Creation paths -> Crush Connect teaser. NOTE: use the
-    # _spark_to_crush_connect view (not RedirectView.as_view with
-    # pattern_name) because the parameterised routes capture kwargs that
-    # would be forwarded to reverse() on the teaser URL and raise
+    # Creation paths -> Crush Connect teaser (public — these can be hit by a
+    # logged-out or unverified member off an old bookmark/notification).
+    # NOTE: use the _spark_to_crush_connect view (not RedirectView.as_view
+    # with pattern_name) because the parameterised routes capture kwargs
+    # that would be forwarded to reverse() on the teaser URL and raise
     # NoReverseMatch. See the function docstring above for context.
     path('events/<int:event_id>/spark/request/', _spark_to_crush_connect, name='spark_request'),
     path('events/<int:event_id>/spark/send/<int:user_id>/', _spark_to_crush_connect, name='spark_send_inline'),
     path('events/<int:event_id>/spark/actions/<int:user_id>/', _spark_to_crush_connect, name='spark_actions'),
-    path('sparks/received/', _spark_to_crush_connect, name='spark_received'),
 
-    # Sender dashboard + completion paths for in-flight sparks. Coaches can
-    # still approve pending sparks via coach_spark_assign (URL kept wired
-    # further down); the sender then needs:
-    #   - spark_list      to discover their approved/pending items
-    #                     (spark_detail links are only reachable from
-    #                     spark_list.html in this tree),
-    #   - spark_detail    to view the approval,
-    #   - spark_create_journey  to author the Wonderland journey the
-    #                           recipient will play.
-    # Redirecting any of these would orphan any spark a coach approves
-    # after this PR merges. None of these endpoints can create a NEW
-    # spark, so they're safe to leave reachable. Codex P1 #2/#3 on #433.
-    path('sparks/', views_crush_spark.spark_list, name='spark_list'),
-    path('sparks/<int:spark_id>/', views_crush_spark.spark_detail, name='spark_detail'),
+    # UX Wave 3, finding 5-13 (product answer): /sparks/, /sparks/received/
+    # and spark_detail — the three member Sparks pages a signed-in member
+    # would actually navigate to — 301-redirect to the Crush Connect hub,
+    # unconditionally, regardless of any spark still in flight. Coaches keep
+    # coach_spark_list/coach_spark_assign below for in-flight cleanup, which
+    # is the orphaning mitigation from Codex P1 #2/#3 on #433: the *member*
+    # no longer has a page to track their spark on, but nothing they see is
+    # blocked from resolving — the coach-side tooling remains. Kept as named
+    # routes (not deleted) so {% url %}/reverse() call sites don't 404/500
+    # (AGENTS.md).
+    path('sparks/', _spark_to_crush_connect_hub, name='spark_list'),
+    path('sparks/received/', _spark_to_crush_connect_hub, name='spark_received'),
+    path('sparks/<int:spark_id>/', _spark_to_crush_connect_hub, name='spark_detail'),
+    # spark_create_journey is not one of the three pages named in the
+    # product answer and is only reachable now by a direct URL (spark_detail
+    # no longer links to it) — left wired so a coach-approved spark already
+    # mid-journey-authorship isn't hard-blocked, and because deleting it
+    # would need its own product answer this WP wasn't given.
     path('sparks/<int:spark_id>/create-journey/', views_crush_spark.spark_create_journey, name='spark_create_journey'),
 
     # Coach spark management — left in place for in-flight cleanup.

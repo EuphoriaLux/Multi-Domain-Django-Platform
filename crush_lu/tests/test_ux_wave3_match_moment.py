@@ -216,9 +216,12 @@ class AcceptCelebratoryCardTests(TestCase):
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class SparkListRetirementTests(TestCase):
-    """Finding 5-13: /sparks/ funnels members with no in-flight spark to
-    Crush Connect instead of showing a page that asks for an action
-    (sending a new spark) that no longer exists."""
+    """Finding 5-13 (product answer): /sparks/, /sparks/received/ and
+    spark_detail permanently redirect to the Crush Connect hub, for every
+    member unconditionally — including one with an in-flight spark, per
+    the brief's explicit "REMOVE the member Sparks pages" instruction
+    (the orphaning mitigation is that coach-side spark tooling stays; see
+    coach_spark_list / coach_spark_assign, untouched by this WP)."""
 
     def setUp(self):
         cache.clear()
@@ -249,22 +252,38 @@ class SparkListRetirementTests(TestCase):
         self.client = Client()
         self.client.login(username="spark-user@example.com", password="testpass123")
 
-    def test_no_in_flight_sparks_redirects_to_connect_hub(self):
+    def test_sparks_list_redirects_permanently_to_connect_hub(self):
         response = self.client.get("/en/sparks/", HTTP_HOST="crush.lu")
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/crush-connect/", response.url)
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
 
-    def test_in_flight_spark_keeps_page_with_retirement_copy(self):
+    def test_sparks_received_redirects_permanently_to_connect_hub(self):
+        response = self.client.get("/en/sparks/received/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
+
+    def test_spark_detail_redirects_permanently_to_connect_hub(self):
+        spark = CrushSpark.objects.create(
+            event=self.event,
+            sender=self.user,
+            sender_description="the person in the red dress",
+        )
+        response = self.client.get(f"/en/sparks/{spark.id}/", HTTP_HOST="crush.lu")
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("/crush-connect/home/", response.url)
+
+    def test_in_flight_spark_still_redirects_no_exception(self):
+        """The brief's product answer is unconditional: even a member with
+        an in-flight spark (the case #433's guard was protecting) now gets
+        redirected — nothing left for them to track on this route, by
+        design; they'd resume mid-journey via coach_spark_assign instead."""
         CrushSpark.objects.create(
             event=self.event,
             sender=self.user,
             sender_description="the person in the red dress",
         )
         response = self.client.get("/en/sparks/", HTTP_HOST="crush.lu")
-        self.assertEqual(response.status_code, 200)
-        # The old copy invited an action ("send your first Crush Spark!")
-        # that no longer exists anywhere in the product.
-        self.assertNotContains(response, "send your first Crush Spark")
+        self.assertEqual(response.status_code, 301)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
