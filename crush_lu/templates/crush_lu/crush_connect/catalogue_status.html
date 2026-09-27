@@ -1,14 +1,14 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "You're in the mix — Crush Connect" %}{% endblock %}
+{% block title %}{% if is_visible %}{% trans "You're in the mix — Crush Connect" %}{% else %}{% trans "Crush Connect" %}{% endif %}{% endblock %}
 
 {% block connect_content %}
 <div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
 
     <header class="mb-5">
-        {% if not membership.photo_share_consent %}
-        {# Opted in but photo sharing is off → not actually discoverable (mirrors is_catalogue_eligible). #}
+        {% if not is_visible %}
+        {# Same source as the hub (is_catalogue_eligible + _connect_readiness): never claim visibility the hub denies. #}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-4">
             {% include "shared/icons/exclamation-triangle.html" with class="w-3.5 h-3.5" %}
             {% trans "Action needed" %}
@@ -16,13 +16,19 @@
         <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% trans "You're almost in the mix." %}
         </h1>
-        <p class="text-gray-600 dark:text-gray-300 mb-4">
-            {% trans "Your photo sharing is off, so you're not shown to anyone yet. Turn it back on to appear in eligible discovery and private coach curation." %}
+        <p class="text-gray-600 dark:text-gray-300 mb-4" data-connect-blocking-step="{{ blocking_step.key }}">
+            {% trans "You're not shown to anyone yet." %}
+            {% if blocking_step %}{{ blocking_step.description }}{% else %}{% trans "Your Connect home shows what is still missing." %}{% endif %}
         </p>
-        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}?section=questions" class="btn-crush-primary inline-flex items-center gap-2">
-            {% trans "Turn on photo sharing" %}
-            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            {% if blocking_step %}
+            <a href="{{ blocking_step.cta_url }}" class="btn-crush-primary inline-flex items-center gap-2">
+                {{ blocking_step.cta_label }}
+                {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+            </a>
+            {% endif %}
+            <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-link text-sm">{% trans "See all steps" %}</a>
+        </div>
         {% else %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white mb-4">
             {% include "shared/icons/sparkles.html" with class="w-3.5 h-3.5" %}
@@ -45,7 +51,8 @@
     {% if not connect_summary.cycle_access %}<div class="flex flex-col gap-2 mb-4"><a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_inbox' %}">{% trans "View requests" %}</a><a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_list' %}">{% trans "Find an event" %}</a></div>{% endif %}
     {# Verified status chips. #}
     <div class="flex flex-wrap gap-2 mb-5">
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
+        {% if profile.is_connect_identity_verified %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300" data-identity-chip>
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
             {% if profile.has_luxid_connected %}
                 {% trans "LuxID verified" %}
@@ -53,6 +60,7 @@
                 {% trans "Identity verified — you can join Crush Connect" %}
             {% endif %}
         </span>
+        {% endif %}
         {% if membership.has_gate_questions %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
@@ -93,6 +101,35 @@
         </a>
     </div>
 
+    {% if has_premium %}
+    {# Premium members already have a coach: show who, never the upsell or the waitlist. #}
+    {% if premium_coach %}
+    <a href="{% url 'crush_lu:crush_connect_coach_pick' %}" data-connect-your-coach
+       class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-5 no-underline hover:shadow-crush-md transition-shadow">
+        <span class="w-12 h-12 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
+            {% if premium_coach.photo %}<img src="{{ premium_coach.photo.url }}" alt="" class="w-full h-full object-cover">{% else %}{% include "shared/icons/sparkles.html" with class="w-5 h-5" %}{% endif %}
+        </span>
+        <span class="flex-1 min-w-0">
+            <span class="block text-xs font-bold uppercase tracking-wide text-crush-purple dark:text-crush-pink">{% trans "Your coach" context "connect catalogue" %}</span>
+            <span class="block font-semibold text-gray-900 dark:text-white truncate">{{ premium_coach.user.get_full_name|default:premium_coach.user.first_name }}</span>
+            <span class="block text-sm text-gray-600 dark:text-gray-300">{% trans "Premium member · See your Coach's Pick" %}</span>
+        </span>
+        {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500 shrink-0" %}
+    </a>
+    {% else %}
+    {# Premium, but the assigned coach is inactive or missing: acknowledge Premium, claim no coach. #}
+    <div data-connect-premium-no-coach
+         class="flex items-center gap-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-5">
+        <span class="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
+            {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
+        </span>
+        <span class="flex-1 min-w-0">
+            <span class="block text-xs font-bold uppercase tracking-wide text-crush-purple dark:text-crush-pink">{% trans "Premium member" %}</span>
+            <span class="block text-sm text-gray-600 dark:text-gray-300">{% trans "No coach is assigned to you right now." context "connect catalogue" %}</span>
+        </span>
+    </div>
+    {% endif %}
+    {% else %}
     {% comment %}
        Premium upsell. Before the public launch, Premium is invite-only: the
        beta gate reads CrushConnectWaitlist.selected_as_tester, so the CTA
@@ -111,7 +148,7 @@
             <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 max-w-sm mx-auto mb-5">
                 {% trans "Right now, coaches can match others with you. With Premium, a personal coach studies your profile and picks one thoughtful match for you every week." %}
             </p>
-            <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            <a href="{% url 'crush_lu:premium_choose_coach' %}" class="{% if blocking_step %}btn-crush-solid{% else %}btn-crush-primary{% endif %} inline-flex items-center gap-2">
                 {% trans "Discover Premium" %}
                 {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
             </a>
@@ -128,9 +165,11 @@
         </div>
         {% endif %}
     </div>
+    {% endif %}
 
     <p class="mt-5 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-        {% trans "Your full name and exact age are never shown. Leave Crush Connect anytime from settings." %}
+        {% trans "Your full name and exact age are never shown." %}
+        <a href="{% url 'crush_lu:crush_connect_pause' %}" class="font-semibold text-crush-purple dark:text-crush-pink hover:underline">{% trans "Pause Crush Connect anytime." %}</a>
     </p>
 
 </div>
