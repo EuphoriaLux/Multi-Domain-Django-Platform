@@ -19,7 +19,7 @@ from .oauth_statekit import get_client_ip
 logger = logging.getLogger(__name__)
 
 
-def can_view_profile_photo(viewer, profile_owner):
+def can_view_profile_photo(viewer, profile_owner, photo_field="photo_1"):
     """
     Determine if viewer can see profile_owner's photos.
 
@@ -38,9 +38,14 @@ def can_view_profile_photo(viewer, profile_owner):
         - a Crush Connect pairing (cycle card, pending weekly request, chat,
           coach pick) and the owner's ``photo_share_consent``
 
+    Member-to-member relationships cover ``photo_1`` only: every member
+    surface above renders just the primary photo, so photos 2 and 3 stay
+    with the owner, coaches and superusers.
+
     Args:
         viewer: User object of the person viewing
         profile_owner: CrushProfile object being viewed
+        photo_field: which photo is requested (photo_1, photo_2, photo_3)
 
     Returns:
         bool: whether the viewer is allowed to see the photo
@@ -57,6 +62,9 @@ def can_view_profile_photo(viewer, profile_owner):
 
     if viewer.is_superuser:
         return True
+
+    if photo_field != "photo_1":
+        return False
 
     # Profile must be approved for others to see
     if not profile_owner.is_approved:
@@ -313,7 +321,7 @@ def serve_profile_photo(request, user_id, photo_field):
     profile = get_object_or_404(CrushProfile, user_id=user_id)
 
     # Check permissions
-    if not can_view_profile_photo(request.user, profile):
+    if not can_view_profile_photo(request.user, profile, photo_field):
         logger.warning(
             f"User {request.user.id} denied access to {profile.user.id}'s {photo_field}"
         )

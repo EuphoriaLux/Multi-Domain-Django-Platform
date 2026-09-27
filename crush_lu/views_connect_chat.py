@@ -72,11 +72,16 @@ def _participants_available(chat):
 
 
 def _may_view_partner_photo(user, partner):
-    """Ask the photo endpoint's own gate, so a partner who withdrew photo
-    consent (or a blocked chat) shows the fallback instead of a 403 image
-    while the conversation itself stays reachable."""
+    """Whether this chat may render the partner's photo: only with their
+    Connect photo consent (another relationship, e.g. an event connection,
+    must not bring it back onto a Connect surface), and only when the photo
+    endpoint's own gate agrees — otherwise the fallback shows instead of a
+    403 image, while the conversation itself stays reachable."""
     from crush_lu.views_media import can_view_profile_photo
 
+    membership = getattr(partner, "crush_connect_membership", None)
+    if membership is None or not membership.photo_share_consent:
+        return False
     profile = getattr(partner, "crushprofile", None)
     return profile is not None and can_view_profile_photo(user, profile)
 

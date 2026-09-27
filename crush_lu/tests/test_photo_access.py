@@ -22,6 +22,7 @@ from crush_lu.models import (
     CrushProfile,
     EventConnection,
     EventRegistration,
+    EventVotingSession,
     MeetupEvent,
     PremiumMembership,
     UserBlock,
@@ -487,6 +488,64 @@ class TestProfilePhotoRefused:
         assert _photo(client, staff, alice).status_code == 403
 
 
+class TestPhotoFields:
+    """Member surfaces render only ``photo_1``; 2 and 3 stay with the owner,
+    coaches and superusers."""
+
+    def _with_second_photo(self, user):
+        profile = user.crushprofile
+        profile.photo_2.save("p2.jpg", ContentFile(b"jpegbytes"), save=True)
+        return user
+
+    def test_related_peer_cannot_switch_to_photo_2(self, client):
+        alice = self._with_second_photo(_member("alice"))
+        ben = _member("ben")
+        event = _event()
+        _attend(alice, event)
+        _attend(ben, event)
+        client.force_login(ben)
+        assert client.get(f"/en/media/profile/{alice.pk}/photo_1/").status_code == 200
+        assert client.get(f"/en/media/profile/{alice.pk}/photo_2/").status_code == 403
+
+    def test_owner_and_coach_see_photo_2(self, client):
+        alice = self._with_second_photo(_member("alice"))
+        coach = _member("coach")
+        CrushCoach.objects.create(user=coach, is_active=True)
+        for viewer in (alice, coach):
+            client.force_login(viewer)
+            response = client.get(f"/en/media/profile/{alice.pk}/photo_2/")
+            assert response.status_code == 200
+
+
+class TestVotingResultsCoachView:
+    def _event_with_session(self):
+        event = _event()
+        EventVotingSession.objects.create(
+            event=event,
+            voting_start_time=timezone.now() - timedelta(hours=2),
+            voting_end_time=timezone.now() - timedelta(hours=1),
+        )
+        return event
+
+    def test_deactivated_assigned_coach_gets_no_coach_view(self, client):
+        event = self._event_with_session()
+        user = _member("excoach")
+        coach = CrushCoach.objects.create(user=user, is_active=False)
+        event.coaches.add(coach)
+        client.force_login(user)
+        response = client.get(f"/en/events/{event.pk}/voting/results/")
+        assert response.status_code == 404
+
+    def test_active_assigned_coach_gets_coach_view(self, client):
+        event = self._event_with_session()
+        user = _member("coach")
+        coach = CrushCoach.objects.create(user=user, is_active=True)
+        event.coaches.add(coach)
+        client.force_login(user)
+        response = client.get(f"/en/events/{event.pk}/voting/results/")
+        assert response.status_code == 200
+
+
 class TestChatPagesMatchPhotoGate:
     """The chat pages must not render a URL the photo endpoint refuses."""
 
@@ -521,6 +580,18 @@ class TestChatPagesMatchPhotoGate:
         for response in self._pages(client, ben, chat):
             assert response.status_code == 200
             assert f"/media/profile/{alice.pk}/photo_1/" in response.content.decode()
+
+    def test_withdrawn_consent_hides_photo_despite_event_connection(self, client):
+        alice, ben, chat = self._chat(alice_consent=False)
+        EventConnection.objects.create(
+            requester=ben,
+            recipient=alice,
+            event=_event(ended_hours_ago=24 * 30),
+            status="accepted",
+        )
+        for response in self._pages(client, ben, chat):
+            assert response.status_code == 200
+            assert f"/media/profile/{alice.pk}/" not in response.content.decode()
 
     def test_withdrawn_consent_falls_back_but_chat_stays(self, client):
         alice, ben, chat = self._chat(alice_consent=False)
