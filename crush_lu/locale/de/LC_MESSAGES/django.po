@@ -1918,39 +1918,15 @@ msgstr ""
 msgid "Get started"
 msgstr "Loslegen"
 
-#: context_processors.py:56
-msgid "Complete your profile"
-msgstr "Vervollständige dein Profil"
-
 #: context_processors.py:57
 #: templates/crush_lu/partials/_verification_journey.html:139
 #: templates/crush_lu/profile_submitted.html:179
 msgid "Verify your identity"
 msgstr "Identität verifizieren"
 
-#: context_processors.py:58
-msgid "Profile verified"
-msgstr "Profil verifiziert"
-
 #: context_processors.py:59 templates/crush_lu/base.html:630
 msgid "Profile rejected"
 msgstr "Profil abgelehnt"
-
-#: context_processors.py:62
-msgid "Tell us about you"
-msgstr "Erzähl uns von dir"
-
-#: context_processors.py:63 context_processors.py:64
-msgid "Add photos"
-msgstr "Fotos hinzufügen"
-
-#: context_processors.py:65
-msgid "Review & submit"
-msgstr "Überprüfen und absenden"
-
-#: context_processors.py:66
-msgid "Under review"
-msgstr "In Prüfung"
 
 #: decorators.py:116 decorators.py:121
 msgid "Too many attempts. Please try again later."
@@ -42586,6 +42562,10 @@ msgstr "Wir konnten die Benachrichtigungsunterstützung auf diesem Gerät nicht 
 msgid "Notifications are managed in the app"
 msgstr "Benachrichtigungen werden in der App verwaltet"
 
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
+msgstr "Dieses Erlebnis ist immer im Nachtmodus"
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
@@ -42659,6 +42639,22 @@ msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
 
 
+# UX Wave 3 · WP2 auth-page
+#: templates/crush_lu/includes/phone_otp_modal.html:71
+msgid "Verification code"
+msgstr "Verifizierungscode"
+
+#: templates/crush_lu/includes/phone_otp_modal.html:73
+#: templates/crush_lu/includes/phone_otp_modal.html:76
+#: templates/crush_lu/includes/phone_otp_modal.html:79
+#: templates/crush_lu/includes/phone_otp_modal.html:82
+#: templates/crush_lu/includes/phone_otp_modal.html:85
+#: templates/crush_lu/includes/phone_otp_modal.html:88
+#, python-format
+msgid "Digit %(n)s of 6"
+msgstr "Ziffer %(n)s von 6"
+
+# UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8 pay-confirm
 # UX Wave 3 · WP8 pay-confirm
