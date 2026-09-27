@@ -197,10 +197,23 @@ def retail_price_dashboard(request):
     if os_filter:
         base = base.filter(operating_system=os_filter)
 
+    # The newest day of the requested currency: a USD sync landing today
+    # must not empty the EUR vocabulary (SKUs, products, OS) while EUR is
+    # still on yesterday.
     latest_day = (
-        RetailPriceSnapshot.objects.filter(provider=provider)
+        RetailPriceSnapshot.objects.filter(provider=provider, currency=currency)
         .order_by()
         .aggregate(value=Max("snapshot_date"))["value"]
+    )
+    # Currencies come from the sync runs, not one snapshot day: a day the sync
+    # has only started may not carry every currency yet.
+    synced_currencies = set(
+        RetailPriceSyncRun.objects.filter(
+            provider=provider, status=RetailPriceSyncRun.Status.COMPLETED
+        )
+        .order_by()
+        .values_list("currency", flat=True)
+        .distinct()
     )
     empty_options = {"vm_skus": [], "os": [], "currencies": [], "regions": set()}
     options = _latest_day_options(provider, latest_day) if latest_day else empty_options
@@ -244,16 +257,6 @@ def retail_price_dashboard(request):
         )
         if product_filter
         else []
-    )
-    # Currencies come from the sync runs, not the newest day: a day the sync
-    # has only started may not carry every currency yet.
-    synced_currencies = set(
-        RetailPriceSyncRun.objects.filter(
-            provider=provider, status=RetailPriceSyncRun.Status.COMPLETED
-        )
-        .order_by()
-        .values_list("currency", flat=True)
-        .distinct()
     )
     index_filters_valid = (
         currency in synced_currencies
@@ -486,7 +489,7 @@ def retail_price_dashboard(request):
             .order_by("product_name")[:200]
         )
     os_options = options["os"]
-    currency_options = options["currencies"] or ["EUR"]
+    currency_options = sorted(synced_currencies | set(options["currencies"])) or ["EUR"]
     latest_sync = RetailPriceSyncRun.objects.filter(
         provider=provider,
         currency=currency,

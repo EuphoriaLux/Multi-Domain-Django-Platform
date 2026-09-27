@@ -516,6 +516,27 @@ def test_without_west_europe_the_reference_is_a_selected_region(client, regular_
 
 
 @pytest.mark.django_db
+def test_product_filter_uses_the_requested_currencys_latest_day(client, regular_user):
+    """Today's USD-only snapshot must not empty yesterday's EUR vocabulary."""
+    from power_up.finops.models import RetailPriceSnapshot
+
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+    _sync_region(yesterday, "westeurope", "10.00000000")
+    _sync_region(yesterday, "northeurope", "10.40000000")
+    _sync_region(today, "westeurope", "11.00000000")
+    RetailPriceSnapshot.objects.filter(snapshot_date=today).update(currency="USD")
+    client.force_login(regular_user)
+
+    response = client.get("/finops/prices/", {"currency": "EUR", "product": "dsv5"})
+
+    index = {item["region_code"]: item for item in response.context["region_index"]}
+    assert index["northeurope"]["index"] == 104.0
+    assert "Standard_D2s_v5" in response.context["sku_options"]
+    assert "EUR" in response.context["currency_options"]
+
+
+@pytest.mark.django_db
 def test_sku_missing_from_the_newest_day_still_matches_exactly(client, regular_user):
     """A retired SKU typed with its stored casing keeps its history."""
     _sync_two_days("0.10000000", "0.12000000")
@@ -541,8 +562,10 @@ def test_option_cache_key_ignores_request_controlled_filters(
     client.force_login(regular_user)
     cache_set = mocker.spy(cache, "set")
 
+    client.get("/finops/prices/")
     for index in range(3):
         client.get("/finops/prices/", {"currency": f"X{index}", "os": f"bogus-{index}"})
+        client.get("/finops/prices/", {"os": f"bogus-{index}"})
 
     option_keys = {
         call.args[0]
