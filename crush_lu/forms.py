@@ -1324,7 +1324,10 @@ class JourneyGiftForm(forms.ModelForm):
             'class': 'gift-input'
         }),
         label=_('Recipient Email (Optional)'),
-        help_text=_('We can send them a notification when you create the gift.')
+        help_text=_(
+            "We'll email them the gift. Only enter an address if they know "
+            "you're sending this."
+        )
     )
 
     # Media Upload Fields

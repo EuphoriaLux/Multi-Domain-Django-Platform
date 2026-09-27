@@ -1,8 +1,10 @@
 {% load i18n %}
-{# UX Wave 3 · WP5 (finding 3-13) — one selectable slot card.
-   Included twice by book_screening.html (first 10 slots, then the
-   disclosure-revealed rest) inside the same `bookingSlotPicker`
-   x-data scope, so both grids share one selection/hidden-field state. #}
+{% comment %}
+UX Wave 3 · WP5 (finding 3-13) — one selectable slot card.
+Included twice by book_screening.html (first 10 slots, then the
+disclosure-revealed rest) inside the same `bookingSlotPicker`
+x-data scope, so both grids share one selection/hidden-field state.
+{% endcomment %}
 <div class="relative">
     <input type="radio" name="slot_choice"
            id="slot-{{ block.coach.id }}-{{ forloop_counter0 }}"
