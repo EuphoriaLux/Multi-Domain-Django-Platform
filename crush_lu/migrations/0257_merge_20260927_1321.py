@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0255_userreport_connect_chat_source"),
+        ("crush_lu", "0256_merge_20260927_1319"),
         ("crush_lu", "0256_crushconnectmembership_paused_by_break"),
     ]
 
