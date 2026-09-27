@@ -1354,24 +1354,8 @@ msgstr ""
 msgid "Get started"
 msgstr ""
 
-#: .\crush_lu\context_processors.py:31
-msgid "Tell us about you"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:32
-msgid "Add photos"
-msgstr ""
-
 #: .\crush_lu\context_processors.py:33
 msgid "Choose your coach"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:34
-msgid "Review & submit"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:35
-msgid "Under review"
 msgstr ""
 
 #: .\crush_lu\email_helpers.py:199
@@ -28442,4 +28426,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html
 msgid "As seen in"
+msgstr ""
+
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
 msgstr ""

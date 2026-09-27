@@ -1927,39 +1927,15 @@ msgstr ""
 msgid "Get started"
 msgstr "Commencer"
 
-#: context_processors.py:56
-msgid "Complete your profile"
-msgstr "Complétez votre profil"
-
 #: context_processors.py:57
 #: templates/crush_lu/partials/_verification_journey.html:139
 #: templates/crush_lu/profile_submitted.html:179
 msgid "Verify your identity"
 msgstr "Vérifiez votre identité"
 
-#: context_processors.py:58
-msgid "Profile verified"
-msgstr "Profil vérifié"
-
 #: context_processors.py:59 templates/crush_lu/base.html:630
 msgid "Profile rejected"
 msgstr "Profil rejeté"
-
-#: context_processors.py:62
-msgid "Tell us about you"
-msgstr "Parlez-nous de vous"
-
-#: context_processors.py:63 context_processors.py:64
-msgid "Add photos"
-msgstr "Ajouter des photos"
-
-#: context_processors.py:65
-msgid "Review & submit"
-msgstr "Vérifier et soumettre"
-
-#: context_processors.py:66
-msgid "Under review"
-msgstr "En cours de relecture"
 
 #: decorators.py:116 decorators.py:121
 msgid "Too many attempts. Please try again later."
@@ -42718,3 +42694,8 @@ msgstr "Nous n'avons pas pu vérifier la prise en charge des notifications sur c
 #: templates/crush_lu/partials/_push_native_notice.html:10
 msgid "Notifications are managed in the app"
 msgstr "Les notifications sont gérées dans l'application"
+
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
+msgstr "Cette expérience est toujours en mode nuit"

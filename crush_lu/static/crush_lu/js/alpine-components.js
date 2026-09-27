@@ -12497,8 +12497,12 @@ document.addEventListener("alpine:init", function () {
         return {
             currentTheme: "light",
             systemPreference: "light",
+            // Journey / gift pages are always dark (data-theme-lock on <html>):
+            // the toggle is disabled and says why, in the page language.
+            lockedLabel: "",
 
             init: function () {
+                this.lockedLabel = this.$el.getAttribute("data-locked-label") || "";
                 // Initialize from themeManager
                 if (window.themeManager) {
                     this.currentTheme = window.themeManager.getTheme();
@@ -12532,6 +12536,14 @@ document.addEventListener("alpine:init", function () {
             },
 
             // Getters for CSP compliance (no inline expressions in templates)
+            get isLocked() {
+                return document.documentElement.hasAttribute("data-theme-lock");
+            },
+
+            get lockedTitle() {
+                return this.isLocked ? this.lockedLabel : null;
+            },
+
             get isDark() {
                 return this.currentTheme === "dark";
             },
@@ -12545,6 +12557,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get toggleButtonClass() {
+                if (this.isLocked) {
+                    return "bg-gray-700 text-yellow-400 opacity-60 cursor-not-allowed";
+                }
                 return this.isDark
                     ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200";
@@ -12559,6 +12574,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get statusText() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 var saved = localStorage.getItem("theme");
                 if (!saved) {
                     return this.isSystemDark ? "System (Dark)" : "System (Light)";
@@ -12567,6 +12585,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             get ariaLabel() {
+                if (this.isLocked) {
+                    return this.lockedLabel;
+                }
                 return this.isDark ? "Switch to light mode" : "Switch to dark mode";
             },
 
@@ -12588,6 +12609,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             toggleTheme: function () {
+                if (this.isLocked) {
+                    return;
+                }
                 if (window.themeManager) {
                     window.themeManager.toggleTheme();
                     this.currentTheme = window.themeManager.getTheme();
