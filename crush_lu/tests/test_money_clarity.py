@@ -9,6 +9,7 @@ Run with: pytest crush_lu/tests/test_money_clarity.py -n 0
 """
 
 import re
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -20,7 +21,11 @@ from django.utils import timezone
 from crush_lu.models.credits import CrushCredit
 from crush_lu.models.events import EventRegistration
 from crush_lu.models.payments import PaymentTransaction
-from crush_lu.services.credits import CancellationOutcome, cancellation_outcome
+from crush_lu.services.credits import (
+    CancellationOutcome,
+    cancellation_outcome,
+    issue_credit,
+)
 from crush_lu.tests.test_crush_credit import FEE_CENTS, CreditFixture
 
 
@@ -144,10 +149,9 @@ class CancelPageShowsOutcomeTests(CreditFixture):
         self.assertContains(response, "Your seat is released for someone else.")
         self.assertNotContains(response, "back as Crush Credit")
 
-    def test_credit_funded_seat_names_the_original_expiry(self):
-        """Restored tranches keep their clocks; never promise they are all usable."""
-        event = self._event(hours_away=100, max_participants=5)
-        user = self._user("credit-paid@crush.lu")
+    def _credit_paid_seat(self, event, user, *, redeemed=True):
+        """A seat paid with Crush Credit; ``redeemed=False`` is a legacy CREDIT
+        payment whose payload records no redemptions."""
         registration = EventRegistration.objects.create(
             event=event,
             user=user,
@@ -155,6 +159,12 @@ class CancelPageShowsOutcomeTests(CreditFixture):
             payment_confirmed=True,
             payment_date=timezone.now(),
         )
+        raw_response = {"paid_with": "crush_credit"}
+        if redeemed:
+            credit = issue_credit(user, FEE_CENTS, CrushCredit.Reason.GOODWILL)
+            raw_response["redemptions"] = [
+                {"credit_id": credit.pk, "amount_cents": FEE_CENTS}
+            ]
         PaymentTransaction.objects.create(
             transaction_reference=f"CRUSH-EVT-{registration.pk}-credit",
             provider=PaymentTransaction.Provider.CREDIT,
@@ -164,7 +174,15 @@ class CancelPageShowsOutcomeTests(CreditFixture):
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
             user=user,
             event_registration=registration,
+            raw_response=raw_response,
         )
+        return registration
+
+    def test_credit_funded_seat_names_the_original_expiry(self):
+        """Restored tranches keep their clocks; never promise they are all usable."""
+        event = self._event(hours_away=100, max_participants=5)
+        user = self._user("credit-paid@crush.lu")
+        self._credit_paid_seat(event, user)
 
         response = self._get(user, event)
 
@@ -176,23 +194,7 @@ class CancelPageShowsOutcomeTests(CreditFixture):
     def test_credit_funded_seat_copy_is_translated(self):
         event = self._event(hours_away=100, max_participants=5)
         user = self._user("credit-paid-de@crush.lu")
-        registration = EventRegistration.objects.create(
-            event=event,
-            user=user,
-            status="confirmed",
-            payment_confirmed=True,
-            payment_date=timezone.now(),
-        )
-        PaymentTransaction.objects.create(
-            transaction_reference=f"CRUSH-EVT-{registration.pk}-credit-de",
-            provider=PaymentTransaction.Provider.CREDIT,
-            amount=event.registration_fee,
-            currency="EUR",
-            status=PaymentTransaction.Status.PAID,
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            user=user,
-            event_registration=registration,
-        )
+        self._credit_paid_seat(event, user)
 
         self.assertContains(
             self._get(user, event, path_lang="de"), "ursprünglichen Ablaufdaten"
@@ -200,6 +202,20 @@ class CancelPageShowsOutcomeTests(CreditFixture):
         self.assertContains(
             self._get(user, event, path_lang="fr"), "dates d’expiration d’origine"
         )
+
+    def test_legacy_credit_payment_without_redemptions_promises_fresh_credit(self):
+        """Without recorded tranches the issuer mints one fresh credit, so the
+        preview must not talk about original expiry dates."""
+        event = self._event(hours_away=100, max_participants=5)
+        user = self._user("legacy-credit@crush.lu")
+        registration = self._credit_paid_seat(event, user, redeemed=False)
+
+        self.assertFalse(cancellation_outcome(registration).restores_credit)
+        response = self._get(user, event)
+
+        self.assertContains(response, 'data-outcome="credit"')
+        self.assertContains(response, "ready to use on any Crush.lu event")
+        self.assertNotContains(response, "original expiry dates")
 
     def test_organiser_cancelled_event_shows_no_member_preview(self):
         """The organiser remedy is owed, not the member one the preview would show."""
@@ -456,6 +472,18 @@ class SumUpWidgetOrderSummaryTests(CreditFixture):
         """
         self.pending.status = "cancelled"
         self.pending.save()
+
+        response = self._get()
+
+        self.assertContains(response, 'data-testid="order-summary"')
+        self.assertNotContains(response, 'data-testid="cancellation-policy-note"')
+
+    def test_started_event_quotes_no_member_terms(self):
+        """Member cancellation closes at the start, so a checkout opened later
+        must not quote a cancellation policy the member can no longer use."""
+        event = self.pending.event
+        event.date_time = timezone.now() - timedelta(hours=1)
+        event.save()
 
         response = self._get()
 

@@ -15,15 +15,49 @@ only the cookies a group registers here, so a deployed database must hold
 these rows. It is idempotent: groups are looked up by varname and cookies by
 (group, name), and existing rows are never modified.
 
+GA4's property cookie is registered under its real name, _ga_<Measurement
+ID without "G-">, for every GA4_* variable set in the environment
+(GA4_MEASUREMENT_ID_ENV_VARS): the library deletes cookies by exact name, so
+a wildcard row would never match. A literal _ga_* row left by earlier runs
+is kept (rows are never modified or removed here). These rows keep domain
+'', so the server's delete is host-only; gtag writes _ga/_ga_<id> on the
+registrable domain (cookie_domain 'auto'), and the banner's
+clearAnalyticsCookies() expires those at every parent domain on a refusal.
+
 Adding a cookie to a group moves that group's version (the date of its
 newest cookie), so every earlier acceptance of the group counts as undecided
 and the banner asks again. That also happens when a row deleted in the admin
 is created again by the next start.
 """
 
+import os
+import re
+
 from django.core.management.base import BaseCommand
 from cookie_consent.cache import delete_cache
 from cookie_consent.models import CookieGroup, Cookie
+
+from azureproject.analytics_context import GA4_MEASUREMENT_ID_ENV_VARS
+
+
+def ga4_property_cookie_names():
+    """The ``_ga_<id>`` cookie of every configured GA4 property.
+
+    django-cookie-consent deletes cookies by exact name on decline, so a
+    wildcard ``_ga_*`` row never matched the real cookie. GA4 names it after
+    the Measurement ID without its ``G-`` prefix (G-ABC123 -> _ga_ABC123).
+    """
+    names = []
+    for var in GA4_MEASUREMENT_ID_ENV_VARS:
+        measurement_id = (os.getenv(var) or "").strip()
+        if measurement_id[:2].upper() == "G-":
+            measurement_id = measurement_id[2:]
+        if not re.fullmatch(r"[A-Za-z0-9]+", measurement_id):
+            continue
+        name = f"_ga_{measurement_id}"
+        if name not in names:
+            names.append(name)
+    return names
 
 
 class Command(BaseCommand):
@@ -136,11 +170,6 @@ class Command(BaseCommand):
                 "domain": "",
             },
             {
-                "name": "_ga_*",
-                "description": "Google Analytics 4 - maintains session state (expires: 2 years)",
-                "domain": "",
-            },
-            {
                 "name": "_gid",
                 "description": "Google Analytics - distinguishes users (expires: 24 hours)",
                 "domain": "",
@@ -160,6 +189,13 @@ class Command(BaseCommand):
                 "description": "Application Insights - identifies browser sessions",
                 "domain": "",
             },
+        ] + [
+            {
+                "name": name,
+                "description": "Google Analytics 4 - maintains session state (expires: 2 years)",
+                "domain": "",
+            }
+            for name in ga4_property_cookie_names()
         ]
         self._ensure_cookies(analytics, analytics_cookies)
 

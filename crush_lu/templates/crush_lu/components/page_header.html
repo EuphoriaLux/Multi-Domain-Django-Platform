@@ -1,0 +1,10 @@
+{# Page header for drill-down pages: one h1 scale, optional subtitle. #}
+{# Pair it with {% block mobile_page_title %}: members on mobile see the #}
+{# title (and Back) in the top bar, so the h1 is kept for screen readers only. #}
+{# Args: title (required), subtitle, tone="danger" (red title), class (wrapper, default mb-6; #}
+{# dropped on mobile when nothing in the header is visible there). #}
+{# Usage: {% include "crush_lu/components/page_header.html" with title=_("Notifications") %} #}
+<div class="{{ class|default:'mb-6' }}{% if user.is_authenticated and not subtitle %} max-lg:mb-0{% endif %}">
+    <h1 class="text-3xl font-bold {% if tone == 'danger' %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}{% if user.is_authenticated %} max-lg:sr-only{% endif %}">{{ title }}</h1>
+    {% if subtitle %}<p class="mt-1 mb-0 text-muted-fg">{{ subtitle }}</p>{% endif %}
+</div>

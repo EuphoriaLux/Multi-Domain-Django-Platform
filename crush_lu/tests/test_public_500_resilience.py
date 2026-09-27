@@ -80,10 +80,11 @@ class CrushUserContextResilienceTests(TestCase):
         self.assertIn("email_verified", context)
 
     def test_healthy_authenticated_context_is_unchanged(self):
-        """The guard is transparent on the happy path (no profile → step 0)."""
+        """The guard is transparent on the happy path (no profile → step 1)."""
         context = crush_user_context(self._authenticated_request())
         self.assertEqual(context["connection_count"], 0)
-        self.assertEqual(context["profile_completion_step"], 0)
+        # No profile yet: onboarding step 1 of 5, as the journey stepper says.
+        self.assertEqual(context["profile_completion_step"], 1)
         self.assertIn("upcoming_events", context)
         # Template-safe nav flags are always resolved for authenticated users
         # (this user has neither a profile nor a coach record).

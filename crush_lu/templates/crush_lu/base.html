@@ -4,7 +4,8 @@
 {% load seo_tags %}
 {% load crush_connect_tags %}
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}>
+{# theme_lock: an always-dark surface (journey, gifts) fills it with class="dark" data-theme-lock="dark"; theme-manager.js keeps .dark there and the toggles stay focusable but aria-disabled, so their explanation is reachable. #}
+<html lang="{{ LANGUAGE_CODE|default:'en' }}"{% if is_native_app %} data-native-app{% endif %}{% block theme_lock %}{% endblock %}>
 <head>
     {% analytics_head %}
     {% if user.is_authenticated %}{% appinsights_head %}{% endif %}
@@ -123,6 +124,9 @@
     {% endblock %}
 
     <!-- PWA Meta Tags -->
+    {# Status-bar colour per OS scheme (browsers take the first matching meta, so dark comes first); #}
+    {# theme-manager.js sets both on a manual theme pick or a theme-locked page #}
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">
     <meta name="theme-color" content="#9B59B6">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -170,6 +174,12 @@
            desktop half — forcing display:block on mobile would stomp flex/grid layouts */
         @media(min-width:1024px){.lg\:hidden{display:none}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+        /* Same shim gap as lg:hidden above, but this rule must come AFTER .flex:
+           unlayered rules of equal specificity resolve by source order, so
+           declaring it earlier (like lg:hidden) would still lose to .flex.
+           Needed by "flex ... md:hidden" elements (e.g. the event-detail mobile
+           sticky CTA bar, #4-03) so they don't leak onto tablet/desktop. */
+        @media(min-width:768px){.md\:hidden{display:none}}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
         /* Hero section critical styles for LCP optimization */
@@ -633,7 +643,8 @@
 
                             {% else %}
                                 {# PROFILE INCOMPLETE: Progress dropdown + locked features #}
-                                {% include "crush_lu/partials/nav_progress_dropdown.html" %}
+                                {# Onboarding pages carry the journey stepper: one progress counter, not two. #}
+                                {% if not journey_steps %}{% include "crush_lu/partials/nav_progress_dropdown.html" %}{% endif %}
                                 {% if has_special_journey %}
                                 <a class="nav-link special-journey" href="{% url 'crush_lu:journey_map' %}">
                                     {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-400" %}
@@ -801,10 +812,12 @@
                     {% endif %}
 
                     {# Theme Toggle (always visible) #}
-                    <div x-data="themeToggle" class="relative">
+                    <div x-data="themeToggle" class="relative" data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
+                            x-bind:aria-disabled="isLocked"
+                            x-bind:title="lockedTitle"
                             class="p-2 rounded-lg transition-all duration-300 flex items-center gap-2 border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
                             x-bind:aria-label="ariaLabel"
                             type="button">
@@ -1116,18 +1129,21 @@
 
                             {% else %}
                                 {# PROFILE INCOMPLETE: Progress info + locked features #}
+                                {# Not on stepper pages: the journey stepper is the one counter there. #}
+                                {% if not journey_steps %}
                                 <div class="px-4 py-3 bg-white/10 rounded-lg mb-2">
                                     <div class="flex justify-between text-sm mb-2">
                                         <span class="text-white/80">{% trans "Profile Progress" %}</span>
-                                        <span class="text-white font-medium">{{ profile_completion_step }}/4</span>
+                                        <span class="text-white font-medium">{{ profile_completion_step }}/{{ profile_completion_total }}</span>
                                     </div>
                                     <div class="w-full bg-white/20 rounded-full h-2">
                                         <div class="bg-gradient-to-r from-crush-purple to-crush-pink h-2 rounded-full"
-                                             style="width: {% widthratio profile_completion_step 4 100 %}%"></div>
+                                             style="width: {{ profile_completion_pct }}%"></div>
                                     </div>
                                     <p class="text-white/60 text-xs mt-2">{% trans "Next:" %} {{ profile_step_label }}</p>
                                 </div>
-                                <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:create_profile' %}">
+                                {% endif %}
+                                <a class="nav-link block bg-crush-pink/20 rounded-lg" href="{% url 'crush_lu:onboarding_entry' %}">
                                     {% include "shared/icons/arrow-right.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Continue Setup" %}
                                 </a>
@@ -1179,10 +1195,12 @@
 
                     {# Mobile Theme Toggle (always visible) #}
                     <div class="border-t border-white/20 my-2"></div>
-                    <div x-data="themeToggle" class="px-4 py-2">
+                    <div x-data="themeToggle" class="px-4 py-2" data-locked-label="{% trans "This experience is always in night mode" %}">
                         <button
                             @click="toggleTheme"
                             x-bind:class="toggleButtonClass"
+                            x-bind:aria-disabled="isLocked"
+                            x-bind:title="lockedTitle"
                             class="w-full p-3 rounded-lg transition-all duration-300 flex items-center gap-3 border-0 focus:outline-none focus:ring-2 focus:ring-white/50"
                             x-bind:aria-label="ariaLabel"
                             type="button">
