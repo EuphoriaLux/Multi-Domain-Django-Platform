@@ -28286,6 +28286,10 @@ msgstr ""
 msgid "This gift is no longer active."
 msgstr ""
 
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr ""
+
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
 #, python-format
 msgid "Created by %(name)s"

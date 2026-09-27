@@ -574,10 +574,25 @@ class JourneyGift(models.Model):
 
         Should only be called outside of atomic blocks to ensure the status
         update is not rolled back.
+
+        Conditional on the row still being claimable: the claim's row lock is
+        released when its atomic block fails, so a report may have expired
+        the gift in between. An unconditional save would reopen it.
         """
-        self.status = self.Status.CLAIM_FAILED
-        self.claim_error_message = error_message[:1000]  # Limit length
-        self.save(update_fields=['status', 'claim_error_message'])
+        error_message = error_message[:1000]  # Limit length
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                status__in=[self.Status.PENDING, self.Status.CLAIM_FAILED],
+            )
+            .update(status=self.Status.CLAIM_FAILED, claim_error_message=error_message)
+        )
+        if updated:
+            self.status = self.Status.CLAIM_FAILED
+            self.claim_error_message = error_message
+        else:
+            self.refresh_from_db(fields=["status", "claim_error_message"])
 
     def _attach_media_to_rewards(self, journey, max_retries=3):
         """

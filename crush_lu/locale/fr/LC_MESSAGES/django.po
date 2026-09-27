@@ -42583,6 +42583,10 @@ msgstr "Merci de nous avoir prévenus. Ce cadeau est désormais clôturé et not
 msgid "This gift is no longer active."
 msgstr "Ce cadeau n’est plus actif."
 
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr "Nous n’avons pas pu envoyer votre signalement pour le moment. Le cadeau est toujours ouvert. Veuillez réessayer dans un instant."
+
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
 #, python-format
 msgid "Created by %(name)s"

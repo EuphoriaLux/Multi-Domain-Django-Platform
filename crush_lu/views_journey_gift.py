@@ -8,6 +8,7 @@ import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -15,6 +16,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from .decorators import crush_login_required, ratelimit
 from .models import CrushProfile, JourneyGift
+from .models.journey_gift import GiftNoLongerClaimable
 from .forms import JourneyGiftForm
 from .utils.qr_generator import save_gift_qr_code
 from .email_helpers import send_journey_gift_notification
@@ -23,10 +25,18 @@ logger = logging.getLogger(__name__)
 
 
 def _sender_is_verified(user):
-    """True when the sender holds a coach-approved, still-active profile."""
-    return CrushProfile.objects.filter(
-        user=user, is_approved=True, is_active=True
-    ).exists()
+    """True when the sender is an active, unbanned account holding a
+    coach-approved, still-active profile."""
+    return (
+        CrushProfile.objects.filter(
+            user=user,
+            user__is_active=True,
+            is_approved=True,
+            is_active=True,
+        )
+        .exclude(user__data_consent__crushlu_banned=True)
+        .exists()
+    )
 
 
 def _gift_sender_block_redirect(request):
@@ -203,6 +213,10 @@ def gift_claim(request, gift_code):
             )
             return redirect("crush_lu:journey_map_wonderland")
 
+        except GiftNoLongerClaimable:
+            # Reported, claimed or expired since the page loaded.
+            messages.error(request, _("This gift is no longer active."))
+            return redirect("crush_lu:gift_landing", gift_code=gift_code)
         except ValueError as e:
             messages.error(request, str(e))
             return redirect("crush_lu:gift_landing", gift_code=gift_code)
@@ -226,22 +240,42 @@ def gift_report(request, gift_code):
     Public (the landing page is shown to signed-out recipients), POST + CSRF.
     Only an unclaimed gift is expired; a claimed gift is left untouched.
     """
+    from .notification_service import notify_gift_reported
+
     gift = get_object_or_404(JourneyGift, gift_code=gift_code)
 
-    updated = JourneyGift.objects.filter(
-        pk=gift.pk,
-        status__in=[JourneyGift.Status.PENDING, JourneyGift.Status.CLAIM_FAILED],
-    ).update(status=JourneyGift.Status.EXPIRED)
-    if updated:
+    # Expiry and staff alert commit together: a report that reached nobody
+    # is rolled back so the gift stays reportable and the recipient can retry.
+    notified = 0
+    with transaction.atomic():
+        updated = JourneyGift.objects.filter(
+            pk=gift.pk,
+            status__in=[JourneyGift.Status.PENDING, JourneyGift.Status.CLAIM_FAILED],
+        ).update(status=JourneyGift.Status.EXPIRED)
+        if updated:
+            try:
+                notified = notify_gift_reported(gift)
+            except Exception:
+                logger.exception(
+                    "Gift-reported notification failed for gift %s", gift.pk
+                )
+            if not notified:
+                transaction.set_rollback(True)
+
+    target = reverse("crush_lu:home")
+    if updated and not notified:
+        # Back to the gift, whose report button is still live.
+        target = reverse("crush_lu:gift_landing", kwargs={"gift_code": gift_code})
+        messages.error(
+            request,
+            _(
+                "We couldn't send your report right now. The gift is still "
+                "open. Please try again in a moment."
+            ),
+        )
+    elif updated:
         if request.session.get("pending_gift_code") == gift_code:
             del request.session["pending_gift_code"]
-        try:
-            from .notification_service import notify_gift_reported
-
-            notify_gift_reported(gift)
-        except Exception:  # notification must never break the report
-            logger.exception("Gift-reported notification failed for gift %s", gift.pk)
-
         messages.success(
             request,
             _(
@@ -253,8 +287,8 @@ def gift_report(request, gift_code):
         # Already claimed, expired or reported: nothing closed, nobody notified.
         messages.info(request, _("This gift is no longer active."))
     if request.headers.get("HX-Request"):
-        return HttpResponse(headers={"HX-Redirect": reverse("crush_lu:home")})
-    return redirect("crush_lu:home")
+        return HttpResponse(headers={"HX-Redirect": target})
+    return redirect(target)
 
 
 @login_required

@@ -1062,11 +1062,12 @@ def notify_gift_reported(gift) -> int:
     """Alert staff (in-app bell) that a gift recipient declined/reported a gift.
 
     Same channel as ``notify_report_filed``: the recipient of a Wonderland gift
-    pressed "This isn't for me / Report" on the landing page, which already
-    expired the gift. A coach should look at the sender. Best-effort. Returns
-    the number of staff notified.
+    pressed "This isn't for me / Report" on the landing page. A coach should
+    look at the sender. Returns the number of staff notified; ``gift_report``
+    rolls the expiry back when that is 0, so the report can be retried.
     """
     from django.contrib.auth.models import User
+    from django.db import transaction
     from django.urls import NoReverseMatch, reverse
 
     from .models import Notification
@@ -1084,17 +1085,20 @@ def notify_gift_reported(gift) -> int:
     )
     for staff in staff_qs:
         try:
-            Notification.objects.create(
-                user=staff,
-                notification_type="journey_gift_reported",
-                title="Journey gift reported",
-                body=(
-                    f"The recipient of a gift from {sender_name} "
-                    f"({gift.gift_code}) said it wasn't for them."
-                ),
-                link_url=link_url,
-                metadata={"gift_id": gift.pk, "sender_id": gift.sender_id},
-            )
+            # Savepoint per write: gift_report calls this inside its atomic
+            # block, and one failed INSERT must not poison the others.
+            with transaction.atomic():
+                Notification.objects.create(
+                    user=staff,
+                    notification_type="journey_gift_reported",
+                    title="Journey gift reported",
+                    body=(
+                        f"The recipient of a gift from {sender_name} "
+                        f"({gift.gift_code}) said it wasn't for them."
+                    ),
+                    link_url=link_url,
+                    metadata={"gift_id": gift.pk, "sender_id": gift.sender_id},
+                )
             notified += 1
         except Exception:
             logger.exception(

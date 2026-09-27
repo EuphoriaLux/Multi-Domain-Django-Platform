@@ -42450,6 +42450,10 @@ msgstr "Danke für den Hinweis. Dieses Geschenk ist jetzt geschlossen und unser 
 msgid "This gift is no longer active."
 msgstr "Dieses Geschenk ist nicht mehr aktiv."
 
+#: crush_lu/views_journey_gift.py
+msgid "We couldn't send your report right now. The gift is still open. Please try again in a moment."
+msgstr "Wir konnten deine Meldung gerade nicht senden. Das Geschenk ist noch offen. Bitte versuche es gleich noch einmal."
+
 #: crush_lu/templates/crush_lu/journey/partials/gift_sender_badge.html
 #, python-format
 msgid "Created by %(name)s"
