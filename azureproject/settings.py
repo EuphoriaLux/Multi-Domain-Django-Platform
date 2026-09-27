@@ -319,9 +319,14 @@ MIDDLEWARE = [
     "azureproject.csp_middleware.PermissionsPolicyMiddleware",  # Browser feature restrictions
     "django.middleware.gzip.GZipMiddleware",  # Compress dynamic responses (static files served at ASGI level)
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "azureproject.middleware.DomainURLRoutingMiddleware",  # Multi-domain routing - MUST be before LocaleMiddleware
     "django.middleware.locale.LocaleMiddleware",
+    # AuthRateLimitMiddleware (UX Wave 3 · WP3, finding 2-04) renders a
+    # branded, translated crush_lu/rate_limited.html on a 429, which needs
+    # request.urlconf (set by DomainURLRoutingMiddleware, for {% url %}) and
+    # an active language (set by LocaleMiddleware, for {% trans %}) - so it
+    # must come after both. It must still come before CsrfViewMiddleware.
+    "azureproject.middleware.AuthRateLimitMiddleware",  # Rate limit password reset before CSRF
     "django.middleware.common.CommonMiddleware",  # MUST be before SafeCurrentSiteMiddleware
     "azureproject.middleware.SafeCurrentSiteMiddleware",  # Safe site detection (auto-creates missing Sites)
     "azureproject.middleware.AdminLanguagePrefixRedirectMiddleware",  # Redirect /fr/admin/ -> /admin/
@@ -869,6 +874,10 @@ ACCOUNT_SIGNUP_REDIRECT_URL = "/profile/"  # Redirect to profile page after sign
 # Allauth adapters - Multi-domain aware
 SOCIALACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainSocialAccountAdapter"
 ACCOUNT_ADAPTER = "azureproject.adapters.MultiDomainAccountAdapter"
+# Enforces the crush.lu Terms consent server-side on social-signup completion.
+SOCIALACCOUNT_FORMS = {
+    "signup": "azureproject.social_forms.MultiDomainSocialSignupForm"
+}
 
 # Email backend Configuration
 # NOTE: For domain-specific email configuration (crush.lu, vinsdelux.com, etc.),

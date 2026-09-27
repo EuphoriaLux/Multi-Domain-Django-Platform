@@ -81,7 +81,7 @@ Four canonical variants. Pick by **role**, not by color preference.
 | Variant | Class | When |
 | --- | --- | --- |
 | **Primary CTA (gradient)** | `.btn-crush-primary` | The single hero conversion CTA per page — "Submit profile", "Send spark", "Join event". Exactly one per page. |
-| **Solid** | `.btn-crush-solid` | Any other primary action on the page: "Save", "Confirm", "Continue". Same shape/size as `.btn-crush-primary` without the gradient, so the gradient stays meaningful. |
+| **Solid** | `.btn-crush-solid` | Any other primary action on the page: "Save", "Confirm", "Continue". Same shape/size as `.btn-crush-primary` without the gradient, so the gradient stays meaningful. Filled with `crush-purple-dark` (not `crush-purple`) so small text passes 4.5:1. |
 | **Outline** | `.btn-crush-outline` | Secondary actions: "Cancel", "View details", "Edit". |
 | **Destructive** | `.btn-danger` | Irreversible/destructive actions: "Delete", "Remove", "Block". |
 
@@ -167,6 +167,19 @@ Tokens introduced for this surface (in `tailwind-input.css`):
   Use it (not `bg-white`, which is remapped to the tinted `#f0ecf5`).
 - `--bottom-nav-height` — the mobile tab-bar height; consumed by the bar and
   by anything that must clear it (bottom-anchored toasts).
+- `--text-muted` — secondary copy on the lavender surfaces: gray-600 in
+  light, gray-400 in dark. Use the `text-muted-fg` utility instead of
+  `text-gray-500` (which only reaches ~4.0:1 on `#ede8f4`). The mobile tab
+  bar's inactive labels use it too.
+
+### Always-dark surfaces
+
+Journey and gift pages (`journey/journey_base.html`, `journey/gift_base.html`,
+`journey/journey_selector.html`) are night-mode experiences. They fill
+`base.html`'s `{% block theme_lock %}` with ` class="dark" data-theme-lock="dark"`,
+so the global chrome (navbar, tab bar, install card, toasts) takes its dark
+variant. `theme-manager.js` keeps `.dark` there without overwriting the saved
+preference, and the theme toggles are disabled with an explanation.
 
 ---
 

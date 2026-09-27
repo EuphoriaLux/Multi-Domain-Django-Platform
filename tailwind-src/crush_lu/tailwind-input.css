@@ -134,11 +134,23 @@ html:not(.dark) {
    canvas — bg-white resolves to the tinted #f0ecf5 above, so card surfaces
    must use this token (or a #fff literal) instead. --bottom-nav-height is the
    mobile tab bar's height, consumed by the bar itself and by anything that
-   must clear it (toasts, .prompt-above-nav). 60.5px is the rendered bar: a
-   59.5px tab (6px + 34px icon + 2px + 11.5px label + 6px) plus its 1px border. */
+   must clear it (toasts, .prompt-above-nav). 61.65px is the rendered bar: a
+   60.65px tab (6px + 34px icon + 2px + 12.65px label + 6px) plus its 1px border.
+   --text-muted is secondary copy on the tinted lavender surfaces: gray-500
+   only reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
+   Use it through the text-muted-fg utility. */
 :root {
     --color-surface-card: #ffffff;
-    --bottom-nav-height: 60.5px;
+    --bottom-nav-height: 61.65px;
+    --text-muted: #4b5563;
+}
+
+html.dark {
+    --text-muted: #9ca3af;
+}
+
+@theme inline {
+    --color-muted-fg: var(--text-muted);
 }
 
 /* =============================================================================
@@ -339,9 +351,11 @@ body.journey-bg {
     }
 
     /* Solid-purple sibling of btn-crush-primary. Same shape/size/motion, no
-       gradient — use for every CTA that isn't THE primary CTA of the page. */
+       gradient — use for every CTA that isn't THE primary CTA of the page.
+       Sits on crush-purple-dark: the lavender-tinted "white" text only reaches
+       4.0:1 on crush-purple, 5.0:1 here (AA for the text-xs buttons). */
     .btn-crush-solid {
-        @apply bg-crush-purple hover:bg-crush-purple-dark focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
+        @apply bg-crush-purple-dark hover:bg-purple-700 focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
     }
 
     /* Soft tinted pill badge — replaces gradient badges so the gradient stays
@@ -11303,9 +11317,9 @@ html.dark .crush-connect-cta {
         padding: 6px 0;
         min-height: 44px;
         min-width: 44px;
-        color: #9ca3af;
+        color: var(--text-muted);
         text-decoration: none;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 500;
         letter-spacing: 0;
         transition: color 0.15s ease;
@@ -11313,12 +11327,8 @@ html.dark .crush-connect-cta {
         position: relative;
     }
 
-    html.dark .bottom-nav-item {
-        color: #6b7280;
-    }
-
     .bottom-nav-item-active {
-        color: var(--color-crush-purple);
+        color: var(--color-crush-purple-dark);
         font-weight: 600;
     }
 

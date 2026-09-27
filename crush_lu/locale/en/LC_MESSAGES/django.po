@@ -1354,24 +1354,8 @@ msgstr ""
 msgid "Get started"
 msgstr ""
 
-#: .\crush_lu\context_processors.py:31
-msgid "Tell us about you"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:32
-msgid "Add photos"
-msgstr ""
-
 #: .\crush_lu\context_processors.py:33
 msgid "Choose your coach"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:34
-msgid "Review & submit"
-msgstr ""
-
-#: .\crush_lu\context_processors.py:35
-msgid "Under review"
 msgstr ""
 
 #: .\crush_lu\email_helpers.py:199
@@ -16758,12 +16742,6 @@ msgid ""
 "passionate about."
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:36
-msgid ""
-"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
-"protected - you can show only your first name."
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:39
 msgid "Photo tips:"
 msgstr ""
@@ -28442,6 +28420,25 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html
 msgid "As seen in"
+msgstr ""
+
+#: templates/crush_lu/base.html:806
+#: templates/crush_lu/base.html:1186
+msgid "This experience is always in night mode"
+msgstr ""
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+# UX Wave 3 · WP1 verify-email
+#: crush_lu/templates/account/verification_sent_crush.html
+msgid "Use a different address"
+msgstr ""
+
+#: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:36
+msgid ""
+"You're SO close! Just add 1-3 photos and you're done. Your privacy is "
+"protected - you can show only your first name."
 msgstr ""
 
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html

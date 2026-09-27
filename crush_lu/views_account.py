@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.debug import sensitive_post_parameters
 from django.conf import settings
 import logging
 import uuid
@@ -31,6 +32,7 @@ from .models import (
 )
 from .forms import CrushSignupForm
 from .decorators import crush_login_required, ratelimit
+from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
@@ -1546,8 +1548,14 @@ def referral_redirect(request, code):
     return redirect(signup_url)
 
 
+# Outermost, so the passwords are masked in error reports even on the
+# throttled branch below, which renders a full template.
+@sensitive_post_parameters("password1", "password2")
 @ensure_csrf_cookie
-@ratelimit(key="ip", rate="5/h", method="POST")
+# UX Wave 3 · WP3 (finding 2-04): block=False so a rate-limited POST still
+# reaches this view instead of the decorator's bare 429 text page - it's
+# re-rendered inline below, on the same auth.html the user was already on.
+@ratelimit(key="ip", rate="5/h", method="POST", block=False)
 def signup(request):
     """
     User registration with Allauth integration
@@ -1556,11 +1564,35 @@ def signup(request):
     """
     from allauth.account.forms import LoginForm
 
-    capture_referral_from_request(request)
     signup_form = CrushSignupForm()
     login_form = LoginForm()
+    status_code = 200
+    limited = request.method == "POST" and getattr(request, "limited", False)
 
-    if request.method == "POST":
+    # UX Wave 3 · WP3 review (P2): a throttled POST must not reach
+    # capture_referral_from_request()'s get_or_create() - block=False lets
+    # every request past the limit still enter this view, so a client
+    # cycling fresh sessions with a valid `?ref=` could keep writing
+    # ReferralAttribution rows after its IP was throttled, defeating the
+    # point of the rate limit for this write path. GET requests (the
+    # initial landing with `?ref=`) are never rate-limited, so they still
+    # capture normally.
+    if not limited:
+        capture_referral_from_request(request)
+
+    if limited:
+        signup_form = CrushSignupForm(request.POST)
+        add_rate_limited_error(
+            signup_form,
+            _("Too many signup attempts. Please try again in %(wait)s.")
+            % {
+                "wait": humanize_wait_seconds(
+                    getattr(request, "limited_retry_after", 3600)
+                )
+            },
+        )
+        status_code = 429
+    elif request.method == "POST":
         signup_form = CrushSignupForm(request.POST)
         if signup_form.is_valid():
             try:
@@ -1621,30 +1653,84 @@ def signup(request):
         "login_form": login_form,
         "mode": "signup",
     }
-    return render(request, "crush_lu/auth.html", context)
+    response = render(request, "crush_lu/auth.html", context, status=status_code)
+    if status_code == 429:
+        response["Retry-After"] = str(getattr(request, "limited_retry_after", 3600))
+    return response
+
+
+# Match allauth's per-address confirm_email limiter (the send goes through
+# it), so the button never re-enables while a retry would silently not send.
+RESEND_VERIFICATION_COOLDOWN_SECONDS = getattr(
+    settings, "ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN", 3 * 60
+)
 
 
 @require_http_methods(["POST"])
-@ratelimit(key="ip", rate="3/h", method="POST")
+@ratelimit(
+    key="ip",
+    rate="3/h",
+    method="POST",
+    rate_limited_template="crush_lu/rate_limited.html",
+)
 def resend_verification_email(request):
     """Re-send the email-verification link for a pending signup.
 
     The user is not yet logged in (mandatory mode blocks login until the email
     is verified), so we cannot use allauth's built-in email-management page
-    which requires authentication. The target email is read from the session
-    that was set when the user signed up. Always returns the same generic
-    message so we don't leak whether an account exists for a given email.
+    which requires authentication. Always returns the same generic message so
+    we don't leak whether an account exists for a given address.
+
+    The target email normally comes from the session key set when the user
+    signed up (or last tried to log in unverified). That session can be
+    empty -- a different device, or cookies cleared -- so this also accepts
+    an ``email`` POST field from the visible form the template shows in that
+    case. Either way, a per-session 60s cooldown (separate from the hourly
+    IP rate limit above, which guards against abuse) stops the same visitor
+    from re-triggering a send on every reload/back-button; the response
+    stays identical either way.
     """
     from allauth.account.models import EmailAddress
 
-    email = request.session.get("pending_verification_email")
-    if email:
+    now_ts = int(timezone.now().timestamp())
+    cooldown_until = request.session.get("resend_verification_cooldown_until", 0)
+    still_cooling_down = now_ts < cooldown_until
+
+    # A typed address wins over the session one, so a member who mistyped
+    # can correct it from the page's "Use a different address" field.
+    email = (request.POST.get("email") or "").strip() or request.session.get(
+        "pending_verification_email"
+    )
+
+    if email and not still_cooling_down:
         email_address = EmailAddress.objects.filter(
             email__iexact=email, verified=False
         ).first()
         if email_address:
-            email_address.send_confirmation(request, signup=False)
-            logger.info(f"Resent verification email to {email}")
+            # The response must not differ between a known and an unknown
+            # address. A mail failure here would otherwise surface as an error
+            # only for existing accounts, so it is logged and swallowed.
+            # allauth's rate-limited send: a per-address confirm_email
+            # cooldown, so rotating cookies or source IPs can't flood a
+            # pending address through this public endpoint.
+            from allauth.account.internal.flows.email_verification import (
+                send_verification_email_to_address,
+            )
+
+            try:
+                send_verification_email_to_address(request, email_address)
+                logger.info("Resent verification email")
+            except Exception:
+                logger.exception("Resending the verification email failed")
+        # Remember the address so this page can mask it and keep offering
+        # resend without needing the visitor to retype it.
+        request.session["pending_verification_email"] = email
+        # Only start the cooldown once we actually resolved an address to
+        # (possibly) send to -- a submission with no session email and no
+        # POST email shouldn't self-lock the visitor's own resend button.
+        request.session["resend_verification_cooldown_until"] = (
+            now_ts + RESEND_VERIFICATION_COOLDOWN_SECONDS
+        )
 
     messages.success(
         request,
