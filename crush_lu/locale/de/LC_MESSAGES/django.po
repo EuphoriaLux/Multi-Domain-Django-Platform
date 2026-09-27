@@ -29616,6 +29616,14 @@ msgstr "Meldung senden"
 msgid "Just block this member"
 msgstr "Dieses Mitglied nur blockieren"
 
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Dieses Mitglied blockieren? Damit wird der Chat geschlossen, und das lässt sich nicht rückgängig machen: Die Person kann dich nicht mehr erreichen, und ihr werdet nicht mehr zusammengebracht."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, block"
+msgstr "Ja, blockieren"
+
 #: templates/crush_lu/moderation/blocked_members.html:4
 msgid "Blocked members - Crush.lu"
 msgstr "Blockierte Mitglieder - Crush.lu"

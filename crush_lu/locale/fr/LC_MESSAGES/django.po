@@ -29731,6 +29731,14 @@ msgstr "Envoyer le signalement"
 msgid "Just block this member"
 msgstr "Simplement bloquer ce membre"
 
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Bloquer ce membre ? Cela ferme la discussion et ne peut pas être annulé : ce membre ne pourra plus vous contacter et vous ne serez plus mis en relation."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, block"
+msgstr "Oui, bloquer"
+
 #: templates/crush_lu/moderation/blocked_members.html:4
 msgid "Blocked members - Crush.lu"
 msgstr "Membres bloqués - Crush.lu"

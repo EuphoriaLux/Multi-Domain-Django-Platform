@@ -637,6 +637,35 @@ def test_blocked_chat_reads_identically_to_a_naturally_closed_chat(client):
 
 
 @pytest.mark.django_db
+def test_chat_block_form_asks_for_irreversible_confirmation(client):
+    """The chat block also closes the chat and excludes the pair from future
+    Connect Week matching for good, so the plain "Just block" form asks
+    first (confirm-sheet.js intercepts ``form[data-confirm]``). The generic
+    block form on other surfaces keeps submitting directly."""
+    import re
+
+    from django.core.cache import cache
+    from django.template import Context, Template
+
+    cache.clear()
+    me, target, chat = _make_open_chat()
+    _login_eligible(client, me)
+    html = client.get(f"{CHATS_URL}{chat.pk}/").content.decode()
+
+    form = re.search(
+        rf'<form method="post" action="{CHATS_URL}{chat.pk}/block/"[^>]*>', html
+    )
+    assert form, "chat block form missing"
+    tag = form.group(0)
+    assert "closes the chat" in tag and "can't be undone" in tag
+    assert 'data-confirm-style="danger"' in tag
+    assert 'data-confirm-label="Yes, block"' in tag
+
+    generic = Template("{% load moderation_tags %}{% block_report_menu member %}")
+    assert "data-confirm" not in generic.render(Context({"member": target}))
+
+
+@pytest.mark.django_db
 def test_chats_list_shows_the_same_label_for_blocked_and_closed_chats(client):
     me, target, blocked_chat = _make_open_chat()
     block_chat_partner(blocked_chat, me)

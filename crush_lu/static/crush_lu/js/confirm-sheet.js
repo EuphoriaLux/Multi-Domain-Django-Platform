@@ -86,6 +86,22 @@
 
     window.crushConfirm = openConfirm;
 
+    // Plain (non-HTMX) forms: <form data-confirm="question"> asks first and
+    // submits only on accept. Same data-confirm-style / data-confirm-label.
+    document.addEventListener("submit", function (evt) {
+        var form = evt.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        var question = form.getAttribute("data-confirm");
+        if (!question || evt.defaultPrevented) return;
+        evt.preventDefault();
+        openConfirm(question, {
+            style: form.getAttribute("data-confirm-style") || "danger",
+            confirmLabel: form.getAttribute("data-confirm-label") || undefined,
+        }).then(function (ok) {
+            if (ok) form.submit(); // submit() skips this listener
+        });
+    });
+
     // htmx fires htmx:confirm for EVERY request; only intercept real
     // hx-confirm questions or polling/plain requests would silently die.
     document.addEventListener("htmx:confirm", function (evt) {
