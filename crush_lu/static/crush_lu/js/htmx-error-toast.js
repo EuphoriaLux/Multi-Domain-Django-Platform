@@ -138,6 +138,7 @@
         "/login",
         "/logout",
         "/accounts/",
+        "/cookies/",
         "/signup",
     ];
 
