@@ -11,7 +11,7 @@ default, no ``HTTP_HOST`` override needed). Every test below fails on
 import pytest
 from django.utils import timezone
 
-from crush_lu.models.crush_connect_cycle import ConnectWeekSession
+from crush_lu.models.crush_connect_cycle import ConnectChatMessage, ConnectWeekSession
 from crush_lu.services.connect_cycle import CYCLE_LENGTH_DAYS, week_timeline_state
 from crush_lu.tests.test_connect_chat_flows import _make_open_chat
 from crush_lu.tests.test_connect_week_experience import (
@@ -91,6 +91,57 @@ def test_timeline_state_accepted_request_is_step_4_chat():
 
     assert state["step"] == 4
     assert state["next_at"] is None
+
+
+@pytest.mark.django_db
+def test_timeline_state_completed_session_is_none_not_step_1():
+    """A COMPLETED session must not fall through to the ACTIVE branch: that
+    would report "Review opens <date>" with a date already in the past
+    (started_at is old and the review window has long closed). There is no
+    single correct step to report instead (a session completes on its
+    review-window timeout whether or not a request was ever sent), so the
+    timeline is hidden entirely — the caller/template already guard on a
+    falsy ``timeline``."""
+    me = _make_cycle_user("tl_completed")
+    session = ConnectWeekSession.objects.create(
+        user=me,
+        started_at=timezone.now() - __import__("datetime").timedelta(days=10),
+        status=ConnectWeekSession.Status.COMPLETED,
+    )
+
+    assert week_timeline_state(session) is None
+
+
+@pytest.mark.django_db
+def test_timeline_state_expired_session_is_none_not_step_1():
+    me = _make_cycle_user("tl_expired")
+    session = ConnectWeekSession.objects.create(
+        user=me,
+        started_at=timezone.now() - __import__("datetime").timedelta(days=10),
+        status=ConnectWeekSession.Status.EXPIRED,
+    )
+
+    assert week_timeline_state(session) is None
+
+
+@pytest.mark.django_db
+def test_hub_omits_timeline_for_a_completed_session(client, settings):
+    """End-to-end: the hub card renders nothing for the timeline block once
+    the member's latest session has completed, instead of the misleading
+    'Review opens <past date>' regression this finding was about."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("tl_hub_completed")
+    ConnectWeekSession.objects.create(
+        user=me,
+        started_at=timezone.now() - __import__("datetime").timedelta(days=10),
+        status=ConnectWeekSession.Status.COMPLETED,
+        completed_at=timezone.now() - __import__("datetime").timedelta(days=9),
+    )
+    _login_eligible(client, me)
+
+    body = client.get("/en/crush-connect/home/").content.decode()
+
+    assert "connect-week-timeline" not in body
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +236,24 @@ def test_chat_detail_shows_expiry_chip_in_header(client):
 @pytest.mark.django_db
 def test_chat_detail_hides_older_button_under_50_messages(client):
     me, target, chat = _make_open_chat()
+    _login_eligible(client, me)
+
+    body = client.get(f"/en/crush-connect/week/chats/{chat.pk}/").content.decode()
+
+    assert "data-older hidden" in body
+
+
+@pytest.mark.django_db
+def test_chat_detail_hides_older_button_at_exactly_50_messages(client):
+    """Exactly 50 total messages fills the page-load cap but leaves nothing
+    older to load — the button must stay hidden (off-by-one regression)."""
+    me, target, chat = _make_open_chat()
+    ConnectChatMessage.objects.bulk_create(
+        [
+            ConnectChatMessage(chat=chat, sender=me, message=f"msg {i}")
+            for i in range(50)
+        ]
+    )
     _login_eligible(client, me)
 
     body = client.get(f"/en/crush-connect/week/chats/{chat.pk}/").content.decode()

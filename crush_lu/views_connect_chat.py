@@ -156,11 +156,19 @@ def connect_week_chat_detail(request, chat_id: int):
         "chat": chat,
         "partner": partner,
         "chat_messages": chat_messages,
-        # A full page (50) means there may be older history; the JS "Load
-        # older" click confirms it. Setting `hidden` here avoids the layout
-        # jump of the button rendering visible then disappearing once
-        # connect-live-chat.js runs (UX Wave 3 · WP12 / 6-08).
-        "has_older": len(chat_messages) >= 50,
+        # A full page (50) DOESN'T necessarily mean there is older history —
+        # a chat with exactly 50 total messages has nothing before the
+        # oldest one loaded. Check for an older row directly, matching
+        # connect_chat_messages' own `has_older` logic, instead of the
+        # length heuristic (UX Wave 3 · WP12 / follow-up). Setting `hidden`
+        # here avoids the layout jump of the button rendering visible then
+        # disappearing once connect-live-chat.js runs (UX Wave 3 · WP12 /
+        # 6-08).
+        "has_older": (
+            chat.messages.filter(pk__lt=chat_messages[0].pk).exists()
+            if chat_messages
+            else False
+        ),
         "coffee_date": coffee_date,
         "is_proposer": is_proposer,
         "my_confirmed_at": my_confirmed_at,
