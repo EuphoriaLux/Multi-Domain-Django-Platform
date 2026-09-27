@@ -20,13 +20,22 @@ logger = logging.getLogger(__name__)
 
 def can_view_profile_photo(viewer, profile_owner):
     """
-    Determine if viewer can see profile_owner's photos
+    Determine if viewer can see profile_owner's photos.
 
-    Rules:
-    - Owner can always see their own photos
-    - Coaches can see all photos (for review)
-    - Approved profiles: visible to other approved users
-    - Unapproved profiles: only visible to owner and coaches
+    The URL is addressed by user id, so this check — not the page that
+    rendered the URL — is the gate. It encodes the same relationships as the
+    surfaces that render these URLs:
+
+    - the owner, active coaches (review) and superusers (admin, voting results)
+    - otherwise both profiles must be approved, the pair must not be blocked,
+      and one of:
+        - both attended the same event while its attendee list is open
+          (``MeetupEvent.connections_open``; ``event_attendees``)
+        - an ``EventConnection`` between them (``my_connections``,
+          ``connection_detail``), except a declined one and a My Crush! lead
+          its recipient has not been shown yet
+        - a Crush Connect pairing (cycle card, pending weekly request, chat,
+          coach pick) and the owner's ``photo_share_consent``
 
     Args:
         viewer: User object of the person viewing
@@ -35,12 +44,17 @@ def can_view_profile_photo(viewer, profile_owner):
     Returns:
         bool: whether the viewer is allowed to see the photo
     """
+    owner = profile_owner.user
+
     # Owner can always see their own photos
-    if viewer == profile_owner.user:
+    if viewer.pk == owner.pk:
         return True
 
-    # Check if viewer is a coach
+    # Coaches can see all photos (for review)
     if CrushCoach.objects.filter(user=viewer, is_active=True).exists():
+        return True
+
+    if viewer.is_superuser:
         return True
 
     # Profile must be approved for others to see
@@ -48,14 +62,99 @@ def can_view_profile_photo(viewer, profile_owner):
         return False
 
     # Check if viewer has an approved profile
-    try:
-        viewer_profile = CrushProfile.objects.get(user=viewer)
-        if not viewer_profile.is_approved:
-            return False
-    except CrushProfile.DoesNotExist:
+    if not CrushProfile.objects.filter(user=viewer, is_approved=True).exists():
         return False
 
-    return True
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(viewer, owner):
+        return False
+
+    return (
+        _share_open_attendee_list(viewer, owner)
+        or _have_event_connection(viewer, owner)
+        or _are_connect_paired(viewer, owner)
+    )
+
+
+def _share_open_attendee_list(viewer, owner):
+    """Both attended an event whose named attendee list is currently open."""
+    from .models import MeetupEvent
+
+    shared_events = MeetupEvent.objects.filter(
+        eventregistration__user=viewer, eventregistration__status="attended"
+    ).filter(eventregistration__user=owner, eventregistration__status="attended")
+    return any(event.connections_open for event in shared_events.distinct())
+
+
+def _have_event_connection(viewer, owner):
+    from django.db.models import Q
+
+    from .models import EventConnection
+
+    return (
+        EventConnection.objects.filter(
+            Q(requester=viewer, recipient=owner)
+            | (
+                Q(requester=owner, recipient=viewer)
+                # The recipient of a My Crush! lead is never shown it until
+                # it is shared (mirrors ``connection_detail``).
+                & ~(Q(flow=EventConnection.FLOW_CRUSH) & ~Q(status="shared"))
+            )
+        )
+        .exclude(status="declined")
+        .exists()
+    )
+
+
+def _are_connect_paired(viewer, owner):
+    """A Crush Connect surface shows ``owner`` to ``viewer``, and ``owner``
+    consented to sharing their photo there ("Read-the-Photo")."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+
+    from .models.crush_connect import ConnectCoachPick
+    from .models.crush_connect_cycle import (
+        ConnectCycleCard,
+        ConnectTemporaryChat,
+        ConnectWeeklyRequest,
+    )
+    from .services.crush_connect import filter_catalogue_eligible
+
+    User = get_user_model()
+    if not User.objects.filter(
+        pk=owner.pk, crush_connect_membership__photo_share_consent=True
+    ).exists():
+        return False
+
+    # Chats are reached through a request, so they outlive catalogue
+    # eligibility (see views_connect_chat); consent alone gates them.
+    if (
+        ConnectTemporaryChat.objects.filter(
+            Q(participant_1=viewer, participant_2=owner)
+            | Q(participant_1=owner, participant_2=viewer)
+        )
+        .exclude(status=ConnectTemporaryChat.Status.BLOCKED)
+        .exists()
+    ):
+        return True
+
+    # Cards, the inbox and coach picks only show catalogue-eligible members.
+    if not filter_catalogue_eligible(User.objects.filter(pk=owner.pk)).exists():
+        return False
+    return (
+        ConnectCycleCard.objects.filter(
+            session__user=viewer, target_user=owner
+        ).exists()
+        or ConnectWeeklyRequest.objects.filter(
+            requester=owner,
+            recipient=viewer,
+            status=ConnectWeeklyRequest.Status.PENDING,
+        ).exists()
+        or ConnectCoachPick.objects.filter(
+            member=viewer, candidate=owner, status__in=["proposed", "accepted"]
+        ).exists()
+    )
 
 
 def _increment_rate_limit_counter(key, period_seconds):
