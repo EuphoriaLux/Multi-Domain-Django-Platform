@@ -421,8 +421,13 @@ def dashboard(request):
         from django.db.models import Q as _Q
 
         from .services.blocking import blocked_user_ids
+        from .services.event_lobby import hidden_encounter_user_ids
 
-        _blocked_ids = blocked_user_ids(request.user)
+        # Blocked pairs AND safety-removed encounters (removal_pending /
+        # removed) stay mutually invisible, exactly as in my_connections.
+        _blocked_ids = blocked_user_ids(request.user) | hidden_encounter_user_ids(
+            request.user
+        )
         connection_count = (
             EventConnection.objects.active_for_user(request.user)
             .excluding_unshared_crushes()
@@ -430,6 +435,20 @@ def dashboard(request):
                 _Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids)
             )
             .count()
+        )
+
+        # Received connection requests waiting on this member's own action —
+        # the dashboard's "Needs action" block surfaces a few of these
+        # directly (accept/decline inline) instead of leaving them as a
+        # non-clickable header count. Mirrors my_connections' received_pending
+        # query (views_connections.py) so the two never disagree on what
+        # counts as an actionable request.
+        pending_connection_requests = list(
+            EventConnection.objects.filter(recipient=request.user, status="pending")
+            .exclude(flow=EventConnection.FLOW_CRUSH)
+            .exclude(requester_id__in=_blocked_ids)
+            .select_related("requester__crushprofile", "event")
+            .order_by("-requested_at")[:3]
         )
 
         # Get or create referral code for this user's profile
@@ -640,7 +659,16 @@ def dashboard(request):
             "attended_count": attended_count,
             "pending_payment_registrations": pending_payment_registrations,
             "post_event_actions": post_event_actions,
+            "pending_connection_requests": pending_connection_requests,
             "connection_count": connection_count,
+            # The stats row repeats the next-event card (Upcoming) and the
+            # requests just surfaced above (Connections), so it only earns
+            # its place once the member has something to look back on, or
+            # has more bookings than the one next-event card shows.
+            "show_stats_tiles": (
+                profile.verification_status == "verified"
+                and (attended_count > 0 or connection_count > 0 or upcoming_count > 1)
+            ),
             "referral_url": referral_url,
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,
