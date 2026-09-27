@@ -64,6 +64,23 @@ def exclude_banned_users(users):
     return users.exclude(id__in=banned_user_ids)
 
 
+def exclude_on_break_users(users):
+    """Exclude members who self-served a "Take a break" (UX Wave 3 · WP13).
+
+    Applied everywhere `exclude_banned_users` is (newsletter recipients and
+    the shared campaign audience resolver in services/campaigns.py), so every
+    marketing/event-announcement channel honours the break identically.
+    Transactional and security email never goes through these resolvers, so
+    it is unaffected.
+    """
+    from .models.profiles import CrushProfile
+
+    on_break_user_ids = CrushProfile.objects.filter(
+        on_break_at__isnull=False
+    ).values_list("user_id", flat=True)
+    return users.exclude(id__in=on_break_user_ids)
+
+
 def apply_language_filter(users, language):
     """Restrict a User queryset to a preferred language ('all' = no filter)."""
     if not language or language == 'all':
@@ -103,6 +120,7 @@ def get_newsletter_recipients(newsletter):
     users = users.exclude(id__in=opted_out_user_ids)
 
     users = exclude_banned_users(users)
+    users = exclude_on_break_users(users)
     users = apply_language_filter(users, newsletter.language)
 
     # For event announcements, exclude users already registered for the event
