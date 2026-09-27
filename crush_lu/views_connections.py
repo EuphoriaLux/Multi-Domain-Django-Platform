@@ -774,18 +774,26 @@ def respond_connection(request, connection_id, action):
                 ),
                 "connection_id": connection.id,
             }
-            return render(
+            return _refresh_if_from_dashboard(
                 request,
-                "crush_lu/_attendee_connection_response.html",
-                {
-                    "attendee": attendee,
-                    "action": (
-                        "accept"
-                        if connection.status
-                        in ("accepted", "coach_reviewing", "coach_approved", "shared")
-                        else "decline"
-                    ),
-                },
+                render(
+                    request,
+                    "crush_lu/_attendee_connection_response.html",
+                    {
+                        "attendee": attendee,
+                        "action": (
+                            "accept"
+                            if connection.status
+                            in (
+                                "accepted",
+                                "coach_reviewing",
+                                "coach_approved",
+                                "shared",
+                            )
+                            else "decline"
+                        ),
+                    },
+                ),
             )
         return redirect("crush_lu:my_connections")
 

@@ -410,3 +410,12 @@ class DashboardReviewRoundTwoTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("HX-Refresh", response)
+
+
+class DashboardAlreadyProcessedRequestTests(DashboardReviewRoundTwoTests):
+    def test_request_handled_elsewhere_still_refreshes_the_dashboard(self):
+        connection = self._pending_request()
+        connection.status = "declined"
+        connection.save(update_fields=["status"])
+        response = self._respond(connection, "accept", "https://crush.lu/en/dashboard/")
+        self.assertEqual(response["HX-Refresh"], "true")
