@@ -1,5 +1,5 @@
 from functools import wraps
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.utils.translation import gettext as _
 
 from crush_lu.oauth_statekit import get_client_ip
+from crush_lu.rate_limit_utils import humanize_wait_seconds
 
 
 def crush_login_required(function):
@@ -58,7 +59,7 @@ def coach_required(function):
     return wrapper
 
 
-def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
+def ratelimit(key='ip', rate='5/15m', method='POST', block=True, rate_limited_template=None):
     """
     Simple rate limiting decorator using Django's cache framework.
 
@@ -69,6 +70,11 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                        '10/h' = 10 requests per hour
         method: 'GET', 'POST', 'ALL' - which HTTP methods to rate limit
         block: If True, block the request with 429. If False, just set request.limited = True
+        rate_limited_template: When block triggers on a plain browser request
+              (not JSON/XHR), render this template with a translated
+              {{ wait_message }} instead of the bare text/plain fallback.
+              Leave unset for API-style endpoints that should keep the
+              existing plain-text/JSON contract.
 
     Example:
         @ratelimit(key='ip', rate='5/15m', method='POST')
@@ -110,6 +116,9 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
             if count > limit:
                 # Rate limit exceeded
                 request.limited = True
+                # Upper bound on the wait: the fixed window this decorator
+                # counts in, not a precisely-tracked remaining time.
+                request.limited_retry_after = period_seconds
                 if block:
                     # Return JSON for API/AJAX requests, plain text for browser requests
                     if (
@@ -121,6 +130,15 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                             {"error": _("Too many attempts. Please try again later."), "error_code": "rate_limited"},
                             status=429,
                         )
+                    if rate_limited_template:
+                        response = render(
+                            request,
+                            rate_limited_template,
+                            {'wait_message': humanize_wait_seconds(period_seconds)},
+                            status=429,
+                        )
+                        response['Retry-After'] = str(period_seconds)
+                        return response
                     messages.error(
                         request,
                         _('Too many attempts. Please try again later.')

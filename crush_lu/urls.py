@@ -1,8 +1,9 @@
 from django.urls import path
 from django.views.generic import RedirectView
 from django.shortcuts import redirect
-from django.http import HttpResponse
+from django.utils.translation import gettext as _
 from allauth.account.views import LoginView, LogoutView
+from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
 from . import views_crush_connect
@@ -11,6 +12,7 @@ from . import views_connect_chat
 from . import views_moderation
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
+from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,18 +45,36 @@ class UnifiedAuthView(LoginView):
         return initial
 
     def dispatch(self, request, *args, **kwargs):
+        # Needed up-front so render_to_response() below (the rate-limit
+        # branch's own template render) has self.request to work with -
+        # normally View.setup()/super().dispatch() would set this for us,
+        # but we need it before we know whether we're even calling super().
+        self.request, self.args, self.kwargs = request, args, kwargs
+
         # Rate limiting for POST requests (login attempts)
         if request.method == 'POST':
             throttle = LoginRateThrottle()
             if not throttle.allow_request(request, self):
                 wait = throttle.wait()
                 logger.warning(f"[RATE-LIMIT] Login rate limit exceeded for IP: {throttle.get_ident(request)}")
-                return HttpResponse(
-                    f'Too many login attempts. Please try again in {int(wait)} seconds.',
-                    status=429,
-                    content_type='text/plain',
-                    headers={'Retry-After': str(int(wait))}
+                # UX Wave 3 · WP3 (finding 2-04): re-render the same auth.html
+                # the user was on, with an inline translated error, instead of
+                # a bare text/plain page with no branding or way back.
+                login_form = LoginForm()
+                add_rate_limited_error(
+                    login_form,
+                    _('Too many login attempts. Please try again in %(wait)s.')
+                    % {'wait': humanize_wait_seconds(wait)},
                 )
+                context = {
+                    'signup_form': CrushSignupForm(),
+                    'login_form': login_form,
+                    'mode': 'login',
+                }
+                response = self.render_to_response(context)
+                response.status_code = 429
+                response['Retry-After'] = str(int(wait))
+                return response
 
         # Diagnostic logging for 403 debugging
         if request.method == 'POST':
