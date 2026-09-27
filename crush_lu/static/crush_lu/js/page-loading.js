@@ -170,7 +170,9 @@
             // data-confirm-when="<checkbox name>" asks only while that box
             // is ticked (same rule as confirm-sheet.js). A clicked submit
             // button carrying its own data-confirm asks the same way.
-            const submitter = e.submitter;
+            // confirm-sheet.js records the clicked button for WebViews
+            // that leave SubmitEvent.submitter unset.
+            const submitter = e.submitter || (form && form.__crushLastSubmitter);
             if (
                 form &&
                 form.hasAttribute &&

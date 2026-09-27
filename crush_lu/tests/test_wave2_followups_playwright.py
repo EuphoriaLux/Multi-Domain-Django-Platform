@@ -72,9 +72,7 @@ def test_sumup_sdk_load_failure_is_translated(page, live_server):
     expect(loading).not_to_contain_text("Failed to load payment module")
 
 
-def test_spark_review_buttons_ask_their_own_question(page, live_server):
-    """#1058: one form, two submit buttons, two different confirmations —
-    the clicked button's data-confirm wins and its name/value is submitted."""
+def _pending_spark():
     from django.utils import timezone
 
     from crush_lu.models import CrushCoach, CrushSpark
@@ -103,7 +101,24 @@ def test_spark_review_buttons_ask_their_own_question(page, live_server):
         recipient=recipient,
         status=CrushSpark.Status.PENDING_REVIEW,
     )
+    return coach_user, spark
 
+
+# A WebView with <dialog> but no SubmitEvent.submitter (older Chromium).
+NO_SUBMITTER_JS = """
+Object.defineProperty(SubmitEvent.prototype, "submitter", {
+    configurable: true,
+    get() { return null; },
+});
+"""
+
+
+def test_spark_review_buttons_ask_their_own_question(page, live_server):
+    """#1058: one form, two submit buttons, two different confirmations —
+    the clicked button's data-confirm wins and its name/value is submitted."""
+    from crush_lu.models import CrushSpark
+
+    coach_user, spark = _pending_spark()
     page.set_viewport_size(PHONE)
     _log_in(page, live_server.url, coach_user)
     page.goto(f"{live_server.url}/en/coach/sparks/{spark.pk}/assign/")
@@ -127,6 +142,46 @@ def test_spark_review_buttons_ask_their_own_question(page, live_server):
         "Approve this spark? The sender will be notified to create their journey."
     )
     expect(dialog).not_to_have_class(re.compile(r"\bconfirm-danger\b"))
+    with page.expect_navigation():
+        dialog.locator("[data-confirm-accept]").click()
+    spark.refresh_from_db()
+    assert spark.status == CrushSpark.Status.COACH_APPROVED
+
+
+def test_spark_reject_still_asks_without_submit_event_submitter(page, live_server):
+    """Without SubmitEvent.submitter the destructive Reject must still ask,
+    and the confirmed Approve must still send action=approve."""
+    from crush_lu.models import CrushSpark
+
+    coach_user, spark = _pending_spark()
+    page.add_init_script(NO_SUBMITTER_JS)
+    page.set_viewport_size(PHONE)
+    _log_in(page, live_server.url, coach_user)
+    page.goto(f"{live_server.url}/en/coach/sparks/{spark.pk}/assign/")
+    assert (
+        page.evaluate(
+            "() => { let s = 'unset'; const f = document.createElement('form');"
+            " f.addEventListener('submit', e => { e.preventDefault(); s = e.submitter; });"
+            " document.body.appendChild(f); f.requestSubmit(); f.remove(); return s; }"
+        )
+        is None
+    )
+
+    dialog = page.locator("#crush-confirm-dialog")
+    message = dialog.locator("[data-confirm-message]")
+
+    page.get_by_role("button", name="Reject", exact=True).click()
+    expect(dialog).to_be_visible()
+    expect(message).to_have_text("Reject this spark? This cannot be undone.")
+    dialog.locator("[data-confirm-cancel]").click()
+    expect(dialog).to_be_hidden()
+    spark.refresh_from_db()
+    assert spark.status == CrushSpark.Status.PENDING_REVIEW
+
+    page.get_by_role("button", name="Approve", exact=True).click()
+    expect(message).to_have_text(
+        "Approve this spark? The sender will be notified to create their journey."
+    )
     with page.expect_navigation():
         dialog.locator("[data-confirm-accept]").click()
     spark.refresh_from_db()
