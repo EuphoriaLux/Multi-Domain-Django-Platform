@@ -45,7 +45,9 @@
                     {% trans "Only your Crush Coach will read this — never your crush." %}
                 </p>
 
-                <form method="post">
+                <form method="post"
+                      data-confirm="{% trans 'Declare your crush? It stays completely private and cannot be undone. Your Crush Coach will call you within 48 hours to talk about it.' %}"
+                      data-confirm-style="neutral">
                     {% csrf_token %}
 
                     <div class="mb-6">
@@ -71,7 +73,6 @@
 
                     <div class="flex flex-col gap-3">
                         <button type="submit"
-                                onclick="return confirm('{% filter escapejs %}{% trans "Declare your crush? It stays completely private and cannot be undone. Your Crush Coach will call you within 48 hours to talk about it." %}{% endfilter %}');"
                                 class="btn-crush-primary w-full py-3 text-lg font-semibold">
                             {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "Declare My Crush!" %}
                         </button>

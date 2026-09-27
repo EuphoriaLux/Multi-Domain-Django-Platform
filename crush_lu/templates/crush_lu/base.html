@@ -124,6 +124,9 @@
     {% endblock %}
 
     <!-- PWA Meta Tags -->
+    {# Status-bar colour per OS scheme (browsers take the first matching meta, so dark comes first); #}
+    {# theme-manager.js sets both on a manual theme pick or a theme-locked page #}
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">
     <meta name="theme-color" content="#9B59B6">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -171,6 +174,12 @@
            desktop half — forcing display:block on mobile would stomp flex/grid layouts */
         @media(min-width:1024px){.lg\:hidden{display:none}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+        /* Same shim gap as lg:hidden above, but this rule must come AFTER .flex:
+           unlayered rules of equal specificity resolve by source order, so
+           declaring it earlier (like lg:hidden) would still lose to .flex.
+           Needed by "flex ... md:hidden" elements (e.g. the event-detail mobile
+           sticky CTA bar, #4-03) so they don't leak onto tablet/desktop. */
+        @media(min-width:768px){.md\:hidden{display:none}}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
         /* Hero section critical styles for LCP optimization */

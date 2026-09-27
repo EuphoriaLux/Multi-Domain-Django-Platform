@@ -75,7 +75,7 @@
             </div>
 
             {# Section: Personal Account Navigation #}
-            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">{% trans "Account Settings" %}</span>
+            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Account Settings" %}</span>
             <div class="space-y-1">
                 <a href="{% url 'crush_lu:edit_profile' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                     {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
@@ -102,7 +102,7 @@
             {# Section: Active Coach Tools (only for coaches) #}
             {% if user.crushcoach and user.crushcoach.is_active %}
                 <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
-                <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">{% trans "Coach Actions" %}</span>
+                <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Coach Actions" %}</span>
                 <div class="space-y-1">
                     <a href="{% url 'crush_lu:coach_dashboard' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                         {% include "shared/icons/chart-bar.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
@@ -182,9 +182,55 @@
                 </div>
             {% endif %}
 
-            {# Logout Section #}
+            {# Section: Preferences — the navbar's language switcher and theme toggle are hidden for members on mobile #}
             <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
-            <a href="{% url 'crush_lu:logout' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors font-medium text-sm">
+            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% translate "Preferences" context "drawer group" %}</span>
+            {% include "crush_lu/partials/language_switcher.html" with mobile=True drawer=True %}
+            {# Light / Dark / System; aria-disabled with the locked label on always-dark pages, like the navbar toggle #}
+            <div x-data="themeChoice" class="px-3 py-2" data-locked-label="{% trans "This experience is always in night mode" %}">
+                <div role="group" aria-label="{% trans 'Theme' %}" class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
+                    <button type="button" @click="chooseLight" x-bind:aria-pressed="isLightChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="lightOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "Light" %}</button>
+                    <button type="button" @click="chooseDark" x-bind:aria-pressed="isDarkChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="darkOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "Dark" %}</button>
+                    <button type="button" @click="chooseSystem" x-bind:aria-pressed="isSystemChosen" x-bind:aria-disabled="isLocked" x-bind:title="lockedTitle" x-bind:class="systemOptionClass" class="py-1.5 rounded-lg text-sm font-medium transition-colors">{% trans "System" %}</button>
+                </div>
+                <p x-show="isLocked" x-cloak class="mt-2 text-xs text-muted-fg" x-text="lockedLabel"></p>
+            </div>
+
+            {# Section: Help & legal — the footer is hidden for members on mobile #}
+            <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
+            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Help & legal" %}</span>
+            <div class="space-y-1">
+                <a href="{% url 'crush_lu:support' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/question-mark-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "Help & support" %}</span>
+                </a>
+                {% if whatsapp_enabled and whatsapp_number %}
+                <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/whatsapp.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "WhatsApp support" %}</span>
+                </a>
+                {% endif %}
+                <a href="{% url 'crush_lu:privacy_policy' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "Privacy Policy" %}</span>
+                </a>
+                <a href="{% url 'crush_lu:terms_of_service' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/document-text.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "Terms of Service" %}</span>
+                </a>
+                <a href="{% url 'crush_lu:data_deletion' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/trash.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "Data Deletion" %}</span>
+                </a>
+                <a href="{% url 'crush_lu:changelog_list' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
+                    {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "What's New" %}</span>
+                </a>
+            </div>
+
+            {# Logout Section (always last, after a separator) #}
+            <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
+            <a href="{% url 'crush_lu:logout' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors font-medium text-sm">
                 {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5 text-red-500 dark:text-red-400" %}
                 <span>{% trans "Logout" %}</span>
             </a>

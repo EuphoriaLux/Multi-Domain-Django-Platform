@@ -7366,6 +7366,9 @@ html.dark .cta-section {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    /* Decoration only: positioned above the footer's links, it would
+       otherwise swallow taps on "Sign in" and the report form. */
+    pointer-events: none;
 }
 
 .gift-landing .cta-section::after {
@@ -11389,7 +11392,9 @@ html.dark .crush-connect-cta {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        height: 48px;
+        /* border-box: the notch inset is padding, so the bar grows by it and
+           keeps 48px for its content (an installed iOS PWA has ~47px). */
+        height: calc(48px + env(safe-area-inset-top, 0px));
         padding: 0 16px;
         padding-top: env(safe-area-inset-top, 0px);
         background: linear-gradient(135deg, #9b59b6, #c0399e, #ff6b9d);
@@ -11431,6 +11436,12 @@ html.dark .crush-connect-cta {
         min-height: 44px;
         min-width: 44px;
         -webkit-tap-highlight-color: transparent;
+        /* A <button> (keyboard-operable): drop native button chrome. */
+        background: none;
+        border: 0;
+        padding: 0;
+        font-family: inherit;
+        cursor: pointer;
     }
 
     .top-bar-mobile-title {
