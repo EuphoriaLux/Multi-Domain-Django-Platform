@@ -8,9 +8,11 @@ report drops a record into the admin moderation queue (``UserReportAdmin``).
 """
 
 import logging
+import time
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -21,6 +23,13 @@ from .models import UserBlock, UserReport
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Session key carrying the just-removed block to the Blocked members page, which
+# offers an "Undo" toast that re-blocks through ``block_user``.
+UNDO_UNBLOCK_SESSION_KEY = "crush_lu_undo_unblock"
+# An Undo offered later than this (unblock redirected elsewhere, page opened much
+# later) would be stale, so the payload is dropped instead.
+UNDO_UNBLOCK_MAX_AGE_SECONDS = 120
 
 
 def _back(request, default="crush_lu:crush_connect_hub"):
@@ -56,6 +65,33 @@ def _block(blocker, blocked, reason=""):
     apply_block(blocker, blocked, reason)
 
 
+def _block_for_report(reporter, target, source, source_id):
+    """Block from the report form, honouring the surface it came from.
+
+    A report filed from inside a Connect Cycle chat blocks through
+    ``block_chat_partner`` so the pair is also excluded from re-matching and
+    the chat closes — the same outcome as the chat's own block button. Any
+    other surface (or a chat the reporter isn't in with ``target``) uses the
+    general block.
+    """
+    if source == "connect_chat" and source_id:
+        from .models.crush_connect_cycle import ConnectTemporaryChat
+        from .services.connect_chat import block_chat_partner
+
+        chat = (
+            ConnectTemporaryChat.objects.filter(pk=source_id)
+            .filter(
+                Q(participant_1=reporter, participant_2=target)
+                | Q(participant_1=target, participant_2=reporter)
+            )
+            .first()
+        )
+        if chat is not None:
+            block_chat_partner(chat, reporter)
+            return
+    _block(reporter, target)
+
+
 @crush_login_required
 @ratelimit(key="user", rate="30/h", method="POST")
 @require_POST
@@ -81,9 +117,19 @@ def block_user(request, user_id: int):
 @ratelimit(key="user", rate="30/h", method="POST")
 @require_POST
 def unblock_user(request, user_id: int):
-    """Remove a block the current user previously made."""
-    UserBlock.objects.filter(blocker=request.user, blocked_id=user_id).delete()
-    messages.success(request, _("Member unblocked."))
+    """Remove a block the current user previously made.
+
+    The confirmation lives in the Undo toast on the Blocked members page (the
+    block's reason is kept so Undo restores it), not in a messages banner.
+    """
+    block = UserBlock.objects.filter(blocker=request.user, blocked_id=user_id).first()
+    if block is not None:
+        request.session[UNDO_UNBLOCK_SESSION_KEY] = {
+            "user_id": user_id,
+            "reason": block.reason,
+            "at": time.time(),
+        }
+        block.delete()
     return _back(request, default="crush_lu:blocked_members")
 
 
@@ -134,7 +180,7 @@ def report_user(request, user_id: int):
         logger.exception("Report-filed notification failed for report %s", report.pk)
 
     if request.POST.get("also_block"):
-        _block(request.user, target)
+        _block_for_report(request.user, target, report.source, source_id)
 
     messages.success(
         request,
@@ -154,6 +200,21 @@ def blocked_members(request):
         .select_related("blocked__crushprofile")
         .order_by("-created_at")
     )
+    undo = request.session.pop(UNDO_UNBLOCK_SESSION_KEY, None)
+    undo_member = None
+    if undo and time.time() - undo.get("at", 0) > UNDO_UNBLOCK_MAX_AGE_SECONDS:
+        undo = None
+    if undo:
+        undo_member = User.objects.filter(pk=undo.get("user_id")).first()
+        # Re-blocked meanwhile (other tab): nothing left to undo.
+        if undo_member and blocks.filter(blocked=undo_member).exists():
+            undo_member = None
     return render(
-        request, "crush_lu/moderation/blocked_members.html", {"blocks": blocks}
+        request,
+        "crush_lu/moderation/blocked_members.html",
+        {
+            "blocks": blocks,
+            "undo_member": undo_member,
+            "undo_reason": (undo or {}).get("reason", ""),
+        },
     )

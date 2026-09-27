@@ -26,6 +26,7 @@
   after a successful complete_signup is deferred (see findings_deferred).
 {% endcomment %}
 {% if mode == 'signup' %}{% appinsights_event "signup_page_viewed" %}{% ga4_event "signup_page_viewed" method="page_view" %}{% endif %}
+{% get_providers as socialaccount_providers %}
 <div class="flex justify-center items-center min-h-[70vh]">
     <div class="w-full max-w-md">
         <div class="auth-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20">
@@ -56,8 +57,13 @@
                                 <p class="mt-1 text-[11px] font-semibold leading-tight text-gray-700 dark:text-gray-200">{% trans "Privacy-first" %}</p>
                             </div>
                         </div>
+                        {# Only promise LuxID when its button below is actually rendered. #}
                         <p class="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
+                            {% if socialaccount_providers|has_luxid %}
                             {% trans "≈ 15 min to set up · Get verified instantly with LuxID, or at an event" %}
+                            {% else %}
+                            {% trans "≈ 15 min to set up · Get verified at your first event" %}
+                            {% endif %}
                         </p>
                     </div>
 
@@ -84,8 +90,7 @@
                         </button>
                     </div>
 
-                <!-- Social Login Buttons (shared) -->
-                {% get_providers as socialaccount_providers %}
+                <!-- Social Login Buttons (shared); providers are loaded at the top of the block -->
                 {% if socialaccount_providers %}
                 <div class="flex flex-col gap-3 mb-6">
                     {% comment %}
@@ -98,10 +103,9 @@
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "luxid" or provider.app.provider_id == "luxid" %}
                     <a href="{% provider_login_url provider %}" class="social-login-btn luxid-btn"
-                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID"
-                       style="background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981); color: white;">
+                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID">
                         <span class="social-icon">
-                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" style="width: 20px; height: 20px; border-radius: 3px;">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" class="luxid-btn-logo">
                         </span>
                         <span class="flex flex-col items-start leading-tight text-left">
                             <span class="flex items-center gap-2">

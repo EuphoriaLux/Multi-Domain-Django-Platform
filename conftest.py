@@ -552,6 +552,18 @@ def sender_user(transactional_db):
         user=user,
         defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
     )
+    # gift_create requires a coach-approved profile (UX 7-01).
+    from datetime import date
+
+    from crush_lu.models import CrushProfile
+
+    CrushProfile.objects.create(
+        user=user,
+        date_of_birth=date(1995, 1, 1),
+        gender="F",
+        location="Luxembourg",
+        is_approved=True,
+    )
     return user
 
 
