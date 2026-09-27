@@ -4844,9 +4844,6 @@ document.addEventListener("alpine:init", function () {
 
             // Step 2 fields tracking
 
-            // Date of birth formatted display (from dobPicker)
-            dobFormatted: "",
-
             // Field-specific error messages
             fieldErrors: {},
 
@@ -5144,14 +5141,6 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
-                // Listen for date of birth selection from dobPicker component
-                window.addEventListener("dob-selected", function (e) {
-                    if (e.detail && e.detail.formatted) {
-                        self.dobFormatted = e.detail.formatted;
-                        self.saveDraft();
-                    }
-                });
-
                 // =========================================================================
                 // DRAFT AUTO-SAVE SETUP
                 // =========================================================================
@@ -5269,6 +5258,13 @@ document.addEventListener("alpine:init", function () {
             _setStep: function (step, pushHistory) {
                 if (step < 1 || step > this.totalSteps) return;
                 this.currentStep = step;
+                // 3-05 follow-up: landing on Review via the back/forward
+                // gesture or a direct goToStep() must refresh the summary,
+                // the same way saveAndNextStep3 already does on the forward
+                // path — otherwise an edited field can show a stale value.
+                if (step === this.totalSteps) {
+                    this.updateReview();
+                }
                 window.scrollTo({ top: 0, behavior: "smooth" });
                 try {
                     if (pushHistory) {
@@ -6019,51 +6015,6 @@ document.addEventListener("alpine:init", function () {
                 }
                 if (this.draftData.date_of_birth) {
                     this.dateOfBirth = this.draftData.date_of_birth;
-                    // Format the date for display in review (e.g., "1990-01-15" -> "Jan 15, 1990")
-                    try {
-                        var dateParts = this.draftData.date_of_birth.split("-");
-                        if (dateParts.length === 3) {
-                            var dateObj = new Date(
-                                dateParts[0],
-                                dateParts[1] - 1,
-                                dateParts[2],
-                            );
-                            var months = [
-                                "Jan",
-                                "Feb",
-                                "Mar",
-                                "Apr",
-                                "May",
-                                "Jun",
-                                "Jul",
-                                "Aug",
-                                "Sep",
-                                "Oct",
-                                "Nov",
-                                "Dec",
-                            ];
-                            this.dobFormatted =
-                                months[dateObj.getMonth()] +
-                                " " +
-                                dateObj.getDate() +
-                                ", " +
-                                dateObj.getFullYear();
-                        }
-                    } catch (e) {
-                        this.dobFormatted = this.draftData.date_of_birth; // Fallback to raw value
-                    }
-
-                    // Tell the dobPicker so its stepped UI reflects the
-                    // restored date instead of sitting on the empty
-                    // age-range step.
-                    var dobPickerEl = document.querySelector('[x-data="dobPicker"]');
-                    if (dobPickerEl) {
-                        dobPickerEl.dispatchEvent(
-                            new CustomEvent("dob-restore", {
-                                detail: { value: this.draftData.date_of_birth },
-                            }),
-                        );
-                    }
                 }
                 if (this.draftData.gender) {
                     this.gender = this.draftData.gender;

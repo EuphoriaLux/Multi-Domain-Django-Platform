@@ -16,10 +16,13 @@ Every test here fails against origin/main's version of the relevant
 template/form (the old markup this Wave 3 change replaced).
 """
 
+import datetime as dt_module
 from datetime import date
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -60,6 +63,7 @@ class SingleMainLandmarkTests(_SiteMixin, TestCase):
     """3-08: exactly one <main> per rendered onboarding page."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.user = User.objects.create_user(
             username="landmark@example.com",
@@ -102,6 +106,7 @@ class SingleMainLandmarkTests(_SiteMixin, TestCase):
             phone_verified=True,
             phone_number="+352621000000",
             coach_intro_seen_at=timezone.now(),
+            verification_status="pending",
         )
         coach_user = User.objects.create_user(
             username="coach@example.com",
@@ -134,6 +139,7 @@ class PhoneStepAccessibilityTests(_SiteMixin, TestCase):
     """3-07: programmatic label + neutral resting status pill."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.user = User.objects.create_user(
             username="phone-a11y@example.com",
@@ -172,6 +178,7 @@ class WelcomeIntentFieldsetTests(_SiteMixin, TestCase):
     """3-09: the intent radios are a real fieldset/legend group."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.user = User.objects.create_user(
             username="welcome-a11y@example.com",
@@ -202,6 +209,7 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
     """3-15: a single native date input replaces the 4-level drill-down."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.user = User.objects.create_user(
             username="dob@example.com",
@@ -245,14 +253,36 @@ class NativeDateOfBirthTests(_SiteMixin, TestCase):
         self.assertEqual(today.year - min_dob.year, 99)
 
     def test_bounds_reflect_the_request_year_not_a_frozen_class_default(self):
-        """min/max must be computed per-instantiation, not once at import
-        time — otherwise they silently go stale after a year passes."""
-        form_a = CrushProfileForm()
-        form_b = CrushProfileForm()
-        self.assertEqual(
-            form_a.fields["date_of_birth"].widget.attrs["max"],
-            form_b.fields["date_of_birth"].widget.attrs["max"],
-        )
+        """min/max must be recomputed from `date.today()` on every call,
+        not frozen once at import/class-definition time — otherwise they
+        silently go stale after a year passes. Mocks today's date to two
+        different years and asserts both bounds move by the same delta."""
+
+        class _FixedToday(dt_module.date):
+            _today = dt_module.date(2020, 6, 15)
+
+            @classmethod
+            def today(cls):
+                return cls._today
+
+        form = CrushProfileForm()
+
+        with mock.patch.object(dt_module, "date", _FixedToday):
+            _FixedToday._today = dt_module.date(2020, 6, 15)
+            form._set_date_of_birth_bounds()
+            attrs_2020 = dict(form.fields["date_of_birth"].widget.attrs)
+
+            _FixedToday._today = dt_module.date(2025, 6, 15)
+            form._set_date_of_birth_bounds()
+            attrs_2025 = dict(form.fields["date_of_birth"].widget.attrs)
+
+        max_2020 = date.fromisoformat(attrs_2020["max"])
+        max_2025 = date.fromisoformat(attrs_2025["max"])
+        min_2020 = date.fromisoformat(attrs_2020["min"])
+        min_2025 = date.fromisoformat(attrs_2025["min"])
+
+        self.assertEqual(max_2025.year - max_2020.year, 5)
+        self.assertEqual(min_2025.year - min_2020.year, 5)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -260,6 +290,7 @@ class ReviewStepEditLinksTests(_SiteMixin, TestCase):
     """3-05: per-row Edit controls + an amber no-photo nudge."""
 
     def setUp(self):
+        cache.clear()
         self.client = Client()
         self.user = User.objects.create_user(
             username="review@example.com",
