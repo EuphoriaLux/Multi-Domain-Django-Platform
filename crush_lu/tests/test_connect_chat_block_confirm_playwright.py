@@ -64,6 +64,12 @@ def test_chat_block_confirm_cancel_keeps_chat_and_accept_blocks(page, live_serve
     expect(dialog).to_contain_text("closes the chat")
     dialog.locator("[data-confirm-cancel]").click()
     expect(dialog).to_be_hidden()
+    # page-loading.js must not strand its overlay over the page on cancel:
+    # wait out its 500 ms show delay, then the block button must still take
+    # a click (a shown overlay would intercept it).
+    page.wait_for_timeout(800)
+    expect(page.locator("#page-loading-overlay")).not_to_be_visible()
+    block.click(trial=True, timeout=1000)
     chat.refresh_from_db()
     assert chat.status == ConnectTemporaryChat.Status.ACTIVE
     assert not ConnectPairExclusion.are_excluded(me, target)

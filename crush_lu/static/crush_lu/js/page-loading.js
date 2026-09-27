@@ -163,6 +163,12 @@
                 return;
             }
 
+            // data-confirm forms ask first (confirm-sheet.js); this capture
+            // listener runs before that, so a cancel would strand the overlay.
+            if (form && form.hasAttribute && form.hasAttribute("data-confirm")) {
+                return;
+            }
+
             // Show overlay for all navigating forms (GET and POST)
             if (form) {
                 showLoadingOverlay();
