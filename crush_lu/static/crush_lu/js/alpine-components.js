@@ -15342,6 +15342,23 @@ document.addEventListener("alpine:init", function () {
         });
     });
 
+    // Connect Week review card: opens/closes the per-card native <dialog>
+    // "Choose" confirmation (UX Wave 3 · WP12 / 6-06). Template-local — one
+    // dialog per card via $refs, not a shared cross-page sheet/store (that
+    // name belongs to Wave 2's forthcoming shared component).
+    Alpine.data("connectReviewChoice", function () {
+        return {
+            openDialog: function () {
+                var dialog = this.$refs.dialog;
+                if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+            },
+            closeDialog: function () {
+                var dialog = this.$refs.dialog;
+                if (dialog && typeof dialog.close === "function") dialog.close();
+            },
+        };
+    });
+
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({

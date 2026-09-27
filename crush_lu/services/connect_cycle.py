@@ -513,6 +513,44 @@ def visible_cycle_cards(cards, viewer):
     return [visible[pk] for pk in card_ids if pk in visible]
 
 
+def week_timeline_state(session, sent_request=None):
+    """Compact 5-step Connect Week timeline state: Discover -> Review ->
+    One request -> Chat -> Coffee. Never invents a duration — every value
+    is read off the session / request state machine (``CYCLE_LENGTH_DAYS``,
+    ``REVIEW_WINDOW_HOURS``, the model's own ``review_expires_at`` /
+    ``ConnectWeeklyRequest.expires_at``).
+
+    Returns ``{"step": 1-5, "next_kind": "opens"|"closes"|"waiting"|None,
+    "next_at": date/datetime or None}``. ``sent_request`` is the session's
+    single ``ConnectWeeklyRequest`` (or ``None``) when the caller already
+    has it; passing it avoids a redundant query during the review window.
+    """
+    if session is None:
+        return {"step": 1, "next_kind": None, "next_at": None}
+    if session.status == session.Status.REVIEW_OPEN:
+        if sent_request is None:
+            sent_request = session.weekly_requests.order_by("-sent_at").first()
+        if sent_request is None:
+            return {
+                "step": 2,
+                "next_kind": "closes",
+                "next_at": session.review_expires_at,
+            }
+        if sent_request.status == sent_request.Status.ACCEPTED:
+            return {"step": 4, "next_kind": None, "next_at": None}
+        if sent_request.status == sent_request.Status.PENDING:
+            return {
+                "step": 3,
+                "next_kind": "waiting",
+                "next_at": sent_request.expires_at,
+            }
+        return {"step": 2, "next_kind": "closes", "next_at": session.review_expires_at}
+    review_date = timezone.localtime(session.started_at).date() + timedelta(
+        days=CYCLE_LENGTH_DAYS
+    )
+    return {"step": 1, "next_kind": "opens", "next_at": review_date}
+
+
 def get_review_cards(session):
     """Every completed card from the session, for the 24h review grid —
     normally up to ``CARDS_PER_DAY x CYCLE_LENGTH_DAYS``, fewer if the pool ran dry some days or

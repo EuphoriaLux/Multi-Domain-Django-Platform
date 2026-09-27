@@ -171,7 +171,9 @@
   window.visualViewport?.addEventListener('resize', keyboard);
   window.visualViewport?.addEventListener('scroll', keyboard);
   keyboard();
-  older.hidden = ids.size < 50;
+  // `older.hidden` is set server-side from the same >=50 rule (see
+  // chat_detail.html's has_older) so the button never flashes visible then
+  // disappears while this script loads.
   bottom();
   poll();
 })();

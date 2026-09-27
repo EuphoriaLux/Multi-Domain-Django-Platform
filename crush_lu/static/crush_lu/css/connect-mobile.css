@@ -14,6 +14,14 @@
 }
 
 .connect-thread { height: clamp(180px, 40dvh, 420px); overflow-anchor: none; }
+/* Full-height chat (UX Wave 3 · WP12 / 6-08): body.connect-chat hides the
+   Connect subnav, the "All chats" stack and the PWA install banner (see
+   chat_detail.html / body_class block), so the thread can claim most of the
+   viewport instead of the old 420px cap. 260px is a deliberate estimate
+   (compact header + composer + safe-area), not a measured layout — same
+   spirit as quiz-experience.css's "fill the room" comment. */
+body.connect-chat #pwa-install-banner { display: none !important; }
+body.connect-chat .connect-thread { height: auto; min-height: calc(100dvh - 260px); max-height: none; }
 .connect-thread [data-message-id] { flex-shrink: 0; overflow-wrap: anywhere; }
 .connect-composer { position: sticky; bottom: max(calc(72px + env(safe-area-inset-bottom)), var(--connect-keyboard, 0px)); background: var(--bg-primary, white); padding-block: .5rem; z-index: 20; }
 .dark .connect-composer { background: var(--color-slate-800); }
@@ -38,3 +46,23 @@
 .connect-wizard main.container > div { padding-inline: 0; }
 .connect-wizard .connect-card .w-20.h-20 { width: 3rem; height: 3rem; }
 .connect-wizard [role=progressbar] { margin-bottom: .5rem; }
+
+/* Connect Week 5-step timeline (UX Wave 3 · WP12 / 6-03). */
+.connect-week-timeline-steps { display: flex; align-items: flex-start; gap: .25rem; }
+.connect-week-timeline-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .3rem; text-align: center; font-size: .625rem; line-height: 1.15; color: var(--color-text-muted, #9ca3af); }
+.connect-week-timeline-dot { width: .5rem; height: .5rem; border-radius: 9999px; background: var(--color-border, #e5e7eb); }
+.dark .connect-week-timeline-dot { background: var(--color-slate-600); }
+.connect-week-timeline-step.is-done .connect-week-timeline-dot { background: var(--crush-purple); }
+.connect-week-timeline-step.is-current .connect-week-timeline-dot { background: var(--crush-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--crush-purple) 25%, transparent); }
+.connect-week-timeline-step.is-current { color: var(--crush-purple); font-weight: 700; }
+.dark .connect-week-timeline-step.is-current { color: var(--crush-pink); }
+.dark .connect-week-timeline-step.is-current .connect-week-timeline-dot { background: var(--crush-pink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--crush-pink) 25%, transparent); }
+
+/* Review card "Choose" confirmation dialog (UX Wave 3 · WP12 / 6-06) —
+   native <dialog>, template-local until Wave 2's shared confirm sheet lands. */
+.connect-review-confirm-dialog { border: none; max-width: min(26rem, calc(100vw - 2rem)); width: 100%; padding: 0; border-radius: 1rem; background: var(--color-surface-card, white); }
+.dark .connect-review-confirm-dialog { background: var(--color-slate-800); }
+.connect-review-confirm-dialog::backdrop { background: rgb(0 0 0 / .45); }
+
+/* Chat header expiry chip (UX Wave 3 · WP12 / 6-08). */
+.connect-chat-expiry-chip { white-space: nowrap; }

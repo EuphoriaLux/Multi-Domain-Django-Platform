@@ -276,9 +276,10 @@ def test_daily_progress_and_next_card_exclude_revoked_photo_consent(client, sett
 
 
 @pytest.mark.django_db
-def test_review_highlight_is_visible_in_collapsed_summary(client, settings):
-    import re
-
+def test_review_highlight_is_visible_without_expanding_the_card(client, settings):
+    """UX Wave 3 · WP12 (6-06): the review grid renders always-visible
+    <article> cards (no collapsed <details>/<summary> hiding the highlight
+    badge or photo behind a click)."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_cycle_user("highlight_viewer")
     target = _make_cycle_user("highlight_target", gender="F")
@@ -287,10 +288,9 @@ def test_review_highlight_is_visible_in_collapsed_summary(client, settings):
     session.save(update_fields=["compatibility_highlight_user"])
     _login_eligible(client, me)
     response = client.get(WEEK_REVIEW_URL)
-    summaries = re.findall(
-        r"<summary\b[^>]*>(.*?)</summary>", response.content.decode(), re.S
-    )
-    assert any("Suggested connection" in summary for summary in summaries)
+    body = response.content.decode()
+    assert "<details" not in body
+    assert "Suggested connection" in body
 
 
 @pytest.mark.django_db

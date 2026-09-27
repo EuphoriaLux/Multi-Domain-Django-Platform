@@ -1,6 +1,6 @@
 {% comment %}
 Connect Week review card — one completed ConnectCycleCard in the 24h
-"Deine Connect-Woche" grid.
+"Deine Connect-Woche" review grid.
 
 Context:
     card            — the completed ConnectCycleCard
@@ -15,36 +15,40 @@ Context:
     highlight_user_id — session.compatibility_highlight_user_id (may be None)
     review_active   — session.is_review_active
     sent_request    — the session's single ConnectWeeklyRequest, or None
+
+UX Wave 3 · WP12 (6-06): always-visible photo (no collapsed <details> hiding
+it at decision time). "Choose" opens a native <dialog> confirmation —
+template-local until Wave 2's shared confirm-sheet component lands.
 {% endcomment %}
 {% load i18n crush_media %}
-<details class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col">
-    <summary class="px-4 font-semibold">{{ target.first_name|default:_("A member") }} · {{ target_profile.age_range }}{% if sent_request.recipient_id == target.pk %} · {% trans "Request sent" %}{% endif %}{% if target.pk == highlight_user_id %}<span class="block text-xs text-crush-purple dark:text-crush-pink">{% trans "Suggested connection" %}</span>{% endif %}</summary>
+<article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col"
+         aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Review card for {{ name }}{% endblocktrans %}">
     <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
         {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none"></div>
 
         {% if target.pk == highlight_user_id %}
-        <div class="absolute top-3 left-3 z-10">
-            <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-crush-purple">
-                {% include "shared/icons/star.html" with class="w-3 h-3" %}
+        <div class="absolute top-2 left-2 z-10">
+            <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-crush-purple">
+                {% include "shared/icons/star.html" with class="w-2.5 h-2.5" %}
                 {% trans "Suggested connection" %}
             </span>
         </div>
         {% endif %}
 
-        <div class="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
-            <h3 class="font-display text-lg font-semibold leading-none text-white truncate">
+        <div class="absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2">
+            <h3 class="font-display text-base font-semibold leading-none text-white truncate">
                 {{ target.first_name|default:_("A member") }}
             </h3>
             {% if target_profile.age %}
-            <span class="shrink-0 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-crush-purple-dark">
+            <span class="shrink-0 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-crush-purple-dark">
                 {{ target_profile.age_range }}
             </span>
             {% endif %}
         </div>
     </div>
 
-    <div class="p-3.5 flex flex-col gap-2 flex-1">
+    <div class="p-3 flex flex-col gap-2 flex-1">
         {% if answers %}
         <ul class="space-y-1 mb-0 list-none pl-0 text-xs text-gray-600 dark:text-gray-300">
             {% for answer in answers %}
@@ -58,25 +62,37 @@ Context:
         </ul>
         {% endif %}
 
-        <div class="mt-auto pt-2">
+        <div class="mt-auto pt-1">
             {% if sent_request and sent_request.recipient_id == target.pk %}
                 <span class="btn-crush-outline btn-block btn-sm text-center opacity-70 cursor-default">
                     {% trans "Request sent" %}
                 </span>
             {% elif review_active and not sent_request %}
-                <details class="rounded-xl ring-1 ring-crush-purple px-3">
-                <summary class="font-semibold">{% blocktrans with name=target.first_name|default:_("A member") %}Choose {{ name }}{% endblocktrans %}</summary>
-                <p>{% blocktrans with name=target.first_name|default:_("A member") %}Send your one weekly request to {{ name }}? You cannot choose someone else this week after sending.{% endblocktrans %}</p>
-                <p class="text-sm">{% trans "To cancel, close this choice without sending." %}</p>
-                <form method="post" action="{% url 'crush_lu:connect_week_request_send' card.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-crush-solid btn-block btn-sm">
-                        {% trans "Confirm and send request" %}
+                <div x-data="connectReviewChoice">
+                    <button type="button" class="btn-crush-outline btn-block btn-sm" @click="openDialog">
+                        {% blocktrans with name=target.first_name|default:_("A member") %}Choose {{ name }}{% endblocktrans %}
                     </button>
-                </form>
-                <a class="btn-crush-outline btn-block mt-2" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Cancel" %}</a>
-                </details>
+                    <dialog x-ref="dialog" class="connect-review-confirm-dialog">
+                        <div class="p-5">
+                            <p class="font-semibold text-gray-900 dark:text-white mb-2">
+                                {% blocktrans with name=target.first_name|default:_("A member") %}Send your one weekly request to {{ name }}?{% endblocktrans %}
+                            </p>
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                                {% trans "You cannot choose someone else this week after sending." %}
+                            </p>
+                            <form method="post" action="{% url 'crush_lu:connect_week_request_send' card.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-crush-primary btn-block mb-2">
+                                    {% trans "Confirm and send request" %}
+                                </button>
+                            </form>
+                            <button type="button" class="btn-crush-outline btn-block" @click="closeDialog">
+                                {% trans "Cancel" %}
+                            </button>
+                        </div>
+                    </dialog>
+                </div>
             {% endif %}
         </div>
     </div>
-</details>
+</article>

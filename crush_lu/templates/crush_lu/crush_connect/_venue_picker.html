@@ -42,7 +42,7 @@ prefilling an edit).
         <label class="block text-sm">{% trans "Date" %}
         <input type="date" name="proposed_date" min="{{ today|date:'Y-m-d' }}" required value="{{ coffee_date.proposed_date|date:'Y-m-d'|default:'' }}" class="input-crush w-full min-w-0"></label>
         <label class="block text-sm">{% trans "Time (optional)" %}
-        <input type="text" name="proposed_time_slot" maxlength="50" placeholder="{% trans 'e.g. 18:30' %}" value="{{ coffee_date.proposed_time_slot|default:'' }}" class="input-crush w-full min-w-0"></label>
+        <input type="time" name="proposed_time_slot" value="{{ coffee_date.proposed_time_slot|default:'' }}" class="input-crush w-full min-w-0"></label>
     </div>
 
     <button type="submit" class="btn-crush-solid btn-sm btn-block">{% trans "Save plan" %}</button>
