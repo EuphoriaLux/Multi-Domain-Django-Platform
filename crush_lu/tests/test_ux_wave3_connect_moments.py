@@ -329,6 +329,26 @@ def test_chat_detail_shows_expiry_chip_in_header(client):
 
 
 @pytest.mark.django_db
+def test_chat_header_name_and_chip_share_a_wrapping_row(client):
+    """At a narrow viewport, the back button, avatar and 44px safety menu
+    chrome alone leave little room; a non-wrapping expiry chip (longer
+    still in FR/DE) would squeeze the partner name away instead of
+    wrapping below it. The name and chip must share a flex-wrap row, not
+    each be direct flex children of the single-line header."""
+    me, target, chat = _make_open_chat()
+    _login_eligible(client, me)
+
+    body = client.get(f"/en/crush-connect/week/chats/{chat.pk}/").content.decode()
+
+    header_start = body.index('<header class="flex items-center gap-4')
+    header = body[header_start : body.index("</header>", header_start)]
+    wrap_start = header.index("flex-1 min-w-0 flex flex-wrap")
+    wrap = header[wrap_start : header.index("</div>", wrap_start)]
+    assert "<h1" in wrap
+    assert "connect-chat-expiry-chip" in wrap
+
+
+@pytest.mark.django_db
 def test_chat_send_response_refreshes_the_expiry_label(client):
     """Every send rolls chat.expires_at 7 days forward — the send response
     must carry the refreshed label, or the header chip (which only reads

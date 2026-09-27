@@ -23,17 +23,20 @@ rules) so the thread can claim most of the viewport.
         <div class="w-11 h-11 shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
             {% profile_photo partner.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=partner.first_name %}
         </div>
-        <div class="flex-1 min-w-0">
-            <h1 class="font-display text-lg font-semibold tracking-tight text-gray-900 dark:text-white truncate mb-0">
+        {# flex-wrap, not a single non-wrapping row: at a narrow viewport the fixed chrome around it leaves little room, and the (longer in FR/DE) expiry chip would otherwise squeeze the name away instead of wrapping below it. #}
+        <div class="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h1 class="font-display text-lg font-semibold tracking-tight text-gray-900 dark:text-white truncate mb-0 min-w-0">
                 {{ partner.first_name|default:_("A member") }}
             </h1>
+            {% if is_open %}
+            <span data-expiry-chip class="connect-chat-expiry-chip shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                {% include "shared/icons/clock.html" with class="w-3 h-3" %}
+                {# Sends roll chat.expires_at 7 days forward (either participant's) — connect-live-chat.js rewrites this text from the send/poll response so the chip never shows a stale deadline. #}
+                <span data-expiry-text>{% blocktrans with when=chat.expires_at|date:"D H:i" %}Closes {{ when }}{% endblocktrans %}</span>
+            </span>
+            {% endif %}
         </div>
         {% if is_open %}
-        <span data-expiry-chip class="connect-chat-expiry-chip shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-            {% include "shared/icons/clock.html" with class="w-3 h-3" %}
-            {# Sends roll chat.expires_at 7 days forward (either participant's) — connect-live-chat.js rewrites this text from the send/poll response so the chip never shows a stale deadline. #}
-            <span data-expiry-text>{% blocktrans with when=chat.expires_at|date:"D H:i" %}Closes {{ when }}{% endblocktrans %}</span>
-        </span>
         {# Report + block, the same menu as every other Connect surface; the plain block uses the chat endpoint so it also closes this chat. #}
         <div class="shrink-0 self-start">
             {% url 'crush_lu:connect_week_chat_block' chat.pk as chat_block_url %}
