@@ -133,10 +133,14 @@ def home(request):
     # City Crush Cache") is excluded so a prospect never lands on a test
     # event (finding 1-05). icontains, not istartswith: the real seeded
     # titles carry an emoji before the tag, so the marker never starts the
-    # string.
+    # string. title_en, not title: modeltranslation rewrites a bare `title`
+    # lookup to `title_<active_language>`, and the seed commands only ever
+    # populate the English column — so on /de/ and /fr/ a `title__icontains`
+    # exclude would compare against a NULL title_de/title_fr and silently
+    # stop excluding the marked event (round-2 finding).
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
-    ).exclude(title__icontains="[DEBUG]")
+    ).exclude(title_en__icontains="[DEBUG]")
     # Anonymous visitors can't join an event that has already started, so this
     # anonymous-only landing page shows only future, registration-open starts —
     # a "Live now" event they can't act on is worse than one further out

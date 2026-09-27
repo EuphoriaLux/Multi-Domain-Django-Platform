@@ -93,10 +93,10 @@ and could needlessly deter registration.
     {# Tab navigation #}
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
         <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1" role="tablist" aria-label="{% trans 'Event time range' %}">
-            <button type="button" role="tab" id="events-tab-upcoming" aria-controls="events-panel-upcoming" x-bind:aria-selected="upcomingAriaSelected" @click="showUpcoming" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+            <button type="button" role="tab" id="events-tab-upcoming" x-ref="tabUpcoming" aria-controls="events-panel-upcoming" x-bind:aria-selected="upcomingAriaSelected" x-bind:tabindex="isUpcoming ? '0' : '-1'" @click="showUpcoming" @keydown="onTabKeydown" x-bind:class="upcomingTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Upcoming" %}
             </button>
-            <button type="button" role="tab" id="events-tab-past" aria-controls="events-panel-past" x-bind:aria-selected="pastAriaSelected" @click="showPast" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
+            <button type="button" role="tab" id="events-tab-past" x-ref="tabPast" aria-controls="events-panel-past" x-bind:aria-selected="pastAriaSelected" x-bind:tabindex="isPast ? '0' : '-1'" @click="showPast" @keydown="onTabKeydown" x-bind:class="pastTabClass" class="px-4 py-2.5 min-h-11 text-sm sm:text-base font-medium rounded-md transition-all duration-200 whitespace-nowrap flex-1 sm:flex-none">
                 {% trans "Past Events" %}
             </button>
         </div>
@@ -110,11 +110,11 @@ and could needlessly deter registration.
     — otherwise clicking a chip there silently changes nothing visible.
     {% endcomment %}
     <div class="flex flex-wrap gap-2 mb-6" x-show="isUpcoming" role="group" aria-label="{% trans 'Filter by event type' %}">
-        <button type="button" data-filter-type="all" x-data="eventTypeFilterChip" x-bind:class="chipClass" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
+        <button type="button" data-filter-type="all" x-data="eventTypeFilterChip" x-bind:class="chipClass" x-bind:aria-pressed="ariaPressed" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
             {% trans "All types" %}
         </button>
         {% for option in event_type_filter_options %}
-        <button type="button" data-filter-type="{{ option.value }}" x-data="eventTypeFilterChip" x-bind:class="chipClass" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
+        <button type="button" data-filter-type="{{ option.value }}" x-data="eventTypeFilterChip" x-bind:class="chipClass" x-bind:aria-pressed="ariaPressed" @click="activate" class="px-3 py-1.5 min-h-9 text-sm font-medium rounded-full border transition-colors">
             {{ option.label }}
         </button>
         {% endfor %}

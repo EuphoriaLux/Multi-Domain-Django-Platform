@@ -409,8 +409,14 @@ def _light_eligibility(event, profile):
     guessing wrong in the more visible direction.
     """
     if event.is_private_invitation:
-        # Gated by invitation, not profile_requirement — never flag here.
-        return True
+        # Gated by invitation, not profile_requirement — but event_register's
+        # private-invitation branch still redirects every invitee (existing
+        # user or external guest) to create_profile when they have no
+        # CrushProfile at all, regardless of verification status. Mirror
+        # that one real precondition instead of unconditionally clearing the
+        # chip (round-2 finding): a profile-less invitee would otherwise be
+        # told they're eligible and then bounced on click.
+        return profile is not None
     requirement = event.profile_requirement
     if not requirement or requirement not in {
         "completed",

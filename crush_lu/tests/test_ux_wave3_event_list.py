@@ -83,6 +83,20 @@ class HomeUpcomingEventsTests(TestCase):
         self.assertNotIn("🧭 [DEBUG] Luxembourg City Crush Cache", titles)
         self.assertIn("Real Public Event", titles)
 
+    def test_debug_seed_event_excluded_from_anonymous_home_on_locale_path(self):
+        # Round-2 finding: modeltranslation rewrites a bare `title__icontains`
+        # exclude to `title_de__icontains` on /de/, and seed_crush_cache.py
+        # only ever populates the English column -- so title_de is NULL and
+        # the naive filter stopped excluding the debug event on that path.
+        _make_event(title="🧭 [DEBUG] Luxembourg City Crush Cache")
+        _make_event(title="Real Public Event")
+
+        response = self.client.get("/de/")
+
+        titles = [e.title for e in response.context["upcoming_events"]]
+        self.assertNotIn("🧭 [DEBUG] Luxembourg City Crush Cache", titles)
+        self.assertIn("Real Public Event", titles)
+
 
 class EventCardAgesAndSpotsTests(TestCase):
     """Findings 1-05 / 4-07: hide the placeholder ages row and only surface
@@ -392,6 +406,28 @@ class LightEligibilityTests(TestCase):
 
     def test_approved_requirement_no_profile_is_ineligible(self):
         event = _make_event(profile_requirement="approved")
+        self.assertFalse(_light_eligibility(event, None))
+
+    def test_private_invitation_eligible_with_any_profile(self):
+        # Gated by invitation, not profile_requirement -- event_register
+        # never checks verification_status for a private-invitation event,
+        # only that a CrushProfile exists at all.
+        event = _make_event(is_private_invitation=True, profile_requirement="approved")
+        profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            verification_status="pending",
+        )
+        self.assertTrue(_light_eligibility(event, profile))
+
+    def test_private_invitation_no_profile_is_ineligible(self):
+        # Round-2 finding: event_register's private-invitation branch
+        # redirects every invitee without a CrushProfile to create_profile,
+        # so the display chip must flag that instead of unconditionally
+        # clearing it (it previously returned True regardless of profile).
+        event = _make_event(is_private_invitation=True, profile_requirement="approved")
         self.assertFalse(_light_eligibility(event, None))
 
 
