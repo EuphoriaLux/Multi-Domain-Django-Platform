@@ -17,8 +17,15 @@
   so a login-tab render on /login/ never double-counts a page view.
   These tags are the existing consent-gated hooks (azureproject/templatetags/analytics.py)
   — nothing about consent is changed here.
+
+  Deliberately not GA4's reserved sign-up conversion event name: that is
+  meant for a completed registration (see the old signup.html, which
+  fired it here and misfired every abandoned page view as a conversion —
+  the bug this finding is about). "signup_page_viewed" is a plain
+  funnel-stage event, not a conversion; firing the real conversion event
+  after a successful complete_signup is deferred (see findings_deferred).
 {% endcomment %}
-{% if mode == 'signup' %}{% appinsights_event "signup_page_viewed" %}{% ga4_event "sign_up" method="page_view" %}{% endif %}
+{% if mode == 'signup' %}{% appinsights_event "signup_page_viewed" %}{% ga4_event "signup_page_viewed" method="page_view" %}{% endif %}
 <div class="flex justify-center items-center min-h-[70vh]">
     <div class="w-full max-w-md">
         <div class="auth-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/20">
@@ -58,7 +65,7 @@
                         <button type="button"
                                 id="auth-tab-login"
                                 role="tab"
-                                x-bind:aria-selected="isLoginTab ? 'true' : 'false'"
+                                x-bind:aria-selected="loginAriaSelected"
                                 aria-controls="login-panel"
                                 @click="setLogin"
                                 x-bind:class="loginTabClass"
@@ -68,7 +75,7 @@
                         <button type="button"
                                 id="auth-tab-signup"
                                 role="tab"
-                                x-bind:aria-selected="isSignupTab ? 'true' : 'false'"
+                                x-bind:aria-selected="signupAriaSelected"
                                 aria-controls="signup-panel"
                                 @click="setSignup"
                                 x-bind:class="signupTabClass"
@@ -655,10 +662,12 @@ var _i18n = {
         // render). Plain event listeners, not Alpine bindings — the CSP
         // Alpine build disallows inline expressions with arguments, and the
         // tab buttons already carry bare @click="setLogin"/"setSignup".
+        // Same event name as the server-rendered view event above (see its
+        // comment for why it isn't GA4's reserved sign-up conversion name).
         var signupTabBtn = document.getElementById('auth-tab-signup');
         if (signupTabBtn) {
             signupTabBtn.addEventListener('click', function() {
-                if (typeof gtag !== 'undefined') gtag('event', 'sign_up', { method: 'tab_switch' });
+                if (typeof gtag !== 'undefined') gtag('event', 'signup_page_viewed', { method: 'tab_switch' });
                 if (window.appInsights && typeof window.appInsights.trackEvent === 'function') {
                     window.appInsights.trackEvent({ name: 'signup_page_viewed', properties: { method: 'tab_switch' } });
                 }

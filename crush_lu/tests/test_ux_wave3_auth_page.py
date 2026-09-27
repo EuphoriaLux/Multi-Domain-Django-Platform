@@ -56,8 +56,14 @@ class AuthTabsAriaTests(TestCase):
         self.assertTrue(signup_tab and 'role="tab"' in signup_tab.group(0))
         self.assertIn('aria-controls="login-panel"', login_tab.group(0))
         self.assertIn('aria-controls="signup-panel"', signup_tab.group(0))
-        self.assertIn("isLoginTab ?", html)
-        self.assertIn("isSignupTab ?", html)
+        # Bare-name bindings only: Alpine's CSP-friendly build can't
+        # evaluate an inline ternary (isLoginTab ? 'true' : 'false') and
+        # silently drops the attribute — see loginAriaSelected/
+        # signupAriaSelected getters in alpine-components.js.
+        self.assertIn('x-bind:aria-selected="loginAriaSelected"', login_tab.group(0))
+        self.assertIn('x-bind:aria-selected="signupAriaSelected"', signup_tab.group(0))
+        self.assertNotIn("isLoginTab ?", html)
+        self.assertNotIn("isSignupTab ?", html)
 
     def test_panels_are_labelled_tabpanels(self):
         html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
@@ -268,6 +274,12 @@ class SignupFunnelAnalyticsTests(TestCase):
         the page-view event; the always-present tab-switch tracker in
         extra_js uses single-quoted JS literals for the *click* event, so the
         two are distinguishable even though both name the same event.
+
+        Deliberately "signup_page_viewed", not GA4's reserved "sign_up"
+        conversion event: signup.html fired "sign_up" on every page view,
+        counting abandoned visits as completed registrations (the bug 2-16
+        is about). The real conversion firing is deferred — see
+        findings_deferred — to the successful complete_signup() hook.
         """
         with mock.patch.dict(os.environ, ANALYTICS_ENV):
             signup_html = (
@@ -275,7 +287,7 @@ class SignupFunnelAnalyticsTests(TestCase):
             )
             login_html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
         self.assertIn('"signup_page_viewed"', signup_html)
-        self.assertIn('"sign_up"', signup_html)
+        self.assertNotIn('"sign_up"', signup_html)
         self.assertNotIn('"signup_page_viewed"', login_html)
 
     def test_dead_signup_template_is_gone(self):
@@ -287,4 +299,5 @@ class SignupFunnelAnalyticsTests(TestCase):
         html = Client(HTTP_HOST="crush.lu").get("/en/login/").content.decode()
         script = html[html.index("Unified Auth Page Handler") :]
         self.assertIn("auth-tab-signup", script)
-        self.assertIn("sign_up", script)
+        self.assertIn("signup_page_viewed", script)
+        self.assertNotIn("'sign_up'", script)

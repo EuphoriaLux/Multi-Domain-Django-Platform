@@ -2532,6 +2532,17 @@ document.addEventListener("alpine:init", function () {
             get isSignupTab() {
                 return this.activeTab === "signup";
             },
+            // Alpine's CSP-friendly build can't evaluate an inline ternary
+            // (`isLoginTab ? 'true' : 'false'`) in x-bind:aria-selected —
+            // it silently logs a console warning and never sets the
+            // attribute. These return the string directly so the binding
+            // stays a bare property name.
+            get loginAriaSelected() {
+                return this.isLoginTab ? "true" : "false";
+            },
+            get signupAriaSelected() {
+                return this.isSignupTab ? "true" : "false";
+            },
             get loginTabClass() {
                 return this.activeTab === "login"
                     ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md"
