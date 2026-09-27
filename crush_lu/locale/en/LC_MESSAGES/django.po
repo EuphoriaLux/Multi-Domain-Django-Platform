@@ -28485,6 +28485,18 @@ msgid "See Crush Connect above"
 msgstr ""
 
 
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match moment
+# UX Wave 3 · WP10 match-moment
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
 # UX Wave 3 · WP12 connect-moments
@@ -28543,5 +28555,4 @@ msgid "Today — see how you appear in the mix"
 msgstr ""
 
 msgid "18:30 or Evening"
-msgstr ""
 

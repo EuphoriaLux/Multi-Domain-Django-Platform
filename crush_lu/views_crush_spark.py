@@ -122,57 +122,6 @@ def spark_request(request, event_id):
 
 
 @crush_login_required
-def spark_list(request):
-    """Dashboard showing all sent and received sparks."""
-    sent_sparks = (
-        CrushSpark.objects.filter(sender=request.user)
-        .select_related("event", "recipient__crushprofile", "assigned_coach")
-        .order_by("-created_at")
-    )
-    received_sparks = (
-        CrushSpark.objects.filter(
-            recipient=request.user,
-            status__in=[
-                CrushSpark.Status.DELIVERED,
-                CrushSpark.Status.COMPLETED,
-            ],
-        )
-        .select_related("event")
-        .order_by("-delivered_at")
-    )
-
-    context = {
-        "sent_sparks": sent_sparks,
-        "received_sparks": received_sparks,
-    }
-    return render(request, "crush_lu/spark_list.html", context)
-
-
-@crush_login_required
-def spark_detail(request, spark_id):
-    """View a single spark's status and details."""
-    spark = get_object_or_404(
-        CrushSpark.objects.select_related(
-            "event", "recipient__crushprofile", "assigned_coach", "journey"
-        ),
-        id=spark_id,
-    )
-
-    # Only sender or recipient can view
-    if spark.sender != request.user and spark.recipient != request.user:
-        messages.error(request, _("You don't have permission to view this spark."))
-        return redirect("crush_lu:spark_list")
-
-    is_sender = spark.sender == request.user
-
-    context = {
-        "spark": spark,
-        "is_sender": is_sender,
-    }
-    return render(request, "crush_lu/spark_detail.html", context)
-
-
-@crush_login_required
 def spark_create_journey(request, spark_id):
     """Multi-step form for sender to create journey content (upload media, write message)."""
     spark = get_object_or_404(
