@@ -1,5 +1,21 @@
 {% load i18n %}
-<div class="flex flex-col gap-2 mt-4">
+{% comment %}
+Empty-state actions. Callers pass empty_context = "today" | "chats" | "requests"
+so each page offers the step that can actually fill it; connect_summary comes
+from _base_connect.html. "Find an event" only while event verification is missing.
+{% endcomment %}
+<div class="flex flex-col gap-2 mt-4" data-empty-actions="{{ empty_context }}">
+{% if empty_context == "requests" and connect_summary.cycle_access and connect_summary.daily_total %}
+<p class="text-sm text-gray-600 dark:text-gray-300 mb-1" data-week-status>{% blocktrans with done=connect_summary.daily_completed total=connect_summary.daily_total %}Today: {{ done }} of {{ total }} cards answered.{% endblocktrans %}</p>
+{% endif %}
+{% if empty_context != "today" and connect_summary.review_open %}
+<a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
+{% elif empty_context != "today" and connect_summary.cycle_access %}
+<a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
+{% else %}
 <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">{% trans "Your Connect profile" %}</a>
+{% endif %}
+{% if not user.crushprofile.has_attended_event %}
 <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_list' %}">{% trans "Find an event" %}</a>
+{% endif %}
 </div>

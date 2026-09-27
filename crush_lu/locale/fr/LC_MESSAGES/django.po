@@ -21227,17 +21227,6 @@ msgstr ""
 "coach personnel choisit un match par semaine, plus un Drop quotidien de "
 "nouveaux visages — s'ouvre d'abord à un petit groupe."
 
-#: templates/crush_lu/crush_connect/catalogue_status.html:141
-#| msgid ""
-#| "Your full name and exact age are never shown. Photos stay blurred until you "
-#| "both Spark. Leave Crush Connect anytime from settings."
-msgid ""
-"Your full name and exact age are never shown. Leave Crush Connect anytime "
-"from settings."
-msgstr ""
-"Votre nom complet et votre âge exact ne sont jamais affichés. Vous pouvez "
-"quitter Crush Connect à tout moment dans les paramètres."
-
 #: templates/crush_lu/crush_connect/coach_member_detail.html:4
 msgid "Curate a match — Crush Connect"
 msgstr "Sélectionner un match — Crush Connect"
@@ -41449,20 +41438,11 @@ msgstr "Toutes les conversations"
 msgid "Already confirmed — thanks!"
 msgstr "Déjà confirmé, merci !"
 
-msgid "Also let a Crush Coach know"
-msgstr "Informer également un coach Crush"
-
 msgid "Answer questions"
 msgstr "Répondre aux questions"
 
 msgid "Answer saved. Continue with your next available card."
 msgstr "Réponse enregistrée. Passez à la prochaine carte disponible."
-
-msgid "Anything a coach should know? (optional)"
-msgstr "Une information à transmettre au coach ? (facultatif)"
-
-msgid "Block this member"
-msgstr "Bloquer ce membre"
 
 msgid ""
 "Blocked. They won't be able to reach you, and you won't see each other "
@@ -41629,9 +41609,6 @@ msgstr "Bonjour, %(name)s"
 
 msgid "How Connect works"
 msgstr "Comment fonctionne Connect"
-
-msgid "I would like to get to know you."
-msgstr "J'aimerais faire votre connaissance."
 
 msgid "I'm interested"
 msgstr "Cette personne m'intéresse"
@@ -41811,13 +41788,6 @@ msgstr "La période de bilan de cette semaine est terminée."
 
 msgid "They weren't able to connect right now."
 msgstr "Cette personne n'a pas pu donner suite."
-
-msgid ""
-"They won't be able to reach you, and you won't see each other again. This "
-"can't be undone."
-msgstr ""
-"Vous ne pourrez plus vous contacter ni apparaître l'un pour l'autre. Cette "
-"action est irréversible."
 
 msgid "This card is no longer open."
 msgstr "Cette carte n'est plus disponible."
@@ -42024,14 +41994,6 @@ msgstr "Votre intérêt est enregistré"
 
 msgid "Your interest is saved. View your introduction."
 msgstr "Votre intérêt est enregistré. Consultez votre présentation."
-
-msgid ""
-"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
-"on to appear in eligible discovery and private coach curation."
-msgstr ""
-"Le partage de photo est désactivé : personne ne voit votre carte. Réactivez-"
-"le pour apparaître dans les découvertes autorisées et la sélection privée "
-"des coachs."
 
 msgid "Your private answer"
 msgstr "Votre réponse privée"
@@ -42671,3 +42633,66 @@ msgid ""
 msgstr ""
 "Les conditions d’annulation ont changé pendant que cette page était ouverte."
 " Veuillez les vérifier à nouveau avant de confirmer."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Block this member? This closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Bloquer ce membre ? Cela ferme la discussion et ne peut pas être annulé : ce membre ne pourra plus vous contacter et vous ne serez plus mis en relation."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "You're not shown to anyone yet."
+msgstr "Votre carte n'est encore montrée à personne."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your Connect home shows what is still missing."
+msgstr "Votre accueil Connect indique ce qui manque encore."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "See all steps"
+msgstr "Voir toutes les étapes"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "Your coach"
+msgstr "Votre coach"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium member · See your Coach's Pick"
+msgstr "Membre Premium · Voir votre Coach's Pick"
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your full name and exact age are never shown."
+msgstr "Votre nom complet et votre âge exact ne sont jamais affichés."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Pause Crush Connect anytime."
+msgstr "Vous pouvez mettre Crush Connect en pause à tout moment."
+
+#: models/moderation.py
+msgid "Connect chat"
+msgstr "Chat Connect"
+
+#: templates/crush_lu/crush_connect/week_inbox.html
+msgid "Sent you a Connect request"
+msgstr "Vous a envoyé une demande Connect"
+
+#: templates/crush_lu/crush_connect/_empty_actions.html
+#, python-format
+msgid "Today: %(done)s of %(total)s cards answered."
+msgstr "Aujourd'hui : %(done)s cartes sur %(total)s répondues."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Report and block this member? Blocking closes the chat and can't be undone: they won't be able to reach you, and you won't be matched again."
+msgstr "Signaler et bloquer ce membre ? Le blocage ferme la discussion et ne peut pas être annulé : ce membre ne pourra plus vous contacter et vous ne serez plus mis en relation."
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Yes, report and block"
+msgstr "Oui, signaler et bloquer"
+
+#: templates/crush_lu/moderation/_block_report_menu.html
+msgid "Blocking closes this chat and can't be undone. You won't be matched again."
+msgstr "Le blocage ferme cette discussion et ne peut pas être annulé. Vous ne serez plus mis en relation."
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "No coach is assigned to you right now."
+msgstr "Aucun coach ne vous est attribué pour le moment."
