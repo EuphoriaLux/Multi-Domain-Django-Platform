@@ -42639,6 +42639,65 @@ msgid "Use a different address"
 msgstr "Andere Adresse verwenden"
 
 
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3 rate-limited
+# UX Wave 3 · WP3
+#: crush_lu/urls.py
+#, python-format
+msgid "Too many login attempts. Please try again in %(wait)s."
+msgstr "Zu viele Anmeldeversuche. Bitte versuche es in %(wait)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/views_account.py
+#, python-format
+msgid "Too many signup attempts. Please try again in %(wait)s."
+msgstr ""
+"Zu viele Registrierungsversuche. Bitte versuche es in %(wait)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Too many attempts"
+msgstr "Zu viele Versuche"
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "For your security, we've temporarily paused this action."
+msgstr "Aus Sicherheitsgründen haben wir diese Aktion vorübergehend pausiert."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+#, python-format
+msgid "Please try again in %(wait_message)s."
+msgstr "Bitte versuche es in %(wait_message)s erneut."
+
+# UX Wave 3 · WP3
+#: crush_lu/templates/crush_lu/rate_limited.html
+msgid "Go to homepage"
+msgstr "Zur Startseite"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "less than a minute"
+msgstr "weniger als eine Minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+msgid "about 1 minute"
+msgstr "etwa 1 Minute"
+
+# UX Wave 3 · WP3
+#: crush_lu/rate_limit_utils.py
+#, python-format
+msgid "about %(minutes)d minutes"
+msgstr "etwa %(minutes)d Minuten"
+
+# UX Wave 3 · WP3 review (P1)
+#: azureproject/middleware.py
+#, python-format
+msgid "Too many attempts. Please try again in %(wait)s."
+msgstr "Zu viele Versuche. Bitte versuche es in %(wait)s erneut."
+
 # UX Wave 3 · WP2 auth-page
 #: templates/crush_lu/includes/phone_otp_modal.html:71
 msgid "Verification code"
