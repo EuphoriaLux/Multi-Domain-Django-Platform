@@ -74,9 +74,14 @@ class SingleMainLandmarkTests(_SiteMixin, TestCase):
         _grant_consent(self.user)
         self.client.login(username="landmark@example.com", password="pass-pass-pass")
 
-    def _assert_single_main(self, path):
+    def _assert_single_main(self, path, template_name=None):
         response = self.client.get(path, follow=True)
         self.assertEqual(response.status_code, 200)
+        # A redirect-away (e.g. meet_coach_step bouncing to
+        # profile_submitted) also renders exactly one <main>, so the count
+        # alone can't prove the target template was reached.
+        if template_name:
+            self.assertTemplateUsed(response, template_name)
         self.assertEqual(
             response.content.count(b"<main"),
             1,
@@ -121,7 +126,10 @@ class SingleMainLandmarkTests(_SiteMixin, TestCase):
             status="pending",
             assigned_at=timezone.now(),
         )
-        self._assert_single_main("/onboarding/meet-coach/")
+        self._assert_single_main(
+            "/onboarding/meet-coach/",
+            template_name="crush_lu/onboarding/meet_coach.html",
+        )
 
     def test_screening_call_has_one_main(self):
         CrushProfile.objects.create(
@@ -428,3 +436,93 @@ class TestWizardHistoryBackGesture:
         assert "/create-profile" in page.url
         assert page.locator('[data-wizard-step="3"]').is_visible()
         assert page.url.endswith("#step-3")
+
+
+@pytest.mark.playwright
+class TestReviewStepRefreshesAfterBackGesture:
+    """3-04 follow-up: landing on Review via the back gesture must show the
+    edited value, not the stale summary from before the edit.
+
+    Run with: pytest crush_lu/tests/test_ux_wave3_profile_wizard.py -v -m playwright -p no:xdist
+    """
+
+    @pytest.fixture(autouse=True)
+    def _site(self, transactional_db):
+        from django.contrib.sites.models import SITE_CACHE
+
+        SITE_CACHE.clear()
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "localhost", "name": "localhost"}
+        )
+        Site.objects.get_or_create(domain="127.0.0.1", defaults={"name": "Live Server"})
+        yield
+        SITE_CACHE.clear()
+
+    @pytest.fixture
+    def review_step_user(self, transactional_db):
+        user = User.objects.create_user(
+            username="wp4-review-refresh@example.com",
+            email="wp4-review-refresh@example.com",
+            password="testpass123",
+            first_name="Rev",
+        )
+        _grant_consent(user)
+        from allauth.account.models import EmailAddress
+
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
+        now = timezone.now()
+        CrushProfile.objects.create(
+            user=user,
+            welcome_seen_at=now,
+            phone_verified=True,
+            phone_number="+352621999888",
+            coach_intro_seen_at=now,
+            date_of_birth=now.date().replace(year=now.year - 30),
+            gender="F",
+            location="canton-luxembourg",
+            event_languages=["en"],
+            verification_status="incomplete",
+            # date_of_birth/gender/phone_verified/event_languages all set ->
+            # wizard_step is None -> resumes on Review (step 4).
+        )
+        return user
+
+    def test_review_updates_after_edit_link_and_back_gesture(
+        self, page, live_server_url, review_step_user
+    ):
+        page.goto(f"{live_server_url}/accounts/login/")
+        page.wait_for_selector('input[name="login"]', timeout=10000)
+        decline = page.locator('button:has-text("Decline All")')
+        if decline.count() > 0:
+            decline.click()
+        page.fill('input[name="login"]', review_step_user.email)
+        page.fill('input[name="password"]', "testpass123")
+        page.click('button:has-text("Login")')
+        page.wait_for_load_state("networkidle")
+
+        page.goto(f"{live_server_url}/en/create-profile/")
+        page.wait_for_selector('[data-wizard-step="4"]', timeout=10000)
+        assert page.url.endswith("#step-4")
+
+        original_dob = page.locator('[x-ref="reviewDob"]').inner_text()
+
+        # Edit link on the Review row (goes to step 1, pushes history).
+        page.locator('[data-wizard-step="4"] [data-goto-step="1"]').first.click()
+        page.wait_for_selector('[data-wizard-step="1"]', timeout=10000)
+
+        new_dob = "1990-06-15"
+        page.fill('input[name="date_of_birth"]', new_dob)
+
+        # Browser Back returns to Review via popstate -> _setStep(4, false).
+        page.go_back()
+        page.wait_for_selector('[data-wizard-step="4"]', timeout=10000)
+        page.wait_for_timeout(300)
+        assert page.url.endswith("#step-4")
+
+        updated_dob = page.locator('[x-ref="reviewDob"]').inner_text()
+        assert updated_dob != original_dob
+        assert "1990" in updated_dob
