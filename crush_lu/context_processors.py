@@ -18,7 +18,6 @@ from .models import (
     JourneyProgress,
     ProfileSubmission,
     EventRegistration,
-    CrushSpark,
     MeetupEvent,
     Notification,
 )
@@ -167,12 +166,11 @@ def crush_user_context(request):
             request.user
         )
 
-        # Sparks needing action (approved by coach, waiting for journey creation)
-        actionable_sparks_count = CrushSpark.objects.filter(
-            sender=request.user,
-            status__in=["coach_approved", "coach_assigned"],
-        ).count()
-        context["actionable_sparks_count"] = actionable_sparks_count
+        # Retired Sparks (UX Wave 3, 5-13) no longer count toward the nav
+        # badge: their member pages redirect away, so nothing can clear them.
+        # Set explicitly: base.html adds it to pending_requests_count, and a
+        # missing value would blank the badge.
+        context["actionable_sparks_count"] = 0
 
         # Profile submission status for visual indicators
         profile_submission = None

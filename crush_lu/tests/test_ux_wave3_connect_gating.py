@@ -321,3 +321,67 @@ def test_photo_editor_back_does_not_loop_into_the_photo_gate(client, settings):
     content = response.content.decode()
     assert f'href="{WEEK_HOME_URL}" class="btn-cancel"' not in content
     assert f'href="{EDIT_PROFILE_URL}" class="btn-cancel"' in content
+
+
+@pytest.mark.django_db
+def test_photo_editor_back_is_wired_to_follow_the_main_photo(client, settings):
+    """Codex round 3 on #1066: uploads/deletes swap only #photo-card-1, so the
+    Back link carries its `next` and fallback targets for the client-side
+    photoEditorBack component to switch between."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_verified_phone_member(username="week_wire_member", onboarded=True)
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["photo_1"])
+    _login_eligible(client, me)
+
+    content = client.get(
+        f"{EDIT_PROFILE_URL}?section=photos&next={quote(WEEK_HOME_URL, safe='')}"
+    ).content.decode()
+
+    assert 'x-data="photoEditorBack"' in content
+    assert f'data-next="{WEEK_HOME_URL}"' in content
+    assert f'data-fallback="{EDIT_PROFILE_URL}"' in content
+
+
+@pytest.mark.playwright
+@pytest.mark.django_db(transaction=True)
+def test_back_link_follows_the_main_photo_after_htmx_swaps(
+    page, live_server_url, settings
+):
+    from django.test import Client
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_verified_phone_member(username="pw_back_member", onboarded=True)
+    me.crushprofile.photo_1 = ""
+    me.crushprofile.save(update_fields=["photo_1"])
+    django_client = Client()
+    _login_eligible(django_client, me)
+    page.context.add_cookies(
+        [
+            {
+                "name": "sessionid",
+                "value": django_client.cookies["sessionid"].value,
+                "url": live_server_url,
+            }
+        ]
+    )
+
+    page.goto(
+        f"{live_server_url}{EDIT_PROFILE_URL}?section=photos"
+        f"&next={quote(WEEK_HOME_URL, safe='')}"
+    )
+    page.wait_for_load_state("networkidle")
+    back = page.locator("a.btn-cancel")
+    assert back.get_attribute("href") == EDIT_PROFILE_URL
+
+    swap = """(hasPhoto) => {
+        const t = document.getElementById('photo-card-1');
+        t.innerHTML = '<div class="photo-preview-container'
+            + (hasPhoto ? ' has-photo' : '') + '"></div>';
+        document.body.dispatchEvent(
+            new CustomEvent('htmx:afterSwap', {detail: {target: t}}));
+    }"""
+    page.evaluate(swap, True)
+    assert back.get_attribute("href") == WEEK_HOME_URL
+    page.evaluate(swap, False)
+    assert back.get_attribute("href") == EDIT_PROFILE_URL

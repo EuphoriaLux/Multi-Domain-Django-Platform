@@ -36,7 +36,7 @@
         <!-- Action Buttons -->
         <div class="action-buttons-container action-buttons-sticky">
             {# Back returns to `next` only once the gate it came from is satisfied (a main photo exists); otherwise that gated view would redirect straight back here. #}
-            <a href="{% if next and profile.photo_1 %}{{ next }}{% else %}{% url 'crush_lu:edit_profile' %}{% endif %}" class="btn-cancel">
+            <a href="{% if next and profile.photo_1 %}{{ next }}{% else %}{% url 'crush_lu:edit_profile' %}{% endif %}" class="btn-cancel"{% if next %} x-data="photoEditorBack" data-next="{{ next }}" data-fallback="{% url 'crush_lu:edit_profile' %}"{% endif %}>
                 {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
                 {% trans "Back" %}
             </a>

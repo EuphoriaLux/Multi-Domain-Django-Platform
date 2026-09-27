@@ -28485,12 +28485,14 @@ msgid "See Crush Connect above"
 msgstr ""
 
 
-# UX Wave 3 · WP11 connect-gating
-# UX Wave 3 · WP11 connect-gating
-# UX Wave 3 · WP11 connect-gating
-# UX Wave 3 · WP11 connect-gating
-# UX Wave 3 · WP11 connect-gating
-# UX Wave 3 · WP11 (connect-gating, findings 6-01/6-12)
+# UX Wave 3 · WP10 match-moment
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\crush_connect\hub.html:51
 msgid "Your coach:"
 msgstr ""
@@ -28505,5 +28507,4 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\edit_profile.html:20
 msgid "Continue where you left off"
-msgstr ""
 

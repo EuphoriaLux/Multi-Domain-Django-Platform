@@ -43214,6 +43214,137 @@ msgid "See Crush Connect above"
 msgstr "Voir Crush Connect ci-dessus"
 
 
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 · WP10 match-moment
+# UX Wave 3 . WP10 match-moment (findings 5-09, 5-10, 5-13, 5-14, 5-15)
+#: templates/crush_lu/connection_detail.html:343
+msgid "First name only:"
+msgstr "Prénom uniquement :"
+
+#: templates/crush_lu/connection_detail.html:351
+msgid "Nothing is shared until you both consent."
+msgstr ""
+"Rien n'est partagé tant que vous n'avez pas tous les deux donné votre "
+"consentement."
+
+#: templates/crush_lu/connection_detail.html:368
+#, python-format
+msgid "Also share my email address with %(name)s"
+msgstr "Partager aussi mon adresse e-mail avec %(name)s"
+
+#: templates/crush_lu/connection_detail.html:381
+msgid "Not now"
+msgstr "Pas maintenant"
+
+#: templates/crush_lu/connection_detail.html:385
+msgid "\"Not now\" closes this quietly — the other person is not notified."
+msgstr ""
+"« Pas maintenant » referme cela discrètement — l'autre personne n'en est pas"
+" informée."
+
+#: templates/crush_lu/connection_detail.html:414
+#, python-format
+msgid "%(name)s chose not to share their email."
+msgstr "%(name)s a choisi de ne pas partager son e-mail."
+
+#: templates/crush_lu/_connection_response.html:15
+#, python-format
+msgid ""
+"You and %(name)s can already see each other's contact info — no waiting "
+"needed."
+msgstr ""
+"Vous et %(name)s pouvez déjà voir vos informations de contact respectives — "
+"pas besoin d'attendre."
+
+#: templates/crush_lu/_connection_response.html:19
+#, python-format
+msgid ""
+"Your Crush Coach will call you within 48 hours to help arrange your "
+"introduction with %(name)s."
+msgstr ""
+"Votre Crush Coach vous appellera sous 48h pour vous aider à organiser votre "
+"rencontre avec %(name)s."
+
+#: templates/crush_lu/_connection_response.html:24
+msgid "Coach reviews"
+msgstr "Le coach examine"
+
+#: templates/crush_lu/_connection_response.html:28
+msgid "You both consent"
+msgstr "Vous consentez tous les deux"
+
+#: templates/crush_lu/_connection_response.html:41
+msgid "See next steps"
+msgstr "Voir les prochaines étapes"
+
+#: templates/crush_lu/_connection_response.html:56
+msgid ""
+"This won't be shared with them. You can still connect at a future event."
+msgstr ""
+"Cela ne sera pas partagé avec cette personne. Vous pourrez toujours vous "
+"connecter lors d'un prochain événement."
+
+#: templates/crush_lu/my_connections.html:163
+msgid "Your first connection starts at an event"
+msgstr "Votre première connexion commence lors d'un événement"
+
+#: templates/crush_lu/my_connections.html:165
+msgid ""
+"Meet someone, and if you both say yes afterwards, your Crush Coach steps in "
+"to make the introduction."
+msgstr ""
+"Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, votre "
+"Crush Coach se charge de faire les présentations."
+
+#: templates/crush_lu/my_connections.html:184
+msgid "Meet at an event"
+msgstr "Se rencontrer lors d'un événement"
+
+#: templates/crush_lu/my_connections.html:188
+msgid "Both say yes"
+msgstr "Vous dites tous les deux oui"
+
+#: templates/crush_lu/my_connections.html:192
+msgid "Your coach introduces you"
+msgstr "Votre coach fait les présentations"
+
+#: views_connections.py:1019
+msgid "No problem — nothing was shared, and this connection is now closed."
+msgstr ""
+"Pas de souci — rien n'a été partagé, et cette connexion est maintenant "
+"fermée."
+
+#: templates/crush_lu/_connection_response.html:21
+#, python-format
+msgid ""
+"Your Crush Coach will be in touch to help arrange your introduction with "
+"%(name)s."
+msgstr ""
+"Votre Crush Coach vous contactera pour organiser votre présentation avec "
+"%(name)s."
+
+#: views_connections.py:1029
+msgid ""
+"This connection has already moved on — refresh the page to see its current "
+"status."
+msgstr ""
+"Cette connexion a déjà évolué — actualisez la page pour voir son statut "
+"actuel."
+
+#: crush_lu/templates/crush_lu/my_connections.html
+msgid ""
+"Meet someone, and if you both say yes afterwards, you're connected: "
+"sometimes straight away, sometimes through an introduction by your Crush "
+"Coach."
+msgstr ""
+"Rencontrez quelqu'un, et si vous dites tous les deux oui ensuite, vous êtes "
+"mis en relation : parfois directement, parfois grâce aux présentations de "
+"votre Crush Coach."
+
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
 # UX Wave 3 · WP11 connect-gating
