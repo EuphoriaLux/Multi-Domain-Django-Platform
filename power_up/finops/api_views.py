@@ -27,6 +27,7 @@ from .serializers import (
     CostAggregationSerializer
 )
 from .permissions import IsAdminOrStaff
+from power_up.permissions import is_power_up_staff
 
 
 class CostExportViewSet(viewsets.ReadOnlyModelViewSet):
@@ -395,7 +396,7 @@ def cost_anomalies(request):
 @permission_classes([IsAdminOrStaff])
 def acknowledge_anomaly(request, anomaly_id):
     """Acknowledge a cost anomaly (staff only)"""
-    if not request.user.is_staff:
+    if not is_power_up_staff(request.user):
         return Response(
             {'success': False, 'error': 'Staff permission required'},
             status=status.HTTP_403_FORBIDDEN

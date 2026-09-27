@@ -1,4 +1,4 @@
-"""Login-protected public retail price intelligence views."""
+"""Staff-protected retail price intelligence views."""
 
 import hashlib
 from collections import defaultdict
@@ -6,7 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 from statistics import median
 
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 from django.core.cache import cache
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import render
@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from .models import RetailPriceSnapshot, RetailPriceSyncRun
 from .retail_prices.connectors.azure import EUROPEAN_AZURE_REGIONS
+from power_up.permissions import is_power_up_staff
 
 PERIOD_OPTIONS = {30, 90, 180, 365}
 # The option lists change once a night, when the sync lands a new day.
@@ -161,7 +162,7 @@ def _region_price_index(scope, region_days, reference):
     return index, sizes
 
 
-@login_required
+@user_passes_test(is_power_up_staff, login_url="/power-admin/login/")
 def retail_price_dashboard(request):
     """Compare equivalent Azure VM offers across selected European regions."""
 

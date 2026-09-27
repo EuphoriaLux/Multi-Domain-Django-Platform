@@ -1,10 +1,12 @@
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
+
+from power_up.permissions import is_power_up_staff
 
 from .forms import TicketCommentForm, TicketCreateForm, TicketUpdateForm
 from .models import (
@@ -18,7 +20,7 @@ from .models import (
 )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def groups_overview(request):
     """Customer Groups dashboard — high-level overview of all groups."""
     today = timezone.now().date()
@@ -109,7 +111,7 @@ def groups_overview(request):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def group_detail(request, pk):
     """Detailed view of a single Customer Group."""
     today = timezone.now().date()
@@ -195,7 +197,7 @@ def group_detail(request, pk):
 # ---------------------------------------------------------------------------
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_list(request):
     """Filterable ticket list with KPI summary row."""
     tickets = Ticket.objects.select_related(
@@ -265,7 +267,7 @@ def ticket_list(request):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_detail(request, pk):
     """Full ticket detail with comments and sidebar metadata."""
     ticket = get_object_or_404(
@@ -317,7 +319,7 @@ def ticket_detail(request, pk):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_create(request):
     """Create a new support ticket."""
     group_id = request.GET.get("group") or request.POST.get("group")
@@ -363,7 +365,7 @@ def ticket_create(request):
     )
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_requester_options(request):
     """HTMX partial: return <option> elements for requester filtered by tenant."""
     tenant_id = request.GET.get("tenant")
@@ -396,7 +398,7 @@ def ticket_requester_options(request):
     return HttpResponse(options)
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_update(request, pk):
     """Update ticket status, assignment, and metadata."""
     ticket = get_object_or_404(Ticket, pk=pk)
@@ -426,7 +428,7 @@ def ticket_update(request, pk):
     return redirect("crm:ticket_detail", pk=ticket.pk)
 
 
-@staff_member_required
+@user_passes_test(is_power_up_staff)
 def ticket_comment_add(request, pk):
     """Add a comment to a ticket."""
     ticket = get_object_or_404(Ticket, pk=pk)

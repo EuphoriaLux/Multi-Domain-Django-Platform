@@ -12,11 +12,12 @@ from types import SimpleNamespace
 from unittest import mock
 
 from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, TestCase, override_settings
 
-from allauth.socialaccount.models import SocialApp
 from azureproject.adapters import (
     MultiDomainSocialAccountAdapter,
     _microsoft_tenant_id,
@@ -138,17 +139,25 @@ class PowerUpMicrosoftLoginTenantTests(TestCase):
 
 
 class PowerUpAdminPermissionTests(TestCase):
-    def _allowed(self, **flags):
-        user = get_user_model()(username="u", **flags)
+    def _allowed(self, *, in_power_up_group=False, **flags):
+        user = get_user_model()(
+            username=f"u{get_user_model().objects.count()}", **flags
+        )
+        user.save()
+        if in_power_up_group:
+            group, _ = Group.objects.get_or_create(name="power_up_staff")
+            user.groups.add(group)
         return power_up_admin_site.has_permission(SimpleNamespace(user=user))
 
-    def test_staff_and_superusers_get_in(self):
-        self.assertTrue(self._allowed(is_active=True, is_staff=True))
+    def test_power_up_staff_and_superusers_get_in(self):
+        self.assertTrue(
+            self._allowed(is_active=True, is_staff=True, in_power_up_group=True)
+        )
         # Mirrors the crush.lu admin, which the platform bar links from.
         self.assertTrue(self._allowed(is_active=True, is_superuser=True))
 
     def test_members_and_inactive_accounts_do_not(self):
-        self.assertFalse(self._allowed(is_active=True))
+        self.assertFalse(self._allowed(is_active=True, is_staff=True))
         self.assertFalse(self._allowed(is_active=False, is_superuser=True))
 
 
