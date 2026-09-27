@@ -41,6 +41,7 @@ from datetime import date, timedelta
 from typing import List, Tuple
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
@@ -544,7 +545,21 @@ def week_timeline_state(session, sent_request=None):
                 "next_at": session.review_expires_at,
             }
         if sent_request.status == sent_request.Status.ACCEPTED:
-            return {"step": 4, "next_kind": None, "next_at": None}
+            # Step 4 ("Chat") until a coffee plan exists on the opened chat;
+            # once one is proposed/accepted/rescheduled/confirmed, advance to
+            # step 5 ("Coffee") — a cancelled plan drops back to step 4 since
+            # the pair is still just chatting.
+            step = 4
+            try:
+                coffee_date = sent_request.chat.coffee_date
+            except ObjectDoesNotExist:
+                coffee_date = None
+            if (
+                coffee_date is not None
+                and coffee_date.status != coffee_date.Status.CANCELLED
+            ):
+                step = 5
+            return {"step": step, "next_kind": None, "next_at": None}
         if sent_request.status == sent_request.Status.PENDING:
             return {
                 "step": 3,

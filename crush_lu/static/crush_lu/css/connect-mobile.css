@@ -21,7 +21,12 @@
    (compact header + composer + safe-area), not a measured layout — same
    spirit as quiz-experience.css's "fill the room" comment. */
 body.connect-chat #pwa-install-banner { display: none !important; }
-body.connect-chat .connect-thread { height: auto; min-height: calc(100dvh - 260px); max-height: none; }
+/* Bounded, not `height: auto` / `max-height: none`: those let the thread grow
+   to fit all loaded messages instead of becoming its own scroll area, so a
+   chat past a screenful pushes the composer far below the fold and the
+   startup scroll-to-bottom (connect-live-chat.js only sets thread.scrollTop)
+   has no effect once the element has already expanded to its content. */
+body.connect-chat .connect-thread { height: calc(100dvh - 260px); max-height: calc(100dvh - 260px); min-height: 180px; }
 .connect-thread [data-message-id] { flex-shrink: 0; overflow-wrap: anywhere; }
 .connect-composer { position: sticky; bottom: max(calc(72px + env(safe-area-inset-bottom)), var(--connect-keyboard, 0px)); background: var(--bg-primary, white); padding-block: .5rem; z-index: 20; }
 .dark .connect-composer { background: var(--color-slate-800); }

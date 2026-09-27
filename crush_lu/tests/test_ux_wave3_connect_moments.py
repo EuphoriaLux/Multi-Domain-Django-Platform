@@ -94,6 +94,59 @@ def test_timeline_state_accepted_request_is_step_4_chat():
 
 
 @pytest.mark.django_db
+def test_timeline_state_coffee_plan_advances_to_step_5():
+    """Once a request is accepted AND a coffee plan exists on the opened
+    chat, the timeline must advance past "Chat" — otherwise "Coffee" (the
+    5th step the template already renders) can never be reached."""
+    from crush_lu.services.connect_chat import propose_venue
+
+    me, target, chat = _make_open_chat()
+    session = ConnectWeekSession.objects.filter(user=me).order_by("-started_at").first()
+    sent_request = session.weekly_requests.first()
+    propose_venue(
+        chat,
+        me,
+        venue_location_id=None,
+        custom_venue_name="Café de Paris",
+        proposed_date=(
+            timezone.localdate() + __import__("datetime").timedelta(days=1)
+        ).isoformat(),
+        proposed_time_slot="Evening",
+    )
+
+    state = week_timeline_state(session, sent_request=sent_request)
+
+    assert state["step"] == 5
+    assert state["next_at"] is None
+
+
+@pytest.mark.django_db
+def test_timeline_state_cancelled_coffee_plan_stays_step_4():
+    from crush_lu.models.crush_connect_cycle import ConnectCoffeeDate
+    from crush_lu.services.connect_chat import propose_venue
+
+    me, target, chat = _make_open_chat()
+    session = ConnectWeekSession.objects.filter(user=me).order_by("-started_at").first()
+    sent_request = session.weekly_requests.first()
+    coffee_date = propose_venue(
+        chat,
+        me,
+        venue_location_id=None,
+        custom_venue_name="Café de Paris",
+        proposed_date=(
+            timezone.localdate() + __import__("datetime").timedelta(days=1)
+        ).isoformat(),
+        proposed_time_slot="Evening",
+    )
+    coffee_date.status = ConnectCoffeeDate.Status.CANCELLED
+    coffee_date.save(update_fields=["status"])
+
+    state = week_timeline_state(session, sent_request=sent_request)
+
+    assert state["step"] == 4
+
+
+@pytest.mark.django_db
 def test_timeline_state_completed_session_is_none_not_step_1():
     """A COMPLETED session must not fall through to the ACTIVE branch: that
     would report "Review opens <date>" with a date already in the past
@@ -198,6 +251,26 @@ def test_review_card_photo_is_not_behind_a_details_disclosure(client, settings):
 
 
 @pytest.mark.django_db
+def test_review_choose_dialog_has_a_confirm_message_fallback(client, settings):
+    """Some WebViews lack ``HTMLDialogElement.showModal``: openDialog() then
+    falls back to the global confirm helper (window.crushConfirm), which
+    needs the question text as a data attribute since it can't read it out
+    of the (never-opened) native <dialog>. Without this attribute a member
+    on such a browser could never send the weekly request at all."""
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("rv_fallback")
+    target = _make_cycle_user("rv_fallback_target")
+    session, card = _reviewable_session_with_card(me, target)
+    _answer_all(card)
+    _login_eligible(client, me)
+
+    body = client.get(WEEK_REVIEW_URL).content.decode()
+
+    assert "data-confirm-message=" in body
+    assert "Send your one weekly request to" in body
+
+
+@pytest.mark.django_db
 def test_review_choose_dialog_renders_once_per_card_no_duplicate_suggested_badge(
     client, settings
 ):
@@ -282,11 +355,39 @@ def test_chat_detail_hides_connect_subnav(client):
 
 
 @pytest.mark.django_db
-def test_venue_picker_uses_time_input(client):
+def test_venue_picker_uses_text_input_not_time(client):
+    """A ``type="time"`` input can only hold HH:MM — it silently blanks any
+    value it can't parse, so a free-form ``proposed_time_slot`` like
+    "Evening" (the model explicitly allows this) would be erased the moment
+    the "Change the plan" form is rendered and re-saved."""
     me, target, chat = _make_open_chat()
     _login_eligible(client, me)
 
     body = client.get(f"/en/crush-connect/week/chats/{chat.pk}/").content.decode()
 
     assert 'name="proposed_time_slot"' in body
-    assert 'type="time" name="proposed_time_slot"' in body
+    assert 'type="time" name="proposed_time_slot"' not in body
+    assert 'type="text" name="proposed_time_slot"' in body
+
+
+@pytest.mark.django_db
+def test_venue_picker_preserves_free_form_time_on_edit(client):
+    from crush_lu.services.connect_chat import propose_venue
+
+    me, target, chat = _make_open_chat()
+    propose_venue(
+        chat,
+        me,
+        venue_location_id=None,
+        custom_venue_name="Café de Paris",
+        proposed_date=(
+            timezone.localdate() + __import__("datetime").timedelta(days=1)
+        ).isoformat(),
+        proposed_time_slot="Evening",
+    )
+    _login_eligible(client, me)
+
+    body = client.get(f"/en/crush-connect/week/chats/{chat.pk}/").content.decode()
+
+    # The old type="time" input would render this as an empty value instead.
+    assert 'value="Evening"' in body

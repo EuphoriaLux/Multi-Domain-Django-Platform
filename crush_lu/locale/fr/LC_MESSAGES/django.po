@@ -42765,3 +42765,6 @@ msgstr "Se termine le %(when)s"
 msgid "Today — see how you appear in the mix"
 msgstr "Aujourd'hui — découvrez comment vous apparaissez dans le mix"
 
+
+msgid "18:30 or Evening"
+msgstr "18:30 ou le soir"
