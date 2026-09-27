@@ -15340,28 +15340,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Connect Cycle temp chat: 1-click block confirmation panel. Composes
-    // makeConfirm with the template-facing API the block partial expects
-    // (isInitial / showConfirm / cancel), same as sparkConfirm — but
-    // autoSubmit stays ON (the default): proceed() submits the enclosing
-    // block form directly, no HTMX involved.
-    Alpine.data("connectChatBlockConfirm", function () {
-        return mixin(makeConfirm(), {
-            get isInitial() {
-                return this.isIdle;
-            },
-            showConfirm() {
-                this.request();
-            },
-            cancel() {
-                this.cancelConfirm();
-            },
-            confirmBlock() {
-                this.proceed();
-            },
-        });
-    });
-
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({

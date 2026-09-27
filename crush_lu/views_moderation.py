@@ -11,6 +11,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -54,6 +55,33 @@ def _block(blocker, blocked, reason=""):
     from .services.blocking import apply_block
 
     apply_block(blocker, blocked, reason)
+
+
+def _block_for_report(reporter, target, source, source_id):
+    """Block from the report form, honouring the surface it came from.
+
+    A report filed from inside a Connect Cycle chat blocks through
+    ``block_chat_partner`` so the pair is also excluded from re-matching and
+    the chat closes — the same outcome as the chat's own block button. Any
+    other surface (or a chat the reporter isn't in with ``target``) uses the
+    general block.
+    """
+    if source == "connect_chat" and source_id:
+        from .models.crush_connect_cycle import ConnectTemporaryChat
+        from .services.connect_chat import block_chat_partner
+
+        chat = (
+            ConnectTemporaryChat.objects.filter(pk=source_id)
+            .filter(
+                Q(participant_1=reporter, participant_2=target)
+                | Q(participant_1=target, participant_2=reporter)
+            )
+            .first()
+        )
+        if chat is not None:
+            block_chat_partner(chat, reporter)
+            return
+    _block(reporter, target)
 
 
 @crush_login_required
@@ -134,7 +162,7 @@ def report_user(request, user_id: int):
         logger.exception("Report-filed notification failed for report %s", report.pk)
 
     if request.POST.get("also_block"):
-        _block(request.user, target)
+        _block_for_report(request.user, target, report.source, source_id)
 
     messages.success(
         request,

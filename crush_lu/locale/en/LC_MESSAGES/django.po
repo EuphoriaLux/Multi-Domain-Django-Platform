@@ -28385,6 +28385,49 @@ msgid ""
 "again before you confirm."
 msgstr ""
 
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "You're not shown to anyone yet."
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your Connect home shows what is still missing."
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "See all steps"
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgctxt "connect catalogue"
+msgid "Your coach"
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium member · See your Coach's Pick"
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Your full name and exact age are never shown."
+msgstr ""
+
+#: templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Pause Crush Connect anytime."
+msgstr ""
+
+#: models/moderation.py
+msgid "Connect chat"
+msgstr ""
+
+#: templates/crush_lu/crush_connect/week_inbox.html
+msgid "Sent you a Connect request"
+msgstr ""
+
+#: templates/crush_lu/crush_connect/_empty_actions.html
+#, python-format
+msgid "Today: %(done)s of %(total)s cards answered."
+msgstr ""
+
+# UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
 # UX Wave 3 · WP1 verify-email
