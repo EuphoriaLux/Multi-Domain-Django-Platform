@@ -124,6 +124,29 @@ class BookingSlotDisplayTests(BookingBase):
         content = resp.content.decode()
         self.assertIn("toggleShowAll", content)
 
+    def test_confirm_button_is_always_rendered_for_no_js_visitors(self):
+        """[UX Wave 3 · WP5 finding] The sticky Confirm button used to be
+        `x-show="hasSelection" x-cloak`, so a visitor with JS disabled (or a
+        failed Alpine parse) could pick a radio slot but the submit control
+        never appeared at all — there was no way to book. The button must
+        now render unconditionally and only be disabled, via Alpine, until a
+        slot is selected."""
+        resp = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+
+        content = resp.content.decode()
+        # The submit button's own markup must not be gated by x-show/x-cloak
+        # (a no-JS visitor gets a real, always-present submit control).
+        confirm_idx = content.index("btn-crush-solid w-full shadow-lg")
+        # Look at the enclosing wrapper (~200 chars back) for the old gate.
+        wrapper = content[max(0, confirm_idx - 250) : confirm_idx]
+        self.assertNotIn('x-show="hasSelection"', wrapper)
+        self.assertNotIn("x-cloak", wrapper)
+        # Instead the button itself is disabled until a slot is picked.
+        button_tag_start = content.rindex("<button", 0, confirm_idx)
+        button_tag_end = content.index(">", confirm_idx)
+        button_tag = content[button_tag_start:button_tag_end]
+        self.assertIn(':disabled="!hasSelection"', button_tag)
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class BookingCancelConfirmTests(BookingBase):

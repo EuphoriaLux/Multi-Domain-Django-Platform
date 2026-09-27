@@ -127,8 +127,9 @@
                             </div>
                         {% endif %}
 
-                        <div class="sticky bottom-3 px-4" x-show="hasSelection" x-cloak>
-                            <button type="submit" class="btn-crush-solid w-full shadow-lg">
+                        <div class="sticky bottom-3 px-4">
+                            <button type="submit" class="btn-crush-solid w-full shadow-lg"
+                                    :disabled="!hasSelection">
                                 {% trans "Confirm" %} <span x-text="selectedLabel"></span>
                             </button>
                         </div>
